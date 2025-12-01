@@ -1,5 +1,5 @@
 import { Request } from 'express'
-import { compareKeys, createApikeyService, type IApikeyService, type ApikeyStorageConfig } from '@universo/flowise-apikey-srv'
+import { compareKeys, createApikeyService, type IApikeyService, type ApikeyStorageConfig } from '@flowise/apikey-srv'
 import { getDataSource } from '../DataSource'
 import { appConfig } from '../AppConfig'
 import type { CanvasFlowResult } from '@universo/spaces-srv'

@@ -52,6 +52,30 @@ export class NodesApi {
         )
         return response.data
     }
+
+    /**
+     * Get a specific node by name
+     * 
+     * @param nodeName - Name of the node component
+     * @returns Node component metadata
+     */
+    async getSpecificNode(nodeName: string): Promise<Node> {
+        const response = await this.client.get<Node>(`/nodes/${nodeName}`)
+        return response.data
+    }
+
+    /**
+     * Get nodes filtered by category
+     * 
+     * @param category - Category to filter by (e.g., 'Document Loaders', 'Text Splitters')
+     * @returns Array of nodes in the specified category
+     */
+    async getNodesByCategory(category: string): Promise<Node[]> {
+        const response = await this.client.get<Node[]>('/nodes', {
+            params: { category }
+        })
+        return response.data
+    }
 }
 
 /**
@@ -63,4 +87,8 @@ export const nodeQueryKeys = {
     icons: () => [...nodeQueryKeys.all, 'icons'] as const,
     icon: (nodeName: string) => 
         [...nodeQueryKeys.icons(), { nodeName }] as const,
+    detail: (nodeName: string) =>
+        [...nodeQueryKeys.all, 'detail', nodeName] as const,
+    byCategory: (category: string) =>
+        [...nodeQueryKeys.all, 'category', category] as const,
 } as const

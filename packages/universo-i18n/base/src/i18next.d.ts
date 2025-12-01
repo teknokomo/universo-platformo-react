@@ -10,20 +10,15 @@ import type access from './locales/en/core/access.json'
 
 // View namespaces
 import type admin from './locales/en/views/admin.json'
-import type apiKeys from './locales/en/views/api-keys.json'
-import type assistants from './locales/en/views/assistants.json'
 import type auth from './locales/en/views/auth.json'
 import type canvas from './locales/en/views/canvas.json'
 import type canvases from './locales/en/views/canvases.json'
 import type chatbot from './locales/en/views/chatbot.json'
 import type chatmessage from './locales/en/views/chatmessage.json'
-import type documentStore from './locales/en/views/document-store.json'
 import type flowList from './locales/en/views/flowList.json'
 import type menu from './locales/en/views/menu.json'
 import type profileMenu from './locales/en/views/profile-menu.json'
 import type templates from './locales/en/views/templates.json'
-import type tools from './locales/en/views/tools.json'
-import type vectorStore from './locales/en/views/vector-store.json'
 
 /**
  * Type augmentation for i18next to enable autocomplete and type-checking
@@ -55,18 +50,13 @@ declare module 'i18next' {
             canvases: typeof canvases
 
             // Wrapped files (have wrapper key matching namespace)
-            'api-keys': typeof apiKeys.apiKeys
-            assistants: typeof assistants.assistants
             auth: typeof auth.auth
             chatbot: typeof chatbot.chatbot
             chatmessage: typeof chatmessage.chatmessage
-            'document-store': typeof documentStore.documentStore
             flowList: typeof flowList.flowList
             menu: typeof menu.menu
             'profile-menu': typeof profileMenu.profileMenu
             templates: typeof templates.templates
-            tools: typeof tools.tools
-            'vector-store': typeof vectorStore.vectorStore
         }
 
         // Return type configuration

@@ -51,7 +51,15 @@ export { CanvasesApi, canvasQueryKeys } from './api/canvases'
 export { ChatMessageFeedbackApi, chatmessagefeedbackQueryKeys } from './api/chatmessagefeedback'
 export { ConfigApi, configQueryKeys } from './api/config'
 export { CredentialsApi, credentialQueryKeys } from './api/credentials'
-export { DocumentStoreApi, documentstoreQueryKeys } from './api/documentstore'
+export {
+    DocumentStoreApi,
+    documentstoreQueryKeys,
+    type DocumentStore,
+    type DocumentLoader,
+    type CreateDocumentStoreBody,
+    type PreviewChunksBody,
+    type PreviewChunksResponse
+} from './api/documentstore'
 export { ExportImportApi, exportimportQueryKeys } from './api/exportimport'
 export { FeedbackApi, feedbackQueryKeys } from './api/feedback'
 export { LeadApi, leadQueryKeys } from './api/lead'
@@ -63,7 +71,13 @@ export { ScraperApi, scraperQueryKeys } from './api/scraper'
 export { SpacesApi, spaceQueryKeys } from './api/spaces'
 export { ToolsApi, toolQueryKeys, type CustomTool, type CreateToolBody, type UpdateToolBody } from './api/tools'
 export { VariablesApi, variablesQueryKeys } from './api/variables'
-export { VectorStoreApi, vectorstoreQueryKeys } from './api/vectorstore'
+export {
+    VectorStoreApi,
+    vectorstoreQueryKeys,
+    type UpsertHistoryEntry,
+    type UpsertVectorStoreBody,
+    type GetUpsertHistoryParams
+} from './api/vectorstore'
 
 // TypeScript types
 export * from './types'

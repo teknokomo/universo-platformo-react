@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-credentials-srv",
+    "name": "@flowise/credentials-srv",
     "version": "0.1.0",
     "description": "Backend for Credentials domain in Universo Platformo (extracted from flowise-server)",
     "main": "dist/index.js",

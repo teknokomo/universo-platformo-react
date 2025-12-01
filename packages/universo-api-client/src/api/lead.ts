@@ -20,10 +20,10 @@
  */
 
 import type { AxiosInstance, AxiosResponse } from 'axios'
-import type { ILead, CreateLeadBody } from '@universo/flowise-leads-srv'
+import type { ILead, CreateLeadBody } from '@flowise/leads-srv'
 
-// Re-export types from @universo/flowise-leads-srv (single source of truth)
-export type { ILead, CreateLeadBody } from '@universo/flowise-leads-srv'
+// Re-export types from @flowise/leads-srv (single source of truth)
+export type { ILead, CreateLeadBody } from '@flowise/leads-srv'
 
 export class LeadApi {
     constructor(private readonly client: AxiosInstance) {}

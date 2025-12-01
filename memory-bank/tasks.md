@@ -4,6 +4,219 @@
 
 ---
 
+## ✅ COMPLETED: Refactor Duplicate Code & Document Isolation
+
+### 2025-12-02: Remove duplicate methods and document future isolation plan
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Removed duplicated code in flowise-server that was already implemented in @flowise/docstore-srv. Documented blocking dependencies and future isolation plan in package READMEs.
+
+**Code Refactoring**:
+- [x] `deleteDocumentStore` - Now delegates DB operations to `getDocumentStoreService()`, keeps only file storage cleanup
+- [x] `updateDocumentStoreUsage` - Complete delegation to `getDocumentStoreService()`
+
+**Documentation Added**:
+- [x] `@flowise/docstore-srv/README.md`:
+  - "Partial Extraction" section with what's in package vs flowise-server
+  - "Blocking Dependencies Analysis" detailing getRunningExpressApp, flowise-components, nodesPool, queueManager
+  - "Future Isolation Plan" with DI interfaces (IStorageProvider, INodeRunner, IQueueProvider)
+  - "Integration with flowise-server" section showing how delegation works
+
+- [x] `@flowise/docstore-frt/README.md`:
+  - "Integration Notes" section
+  - "Current State" table showing all components are extracted
+  - "Integration with flowise-ui" explaining lazy loading pattern
+
+**Build Result**: 39/39 packages successful (turbo cache for dependencies)
+
+---
+
+## ✅ COMPLETED: QA Cleanup - Code Quality Fixes
+
+### 2025-12-02: Fix linting errors and remove unused code
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fixed QA recommendations from DocumentStore migration analysis.
+
+**Fixes Applied**:
+- [x] Fixed prettier error in `VectorStoreConfigure.jsx` (misplaced closing brace)
+- [x] Deleted unused `flowise-ui/src/api/documentstore.js` (replaced by @universo/api-client)
+- [x] Removed unused `moment` dependency from docstore-frt (dayjs is used)
+- [x] Fixed unused imports in `docstore-srv/services/documentStoreService.ts`
+- [x] Fixed unused imports in `docstore-srv/services/chunkService.ts`
+- [x] Auto-fixed all prettier formatting issues in docstore-srv via `lint:fix`
+
+**Build Result**: 48/48 packages successful
+
+---
+
+## ✅ COMPLETED: QA Cleanup - Remove Duplicate VectorStore Components
+
+### 2025-12-02: Remove duplicate VectorStore dialogs from template-mui
+
+**Status**: ✅ COMPLETE
+
+**Summary**: QA analysis found 4 duplicate VectorStore dialog files in `@flowise/template-mui` that also existed in `@flowise/docstore-frt`. Removed duplicates and updated imports.
+
+**Files Deleted**:
+- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/VectorStoreDialog.jsx`
+- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/VectorStorePopUp.jsx`
+- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/UpsertHistoryDialog.jsx`
+- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/UpsertResultDialog.jsx`
+
+**Exports Updated**:
+- [x] Removed exports from `template-mui/base/src/index.ts` (UpsertHistoryDialog, VectorStorePopUp)
+- [x] Added comment: `// VectorStore dialogs moved to @flowise/docstore-frt`
+
+**Imports Updated**:
+- [x] `spaces-frt/base/src/views/canvas/index.jsx`: Changed `VectorStorePopUp` import from `@flowise/template-mui` to `@flowise/docstore-frt`
+- [x] `spaces-frt/base/src/views/canvas/CanvasHeader.jsx`: Changed `UpsertHistoryDialog` import from `@flowise/template-mui` to `@flowise/docstore-frt`
+- [x] Added `@flowise/docstore-frt: workspace:*` dependency to spaces-frt/package.json
+
+**VectorStorePopUp Export Fix**:
+- [x] Changed `export const VectorStorePopUp` to `const VectorStorePopUp` + `export default VectorStorePopUp` to match index.js re-export pattern
+
+**Build Result**: 48/48 packages successful
+
+---
+
+## ✅ COMPLETED: VectorStoreConfigure i18n and API Fixes
+
+### 2025-12-01: Fix i18n keys and API binding in VectorStoreConfigure page
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fixed i18n key format errors and API method binding issues in VectorStoreConfigure page.
+
+**Root Causes**:
+1. i18n keys used incorrect format `vector-store:vectorStore.xxx` instead of `vector-store:xxx`
+2. API methods passed to ComponentsListDialog lost `this` context (class method binding issue)
+3. ViewHeader "Back" button tooltip was hardcoded
+
+**Fixes Applied**:
+- [x] Fixed 15 i18n keys: removed extra `vectorStore.` prefix from all translation keys
+- [x] Fixed API calls: wrapped `api.documentStore.getEmbeddingProviders` etc. in arrow functions `(...args) => api.documentStore.getEmbeddingProviders(...args)`
+- [x] Fixed ViewHeader: changed `title='Back'` to `title={t('common:back', 'Back')}`
+- [x] Build 48/48 successful
+
+---
+
+## ✅ COMPLETED: DocumentStore Preview 403 Error & i18n Issues
+
+### 2025-12-01: Fix remaining issues after migration
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fixed 403 error when clicking "Preview and Process" on existing loader, and fixed i18n interpolation format.
+
+**Root Cause**: 
+- API call `getSpecificDocumentStoreApi.request(storeId)` was missing `unikId` as first parameter
+- i18n translations used `{total}` (single braces) instead of `{{total}}` (double braces)
+
+**Fixes Applied**:
+- [x] Fix 403 error: Changed `getSpecificDocumentStoreApi.request(storeId)` to `getSpecificDocumentStoreApi.request(unikId, storeId)` in LoaderConfigPreviewChunks.jsx line 272
+- [x] Fix i18n interpolation: Updated all `{variable}` to `{{variable}}` in document-store.json (both en and ru)
+- [x] Fix hardcoded tooltips: Changed `title='Refresh Document Store'` and `title='Refresh'` to use `t('document-store:...')` translations
+- [x] Build 48/48 successful
+
+---
+
+## ✅ COMPLETED: DocumentStore i18n Fix
+
+### 2025-12-01: Fix Document Store page localization
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fixed localization issues on Document Store page - wrong title "Пространства" and language keys displayed instead of translated text.
+
+**Root Cause**: Components used `t('document-store:xxx')` with hyphenated namespace, but universo-i18n only had `docstore` namespace (without hyphen), causing fallback to `spaces` namespace.
+
+**Solution**:
+- [x] Copy document-store.json and vector-store.json from flowise-docstore-frt to universo-i18n
+- [x] Add imports in instance.ts for new translation files
+- [x] Register 'document-store' and 'vector-store' namespaces in resources
+- [x] Build successful 48/48
+
+---
+
+## ✅ COMPLETED: Full DocumentStore Migration to @flowise/docstore-frt
+
+### 2025-12-01: Migrate docstore/vectorstore components from flowise-ui
+
+**Status**: ✅ COMPLETE
+
+**Goals**: Complete migration of docstore UI components from flowise-ui monolith to standalone @flowise/docstore-frt package with proper API client integration.
+
+**Checklist**:
+- [x] **Этап 1**: Delete old broken copies in docstore-frt/src/pages/
+- [x] **Этап 2**: Implement DocumentStoreApi in @universo/api-client
+- [x] **Этап 2b**: Add getSpecificNode/getNodesByCategory to NodesApi
+- [x] **Этап 2c**: Implement VectorStoreApi in @universo/api-client
+- [x] **Этап 3**: Copy corrected files from flowise-ui to docstore-frt
+- [x] **Этап 4**: Refactor imports in all 20 JSX files (api.*, relative imports)
+- [x] **Этап 5**: Update routes in MainRoutesMUI.tsx (imports + param names)
+- [x] **Этап 6**: Update package.json (peerDependencies pattern)
+- [x] **Testing**: pnpm build 48/48 successful
+- [x] **Этап 7**: Delete legacy code from flowise-ui 
+- [x] **Hotfix**: Wrap useApi calls in arrow functions to preserve `this` context
+- [x] **Dependency fix**: Update flowise-assistants-frt to import DocStoreInputHandler from @flowise/docstore-frt
+
+**Build Result**: 48/48 packages successful
+
+---
+
+## ✅ COMPLETED: Extract DocumentStore to Separate Packages
+
+### 2025-11-30: Extract DocumentStore + VectorStore + UpsertHistory
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Extracted DocumentStore functionality from flowise-server/flowise-ui into `@flowise/docstore-srv` and `@flowise/docstore-frt` packages with DI pattern and split into logical sub-services.
+
+**IMPORTANT NOTE**: Used **hybrid approach** - new packages provide entities, migrations, base CRUD services, DI interfaces while legacy flowise-server provides complex operations (upsert, preview, vector ops).
+
+**Phase 1: Create Backend Package Structure** ✅ COMPLETE
+- [x] 1.1 Create `packages/flowise-docstore-srv/base/` structure
+- [x] 1.2 Create package.json, tsconfig.json
+- [x] 1.3 Copy and adapt entities (DocumentStore, DocumentStoreFileChunk, UpsertHistory)
+- [x] 1.4 Create consolidated migration (1711637331047-AddDocumentStore.ts)
+- [x] 1.5 Create Interface.ts with all types
+- [x] 1.6 Create DI sub-services (4 services: documentStoreService, chunkService, loaderService, vectorStoreConfigService)
+- [x] 1.7 Create DTO (DocumentStoreDTO.ts)
+- [x] 1.8 Create DI config and errors
+- [x] 1.9 Create controller and router (basic CRUD)
+- [x] 1.10 Create index.ts with all exports
+- [x] 1.11 Create README.md and README-RU.md
+
+**Phase 2: Create Frontend Package Structure** ✅ COMPLETE
+- [x] 2.1 Create `packages/flowise-docstore-frt/base/` structure
+- [x] 2.2 Copy views/docstore/* (16 files) and views/vectorstore/* (4 files)
+- [x] 2.3 Merge i18n translations from universo-i18n (document-store + vector-store → 300 lines each)
+- [x] 2.4 Create index.js with exports
+- [x] 2.5 Create README.md and README-RU.md
+- [x] 2.6 Run prettier and lint (8 warnings, 0 errors)
+
+**Phase 3: Integrate in flowise-server** ✅ COMPLETE
+- [x] 3.1 Add @flowise/docstore-srv dependency in flowise-server/package.json
+- [x] 3.2 Update migrations/postgres/index.ts to use docstoreMigrations
+- [x] 3.3 Update entities/index.ts to import from @flowise/docstore-srv
+- [x] 3.4 Update legacy service/controller/utils to use new entities from docstore-srv
+- [x] 3.5 Keep legacy routes/controllers for complex operations (upsert, preview, vector ops)
+
+**Phase 4: Cleanup Legacy Duplicates** ✅ COMPLETE
+- [x] 4.1 Delete duplicate entity files from flowise-server/database/entities (3 files)
+- [x] 4.2 Delete duplicate migrations from flowise-server/database/migrations (3 files)
+- [x] 4.3 Legacy service/controller/route kept (complex node integration required)
+
+**Phase 5: Build & Test** ✅ COMPLETE
+- [x] 5.1 Run pnpm build - 48/48 tasks successful
+- [x] 5.2 All import errors fixed
+- [x] 5.3 Build verified
+
+---
+
 ## ✅ COMPLETED: ChatMessage Migration QA Fixes
 
 ### 2025-11-30: Fix remaining issues found in QA analysis
@@ -759,6 +972,56 @@
 **Fixed**: Duplicate files deleted, copy-paste errors, BOM characters, unused code.
 
 **False Alarms**: RLS filtering (correct by design), lazy router pattern (global).
+
+---
+
+## ✅ COMPLETED: DocumentStore Backend Clean Integration
+
+### 2025-01-19: Clean Integration of DocumentStore CRUD with @flowise/docstore-srv
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Migrated DocumentStore CRUD operations to use @flowise/docstore-srv DI services, keeping complex operations (preview, process, vector ops) in flowise-server.
+
+**Approach**: Practical "Clean Integration" - CRUD delegates to docstore-srv, complex ops remain local.
+
+**Phase 1: Extend DI Interfaces** ✅
+- [x] 1.1 Added INodeMetadata, INodeProvider interfaces
+- [x] 1.2 Added IEncryptionService, IStorageService interfaces  
+- [x] 1.3 Extended DocstoreServiceDependencies with new providers
+- [x] 1.4 Exported all new interfaces from di/index.ts
+
+**Phase 2: Create NodeProvider** ✅
+- [x] 2.1 Created providers/nodeProvider.ts with INodeProvider implementation
+- [x] 2.2 Wrapped nodesPool access via getRunningExpressApp()
+- [x] 2.3 Fixed type conversion for optional field (boolean | INodeDisplay)
+- [x] 2.4 Exported from providers/index.ts
+
+**Phase 3: Create Service Factory** ✅
+- [x] 3.1 Created services/docstore-integration/index.ts
+- [x] 3.2 Implemented createDocstoreServiceDependencies() factory
+- [x] 3.3 Implemented getDocumentStoreService() singleton pattern
+- [x] 3.4 Proper lazy initialization with initializeDocstoreService()
+
+**Phase 4: Delegate CRUD Operations** ✅
+- [x] 4.1 createDocumentStore - delegates to getDocumentStoreService()
+- [x] 4.2 getAllDocumentStores - delegates to getDocumentStoreService()
+- [x] 4.3 getDocumentStoreById - delegates to getDocumentStoreService()
+- [x] 4.4 updateDocumentStore - delegates to getDocumentStoreService()
+- [x] 4.5 updateDocumentStoreUsage, deleteDocumentStore - kept local (complex logic)
+
+**Phase 5: Build & Verify** ✅
+- [x] 5.1 Fixed type error in nodeProvider.ts (optional field)
+- [x] 5.2 Build successful: 39 tasks passed
+
+**Files Created**:
+- `packages/flowise-docstore-srv/base/src/di/config.ts` - Extended interfaces
+- `packages/flowise-server/src/providers/nodeProvider.ts` - INodeProvider implementation
+- `packages/flowise-server/src/providers/index.ts` - exports
+- `packages/flowise-server/src/services/docstore-integration/index.ts` - Service factory
+
+**Files Modified**:
+- `packages/flowise-server/src/services/documentstore/index.ts` - CRUD delegation
 
 ---
 

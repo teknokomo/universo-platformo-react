@@ -1,5 +1,5 @@
 /**
- * @universo/flowise-variables-frt
+ * @flowise/variables-frt
  *
  * Frontend package for Variables management UI.
  * Contains React components, pages, and i18n resources for variables.
@@ -12,4 +12,4 @@ export { Variables, AddEditVariableDialog, HowToUseVariablesDialog } from './pag
 export { variablesNamespace, variablesResources } from './i18n'
 
 // Re-export types from backend package for convenience
-export type { Variable } from '@universo/flowise-variables-srv'
+export type { Variable } from '@flowise/variables-srv'

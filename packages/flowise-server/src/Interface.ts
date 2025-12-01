@@ -13,25 +13,25 @@ import { Telemetry } from './utils/telemetry'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
 
 // Re-export Assistant types from the extracted package
-export type { IAssistant, AssistantType } from '@universo/flowise-assistants-srv'
+export type { IAssistant, AssistantType } from '@flowise/assistants-srv'
 
 // Re-export ChatMessage interfaces from the extracted package
 export type {
     IChatMessage,
     IChatMessageFeedback,
     GetChatMessageParams
-} from '@universo/flowise-chatmessage-srv'
+} from '@flowise/chatmessage-srv'
 
-// Message type - compatible with @universo/flowise-chatmessage-srv
+// Message type - compatible with @flowise/chatmessage-srv
 export type MessageType = 'apiMessage' | 'userMessage'
 
-// Chat type enum - compatible with @universo/flowise-chatmessage-srv
+// Chat type enum - compatible with @flowise/chatmessage-srv
 export enum ChatType {
     INTERNAL = 'INTERNAL',
     EXTERNAL = 'EXTERNAL'
 }
 
-// Chat message rating type - compatible with @universo/flowise-chatmessage-srv
+// Chat message rating type - compatible with @flowise/chatmessage-srv
 export enum ChatMessageRatingType {
     THUMBS_UP = 'THUMBS_UP',
     THUMBS_DOWN = 'THUMBS_DOWN'
@@ -59,7 +59,7 @@ export interface ITool {
     createdDate: Date
 }
 
-// IAssistant moved to @universo/flowise-assistants-srv (re-exported above)
+// IAssistant moved to @flowise/assistants-srv (re-exported above)
 
 export interface ICredential {
     id: string
@@ -79,8 +79,8 @@ export interface IVariable {
     createdDate: Date
 }
 
-// ILead re-exported from @universo/flowise-leads-srv for backward compatibility
-export type { ILead, CreateLeadBody } from '@universo/flowise-leads-srv'
+// ILead re-exported from @flowise/leads-srv for backward compatibility
+export type { ILead, CreateLeadBody } from '@flowise/leads-srv'
 
 export interface IUpsertHistory {
     id: string
@@ -303,5 +303,64 @@ export interface IVariableOverride {
     enabled: boolean
 }
 
-// DocumentStore related
-export * from './Interface.DocumentStore'
+// DocumentStore related - re-export from @flowise/docstore-srv
+import type {
+    IDocumentStoreUpsertData as IDocStoreUpsertData,
+    IDocumentStoreLoaderForPreview as IDocStoreLoaderForPreview
+} from '@flowise/docstore-srv'
+
+export {
+    DocumentStoreStatus,
+    IDocumentStore,
+    IDocumentStoreFileChunk,
+    IDocumentStoreLoader,
+    IDocumentStoreLoaderFile,
+    IDocumentStoreLoaderForPreview,
+    IDocumentStoreFileChunkPagedResponse,
+    IDocumentStoreWhereUsed,
+    IDocumentStoreUpsertData,
+    IDocumentStoreRefreshData,
+    addLoaderSource,
+    DocumentStoreDTO
+} from '@flowise/docstore-srv'
+
+// Execute interfaces for queue processing - kept locally due to IComponentNodes dependency
+export interface IExecuteDocStoreUpsert {
+    appDataSource: DataSource
+    componentNodes: IComponentNodes
+    telemetry: Telemetry
+    cachePool?: CachePool
+    storeId: string
+    totalItems: IDocStoreUpsertData[]
+    files: Express.Multer.File[]
+    isRefreshAPI: boolean
+}
+
+export interface IExecutePreviewLoader {
+    appDataSource: DataSource
+    componentNodes: IComponentNodes
+    cachePool?: CachePool
+    data: IDocStoreLoaderForPreview
+    isPreviewOnly: boolean
+    telemetry?: Telemetry
+}
+
+export interface IExecuteProcessLoader {
+    appDataSource: DataSource
+    componentNodes: IComponentNodes
+    telemetry: Telemetry
+    cachePool?: CachePool
+    data: IDocStoreLoaderForPreview
+    docLoaderId: string
+    isProcessWithoutUpsert: boolean
+}
+
+export interface IExecuteVectorStoreInsert {
+    appDataSource: DataSource
+    componentNodes: IComponentNodes
+    telemetry: Telemetry
+    cachePool?: CachePool
+    data: ICommonObject
+    isStrictSave: boolean
+    isVectorStoreInsert: boolean
+}

@@ -29,7 +29,7 @@ import CanvasHeader from './CanvasHeader'
 import AddNodes from './AddNodes'
 import ConfirmDialog from '@flowise/template-mui/ui-components/dialog/ConfirmDialog'
 import { ChatPopUp } from '@flowise/chatmessage-frt'
-import { VectorStorePopUp } from '@flowise/template-mui'
+import { VectorStorePopUp } from '@flowise/docstore-frt'
 import CanvasTabs from '../../components/CanvasTabs'
 import React, { useCallback as useReactCallback } from 'react'
 

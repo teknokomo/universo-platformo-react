@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-variables-srv",
+    "name": "@flowise/variables-srv",
     "version": "0.1.0",
     "description": "Backend for Variables domain in Universo Platformo (extracted from flowise-server)",
     "main": "dist/index.js",

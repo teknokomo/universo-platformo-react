@@ -1,0 +1,1 @@
+export { DocumentStoreDTO } from './DocumentStoreDTO'

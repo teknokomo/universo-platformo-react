@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-tools-srv",
+    "name": "@flowise/tools-srv",
     "version": "0.1.0",
     "description": "Backend for Tools domain in Universo Platformo (extracted from flowise-server)",
     "main": "dist/index.js",

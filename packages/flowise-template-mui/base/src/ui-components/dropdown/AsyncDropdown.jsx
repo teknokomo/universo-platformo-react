@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback, Fragment, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import PropTypes from 'prop-types'
@@ -44,6 +44,12 @@ export const AsyncDropdown = ({
     const [open, setOpen] = useState(false)
     const [options, setOptions] = useState([])
     const [loading, setLoading] = useState(false)
+    const [hasLoaded, setHasLoaded] = useState(false) // Track if options have been loaded
+    
+    // Use ref to track nodeData without causing re-renders
+    const nodeDataRef = useRef(nodeData)
+    nodeDataRef.current = nodeData
+    
     const findMatchingOptions = (options = [], value) => {
         if (multiple) {
             let values = []
@@ -88,16 +94,20 @@ export const AsyncDropdown = ({
 
     const fetchDynamicOptions = useCallback(async () => {
         try {
-            const loadMethod = nodeData.inputParams.find((param) => param.name === name)?.loadMethod
-            const response = await client.post(`node-load-method/${nodeData.name}`, { ...nodeData, loadMethod })
+            const currentNodeData = nodeDataRef.current
+            const loadMethod = currentNodeData.inputParams.find((param) => param.name === name)?.loadMethod
+            const response = await client.post(`node-load-method/${currentNodeData.name}`, { ...currentNodeData, loadMethod })
             return response.data ?? []
         } catch (error) {
             console.error(error)
             return []
         }
-    }, [client, name, nodeData])
+    }, [client, name]) // Removed nodeData from dependencies - using ref instead
 
     useEffect(() => {
+        // Only load once per component mount
+        if (hasLoaded) return
+        
         let isMounted = true
         const loadOptions = async () => {
             setLoading(true)
@@ -106,6 +116,7 @@ export const AsyncDropdown = ({
                 if (!isMounted) return
                 const nextOptions = response ?? []
                 setOptions(isCreateNewOption ? [...nextOptions, ...addNewOption] : [...nextOptions])
+                setHasLoaded(true) // Mark as loaded to prevent infinite loop
             } finally {
                 if (isMounted) setLoading(false)
             }
@@ -116,7 +127,8 @@ export const AsyncDropdown = ({
         return () => {
             isMounted = false
         }
-    }, [fetchCredentialList, fetchDynamicOptions, isCreateNewOption])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // Only run once on mount
 
     return (
         <>

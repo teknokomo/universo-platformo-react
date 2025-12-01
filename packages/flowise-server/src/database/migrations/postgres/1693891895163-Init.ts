@@ -2,9 +2,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
 
 /**
  * Initial migration for Flowise core tables.
- * NOTE: Tool table creation moved to @universo/flowise-tools-srv
- * NOTE: Credential table creation moved to @universo/flowise-credentials-srv
- * NOTE: ChatMessage table creation moved to @universo/flowise-chatmessage-srv
+ * NOTE: Tool table creation moved to @flowise/tools-srv
+ * NOTE: Credential table creation moved to @flowise/credentials-srv
+ * NOTE: ChatMessage table creation moved to @flowise/chatmessage-srv
  */
 export class Init1693891895163 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {

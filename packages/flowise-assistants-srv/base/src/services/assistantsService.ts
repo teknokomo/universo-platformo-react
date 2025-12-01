@@ -5,7 +5,7 @@ import { DataSource, DeleteResult, QueryRunner, Repository } from 'typeorm'
 import { validate as validateUuid } from 'uuid'
 import { z } from 'zod'
 import { Assistant } from '../database/entities/Assistant'
-import { Credential } from '@universo/flowise-credentials-srv'
+import { Credential } from '@flowise/credentials-srv'
 import type { AssistantType } from '../Interface'
 
 /**

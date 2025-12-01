@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-assistants-srv",
+    "name": "@flowise/assistants-srv",
     "version": "0.1.0",
     "description": "Backend for Assistants domain in Universo Platformo (extracted from flowise-server)",
     "main": "dist/index.js",
@@ -22,7 +22,7 @@
     "peerDependencies": {
         "typeorm": "catalog:",
         "@universo/uniks-srv": "workspace:*",
-        "@universo/flowise-credentials-srv": "workspace:*"
+        "@flowise/credentials-srv": "workspace:*"
     },
     "dependencies": {
         "express": "^4.18.2",
@@ -37,7 +37,7 @@
         "@types/lodash": "^4.14.202",
         "@types/node": "catalog:",
         "@types/uuid": "^9.0.8",
-        "@universo/flowise-credentials-srv": "workspace:*",
+        "@flowise/credentials-srv": "workspace:*",
         "@universo/uniks-srv": "workspace:*",
         "eslint": "catalog:",
         "rimraf": "^5.0.5",

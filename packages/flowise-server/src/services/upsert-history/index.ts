@@ -1,7 +1,7 @@
 import { MoreThanOrEqual, LessThanOrEqual, Between } from 'typeorm'
 import { StatusCodes } from 'http-status-codes'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import { UpsertHistory } from '../../database/entities/UpsertHistory'
+import { UpsertHistory } from '@flowise/docstore-srv'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
@@ -24,7 +24,7 @@ const getAllUpsertHistory = async (
                 createdDateQuery = LessThanOrEqual(new Date(endDate))
             }
         }
-        let upsertHistory = await appServer.AppDataSource.getRepository(UpsertHistory).find({
+        const upsertHistoryRaw = await appServer.AppDataSource.getRepository(UpsertHistory).find({
             where: {
                 canvasId,
                 date: createdDateQuery
@@ -33,7 +33,7 @@ const getAllUpsertHistory = async (
                 date: sortOrder === 'DESC' ? 'DESC' : 'ASC'
             }
         })
-        upsertHistory = upsertHistory.map((hist) => {
+        const upsertHistory = upsertHistoryRaw.map((hist: UpsertHistory) => {
             return {
                 ...hist,
                 result: hist.result ? JSON.parse(hist.result) : {},

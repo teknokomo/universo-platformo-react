@@ -23,7 +23,241 @@
 
 ---
 
+## January 2025
+
+### 2025-01-19: QA Cleanup - Removed Duplicate VectorStore Dialogs ✅
+
+**Summary**: Removed 4 duplicate VectorStore dialog files from `@flowise/template-mui` that were obsolete after full DocumentStore migration to `@flowise/docstore-frt`.
+
+**Files Deleted from template-mui**:
+- `ui-components/dialog/VectorStoreDialog.jsx`
+- `ui-components/dialog/VectorStorePopUp.jsx`
+- `ui-components/dialog/UpsertHistoryDialog.jsx`
+- `ui-components/dialog/UpsertResultDialog.jsx`
+
+**Updates Made**:
+1. **Exports cleanup** (`template-mui/base/src/index.ts`):
+   - Removed exports for deleted files
+   - Added comment noting components moved to `@flowise/docstore-frt`
+
+2. **Import updates** (`spaces-frt`):
+   - `views/canvas/index.jsx`: Changed `VectorStorePopUp` import to `@flowise/docstore-frt`
+   - `views/canvas/CanvasHeader.jsx`: Changed `UpsertHistoryDialog` import to `@flowise/docstore-frt`
+   - `package.json`: Added `@flowise/docstore-frt: workspace:*` dependency
+
+3. **Export fix** (`docstore-frt/pages/vectorstore/VectorStorePopUp.jsx`):
+   - Changed named export `export const VectorStorePopUp` to `const VectorStorePopUp` + `export default VectorStorePopUp`
+   - Required for compatibility with `index.js` re-export pattern
+
+**Build Result**: ✅ 48/48 packages successful
+
+---
+
+### 2025-01-19: DocumentStore Backend Clean Integration ✅
+
+**Summary**: Migrated DocumentStore CRUD operations to use `@flowise/docstore-srv` DI services via practical "Clean Integration" approach. Complex operations (preview, process, vector ops) remain in flowise-server due to runtime dependencies.
+
+**What Was Done**:
+1. **Extended DI Interfaces** (`@flowise/docstore-srv/di/config.ts`):
+   - `INodeMetadata` - node metadata without runtime dependencies
+   - `INodeProvider` - abstraction for nodesPool access with methods: getComponentNodes(), getNode(), getNodesByCategory(), createNodeInstance()
+   - `ICredentialMetadata`, `IEncryptionService`, `IStorageService` interfaces
+   - Extended `DocstoreServiceDependencies` with new providers
+
+2. **Created NodeProvider** (`flowise-server/src/providers/nodeProvider.ts`):
+   - Implements `INodeProvider` interface
+   - Wraps `nodesPool` from getRunningExpressApp()
+   - Handles type conversion (boolean | INodeDisplay → boolean | undefined)
+   - Lazy initialization pattern
+
+3. **Created Service Factory** (`flowise-server/src/services/docstore-integration/index.ts`):
+   - `createDocstoreServiceDependencies()` - factory for all dependencies
+   - `getDocumentStoreService()` - singleton pattern with lazy initialization
+   - `initializeDocstoreService()` - manual initialization support
+
+4. **Delegated CRUD Operations** (`flowise-server/src/services/documentstore/index.ts`):
+   - `createDocumentStore()` → `getDocumentStoreService().createDocumentStore()`
+   - `getAllDocumentStores()` → `getDocumentStoreService().getAllDocumentStores()`
+   - `getDocumentStoreById()` → `getDocumentStoreService().getDocumentStoreById()`
+   - `updateDocumentStore()` → `getDocumentStoreService().updateDocumentStore()`
+   - Complex operations (updateDocumentStoreUsage, deleteDocumentStore, preview/process/vector) kept local
+
+**Architecture Decision**: Practical approach - CRUD operations delegate to testable DI services, while operations deeply tied to flowise-components runtime (preview chunks, process loaders, vector store upsert) remain in flowise-server. This provides immediate value (testable CRUD, cleaner separation) without risky refactoring of complex code.
+
+**Build Result**: ✅ 39/39 packages successful
+
+---
+
 ## November 2025
+
+### 2025-12-01: DocumentStore Frontend Migration to @flowise/docstore-frt ✅
+
+**Summary**: Completed full migration of Document Store UI components from flowise-ui monolith to standalone `@flowise/docstore-frt` package with proper `@universo/api-client` integration.
+
+**What Was Done**:
+1. **API Client Implementation** (`@universo/api-client`):
+   - `DocumentStoreApi` - 20 methods for store CRUD, loaders, chunks, vector operations
+   - `NodesApi` - added `getSpecificNode()` and `getNodesByCategory()` 
+   - `VectorStoreApi` - 4 methods for upsert and history
+
+2. **Component Migration** (20 JSX files):
+   - Copied from `flowise-ui/src/views/docstore/` and `vectorstore/`
+   - Refactored all imports from `@/api/*` to `@universo/api-client`
+   - Fixed relative imports between docstore/vectorstore folders
+   - Removed duplicate imports, fixed eslint/prettier issues
+
+3. **Routes Update** (`MainRoutesMUI.tsx`):
+   - Changed imports from `@/views/docstore/*` to `@flowise/docstore-frt/pages/docstore/*`
+   - Removed unnecessary `@ts-expect-error` directives
+
+4. **Package Dependencies**:
+   - Added missing dependencies: `@universo/utils`, `dayjs`, `flowise-react-json-view`, etc.
+
+**Build Result**: 48/48 packages successful
+
+**Files Modified**:
+- `packages/universo-api-client/src/api/documentstore.ts` - full implementation
+- `packages/universo-api-client/src/api/nodes.ts` - added 2 methods
+- `packages/universo-api-client/src/api/vectorstore.ts` - full implementation
+- `packages/universo-api-client/src/index.ts` - type exports
+- `packages/flowise-docstore-frt/base/src/pages/docstore/*.jsx` - 16 files
+- `packages/flowise-docstore-frt/base/src/pages/vectorstore/*.jsx` - 4 files
+- `packages/flowise-docstore-frt/base/package.json` - dependencies
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - imports
+
+**Pending**: Delete legacy code from flowise-ui (requires user confirmation for functional testing first)
+
+---
+
+### 2025-12-01: DocumentStore i18n Fixed ✅
+
+**Summary**: Fixed localization issue (Document Store showing "Пространства" + raw keys) and finalized architecture so translations live inside `@flowise/docstore-frt` only.
+
+**Root Cause Analysis**:
+1. Components in flowise-ui used `t('document-store:title')` with hyphenated namespace
+2. universo-i18n instance.ts only exposed legacy `docstore` namespace (without hyphen)
+3. Fallback chain `['common', 'header', 'spaces']` returned `spaces.title` ("Пространства")
+4. Namespace registration from `@flowise/docstore-frt` wasn't guaranteed before first render
+
+**Solution Applied**:
+1. Added `registerDocstoreI18n()` helper in `@flowise/docstore-frt` (side-effect + explicit export)
+2. Ensured both template route bundles import `@flowise/docstore-frt/i18n`
+3. Copied translations temporarily into `@universo/i18n` to unblock QA, then **removed them** once package-level registration was stable
+4. Deleted `packages/universo-i18n/base/src/locales/**/features/{docstore,document-store,vector-store}.json` and cleaned `instance.ts`, README(-RU), and `i18next.d.ts`
+5. Updated i18n architecture pattern to document "feature packages own their namespaces"
+
+**Build Result**: 48/48 packages successful
+
+---
+
+### 2025-11-30: DocumentStore Full Migration Complete ✅
+
+**Summary**: Completed full extraction of DocumentStore functionality into `@flowise/docstore-srv` and `@flowise/docstore-frt` packages. Used hybrid approach - new packages provide entities/migrations/DI interfaces, legacy flowise-server keeps complex operations. Build successful: 48/48 packages.
+
+**Created Backend Package** (`@flowise/docstore-srv`):
+1. **Package Configuration**:
+   - `packages/flowise-docstore-srv/base/package.json`
+   - `packages/flowise-docstore-srv/base/tsconfig.json`
+
+2. **Database Layer**:
+   - `src/database/entities/DocumentStore.ts` - with Unik relation
+   - `src/database/entities/DocumentStoreFileChunk.ts`
+   - `src/database/entities/UpsertHistory.ts`
+   - `src/database/migrations/postgres/1711637331047-AddDocumentStore.ts` - consolidated idempotent migration
+
+3. **DI-based Services**:
+   - `src/services/documentStoreService.ts` - CRUD operations
+   - `src/services/chunkService.ts` - chunk pagination
+   - `src/services/loaderService.ts` - loader management
+   - `src/services/vectorStoreConfigService.ts` - vector config
+
+4. **Controller & Router**:
+   - `src/controllers/documentStoreController.ts` - HTTP handlers with DI
+   - `src/routes/documentStoreRouter.ts` - Express router factory
+
+**Created Frontend Package** (`@flowise/docstore-frt`):
+1. **Views** (20 JSX files, ~7254 lines):
+   - `src/pages/docstore/` - 16 files (DocumentStore UI)
+   - `src/pages/vectorstore/` - 4 files (VectorStore dialogs)
+
+2. **i18n** (600 lines merged):
+   - `src/i18n/locales/en.json` - merged document-store + vector-store
+   - `src/i18n/locales/ru.json` - merged translations
+
+**Integrated in flowise-server**:
+1. Added `@flowise/docstore-srv` dependency
+2. Updated `migrations/postgres/index.ts` to use `docstoreMigrations`
+3. Updated `entities/index.ts` to import from `@flowise/docstore-srv`
+4. Updated 7 files to use new imports:
+   - `Interface.DocumentStore.ts`
+   - `services/documentstore/index.ts`
+   - `services/export-import/index.ts`
+   - `services/spacesCanvas/index.ts`
+   - `services/upsert-history/index.ts`
+   - `controllers/documentstore/index.ts`
+   - `utils/index.ts`, `utils/upsertVector.ts`
+
+**Deleted Legacy Files** (6 files):
+- `database/entities/DocumentStore.ts`
+- `database/entities/DocumentStoreFileChunk.ts`
+- `database/entities/UpsertHistory.ts`
+- `database/migrations/postgres/1709814301358-AddUpsertHistoryEntity.ts`
+- `database/migrations/postgres/1711637331047-AddDocumentStore.ts`
+- `database/migrations/postgres/1715861032479-AddVectorStoreConfigToDocStore.ts`
+
+**Architecture Decision**: Hybrid approach chosen because legacy DocumentStore service (2097 lines) has deep integration with flowise-components (node loaders, vector stores, embeddings). Full extraction would require major refactoring.
+
+**Build**: 48/48 packages successful ✅
+
+---
+
+### 2025-11-30: DocumentStore Backend Package Created ✅
+
+**Summary**: Created `@flowise/docstore-srv` backend package with DI pattern. Phase 1 of DocumentStore extraction complete - package structure, entities, migrations, services created and building successfully.
+
+**Created Files**:
+
+1. **Package Configuration**:
+   - `packages/flowise-docstore-srv/base/package.json` - with dependencies
+   - `packages/flowise-docstore-srv/base/tsconfig.json` - TypeScript config
+
+2. **Database Layer**:
+   - `src/database/entities/DocumentStore.ts` - with Unik relation (kept as-is per user request)
+   - `src/database/entities/DocumentStoreFileChunk.ts` - chunk entity
+   - `src/database/entities/UpsertHistory.ts` - history entity
+   - `src/database/entities/index.ts` - exports `docstoreEntities`
+   - `src/database/migrations/postgres/1711637331047-AddDocumentStore.ts` - consolidated idempotent migration
+
+3. **Interfaces and DTOs**:
+   - `src/Interface.ts` - ~300 lines with DocumentStoreStatus enum, all interfaces
+   - `src/dto/DocumentStoreDTO.ts` - DTO class with fromEntity/toEntity methods
+
+4. **DI-based Services**:
+   - `src/di/config.ts` - DI configuration with ILogger, ISSEStreamer, ITelemetry interfaces
+   - `src/services/documentStoreService.ts` - CRUD operations with unikId filtering
+   - `src/services/chunkService.ts` - chunk operations with pagination
+   - `src/services/loaderService.ts` - loader management
+   - `src/services/vectorStoreConfigService.ts` - vector store config management
+
+5. **Errors**:
+   - `src/errors/InternalFlowiseError.ts`
+   - `src/errors/utils.ts`
+
+6. **Documentation**:
+   - `README.md` - English documentation
+   - `README-RU.md` - Russian documentation
+
+**Architecture Decisions**:
+- Uses DI pattern (no `getRunningExpressApp()` calls)
+- All services created via factory functions
+- Unik relation kept in DocumentStore entity as-is
+- Consolidated 3 migrations into 1 idempotent migration
+
+**Build**: 8/8 packages successful ✅
+
+**Next Steps**: Phase 2 - Create frontend package, Phase 3 - Integrate in flowise-server
+
+---
 
 ### 2025-11-29: ChatMessage Full Migration Complete ✅
 

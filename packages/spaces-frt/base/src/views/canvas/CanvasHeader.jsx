@@ -18,7 +18,7 @@ import { api } from '@universo/api-client' // Replaced: import spacesApi from '.
 import APICodeDialog from '../canvases/APICodeDialog'
 import ViewMessagesDialog from '@flowise/template-mui/ui-components/dialog/ViewMessagesDialog'
 import CanvasConfigurationDialog from '@flowise/template-mui/ui-components/dialog/CanvasConfigurationDialog'
-import UpsertHistoryDialog from '@flowise/template-mui/ui-components/dialog/UpsertHistoryDialog'
+import { UpsertHistoryDialog } from '@flowise/docstore-frt'
 import ViewLeadsDialog from '@flowise/template-mui/ui-components/dialog/ViewLeadsDialog'
 import ExportAsTemplateDialog from '@flowise/template-mui/ui-components/dialog/ExportAsTemplateDialog'
 import CanvasVersionsDialog from './CanvasVersionsDialog'

@@ -1,5 +1,5 @@
 /**
- * @universo/flowise-chatmessage-srv
+ * @flowise/chatmessage-srv
  *
  * Interface definitions for ChatMessage domain
  */

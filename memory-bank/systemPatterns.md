@@ -61,12 +61,14 @@ grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules
 
 ## i18n Architecture (CRITICAL)
 
-**Rule**: Centralized namespace registration in `@universo/i18n`, consumed by apps.
+**Rule**: Core namespaces live in `@universo/i18n`. Feature packages (docstore, tools, credentials, etc.) ship and register their own translations via `registerNamespace`.
 
 **Required**:
-- `packages/universo-i18n/base/src/namespaces/[namespace]/index.ts` - Registration
+- Shared namespaces stay under `@universo/i18n` (core + generic views/dialogs)
+- Feature packages expose `register<Feature>I18n()` helpers (see `@flowise/docstore-frt/i18n`)
+- Apps must import feature packages before rendering related routes: `import '@flowise/docstore-frt/i18n'`
 - `getInstance()` to access i18n singleton
-- `registerNamespace(name, {en, ru})` for setup
+- `registerNamespace(name, { en, ru })` for setup
 - `useTranslation('[namespace]')` in components
 
 **Detection**:
@@ -77,16 +79,24 @@ grep -r "i18next.use" packages/*/src --exclude-dir=node_modules
 
 **Example**:
 ```typescript
-// Register (once, in namespace file)
-import { getInstance, registerNamespace } from '@universo/i18n'
-import metaversesEn from './en.json'
-import metaversesRu from './ru.json'
+// Feature package (@flowise/docstore-frt/i18n)
+import { registerNamespace } from '@universo/i18n/registry'
+import enDocStore from './locales/en/document-store.json'
+import ruDocStore from './locales/ru/document-store.json'
 
-getInstance()
-registerNamespace('metaverses', { en: metaversesEn, ru: metaversesRu })
+let registered = false
+export const registerDocstoreI18n = () => {
+  if (registered) return
+  registerNamespace('document-store', { en: enDocStore, ru: ruDocStore })
+  registered = true
+}
 
-// Consume (in components)
-const { t } = useTranslation('metaverses')
+// Side-effect registration
+registerDocstoreI18n()
+
+// App route
+import '@flowise/docstore-frt/i18n'
+const { t } = useTranslation('document-store')
 ```
 
 **Why**: Single source of truth, prevents duplicate registrations, easier testing.
@@ -115,6 +125,74 @@ grep -r "jsdom" packages/*/vitest.config.ts
 ```
 
 **Why**: Native browser APIs, no canvas.node dependency, faster CI/CD.
+
+---
+
+## Service Factory + NodeProvider Pattern (CRITICAL)
+
+**Rule**: Abstract runtime dependencies (nodesPool, getRunningExpressApp) behind interfaces for testability.
+
+**Problem**: Direct access to `getRunningExpressApp().nodesPool` creates tight coupling, making unit testing impossible.
+
+**Solution**: Create interfaces that abstract runtime access, inject via factory function.
+
+**Required**:
+```typescript
+// 1. Define interfaces in DI config (e.g., @flowise/docstore-srv/di/config.ts)
+interface INodeProvider {
+  getComponentNodes(): Map<string, INodeMetadata>
+  getNode(name: string): INodeMetadata | undefined
+  getNodesByCategory(category: string): INodeMetadata[]
+  createNodeInstance(name: string): Promise<INode>
+}
+
+interface DocstoreServiceDependencies {
+  dataSource: DataSource
+  nodeProvider: INodeProvider  // New provider
+}
+
+// 2. Create provider implementation (e.g., flowise-server/providers/nodeProvider.ts)
+export function createNodeProvider(): INodeProvider {
+  return {
+    getComponentNodes: () => getRunningExpressApp().nodesPool.componentNodes,
+    getNode: (name) => convertNodeToMetadata(nodesPool.get(name)),
+    // ...
+  }
+}
+
+// 3. Create service factory (e.g., flowise-server/services/docstore-integration/index.ts)
+let serviceInstance: IDocumentStoreService | null = null
+
+export function createDocstoreServiceDependencies(): DocstoreServiceDependencies {
+  return {
+    dataSource: getDataSource(),
+    nodeProvider: createNodeProvider(),
+  }
+}
+
+export function getDocumentStoreService(): IDocumentStoreService {
+  if (!serviceInstance) {
+    serviceInstance = createDocumentStoreService(createDocstoreServiceDependencies())
+  }
+  return serviceInstance
+}
+
+// 4. Use in routes/services
+const store = await getDocumentStoreService().createDocumentStore(data)
+```
+
+**Benefits**:
+- Unit tests can mock `nodeProvider` with static data
+- Service logic is testable without running Express app
+- Clear separation of concerns
+
+**Detection**:
+```bash
+# Find direct nodesPool access outside providers (antipattern)
+grep -r "nodesPool" packages/flowise-server/src/services --exclude-dir=providers
+```
+
+**Why**: Enables TDD, cleaner architecture, easier refactoring.
 
 ---
 

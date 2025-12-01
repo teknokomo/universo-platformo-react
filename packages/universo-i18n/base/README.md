@@ -206,23 +206,14 @@ App packages (flowise-ui, template-mui, etc.)
 
 ## Base Namespaces
 
-The following namespaces are included by default:
+The following namespaces are included by default (EN + RU):
 
-- `translation` - Main translations
-- `auth` - Authentication
-- `admin` - Admin panel
-- `menu` - Menu items
-- `assistants` - AI assistants
-- `vector-store` - Vector store
-- `document-store` - Document store
-- `credentials` - Credentials
-- `api-keys` - API keys
-- `variables` - Variables
-- `tools` - Tools
-- `templates` - Templates
-- `canvases` - Canvases
-- `chatmessage` - Chat messages
-- `flowList` - Flow lists
+- `common`, `header`, `spaces`, `roles`, `access`
+- `admin`, `auth`, `canvas`, `canvases`, `chatbot`, `chatmessage`
+- `flowList`, `menu`, `profile-menu`, `templates`
+- Dialog namespaces such as `about`, `manageLinks`, `viewLeads`, etc.
+
+> Module-specific namespaces (document-store, vector-store, assistants, tools, credentials, variables, api-keys, etc.) are **registered by their respective feature packages**. Import those packages (e.g., `import '@flowise/docstore-frt/i18n'`) before rendering the related routes/components.
 
 FRT packages add their own namespaces dynamically.
 

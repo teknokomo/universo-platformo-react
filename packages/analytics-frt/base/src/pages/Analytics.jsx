@@ -40,6 +40,7 @@ import ViewHeader from '@flowise/template-mui/layout/MainLayout/ViewHeader'
 import { api } from '@universo/api-client'
 const leadsApi = api.leads
 const spacesApi = api.spaces
+const canvasesApi = api.canvases
 
 // ==============================|| Internal Helpers (extracted for clarity & testability) ||============================== //
 // Normalize various potential server response shapes to a spaces array
@@ -123,8 +124,8 @@ const Analytics = () => {
     const [canvasesLoading, setCanvasesLoading] = useState(false)
 
     const getCanvasLeadsApi = useApi(() => leadsApi.getCanvasLeads(selectedCanvasId))
-    const getSpacesApi = useApi(() => spacesApi.getSpaces(unikId))
-    const getCanvasesApi = useApi(() => (selectedSpaceId ? spacesApi.getCanvases(unikId, selectedSpaceId) : null))
+    const getSpacesApi = useApi(() => spacesApi.getAll(unikId))
+    const getCanvasesApi = useApi(() => (selectedSpaceId ? canvasesApi.getCanvases(unikId, selectedSpaceId) : null))
 
     const [search, setSearch] = useState('')
     const onSearchChange = (event) => {

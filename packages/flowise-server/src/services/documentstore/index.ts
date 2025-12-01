@@ -1,5 +1,5 @@
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import { DocumentStore } from '../../database/entities/DocumentStore'
+import { DocumentStore, DocumentStoreFileChunk, UpsertHistory, DocumentStoreDTO } from '@flowise/docstore-srv'
 import * as path from 'path'
 import {
     addArrayFilesToStorage,
@@ -32,10 +32,8 @@ import {
     INodeData,
     MODE,
     IOverrideConfig,
-    IExecutePreviewLoader,
-    DocumentStoreDTO
+    IExecutePreviewLoader
 } from '../../Interface'
-import { DocumentStoreFileChunk } from '../../database/entities/DocumentStoreFileChunk'
 import { v4 as uuidv4 } from 'uuid'
 import { databaseEntities, saveUpsertFlowData } from '../../utils'
 import logger from '../../utils/logger'
@@ -44,48 +42,31 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
 import { getErrorMessage } from '../../errors/utils'
 import { Document } from '@langchain/core/documents'
-import { UpsertHistory } from '../../database/entities/UpsertHistory'
 import { cloneDeep, omit } from 'lodash'
 import { DOCUMENTSTORE_TOOL_DESCRIPTION_PROMPT_GENERATOR } from '../../utils/prompt'
 import { DataSource } from 'typeorm'
 import { Telemetry } from '../../utils/telemetry'
 import { INPUT_PARAMS_TYPE, OMIT_QUEUE_JOB_DATA } from '../../utils/constants'
 import canvasService from '../spacesCanvas'
+// Universo Platformo | Import integrated service
+import { getDocumentStoreService } from '../docstore-integration'
 
 const DOCUMENT_STORE_BASE_FOLDER = 'docustore'
 
+/**
+ * Create a new document store
+ * Delegates to @flowise/docstore-srv service
+ */
 const createDocumentStore = async (newDocumentStore: DocumentStore) => {
-    try {
-        const appServer = getRunningExpressApp()
-        const documentStore = appServer.AppDataSource.getRepository(DocumentStore).create(newDocumentStore)
-        const dbResponse = await appServer.AppDataSource.getRepository(DocumentStore).save(documentStore)
-        return dbResponse
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: documentStoreServices.createDocumentStore - ${getErrorMessage(error)}`
-        )
-    }
+    return getDocumentStoreService().createDocumentStore(newDocumentStore)
 }
 
+/**
+ * Get all document stores
+ * Delegates to @flowise/docstore-srv service
+ */
 const getAllDocumentStores = async (unikId?: string) => {
-    try {
-        const appServer = getRunningExpressApp()
-        let query = appServer.AppDataSource.getRepository(DocumentStore).createQueryBuilder('docstore')
-        
-        // Universo Platformo | Added filtering by unikId
-        if (unikId) {
-            query = query.where('docstore.unik_id = :unikId', { unikId })
-        }
-        
-        const entities = await query.getMany()
-        return entities
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: documentStoreServices.getAllDocumentStores - ${getErrorMessage(error)}`
-        )
-    }
+    return getDocumentStoreService().getAllDocumentStores(unikId)
 }
 
 const getAllDocumentFileChunks = async () => {
@@ -148,37 +129,12 @@ const deleteLoaderFromDocumentStore = async (storeId: string, docId: string) => 
     }
 }
 
+/**
+ * Get document store by ID
+ * Delegates to @flowise/docstore-srv service
+ */
 const getDocumentStoreById = async (storeId: string, unikId?: string) => {
-    try {
-        const appServer = getRunningExpressApp()
-        let whereClause: any = { id: storeId }
-        
-        // Universo Platformo | Added filtering by unikId
-        if (unikId) {
-            whereClause = { 
-                id: storeId,
-                unik: { id: unikId } 
-            }
-        }
-        
-        const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOne({
-            where: whereClause,
-            relations: ['unik']
-        })
-        
-        if (!entity) {
-            throw new InternalFlowiseError(
-                StatusCodes.NOT_FOUND,
-                `Error: documentStoreServices.getDocumentStoreById - Document store ${storeId} not found`
-            )
-        }
-        return entity
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: documentStoreServices.getDocumentStoreById - ${getErrorMessage(error)}`
-        )
-    }
+    return getDocumentStoreService().getDocumentStoreById(storeId, unikId)
 }
 
 const getUsedChatflowNames = async (entity: DocumentStore) => {
@@ -293,46 +249,21 @@ const getDocumentStoreFileChunks = async (appDataSource: DataSource, storeId: st
     }
 }
 
+/**
+ * Delete document store
+ * Delegates DB operations to @flowise/docstore-srv service.
+ * File storage cleanup remains here due to flowise-components dependency.
+ */
 const deleteDocumentStore = async (storeId: string, unikId?: string) => {
     try {
-        const appServer = getRunningExpressApp()
-        let whereClause: any = { id: storeId }
+        // First, get the entity to access its ID for file cleanup
+        const entity = await getDocumentStoreService().getDocumentStoreById(storeId, unikId)
         
-        // Universo Platform | Added unikId filtering
-        if (unikId) {
-            whereClause = { 
-                id: storeId,
-                unik: { id: unikId } 
-            }
-        }
-        
-        // Find document with unikId filter
-        const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOne({
-            where: whereClause,
-            relations: ['unik']
-        })
-        
-        if (!entity) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Document store ${storeId} not found`)
-        }
-        
-        // delete all the chunks associated with the store
-        await appServer.AppDataSource.getRepository(DocumentStoreFileChunk).delete({
-            storeId: storeId
-        })
-        
-        // now delete the files associated with the store
+        // Delete files from storage (requires flowise-components, cannot be moved to docstore-srv)
         await removeFilesFromStorage(DOCUMENT_STORE_BASE_FOLDER, entity.id)
 
-        // delete upsert history
-        await appServer.AppDataSource.getRepository(UpsertHistory).delete({
-            canvasId: storeId
-        })
-
-        // now delete the store with unikId filter if provided
-        const tbd = await appServer.AppDataSource.getRepository(DocumentStore).delete(whereClause)
-
-        return { deleted: tbd.affected }
+        // Delegate DB deletion (chunks, upsert history, store) to docstore-srv
+        return await getDocumentStoreService().deleteDocumentStore(storeId, unikId)
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
@@ -492,18 +423,12 @@ const editDocumentStoreFileChunk = async (storeId: string, docId: string, chunkI
     }
 }
 
+/**
+ * Update document store
+ * Delegates to @flowise/docstore-srv service
+ */
 const updateDocumentStore = async (documentStore: DocumentStore, updatedDocumentStore: DocumentStore) => {
-    try {
-        const appServer = getRunningExpressApp()
-        const tmpUpdatedDocumentStore = appServer.AppDataSource.getRepository(DocumentStore).merge(documentStore, updatedDocumentStore)
-        const dbResponse = await appServer.AppDataSource.getRepository(DocumentStore).save(tmpUpdatedDocumentStore)
-        return dbResponse
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: documentStoreServices.updateDocumentStore - ${getErrorMessage(error)}`
-        )
-    }
+    return getDocumentStoreService().updateDocumentStore(documentStore, updatedDocumentStore)
 }
 
 const _saveFileToStorage = async (fileBase64: string, entity: DocumentStore) => {
@@ -966,52 +891,12 @@ const getDocumentLoaders = async () => {
     }
 }
 
+/**
+ * Update document store usage tracking
+ * Delegates to @flowise/docstore-srv service
+ */
 const updateDocumentStoreUsage = async (canvasId: string, storeId: string | undefined, unikId: string) => {
-    try {
-        // find the document store
-        const appServer = getRunningExpressApp()
-        // find all entities that have the chatId in their whereUsed, filtered by unikId for security
-        const entities = await appServer.AppDataSource.getRepository(DocumentStore).find({
-            where: { unik: { id: unikId } }
-        })
-        entities.map(async (entity: DocumentStore) => {
-            const whereUsed = JSON.parse(entity.whereUsed)
-            const found = whereUsed.find((w: string) => w === canvasId)
-            if (found) {
-                if (!storeId) {
-                    // remove the canvasId from the whereUsed, as the store is being deleted
-                    const index = whereUsed.indexOf(canvasId)
-                    if (index > -1) {
-                        whereUsed.splice(index, 1)
-                        entity.whereUsed = JSON.stringify(whereUsed)
-                        await appServer.AppDataSource.getRepository(DocumentStore).save(entity)
-                    }
-                } else if (entity.id === storeId) {
-                    // do nothing, already found and updated
-                } else if (entity.id !== storeId) {
-                    // remove the canvasId from the whereUsed, as a new store is being used
-                    const index = whereUsed.indexOf(canvasId)
-                    if (index > -1) {
-                        whereUsed.splice(index, 1)
-                        entity.whereUsed = JSON.stringify(whereUsed)
-                        await appServer.AppDataSource.getRepository(DocumentStore).save(entity)
-                    }
-                }
-            } else {
-                if (entity.id === storeId) {
-                    // add the canvasId to the whereUsed
-                    whereUsed.push(canvasId)
-                    entity.whereUsed = JSON.stringify(whereUsed)
-                    await appServer.AppDataSource.getRepository(DocumentStore).save(entity)
-                }
-            }
-        })
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: documentStoreServices.updateDocumentStoreUsage - ${getErrorMessage(error)}`
-        )
-    }
+    return getDocumentStoreService().updateDocumentStoreUsage(canvasId, storeId, unikId)
 }
 
 const updateVectorStoreConfigOnly = async (data: ICommonObject) => {

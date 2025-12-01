@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { IconButton, Box, OutlinedInput, Toolbar, Typography } from '@mui/material'
@@ -31,6 +32,7 @@ const ViewHeader = ({
     onEdit
 }) => {
     const theme = useTheme()
+    const { t } = useTranslation(['common'])
     const searchInputRef = useRef()
     useSearchShortcut(searchInputRef)
 
@@ -47,7 +49,7 @@ const ViewHeader = ({
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row' }}>
                     {isBackButton && (
-                        <StyledFab sx={{ mr: 3 }} size='small' color='secondary' aria-label='back' title='Back' onClick={onBack}>
+                        <StyledFab sx={{ mr: 3 }} size='small' color='secondary' aria-label='back' title={t('common:back', 'Back')} onClick={onBack}>
                             <IconArrowLeft />
                         </StyledFab>
                     )}
@@ -88,7 +90,7 @@ const ViewHeader = ({
                         )}
                     </Box>
                     {isEditButton && (
-                        <IconButton sx={{ ml: 3 }} color='secondary' title='Edit' onClick={onEdit}>
+                        <IconButton sx={{ ml: 3 }} color='secondary' title={t('common:edit', 'Edit')} onClick={onEdit}>
                             <IconEdit />
                         </IconButton>
                     )}

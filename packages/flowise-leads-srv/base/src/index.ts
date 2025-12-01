@@ -1,5 +1,5 @@
 /**
- * @universo/flowise-leads-srv
+ * @flowise/leads-srv
  *
  * Backend package for Leads domain in Universo Platformo.
  * Extracted from flowise-server for better modularity.

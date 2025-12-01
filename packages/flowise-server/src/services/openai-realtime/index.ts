@@ -15,7 +15,7 @@ import { IDepthQueue, IReactFlowNode } from '../../Interface'
 import { ICommonObject, INodeData } from 'flowise-components'
 import { convertToOpenAIFunction } from '@langchain/core/utils/function_calling'
 import { v4 as uuidv4 } from 'uuid'
-import { Variable } from '@universo/flowise-variables-srv'
+import { Variable } from '@flowise/variables-srv'
 import canvasService from '../spacesCanvas'
 
 const SOURCE_DOCUMENTS_PREFIX = '\n\n----FLOWISE_SOURCE_DOCUMENTS----\n\n'

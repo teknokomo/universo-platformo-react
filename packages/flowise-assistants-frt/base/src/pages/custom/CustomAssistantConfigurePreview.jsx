@@ -27,7 +27,7 @@ import {
 // Project import
 import { MainCard } from '@flowise/template-mui'
 import { BackdropLoader } from '@flowise/template-mui'
-import DocStoreInputHandler from '@/views/docstore/DocStoreInputHandler'
+import { DocStoreInputHandler } from '@flowise/docstore-frt'
 import { Dropdown } from '@flowise/template-mui'
 import { StyledFab } from '@flowise/template-mui'
 import ErrorBoundary from '@flowise/template-mui/ErrorBoundary'

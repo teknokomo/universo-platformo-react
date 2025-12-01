@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-assistants-frt",
+    "name": "@flowise/assistants-frt",
     "version": "0.1.0",
     "description": "Universo Platformo - Assistants Frontend Package",
     "license": "SEE LICENSE IN LICENSE-Flowise.md",
@@ -19,6 +19,7 @@
     "dependencies": {
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.0",
+        "@flowise/docstore-frt": "workspace:*",
         "@flowise/store": "workspace:*",
         "@mui/icons-material": "^5.17.1",
         "@mui/material": "^5.17.1",
