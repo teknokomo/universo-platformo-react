@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-leads-frt",
+    "name": "@flowise/leads-frt",
     "version": "0.1.0",
     "description": "Frontend module for Leads management in Universo Platformo",
     "main": "./src/index.ts",

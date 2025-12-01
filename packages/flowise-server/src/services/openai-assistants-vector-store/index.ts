@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { StatusCodes } from 'http-status-codes'
-import { Credential } from '@universo/flowise-credentials-srv'
+import { Credential } from '@flowise/credentials-srv'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'

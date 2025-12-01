@@ -206,23 +206,14 @@ FRT пакеты (publish-frt, analytics-frt, и т.д.)
 
 ## Базовые пространства имен
 
-Следующие пространства имен включены по умолчанию:
+Следующие пространства имен включены по умолчанию (EN + RU):
 
-- `translation` - Основные переводы
-- `auth` - Аутентификация
-- `admin` - Панель администратора
-- `menu` - Элементы меню
-- `assistants` - ИИ ассистенты
-- `vector-store` - Векторное хранилище
-- `document-store` - Хранилище документов
-- `credentials` - Учетные данные
-- `api-keys` - API ключи
-- `variables` - Переменные
-- `tools` - Инструменты
-- `templates` - Шаблоны
-- `canvases` - Холсты
-- `chatmessage` - Сообщения чата
-- `flowList` - Списки потоков
+- `common`, `header`, `spaces`, `roles`, `access`
+- `admin`, `auth`, `canvas`, `canvases`, `chatbot`, `chatmessage`
+- `flowList`, `menu`, `profile-menu`, `templates`
+- Диалоги вроде `about`, `manageLinks`, `viewLeads` и др.
+
+> Специализированные пространства (document-store, vector-store, assistants, tools, credentials, variables, api-keys и т.д.) **регистрируются самими функциональными пакетами**. Перед рендерингом соответствующих страниц импортируйте эти пакеты (например, `import '@flowise/docstore-frt/i18n'`).
 
 FRT пакеты добавляют свои собственные пространства имён динамически.
 

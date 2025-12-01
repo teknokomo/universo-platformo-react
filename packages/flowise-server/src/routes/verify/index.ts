@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import { createApikeyService, type IApikeyService } from '@universo/flowise-apikey-srv'
+import { createApikeyService, type IApikeyService } from '@flowise/apikey-srv'
 import { getDataSource } from '../../DataSource'
 import { appConfig } from '../../AppConfig'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'

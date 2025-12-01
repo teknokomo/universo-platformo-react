@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes'
 import { ChatMessageRatingType, ChatType } from '../../Interface'
-import { ChatMessage, ChatMessageFeedback, utilGetChatMessage } from '@universo/flowise-chatmessage-srv'
+import { ChatMessage, ChatMessageFeedback, utilGetChatMessage } from '@flowise/chatmessage-srv'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'

@@ -6,6 +6,8 @@ import MinimalLayout from '../layout/MinimalLayout'
 import Loadable from '../ui-components/loading/Loadable'
 // Ensure analytics translations registered early for legacy UI route
 import '@universo/analytics-frt/i18n'
+// Register document-store translations for legacy views rendered from flowise-ui source
+import '@flowise/docstore-frt/i18n'
 import AuthGuard from './AuthGuard'
 
 // Universo Platformo | Universal Public Flow Viewer

@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-variables-frt",
+    "name": "@flowise/variables-frt",
     "version": "0.1.0",
     "description": "Frontend module for Variables management in Universo Platformo",
     "main": "./src/index.ts",

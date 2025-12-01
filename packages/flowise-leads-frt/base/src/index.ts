@@ -1,5 +1,5 @@
 /**
- * @universo/flowise-leads-frt
+ * @flowise/leads-frt
  *
  * Frontend module for Leads management in Universo Platformo.
  *
@@ -25,4 +25,4 @@ export const LEADS_NAMESPACE = 'leads'
 /**
  * Re-export types from API client for convenience
  */
-export type { ILead, CreateLeadBody } from '@universo/flowise-leads-srv'
+export type { ILead, CreateLeadBody } from '@flowise/leads-srv'

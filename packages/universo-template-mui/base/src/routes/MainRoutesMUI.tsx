@@ -13,15 +13,17 @@ import '@universo/storages-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
 // Register tools translations before lazy loading Tools component
-import '@universo/flowise-tools-frt/i18n'
+import '@flowise/tools-frt/i18n'
 // Register credentials translations before lazy loading Credentials component
-import '@universo/flowise-credentials-frt/i18n'
+import '@flowise/credentials-frt/i18n'
 // Register variables translations before lazy loading Variables component
-import '@universo/flowise-variables-frt/i18n'
+import '@flowise/variables-frt/i18n'
 // Register apiKeys translations before lazy loading ApiKeys component
-import '@universo/flowise-apikey-frt/i18n'
+import '@flowise/apikey-frt/i18n'
 // Register assistants translations before lazy loading Assistants component
-import '@universo/flowise-assistants-frt/i18n'
+import '@flowise/assistants-frt/i18n'
+// Register document-store translations before lazy loading Document Store component
+import '@flowise/docstore-frt/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -41,24 +43,29 @@ const UnikMember = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikMem
 // Legacy components (temporarily loaded in new UI)
 const Spaces = Loadable(lazy(() => import('@universo/spaces-frt/src/views/spaces/index.jsx')))
 const Canvas = Loadable(lazy(() => import('@universo/spaces-frt/src/views/canvas/index.jsx')))
-// Tools page - moved to @universo/flowise-tools-frt
-const Tools = Loadable(lazy(() => import('@universo/flowise-tools-frt/pages/Tools')))
-// Credentials page - moved to @universo/flowise-credentials-frt
+// Tools page - moved to @flowise/tools-frt
+const Tools = Loadable(lazy(() => import('@flowise/tools-frt/pages/Tools')))
+// Credentials page - moved to @flowise/credentials-frt
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
-const Credentials = Loadable(lazy(() => import('@universo/flowise-credentials-frt/pages/Credentials')))
-// Variables page - moved to @universo/flowise-variables-frt
+const Credentials = Loadable(lazy(() => import('@flowise/credentials-frt/pages/Credentials')))
+// Variables page - moved to @flowise/variables-frt
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
-const Variables = Loadable(lazy(() => import('@universo/flowise-variables-frt/pages/Variables')))
-// ApiKeys page - moved to @universo/flowise-apikey-frt
+const Variables = Loadable(lazy(() => import('@flowise/variables-frt/pages/Variables')))
+// ApiKeys page - moved to @flowise/apikey-frt
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
-const ApiKeys = Loadable(lazy(() => import('@universo/flowise-apikey-frt/pages/APIKey')))
-// @ts-expect-error - Legacy JSX component from old UI
-const DocumentStores = Loadable(lazy(() => import('@/views/docstore')))
-// Assistants pages - moved to @universo/flowise-assistants-frt
-const Assistants = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/Assistants')))
-const CustomAssistantLayout = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/custom/CustomAssistantLayout')))
-const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/custom/CustomAssistantConfigurePreview')))
-const OpenAIAssistantLayout = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/openai/OpenAIAssistantLayout')))
+const ApiKeys = Loadable(lazy(() => import('@flowise/apikey-frt/pages/APIKey')))
+// Document Store pages - moved to @flowise/docstore-frt
+const DocumentStores = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore')))
+const DocumentStoreDetail = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/DocumentStoreDetail')))
+const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/LoaderConfigPreviewChunks')))
+const ShowStoredChunks = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/ShowStoredChunks')))
+const VectorStoreConfigure = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/VectorStoreConfigure')))
+const VectorStoreQuery = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/VectorStoreQuery')))
+// Assistants pages - moved to @flowise/assistants-frt
+const Assistants = Loadable(lazy(() => import('@flowise/assistants-frt/pages/Assistants')))
+const CustomAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frt/pages/custom/CustomAssistantLayout')))
+const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@flowise/assistants-frt/pages/custom/CustomAssistantConfigurePreview')))
+const OpenAIAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frt/pages/openai/OpenAIAssistantLayout')))
 // @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frt
 const Analytics = Loadable(lazy(() => import('@universo/analytics-frt/pages/Analytics')))
 
@@ -252,11 +259,57 @@ const MainRoutesMUI = {
         },
         {
             path: 'unik/:unikId/document-stores',
-            element: (
-                <AuthGuard>
-                    <DocumentStores />
-                </AuthGuard>
-            )
+            element: <Outlet />,
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <DocumentStores />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':storeId',
+                    element: (
+                        <AuthGuard>
+                            <DocumentStoreDetail />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':storeId/:name',
+                    element: (
+                        <AuthGuard>
+                            <LoaderConfigPreviewChunks />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'chunks/:storeId/:fileId',
+                    element: (
+                        <AuthGuard>
+                            <ShowStoredChunks />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'vector/:storeId/:docId',
+                    element: (
+                        <AuthGuard>
+                            <VectorStoreConfigure />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'query/:storeId',
+                    element: (
+                        <AuthGuard>
+                            <VectorStoreQuery />
+                        </AuthGuard>
+                    )
+                }
+            ]
         },
         {
             path: 'unik/:unikId/assistants',

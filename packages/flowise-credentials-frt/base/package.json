@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-credentials-frt",
+    "name": "@flowise/credentials-frt",
     "version": "0.1.0",
     "description": "Frontend module for Credentials management in Universo Platformo",
     "main": "./src/index.ts",

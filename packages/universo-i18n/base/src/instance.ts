@@ -22,10 +22,8 @@ import accessRu from './locales/ru/core/access.json'
 import adminEn from './locales/en/views/admin.json'
 import adminRu from './locales/ru/views/admin.json'
 
-// apiKeys translations removed - now in @universo/flowise-apikey-frt
-
-import assistantsEn from './locales/en/views/assistants.json'
-import assistantsRu from './locales/ru/views/assistants.json'
+// apiKeys translations removed - now in @flowise/apikey-frt
+// assistants translations removed - now in @flowise/assistants-frt
 
 import authEn from './locales/en/views/auth.json'
 import authRu from './locales/ru/views/auth.json'
@@ -36,11 +34,8 @@ import canvasRu from './locales/ru/views/canvas.json'
 import canvasesEn from './locales/en/views/canvases.json'
 import canvasesRu from './locales/ru/views/canvases.json'
 
-import chatmessageEn from './locales/en/views/chatmessage.json'
-import chatmessageRu from './locales/ru/views/chatmessage.json'
-
-import documentStoreEn from './locales/en/views/document-store.json'
-import documentStoreRu from './locales/ru/views/document-store.json'
+// chatmessage translations removed - now in @flowise/chatmessage-frt
+// document-store translations removed - now in @flowise/docstore-frt
 
 import flowListEn from './locales/en/views/flowList.json'
 import flowListRu from './locales/ru/views/flowList.json'
@@ -57,8 +52,7 @@ import chatbotRu from './locales/ru/views/chatbot.json'
 import templatesEn from './locales/en/views/templates.json'
 import templatesRu from './locales/ru/views/templates.json'
 
-import vectorStoreEn from './locales/en/views/vector-store.json'
-import vectorStoreRu from './locales/ru/views/vector-store.json'
+// vector-store translations removed - now in @flowise/docstore-frt
 
 // Import dialogs
 import aboutEn from './locales/en/dialogs/about.json'
@@ -131,8 +125,7 @@ import promptGeneratorRu from './locales/ru/features/prompt-generator.json'
 import speechToTextEn from './locales/en/features/speech-to-text.json'
 import speechToTextRu from './locales/ru/features/speech-to-text.json'
 
-import docstoreEn from './locales/en/features/docstore.json'
-import docstoreRu from './locales/ru/features/docstore.json'
+// Docstore/vector-store translations are provided by @flowise/docstore-frt
 
 declare global {
     // eslint-disable-next-line no-var
@@ -159,19 +152,19 @@ export function getInstance(): typeof i18n {
                         access: accessEn.access,
                         // Views
                         admin: adminEn.admin,
-                        // apiKeys: now in @universo/flowise-apikey-frt
-                        assistants: assistantsEn.assistants,
+                        // apiKeys: now in @flowise/apikey-frt
+                        // assistants: now in @flowise/assistants-frt
                         auth: authEn.auth,
                         canvas: canvasEn.canvas,
                         canvases: canvasesEn.canvases,
-                        chatmessage: chatmessageEn.chatMessage,
+                        // chatmessage: now in @flowise/chatmessage-frt
                         chatbot: chatbotEn.chatbot,
-                        'document-store': documentStoreEn.documentStore,
+                        // 'document-store': now in @flowise/docstore-frt
                         flowList: flowListEn.flowList,
                         menu: menuEn.menu,
                         'profile-menu': profileMenuEn.profileMenu,
                         templates: templatesEn.templates,
-                        'vector-store': vectorStoreEn.vectorStore,
+                        // 'vector-store': now in @flowise/docstore-frt
                         // Dialogs
                         about: aboutEn.about,
                         allowedDomains: allowedDomainsEn.allowedDomains,
@@ -196,8 +189,7 @@ export function getInstance(): typeof i18n {
                         saveCanvas: saveCanvasEn.saveCanvas,
                         // Features
                         promptGenerator: promptGeneratorEn.promptGenerator,
-                        speechToText: speechToTextEn.speechToText,
-                        docstore: docstoreEn.docstore
+                        speechToText: speechToTextEn.speechToText
                     },
                     ru: {
                         // Core
@@ -208,19 +200,19 @@ export function getInstance(): typeof i18n {
                         access: accessRu.access,
                         // Views
                         admin: adminRu.admin,
-                        // apiKeys: now in @universo/flowise-apikey-frt
-                        assistants: assistantsRu.assistants,
+                        // apiKeys: now in @flowise/apikey-frt
+                        // assistants: now in @flowise/assistants-frt
                         auth: authRu.auth,
                         canvas: canvasRu.canvas,
                         canvases: canvasesRu.canvases,
-                        chatmessage: chatmessageRu.chatMessage,
+                        // chatmessage: now in @flowise/chatmessage-frt
                         chatbot: chatbotRu.chatbot,
-                        'document-store': documentStoreRu.documentStore,
+                        // 'document-store': now in @flowise/docstore-frt
                         flowList: flowListRu.flowList,
                         menu: menuRu.menu,
                         'profile-menu': profileMenuRu.profileMenu,
                         templates: templatesRu.templates,
-                        'vector-store': vectorStoreRu.vectorStore,
+                        // 'vector-store': now in @flowise/docstore-frt
                         // Dialogs
                         about: aboutRu.about,
                         allowedDomains: allowedDomainsRu.allowedDomains,
@@ -245,8 +237,7 @@ export function getInstance(): typeof i18n {
                         saveCanvas: saveCanvasRu.saveCanvas,
                         // Features
                         promptGenerator: promptGeneratorRu.promptGenerator,
-                        speechToText: speechToTextRu.speechToText,
-                        docstore: docstoreRu.docstore
+                        speechToText: speechToTextRu.speechToText
                     }
                 },
                 fallbackLng: 'en',

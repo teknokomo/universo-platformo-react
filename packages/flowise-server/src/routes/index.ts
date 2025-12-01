@@ -1,8 +1,8 @@
 import express from 'express'
 import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
-// apikeyRouter removed - now created via @universo/flowise-apikey-srv
-// assistantsRouter removed - now created via @universo/flowise-assistants-srv
-// canvasMessageRouter, feedbackRouter, internalCanvasMessagesRouter removed - now created via @universo/flowise-chatmessage-srv
+// apikeyRouter removed - now created via @flowise/apikey-srv
+// assistantsRouter removed - now created via @flowise/assistants-srv
+// canvasMessageRouter, feedbackRouter, internalCanvasMessagesRouter removed - now created via @flowise/chatmessage-srv
 import attachmentsRouter from './attachments'
 import componentsCredentialsRouter from './components-credentials'
 import componentsCredentialsIconRouter from './components-credentials-icon'
@@ -13,7 +13,7 @@ import flowConfigRouter from './flow-config'
 import getUploadFileRouter from './get-upload-file'
 import getUploadPathRouter from './get-upload-path'
 import internalPredictionRouter from './internal-predictions'
-// leadsRouter removed - now created via @universo/flowise-leads-srv
+// leadsRouter removed - now created via @flowise/leads-srv
 import loadPromptRouter from './load-prompts'
 import marketplacesRouter from './marketplaces'
 import nodeConfigRouter from './node-configs'
@@ -30,7 +30,7 @@ import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
 import statsRouter from './stats'
 import upsertHistoryRouter from './upsert-history'
-// variablesRouter removed - now created via @universo/flowise-variables-srv
+// variablesRouter removed - now created via @flowise/variables-srv
 import vectorRouter from './vectors'
 import verifyRouter from './verify'
 import versionRouter from './versions'
@@ -42,12 +42,12 @@ import { initializeRateLimiters as initializeProjectsRateLimiters, createProject
 import { createCampaignsServiceRoutes } from '@universo/campaigns-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
-import { createToolsService, createToolsRouter, toolsErrorHandler } from '@universo/flowise-tools-srv'
-import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@universo/flowise-credentials-srv'
-import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@universo/flowise-variables-srv'
-import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@universo/flowise-apikey-srv'
-import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@universo/flowise-assistants-srv'
-import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@universo/flowise-leads-srv'
+import { createToolsService, createToolsRouter, toolsErrorHandler } from '@flowise/tools-srv'
+import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@flowise/credentials-srv'
+import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@flowise/variables-srv'
+import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@flowise/apikey-srv'
+import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@flowise/assistants-srv'
+import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@flowise/leads-srv'
 import {
     createChatMessagesService,
     createChatMessagesController,
@@ -59,7 +59,7 @@ import {
     chatMessagesErrorHandler,
     feedbackErrorHandler,
     utilGetChatMessage
-} from '@universo/flowise-chatmessage-srv'
+} from '@flowise/chatmessage-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -84,10 +84,10 @@ import canvasService, { canvasServiceConfig } from '../services/spacesCanvas'
 import { createCanvasPublicRoutes } from '@universo/spaces-srv'
 import canvasStreamingRouter from './canvas-streaming'
 import { RateLimiterManager } from '../utils/rateLimit'
-// apiKeyService removed - now created via @universo/flowise-apikey-srv
+// apiKeyService removed - now created via @flowise/apikey-srv
 import { ensureUnikMembershipResponse } from '../services/access-control'
 import { appConfig } from '../AppConfig'
-import { DocumentStore } from '../database/entities/DocumentStore'
+import { DocumentStore } from '@flowise/docstore-srv'
 import { removeFilesFromStorage } from 'flowise-components'
 
 const router: ExpressRouter = express.Router()

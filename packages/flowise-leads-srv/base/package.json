@@ -1,5 +1,5 @@
 {
-    "name": "@universo/flowise-leads-srv",
+    "name": "@flowise/leads-srv",
     "version": "0.1.0",
     "description": "Backend for Leads domain in Universo Platformo (extracted from flowise-server)",
     "main": "dist/index.js",

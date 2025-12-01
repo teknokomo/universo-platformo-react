@@ -1,5 +1,5 @@
 /**
- * @universo/flowise-chatmessage-srv
+ * @flowise/chatmessage-srv
  *
  * Chat Message service package with Dependency Injection pattern.
  * Provides entities, migrations, services, controllers, and routes for chat messages and feedback.
