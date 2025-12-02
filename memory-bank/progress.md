@@ -25,6 +25,123 @@
 
 ## January 2025
 
+### 2025-01-20: Zod Validation Schemas for spaces-srv ✅
+
+**Summary**: Added Zod validation schemas to `spaces-srv` package, replacing verbose manual validation in `spacesController.ts`. Controller reduced from ~750 lines to ~515 lines (~30% reduction).
+
+**Files Created**:
+- `packages/spaces-srv/base/src/schemas/index.ts` - centralized Zod schemas
+
+**Schemas Added**:
+- `CreateSpaceSchema`, `UpdateSpaceSchema` - Space CRUD validation
+- `CreateCanvasSchema`, `UpdateCanvasSchema` - Canvas CRUD validation
+- `CreateCanvasVersionSchema`, `UpdateCanvasVersionSchema` - Version management
+- `ReorderCanvasesSchema` - Canvas ordering validation
+- Path parameter schemas: `UnikIdParamSchema`, `SpaceParamsSchema`, etc.
+
+**Helper Functions**:
+- `extractUnikId(params)` - extract unikId with fallback to legacy :id param
+- `formatZodError(error)` - convert ZodError to user-friendly message
+- `validateBody(schema, data)` - parse with typed result
+- `safeValidateBody(schema, data)` - safe parse with error handling
+
+**Code Quality**:
+- Declarative validation instead of imperative if/else chains
+- Centralized error messages
+- Type-safe inferred types from schemas
+- Consistent response formatting
+
+---
+
+### 2025-01-20: System Status Fields for Spaces & Canvases ✅
+
+**Summary**: Added comprehensive system status fields (is_active, is_published, is_deleted, deleted_date, deleted_by) to both Spaces and Canvases tables. Made Spaces versioned like Canvases. Consolidated FixActiveVersions migration into main AddSpacesAndCanvases migration.
+
+**New Fields Added**:
+1. **Spaces table** (new versioning + status):
+   - `version_group_id` uuid NOT NULL - groups versions together
+   - `version_uuid` uuid UNIQUE NOT NULL - unique identifier for this version
+   - `version_label` varchar(255) NOT NULL DEFAULT 'v1' - human-readable label
+   - `version_description` text - optional description
+   - `version_index` integer NOT NULL DEFAULT 1 - ordering within group
+   - `is_active` boolean NOT NULL DEFAULT true - active version in group
+   - `is_published` boolean NOT NULL DEFAULT false - publicly accessible
+   - `is_deleted` boolean NOT NULL DEFAULT false - soft delete flag
+   - `deleted_date` timestamptz - when deleted
+   - `deleted_by` uuid - who deleted (FK to users)
+
+2. **Canvases table** (new status fields):
+   - `is_published` boolean NOT NULL DEFAULT false - publicly accessible
+   - `is_deleted` boolean NOT NULL DEFAULT false - soft delete flag
+   - `deleted_date` timestamptz - when deleted
+   - `deleted_by` uuid - who deleted (FK to users)
+
+**Migration Consolidation**:
+- Deleted `1743000000003-FixActiveVersions.ts` (merged into main migration)
+- Main migration now handles:
+  - Step 3: Backfill versioning for existing spaces
+  - Step 4: Fix is_active defaults + unique constraint (was in FixActiveVersions)
+
+**Indexes Created**:
+- `idx_spaces_active` - partial index on (version_group_id) WHERE is_active = true
+- `idx_spaces_published` - partial index on (id) WHERE is_published = true
+- `idx_canvases_published` - partial index on (id) WHERE is_published = true
+- `idx_canvases_not_deleted` - partial index on (space_id) WHERE is_deleted = false
+
+**RLS Policies Updated**:
+- All SELECT policies now include `NOT is_deleted` filter
+- Ensures deleted records are invisible to users
+
+**Build Status**: SUCCESS (50/50 packages)
+
+---
+
+### 2025-01-20: Canvases Migration Consolidation ✅
+
+**Summary**: Consolidated all chat_flow migrations from flowise-server into spaces-srv package. Renamed ChatflowType → CanvasType. Cleaned up legacy code references.
+
+**Migration Changes**:
+1. **Deleted from flowise-server** (7 migrations):
+   - `1693891895163-Init.ts` - original chat_flow table creation
+   - `1693995626941-ModifyChatFlow.ts` - add chatbotConfig column
+   - `1694099183389-AddApiConfig.ts` - add apiConfig column
+   - `1694432361423-AddAnalytic.ts` - add analytic column
+   - `1699900910291-AddCategoryToChatFlow.ts` - add category column
+   - `1706364937060-AddSpeechToText.ts` - add speechToText column
+   - `1716300000000-AddTypeToChatFlow.ts` - add type column
+
+2. **Updated in spaces-srv**:
+   - Renamed `SpacesCore` → `AddSpacesAndCanvases` for clarity
+   - Deleted `DropLegacyChatFlow` migration (no longer needed)
+
+3. **Rewrote flowise-server migrations index** with documented order:
+   - Phase 1: Core domain tables (chat_message, tools, credentials, assistants)
+   - Phase 2: Uniks module (tables with unik_id FK)
+   - Phase 3: Spaces module (spaces, canvases, spaces_canvases - creates canvases table)
+   - Phase 4: Publish module (publications, publish_sessions, publish_analytics)
+
+**Type Refactoring**:
+- `ChatflowType` → `CanvasType` in all 7 spaces-srv files
+- Canvas entity now imports type from central `types/index.ts`
+- Type definition: `'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'`
+
+**Legacy Code Cleanup**:
+- Removed `IActiveChatflows` interface from Interface.ts
+- Removed `validateChatflowAPIKey` alias from validateKey.ts
+- Renamed `getUsedChatflowNames` → `getUsedCanvasNames` in documentstore service
+- Updated controller call to use new function name
+
+**Decision: Template Types Not Changed**:
+- Template types (`'Chatflow' | 'Agentflow' | 'Tool'`) are UI/marketplace labels
+- CanvasType (`'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'`) is database enum
+- These are separate domains - no changes needed
+
+**Build Result**: 50/50 packages successful in 4m43s
+
+**Next Step**: User to recreate database and verify migrations run correctly
+
+---
+
 ### 2025-01-19: Templates API Route Fix ✅
 
 **Summary**: Fixed 500 error on "My Templates" (Мои шаблоны) tab by correcting regex pattern for unikId extraction in marketplaces controller.

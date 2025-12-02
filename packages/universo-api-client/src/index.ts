@@ -48,6 +48,15 @@ export { AssistantsApi, assistantQueryKeys } from './api/assistants'
 export { AttachmentsApi, attachmentsQueryKeys } from './api/attachments'
 export { CanvasMessagesApi, canvasMessagesQueryKeys } from './api/canvasMessages'
 export { CanvasesApi, canvasQueryKeys } from './api/canvases'
+export {
+    CanvasVersionsApi,
+    canvasVersionsQueryKeys,
+    type CanvasVersion,
+    type CreateCanvasVersionPayload,
+    type UpdateCanvasVersionPayload,
+    type CanvasVersionsListResponse,
+    type CanvasVersionResponse
+} from './api/canvasVersions'
 export { ChatMessageFeedbackApi, chatmessagefeedbackQueryKeys } from './api/chatmessagefeedback'
 export { ConfigApi, configQueryKeys } from './api/config'
 export { CredentialsApi, credentialQueryKeys } from './api/credentials'

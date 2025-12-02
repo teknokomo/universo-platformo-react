@@ -1,8 +1,103 @@
 # Active Context
 
-> **Last Updated**: 2025-01-19
+> **Last Updated**: 2025-01-20
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## ✅ Completed: Zod Validation Schemas for spaces-srv (2025-01-20)
+
+**Status**: COMPLETE. Build successful.
+
+**What Was Done**:
+- Created `packages/spaces-srv/base/src/schemas/index.ts` with comprehensive Zod schemas
+- Refactored `spacesController.ts` from ~750 lines to ~515 lines (~30% reduction)
+- Replaced manual validation with declarative Zod schemas
+- Added ZodError handling with user-friendly messages
+
+**Schemas Created**:
+- `CreateSpaceSchema`, `UpdateSpaceSchema` - Space CRUD
+- `CreateCanvasSchema`, `UpdateCanvasSchema` - Canvas CRUD
+- `CreateCanvasVersionSchema`, `UpdateCanvasVersionSchema` - Version management
+- `ReorderCanvasesSchema` - Canvas ordering
+- Path param schemas: `UnikIdParamSchema`, `SpaceParamsSchema`, etc.
+
+**Helper Functions**:
+- `extractUnikId(params)` - handles legacy `:id` param fallback
+- `formatZodError(error)` - user-friendly error messages
+- `validateBody()`, `safeValidateBody()` - typed validation wrappers
+
+---
+
+## ✅ Completed: Canvas Versions API Client (2025-01-20)
+
+**Status**: COMPLETE. Build 50/50 successful.
+
+**Problem**: Dialog "Версии холста" showed "Versioning is not available in this build" because `api.canvasVersions` was missing in `@universo/api-client`.
+
+**What Was Done**:
+- Created `packages/universo-api-client/src/api/canvasVersions.ts` with:
+  - `CanvasVersionsApi` class with methods: `list`, `create`, `update`, `activate`, `remove`
+  - Type definitions: `CanvasVersion`, `CreateCanvasVersionPayload`, `UpdateCanvasVersionPayload`
+  - Query keys factory: `canvasVersionsQueryKeys`
+- Updated `client.ts` to include `canvasVersions: new CanvasVersionsApi(client)`
+- Updated `index.ts` to export new API class and types
+
+**Backend Routes Already Existed**:
+- `GET /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions` - list versions
+- `POST /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions` - create version
+- `PUT /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` - update metadata
+- `POST /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId/activate` - activate version
+- `DELETE /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` - delete version
+
+---
+
+## ✅ Completed: System Status Fields for Spaces & Canvases (2025-01-20)
+
+**Status**: COMPLETE. Build 50/50 successful.
+
+**What Was Done**:
+
+1. **Migration Consolidation**:
+   - Deleted `1743000000003-FixActiveVersions.ts` (merged into main migration)
+   - Updated `1743000000000-AddSpacesAndCanvases.ts` with 10-step idempotent migration
+   - Includes: versioning backfill, is_active fix, status fields, indexes, RLS policies
+
+2. **Spaces Entity Extended** (now versioned like Canvases):
+   - Added versioning: `versionGroupId`, `versionUuid`, `versionLabel`, `versionDescription`, `versionIndex`
+   - Added status: `isActive`, `isPublished`, `isDeleted`, `deletedDate`, `deletedBy`
+
+3. **Canvas Entity Extended**:
+   - Added: `isPublished`, `isDeleted`, `deletedDate`, `deletedBy`
+
+4. **Types Updated**:
+   - `SpaceResponse` now includes all versioning + status fields
+   - `CanvasResponse` now includes status fields
+
+5. **Service Layer Updated**:
+   - Created `toSpaceResponse()` helper function
+   - Updated `toCanvasResponse()` with new status fields
+   - Fixed `getSpacesForUnik` with `is_deleted = false` filter
+   - Updated `createSpace`, `getSpaceDetails`, `updateSpace` to use helpers
+
+**Database Changes**:
+- Spaces: versioning + status fields (9 new columns)
+- Canvases: status fields (4 new columns)
+- Partial indexes for performance
+- RLS policies exclude deleted records
+
+---
+
+## ✅ Completed: Canvases Migration Consolidation (2025-01-20)
+
+**Status**: COMPLETE. Build 50/50 successful.
+
+**What Was Done**:
+- Consolidated 7 chat_flow migrations from flowise-server into spaces-srv
+- Renamed ChatflowType → CanvasType throughout codebase
+- Cleaned up legacy code (IActiveChatflows, validateChatflowAPIKey, getUsedChatflowNames)
+- Rewrote flowise-server migrations index with documented phase order
 
 ---
 

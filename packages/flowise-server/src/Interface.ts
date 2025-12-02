@@ -196,16 +196,6 @@ export interface IncomingInput {
     streaming?: boolean
 }
 
-export interface IActiveChatflows {
-    [key: string]: {
-        startingNodes: IReactFlowNode[]
-        endingNodeData?: INodeData
-        inSync: boolean
-        overrideConfig?: ICommonObject
-        chatId?: string
-    }
-}
-
 export interface IActiveCache {
     [key: string]: Map<any, any>
 }
