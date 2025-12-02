@@ -5,7 +5,7 @@
  * for use throughout the custom templates frontend package.
  */
 
-import { registerNamespace } from '@universo/i18n'
+import { registerNamespace } from '@universo/i18n/registry'
 
 // Import locale files
 import en from './locales/en/templates.json'

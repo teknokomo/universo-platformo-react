@@ -111,7 +111,7 @@ const transformTemplateForResponse = (template: CustomTemplate): ICustomTemplate
             result.schema = flowData.schema
             result.func = flowData.func
             result.categories = []
-            result.flowData = undefined as unknown as string
+            delete result.flowData
         } catch {
             result.categories = []
         }
