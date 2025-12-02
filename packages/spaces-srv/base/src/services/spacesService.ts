@@ -16,8 +16,7 @@ import {
     CanvasResponse,
     CanvasVersionResponse,
     CreateCanvasVersionDto,
-    UpdateCanvasVersionDto,
-    ChatflowType
+    UpdateCanvasVersionDto
 } from '../types'
 import { PublishLinkService } from '@universo/publish-srv'
 
@@ -53,12 +52,43 @@ function toCanvasResponse(canvas: Canvas, sortOrder: number): CanvasResponse {
         type: canvas.type,
         createdDate: canvas.createdDate,
         updatedDate: canvas.updatedDate,
+        // Versioning fields
         versionGroupId: canvas.versionGroupId,
         versionUuid: canvas.versionUuid,
         versionLabel: canvas.versionLabel,
         versionDescription: canvas.versionDescription ?? undefined,
         versionIndex: canvas.versionIndex,
-        isActive: Boolean(canvas.isActive)
+        // System status fields
+        isActive: Boolean(canvas.isActive),
+        isPublished: Boolean(canvas.isPublished),
+        isDeleted: Boolean(canvas.isDeleted),
+        deletedDate: canvas.deletedDate,
+        deletedBy: canvas.deletedBy
+    }
+}
+
+function toSpaceResponse(space: Space, canvasCount: number, defaultCanvas?: CanvasResponse): SpaceResponse {
+    return {
+        id: space.id,
+        name: space.name,
+        description: space.description,
+        visibility: space.visibility,
+        canvasCount,
+        createdDate: space.createdDate,
+        updatedDate: space.updatedDate,
+        defaultCanvas,
+        // Versioning fields
+        versionGroupId: space.versionGroupId,
+        versionUuid: space.versionUuid,
+        versionLabel: space.versionLabel,
+        versionDescription: space.versionDescription ?? undefined,
+        versionIndex: space.versionIndex,
+        // System status fields
+        isActive: Boolean(space.isActive),
+        isPublished: Boolean(space.isPublished),
+        isDeleted: Boolean(space.isDeleted),
+        deletedDate: space.deletedDate,
+        deletedBy: space.deletedBy
     }
 }
 
@@ -138,7 +168,25 @@ export class SpacesService {
                 .leftJoin('sp.spaceCanvases', 'sc')
                 .leftJoin('sc.canvas', 'canvas')
                 .where('sp.unik_id = :unikId', { unikId })
-                .select(['sp.id', 'sp.name', 'sp.description', 'sp.visibility', 'sp.createdDate', 'sp.updatedDate'])
+                .andWhere('sp.is_deleted = :isDeleted', { isDeleted: false })
+                .select([
+                    'sp.id',
+                    'sp.name',
+                    'sp.description',
+                    'sp.visibility',
+                    'sp.createdDate',
+                    'sp.updatedDate',
+                    'sp.versionGroupId',
+                    'sp.versionUuid',
+                    'sp.versionLabel',
+                    'sp.versionDescription',
+                    'sp.versionIndex',
+                    'sp.isActive',
+                    'sp.isPublished',
+                    'sp.isDeleted',
+                    'sp.deletedDate',
+                    'sp.deletedBy'
+                ])
                 .addSelect('COUNT(canvas.id)', 'canvasCount')
                 .groupBy('sp.id')
                 .getRawAndEntities()
@@ -146,15 +194,9 @@ export class SpacesService {
             console.log('[SpacesService.getSpacesForUnik] query result raw:', spaces.raw)
             console.log('[SpacesService.getSpacesForUnik] entities length:', spaces.entities?.length)
 
-            return spaces.entities.map((space: any, index: number) => ({
-                id: space.id,
-                name: space.name,
-                description: space.description,
-                visibility: space.visibility,
-                canvasCount: parseInt(spaces.raw[index].canvasCount) || 0,
-                createdDate: space.createdDate,
-                updatedDate: space.updatedDate
-            }))
+            return spaces.entities.map((space: Space, index: number) =>
+                toSpaceResponse(space, parseInt(spaces.raw[index].canvasCount) || 0)
+            )
         } catch (e: any) {
             console.error('[SpacesService] getSpacesForUnik failed', { unikId, error: String(e?.message || e) })
             throw e
@@ -184,7 +226,10 @@ export class SpacesService {
                     hasDefaultCanvasFlowData: !!defaultCanvasFlowData,
                     flowDataType: typeof defaultCanvasFlowData,
                     flowDataLength: typeof defaultCanvasFlowData === 'string' ? defaultCanvasFlowData.length : 'N/A',
-                    flowDataPreview: typeof defaultCanvasFlowData === 'string' ? defaultCanvasFlowData.slice(0, 100) : String(defaultCanvasFlowData).slice(0, 100)
+                    flowDataPreview:
+                        typeof defaultCanvasFlowData === 'string'
+                            ? defaultCanvasFlowData.slice(0, 100)
+                            : String(defaultCanvasFlowData).slice(0, 100)
                 })
 
                 const resolvedCanvasName = (defaultCanvasName ?? 'Main Canvas').trim() || 'Main Canvas'
@@ -235,16 +280,7 @@ export class SpacesService {
                 await spaceCanvasRepo.save(spaceCanvas)
                 console.log('[SpacesService.createSpace] Space-canvas link saved')
 
-                const response = {
-                    id: savedSpace.id,
-                    name: savedSpace.name,
-                    description: savedSpace.description,
-                    visibility: savedSpace.visibility,
-                    canvasCount: 1,
-                    createdDate: savedSpace.createdDate,
-                    updatedDate: savedSpace.updatedDate,
-                    defaultCanvas: toCanvasResponse(savedCanvas, 1)
-                }
+                const response = toSpaceResponse(savedSpace, 1, toCanvasResponse(savedCanvas, 1))
                 console.log('[SpacesService.createSpace] Transaction complete, returning response', {
                     spaceId: response.id,
                     canvasId: response.defaultCanvas?.id
@@ -284,15 +320,9 @@ export class SpacesService {
             const canvases: CanvasResponse[] = space.spaceCanvases?.map((sc: any) => toCanvasResponse(sc.canvas, sc.sortOrder)) || []
 
             return {
-                id: space.id,
-                name: space.name,
-                description: space.description,
-                visibility: space.visibility,
-                canvasCount: canvases.length,
-                createdDate: space.createdDate,
-                updatedDate: space.updatedDate,
+                ...toSpaceResponse(space, canvases.length),
                 canvases
-            }
+            } as SpaceDetailsResponse
         } catch (e: any) {
             console.error('[SpacesService] getSpaceDetails failed', { unikId, spaceId, error: String(e?.message || e) })
             throw e
@@ -322,15 +352,7 @@ export class SpacesService {
             where: { space: { id: spaceId } }
         })
 
-        return {
-            id: updatedSpace.id,
-            name: updatedSpace.name,
-            description: updatedSpace.description,
-            visibility: updatedSpace.visibility,
-            canvasCount,
-            createdDate: updatedSpace.createdDate,
-            updatedDate: updatedSpace.updatedDate
-        }
+        return toSpaceResponse(updatedSpace, canvasCount)
     }
 
     /**

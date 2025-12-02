@@ -1,7 +1,6 @@
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, OneToMany } from 'typeorm'
 import { SpaceCanvas } from './SpaceCanvas'
-
-export type ChatflowType = 'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'
+import { CanvasType } from '../../types'
 
 @Entity('canvases')
 export class Canvas {
@@ -14,6 +13,9 @@ export class Canvas {
     @Column({ type: 'text' })
     flowData!: string
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Canvas-specific fields (from ChatFlow)
+    // ═══════════════════════════════════════════════════════════════════════
     @Column({ nullable: true })
     deployed?: boolean
 
@@ -42,8 +44,11 @@ export class Canvas {
     category?: string
 
     @Column({ nullable: true, type: 'text' })
-    type?: ChatflowType
+    type?: CanvasType
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Versioning fields
+    // ═══════════════════════════════════════════════════════════════════════
     @Column({ name: 'version_group_id', type: 'uuid', default: () => 'gen_random_uuid()' })
     versionGroupId!: string
 
@@ -59,18 +64,36 @@ export class Canvas {
     @Column({ name: 'version_index', type: 'int', default: 1 })
     versionIndex!: number
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // System status fields
+    // ═══════════════════════════════════════════════════════════════════════
     @Column({ name: 'is_active', default: true })
     isActive!: boolean
 
-    // Align with DB column created_date (snake_case)
+    @Column({ name: 'is_published', default: false })
+    isPublished!: boolean
+
+    @Column({ name: 'is_deleted', default: false })
+    isDeleted!: boolean
+
+    @Column({ name: 'deleted_date', type: 'timestamptz', nullable: true })
+    deletedDate?: Date
+
+    @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+    deletedBy?: string
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Timestamps
+    // ═══════════════════════════════════════════════════════════════════════
     @CreateDateColumn({ name: 'created_date' })
     createdDate!: Date
 
-    // Align with DB column updated_date (snake_case)
     @UpdateDateColumn({ name: 'updated_date' })
     updatedDate!: Date
 
-    // Relationship with SpaceCanvas
+    // ═══════════════════════════════════════════════════════════════════════
+    // Relationships
+    // ═══════════════════════════════════════════════════════════════════════
     @OneToMany(() => SpaceCanvas, (spaceCanvas) => spaceCanvas.canvas)
     spaceCanvases?: SpaceCanvas[]
 }

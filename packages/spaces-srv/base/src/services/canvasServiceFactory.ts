@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm'
-import { ChatflowType } from '../types'
+import { CanvasType } from '../types'
 import { Canvas } from '../database/entities/Canvas'
 import { CanvasService, CanvasServiceDependencies, CanvasServiceEntities, PublicCanvasResponse, CanvasScope } from './canvasService'
 
@@ -16,7 +16,7 @@ export interface CanvasServiceAdapter {
     checkIfCanvasIsValidForStreaming: (canvasId: string, scope?: CanvasScope) => Promise<{ isStreaming: boolean }>
     checkIfCanvasIsValidForUploads: (canvasId: string, scope?: CanvasScope) => Promise<any>
     deleteCanvas: (canvasId: string, scope?: CanvasScope) => Promise<any>
-    getAllCanvases: (params: { unikId?: string; spaceId?: string; type?: ChatflowType }) => Promise<CanvasFlowResult[]>
+    getAllCanvases: (params: { unikId?: string; spaceId?: string; type?: CanvasType }) => Promise<CanvasFlowResult[]>
     getCanvasByApiKey: (apiKeyId: string, keyOnly?: string) => Promise<CanvasFlowResult[]>
     getCanvasById: (canvasId: string, scope?: CanvasScope) => Promise<CanvasFlowResult>
     saveCanvas: (canvasData: Partial<Canvas>, scope?: CanvasScope) => Promise<CanvasFlowResult>
@@ -39,7 +39,7 @@ export const createCanvasService = (options: CanvasServiceFactoryOptions): Canva
         deleteCanvas: async (canvasId: string, scope?: CanvasScope) => {
             return legacyService.deleteCanvas(canvasId, scope)
         },
-        getAllCanvases: async ({ unikId, spaceId, type }: { unikId?: string; spaceId?: string; type?: ChatflowType }) => {
+        getAllCanvases: async ({ unikId, spaceId, type }: { unikId?: string; spaceId?: string; type?: CanvasType }) => {
             return legacyService.getAllCanvases(type, { unikId, spaceId })
         },
         getCanvasByApiKey: async (apiKeyId: string, keyOnly?: string) => {

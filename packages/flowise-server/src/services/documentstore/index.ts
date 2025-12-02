@@ -137,18 +137,21 @@ const getDocumentStoreById = async (storeId: string, unikId?: string) => {
     return getDocumentStoreService().getDocumentStoreById(storeId, unikId)
 }
 
-const getUsedChatflowNames = async (entity: DocumentStore) => {
+/**
+ * Get names of canvases using this document store
+ */
+const getUsedCanvasNames = async (entity: DocumentStore) => {
     try {
         if (entity.whereUsed) {
             const whereUsed = JSON.parse(entity.whereUsed)
             const updatedWhereUsed: IDocumentStoreWhereUsed[] = []
             for (let i = 0; i < whereUsed.length; i++) {
                 try {
-                    const associatedChatflow = await canvasService.getCanvasById(whereUsed[i])
-                    if (associatedChatflow) {
+                    const associatedCanvas = await canvasService.getCanvasById(whereUsed[i])
+                    if (associatedCanvas) {
                         updatedWhereUsed.push({
                             id: whereUsed[i],
-                            name: associatedChatflow.name
+                            name: associatedCanvas.name
                         })
                     }
                 } catch (error: any) {
@@ -164,7 +167,7 @@ const getUsedChatflowNames = async (entity: DocumentStore) => {
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: documentStoreServices.getUsedChatflowNames - ${getErrorMessage(error)}`
+            `Error: documentStoreServices.getUsedCanvasNames - ${getErrorMessage(error)}`
         )
     }
 }
@@ -1958,7 +1961,7 @@ export default {
     getAllDocumentStores,
     getAllDocumentFileChunks,
     getDocumentStoreById,
-    getUsedChatflowNames,
+    getUsedCanvasNames,
     getDocumentStoreFileChunks,
     updateDocumentStore,
     previewChunksMiddleware,

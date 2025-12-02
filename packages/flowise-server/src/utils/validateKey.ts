@@ -48,9 +48,6 @@ export const validateCanvasApiKey = async (req: Request, canvas: CanvasFlowResul
     return false
 }
 
-// Legacy alias for backward compatibility
-export const validateChatflowAPIKey = validateCanvasApiKey
-
 /**
  * Validate API Key
  * If req.user already has a user (i.e. JWT passed), return true.

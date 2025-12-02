@@ -2,9 +2,10 @@ import { DataSource, EntityTarget, QueryRunner, Repository, SelectQueryBuilder }
 import { StatusCodes } from 'http-status-codes'
 import { validate as validateUuid } from 'uuid'
 import { randomUUID } from 'crypto'
-import { Canvas, ChatflowType } from '../database/entities/Canvas'
+import { Canvas } from '../database/entities/Canvas'
 import { Space } from '../database/entities/Space'
 import { SpaceCanvas } from '../database/entities/SpaceCanvas'
+import { CanvasType } from '../types'
 
 export interface CanvasServiceEntities {
     chatMessage: EntityTarget<any>
@@ -42,7 +43,7 @@ export interface PublicCanvasResponse {
     name: string
     flowData: string
     isPublic?: boolean
-    type?: ChatflowType
+    type?: CanvasType
     unikId?: string
     versionGroupId: string
     versionUuid: string
@@ -461,7 +462,7 @@ export class CanvasService {
         }
     }
 
-    async getAllCanvases(type?: ChatflowType, scope?: CanvasScope): Promise<Canvas[]> {
+    async getAllCanvases(type?: CanvasType, scope?: CanvasScope): Promise<Canvas[]> {
         try {
             let queryBuilder = this.canvasRepository.createQueryBuilder('canvas')
             queryBuilder = this.applyScopeToQuery(queryBuilder, scope)
@@ -695,7 +696,7 @@ export class CanvasService {
         console.log('[CanvasService.updateCanvas] START', {
             canvasId: canvas.id,
             canvasName: canvas.name,
-            updateFields: Object.keys(updateChatFlow).filter(k => updateChatFlow[k as keyof Canvas] !== undefined),
+            updateFields: Object.keys(updateChatFlow).filter((k) => updateChatFlow[k as keyof Canvas] !== undefined),
             hasFlowData: !!updateChatFlow.flowData,
             flowDataLength: updateChatFlow.flowData?.length,
             scope: scope ? { unikId: scope.unikId, spaceId: scope.spaceId } : undefined
@@ -711,13 +712,13 @@ export class CanvasService {
             console.log('[CanvasService.updateCanvas] Merging canvas with update')
             const merged = this.canvasRepository.merge(canvas, updateChatFlow)
             console.log('[CanvasService.updateCanvas] Merged entity created, checking document store usage')
-            
+
             if (!scope?.unikId) {
                 throw this.createError(StatusCodes.BAD_REQUEST, 'unikId is required for document store operations')
             }
             await this.checkAndUpdateDocumentStoreUsage(merged, scope.unikId)
             console.log('[CanvasService.updateCanvas] Document store usage checked, saving to DB')
-            
+
             const saved = await this.canvasRepository.save(merged)
             console.log('[CanvasService.updateCanvas] Canvas saved to DB', {
                 savedId: saved.id,
@@ -747,7 +748,7 @@ export class CanvasService {
                 stack: error instanceof Error ? error.stack : undefined,
                 scope
             })
-            
+
             if (error && typeof error === 'object' && 'status' in error) {
                 throw error
             }

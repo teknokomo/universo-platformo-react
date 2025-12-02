@@ -4,6 +4,167 @@
 
 ---
 
+## ✅ COMPLETED: Zod Validation Schemas for spaces-srv
+
+### 2025-01-20: Add Zod schemas to replace manual DTO validation
+
+**Status**: ✅ COMPLETE (2025-01-20)
+
+**Summary**: Added comprehensive Zod validation schemas to `spaces-srv` package, replacing verbose manual validation in `spacesController.ts`. Following patterns from `projects-srv`, `campaigns-srv`, and `metaverses-srv`.
+
+**Tasks Completed**:
+- [x] 1: Created `packages/spaces-srv/base/src/schemas/index.ts` with all Zod schemas
+- [x] 2: Added helper functions: `extractUnikId()`, `formatZodError()`, `validateBody()`, `safeValidateBody()`
+- [x] 3: Refactored `createSpace` method to use `CreateSpaceSchema.parse()`
+- [x] 4: Refactored `updateSpace` method to use `UpdateSpaceSchema.parse()`
+- [x] 5: Refactored `createCanvas` method to use `CreateCanvasSchema.parse()`
+- [x] 6: Refactored `updateCanvas` method to use `UpdateCanvasSchema.parse()`
+- [x] 7: Refactored `createCanvasVersion` method to use `CreateCanvasVersionSchema.parse()`
+- [x] 8: Refactored `updateCanvasVersion` method to use `UpdateCanvasVersionSchema.parse()`
+- [x] 9: Refactored `reorderCanvases` method to use `ReorderCanvasesSchema.parse()`
+- [x] 10: Replaced all `(req.params.unikId || req.params.id)` with `extractUnikId(req.params)`
+- [x] 11: Added ZodError handling with user-friendly error messages
+- [x] 12: Cleaned up code style (single-line JSON responses)
+- [x] 13: Run pnpm build - SUCCESS
+
+**Files Created**:
+- `packages/spaces-srv/base/src/schemas/index.ts` (~220 lines) with schemas:
+  - `CreateSpaceSchema`, `UpdateSpaceSchema` - Space CRUD validation
+  - `CreateCanvasSchema`, `UpdateCanvasSchema` - Canvas CRUD validation
+  - `CreateCanvasVersionSchema`, `UpdateCanvasVersionSchema` - Version management
+  - `ReorderCanvasesSchema` - Canvas ordering validation
+  - `UnikIdParamSchema`, `SpaceParamsSchema`, `CanvasParamsSchema`, `CanvasVersionParamsSchema` - Path params
+  - Helper functions for DRY validation
+
+**Files Modified**:
+- `packages/spaces-srv/base/src/controllers/spacesController.ts` - refactored from ~750 lines to ~515 lines (~30% reduction)
+
+**Code Quality Improvements**:
+- Declarative validation instead of imperative if/else chains
+- Centralized error messages via Zod
+- Type-safe inferred types from schemas (e.g., `CreateSpaceInput`)
+- Consistent `extractUnikId()` helper for param extraction
+- Clean single-line JSON response formatting
+
+---
+
+## ✅ COMPLETED: System Status Fields for Spaces & Canvases
+
+### 2025-01-20: Add is_active, is_published, is_deleted, deleted_date, deleted_by fields
+
+**Status**: ✅ COMPLETE (2025-01-20)
+
+**Summary**: Added comprehensive system status fields to both Spaces and Canvases tables. Merged FixActiveVersions logic into main migration. Added versioning support to Spaces (previously only Canvases had versioning).
+
+**Tasks Completed**:
+- [x] 1: Consolidated FixActiveVersions migration into AddSpacesAndCanvases
+- [x] 2: Deleted 1743000000003-FixActiveVersions.ts migration file
+- [x] 3: Updated migrations index.ts to remove FixActiveVersions import
+- [x] 4: Added status fields to Space entity: is_active, is_published, is_deleted, deleted_date, deleted_by
+- [x] 5: Added versioning fields to Space entity: version_group_id, version_uuid, version_label, version_description, version_index
+- [x] 6: Added status fields to Canvas entity: is_published, is_deleted, deleted_date, deleted_by (is_active already existed)
+- [x] 7: Updated SpaceResponse interface with all new fields
+- [x] 8: Updated CanvasResponse interface with status fields
+- [x] 9: Created toSpaceResponse() helper function in spacesService.ts
+- [x] 10: Updated toCanvasResponse() helper with new status fields
+- [x] 11: Fixed all service methods (getSpacesForUnik, createSpace, getSpaceDetails, updateSpace) to use helpers
+- [x] 12: Added is_deleted filter to getSpacesForUnik query
+- [x] 13: Run pnpm build - SUCCESS (50/50 packages)
+
+**Files Changed**:
+- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000000-AddSpacesAndCanvases.ts` - complete rewrite with:
+  - Step 3: Backfill versioning for existing spaces (version_group_id, version_uuid, version_label, version_index)
+  - Step 4: Merged FixActiveVersions logic (is_active defaults + unique constraint)
+  - Added is_published, is_deleted, deleted_date, deleted_by columns for both tables
+  - Created partial indexes: idx_spaces_active, idx_spaces_published, idx_canvases_published, idx_canvases_not_deleted
+  - Updated RLS policies to filter `NOT is_deleted`
+- `packages/spaces-srv/base/src/database/migrations/postgres/index.ts` - removed FixActiveVersions
+- `packages/spaces-srv/base/src/database/entities/Space.ts` - added versionGroupId, versionUuid, versionLabel, versionDescription, versionIndex, isActive, isPublished, isDeleted, deletedDate, deletedBy
+- `packages/spaces-srv/base/src/database/entities/Canvas.ts` - added isPublished, isDeleted, deletedDate, deletedBy
+- `packages/spaces-srv/base/src/types/index.ts` - updated SpaceResponse and CanvasResponse interfaces
+- `packages/spaces-srv/base/src/services/spacesService.ts` - created toSpaceResponse helper, updated all methods
+
+**Files Deleted**:
+- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000003-FixActiveVersions.ts`
+
+**Database Schema Changes**:
+- `spaces` table gets: version_group_id, version_uuid, version_label, version_description, version_index, is_active, is_published, is_deleted, deleted_date, deleted_by
+- `canvases` table gets: is_published, is_deleted, deleted_date, deleted_by
+- Both tables: partial indexes for efficient filtering
+- RLS policies: updated to exclude deleted records
+
+---
+
+## ✅ COMPLETED: Canvases Migration Consolidation
+
+### 2025-12-02: Consolidate chat_flow migrations into spaces-srv
+
+**Status**: ✅ COMPLETE (2025-01-20)
+
+**Summary**: Removed all chat_flow migrations from flowise-server and consolidated into spaces-srv. Renamed ChatflowType → CanvasType. Cleaned up legacy code.
+
+**Phase 1: Type Refactoring** ✅
+- [x] 0.1: Remove duplicate ChatflowType from Canvas.ts entity
+- [x] 0.2: Rename ChatflowType → CanvasType in types/index.ts
+- [x] 0.3: Update imports in canvasService.ts
+- [x] 0.4: Update imports in canvasServiceFactory.ts
+- [x] 0.5: Update imports in spacesService.ts
+- [x] 0.6: Update imports in canvasController.ts
+- [x] 0.7: Update imports in spacesController.ts
+- [x] 0.8: Update tests - SKIPPED (no tests with ChatflowType found)
+- [x] 0.9: Update Canvas.ts entity to import type from types
+
+**Phase 2: Migration Consolidation** ✅
+- [x] 1: Rename SpacesCore → AddSpacesAndCanvases
+- [x] 2: Delete DropLegacyChatFlow migration
+- [x] 3: Update index.ts in spaces-srv
+- [x] 4: Delete 7 chat_flow migrations from flowise-server
+- [x] 5: Rewrite index.ts in flowise-server with documented migration order
+
+**Phase 3: Legacy Code Cleanup** ✅
+- [x] 6: Remove IActiveChatflows from Interface.ts
+- [x] 7: Remove validateChatflowAPIKey alias from validateKey.ts
+- [x] 8: Rename getUsedChatflowNames → getUsedCanvasNames in documentstore service
+- [x] 9: Update documentstore controller call
+
+**Phase 4: Template Types Alignment** ⏭️ SKIPPED
+- [ ] 10: Align Template types to use UPPERCASE literals
+  - Decision: Template types ('Chatflow'|'Agentflow'|'Tool') are UI/marketplace labels, separate domain from CanvasType database enum. No changes needed.
+
+**Phase 5: Testing** ✅
+- [x] 11: Run pnpm build - SUCCESS
+- [ ] 12: Verify migrations work correctly - Pending user to recreate database
+
+**Files Changed**:
+- `packages/spaces-srv/base/src/types/index.ts` - ChatflowType → CanvasType
+- `packages/spaces-srv/base/src/database/entities/Canvas.ts` - import CanvasType from types
+- `packages/spaces-srv/base/src/services/canvasService.ts` - ChatflowType → CanvasType
+- `packages/spaces-srv/base/src/services/canvasServiceFactory.ts` - ChatflowType → CanvasType
+- `packages/spaces-srv/base/src/services/spacesService.ts` - ChatflowType → CanvasType
+- `packages/spaces-srv/base/src/controllers/canvasController.ts` - ChatflowType → CanvasType
+- `packages/spaces-srv/base/src/controllers/spacesController.ts` - ChatflowType → CanvasType
+- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000000-AddSpacesAndCanvases.ts` - renamed from SpacesCore
+- `packages/spaces-srv/base/src/database/migrations/postgres/index.ts` - updated imports
+
+**Files Deleted**:
+- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000002-DropLegacyChatFlow.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1693891895163-Init.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1693995626941-ModifyChatFlow.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1694099183389-AddApiConfig.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1694432361423-AddAnalytic.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1699900910291-AddCategoryToChatFlow.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1706364937060-AddSpeechToText.ts`
+- `packages/flowise-server/src/database/migrations/postgres/1716300000000-AddTypeToChatFlow.ts`
+
+**flowise-server files modified**:
+- `packages/flowise-server/src/database/migrations/postgres/index.ts` - complete rewrite with documented order
+- `packages/flowise-server/src/Interface.ts` - removed IActiveChatflows
+- `packages/flowise-server/src/utils/validateKey.ts` - removed validateChatflowAPIKey alias
+- `packages/flowise-server/src/services/documentstore/index.ts` - getUsedChatflowNames → getUsedCanvasNames
+- `packages/flowise-server/src/controllers/documentstore/index.ts` - updated function call
+
+---
+
 ## ✅ COMPLETED: Templates API Route Fix
 
 ### 2025-01-19: Fix 500 error on My Templates tab

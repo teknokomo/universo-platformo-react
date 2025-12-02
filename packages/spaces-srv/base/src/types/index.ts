@@ -19,7 +19,13 @@ export interface CreateCanvasDto {
     flowData?: string
 }
 
-export type ChatflowType = 'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'
+/**
+ * Canvas type determines the mode of operation:
+ * - CHATFLOW: Standard chat flow canvas
+ * - MULTIAGENT: Multi-agent workflow canvas
+ * - ASSISTANT: OpenAI Assistant-based canvas
+ */
+export type CanvasType = 'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'
 
 export interface UpdateCanvasDto {
     name?: string
@@ -33,7 +39,7 @@ export interface UpdateCanvasDto {
     speechToText?: string
     followUpPrompts?: string
     category?: string
-    type?: ChatflowType
+    type?: CanvasType
 }
 
 export interface ReorderCanvasesDto {
@@ -52,6 +58,18 @@ export interface SpaceResponse {
     createdDate: Date
     updatedDate: Date
     defaultCanvas?: CanvasResponse
+    // Versioning fields
+    versionGroupId: string
+    versionUuid: string
+    versionLabel: string
+    versionDescription?: string
+    versionIndex: number
+    // System status fields
+    isActive: boolean
+    isPublished: boolean
+    isDeleted: boolean
+    deletedDate?: Date
+    deletedBy?: string
 }
 
 export interface SpaceDetailsResponse extends SpaceResponse {
@@ -72,15 +90,21 @@ export interface CanvasResponse {
     speechToText?: string
     followUpPrompts?: string
     category?: string
-    type?: ChatflowType
+    type?: CanvasType
     createdDate: Date
     updatedDate: Date
+    // Versioning fields
     versionGroupId: string
     versionUuid: string
     versionLabel: string
     versionDescription?: string
     versionIndex: number
+    // System status fields
     isActive: boolean
+    isPublished: boolean
+    isDeleted: boolean
+    deletedDate?: Date
+    deletedBy?: string
 }
 
 export interface ApiResponse<T = any> {

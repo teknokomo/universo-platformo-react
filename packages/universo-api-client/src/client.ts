@@ -1,5 +1,6 @@
 import { createAuthClient, type AuthClient } from '@universo/auth-frt'
 import { CanvasesApi } from './api/canvases'
+import { CanvasVersionsApi } from './api/canvasVersions'
 import { CredentialsApi } from './api/credentials'
 import { AssistantsApi } from './api/assistants'
 import { ToolsApi } from './api/tools'
@@ -80,6 +81,7 @@ export const createUniversoApiClient = (options: UniversoApiClientOptions) => {
         attachments: new AttachmentsApi(client),
         canvasMessages: new CanvasMessagesApi(client),
         canvases: new CanvasesApi(client),
+        canvasVersions: new CanvasVersionsApi(client),
         chatMessageFeedback: new ChatMessageFeedbackApi(client),
         config: new ConfigApi(client),
         credentials: new CredentialsApi(client),

@@ -1,16 +1,18 @@
 import { Request, Response } from 'express'
+import { ZodError } from 'zod'
 import { SpacesService } from '../services/spacesService'
+import { ApiResponse } from '../types'
 import {
-    CreateSpaceDto,
-    UpdateSpaceDto,
-    CreateCanvasDto,
-    UpdateCanvasDto,
-    ReorderCanvasesDto,
-    ApiResponse,
-    CreateCanvasVersionDto,
-    UpdateCanvasVersionDto,
-    ChatflowType
-} from '../types'
+    CreateSpaceSchema,
+    UpdateSpaceSchema,
+    CreateCanvasSchema,
+    UpdateCanvasSchema,
+    CreateCanvasVersionSchema,
+    UpdateCanvasVersionSchema,
+    ReorderCanvasesSchema,
+    extractUnikId,
+    formatZodError
+} from '../schemas'
 
 export class SpacesController {
     constructor(private spacesService: SpacesService) {}
@@ -20,36 +22,21 @@ export class SpacesController {
      */
     async getSpaces(req: Request, res: Response): Promise<void> {
         try {
-            // Fallback: support either :unikId (preferred) or legacy :id param from mount
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
 
             if (!unikId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID is required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID is required' } as ApiResponse)
                 return
             }
 
             console.log('[SpacesController.getSpaces] unikId:', unikId)
             const spaces = await this.spacesService.getSpacesForUnik(unikId)
-            console.log(
-                '[SpacesController.getSpaces] spaces count:',
-                Array.isArray(spaces) ? spaces.length : 'not array',
-                'sample:',
-                spaces?.[0]
-            )
+            console.log('[SpacesController.getSpaces] spaces count:', Array.isArray(spaces) ? spaces.length : 'not array')
 
-            res.json({
-                success: true,
-                data: { spaces }
-            } as ApiResponse)
+            res.json({ success: true, data: { spaces } } as ApiResponse)
         } catch (error) {
             console.error('[SpacesController] Error fetching spaces:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -58,35 +45,25 @@ export class SpacesController {
      */
     async getCanvasById(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { canvasId } = req.params
 
             if (!unikId || !canvasId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Canvas ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Canvas ID are required' } as ApiResponse)
                 return
             }
 
             const canvas = await this.spacesService.getCanvasById(unikId, canvasId)
 
             if (!canvas) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas not found' } as ApiResponse)
                 return
             }
 
-            // Return canvas directly for compatibility with frontend expectations
             res.json(canvas)
         } catch (error) {
             console.error('[SpacesController] Error fetching canvas by id:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -95,59 +72,20 @@ export class SpacesController {
      */
     async createSpace(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
-            const spaceData: CreateSpaceDto = req.body
+            const unikId = extractUnikId(req.params)
 
             if (!unikId) {
                 res.status(400).json({
                     success: false,
-                    error: 'Unik ID is required'
+                    error: 'Valid Unik ID is required'
                 } as ApiResponse)
                 return
             }
 
-            const trimmedName = spaceData.name?.trim()
-            if (!trimmedName || trimmedName.length === 0) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Space name is required'
-                } as ApiResponse)
-                return
-            }
+            // Validate request body with Zod
+            const validatedData = CreateSpaceSchema.parse(req.body)
 
-            if (trimmedName.length > 200) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Space name must be 200 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            if (spaceData.description && spaceData.description.length > 2000) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Space description must be 2000 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            const trimmedCanvasName = typeof spaceData.defaultCanvasName === 'string' ? spaceData.defaultCanvasName.trim() : undefined
-            if (trimmedCanvasName && trimmedCanvasName.length > 200) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Canvas name must be 200 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            const payload: CreateSpaceDto = {
-                ...spaceData,
-                name: trimmedName,
-                defaultCanvasName: trimmedCanvasName,
-                defaultCanvasFlowData: typeof spaceData.defaultCanvasFlowData === 'string' ? spaceData.defaultCanvasFlowData : undefined
-            }
-
-            const space = await this.spacesService.createSpace(unikId, payload)
+            const space = await this.spacesService.createSpace(unikId, validatedData)
 
             res.status(201).json({
                 success: true,
@@ -155,6 +93,13 @@ export class SpacesController {
                 message: 'Space created successfully'
             } as ApiResponse)
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({
+                    success: false,
+                    error: formatZodError(error)
+                } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error creating space:', error)
             res.status(500).json({
                 success: false,
@@ -168,37 +113,25 @@ export class SpacesController {
      */
     async getSpaceDetails(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId } = req.params
 
             if (!unikId || !spaceId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Space ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Space ID are required' } as ApiResponse)
                 return
             }
 
             const space = await this.spacesService.getSpaceDetails(unikId, spaceId)
 
             if (!space) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Space not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Space not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                data: space
-            } as ApiResponse)
+            res.json({ success: true, data: space } as ApiResponse)
         } catch (error) {
             console.error('[SpacesController] Error fetching space details:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -207,65 +140,30 @@ export class SpacesController {
      */
     async updateSpace(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId } = req.params
-            const updateData: UpdateSpaceDto = req.body
 
             if (!unikId || !spaceId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Space ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Space ID are required' } as ApiResponse)
                 return
             }
 
-            if (updateData.name !== undefined) {
-                if (!updateData.name || updateData.name.trim().length === 0) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Space name cannot be empty'
-                    } as ApiResponse)
-                    return
-                }
-
-                if (updateData.name.length > 200) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Space name must be 200 characters or less'
-                    } as ApiResponse)
-                    return
-                }
-            }
-
-            if (updateData.description && updateData.description.length > 2000) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Space description must be 2000 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            const space = await this.spacesService.updateSpace(unikId, spaceId, updateData)
+            const validatedData = UpdateSpaceSchema.parse(req.body)
+            const space = await this.spacesService.updateSpace(unikId, spaceId, validatedData)
 
             if (!space) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Space not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Space not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                data: space,
-                message: 'Space updated successfully'
-            } as ApiResponse)
+            res.json({ success: true, data: space, message: 'Space updated successfully' } as ApiResponse)
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({ success: false, error: formatZodError(error) } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error updating space:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -274,37 +172,25 @@ export class SpacesController {
      */
     async deleteSpace(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId } = req.params
 
             if (!unikId || !spaceId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Space ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Space ID are required' } as ApiResponse)
                 return
             }
 
             const deleted = await this.spacesService.deleteSpace(unikId, spaceId)
 
             if (!deleted) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Space not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Space not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                message: 'Space deleted successfully'
-            } as ApiResponse)
+            res.json({ success: true, message: 'Space deleted successfully' } as ApiResponse)
         } catch (error) {
             console.error('[SpacesController] Error deleting space:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -313,26 +199,19 @@ export class SpacesController {
      */
     async getCanvases(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId } = req.params
 
             if (!unikId || !spaceId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Space ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Space ID are required' } as ApiResponse)
                 return
             }
 
             const canvases = await this.spacesService.getCanvasesForSpace(unikId, spaceId)
-            // Return plain array for simpler client handling
             res.json(canvases)
         } catch (error) {
             console.error('[SpacesController] Error fetching canvases:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -341,44 +220,30 @@ export class SpacesController {
      */
     async createCanvas(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId } = req.params
-            const canvasData: CreateCanvasDto = req.body
 
             if (!unikId || !spaceId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Space ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Space ID are required' } as ApiResponse)
                 return
             }
 
-            if (canvasData.name && canvasData.name.length > 200) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Canvas name must be 200 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            const canvas = await this.spacesService.createCanvas(unikId, spaceId, canvasData)
+            const validatedData = CreateCanvasSchema.parse(req.body)
+            const canvas = await this.spacesService.createCanvas(unikId, spaceId, validatedData)
 
             if (!canvas) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Space not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Space not found' } as ApiResponse)
                 return
             }
 
-            // Return created canvas object directly
             res.status(201).json(canvas)
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({ success: false, error: formatZodError(error) } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error creating canvas:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -387,54 +252,30 @@ export class SpacesController {
      */
     async updateCanvas(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { canvasId } = req.params
-            const updateData: UpdateCanvasDto = req.body
 
             if (!unikId || !canvasId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Canvas ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Canvas ID are required' } as ApiResponse)
                 return
             }
 
-            if (updateData.name !== undefined) {
-                if (!updateData.name || updateData.name.trim().length === 0) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Canvas name cannot be empty'
-                    } as ApiResponse)
-                    return
-                }
-
-                if (updateData.name.length > 200) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Canvas name must be 200 characters or less'
-                    } as ApiResponse)
-                    return
-                }
-            }
-
-            const canvas = await this.spacesService.updateCanvas(unikId, canvasId, updateData)
+            const validatedData = UpdateCanvasSchema.parse(req.body)
+            const canvas = await this.spacesService.updateCanvas(unikId, canvasId, validatedData)
 
             if (!canvas) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas not found' } as ApiResponse)
                 return
             }
 
-            // Return updated canvas directly
             res.json(canvas)
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({ success: false, error: formatZodError(error) } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error updating canvas:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -443,34 +284,25 @@ export class SpacesController {
      */
     async deleteCanvas(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { canvasId } = req.params
 
             if (!unikId || !canvasId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Canvas ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Canvas ID are required' } as ApiResponse)
                 return
             }
 
             const deleted = await this.spacesService.deleteCanvas(unikId, canvasId)
 
             if (!deleted) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas not found' } as ApiResponse)
                 return
             }
 
             res.status(204).send()
         } catch (error) {
             if (error instanceof Error && error.message.includes('Cannot delete the last canvas')) {
-                res.status(400).json({
-                    success: false,
-                    error: error.message
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: error.message } as ApiResponse)
                 return
             }
 
@@ -487,37 +319,25 @@ export class SpacesController {
      */
     async getCanvasVersions(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId, canvasId } = req.params
 
             if (!unikId || !spaceId || !canvasId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID, Space ID, and Canvas ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID, Space ID, and Canvas ID are required' } as ApiResponse)
                 return
             }
 
             const versions = await this.spacesService.getCanvasVersions(unikId, spaceId, canvasId)
 
             if (!versions) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                data: { versions }
-            } as ApiResponse)
+            res.json({ success: true, data: { versions } } as ApiResponse)
         } catch (error) {
             console.error('[SpacesController] Error fetching canvas versions:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -526,60 +346,30 @@ export class SpacesController {
      */
     async createCanvasVersion(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId, canvasId } = req.params
 
             if (!unikId || !spaceId || !canvasId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID, Space ID, and Canvas ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID, Space ID, and Canvas ID are required' } as ApiResponse)
                 return
             }
 
-            const payload: CreateCanvasVersionDto = {
-                label: typeof req.body?.label === 'string' ? req.body.label.trim() || undefined : undefined,
-                description: typeof req.body?.description === 'string' ? req.body.description.trim() || undefined : undefined,
-                activate: Boolean(req.body?.activate)
-            }
-
-            if (payload.label && payload.label.length > 200) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Version label must be 200 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            if (payload.description && payload.description.length > 2000) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Version description must be 2000 characters or less'
-                } as ApiResponse)
-                return
-            }
-
-            const version = await this.spacesService.createCanvasVersion(unikId, spaceId, canvasId, payload)
+            const validatedData = CreateCanvasVersionSchema.parse(req.body)
+            const version = await this.spacesService.createCanvasVersion(unikId, spaceId, canvasId, validatedData)
 
             if (!version) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas not found' } as ApiResponse)
                 return
             }
 
-            res.status(201).json({
-                success: true,
-                data: version,
-                message: 'Canvas version created successfully'
-            } as ApiResponse)
+            res.status(201).json({ success: true, data: version, message: 'Canvas version created successfully' } as ApiResponse)
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({ success: false, error: formatZodError(error) } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error creating canvas version:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -588,84 +378,37 @@ export class SpacesController {
      */
     async updateCanvasVersion(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId, canvasId, versionId } = req.params
 
             if (!unikId || !spaceId || !canvasId || !versionId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID, Space ID, Canvas ID, and Version ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID, Space ID, Canvas ID, and Version ID are required' } as ApiResponse)
                 return
             }
 
-            const body = req.body ?? {}
-            const hasLabel = Object.prototype.hasOwnProperty.call(body, 'label')
-            const hasDescription = Object.prototype.hasOwnProperty.call(body, 'description')
-
-            if (!hasLabel && !hasDescription) {
-                res.status(400).json({
-                    success: false,
-                    error: 'No fields provided for update'
-                } as ApiResponse)
+            const validatedData = UpdateCanvasVersionSchema.parse(req.body)
+            
+            if (Object.keys(validatedData).length === 0) {
+                res.status(400).json({ success: false, error: 'No fields provided for update' } as ApiResponse)
                 return
             }
 
-            const payload: UpdateCanvasVersionDto = {}
-
-            if (hasLabel) {
-                const label = typeof body.label === 'string' ? body.label.trim() : ''
-                if (!label) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Version label cannot be empty'
-                    } as ApiResponse)
-                    return
-                }
-                if (label.length > 200) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Version label must be 200 characters or less'
-                    } as ApiResponse)
-                    return
-                }
-                payload.label = label
-            }
-
-            if (hasDescription) {
-                const description = typeof body.description === 'string' ? body.description.trim() : ''
-                if (description.length > 2000) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Version description must be 2000 characters or less'
-                    } as ApiResponse)
-                    return
-                }
-                payload.description = description
-            }
-
-            const version = await this.spacesService.updateCanvasVersion(unikId, spaceId, canvasId, versionId, payload)
+            const version = await this.spacesService.updateCanvasVersion(unikId, spaceId, canvasId, versionId, validatedData)
 
             if (!version) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas version not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas version not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                data: version,
-                message: 'Canvas version updated successfully'
-            } as ApiResponse)
+            res.json({ success: true, data: version, message: 'Canvas version updated successfully' } as ApiResponse)
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({ success: false, error: formatZodError(error) } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error updating canvas version:', error)
             const status = error instanceof Error ? 400 : 500
-            res.status(status).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(status).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -674,39 +417,26 @@ export class SpacesController {
      */
     async activateCanvasVersion(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId, canvasId, versionId } = req.params
 
             if (!unikId || !spaceId || !canvasId || !versionId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID, Space ID, Canvas ID, and Version ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID, Space ID, Canvas ID, and Version ID are required' } as ApiResponse)
                 return
             }
 
             const canvas = await this.spacesService.activateCanvasVersion(unikId, spaceId, canvasId, versionId)
 
             if (!canvas) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas version not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas version not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                data: canvas,
-                message: 'Canvas version activated successfully'
-            } as ApiResponse)
+            res.json({ success: true, data: canvas, message: 'Canvas version activated successfully' } as ApiResponse)
         } catch (error) {
             console.error('[SpacesController] Error activating canvas version:', error)
             const status = error instanceof Error ? 400 : 500
-            res.status(status).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(status).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -715,38 +445,26 @@ export class SpacesController {
      */
     async deleteCanvasVersion(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId, canvasId, versionId } = req.params
 
             if (!unikId || !spaceId || !canvasId || !versionId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID, Space ID, Canvas ID, and Version ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID, Space ID, Canvas ID, and Version ID are required' } as ApiResponse)
                 return
             }
 
             const deleted = await this.spacesService.deleteCanvasVersion(unikId, spaceId, canvasId, versionId)
 
             if (!deleted) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Canvas version not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Canvas version not found' } as ApiResponse)
                 return
             }
 
-            res.json({
-                success: true,
-                message: 'Canvas version deleted successfully'
-            } as ApiResponse)
+            res.json({ success: true, message: 'Canvas version deleted successfully' } as ApiResponse)
         } catch (error) {
             console.error('[SpacesController] Error deleting canvas version:', error)
             const status = error instanceof Error ? 400 : 500
-            res.status(status).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(status).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 
@@ -755,54 +473,30 @@ export class SpacesController {
      */
     async reorderCanvases(req: Request, res: Response): Promise<void> {
         try {
-            const unikId = (req.params.unikId || req.params.id) as string
+            const unikId = extractUnikId(req.params)
             const { spaceId } = req.params
-            const reorderData: ReorderCanvasesDto = req.body
 
             if (!unikId || !spaceId) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Unik ID and Space ID are required'
-                } as ApiResponse)
+                res.status(400).json({ success: false, error: 'Unik ID and Space ID are required' } as ApiResponse)
                 return
             }
 
-            if (!reorderData.canvasOrders || !Array.isArray(reorderData.canvasOrders)) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Canvas orders array is required'
-                } as ApiResponse)
-                return
-            }
-
-            // Validate canvas orders
-            for (const order of reorderData.canvasOrders) {
-                if (!order.canvasId || typeof order.sortOrder !== 'number' || order.sortOrder < 1) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Invalid canvas order data'
-                    } as ApiResponse)
-                    return
-                }
-            }
-
-            const success = await this.spacesService.reorderCanvases(unikId, spaceId, reorderData)
+            const validatedData = ReorderCanvasesSchema.parse(req.body)
+            const success = await this.spacesService.reorderCanvases(unikId, spaceId, validatedData)
 
             if (!success) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Space not found'
-                } as ApiResponse)
+                res.status(404).json({ success: false, error: 'Space not found' } as ApiResponse)
                 return
             }
 
             res.json({ message: 'Canvases reordered successfully' })
         } catch (error) {
+            if (error instanceof ZodError) {
+                res.status(400).json({ success: false, error: formatZodError(error) } as ApiResponse)
+                return
+            }
             console.error('[SpacesController] Error reordering canvases:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Internal server error'
-            } as ApiResponse)
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
         }
     }
 }

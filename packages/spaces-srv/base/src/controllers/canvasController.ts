@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import { Canvas } from '../database/entities/Canvas'
 import { CanvasServiceAdapter } from '../services/canvasServiceFactory'
-import { ChatflowType } from '../types'
+import { CanvasType } from '../types'
 
 const DEFAULT_ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this canvas'
 
@@ -179,11 +179,11 @@ export class CanvasController {
                 return
             }
 
-            const type = (req.query?.type as ChatflowType) || undefined
+            const type = (req.query?.type as CanvasType) || undefined
             const canvases = await this.canvasService.getAllCanvases({ unikId, spaceId, type })
-            console.log('[CanvasController.getAllCanvases] Result:', { 
-                unikId, 
-                spaceId, 
+            console.log('[CanvasController.getAllCanvases] Result:', {
+                unikId,
+                spaceId,
                 type,
                 canvasesCount: Array.isArray(canvases) ? canvases.length : (canvases as any)?.canvases?.length || 0,
                 firstCanvasId: Array.isArray(canvases) && canvases.length > 0 ? canvases[0].id : null,
@@ -193,9 +193,7 @@ export class CanvasController {
                 firstCanvasName: Array.isArray(canvases) && canvases.length > 0 ? canvases[0].name : null
             })
             // Wrap array response to match CanvasListResponse type
-            const response = Array.isArray(canvases) 
-                ? { canvases, total: canvases.length }
-                : canvases
+            const response = Array.isArray(canvases) ? { canvases, total: canvases.length } : canvases
             res.json(response)
         } catch (error) {
             next(error)
@@ -342,7 +340,7 @@ export class CanvasController {
             const unikId = this.resolveUnikId(req)
             const expectsSpace = this.routeRequiresSpace(req)
             const spaceId = this.resolveSpaceId(req)
-            
+
             console.log('[CanvasController.updateCanvas] Resolved params', {
                 canvasId,
                 unikId,
