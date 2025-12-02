@@ -81,6 +81,7 @@
         "@flowise/assistants-srv": "workspace:*",
         "@flowise/chatmessage-srv": "workspace:*",
         "@flowise/credentials-srv": "workspace:*",
+        "@flowise/customtemplates-srv": "workspace:*",
         "@flowise/docstore-srv": "workspace:*",
         "@flowise/leads-srv": "workspace:*",
         "@flowise/tools-srv": "workspace:*",

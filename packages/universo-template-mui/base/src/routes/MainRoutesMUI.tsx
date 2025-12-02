@@ -24,6 +24,8 @@ import '@flowise/apikey-frt/i18n'
 import '@flowise/assistants-frt/i18n'
 // Register document-store translations before lazy loading Document Store component
 import '@flowise/docstore-frt/i18n'
+// Register customtemplates translations before lazy loading Templates component
+import '@flowise/customtemplates-frt/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -68,6 +70,9 @@ const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@flowise/ass
 const OpenAIAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frt/pages/openai/OpenAIAssistantLayout')))
 // @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frt
 const Analytics = Loadable(lazy(() => import('@universo/analytics-frt/pages/Analytics')))
+// Custom Templates pages - moved to @flowise/customtemplates-frt
+// Note: TemplateCanvas is routed via CanvasRoutes with MinimalLayout
+const Templates = Loadable(lazy(() => import('@flowise/customtemplates-frt/pages/Templates')))
 
 // Metaverse module components
 const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseList')))
@@ -356,6 +361,15 @@ const MainRoutesMUI = {
                     <Analytics />
                 </AuthGuard>
             )
+        },
+        {
+            path: 'unik/:unikId/templates',
+            element: (
+                <AuthGuard>
+                    <Templates />
+                </AuthGuard>
+            )
+            // Note: Template detail view (templates/:id) is in CanvasRoutes with MinimalLayout
         },
         {
             path: 'unik/:unikId/access',

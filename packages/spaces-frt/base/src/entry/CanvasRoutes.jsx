@@ -5,7 +5,7 @@ import { Loadable, MinimalLayout } from '@flowise/template-mui'
 
 // Canvas screens (from this package and flowise-ui)
 const Canvas = Loadable(lazy(() => import('../views/canvas')))
-const MarketplaceCanvas = Loadable(lazy(() => import('@ui/views/marketplaces/MarketplaceCanvas')))
+const TemplateCanvas = Loadable(lazy(() => import('@flowise/customtemplates-frt/pages/Templates/TemplateCanvas')))
 
 // ==============================|| CANVAS ROUTING (MinimalLayout) ||============================== //
 
@@ -26,7 +26,7 @@ const CanvasRoutes = {
     { path: 'agentcanvas/:id', element: <Canvas /> },
 
     // templates
-    { path: 'templates/:id', element: <MarketplaceCanvas /> }
+    { path: 'templates/:id', element: <TemplateCanvas /> }
   ]
 }
 

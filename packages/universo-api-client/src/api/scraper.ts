@@ -1,6 +1,6 @@
 /**
  * ScraperApi
- * 
+ *
  * Auto-generated stub - needs implementation based on scraper.js
  */
 
@@ -16,5 +16,5 @@ export class ScraperApi {
  * Query keys factory for TanStack Query integration
  */
 export const scraperQueryKeys = {
-    all: ['scrapers'] as const,
+    all: ['scrapers'] as const
 } as const

@@ -88,19 +88,12 @@ export class DocumentStoreApi {
     }
 
     /** Create a new document store */
-    async createDocumentStore(
-        unikId: string,
-        body: CreateDocumentStoreBody
-    ): Promise<AxiosResponse<DocumentStore>> {
+    async createDocumentStore(unikId: string, body: CreateDocumentStoreBody): Promise<AxiosResponse<DocumentStore>> {
         return this.client.post(`/unik/${unikId}/document-stores/store`, body)
     }
 
     /** Update a document store */
-    async updateDocumentStore(
-        unikId: string,
-        id: string,
-        body: Partial<CreateDocumentStoreBody>
-    ): Promise<AxiosResponse<DocumentStore>> {
+    async updateDocumentStore(unikId: string, id: string, body: Partial<CreateDocumentStoreBody>): Promise<AxiosResponse<DocumentStore>> {
         return this.client.put(`/unik/${unikId}/document-stores/store/${id}`, body)
     }
 
@@ -117,19 +110,12 @@ export class DocumentStoreApi {
     }
 
     /** Get configuration for a specific loader in a store */
-    async getDocumentStoreConfig(
-        unikId: string,
-        storeId: string,
-        loaderId: string
-    ): Promise<AxiosResponse<unknown>> {
+    async getDocumentStoreConfig(unikId: string, storeId: string, loaderId: string): Promise<AxiosResponse<unknown>> {
         return this.client.get(`/unik/${unikId}/document-stores/store-configs/${storeId}/${loaderId}`)
     }
 
     /** Preview chunks before processing */
-    async previewChunks(
-        unikId: string,
-        body: PreviewChunksBody
-    ): Promise<AxiosResponse<PreviewChunksResponse>> {
+    async previewChunks(unikId: string, body: PreviewChunksBody): Promise<AxiosResponse<PreviewChunksResponse>> {
         return this.client.post(`/unik/${unikId}/document-stores/loader/preview`, body)
     }
 
@@ -156,25 +142,13 @@ export class DocumentStoreApi {
     // -------- Chunks --------
 
     /** Get file chunks with pagination */
-    async getFileChunks(
-        unikId: string,
-        storeId: string,
-        fileId: string,
-        pageNo: number
-    ): Promise<AxiosResponse<unknown>> {
+    async getFileChunks(unikId: string, storeId: string, fileId: string, pageNo: number): Promise<AxiosResponse<unknown>> {
         return this.client.get(`/unik/${unikId}/document-stores/chunks/${storeId}/${fileId}/${pageNo}`)
     }
 
     /** Delete a specific chunk */
-    async deleteChunkFromStore(
-        unikId: string,
-        storeId: string,
-        loaderId: string,
-        chunkId: string
-    ): Promise<AxiosResponse<void>> {
-        return this.client.delete(
-            `/unik/${unikId}/document-stores/chunks/${storeId}/${loaderId}/${chunkId}`
-        )
+    async deleteChunkFromStore(unikId: string, storeId: string, loaderId: string, chunkId: string): Promise<AxiosResponse<void>> {
+        return this.client.delete(`/unik/${unikId}/document-stores/chunks/${storeId}/${loaderId}/${chunkId}`)
     }
 
     /** Edit a chunk's content */
@@ -185,10 +159,7 @@ export class DocumentStoreApi {
         chunkId: string,
         body: unknown
     ): Promise<AxiosResponse<unknown>> {
-        return this.client.put(
-            `/unik/${unikId}/document-stores/chunks/${storeId}/${loaderId}/${chunkId}`,
-            body
-        )
+        return this.client.put(`/unik/${unikId}/document-stores/chunks/${storeId}/${loaderId}/${chunkId}`, body)
     }
 
     // -------- Vector Store Components --------
@@ -242,13 +213,10 @@ export class DocumentStoreApi {
 export const documentstoreQueryKeys = {
     all: ['document-stores'] as const,
     list: (unikId: string) => [...documentstoreQueryKeys.all, 'list', unikId] as const,
-    detail: (unikId: string, id: string) =>
-        [...documentstoreQueryKeys.all, 'detail', unikId, id] as const,
+    detail: (unikId: string, id: string) => [...documentstoreQueryKeys.all, 'detail', unikId, id] as const,
     loaders: (unikId: string) => [...documentstoreQueryKeys.all, 'loaders', unikId] as const,
     chunks: (unikId: string, storeId: string, fileId: string) =>
         [...documentstoreQueryKeys.all, 'chunks', unikId, storeId, fileId] as const,
-    vectorProviders: (unikId: string) =>
-        [...documentstoreQueryKeys.all, 'vectorProviders', unikId] as const,
-    embeddingProviders: (unikId: string) =>
-        [...documentstoreQueryKeys.all, 'embeddingProviders', unikId] as const,
+    vectorProviders: (unikId: string) => [...documentstoreQueryKeys.all, 'vectorProviders', unikId] as const,
+    embeddingProviders: (unikId: string) => [...documentstoreQueryKeys.all, 'embeddingProviders', unikId] as const
 } as const

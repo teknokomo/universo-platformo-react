@@ -20,6 +20,10 @@
       "types": "./src/hooks/index.ts",
       "default": "./src/hooks/index.ts"
     },
+    "./i18n": {
+      "types": "./src/i18n/index.ts",
+      "default": "./src/i18n/index.ts"
+    },
     "./hooks/useApi": "./src/hooks/hooks/useApi.jsx",
     "./hooks/useConfirm": "./src/hooks/hooks/useConfirm.jsx",
     "./hooks/useNotifier": "./src/hooks/useNotifier.js",
@@ -43,7 +47,8 @@
   "sideEffects": [
     "**/*.css",
     "**/*.scss",
-    "**/*.sass"
+    "**/*.sass",
+    "./src/i18n/index.ts"
   ],
   "files": [
     "src",

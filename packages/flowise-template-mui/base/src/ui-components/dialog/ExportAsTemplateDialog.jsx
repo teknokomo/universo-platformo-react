@@ -21,15 +21,15 @@ import Chip from '@mui/material/Chip'
 import { IconX } from '@tabler/icons-react'
 
 // API
-// TODO: use api.marketplaces
 import useApi from '../../hooks/hooks/useApi'
+import { api } from '@universo/api-client'
 
 // Project imports
 
 const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation('template-dialog')
     const dispatch = useDispatch()
     const [name, setName] = useState('')
     const [flowType, setFlowType] = useState('')
@@ -38,7 +38,8 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const [usecases, setUsecases] = useState([])
     const [usecaseInput, setUsecaseInput] = useState('')
 
-    const saveCustomTemplateApi = useApi(api.marketplaces.saveAsCustomTemplate)
+    // Wrap in arrow function to preserve 'this' context
+    const saveCustomTemplateApi = useApi((...args) => api.templates.saveCustom(...args))
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
@@ -96,7 +97,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const onConfirm = () => {
         if (name.trim() === '') {
             enqueueSnackbar({
-                message: t('dialog.exportTemplate.nameRequired'),
+                message: t('exportTemplate.nameRequired'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -135,7 +136,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     useEffect(() => {
         if (saveCustomTemplateApi.data) {
             enqueueSnackbar({
-                message: t('dialog.exportTemplate.saveSuccess'),
+                message: t('exportTemplate.saveSuccess'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'success',
@@ -155,7 +156,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     useEffect(() => {
         if (saveCustomTemplateApi.error) {
             enqueueSnackbar({
-                message: t('dialog.exportTemplate.saveError'),
+                message: t('exportTemplate.saveError'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -182,13 +183,13 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.title || t('dialog.exportTemplate.title')}
+                {dialogProps.title || t('exportTemplate.title')}
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                         <Typography sx={{ mb: 1 }}>
-                            {t('dialog.exportTemplate.name')}
+                            {t('exportTemplate.name')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                         <OutlinedInput
@@ -206,7 +207,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 </Box>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography sx={{ mb: 1 }}>{t('dialog.exportTemplate.description')}</Typography>
+                        <Typography sx={{ mb: 1 }}>{t('exportTemplate.description')}</Typography>
                         <OutlinedInput
                             id={'description'}
                             type={'string'}
@@ -224,7 +225,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 </Box>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography sx={{ mb: 1 }}>{t('dialog.exportTemplate.badge')}</Typography>
+                        <Typography sx={{ mb: 1 }}>{t('exportTemplate.badge')}</Typography>
                         <OutlinedInput
                             id={'badge'}
                             type={'string'}
@@ -240,7 +241,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 </Box>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography sx={{ mb: 1 }}>{t('dialog.exportTemplate.usecases')}</Typography>
+                        <Typography sx={{ mb: 1 }}>{t('exportTemplate.usecases')}</Typography>
                         {usecases.length > 0 && (
                             <div style={{ marginBottom: 10 }}>
                                 {usecases.map((uc, index) => (
@@ -261,15 +262,15 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                             variant='outlined'
                         />
                         <Typography variant='body2' sx={{ fontStyle: 'italic', mt: 1 }} color='text.secondary'>
-                            {t('dialog.exportTemplate.usecaseHelp')}
+                            {t('exportTemplate.usecaseHelp')}
                         </Typography>
                     </div>
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('dialog.exportTemplate.cancel')}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('exportTemplate.cancel')}</Button>
                 <StyledButton disabled={dialogProps.disabled} variant='contained' onClick={onConfirm}>
-                    {dialogProps.confirmButtonName || t('dialog.exportTemplate.save')}
+                    {dialogProps.confirmButtonName || t('exportTemplate.save')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

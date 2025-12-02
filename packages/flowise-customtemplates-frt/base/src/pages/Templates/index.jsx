@@ -40,7 +40,7 @@ import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackba
 import { ConfirmDialog } from '@flowise/template-mui'
 
 // API
-import { api } from '@universo/api-client' // Replaced import marketplacesApi from '@/api/marketplaces'
+import { api } from '@universo/api-client'
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'
@@ -66,9 +66,10 @@ const SelectStyles = {
         borderRadius: 2
     }
 }
-// ==============================|| Marketplace ||============================== //
 
-const Marketplace = () => {
+// ==============================|| TEMPLATES PAGE ||============================== //
+
+const Templates = () => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
     const { t } = useTranslation('templates')
@@ -88,7 +89,8 @@ const Marketplace = () => {
     const [showToolDialog, setShowToolDialog] = useState(false)
     const [toolDialogProps, setToolDialogProps] = useState({})
 
-    const getAllTemplatesMarketplacesApi = useApi(api.marketplaces.getAllTemplatesFromMarketplaces)
+    // Use arrow functions to preserve API method binding
+    const getAllTemplatesApi = useApi((...args) => api.templates.getAll(...args))
 
     const [view, setView] = React.useState(localStorage.getItem('mpDisplayStyle') || 'card')
     const [search, setSearch] = useState('')
@@ -96,7 +98,7 @@ const Marketplace = () => {
     const [typeFilter, setTypeFilter] = useState([])
     const [frameworkFilter, setFrameworkFilter] = useState([])
 
-    const getAllCustomTemplatesApi = useApi(api.marketplaces.getAllCustomTemplates)
+    const getAllCustomTemplatesApi = useApi((...args) => api.templates.getAllCustom(...args))
     const [activeTabValue, setActiveTabValue] = useState(0)
     const [templateImages, setTemplateImages] = useState({})
     const [templateUsecases, setTemplateUsecases] = useState([])
@@ -122,11 +124,8 @@ const Marketplace = () => {
         const {
             target: { value }
         } = event
-        setBadgeFilter(
-            // On autofill we get a stringified value.
-            typeof value === 'string' ? value.split(',') : value
-        )
-        const data = activeTabValue === 0 ? getAllTemplatesMarketplacesApi.data : getAllCustomTemplatesApi.data
+        setBadgeFilter(typeof value === 'string' ? value.split(',') : value)
+        const data = activeTabValue === 0 ? getAllTemplatesApi.data : getAllCustomTemplatesApi.data
         getEligibleUsecases(data, {
             typeFilter,
             badgeFilter: typeof value === 'string' ? value.split(',') : value,
@@ -139,11 +138,8 @@ const Marketplace = () => {
         const {
             target: { value }
         } = event
-        setTypeFilter(
-            // On autofill we get a stringified value.
-            typeof value === 'string' ? value.split(',') : value
-        )
-        const data = activeTabValue === 0 ? getAllTemplatesMarketplacesApi.data : getAllCustomTemplatesApi.data
+        setTypeFilter(typeof value === 'string' ? value.split(',') : value)
+        const data = activeTabValue === 0 ? getAllTemplatesApi.data : getAllCustomTemplatesApi.data
         getEligibleUsecases(data, {
             typeFilter: typeof value === 'string' ? value.split(',') : value,
             badgeFilter,
@@ -156,11 +152,8 @@ const Marketplace = () => {
         const {
             target: { value }
         } = event
-        setFrameworkFilter(
-            // On autofill we get a stringified value.
-            typeof value === 'string' ? value.split(',') : value
-        )
-        const data = activeTabValue === 0 ? getAllTemplatesMarketplacesApi.data : getAllCustomTemplatesApi.data
+        setFrameworkFilter(typeof value === 'string' ? value.split(',') : value)
+        const data = activeTabValue === 0 ? getAllTemplatesApi.data : getAllCustomTemplatesApi.data
         getEligibleUsecases(data, {
             typeFilter,
             badgeFilter,
@@ -177,26 +170,25 @@ const Marketplace = () => {
 
     const onSearchChange = (event) => {
         setSearch(event.target.value)
-        const data = activeTabValue === 0 ? getAllTemplatesMarketplacesApi.data : getAllCustomTemplatesApi.data
-
+        const data = activeTabValue === 0 ? getAllTemplatesApi.data : getAllCustomTemplatesApi.data
         getEligibleUsecases(data, { typeFilter, badgeFilter, frameworkFilter, search: event.target.value })
     }
 
     const onDeleteCustomTemplate = async (template) => {
         const confirmPayload = {
-            title: t('templates.confirmDelete'),
-            description: t('templates.confirmDeleteDescription').replace('{name}', template.name),
-            confirmButtonName: t('templates.confirmDelete'),
-            cancelButtonName: t('templates.common.cancel')
+            title: t('confirmDelete'),
+            description: t('confirmDeleteDescription').replace('{name}', template.name),
+            confirmButtonName: t('confirmDelete'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
         if (isConfirmed) {
             try {
-                const deleteResp = await api.marketplaces.deleteCustomTemplate(unikId, template.id)
+                const deleteResp = await api.templates.deleteCustom(unikId, template.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('templates.deleteSuccess'),
+                        message: t('deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -211,7 +203,7 @@ const Marketplace = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('templates.deleteError', {
+                    message: t('deleteError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -314,18 +306,18 @@ const Marketplace = () => {
     }
 
     useEffect(() => {
-        getAllTemplatesMarketplacesApi.request(unikId)
+        getAllTemplatesApi.request(unikId)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     useEffect(() => {
-        setLoading(getAllTemplatesMarketplacesApi.loading)
-    }, [getAllTemplatesMarketplacesApi.loading])
+        setLoading(getAllTemplatesApi.loading)
+    }, [getAllTemplatesApi.loading])
 
     useEffect(() => {
-        if (getAllTemplatesMarketplacesApi.data) {
+        if (getAllTemplatesApi.data) {
             try {
-                const flows = getAllTemplatesMarketplacesApi.data
+                const flows = getAllTemplatesApi.data
                 const usecases = []
                 const images = {}
                 for (let i = 0; i < flows.length; i += 1) {
@@ -350,13 +342,13 @@ const Marketplace = () => {
                 console.error(e)
             }
         }
-    }, [getAllTemplatesMarketplacesApi.data])
+    }, [getAllTemplatesApi.data])
 
     useEffect(() => {
-        if (getAllTemplatesMarketplacesApi.error) {
-            setError(getAllTemplatesMarketplacesApi.error)
+        if (getAllTemplatesApi.error) {
+            setError(getAllTemplatesApi.error)
         }
-    }, [getAllTemplatesMarketplacesApi.error])
+    }, [getAllTemplatesApi.error])
 
     useEffect(() => {
         setLoading(getAllCustomTemplatesApi.loading)
@@ -422,7 +414,7 @@ const Marketplace = () => {
                                         }}
                                     >
                                         <InputLabel size='small' id='filter-badge-label'>
-                                            {t('templates.tag')}
+                                            {t('tag')}
                                         </InputLabel>
                                         <Select
                                             labelId='filter-badge-label'
@@ -431,7 +423,7 @@ const Marketplace = () => {
                                             multiple
                                             value={badgeFilter}
                                             onChange={handleBadgeFilterChange}
-                                            input={<OutlinedInput label={t('templates.tag')} />}
+                                            input={<OutlinedInput label={t('tag')} />}
                                             renderValue={(selected) => selected.join(', ')}
                                             MenuProps={MenuProps}
                                             sx={SelectStyles}
@@ -458,7 +450,7 @@ const Marketplace = () => {
                                         }}
                                     >
                                         <InputLabel size='small' id='type-badge-label'>
-                                            {t('templates.type')}
+                                            {t('type')}
                                         </InputLabel>
                                         <Select
                                             size='small'
@@ -467,7 +459,7 @@ const Marketplace = () => {
                                             multiple
                                             value={typeFilter}
                                             onChange={handleTypeFilterChange}
-                                            input={<OutlinedInput label={t('templates.type')} />}
+                                            input={<OutlinedInput label={t('type')} />}
                                             renderValue={(selected) => selected.join(', ')}
                                             MenuProps={MenuProps}
                                             sx={SelectStyles}
@@ -494,7 +486,7 @@ const Marketplace = () => {
                                         }}
                                     >
                                         <InputLabel size='small' id='type-fw-label'>
-                                            {t('templates.framework')}
+                                            {t('framework')}
                                         </InputLabel>
                                         <Select
                                             size='small'
@@ -503,7 +495,7 @@ const Marketplace = () => {
                                             multiple
                                             value={frameworkFilter}
                                             onChange={handleFrameworkFilterChange}
-                                            input={<OutlinedInput label={t('templates.framework')} />}
+                                            input={<OutlinedInput label={t('framework')} />}
                                             renderValue={(selected) => selected.join(', ')}
                                             MenuProps={MenuProps}
                                             sx={SelectStyles}
@@ -524,8 +516,8 @@ const Marketplace = () => {
                             }
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder={t('templates.search')}
-                            title={t('templates.title')}
+                            searchPlaceholder={t('search')}
+                            title={t('title')}
                         >
                             <ToggleButtonGroup
                                 sx={{ borderRadius: 2, height: '100%' }}
@@ -561,8 +553,8 @@ const Marketplace = () => {
                             </ToggleButtonGroup>
                         </ViewHeader>
                         <Tabs value={activeTabValue} onChange={activeTabChange} textColor='primary' aria-label='tabs' centered>
-                            <Tab value={0} label={t('templates.communityTemplates')}></Tab>
-                            <Tab value={1} label={t('templates.myTemplates')} />
+                            <Tab value={0} label={t('communityTemplates')}></Tab>
+                            <Tab value={1} label={t('myTemplates')} />
                         </Tabs>
                         <TabPanel value={activeTabValue} index={0}>
                             <Stack direction='row' sx={{ gap: 2, my: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -608,22 +600,31 @@ const Marketplace = () => {
                                             <Skeleton variant='rounded' height={160} />
                                         </Box>
                                     ) : (
-                                        <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
-                                            {getAllTemplatesMarketplacesApi.data
+                                        <Box
+                                            display='grid'
+                                            gridTemplateColumns={{
+                                                xs: '1fr',
+                                                sm: 'repeat(2, 1fr)',
+                                                lg: 'repeat(3, 1fr)'
+                                            }}
+                                            gap={gridSpacing}
+                                        >
+                                            {getAllTemplatesApi.data
                                                 ?.filter(filterByBadge)
                                                 .filter(filterByType)
                                                 .filter(filterFlows)
                                                 .filter(filterByFramework)
                                                 .filter(filterByUsecases)
                                                 .map((data, index) => (
-                                                    <Box key={index}>
+                                                    <Box key={index} sx={{ position: 'relative' }}>
                                                         {data.badge && (
                                                             <Badge
                                                                 sx={{
                                                                     width: '100%',
                                                                     height: '100%',
                                                                     '& .MuiBadge-badge': {
-                                                                        right: 20
+                                                                        right: 20,
+                                                                        top: 10
                                                                     }
                                                                 }}
                                                                 badgeContent={data.badge}
@@ -658,7 +659,7 @@ const Marketplace = () => {
                                 </>
                             ) : (
                                 <MarketplaceTable
-                                    data={getAllTemplatesMarketplacesApi.data}
+                                    data={getAllTemplatesApi.data}
                                     filterFunction={filterFlows}
                                     filterByType={filterByType}
                                     filterByBadge={filterByBadge}
@@ -671,7 +672,7 @@ const Marketplace = () => {
                                 />
                             )}
 
-                            {!isLoading && (!getAllTemplatesMarketplacesApi.data || getAllTemplatesMarketplacesApi.data.length === 0) && (
+                            {!isLoading && (!getAllTemplatesApi.data || getAllTemplatesApi.data.length === 0) && (
                                 <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                                     <Box sx={{ p: 2, height: 'auto' }}>
                                         <img
@@ -680,7 +681,7 @@ const Marketplace = () => {
                                             alt='WorkflowEmptySVG'
                                         />
                                     </Box>
-                                    <div>{t('templates.noTemplatesYet')}</div>
+                                    <div>{t('noTemplatesYet')}</div>
                                 </Stack>
                             )}
                         </TabPanel>
@@ -725,13 +726,29 @@ const Marketplace = () => {
                             {!view || view === 'card' ? (
                                 <>
                                     {isLoading ? (
-                                        <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                                        <Box
+                                            display='grid'
+                                            gridTemplateColumns={{
+                                                xs: '1fr',
+                                                sm: 'repeat(2, 1fr)',
+                                                lg: 'repeat(3, 1fr)'
+                                            }}
+                                            gap={gridSpacing}
+                                        >
                                             <Skeleton variant='rounded' height={160} />
                                             <Skeleton variant='rounded' height={160} />
                                             <Skeleton variant='rounded' height={160} />
                                         </Box>
                                     ) : (
-                                        <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                                        <Box
+                                            display='grid'
+                                            gridTemplateColumns={{
+                                                xs: '1fr',
+                                                sm: 'repeat(2, 1fr)',
+                                                lg: 'repeat(3, 1fr)'
+                                            }}
+                                            gap={gridSpacing}
+                                        >
                                             {getAllCustomTemplatesApi.data
                                                 ?.filter(filterByBadge)
                                                 .filter(filterByType)
@@ -739,14 +756,15 @@ const Marketplace = () => {
                                                 .filter(filterByFramework)
                                                 .filter(filterByUsecases)
                                                 .map((data, index) => (
-                                                    <Box key={index}>
+                                                    <Box key={index} sx={{ position: 'relative' }}>
                                                         {data.badge && (
                                                             <Badge
                                                                 sx={{
                                                                     width: '100%',
                                                                     height: '100%',
                                                                     '& .MuiBadge-badge': {
-                                                                        right: 20
+                                                                        right: 20,
+                                                                        top: 10
                                                                     }
                                                                 }}
                                                                 badgeContent={data.badge}
@@ -803,7 +821,7 @@ const Marketplace = () => {
                                             alt='WorkflowEmptySVG'
                                         />
                                     </Box>
-                                    <div>{t('templates.noSavedCustomTemplates')}</div>
+                                    <div>{t('noSavedCustomTemplates')}</div>
                                 </Stack>
                             )}
                         </TabPanel>
@@ -816,7 +834,7 @@ const Marketplace = () => {
                 onCancel={() => setShowToolDialog(false)}
                 onConfirm={(toolId) => {
                     setShowToolDialog(false)
-                    
+
                     // After successful creation of the tool, redirect to the Tools page
                     if (toolId) {
                         navigate(`/unik/${unikId}/tools`)
@@ -829,4 +847,4 @@ const Marketplace = () => {
     )
 }
 
-export default Marketplace
+export default Templates

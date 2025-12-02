@@ -17,10 +17,10 @@ import { baseURL } from '@flowise/template-mui'
 import LlamaindexPNG from '@flowise/template-mui/assets/images/llamaindex.png'
 
 const CardWrapper = styled(MainCard)(({ theme }) => ({
-    background: theme.palette.card.main,
-    color: theme.darkTextPrimary,
+    background: theme.palette.card?.main || theme.palette.background?.paper || '#fff',
+    color: theme.darkTextPrimary || theme.palette.text?.primary,
     border: 'solid 1px',
-    borderColor: theme.palette.primary[200] + 75,
+    borderColor: (theme.palette.primary[200] || theme.palette.primary.light) + '75',
     width: '300px',
     height: 'auto',
     padding: '10px',
@@ -30,9 +30,9 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
     }
 }))
 
-// ===========================|| CANVAS NODE ||=========================== //
+// ===========================|| TEMPLATE CANVAS NODE ||=========================== //
 
-const MarketplaceCanvasNode = ({ data }) => {
+const TemplateCanvasNode = ({ data }) => {
     const theme = useTheme()
     const { t } = useTranslation('templates')
 
@@ -44,8 +44,8 @@ const MarketplaceCanvasNode = ({ data }) => {
             data,
             inputParams: data.inputParams.filter((param) => param.additionalParams),
             disabled: true,
-            confirmButtonName: t('templates.common.save'),
-            cancelButtonName: t('templates.common.cancel')
+            confirmButtonName: t('common.save'),
+            cancelButtonName: t('common.cancel')
         }
         setDialogProps(dialogProps)
         setShowDialog(true)
@@ -111,14 +111,14 @@ const MarketplaceCanvasNode = ({ data }) => {
                     {(data.inputAnchors.length > 0 || data.inputParams.length > 0) && (
                         <>
                             <Divider />
-                            <Box sx={{ background: theme.palette.asyncSelect.main, p: 1 }}>
+                            <Box sx={{ background: theme.palette.asyncSelect?.main || theme.palette.action?.hover || '#f5f5f5', p: 1 }}>
                                 <Typography
                                     sx={{
                                         fontWeight: 500,
                                         textAlign: 'center'
                                     }}
                                 >
-                                    {t('templates.canvas.inputs')}
+                                    {t('canvas.inputs')}
                                 </Typography>
                             </Box>
                             <Divider />
@@ -142,19 +142,19 @@ const MarketplaceCanvasNode = ({ data }) => {
                             }}
                         >
                             <Button sx={{ borderRadius: 25, width: '90%', mb: 2 }} variant='outlined' onClick={onDialogClicked}>
-                                {t('templates.canvas.additionalParameters')}
+                                {t('canvas.additionalParameters')}
                             </Button>
                         </div>
                     )}
                     <Divider />
-                    <Box sx={{ background: theme.palette.asyncSelect.main, p: 1 }}>
+                    <Box sx={{ background: theme.palette.asyncSelect?.main || theme.palette.action?.hover || '#f5f5f5', p: 1 }}>
                         <Typography
                             sx={{
                                 fontWeight: 500,
                                 textAlign: 'center'
                             }}
                         >
-                            {t('templates.canvas.output')}
+                            {t('canvas.output')}
                         </Typography>
                     </Box>
                     <Divider />
@@ -173,8 +173,8 @@ const MarketplaceCanvasNode = ({ data }) => {
     )
 }
 
-MarketplaceCanvasNode.propTypes = {
+TemplateCanvasNode.propTypes = {
     data: PropTypes.object
 }
 
-export default MarketplaceCanvasNode
+export default TemplateCanvasNode

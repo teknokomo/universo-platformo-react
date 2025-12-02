@@ -1,6 +1,6 @@
 /**
  * ExportImportApi
- * 
+ *
  * Auto-generated stub - needs implementation based on exportimport.js
  */
 
@@ -34,5 +34,5 @@ export class ExportImportApi {
  * Query keys factory for TanStack Query integration
  */
 export const exportimportQueryKeys = {
-    all: ['export-import'] as const,
+    all: ['export-import'] as const
 } as const

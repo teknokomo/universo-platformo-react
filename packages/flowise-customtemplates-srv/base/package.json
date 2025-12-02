@@ -1,0 +1,37 @@
+{
+    "name": "@flowise/customtemplates-srv",
+    "version": "0.1.0",
+    "description": "Backend for Custom Templates in Universo Platformo (extracted from flowise-server)",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts src/",
+        "lint:fix": "eslint --ext .ts src/ --fix"
+    },
+    "keywords": [
+        "universo",
+        "platformo",
+        "customtemplates",
+        "templates",
+        "backend",
+        "typescript"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "peerDependencies": {
+        "typeorm": "catalog:"
+    },
+    "dependencies": {
+        "http-status-codes": "^2.3.0"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "typeorm": "catalog:",
+        "typescript": "catalog:"
+    }
+}

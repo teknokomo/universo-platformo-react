@@ -1,16 +1,16 @@
 /**
  * Tools API Client
- * 
+ *
  * Manages custom tool components that are scoped to a Unik.
  * Tools are reusable function wrappers that can be used in agents and chains.
- * 
+ *
  * @example
  * ```typescript
  * import { createUniversoApiClient, toolQueryKeys } from '@universo/api-client'
  * import { useQuery } from '@tanstack/react-query'
- * 
+ *
  * const api = createUniversoApiClient({ baseURL: '/api/v1' })
- * 
+ *
  * // Get all tools for a Unik
  * const { data: tools } = useQuery({
  *   queryKey: toolQueryKeys.list(unikId),
@@ -109,5 +109,5 @@ export class ToolsApi {
 export const toolQueryKeys = {
     all: ['tools'] as const,
     list: (unikId: string) => [...toolQueryKeys.all, 'list', unikId] as const,
-    detail: (unikId: string, id: string) => [...toolQueryKeys.all, 'detail', unikId, id] as const,
+    detail: (unikId: string, id: string) => [...toolQueryKeys.all, 'detail', unikId, id] as const
 } as const

@@ -17,7 +17,8 @@ import {
     IconDatabase,
     IconRobot,
     IconChartBar,
-    IconFlag
+    IconFlag,
+    IconLayoutDashboard
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -87,6 +88,12 @@ export const getUnikMenuItems = (unikId: string): TemplateMenuItem[] => [
         titleKey: 'analytics',
         url: `/unik/${unikId}/analytics`,
         icon: IconChartBar
+    },
+    {
+        id: 'unik-templates',
+        titleKey: 'templates',
+        url: `/unik/${unikId}/templates`,
+        icon: IconLayoutDashboard
     },
     {
         id: 'unik-access',

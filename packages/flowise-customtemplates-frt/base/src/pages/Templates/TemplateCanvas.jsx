@@ -10,16 +10,16 @@ import { Toolbar, Box, AppBar } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 
 // project imports
-import MarketplaceCanvasNode from './MarketplaceCanvasNode'
-import MarketplaceCanvasHeader from './MarketplaceCanvasHeader'
+import TemplateCanvasNode from './TemplateCanvasNode'
+import TemplateCanvasHeader from './TemplateCanvasHeader'
 import StickyNote from '@universo/spaces-frt/views/canvas/StickyNote'
 
-const nodeTypes = { customNode: MarketplaceCanvasNode, stickyNote: StickyNote }
+const nodeTypes = { customNode: TemplateCanvasNode, stickyNote: StickyNote }
 const edgeTypes = { buttonedge: '' }
 
-// ==============================|| CANVAS ||============================== //
+// ==============================|| TEMPLATE CANVAS ||============================== //
 
-const MarketplaceCanvas = () => {
+const TemplateCanvas = () => {
     const theme = useTheme()
     const navigate = useNavigate()
     const { unikId } = useParams()
@@ -67,7 +67,7 @@ const MarketplaceCanvas = () => {
                     }}
                 >
                     <Toolbar>
-                        <MarketplaceCanvasHeader
+                        <TemplateCanvasHeader
                             flowName={name}
                             flowData={JSON.parse(flowData)}
                             onChatflowCopy={(flowData) => onChatflowCopy(flowData)}
@@ -106,4 +106,4 @@ const MarketplaceCanvas = () => {
     )
 }
 
-export default MarketplaceCanvas
+export default TemplateCanvas

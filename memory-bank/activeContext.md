@@ -1,8 +1,66 @@
 # Active Context
 
-> **Last Updated**: 2025-12-02
+> **Last Updated**: 2025-01-19
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## ✅ Completed: QA Cleanup - Remove Duplicate Marketplaces (2025-01-19)
+
+**Status**: COMPLETE. Build 50/50 successful.
+
+**What Was Done**:
+- Added `@flowise/customtemplates-frt` dependency to spaces-frt
+- Updated CanvasRoutes.jsx to import `TemplateCanvas` from `@flowise/customtemplates-frt` instead of old `MarketplaceCanvas` from `@ui/views/marketplaces`
+- Updated ExportAsTemplateDialog.jsx to use `api.templates.saveCustom` instead of `api.marketplaces.saveAsCustomTemplate`
+- Deleted duplicate folder `flowise-ui/src/views/marketplaces/` (functionality now in @flowise/customtemplates-frt)
+
+**Naming Alignment**: Completed migration from `Marketplaces` → `Templates` naming.
+
+---
+
+## ✅ Completed: CustomTemplates Package Extraction (2025-01-19)
+
+**Status**: COMPLETE. Build 50/50 successful.
+
+**What Was Done**:
+
+1. **Created `@flowise/customtemplates-srv`** (backend package):
+   - TypeORM entity `CustomTemplate` with full schema
+   - Migration `1725629836652-AddCustomTemplate`
+   - Service `CustomTemplatesService` with DI pattern
+   - Exports: `CustomTemplate`, `customTemplatesMigrations`, `CustomTemplatesService`, `getCustomTemplatesService`
+
+2. **Created `@flowise/customtemplates-frt`** (frontend package):
+   - Templates list page and detail pages (JSX, source-only)
+   - i18n translations (en/ru) compiled via tsdown
+   - Components: `Templates`, `TemplateCanvas`, `TemplateCanvasHeader`, `TemplateCanvasNode`
+
+3. **Implemented `MarketplacesApi`** in `@universo/api-client`:
+   - Full typed methods for templates CRUD
+   - TanStack Query keys factory
+   - Types: `ICustomTemplateResponse`, `Template`, `ToolTemplate`
+
+4. **Updated flowise-server**:
+   - Entity/migration imports from `@flowise/customtemplates-srv`
+   - Service imports updated in `marketplaces` and `export-import` services
+   - Removed old local CustomTemplate files
+
+5. **Updated universo-template-mui**:
+   - Added Templates routes in `MainRoutesMUI.tsx`
+   - Added Templates menu item in `menuConfigs.ts`
+
+**Files Changed/Created**:
+- `packages/flowise-customtemplates-srv/base/` - new package (12 files)
+- `packages/flowise-customtemplates-frt/base/` - new package (15 files)
+- `packages/universo-api-client/src/api/marketplaces.ts` - new API implementation
+- `packages/flowise-server/src/database/entities/index.ts` - updated imports
+- `packages/flowise-server/src/database/migrations/postgres/index.ts` - updated imports
+- `packages/flowise-server/src/services/marketplaces/index.ts` - updated imports
+- `packages/flowise-server/src/services/export-import/index.ts` - updated imports
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - added routes
+- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts` - added menu
 
 ---
 

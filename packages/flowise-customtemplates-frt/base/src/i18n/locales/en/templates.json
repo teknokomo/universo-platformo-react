@@ -1,0 +1,27 @@
+{
+  "title": "Templates",
+  "tag": "Tag",
+  "type": "Type",
+  "framework": "Framework",
+  "search": "Search templates...",
+  "communityTemplates": "Community Templates",
+  "myTemplates": "My Templates",
+  "noTemplatesYet": "No templates yet",
+  "noSavedCustomTemplates": "No saved custom templates",
+  "confirmDelete": "Delete Template",
+  "confirmDeleteDescription": "Are you sure you want to delete \"{name}\"?",
+  "deleteSuccess": "Template deleted successfully",
+  "deleteError": "Failed to delete template: {{error}}",
+  "common": {
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "canvas": {
+    "useChatflow": "Use Chatflow",
+    "useTemplate": "Use Template",
+    "inputs": "Inputs",
+    "output": "Output",
+    "additionalParameters": "Additional Parameters"
+  }
+}

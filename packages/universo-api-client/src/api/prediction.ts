@@ -1,6 +1,6 @@
 /**
  * PredictionApi
- * 
+ *
  * Auto-generated stub - needs implementation based on prediction.js
  */
 
@@ -16,5 +16,5 @@ export class PredictionApi {
  * Query keys factory for TanStack Query integration
  */
 export const predictionQueryKeys = {
-    all: ['predictions'] as const,
+    all: ['predictions'] as const
 } as const

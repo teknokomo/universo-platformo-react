@@ -25,9 +25,8 @@ import { chatMessageMigrations } from '@flowise/chatmessage-srv'
 import { docstoreMigrations } from '@flowise/docstore-srv'
 // AddAgentReasoningToChatMessage removed - consolidated into @flowise/chatmessage-srv
 import { AddTypeToChatFlow1716300000000 } from './1716300000000-AddTypeToChatFlow'
-// AddApiKey removed - consolidated into @flowise/apikey-srv
-// AddActionToChatMessage removed - consolidated into @flowise/chatmessage-srv
-import { AddCustomTemplate1725629836652 } from './1725629836652-AddCustomTemplate'
+// AddCustomTemplate removed - consolidated into @flowise/customtemplates-srv
+import { customTemplatesMigrations } from '@flowise/customtemplates-srv'
 // AddArtifactsToChatMessage removed - consolidated into @flowise/chatmessage-srv
 // AddFollowUpPrompts removed - consolidated into @flowise/chatmessage-srv
 // AddTypeToAssistant removed - consolidated into @flowise/assistants-srv
@@ -63,7 +62,7 @@ export const postgresMigrations = [
     ...leadsMigrations, // Creates lead table
     AddTypeToChatFlow1716300000000,
     ...apikeyMigrations, // Creates apikey table
-    AddCustomTemplate1725629836652,
+    ...customTemplatesMigrations, // Creates custom_template table
     ...uniksMigrations, // Adds unik_id to tool and other Flowise tables
     ...profileMigrations,
     ...metaversesMigrations,

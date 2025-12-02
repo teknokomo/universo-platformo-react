@@ -6,7 +6,7 @@ import { getErrorMessage } from '../../errors/utils'
 import { IReactFlowEdge, IReactFlowNode } from '../../Interface'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { DeleteResult } from 'typeorm'
-import { CustomTemplate } from '../../database/entities/CustomTemplate'
+import { CustomTemplate } from '@flowise/customtemplates-srv'
 
 import canvasService from '../spacesCanvas'
 
@@ -121,7 +121,7 @@ const deleteCustomTemplate = async (templateId: string, unikId: string): Promise
         const appServer = getRunningExpressApp()
         return await appServer.AppDataSource.getRepository(CustomTemplate).delete({ 
             id: templateId,
-            unik: { id: unikId }
+            unikId
         })
     } catch (error) {
         throw new InternalFlowiseError(
@@ -136,7 +136,7 @@ const getAllCustomTemplates = async (unikId: string): Promise<any> => {
         const appServer = getRunningExpressApp()
         const templates: any[] = await appServer.AppDataSource.getRepository(CustomTemplate).find({
             where: {
-                unik: { id: unikId }
+                unikId
             }
         })
         
@@ -176,9 +176,9 @@ const saveCustomTemplate = async (body: any): Promise<any> => {
         const customTemplate = new CustomTemplate()
         Object.assign(customTemplate, body)
         
-        // Set Unik relation
+        // Set Unik ID
         if (body.unikId) {
-            customTemplate.unik = { id: body.unikId } as any
+            customTemplate.unikId = body.unikId
             delete body.unikId
         }
 
@@ -202,9 +202,10 @@ const saveCustomTemplate = async (body: any): Promise<any> => {
         if (customTemplate.usecases) {
             customTemplate.usecases = JSON.stringify(customTemplate.usecases)
         }
-        const entity = appServer.AppDataSource.getRepository(CustomTemplate).create(customTemplate)
+        const repo = appServer.AppDataSource.getRepository(CustomTemplate)
+        const entity = repo.create(customTemplate) as CustomTemplate
         entity.flowData = flowDataStr
-        const flowTemplate = await appServer.AppDataSource.getRepository(CustomTemplate).save(entity)
+        const flowTemplate = await repo.save(entity)
         return flowTemplate
     } catch (error) {
         throw new InternalFlowiseError(

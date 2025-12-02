@@ -1,0 +1,27 @@
+{
+  "title": "Шаблоны",
+  "tag": "Тег",
+  "type": "Тип",
+  "framework": "Фреймворк",
+  "search": "Поиск шаблонов...",
+  "communityTemplates": "Шаблоны сообщества",
+  "myTemplates": "Мои шаблоны",
+  "noTemplatesYet": "Шаблонов пока нет",
+  "noSavedCustomTemplates": "Нет сохранённых пользовательских шаблонов",
+  "confirmDelete": "Удалить шаблон",
+  "confirmDeleteDescription": "Вы уверены, что хотите удалить \"{name}\"?",
+  "deleteSuccess": "Шаблон успешно удалён",
+  "deleteError": "Не удалось удалить шаблон: {{error}}",
+  "common": {
+    "back": "Назад",
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "canvas": {
+    "useChatflow": "Использовать Chatflow",
+    "useTemplate": "Использовать шаблон",
+    "inputs": "Входные данные",
+    "output": "Выходные данные",
+    "additionalParameters": "Дополнительные параметры"
+  }
+}

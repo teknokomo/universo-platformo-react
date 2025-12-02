@@ -1,6 +1,6 @@
 /**
  * FeedbackApi
- * 
+ *
  * Auto-generated stub - needs implementation based on feedback.js
  */
 
@@ -16,5 +16,5 @@ export class FeedbackApi {
  * Query keys factory for TanStack Query integration
  */
 export const feedbackQueryKeys = {
-    all: ['feedback'] as const,
+    all: ['feedback'] as const
 } as const

@@ -6,7 +6,7 @@ import { ToolsApi } from './api/tools'
 import { NodesApi } from './api/nodes'
 import { SpacesApi } from './api/spaces'
 import { DocumentStoreApi } from './api/documentstore'
-import { MarketplacesApi } from './api/marketplaces'
+import { TemplatesApi } from './api/templates'
 import { CanvasMessagesApi } from './api/canvasMessages'
 import { VariablesApi } from './api/variables'
 import { ApiKeyApi } from './api/apikey'
@@ -32,20 +32,20 @@ export interface UniversoApiClientOptions {
 
 /**
  * Universo API Client - centralized TypeScript client for all API calls
- * 
+ *
  * @example
  * ```typescript
  * import { createUniversoApiClient } from '@universo/api-client'
- * 
+ *
  * const api = createUniversoApiClient({ baseURL: '/api/v1' })
- * 
+ *
  * // Usage with async/await
  * const canvases = await api.canvases.getCanvases(unikId, spaceId)
- * 
+ *
  * // Usage with TanStack Query
  * import { useQuery } from '@tanstack/react-query'
  * import { canvasQueryKeys } from '@universo/api-client'
- * 
+ *
  * const { data } = useQuery({
  *   queryKey: canvasQueryKeys.list(unikId, spaceId),
  *   queryFn: () => api.canvases.getCanvases(unikId, spaceId)
@@ -87,18 +87,18 @@ export const createUniversoApiClient = (options: UniversoApiClientOptions) => {
         exportImport: new ExportImportApi(client),
         feedback: new FeedbackApi(client),
         leads: new LeadApi(client),
-        marketplaces: new MarketplacesApi(client),
         nodes: new NodesApi(client),
         predictions: new PredictionApi(client),
         prompts: new PromptApi(client),
         scrapers: new ScraperApi(client),
         spaces: new SpacesApi(client),
+        templates: new TemplatesApi(client),
         tools: new ToolsApi(client),
         variables: new VariablesApi(client),
         vectorStores: new VectorStoreApi(client),
 
         // Raw axios instance for special cases
-        $client: client,
+        $client: client
     }
 }
 

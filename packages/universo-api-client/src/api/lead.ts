@@ -52,4 +52,3 @@ export const leadQueryKeys = {
     all: ['leads'] as const,
     byCanvas: (canvasId: string) => [...leadQueryKeys.all, canvasId] as const
 } as const
-
