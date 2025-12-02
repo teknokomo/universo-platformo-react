@@ -387,11 +387,8 @@ export class SpacesController {
             }
 
             const validatedData = UpdateCanvasVersionSchema.parse(req.body)
-            
-            if (Object.keys(validatedData).length === 0) {
-                res.status(400).json({ success: false, error: 'No fields provided for update' } as ApiResponse)
-                return
-            }
+            // Note: Empty check is handled by UpdateCanvasVersionSchema.refine()
+            // which requires at least label or description to be provided
 
             const version = await this.spacesService.updateCanvasVersion(unikId, spaceId, canvasId, versionId, validatedData)
 
