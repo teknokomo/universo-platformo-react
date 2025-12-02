@@ -18,6 +18,7 @@ import '@universo/i18n'
 // FRT package i18n registration
 import '@universo/spaces-frt/i18n'
 import '@universo/publish-frt/i18n'
+import '@flowise/template-mui/i18n'
 import '@universo/analytics-frt/i18n'
 import '@universo/profile-frt/i18n'
 import '@universo/uniks-frt/i18n'

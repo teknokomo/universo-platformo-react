@@ -55,10 +55,7 @@ export class VectorStoreApi {
      * @param chatflowId - ID of the chatflow containing vector store node
      * @param body - Upsert configuration
      */
-    async upsertVectorStore(
-        chatflowId: string,
-        body: UpsertVectorStoreBody
-    ): Promise<AxiosResponse<unknown>> {
+    async upsertVectorStore(chatflowId: string, body: UpsertVectorStoreBody): Promise<AxiosResponse<unknown>> {
         return this.client.post(`/vector/internal-upsert/${chatflowId}`, body)
     }
 
@@ -68,10 +65,7 @@ export class VectorStoreApi {
      * @param chatflowId - ID of the chatflow containing vector store node
      * @param formData - FormData with files and configuration
      */
-    async upsertVectorStoreWithFormData(
-        chatflowId: string,
-        formData: FormData
-    ): Promise<AxiosResponse<unknown>> {
+    async upsertVectorStoreWithFormData(chatflowId: string, formData: FormData): Promise<AxiosResponse<unknown>> {
         return this.client.post(`/vector/internal-upsert/${chatflowId}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         })
@@ -83,10 +77,7 @@ export class VectorStoreApi {
      * @param chatflowId - ID of the chatflow
      * @param params - Optional pagination/filtering params
      */
-    async getUpsertHistory(
-        chatflowId: string,
-        params: GetUpsertHistoryParams = {}
-    ): Promise<AxiosResponse<UpsertHistoryEntry[]>> {
+    async getUpsertHistory(chatflowId: string, params: GetUpsertHistoryParams = {}): Promise<AxiosResponse<UpsertHistoryEntry[]>> {
         return this.client.get(`/upsert-history/${chatflowId}`, {
             params: { order: 'DESC', ...params }
         })
@@ -107,6 +98,5 @@ export class VectorStoreApi {
  */
 export const vectorstoreQueryKeys = {
     all: ['vector-stores'] as const,
-    history: (chatflowId: string) =>
-        [...vectorstoreQueryKeys.all, 'history', chatflowId] as const,
+    history: (chatflowId: string) => [...vectorstoreQueryKeys.all, 'history', chatflowId] as const
 } as const

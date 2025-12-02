@@ -10,9 +10,9 @@ import { StyledButton } from '@flowise/template-mui'
 // icons
 import { IconCopy, IconChevronLeft } from '@tabler/icons-react'
 
-// ==============================|| CANVAS HEADER ||============================== //
+// ==============================|| TEMPLATE CANVAS HEADER ||============================== //
 
-const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
+const TemplateCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
     const theme = useTheme()
     const navigate = useNavigate()
     const location = useLocation()
@@ -21,7 +21,7 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
     return (
         <>
             <Box>
-                <ButtonBase title={t('templates.common.back')} sx={{ borderRadius: '50%' }}>
+                <ButtonBase title={t('common.back')} sx={{ borderRadius: '50%' }}>
                     <Avatar
                         variant='rounded'
                         sx={{
@@ -38,19 +38,19 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                         color='inherit'
                         onClick={() => {
                             // Get current path using useLocation hook
-                            const currentPath = location.pathname;
-                            
+                            const currentPath = location.pathname
+
                             // Extract unikId from URL
-                            const pathParts = currentPath.split('/');
-                            const unikIdIndex = pathParts.indexOf('uniks') + 1;
-                            
-                            if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
-                                const unikId = pathParts[unikIdIndex];
+                            const pathParts = currentPath.split('/')
+                            const unikIndex = pathParts.indexOf('unik')
+
+                            if (unikIndex > -1 && unikIndex + 1 < pathParts.length) {
+                                const unikId = pathParts[unikIndex + 1]
                                 // Redirect to the list of templates
-                                navigate(`/unik/${unikId}/templates`);
+                                navigate(`/unik/${unikId}/templates`)
                             } else {
                                 // If we couldn't extract unikId, use standard behavior
-                                navigate(-1);
+                                navigate(-1)
                             }
                         }}
                     >
@@ -75,21 +75,21 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                 <StyledButton
                     color='secondary'
                     variant='contained'
-                    title={t('templates.canvas.useChatflow')}
+                    title={t('canvas.useChatflow')}
                     onClick={() => onChatflowCopy(flowData)}
                     startIcon={<IconCopy />}
                 >
-                    {t('templates.canvas.useTemplate')}
+                    {t('canvas.useTemplate')}
                 </StyledButton>
             </Box>
         </>
     )
 }
 
-MarketplaceCanvasHeader.propTypes = {
+TemplateCanvasHeader.propTypes = {
     flowName: PropTypes.string,
     flowData: PropTypes.object,
     onChatflowCopy: PropTypes.func
 }
 
-export default MarketplaceCanvasHeader
+export default TemplateCanvasHeader

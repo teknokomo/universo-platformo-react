@@ -4,6 +4,131 @@
 
 ---
 
+## ✅ COMPLETED: Templates API Route Fix
+
+### 2025-01-19: Fix 500 error on My Templates tab
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fixed 500 error when clicking "My Templates" (Мои шаблоны) tab in Templates page. The API client was calling `/unik/:unikId/templates/custom` but the controller regex only matched `/uniks/` (plural).
+
+**Tasks**:
+- [x] Identify route mismatch: server routes at `/unik/:unikId/templates`, controller regex looking for `/uniks/`
+- [x] Fix regex in getAllTemplates: `/\/uniks\/` → `/\/uniks?\/` (makes 's' optional)
+- [x] Fix regex in getAllCustomTemplates
+- [x] Fix regex in saveCustomTemplate
+- [x] Fix regex in deleteCustomTemplate
+- [x] Rebuild project and verify 500 error is resolved
+
+**File Changed**:
+- `packages/flowise-server/src/controllers/marketplaces/index.ts` - regex fix in 4 methods
+
+---
+
+## ✅ COMPLETED: Templates Page Responsive Layout Fix
+
+### 2025-12-03: Fix grid layout and card positioning in Templates page
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fixed layout issues in Templates page when displayed within MainLayoutMUI (with sidebar). Made grid responsive and fixed Badge positioning.
+
+**Tasks**:
+- [x] Make grid responsive with breakpoints (xs: 1 col, sm: 2 cols, lg: 3 cols) in community templates section
+- [x] Make grid responsive in custom templates (My Templates) section
+- [x] Fix Badge positioning (added `top: 10` to prevent overlap)
+- [x] Add position: relative to Box containers for proper Badge anchoring
+- [x] Add fallback theme values in ItemCard.jsx for card.main, darkTextPrimary, card.hover
+
+**Files Changed**:
+- `packages/flowise-customtemplates-frt/base/src/pages/Templates/index.jsx` - responsive grid, Badge positioning
+- `packages/flowise-template-mui/base/src/ui-components/cards/ItemCard.jsx` - theme fallbacks
+
+---
+
+## ✅ COMPLETED: QA Cleanup - Remove Duplicate Marketplaces from flowise-ui
+
+### 2025-12-03: Post-CustomTemplates extraction cleanup
+
+**Status**: ✅ COMPLETE
+
+**Summary**: After creating @flowise/customtemplates-frt, removed duplicate marketplaces code from flowise-ui and updated all imports.
+
+**Tasks**:
+- [x] Add @flowise/customtemplates-frt dependency to spaces-frt/package.json
+- [x] Update CanvasRoutes.jsx: Change `MarketplaceCanvas` import from `@ui/views/marketplaces/MarketplaceCanvas` to `TemplateCanvas` from `@flowise/customtemplates-frt`
+- [x] Update ExportAsTemplateDialog.jsx: Change `api.marketplaces.saveAsCustomTemplate` to `api.templates.saveCustom`
+- [x] Remove TODO comment about `api.marketplaces` in ExportAsTemplateDialog.jsx
+- [x] Delete duplicate folder: `packages/flowise-ui/src/views/marketplaces/` (now in @flowise/customtemplates-frt)
+
+**Naming Alignment**: Completed migration from `Marketplaces` → `Templates` naming across the codebase:
+- API: `MarketplacesApi` → `TemplatesApi` (with legacy aliases for backward compatibility)
+- Routes: `/marketplaces` → `/templates`
+- Components: `MarketplaceCanvas` → `TemplateCanvas`
+
+---
+
+## ✅ COMPLETED: CustomTemplates Package Extraction
+
+### 2025-12-03: Extract CustomTemplate functionality to standalone packages
+
+**Status**: ✅ COMPLETE
+
+**Goal**: Extract CustomTemplate (formerly Marketplace) functionality from flowise-server and flowise-ui into dedicated packages @flowise/customtemplates-srv and @flowise/customtemplates-frt.
+
+**Package Naming Decision**: Using `customtemplates` to avoid confusion with existing `template-quiz` and `template-mmoomm` which are export templates.
+
+**Tasks**:
+- [x] Task 1: Create @flowise/customtemplates-srv package structure
+  - Created entity, migration, service with DI pattern
+  - Files: CustomTemplate.ts, 1725629836652-AddCustomTemplate.ts, customTemplatesService.ts, index.ts
+  
+- [x] Task 2: Create @flowise/customtemplates-frt package structure
+  - Created i18n with en/ru translations
+  - Created Templates page component
+  - Created TemplateCanvas, TemplateCanvasHeader, TemplateCanvasNode components
+  - Files: index.jsx, TemplateCanvas.jsx, TemplateCanvasHeader.jsx, TemplateCanvasNode.jsx
+
+- [x] Task 3: Implement API client in @universo/api-client
+  - Implemented MarketplacesApi with full types and methods
+  - Added getAllTemplatesFromMarketplaces, getAllToolsMarketplaces, getAllCustomTemplates, saveAsCustomTemplate, deleteCustomTemplate
+  - Added TanStack Query keys factory
+  - Exported types: Template, MarketplaceTemplate, ToolTemplate, CustomTemplate, SaveCustomTemplateBody
+
+- [x] Task 4: Integrate customtemplates-srv into flowise-server
+  - Updated entities/index.ts to import from @flowise/customtemplates-srv
+  - Updated migrations/postgres/index.ts to use customTemplatesMigrations
+  - Removed duplicate files: CustomTemplate.ts entity and 1725629836652-AddCustomTemplate.ts migration
+  - Added @flowise/customtemplates-srv dependency to flowise-server
+  - Added @flowise/customtemplates-frt dependency to flowise-ui
+
+- [x] Task 5: Update menu navigation in flowise-ui
+  - Added templates menu item in menuConfigs.ts
+  - Added IconLayoutDashboard icon import
+  - Menu item positioned after analytics and before access
+
+- [x] Task 6: Add routes in flowise-ui
+  - Added i18n registration import for @flowise/customtemplates-frt
+  - Added Templates and TemplateCanvas lazy component imports
+  - Added routes for templates list and template detail view
+  - Added @flowise/customtemplates-frt dependency to universo-template-mui
+
+- [x] Task 7: Build and verify
+  - Fixed import issues in flowise-server services (export-import, marketplaces)
+  - Updated imports from local path to @flowise/customtemplates-srv package
+  - Fixed entity type casting in marketplaces service
+  - Build successful: 50/50 packages
+
+- [x] Task 8: Cleanup old files (after verification)
+  - Removed CustomTemplate.ts entity from flowise-server/src/database/entities
+  - Removed 1725629836652-AddCustomTemplate.ts migration from flowise-server
+  - Note: flowise-ui/src/views/marketplaces and flowise-server/src/services/marketplaces still contain legacy code that is being used; can be deprecated later
+
+**Dependencies Resolved**:
+- saveCustomTemplate calls canvasService.getCanvasById() → solved via DI in new service
+
+---
+
 ## ✅ COMPLETED: Refactor Duplicate Code & Document Isolation
 
 ### 2025-12-02: Remove duplicate methods and document future isolation plan

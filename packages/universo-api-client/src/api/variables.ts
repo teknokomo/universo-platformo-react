@@ -1,6 +1,6 @@
 /**
  * VariablesApi
- * 
+ *
  * API client for managing variables
  */
 
@@ -47,5 +47,5 @@ export const variablesQueryKeys = {
     lists: () => [...variablesQueryKeys.all, 'list'] as const,
     list: (unikId: string) => [...variablesQueryKeys.lists(), unikId] as const,
     details: () => [...variablesQueryKeys.all, 'detail'] as const,
-    detail: (unikId: string, id: string) => [...variablesQueryKeys.details(), unikId, id] as const,
+    detail: (unikId: string, id: string) => [...variablesQueryKeys.details(), unikId, id] as const
 } as const

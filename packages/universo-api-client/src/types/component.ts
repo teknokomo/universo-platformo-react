@@ -5,7 +5,7 @@
 /**
  * Component category
  */
-export type ComponentCategory = 
+export type ComponentCategory =
     | 'Chat Models'
     | 'Agents'
     | 'Chains'

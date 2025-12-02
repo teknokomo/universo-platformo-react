@@ -25,6 +25,85 @@
 
 ## January 2025
 
+### 2025-01-19: Templates API Route Fix ✅
+
+**Summary**: Fixed 500 error on "My Templates" (Мои шаблоны) tab by correcting regex pattern for unikId extraction in marketplaces controller.
+
+**Problem**: API client was calling `/api/v1/unik/:unikId/templates/custom` but the controller regex only matched `/uniks/` (plural), not `/unik/` (singular).
+
+**Root Cause**: Route mismatch - server routes use `/unik/:unikId/templates` (via `createUniksRouter`), but the controller regex was `/\/uniks\/([^\/]+)\/templates/` which didn't match.
+
+**Fix Applied** (`packages/flowise-server/src/controllers/marketplaces/index.ts`):
+- Changed regex from `/\/uniks\/([^\/]+)\/templates/` to `/\/uniks?\/([^\/]+)\/templates/`
+- The `s?` makes the 's' optional, matching both `/unik/` and `/uniks/`
+- Applied to all 4 methods: `getAllTemplates`, `getAllCustomTemplates`, `saveCustomTemplate`, `deleteCustomTemplate`
+
+**Build Result**: 50/50 packages successful
+
+---
+
+### 2025-01-19: QA Cleanup - Remove Duplicate Marketplaces ✅
+
+**Summary**: Post-CustomTemplates extraction cleanup - removed duplicate code and unified naming from `Marketplaces` to `Templates`.
+
+**Changes Made**:
+1. **spaces-frt/package.json**: Added `@flowise/customtemplates-frt: workspace:*` dependency
+2. **CanvasRoutes.jsx**: Changed import from `@ui/views/marketplaces/MarketplaceCanvas` to `TemplateCanvas` from `@flowise/customtemplates-frt`
+3. **ExportAsTemplateDialog.jsx**: Changed `api.marketplaces.saveAsCustomTemplate` to `api.templates.saveCustom`, removed outdated TODO comment
+4. **flowise-ui/src/views/marketplaces/**: Deleted entire duplicate folder (now in @flowise/customtemplates-frt)
+
+**Naming Alignment Completed**:
+- API: `MarketplacesApi` → `TemplatesApi` (with legacy aliases for backward compatibility)
+- Routes: `/marketplaces` → `/templates`
+- Components: `MarketplaceCanvas` → `TemplateCanvas`
+
+**Build Result**: 50/50 packages successful
+
+---
+
+### 2025-01-19: CustomTemplates Package Extraction ✅
+
+**Summary**: Extracted CustomTemplate (formerly Marketplace) functionality from flowise-server and flowise-ui into dedicated standalone packages.
+
+**Packages Created**:
+1. **@flowise/customtemplates-srv** - Backend package:
+   - TypeORM entity `CustomTemplate` with full schema
+   - Migration `1725629836652-AddCustomTemplate` with indexes
+   - Service `CustomTemplatesService` with DI pattern for canvas dependency
+   - Full TypeScript support with decorators
+
+2. **@flowise/customtemplates-frt** - Frontend package:
+   - Templates list page (`Templates/index.jsx`)
+   - Template detail page (`TemplateCanvas.jsx`)
+   - Header and node components
+   - i18n translations (en/ru)
+
+**API Client Implementation** (`@universo/api-client`):
+- Full `MarketplacesApi` implementation with typed methods:
+  - `getAllTemplatesFromMarketplaces()`
+  - `getAllToolsMarketplaces()`
+  - `getAllCustomTemplates()`
+  - `saveAsCustomTemplate()`
+  - `deleteCustomTemplate()`
+- TanStack Query keys factory
+- Response types: `ICustomTemplateResponse` for API responses
+
+**Integration Updates**:
+- `flowise-server/database/entities/index.ts` - imports from package
+- `flowise-server/database/migrations/postgres/index.ts` - uses package migrations
+- `flowise-server/services/marketplaces/index.ts` - updated imports
+- `flowise-server/services/export-import/index.ts` - updated imports
+- `universo-template-mui/routes/MainRoutesMUI.tsx` - added template routes
+- `universo-template-mui/navigation/menuConfigs.ts` - added Templates menu item
+
+**Files Removed**:
+- `flowise-server/src/database/entities/CustomTemplate.ts` (moved to package)
+- `flowise-server/src/database/migrations/postgres/1725629836652-AddCustomTemplate.ts` (moved to package)
+
+**Build Result**: 50/50 packages successful
+
+---
+
 ### 2025-01-19: QA Cleanup - Removed Duplicate VectorStore Dialogs ✅
 
 **Summary**: Removed 4 duplicate VectorStore dialog files from `@flowise/template-mui` that were obsolete after full DocumentStore migration to `@flowise/docstore-frt`.

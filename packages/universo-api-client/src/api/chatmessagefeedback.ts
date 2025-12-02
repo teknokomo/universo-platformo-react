@@ -1,6 +1,6 @@
 /**
  * ChatMessageFeedbackApi
- * 
+ *
  * Auto-generated stub - needs implementation based on chatmessagefeedback.js
  */
 
@@ -16,5 +16,5 @@ export class ChatMessageFeedbackApi {
  * Query keys factory for TanStack Query integration
  */
 export const chatmessagefeedbackQueryKeys = {
-    all: ['chat-message-feedback'] as const,
+    all: ['chat-message-feedback'] as const
 } as const

@@ -42,6 +42,7 @@
         "@flowise/apikey-frt": "workspace:*",
         "@flowise/assistants-frt": "workspace:*",
         "@flowise/credentials-frt": "workspace:*",
+        "@flowise/customtemplates-frt": "workspace:*",
         "@flowise/docstore-frt": "workspace:*",
         "@flowise/tools-frt": "workspace:*",
         "@flowise/variables-frt": "workspace:*",

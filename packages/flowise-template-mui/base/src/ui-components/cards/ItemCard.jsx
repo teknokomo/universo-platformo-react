@@ -9,14 +9,14 @@ import { Box, Grid, Typography, useTheme } from '@mui/material'
 import MainCard from '../cards/MainCard'
 
 const CardWrapper = styled(MainCard)(({ theme }) => ({
-    background: theme.palette.card.main,
-    color: theme.darkTextPrimary,
+    background: theme.palette.card?.main || theme.palette.background?.paper || '#fff',
+    color: theme.darkTextPrimary || theme.palette.text?.primary,
     overflow: 'auto',
     position: 'relative',
     boxShadow: '0 2px 14px 0 rgb(32 40 45 / 8%)',
     cursor: 'pointer',
     '&:hover': {
-        background: theme.palette.card.hover,
+        background: theme.palette.card?.hover || theme.palette.action?.hover || '#f5f5f5',
         boxShadow: '0 2px 14px 0 rgb(32 40 45 / 20%)'
     },
     height: '100%',

@@ -5,7 +5,7 @@ import type {
     UpdateCanvasPayload,
     CanvasListResponse,
     ReorderCanvasPayload,
-    CanvasRequestOptions,
+    CanvasRequestOptions
 } from '../types/canvas'
 
 /**
@@ -26,9 +26,7 @@ const ensureIdentifier = (value: string | null | undefined, field: string, metho
 }
 
 const buildCanvasPath = (unikId: string, canvasId: string, spaceId: string | null, suffix = ''): string => {
-    const base = spaceId
-        ? `/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}`
-        : `/unik/${unikId}/canvases/${canvasId}`
+    const base = spaceId ? `/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}` : `/unik/${unikId}/canvases/${canvasId}`
     return `${base}${suffix}`
 }
 
@@ -37,7 +35,9 @@ const buildParamsConfig = (params?: Record<string, unknown>): { params: Record<s
     return { params }
 }
 
-const resolveRequestOptions = (options?: CanvasRequestOptions): {
+const resolveRequestOptions = (
+    options?: CanvasRequestOptions
+): {
     spaceId: string | null
     config?: AxiosRequestConfig
 } => {
@@ -47,7 +47,7 @@ const resolveRequestOptions = (options?: CanvasRequestOptions): {
     if (hasSpaceId || hasConfig) {
         return {
             spaceId: options.spaceId ?? null,
-            config: options.config as AxiosRequestConfig,
+            config: options.config as AxiosRequestConfig
         }
     }
     return { spaceId: null, config: options as AxiosRequestConfig }
@@ -81,10 +81,7 @@ export class CanvasesApi {
         const resolvedCanvasId = ensureIdentifier(canvasId, 'canvasId', 'getCanvas')
         const { spaceId, config } = resolveRequestOptions(options)
         const resolvedSpaceId = normalizeIdentifier(spaceId)
-        const response = await this.client.get<Canvas>(
-            buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId),
-            config
-        )
+        const response = await this.client.get<Canvas>(buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId), config)
         return response.data
     }
 
@@ -110,29 +107,18 @@ export class CanvasesApi {
     async createCanvas(unikId: string, spaceId: string, body: CreateCanvasPayload): Promise<Canvas> {
         const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'createCanvas')
         const resolvedSpaceId = ensureIdentifier(spaceId, 'spaceId', 'createCanvas')
-        const response = await this.client.post<Canvas>(
-            `/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases`,
-            body
-        )
+        const response = await this.client.post<Canvas>(`/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases`, body)
         return response.data
     }
 
     /**
      * Update existing canvas
      */
-    async updateCanvas(
-        unikId: string,
-        canvasId: string,
-        body: UpdateCanvasPayload,
-        options?: CanvasRequestOptions
-    ): Promise<Canvas> {
+    async updateCanvas(unikId: string, canvasId: string, body: UpdateCanvasPayload, options?: CanvasRequestOptions): Promise<Canvas> {
         const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'updateCanvas')
         const resolvedCanvasId = ensureIdentifier(canvasId, 'canvasId', 'updateCanvas')
         const resolvedSpaceId = normalizeIdentifier(options?.spaceId)
-        const response = await this.client.put<Canvas>(
-            buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId),
-            body
-        )
+        const response = await this.client.put<Canvas>(buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId), body)
         return response.data
     }
 
@@ -162,9 +148,7 @@ export class CanvasesApi {
         const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'duplicateCanvas')
         const resolvedCanvasId = ensureIdentifier(canvasId, 'canvasId', 'duplicateCanvas')
         const resolvedSpaceId = normalizeIdentifier(options?.spaceId)
-        const response = await this.client.post<Canvas>(
-            `${buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId)}/duplicate`
-        )
+        const response = await this.client.post<Canvas>(`${buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId)}/duplicate`)
         return response.data
     }
 
@@ -176,10 +160,7 @@ export class CanvasesApi {
         const resolvedCanvasId = ensureIdentifier(canvasId, 'canvasId', 'exportCanvas')
         const { spaceId, config } = resolveRequestOptions(options)
         const resolvedSpaceId = normalizeIdentifier(spaceId)
-        const response = await this.client.get(
-            `${buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId)}/export`,
-            config
-        )
+        const response = await this.client.get(`${buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId)}/export`, config)
         return response.data
     }
 
@@ -189,10 +170,7 @@ export class CanvasesApi {
     async importCanvas(unikId: string, spaceId: string, body: unknown): Promise<Canvas> {
         const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'importCanvas')
         const resolvedSpaceId = ensureIdentifier(spaceId, 'spaceId', 'importCanvas')
-        const response = await this.client.post<Canvas>(
-            `/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases/import`,
-            body
-        )
+        const response = await this.client.post<Canvas>(`/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases/import`, body)
         return response.data
     }
 
@@ -217,6 +195,5 @@ export const canvasQueryKeys = {
         [...canvasQueryKeys.details(), { unikId, canvasId, spaceId }] as const,
     byId: (canvasId: string) => [...canvasQueryKeys.details(), 'byId', canvasId] as const,
     public: (canvasId: string) => [...canvasQueryKeys.all, 'public', canvasId] as const,
-    version: (canvasId: string, versionId: string) =>
-        [...canvasQueryKeys.all, 'version', { canvasId, versionId }] as const,
+    version: (canvasId: string, versionId: string) => [...canvasQueryKeys.all, 'version', { canvasId, versionId }] as const
 }

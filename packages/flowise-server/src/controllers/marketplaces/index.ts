@@ -9,7 +9,8 @@ const getAllTemplates = async (req: Request, res: Response, next: NextFunction) 
         // Extract unikId from URL if not in params
         let unikId = req.params.unikId;
         if (!unikId) {
-            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            // Match both /unik/:unikId/templates and /uniks/:unikId/templates patterns
+            const urlMatch = req.originalUrl.match(/\/uniks?\/([^\/]+)\/templates/);
             if (urlMatch && urlMatch[1]) {
                 unikId = urlMatch[1];
             }
@@ -33,7 +34,8 @@ const deleteCustomTemplate = async (req: Request, res: Response, next: NextFunct
         // Extract unikId from URL if not in params
         let unikId = req.params.unikId;
         if (!unikId) {
-            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            // Match both /unik/:unikId/templates and /uniks/:unikId/templates patterns
+            const urlMatch = req.originalUrl.match(/\/uniks?\/([^\/]+)\/templates/);
             if (urlMatch && urlMatch[1]) {
                 unikId = urlMatch[1];
             }
@@ -57,7 +59,8 @@ const getAllCustomTemplates = async (req: Request, res: Response, next: NextFunc
         // Extract unikId from URL if not in params
         let unikId = req.params.unikId;
         if (!unikId) {
-            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            // Match both /unik/:unikId/templates and /uniks/:unikId/templates patterns
+            const urlMatch = req.originalUrl.match(/\/uniks?\/([^\/]+)\/templates/);
             if (urlMatch && urlMatch[1]) {
                 unikId = urlMatch[1];
             }
@@ -102,7 +105,8 @@ const saveCustomTemplate = async (req: Request, res: Response, next: NextFunctio
         // Extract unikId from URL if not in params
         let unikId = req.params.unikId;
         if (!unikId) {
-            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            // Match both /unik/:unikId/templates and /uniks/:unikId/templates patterns
+            const urlMatch = req.originalUrl.match(/\/uniks?\/([^\/]+)\/templates/);
             if (urlMatch && urlMatch[1]) {
                 unikId = urlMatch[1];
             }

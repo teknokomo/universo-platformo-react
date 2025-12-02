@@ -1,6 +1,6 @@
 /**
  * AttachmentsApi
- * 
+ *
  * Auto-generated stub - needs implementation based on attachments.js
  */
 
@@ -16,5 +16,5 @@ export class AttachmentsApi {
  * Query keys factory for TanStack Query integration
  */
 export const attachmentsQueryKeys = {
-    all: ['attachments'] as const,
+    all: ['attachments'] as const
 } as const

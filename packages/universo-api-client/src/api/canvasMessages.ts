@@ -62,5 +62,5 @@ export class CanvasMessagesApi {
 export const canvasMessagesQueryKeys = {
     all: ['canvas-messages'] as const,
     byCanvas: (canvasId: string) => ['canvas-messages', canvasId] as const,
-    internal: (canvasId: string) => ['canvas-messages', 'internal', canvasId] as const,
+    internal: (canvasId: string) => ['canvas-messages', 'internal', canvasId] as const
 } as const

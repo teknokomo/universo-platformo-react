@@ -1,6 +1,6 @@
 /**
  * ConfigApi
- * 
+ *
  * Auto-generated stub - needs implementation based on config.js
  */
 
@@ -16,5 +16,5 @@ export class ConfigApi {
  * Query keys factory for TanStack Query integration
  */
 export const configQueryKeys = {
-    all: ['config'] as const,
+    all: ['config'] as const
 } as const

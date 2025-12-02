@@ -3,8 +3,8 @@ import Tooltip, { tooltipClasses } from '@mui/material/Tooltip'
 
 const NodeTooltip = styled(({ className, ...props }) => <Tooltip {...props} classes={{ popper: className }} />)(({ theme }) => ({
     [`& .${tooltipClasses.tooltip}`]: {
-        backgroundColor: theme.palette.nodeToolTip.background,
-        color: theme.palette.nodeToolTip.color,
+        backgroundColor: theme.palette.nodeToolTip?.background || theme.palette.grey?.[700] || '#616161',
+        color: theme.palette.nodeToolTip?.color || theme.palette.common?.white || '#fff',
         boxShadow: theme.shadows[1]
     }
 }))

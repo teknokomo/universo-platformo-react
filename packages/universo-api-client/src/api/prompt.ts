@@ -1,6 +1,6 @@
 /**
  * PromptApi
- * 
+ *
  * Auto-generated stub - needs implementation based on prompt.js
  */
 
@@ -16,5 +16,5 @@ export class PromptApi {
  * Query keys factory for TanStack Query integration
  */
 export const promptQueryKeys = {
-    all: ['prompts'] as const,
+    all: ['prompts'] as const
 } as const

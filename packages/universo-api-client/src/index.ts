@@ -1,25 +1,25 @@
 /**
  * @universo/api-client
  * TypeScript API client for Universo Platformo
- * 
+ *
  * This package provides a centralized, type-safe client for all backend API calls.
  * Built on top of @universo/auth-frt for authentication and axios for HTTP requests.
- * 
+ *
  * @example
  * ```typescript
  * import { createUniversoApiClient, canvasQueryKeys } from '@universo/api-client'
  * import { useQuery } from '@tanstack/react-query'
- * 
+ *
  * // Create client instance
  * const api = createUniversoApiClient({ baseURL: '/api/v1' })
- * 
+ *
  * // Use in React component with TanStack Query
  * function MyComponent({ unikId, spaceId }) {
  *   const { data, isLoading } = useQuery({
  *     queryKey: canvasQueryKeys.list(unikId, spaceId),
  *     queryFn: () => api.canvases.getCanvases(unikId, spaceId)
  *   })
- *   
+ *
  *   if (isLoading) return <div>Loading...</div>
  *   return <div>{data.canvases.length} canvases</div>
  * }
@@ -63,7 +63,19 @@ export {
 export { ExportImportApi, exportimportQueryKeys } from './api/exportimport'
 export { FeedbackApi, feedbackQueryKeys } from './api/feedback'
 export { LeadApi, leadQueryKeys } from './api/lead'
-export { MarketplacesApi, marketplacesQueryKeys } from './api/marketplaces'
+export {
+    TemplatesApi,
+    templatesQueryKeys,
+    type Template,
+    type CommunityTemplate,
+    type ToolTemplate,
+    type CustomTemplate,
+    type SaveCustomTemplateBody,
+    // Legacy aliases for backward compatibility
+    MarketplacesApi,
+    marketplacesQueryKeys,
+    type MarketplaceTemplate
+} from './api/templates'
 export { NodesApi, nodeQueryKeys } from './api/nodes'
 export { PredictionApi, predictionQueryKeys } from './api/prediction'
 export { PromptApi, promptQueryKeys } from './api/prompt'
