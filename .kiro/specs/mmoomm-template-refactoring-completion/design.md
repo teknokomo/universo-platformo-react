@@ -419,13 +419,13 @@ interface IPerformanceMonitor {
 ### Phase 1: Critical Fixes (Week 1)
 1. Исправление ошибок сборки TypeScript
 2. Обновление Colyseus API до 0.16.x
-3. Переименование `packages/multiplayer-srv` → `packages/multiplayer-colyseus-srv`
+3. Переименование `packages/multiplayer-backend` → `packages/multiplayer-colyseus-backend`
 4. Базовая функциональность template-mmoomm пакета
 
 ### Phase 2: UI Integration (Week 2)
 1. Создание JSX компонентов выбора режима (совместимость с основным Flowise UI)
 2. Интеграция в интерфейс публикации PlayCanvas
-3. Сохранение настроек в главном ENV файле `packages/flowise-server/.env`
+3. Сохранение настроек в главном ENV файле `packages/flowise-core-backend/base/.env`
 
 ### Phase 3: Architecture Refactoring (Week 3)
 1. Рефакторинг PlayCanvasMMOOMMBuilder (цель: <300 строк)
@@ -459,7 +459,7 @@ interface ILegacySupport {
 
 ### Environment Configuration
 
-Все глобальные настройки, включая Colyseus, содержатся в главном ENV файле `packages/flowise-server/.env`:
+Все глобальные настройки, включая Colyseus, содержатся в главном ENV файле `packages/flowise-core-backend/base/.env`:
 
 ```bash
 ############################################################################################################
@@ -493,12 +493,12 @@ MULTIPLAYER_SERVER_HOST=localhost
 ## Architecture Decisions Summary
 
 ### 1. Модульная структура template-mmoomm
-- **Решение**: Полный перенос MMOOMM функционала из `publish-frt` в отдельный пакет `@universo/template-mmoomm`
-- **Обоснование**: Разделение ответственности - в `publish-frt` остаются только общие настройки публикации и шаблон квиза
+- **Решение**: Полный перенос MMOOMM функционала из `publish-frontend` в отдельный пакет `@universo/template-mmoomm`
+- **Обоснование**: Разделение ответственности - в `publish-frontend` остаются только общие настройки публикации и шаблон квиза
 - **Структура**: PlayCanvas-специфичный код в `src/playcanvas/` для будущего расширения на другие технологии
 
-### 2. Переименование multiplayer-srv
-- **Решение**: `packages/multiplayer-srv` → `packages/multiplayer-colyseus-srv`
+### 2. Переименование multiplayer-backend
+- **Решение**: `packages/multiplayer-backend` → `packages/multiplayer-colyseus-backend`
 - **Обоснование**: Явное указание на использование Colyseus, подготовка к поддержке других мультиплеерных технологий
 - **Альтернатива**: Создание структуры `/colyseus/` внутри существующего пакета
 
@@ -508,7 +508,7 @@ MULTIPLAYER_SERVER_HOST=localhost
 - **Реализация**: Dual build (CJS/ESM) в пакетах для обеспечения совместимости
 
 ### 4. Централизованная конфигурация
-- **Решение**: Все настройки Colyseus в главном ENV файле `packages/flowise-server/.env`
+- **Решение**: Все настройки Colyseus в главном ENV файле `packages/flowise-core-backend/base/.env`
 - **Обоснование**: Единая точка конфигурации для всех компонентов системы
 - **Преимущества**: Упрощение развертывания и управления настройками
 

@@ -1,4 +1,4 @@
-# Metaverse Frontend (metaverse-frt) — [Status: MVP]
+# Metaverse Frontend (metaverse-frontend) — [Status: MVP]
 
 ## Purpose
 
@@ -16,7 +16,7 @@ Frontend console for managing metaverses: creation, configuration, links, publis
 ## Directory structure (expected)
 
 ```txt
-packages/metaverse-frt/base/
+packages/metaverse-frontend/base/
   src/
     app/
     components/
@@ -27,9 +27,9 @@ packages/metaverse-frt/base/
 
 ## Integrations
 
--   `metaverse-srv` API
+-   `metaverse-backend` API
 -   UPDL import/converter
--   `publish-frt`, `template-engine-srv`
+-   `publish-frontend`, `template-engine-backend`
 -   Supabase Auth
 
 ## UX metrics

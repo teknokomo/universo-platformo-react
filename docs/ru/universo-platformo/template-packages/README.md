@@ -309,7 +309,7 @@ export function getTemplateTranslations(lang: string): TemplateNamespace {
 Зарегистрируйте ваш шаблон в основном приложении:
 
 ```typescript
-// В publish-frt/src/builders/common/TemplateRegistry.ts
+// В publish-frontend/src/builders/common/TemplateRegistry.ts
 import { MyTemplateBuilder } from '@universo/template-mytemplate'
 
 // Регистрация шаблона

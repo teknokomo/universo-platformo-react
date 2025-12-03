@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/events-frt/base/
-packages/events-srv/base/
+packages/events-frontend/base/
+packages/events-backend/base/
 ```

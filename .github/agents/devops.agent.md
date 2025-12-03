@@ -30,13 +30,13 @@ Continue following your **base prompt**, and augment with the instructions below
     - Handle naming conflicts by adding sequential suffix if needed
 5. **Deploy new version**:
     - Clone specified repository version to `/srv/universo-platformo-react/`
-    - Copy essential env files from backup: `packages/flowise-server/.env` and `packages/flowise-ui/.env`
+    - Copy essential env files from backup: `packages/flowise-core-backend/base/.env` and `packages/flowise-core-frontend/base/.env`
     - Set correct file permissions: `chown -R $USER:$USER /srv/universo-platformo-react`
 6. **Build and start services**:
     - Navigate to project root: `cd /srv/universo-platformo-react`
     - Install dependencies: `pnpm install`
     - Build project: `pnpm build`
-    - Start PM2 process: Try `pm2 start universo-platformo` first (uses saved config). If fails, use full command: `cd packages/flowise-server/bin && pm2 start ./run --name universo-platformo -- start`
+    - Start PM2 process: Try `pm2 start universo-platformo` first (uses saved config). If fails, use full command: `cd packages/flowise-core-backend/base/bin && pm2 start ./run --name universo-platformo -- start`
     - Verify PM2 status: `pm2 list`
 7. **Disable maintenance mode**:
     - Wait 10-15 seconds for application to fully start

@@ -20,7 +20,8 @@
         "allowSyntheticDefaultImports": true,
         "resolveJsonModule": true,
         "experimentalDecorators": true,
-        "emitDecoratorMetadata": true
+        "emitDecoratorMetadata": true,
+        "types": ["node"]
     },
     "include": [
         "src/**/*"

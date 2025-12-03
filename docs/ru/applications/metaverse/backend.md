@@ -1,4 +1,4 @@
-# Metaverse Backend (metaverse-srv) — [Статус: MVP]
+# Metaverse Backend (metaverse-backend) — [Статус: MVP]
 
 ## Назначение
 
@@ -9,7 +9,7 @@
 ## Границы сервиса
 
 -   Внутри: `metaverse`, `unik`, `space`, `link` (meta↔meta), ACL
--   Снаружи: ECS (`entities-srv`), ресурсы (`resources-srv`), экономика (`economy-srv`), публикация (`template-engine-srv`, `publish-frt`)
+-   Снаружи: ECS (`entities-backend`), ресурсы (`resources-backend`), экономика (`economy-backend`), публикация (`template-engine-backend`, `publish-frontend`)
 
 ## Интерфейсы
 
@@ -26,7 +26,7 @@
 ## Структура каталогов (ожидаемая)
 
 ```txt
-packages/metaverse-srv/base/
+packages/metaverse-backend/base/
   src/
     api/
     domain/

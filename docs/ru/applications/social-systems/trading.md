@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/trading-frt/base/
-packages/trading-srv/base/
+packages/trading-frontend/base/
+packages/trading-backend/base/
 ```

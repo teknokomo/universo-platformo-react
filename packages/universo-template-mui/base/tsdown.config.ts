@@ -27,7 +27,7 @@ export default defineConfig({
     /^@ui\//,  // Imports from flowise-ui via @ui alias
     /^@mui\//,
     /^@emotion\//,
-    /^@universo\//,  // CRITICAL: All @universo/* packages must be external to prevent bundling (especially auth-frt)
+    /^@universo\//,  // CRITICAL: All @universo/* packages must be external to prevent bundling (especially auth-frontend)
     /\.svg$/,  // Treat assets as external
     /\.png$/,
     /\.jpg$/,

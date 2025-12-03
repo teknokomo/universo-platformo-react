@@ -4,8 +4,8 @@
 
 ## Состав приложения
 
-- **Frontend пакет**: `@universo/projects-frt`
-- **Backend пакет**: `@universo/projects-srv`
+- **Frontend пакет**: `@universo/projects-frontend`
+- **Backend пакет**: `@universo/projects-backend`
 
 ## Обзор функционала
 

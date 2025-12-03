@@ -82,7 +82,7 @@ interface INodeParams {
 }
 ```
 
-#### Server (`packages/flowise-server/`)
+#### Server (`packages/flowise-core-backend/base/`)
 **Purpose**: Core server functionality and middleware
 **Technology**: Node.js + Express.js + TypeScript
 **Key Features**:
@@ -109,7 +109,7 @@ interface DatabaseConfig {
 }
 ```
 
-#### UI (`packages/flowise-ui/`)
+#### UI (`packages/flowise-core-frontend/base/`)
 **Purpose**: Frontend UI library and components
 **Technology**: React + Material-UI + TypeScript
 **Key Components**:
@@ -125,16 +125,16 @@ interface DatabaseConfig {
 ```mermaid
 graph TD
     A[packages/updl] --> B[packages/flowise-components]
-    A --> C[packages/flowise-ui]
-    D[packages/publish-frt] --> B
+    A --> C[packages/flowise-core-frontend/base]
+    D[packages/publish-frontend] --> B
     D --> C
-    E[packages/profile-frt] --> B
+    E[packages/profile-frontend] --> B
     E --> C
-    F[packages/analytics-frt] --> B
+    F[packages/analytics-frontend] --> B
     F --> C
-    G[packages/publish-srv] --> H[packages/flowise-server]
+    G[packages/publish-backend] --> H[packages/flowise-core-backend/base]
     G --> B
-    I[packages/profile-srv] --> H
+    I[packages/profile-backend] --> H
     I --> B
     J[packages/universo-rest-docs] --> H
 ```
@@ -220,7 +220,7 @@ export const ErrorCodes = {
 
 ### UI Components
 
-#### Layout Components (`packages/flowise-ui/src/`)
+#### Layout Components (`packages/flowise-core-frontend/base/src/`)
 - Header and navigation
 - Sidebar components
 - Modal dialogs

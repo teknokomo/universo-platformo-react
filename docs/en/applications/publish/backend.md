@@ -1,4 +1,4 @@
-# `packages/publish-srv` — Publication System Backend — [Status: MVP]
+# `packages/publish-backend` — Publication System Backend — [Status: MVP]
 
 > **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo.
 
@@ -11,7 +11,7 @@ Backend service for managing publications, providing UPDL flow data, and serving
 -   Managing publication records in the database
 -   Serving raw `flowData` from the database
 -   Exporting shared UPDL and publication-related TypeScript types
--   Full independence from `packages/flowise-server` business logic
+-   Full independence from `packages/flowise-core-backend/base` business logic
 -   Asynchronous route initialization to prevent race conditions
 
 ## Key Features
@@ -125,7 +125,7 @@ Response: {
 
 The backend is implemented as a **pnpm workspace package**:
 
--   **Package Name**: `@universo/publish-srv`
+-   **Package Name**: `@universo/publish-backend`
 -   **Integration**: Used as dependency in main server
 -   **Exports**: Routes, types, services, controllers via `src/index.ts`
 -   **Type Sharing**: Source of truth for UPDL types consumed by frontend
@@ -133,7 +133,7 @@ The backend is implemented as a **pnpm workspace package**:
 ### Package Structure
 
 ```
-packages/publish-srv/
+packages/publish-backend/
 ├── src/
 │   ├── controllers/        # API controllers
 │   ├── services/           # Business logic
@@ -215,27 +215,27 @@ export async function createPublishRoutes(): Promise<Router> {
 pnpm install
 
 # Build workspace package
-pnpm --filter @universo/publish-srv build
+pnpm --filter @universo/publish-backend build
 ```
 
 ### Development Mode
 
 ```bash
 # Development with watch mode
-pnpm --filter @universo/publish-srv dev
+pnpm --filter @universo/publish-backend dev
 ```
 
 ### Testing
 
 ```bash
 # Unit tests
-pnpm --filter @universo/publish-srv test
+pnpm --filter @universo/publish-backend test
 
 # Integration tests
-pnpm --filter @universo/publish-srv test:integration
+pnpm --filter @universo/publish-backend test:integration
 
 # Linting
-pnpm --filter @universo/publish-srv lint
+pnpm --filter @universo/publish-backend lint
 ```
 
 ## Security

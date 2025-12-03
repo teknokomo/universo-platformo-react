@@ -4,7 +4,7 @@
 > **🏗️ Architecture**: Modular template system for MMOOMM functionality  
 > **🎯 Purpose**: Reusable MMOOMM template generation for PlayCanvas and other 3D technologies
 
-The MMOOMM Template Package is a dedicated workspace package that provides modular, reusable template generation for MMOOMM (Massively Multiplayer Online Object-Oriented Metaverse) functionality. This package was extracted from the `publish-frt` application to improve modularity and promote code reuse.
+The MMOOMM Template Package is a dedicated workspace package that provides modular, reusable template generation for MMOOMM (Massively Multiplayer Online Object-Oriented Metaverse) functionality. This package was extracted from the `publish-frontend` application to improve modularity and promote code reuse.
 
 ## Package Overview
 
@@ -101,9 +101,9 @@ Code generators create the final HTML and JavaScript:
 -   **JavaScript Generator**: Generates game logic and UPDL integration
 -   **Multiplayer Generator**: Creates Colyseus client integration code
 
-## Integration with publish-frt
+## Integration with publish-frontend
 
-The `publish-frt` application consumes this package as a dependency:
+The `publish-frontend` application consumes this package as a dependency:
 
 ### Package Dependencies
 
@@ -115,10 +115,10 @@ The `publish-frt` application consumes this package as a dependency:
 }
 ```
 
-### Usage in publish-frt
+### Usage in publish-frontend
 
 ```typescript
-// In publish-frt builders
+// In publish-frontend builders
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
 
 export class PlayCanvasBuilder extends AbstractTemplateBuilder {
@@ -192,14 +192,14 @@ export { PlayerSchema } from './multiplayer/schemas/PlayerSchema'
 export { UPDLProcessor } from './utils/UPDLProcessor'
 ```
 
-## Migration from publish-frt
+## Migration from publish-frontend
 
-This package was extracted from the `publish-frt` application to improve modularity:
+This package was extracted from the `publish-frontend` application to improve modularity:
 
 ### Before (Monolithic)
 
 ```
-publish-frt/
+publish-frontend/
 ├── src/builders/templates/mmoomm/playcanvas/
 │   ├── PlayCanvasMMOOMMBuilder.ts
 │   ├── handlers/
@@ -209,7 +209,7 @@ publish-frt/
 ### After (Modular)
 
 ```
-publish-frt/                    # Consumer
+publish-frontend/                    # Consumer
 └── package.json
     └── "@universo/template-mmoomm": "workspace:*"
 

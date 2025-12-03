@@ -6,8 +6,8 @@
 
 Space Builder состоит из двух пакетов:
 
--   `packages/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
--   `packages/space-builder-srv` — API (мета‑промпт, вызов провайдера, извлечение JSON, валидация Zod)
+-   `packages/space-builder-frontend` — UI (FAB + MUI Dialog + i18n + hook)
+-   `packages/space-builder-backend` — API (мета‑промпт, вызов провайдера, извлечение JSON, валидация Zod)
 
 UI реализует трёхшаговый сценарий для создания квиза (Подготовить → Предпросмотр → Настройки → Сгенерировать):
 
@@ -30,7 +30,7 @@ UI может применить сгенерированный граф в тр
 
 ## Переменные окружения
 
-Настройка в `packages/flowise-server/.env`:
+Настройка в `packages/flowise-core-backend/base/.env`:
 
 -   Флаги тестового режима
     -   `SPACE_BUILDER_TEST_MODE=true|false`
@@ -89,12 +89,12 @@ UI может применить сгенерированный граф в тр
 
 ```ts
 import i18n from '@/i18n'
-import { registerSpaceBuilderI18n } from '@universo/space-builder-frt'
+import { registerSpaceBuilderI18n } from '@universo/space-builder-frontend'
 registerSpaceBuilderI18n(i18n)
 ```
 
 ```tsx
-import { SpaceBuilderFab } from '@universo/space-builder-frt'
+import { SpaceBuilderFab } from '@universo/space-builder-frontend'
 ;<SpaceBuilderFab
     models={availableChatModels}
     onApply={(graph, mode) => {
@@ -115,8 +115,8 @@ UI получает список моделей из Credentials и читает
 Команды:
 
 ```
-pnpm build --filter @universo/space-builder-frt
-pnpm build --filter @universo/space-builder-srv
+pnpm build --filter @universo/space-builder-frontend
+pnpm build --filter @universo/space-builder-backend
 ```
 
 ## Примечания

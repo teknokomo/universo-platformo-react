@@ -10,7 +10,7 @@ import { styled } from '@mui/material/styles'
 
 // API
 import { api } from '@universo/api-client'
-import { useAuth } from '@universo/auth-frt'
+import { useAuth } from '@universo/auth-frontend'
 
 const StyledPopper = styled(Popper)({
     boxShadow: '0px 8px 10px -5px rgb(0 0 0 / 20%), 0px 16px 24px 2px rgb(0 0 0 / 14%), 0px 6px 30px 5px rgb(0 0 0 / 12%)',

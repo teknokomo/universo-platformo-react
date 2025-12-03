@@ -7,7 +7,7 @@ applyTo: '**'
 ## Project Structure & Module Organization
 
 -   Monorepo with feature apps under `packages/`.
-    -   Examples: `packages/publish-frt` (React front end), `packages/publish-srv` (Node/Express back end), `packages/updl` (UPDL tools).
+    -   Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
     -   Each app contains a `base/` directory for the default implementation.
 -   Front-end apps include `i18n/` with default locales `en/` and `ru/`.
 -   Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
@@ -20,7 +20,7 @@ applyTo: '**'
 -   `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
 -   `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
 -   `pnpm start`: Run production server(s) for built apps.
--   `pnpm lint`: Run ESLint across the workspace. For checking specific packages, use `pnpm --filter <package> lint` (e.g., `pnpm --filter publish-frt lint`) to avoid long execution times. Run global lint only when necessary and with user approval.
+-   `pnpm lint`: Run ESLint across the workspace. For checking specific packages, use `pnpm --filter <package> lint` (e.g., `pnpm --filter publish-frontend lint`) to avoid long execution times. Run global lint only when necessary and with user approval.
 
 ## Coding Style & Naming Conventions
 
@@ -39,7 +39,7 @@ applyTo: '**'
 
 ## Commit & Pull Request Guidelines
 
--   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frt): add i18n loader`).
+-   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
 -   PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
 -   Small, focused PRs are preferred; include `packages/*/base` paths in the scope when relevant.
 

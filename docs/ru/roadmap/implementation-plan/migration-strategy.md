@@ -117,9 +117,9 @@ service_infrastructure:
 
 #### Приоритет извлечения (по сложности)
 
-1. **analytics-frt** → `analytics-enhanced-srv` (Неделя 1-2)
-2. **profile-srv** → `profile-srv` микросервис (Неделя 3-4)
-3. **profile-frt** → обновление для работы с новым API (Неделя 5-6)
+1. **analytics-frontend** → `analytics-enhanced-backend` (Неделя 1-2)
+2. **profile-backend** → `profile-backend` микросервис (Неделя 3-4)
+3. **profile-frontend** → обновление для работы с новым API (Неделя 5-6)
 
 #### Пример миграции: Analytics Service
 
@@ -127,7 +127,7 @@ service_infrastructure:
 // Этап 1: Создание нового сервиса
 interface AnalyticsServiceMigration {
     step1_create_service: {
-        repository: 'analytics-enhanced-srv';
+        repository: 'analytics-enhanced-backend';
         database: 'analytics_db';
         api_endpoints: [
             'GET /api/v1/analytics/events',
@@ -154,16 +154,16 @@ interface AnalyticsServiceMigration {
 
 #### Порядок извлечения
 
-1. **publish-srv** → `template-engine-srv` + `publish-srv` (Неделя 1-4)
-2. **publish-frt** → обновление для новых API (Неделя 5-6)
-3. **Flowise core** → `workflow-engine-srv` + `node-registry-srv` (Неделя 7-8)
+1. **publish-backend** → `template-engine-backend` + `publish-backend` (Неделя 1-4)
+2. **publish-frontend** → обновление для новых API (Неделя 5-6)
+3. **Flowise core** → `workflow-engine-backend` + `node-registry-backend` (Неделя 7-8)
 
 #### Пример миграции: Template Engine
 
 ```typescript
 interface TemplateEngineMigration {
     complexity: 'high';
-    dependencies: ['node-registry-srv', 'file-storage'];
+    dependencies: ['node-registry-backend', 'file-storage'];
     
     migration_phases: {
         phase1_extract_templates: {
@@ -212,13 +212,13 @@ interface UPDLSystemMigration {
         workflow_engine_srv: {
             responsibility: 'Выполнение Chatflow';
             duration: '4 weeks';
-            dependencies: ['node-registry-srv'];
+            dependencies: ['node-registry-backend'];
         };
         
         updl_frontend: {
             responsibility: 'Визуальный редактор';
             duration: '3 weeks';
-            dependencies: ['node-registry-srv', 'workflow-engine-srv'];
+            dependencies: ['node-registry-backend', 'workflow-engine-backend'];
         };
     };
     
@@ -236,22 +236,22 @@ interface UPDLSystemMigration {
 
 ```mermaid
 graph TD
-    A[analytics-frt] --> B[packages/flowise-components]
-    C[profile-frt] --> B
-    C --> D[profile-srv]
-    E[publish-frt] --> B
-    E --> F[publish-srv]
-    F --> G[packages/flowise-server]
+    A[analytics-frontend] --> B[packages/flowise-components]
+    C[profile-frontend] --> B
+    C --> D[profile-backend]
+    E[publish-frontend] --> B
+    E --> F[publish-backend]
+    F --> G[packages/flowise-core-backend/base]
     D --> G
     H[updl] --> B
-    H --> I[packages/flowise-ui]
+    H --> I[packages/flowise-core-frontend/base]
     
     subgraph "Новые сервисы"
-        J[analytics-enhanced-srv]
-        K[profile-srv-new]
-        L[template-engine-srv]
-        M[workflow-engine-srv]
-        N[node-registry-srv]
+        J[analytics-enhanced-backend]
+        K[profile-backend-new]
+        L[template-engine-backend]
+        M[workflow-engine-backend]
+        N[node-registry-backend]
     end
     
     A -.-> J
@@ -266,30 +266,30 @@ graph TD
 ```typescript
 interface MigrationOrder {
     wave1_independent: {
-        services: ['analytics-enhanced-srv'];
+        services: ['analytics-enhanced-backend'];
         duration: '2 weeks';
         risk: 'low';
     };
     
     wave2_simple_dependencies: {
-        services: ['profile-srv'];
+        services: ['profile-backend'];
         duration: '2 weeks';
         risk: 'low';
         depends_on: [];
     };
     
     wave3_moderate_dependencies: {
-        services: ['template-engine-srv', 'publish-srv'];
+        services: ['template-engine-backend', 'publish-backend'];
         duration: '4 weeks';
         risk: 'medium';
-        depends_on: ['profile-srv'];
+        depends_on: ['profile-backend'];
     };
     
     wave4_complex_dependencies: {
-        services: ['node-registry-srv', 'workflow-engine-srv'];
+        services: ['node-registry-backend', 'workflow-engine-backend'];
         duration: '6 weeks';
         risk: 'high';
-        depends_on: ['template-engine-srv'];
+        depends_on: ['template-engine-backend'];
     };
 }
 ```
@@ -307,22 +307,22 @@ CREATE TABLE profiles (
     id UUID PRIMARY KEY,
     email VARCHAR(255),
     display_name VARCHAR(100),
-    -- используется: profile-srv, analytics-frt, updl
+    -- используется: profile-backend, analytics-frontend, updl
 );
 
--- UPDL потоки (используется updl, publish-srv)
+-- UPDL потоки (используется updl, publish-backend)
 CREATE TABLE updl_flows (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES profiles(id),
     flow_data JSONB,
-    -- используется: updl, publish-srv
+    -- используется: updl, publish-backend
 );
 
--- Опубликованные приложения (используется publish-srv, analytics-frt)
+-- Опубликованные приложения (используется publish-backend, analytics-frontend)
 CREATE TABLE published_apps (
     id UUID PRIMARY KEY,
     flow_id UUID REFERENCES updl_flows(id),
-    -- используется: publish-srv, analytics-frt
+    -- используется: publish-backend, analytics-frontend
 );
 ```
 

@@ -1,4 +1,4 @@
-# `packages/space-builder-srv` — Space Builder Backend — [Статус: MVP]
+# `packages/space-builder-backend` — Space Builder Backend — [Статус: MVP]
 
 Backend сервис для преобразования естественноязыкового запроса в план викторины и UPDL граф через LLM провайдеров.
 
@@ -156,7 +156,7 @@ Per-provider settings (example for OpenAI):
 Single CJS build:
 
 ```bash
-pnpm build --filter @universo/space-builder-srv
+pnpm build --filter @universo/space-builder-backend
 ```
 
 ## Безопасность

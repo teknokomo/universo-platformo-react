@@ -16,22 +16,22 @@
 
 Приложения, реализующие основные игровые механики Universo MMOOMM:
 
--   **resources-frt/srv**: Система ресурсов с 16 типами материалов
--   **ships-frt/srv**: Управление кораблями и флотом
--   **economy-frt/srv**: Экономика с валютой Inmo
--   **mining-frt/srv**: Промышленный лазерный майнинг
--   **stations-frt/srv**: Космические станции и производство
--   **navigation-frt/srv**: Навигация между мирами
--   **security-frt/srv**: Система безопасности пространства
--   **combat-frt/srv**: PvP боевая система
--   **skills-frt/srv**: Система навыков и прогрессии
--   **sovereignty-frt/srv**: Территориальные войны и контроль систем
--   **industry-frt/srv**: Производство и промышленность
--   **wormhole-srv**: Системы червоточин
+-   **resources-frontend/srv**: Система ресурсов с 16 типами материалов
+-   **ships-frontend/srv**: Управление кораблями и флотом
+-   **economy-frontend/srv**: Экономика с валютой Inmo
+-   **mining-frontend/srv**: Промышленный лазерный майнинг
+-   **stations-frontend/srv**: Космические станции и производство
+-   **navigation-frontend/srv**: Навигация между мирами
+-   **security-frontend/srv**: Система безопасности пространства
+-   **combat-frontend/srv**: PvP боевая система
+-   **skills-frontend/srv**: Система навыков и прогрессии
+-   **sovereignty-frontend/srv**: Территориальные войны и контроль систем
+-   **industry-frontend/srv**: Производство и промышленность
+-   **wormhole-backend**: Системы червоточин
 
 ### Resources Management System
 
-#### resources-frt
+#### resources-frontend
 
 **Назначение**: Фронтенд управления ресурсами и инвентарем
 
@@ -68,7 +68,7 @@ interface MaterialStack {
 }
 ```
 
-#### resources-srv
+#### resources-backend
 
 **Назначение**: Бэкенд системы ресурсов с реалистичной физикой
 
@@ -100,7 +100,7 @@ interface MaterialStack {
 
 ### Economy System
 
-#### economy-frt
+#### economy-frontend
 
 **Назначение**: Фронтенд экономической системы
 
@@ -111,7 +111,7 @@ interface MaterialStack {
 -   Калькулятор прибыльности торговых маршрутов
 -   История транзакций и аналитика
 
-#### economy-srv
+#### economy-backend
 
 **Назначение**: Бэкенд валюты Inmo и экономических операций
 
@@ -142,7 +142,7 @@ interface WorldEconomy {
 
 ### Ships & Navigation System
 
-#### ships-frt
+#### ships-frontend
 
 **Назначение**: Фронтенд управления кораблями
 
@@ -153,7 +153,7 @@ interface WorldEconomy {
 -   Система модификаций и улучшений
 -   Мониторинг состояния и ремонта
 
-#### ships-srv
+#### ships-backend
 
 **Назначение**: Бэкенд флота и кастомизации кораблей
 
@@ -186,7 +186,7 @@ interface ShipConfiguration {
 }
 ```
 
-#### navigation-frt / navigation-srv
+#### navigation-frontend / navigation-backend
 
 **Назначение**: Система навигации между мирами
 
@@ -199,7 +199,7 @@ interface ShipConfiguration {
 
 ### Stations & Mining System
 
-#### stations-frt / stations-srv
+#### stations-frontend / stations-backend
 
 **Назначение**: Космические станции и производство
 
@@ -210,7 +210,7 @@ interface ShipConfiguration {
 -   Система найма NPC рабочих
 -   Управление энергией и ресурсами
 
-#### mining-frt / mining-srv
+#### mining-frontend / mining-backend
 
 **Назначение**: Промышленный лазерный майнинг
 
@@ -245,7 +245,7 @@ interface MiningOperation {
 
 ### Security & Combat System
 
-#### security-frt / security-srv
+#### security-frontend / security-backend
 
 **Назначение**: Система безопасности пространства
 
@@ -281,7 +281,7 @@ const securityZones = {
 }
 ```
 
-#### combat-frt / combat-srv
+#### combat-frontend / combat-backend
 
 **Назначение**: PvP боевая система
 
@@ -324,7 +324,7 @@ interface CombatSystem {
 
 ### Skills & Progression System
 
-#### skills-frt / skills-srv
+#### skills-frontend / skills-backend
 
 **Назначение**: Система навыков и прогрессии персонажа
 
@@ -370,7 +370,7 @@ interface SkillBonus {
 
 ### Sovereignty & Territorial Warfare
 
-#### sovereignty-frt / sovereignty-srv
+#### sovereignty-frontend / sovereignty-backend
 
 **Назначение**: Территориальные войны и контроль систем
 
@@ -432,7 +432,7 @@ interface OrbitalSkyhook {
 
 ### Industry & Manufacturing
 
-#### industry-frt / industry-srv
+#### industry-frontend / industry-backend
 
 **Назначение**: Производство и промышленность
 
@@ -487,7 +487,7 @@ interface ProductionLine {
 
 ### Wormhole Systems
 
-#### wormhole-srv
+#### wormhole-backend
 
 **Назначение**: Системы червоточин
 
@@ -539,7 +539,7 @@ interface SleeperSite {
 
 ### Corporations System
 
-#### corporations-frt / corporations-srv
+#### corporations-frontend / corporations-backend
 
 **Назначение**: Корпорации и организации игроков
 
@@ -586,7 +586,7 @@ interface CorporationRole {
 
 ### Diplomacy System
 
-#### diplomacy-frt / diplomacy-srv
+#### diplomacy-frontend / diplomacy-backend
 
 **Назначение**: Дипломатические отношения
 
@@ -599,7 +599,7 @@ interface CorporationRole {
 
 ### Trading System
 
-#### trading-frt / trading-srv
+#### trading-frontend / trading-backend
 
 **Назначение**: Продвинутая торговая система
 
@@ -660,7 +660,7 @@ interface CourierContract {
 
 ### Enhanced Authentication
 
-#### auth-enhanced-frt / auth-enhanced-srv
+#### auth-enhanced-frontend / auth-enhanced-backend
 
 **Назначение**: Расширенная система авторизации
 
@@ -698,7 +698,7 @@ interface UniversoUser {
 
 ### Multiplayer System
 
-#### multiplayer-frt / multiplayer-srv
+#### multiplayer-frontend / multiplayer-backend
 
 **Назначение**: Реальное время мультиплеер
 
@@ -733,7 +733,7 @@ interface MultiplayerState {
 
 ### Security & Monitoring
 
-#### security-frt / security-srv
+#### security-frontend / security-backend
 
 **Назначение**: Безопасность и защита от читов
 
@@ -753,7 +753,7 @@ interface MultiplayerState {
 ```typescript
 interface UPDLServiceMapping {
     Space: {
-        services: ['navigation-srv', 'stations-srv', 'security-srv', 'sovereignty-srv', 'wormhole-srv']
+        services: ['navigation-backend', 'stations-backend', 'security-backend', 'sovereignty-backend', 'wormhole-backend']
         description: 'Игровые миры, зоны безопасности и пространственные системы'
         gameLogic: {
             worlds: ['kubio', 'konkordo', 'triumfo']
@@ -765,7 +765,7 @@ interface UPDLServiceMapping {
         }
     }
     Entity: {
-        services: ['ships-srv', 'resources-srv', 'mining-srv', 'industry-srv']
+        services: ['ships-backend', 'resources-backend', 'mining-backend', 'industry-backend']
         description: 'Игровые объекты и сущности'
         gameLogic: {
             ships: 'корабли игроков и NPC'
@@ -777,7 +777,7 @@ interface UPDLServiceMapping {
         }
     }
     Component: {
-        services: ['ships-srv', 'stations-srv', 'skills-srv']
+        services: ['ships-backend', 'stations-backend', 'skills-backend']
         description: 'Компоненты и модули объектов'
         gameLogic: {
             shipModules: 'двигатели, оружие, щиты'
@@ -787,7 +787,7 @@ interface UPDLServiceMapping {
         }
     }
     Event: {
-        services: ['multiplayer-srv', 'combat-srv', 'trading-srv']
+        services: ['multiplayer-backend', 'combat-backend', 'trading-backend']
         description: 'Игровые события и триггеры'
         gameLogic: {
             combatEvents: 'атаки, уничтожения, урон'
@@ -797,7 +797,7 @@ interface UPDLServiceMapping {
         }
     }
     Action: {
-        services: ['combat-srv', 'trading-srv', 'diplomacy-srv', 'mining-srv', 'industry-srv', 'sovereignty-srv']
+        services: ['combat-backend', 'trading-backend', 'diplomacy-backend', 'mining-backend', 'industry-backend', 'sovereignty-backend']
         description: 'Действия игроков и системы'
         gameLogic: {
             playerActions: 'атака, добыча, торговля, перемещение'
@@ -809,7 +809,7 @@ interface UPDLServiceMapping {
         }
     }
     Data: {
-        services: ['resources-srv', 'economy-srv', 'analytics-enhanced-srv']
+        services: ['resources-backend', 'economy-backend', 'analytics-enhanced-backend']
         description: 'Игровые данные и метрики'
         gameLogic: {
             gameState: 'состояние игрового мира'
@@ -819,7 +819,7 @@ interface UPDLServiceMapping {
         }
     }
     Universo: {
-        services: ['workflow-engine-srv', 'node-registry-srv', 'security-srv']
+        services: ['workflow-engine-backend', 'node-registry-backend', 'security-backend']
         description: 'Глобальные правила и конфигурация'
         gameLogic: {
             gameRules: 'правила PvP, экономики, прогрессии'

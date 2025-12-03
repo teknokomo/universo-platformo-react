@@ -155,7 +155,7 @@ packages/updl/dist/nodes/
 ### Система публикации
 
 Логика экспорта пространств обрабатывается отдельно:
-- **Сборщики пространств**: `publish-frt`, `space-builder-frt`
+- **Сборщики пространств**: `publish-frontend`, `space-builder-frontend`
 - **Экспорт в технологии**: AR.js, PlayCanvas через publish систему
 - **API клиенты**: Не требуются для определений нод
 

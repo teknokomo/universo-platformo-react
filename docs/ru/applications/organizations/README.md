@@ -4,8 +4,8 @@
 
 ## Состав приложения
 
-- **Frontend пакет**: `@universo/organizations-frt`
-- **Backend пакет**: `@universo/organizations-srv`
+- **Frontend пакет**: `@universo/organizations-frontend`
+- **Backend пакет**: `@universo/organizations-backend`
 
 ## Обзор функционала
 

@@ -6,6 +6,6 @@
 
 Состав (MVP): манифест, схема конфигурации, базовая сцена, ресурсы маркеров, сборка.
 
-Интеграции: `template-engine-srv`, `publish-srv`.
+Интеграции: `template-engine-backend`, `publish-backend`.
 
 См. также: `applications/platform-core/template-engine.md`.

@@ -9,8 +9,8 @@
 
 ## Компоненты
 
--   Бэкенд: `@universo/metaverse-srv`
--   Фронтенд: `@universo/metaverse-frt`
+-   Бэкенд: `@universo/metaverse-backend`
+-   Фронтенд: `@universo/metaverse-frontend`
 
 ## Возможности (MVP)
 
@@ -32,8 +32,8 @@
 
 ## Детали
 
--   [Metaverse Backend (metaverse-srv)](./backend.md)
--   [Metaverse Frontend (metaverse-frt)](./frontend.md)
+-   [Metaverse Backend (metaverse-backend)](./backend.md)
+-   [Metaverse Frontend (metaverse-frontend)](./frontend.md)
 
 ## См. также
 

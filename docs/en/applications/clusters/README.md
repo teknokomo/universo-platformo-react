@@ -4,8 +4,8 @@
 
 ## Application Components
 
-- **Frontend package**: `@universo/clusters-frt`
-- **Backend package**: `@universo/clusters-srv`
+- **Frontend package**: `@universo/clusters-frontend`
+- **Backend package**: `@universo/clusters-backend`
 
 ## Functionality Overview
 

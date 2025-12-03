@@ -56,15 +56,15 @@
 #### Конкретные проблемы для исправления:
 
 1. **Проблема с маршрутизацией**:
-   - ❌ В `packages/flowise-ui/src/routes/index.jsx` создано много мусорного/лишнего кода
+   - ❌ В `packages/flowise-core-frontend/base/src/routes/index.jsx` создано много мусорного/лишнего кода
    - ✅ **Решение**: Удалить весь мусорный код и сделать простое подключение новой структуры
 
 2. **Проблема с интеграцией**:
    - ❌ `MainRoutesMUI.tsx` и `MainLayoutMUI.tsx` подключены неправильно
-   - ✅ **Решение**: Правильное подключение в `packages/flowise-ui/src/App.jsx` или нормально в `packages/flowise-ui/src/routes/index.jsx`
+   - ✅ **Решение**: Правильное подключение в `packages/flowise-core-frontend/base/src/App.jsx` или нормально в `packages/flowise-core-frontend/base/src/routes/index.jsx`
 
 3. **Проблема с дублирующими компонентами**:
-   - ❌ Промежуточные итерации в `packages/flowise-ui/src/ui-components` (доработанные для нового дизайна)
+   - ❌ Промежуточные итерации в `packages/flowise-core-frontend/base/src/ui-components` (доработанные для нового дизайна)
    - ❌ Тестовые компоненты в `packages/universo-template-mui/base/src/components/universal`
    - ❌ Неправильный `packages/universo-template-mui/base/src/components/EntityCard.tsx`
    - ✅ **Решение**: Удалить все после создания правильных версий на основе копирования
@@ -432,7 +432,7 @@ describe('EntityToolbar', () => {
    - `packages/universo-template-mui/base/src/views/shared` → правильное размещение
    - `packages/universo-template-mui/base/src/views/dashboard/internals` → правильное размещение
 2. **Обновление всех импортов и ссылок** в `Dashboard.tsx` и `MainLayoutMUI.tsx`
-3. **Очистка маршрутизации** - удаление мусорного кода из `packages/flowise-ui/src/routes/index.jsx`
+3. **Очистка маршрутизации** - удаление мусорного кода из `packages/flowise-core-frontend/base/src/routes/index.jsx`
 4. **Проверка работоспособности** - убедиться, что все перемещения не сломали текущую работу
 
 #### Этап 2: Создание компонентов карточек (КОПИРОВАНИЕ, НЕ ПЕРЕПИСЫВАНИЕ)
@@ -458,7 +458,7 @@ describe('EntityToolbar', () => {
 4. **Тестирование совместимости пагинации** с режимом карточек
 
 #### Этап 4: Создание панели инструментов (НА ОСНОВЕ ШАБЛОНА)
-1. **Анализ существующих компонентов** в `packages/flowise-ui/src/ui-components` для возможного использования
+1. **Анализ существующих компонентов** в `packages/flowise-core-frontend/base/src/ui-components` для возможного использования
 2. **Создание EntityToolbar** на основе паттернов из нового MUI шаблона
 3. **Реализация поиска и фильтрации** с соблюдением стилей нового шаблона
 4. **Добавление переключения видов** (карточки/список)
@@ -466,7 +466,7 @@ describe('EntityToolbar', () => {
 
 #### Этап 5: Интеграция и развертывание
 1. **Исправление интеграции маршрутизации**:
-   - Простое и прямое подключение в `packages/flowise-ui/src/App.jsx` или `packages/flowise-ui/src/routes/index.jsx`
+   - Простое и прямое подключение в `packages/flowise-core-frontend/base/src/App.jsx` или `packages/flowise-core-frontend/base/src/routes/index.jsx`
    - Избегание чрезмерной абстракции
 2. **Замена существующих компонентов** на всех страницах сущностей
 3. **Удаление устаревших компонентов** после создания правильных версий
@@ -511,7 +511,7 @@ export const getActiveTemplate = (): TemplateConfig => {
 #### Интеграция с основным приложением
 
 ```typescript
-// packages/flowise-ui/src/App.jsx - простое подключение
+// packages/flowise-core-frontend/base/src/App.jsx - простое подключение
 import { getActiveTemplate } from '@universo/templates';
 
 const App = () => {

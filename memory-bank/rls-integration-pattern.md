@@ -29,7 +29,7 @@ Pattern for integrating PostgreSQL Row Level Security with TypeORM via JWT conte
                    │
                    ▼
 ┌─────────────────────────────────────────────────┐
-│  ensureAuthWithRls Middleware (@universo/auth-srv) │
+│  ensureAuthWithRls Middleware (@universo/auth-backend) │
 │  • Validates JWT                                 │
 │  • Creates QueryRunner per request               │
 │  • Sets PostgreSQL session variables             │
@@ -55,9 +55,9 @@ Pattern for integrating PostgreSQL Row Level Security with TypeORM via JWT conte
 
 ## Implementation
 
-### 1. Middleware Setup (@universo/auth-srv)
+### 1. Middleware Setup (@universo/auth-backend)
 
-**File**: `packages/auth-srv/base/src/middlewares/ensureAuthWithRls.ts`
+**File**: `packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
 
 ```typescript
 import type { Request, Response, NextFunction, RequestHandler } from 'express'
@@ -136,7 +136,7 @@ export function createEnsureAuthWithRls(options: {
 
 ### 2. JWT Context Application
 
-**File**: `packages/auth-srv/base/src/utils/rlsContext.ts`
+**File**: `packages/auth-backend/base/src/utils/rlsContext.ts`
 
 ```typescript
 import type { QueryRunner } from 'typeorm'
@@ -183,10 +183,10 @@ export async function applyRlsContext(
 
 ### 3. Route Integration (flowise-server)
 
-**File**: `packages/flowise-server/src/routes/index.ts`
+**File**: `packages/flowise-core-backend/base/src/routes/index.ts`
 
 ```typescript
-import { createEnsureAuthWithRls } from '@universo/auth-srv'
+import { createEnsureAuthWithRls } from '@universo/auth-backend'
 import { getDataSource } from '../DataSource'
 
 // Create RLS-enabled middleware
@@ -210,10 +210,10 @@ router.use('/profile', ensureAuthWithRls, profileRouter)
 
 ### 4. Service Layer Adaptation
 
-**Pattern 1: Direct Repository Access** (uniks-srv, metaverses-srv)
+**Pattern 1: Direct Repository Access** (uniks-backend, metaverses-backend)
 
 ```typescript
-import type { RequestWithDbContext } from '@universo/auth-srv'
+import type { RequestWithDbContext } from '@universo/auth-backend'
 
 function getRequestManager(req: Request, dataSource: DataSource) {
     const rlsContext = (req as RequestWithDbContext).dbContext
@@ -236,12 +236,12 @@ router.get('/', async (req, res) => {
 })
 ```
 
-**Pattern 2: Service-Based Architecture** (spaces-srv)
+**Pattern 2: Service-Based Architecture** (spaces-backend)
 
 For services using `dataSource.transaction()`, RLS is applied at connection level:
 
 ```typescript
-// spaces-srv uses transaction() which creates new QueryRunner
+// spaces-backend uses transaction() which creates new QueryRunner
 // RLS context must be set at connection level, not per-transaction
 // Current implementation: RLS applied via middleware, transactions inherit context
 
@@ -253,7 +253,7 @@ For services using `dataSource.transaction()`, RLS is applied at connection leve
 
 ### 5. PostgreSQL RLS Policies
 
-**Example Migration**: `packages/flowise-server/src/database/migrations/xxxx-add-rls-policies.ts`
+**Example Migration**: `packages/flowise-core-backend/base/src/database/migrations/xxxx-add-rls-policies.ts`
 
 ```sql
 -- Enable RLS on table
@@ -439,18 +439,18 @@ export async function applyRlsContext(queryRunner: QueryRunner, accessToken: str
 
 ### Phase 1: Infrastructure Setup
 
-- [x] Add `jose@^5.9.6` and `typeorm@^0.3.20` to auth-srv
+- [x] Add `jose@^5.9.6` and `typeorm@^0.3.20` to auth-backend
 - [x] Create `rlsContext.ts` utility
 - [x] Create `ensureAuthWithRls` middleware
-- [x] Export from auth-srv index.ts
+- [x] Export from auth-backend index.ts
 
 ### Phase 2: Service Migration
 
 - [x] Update flowise-server routes to use `ensureAuthWithRls`
-- [x] Migrate uniks-srv routes (direct repository pattern)
-- [x] Migrate metaverses-srv routes (direct repository pattern)
-- [ ] Investigate spaces-srv transaction() compatibility
-- [ ] Test profile-srv RLS requirements
+- [x] Migrate uniks-backend routes (direct repository pattern)
+- [x] Migrate metaverses-backend routes (direct repository pattern)
+- [ ] Investigate spaces-backend transaction() compatibility
+- [ ] Test profile-backend RLS requirements
 
 ### Phase 3: Database Policies
 
@@ -468,7 +468,7 @@ export async function applyRlsContext(queryRunner: QueryRunner, accessToken: str
 
 ### Phase 5: Documentation & Deployment
 
-- [x] Update auth-srv README
+- [x] Update auth-backend README
 - [x] Document systemPatterns.md pattern
 - [x] Update techContext.md dependencies
 - [ ] Create deployment checklist

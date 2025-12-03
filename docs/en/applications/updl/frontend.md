@@ -155,7 +155,7 @@ packages/updl/dist/nodes/
 ### Publication System
 
 Space export logic is handled separately:
-- **Space Builders**: `publish-frt`, `space-builder-frt`
+- **Space Builders**: `publish-frontend`, `space-builder-frontend`
 - **Technology Export**: AR.js, PlayCanvas via publish system
 - **API Clients**: Not required for node definitions
 

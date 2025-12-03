@@ -1,4 +1,4 @@
-# Profile Backend (`@universo/profile-srv`)
+# Profile Backend (`@universo/profile-backend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 

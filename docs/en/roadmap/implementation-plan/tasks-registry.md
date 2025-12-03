@@ -6,22 +6,22 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
 -   **Redesign Authentication System (Supabase, preparation for Passport.js)**
 
-    Task: stabilize multi-user authentication, fix token handling and refresh, consistently pass authentication to frontend/backend and exported applications. Create `packages/auth-frt` and `packages/auth-srv` applications.
+    Task: stabilize multi-user authentication, fix token handling and refresh, consistently pass authentication to frontend/backend and exported applications. Create `packages/auth-frontend` and `packages/auth-backend` applications.
 
     Details:
 
-    -   In `packages/auth-srv` implement abstraction layer over Supabase Auth (access/refresh validation, rotation, webhook events), provide adapter for future Passport.js integration.
-    -   In `packages/auth-frt` — UI components for login/registration/token refresh, Supabase SDK integration, token storage/refresh, request interceptors.
-    -   Update authentication integration in `packages/publish-frt`, `packages/template-engine-srv` (PlayCanvas export), `packages/multiplayer-colyseus-srv` (JWT in join parameters).
+    -   In `packages/auth-backend` implement abstraction layer over Supabase Auth (access/refresh validation, rotation, webhook events), provide adapter for future Passport.js integration.
+    -   In `packages/auth-frontend` — UI components for login/registration/token refresh, Supabase SDK integration, token storage/refresh, request interceptors.
+    -   Update authentication integration in `packages/publish-frontend`, `packages/template-engine-backend` (PlayCanvas export), `packages/multiplayer-colyseus-backend` (JWT in join parameters).
 
 -   **Metaverses: frontend and server, Unik/Space relationships and roles**
 
-    Task: create `packages/metaverse-frt` and `packages/metaverse-srv` as base applications for metaverse domain. Provide meta↔meta relationship models (child/partner), metaverse catalog, and Unik/Space integration.
+    Task: create `packages/metaverse-frontend` and `packages/metaverse-backend` as base applications for metaverse domain. Provide meta↔meta relationship models (child/partner), metaverse catalog, and Unik/Space integration.
 
     Details:
 
-    -   In `metaverse-srv`: schemas `metaverse.metaverses`, `metaverse.links`, basic REST (`/metaverses`, `/metaverses/:id/links`, `/overview`).
-    -   In `metaverse-frt`: metaverse management interfaces, relationship overview, Unik/Space connection.
+    -   In `metaverse-backend`: schemas `metaverse.metaverses`, `metaverse.links`, basic REST (`/metaverses`, `/metaverses/:id/links`, `/overview`).
+    -   In `metaverse-frontend`: metaverse management interfaces, relationship overview, Unik/Space connection.
     -   Define architecturally: Unik as parallel catalog (not child meta), meta — world catalog (shared and personal). Clarify in documentation and API the "meta ↔ unik ↔ space" relationships.
 
 -   **Multi-canvas UPDL Architecture: Space↔Space/Unik/Metaverse Links**
@@ -49,20 +49,20 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Create `packages/chatbot-embed-srv` for serving chatbot embeds independently.
-    -   Update `packages/publish-frt` to use dedicated embed service.
+    -   Create `packages/chatbot-embed-backend` for serving chatbot embeds independently.
+    -   Update `packages/publish-frontend` to use dedicated embed service.
     -   Implement proper CORS and security for embedded chatbots.
 
 -   **Template Engine Server: pre-generation mode**
 
-    Task: add pre-generation mode for applications instead of streaming generation in browser. On publication request, `template-engine-srv` generates target project (e.g., PlayCanvas) on server, saves artifacts to storage (S3 or local), and serves ready-built bundle to users.
+    Task: add pre-generation mode for applications instead of streaming generation in browser. On publication request, `template-engine-backend` generates target project (e.g., PlayCanvas) on server, saves artifacts to storage (S3 or local), and serves ready-built bundle to users.
 
     Details:
 
-    -   Implement server-side template processing in `packages/template-engine-srv`.
+    -   Implement server-side template processing in `packages/template-engine-backend`.
     -   Add artifact storage system (S3/local filesystem).
     -   Create build queue and status tracking.
-    -   Update `packages/publish-frt` to support both streaming and pre-generation modes.
+    -   Update `packages/publish-frontend` to support both streaming and pre-generation modes.
 
 ## Stage 2. Base Package Creation and Modularization
 
@@ -108,7 +108,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Move profile-related components from `packages/profile-frt` to shared package.
+    -   Move profile-related components from `packages/profile-frontend` to shared package.
     -   Create reusable profile widgets and forms.
     -   Implement profile data synchronization utilities.
 
@@ -118,7 +118,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Move workspace components from `packages/uniks-frt` to shared package.
+    -   Move workspace components from `packages/uniks-frontend` to shared package.
     -   Create reusable workspace management widgets.
     -   Implement workspace collaboration utilities.
 

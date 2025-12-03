@@ -137,7 +137,7 @@ const generateBreadcrumbs = (pathname: string, unikId?: string, t?: any): Breadc
 
 ### С Uniks Frontend
 
-Шаблон интегрируется с `@universo/uniks-frt` через:
+Шаблон интегрируется с `@universo/uniks-frontend` через:
 
 - **Route Factory**: `createMainRoutes()` принимает свойства компонента
 - **Navigation Hook**: `useUnikNavigation()` предоставляет элементы меню
@@ -231,7 +231,7 @@ pnpm --filter flowise-ui build
 ## Связанная документация
 
 - [Документация основных приложений](../../../packages/README-RU.md)
-- [Документация Uniks Frontend](../../uniks-frt/base/README-RU.md)
+- [Документация Uniks Frontend](../../uniks-frontend/base/README-RU.md)
 - [Архитектура платформы](../../../docs/ru/applications/README.md)
 
 ---

@@ -9,7 +9,7 @@ UPDL is a pure **frontend module with node definitions** for the Flowise editor.
 UPDL follows the principle of **clean separation of concerns**:
 
 - **Node Definitions**: Handled in `packages/updl` (frontend only)
-- **Space Building Logic**: Handled in `packages/publish-srv` and `packages/space-builder-srv`
+- **Space Building Logic**: Handled in `packages/publish-backend` and `packages/space-builder-backend`
 - **Export APIs**: Handled in publication services
 - **Data Storage**: Handled in Flowise Server via TypeORM
 

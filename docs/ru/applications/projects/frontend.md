@@ -1,4 +1,4 @@
-# Projects Frontend (`@universo/projects-frt`)
+# Projects Frontend (`@universo/projects-frontend`)
 
 > **📋 Уведомление**: Данная документация адаптируется для Universo Platformo.
 
@@ -22,7 +22,7 @@ Frontend для управления трёхуровневой структур
 ## API Integration
 
 ```typescript
-import { ProjectsApi } from '@universo/projects-frt';
+import { ProjectsApi } from '@universo/projects-frontend';
 
 await api.getProjects({ page, limit });
 await api.createProject(data);

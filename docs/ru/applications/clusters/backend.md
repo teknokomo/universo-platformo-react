@@ -1,4 +1,4 @@
-# Clusters Backend (`@universo/clusters-srv`)
+# Clusters Backend (`@universo/clusters-backend`)
 
 > **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и адаптируется для Universo Platformo.
 
@@ -263,7 +263,7 @@ router.delete(
 
 **Регистрация entities:**
 ```typescript
-// packages/flowise-server/src/database/entities/index.ts
+// packages/flowise-core-backend/base/src/database/entities/index.ts
 import {
   Cluster,
   ClusterUser,
@@ -272,7 +272,7 @@ import {
   Resource,
   ResourceDomain,
   ResourceCluster
-} from '@universo/clusters-srv';
+} from '@universo/clusters-backend';
 
 export const entities = [
   ...existing,
@@ -288,8 +288,8 @@ export const entities = [
 
 **Регистрация routes:**
 ```typescript
-// packages/flowise-server/src/routes/index.ts
-import { registerClustersRoutes } from '@universo/clusters-srv';
+// packages/flowise-core-backend/base/src/routes/index.ts
+import { registerClustersRoutes } from '@universo/clusters-backend';
 
 registerClustersRoutes(app);
 ```

@@ -1,4 +1,4 @@
-# Authentication Frontend (`@universo/auth-frt`)
+# Authentication Frontend (`@universo/auth-frontend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 
@@ -30,7 +30,7 @@ const { user, login, logout, isAuthenticated } = useAuth();
 ## Protected Routes
 
 ```tsx
-import { ProtectedRoute } from '@universo/auth-frt';
+import { ProtectedRoute } from '@universo/auth-frontend';
 
 <ProtectedRoute>
   <Dashboard />

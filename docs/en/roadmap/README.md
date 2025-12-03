@@ -24,11 +24,11 @@ Universo Platformo currently consists of 6 working applications built on top of 
 ```
 packages/
 ├── updl/                # UPDL Node System (7 high-level nodes)
-├── publish-frt/         # Publication Frontend (AR.js, PlayCanvas)
-├── publish-srv/         # Publication Backend (workspace package)
-├── profile-frt/         # User Profile Frontend
-├── profile-srv/         # Profile Backend (workspace package)
-└── analytics-frt/       # Quiz Analytics Frontend
+├── publish-frontend/         # Publication Frontend (AR.js, PlayCanvas)
+├── publish-backend/         # Publication Backend (workspace package)
+├── profile-frontend/         # User Profile Frontend
+├── profile-backend/         # Profile Backend (workspace package)
+└── analytics-frontend/       # Quiz Analytics Frontend
 ```
 
 ### Key Achievements
@@ -71,9 +71,9 @@ packages/
 **Goal**: Create basic game functionality
 
 **Priority Applications**:
-- `resources-frt/srv` - Resource system with material density
-- `ships-frt/srv` - Ship management
-- `economy-frt/srv` - Basic economy between worlds
+- `resources-frontend/srv` - Resource system with material density
+- `ships-frontend/srv` - Ship management
+- `economy-frontend/srv` - Basic economy between worlds
 
 **Readiness Criteria**:
 - [ ] Working MVP with basic game mechanics
@@ -85,27 +85,27 @@ packages/
 **Goal**: Social and technical systems
 
 **Applications**:
-- `corporations-frt/srv` - Corporations and organizations
-- `auth-enhanced-frt/srv` - Enhanced authentication
-- `multiplayer-frt/srv` - Real-time multiplayer
+- `corporations-frontend/srv` - Corporations and organizations
+- `auth-enhanced-frontend/srv` - Enhanced authentication
+- `multiplayer-frontend/srv` - Real-time multiplayer
 
 ### Phase 3: Advanced Features (v1.0.0) - Q4 2025
 
 **Goal**: Complete game mechanics ecosystem
 
 **Applications**:
-- `stations-frt/srv` - Space stations
-- `trading-frt/srv` - Advanced trading
-- `diplomacy-frt/srv` - Diplomatic relations
+- `stations-frontend/srv` - Space stations
+- `trading-frontend/srv` - Advanced trading
+- `diplomacy-frontend/srv` - Diplomatic relations
 
 ### Phase 4: Ecosystem (v1.5.0+) - 2026+
 
 **Goal**: Microservices platform
 
 **Applications**:
-- `workflow-engine-srv` - Chatflow engine
-- `node-registry-srv` - Node registry
-- `api-gateway-srv` - API Gateway
+- `workflow-engine-backend` - Chatflow engine
+- `node-registry-backend` - Node registry
+- `api-gateway-backend` - API Gateway
 
 ## Applications
 

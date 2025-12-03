@@ -8,8 +8,8 @@
 
 Система публикации состоит из двух основных компонентов, работающих вместе для предоставления полного решения публикации контента:
 
--   **Фронтенд (publish-frt)**: Клиентская обработка, конструкторы шаблонов и пользовательский интерфейс
--   **Бэкенд (publish-srv)**: Управление данными, API конечные точки и определения типов
+-   **Фронтенд (publish-frontend)**: Клиентская обработка, конструкторы шаблонов и пользовательский интерфейс
+-   **Бэкенд (publish-backend)**: Управление данными, API конечные точки и определения типов
 
 ## Архитектура
 
@@ -30,7 +30,7 @@
                                               └─────────────────┘
 ```
 
-## Фронтенд (publish-frt)
+## Фронтенд (publish-frontend)
 
 Фронтенд приложение предоставляет пользовательский интерфейс для конфигурирования и инициации процесса публикации. Оно выступает в роли потребителя пакетов шаблонов, таких как `@universo/template-mmoomm`, для генерации финального пользовательского опыта.
 
@@ -71,7 +71,7 @@ builders/templates/
 #### Паттерн интеграции
 
 ```typescript
-// publish-frt потребляет внешние пакеты шаблонов
+// publish-frontend потребляет внешние пакеты шаблонов
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
 
 export class PlayCanvasBuilder extends AbstractTemplateBuilder {
@@ -116,16 +116,16 @@ iframeDoc.write(html) // Сгенерированный HTML с тегами <sc
 iframeDoc.close()
 ```
 
-## Бэкенд (publish-srv)
+## Бэкенд (publish-backend)
 
-Бэкенд сервис предоставляет управление данными и API конечные точки как workspace пакет (`@universo/publish-srv`).
+Бэкенд сервис предоставляет управление данными и API конечные точки как workspace пакет (`@universo/publish-backend`).
 
 ### Ключевые возможности
 
 -   **Управление публикациями**: API конечные точки для создания и получения записей публикации
 -   **Поставщик данных потока**: Обслуживает сырые `flowData` из базы данных, делегируя всю обработку UPDL фронтенду
 -   **Централизованные типы**: Экспортирует общие UPDL и связанные с публикацией TypeScript типы
--   **Модульность и разделение**: Полностью независим от бизнес-логики `packages/flowise-server`
+-   **Модульность и разделение**: Полностью независим от бизнес-логики `packages/flowise-core-backend/base`
 -   **Асинхронная инициализация маршрутов**: Предотвращает состояния гонки с соединениями базы данных
 
 ### API конечные точки
@@ -186,7 +186,7 @@ builders/templates/
 ### Паттерн интеграции
 
 ```typescript
-// publish-frt использует внешние пакеты шаблонов
+// publish-frontend использует внешние пакеты шаблонов
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
 
 export class PlayCanvasBuilder extends AbstractTemplateBuilder {
@@ -262,20 +262,20 @@ export class PlayCanvasBuilder extends AbstractTemplateBuilder {
 pnpm install
 
 # Собрать фронтенд
-pnpm --filter publish-frt build
+pnpm --filter publish-frontend build
 
 # Собрать бэкенд
-pnpm --filter @universo/publish-srv build
+pnpm --filter @universo/publish-backend build
 ```
 
 ### Режим разработки
 
 ```bash
 # Разработка фронтенда
-pnpm --filter publish-frt dev
+pnpm --filter publish-frontend dev
 
 # Разработка бэкенда
-pnpm --filter @universo/publish-srv dev
+pnpm --filter @universo/publish-backend dev
 ```
 
 ### Режим AR‑обои (без маркера)

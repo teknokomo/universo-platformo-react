@@ -9,9 +9,9 @@ This design document outlines the enhancement of the Space Builder functionality
 ### Current Architecture Analysis
 
 The current Space Builder consists of:
-- **Frontend (`packages/space-builder-frt`)**: React components for UI interaction
-- **Backend (`packages/space-builder-srv`)**: API endpoints and LLM integration
-- **Quiz Template**: Currently embedded in `packages/publish-frt/base/src/builders/templates/quiz`
+- **Frontend (`packages/space-builder-frontend`)**: React components for UI interaction
+- **Backend (`packages/space-builder-backend`)**: API endpoints and LLM integration
+- **Quiz Template**: Currently embedded in `packages/publish-frontend/base/src/builders/templates/quiz`
 - **Credentials System**: Partially implemented with test mode fallback
 
 ### Target Architecture
@@ -66,17 +66,17 @@ interface ARJSQuizBuilder extends ITemplateBuilder {
 ```
 
 #### Migration Strategy
-1. **Phase 1**: Copy existing code from `packages/publish-frt/base/src/builders/templates/quiz`
+1. **Phase 1**: Copy existing code from `packages/publish-frontend/base/src/builders/templates/quiz`
 2. **Phase 2**: Adapt to independent package structure
 3. **Phase 3**: Implement i18n integration following template-mmoomm pattern
-4. **Phase 4**: Update publish-frt to use new package
+4. **Phase 4**: Update publish-frontend to use new package
 5. **Phase 5**: Remove original code after verification
 
 ### 2. Credentials Integration Enhancement
 
 #### Current Issue Analysis
 The Space Builder has two working modes:
-1. **Test Mode** (`SPACE_BUILDER_TEST_MODE=true`): Uses unencrypted API keys from `packages/flowise-server/.env` - this works correctly
+1. **Test Mode** (`SPACE_BUILDER_TEST_MODE=true`): Uses unencrypted API keys from `packages/flowise-core-backend/base/.env` - this works correctly
 2. **Credentials Mode** (`SPACE_BUILDER_DISABLE_USER_CREDENTIALS=false`): Should use encrypted credentials from the Credentials system - this currently fails
 
 The problem is that when using user credentials, the Space Builder's `resolveCredential` function receives a `credentialId` but the current implementation in the main server only returns `cred.plainDataObj.apiKey`, which doesn't properly handle the decryption and extraction of the correct API key field for different providers.
@@ -334,7 +334,7 @@ interface EditingValidationResult {
    - UPDL node processing
 
 2. **Cross-Package Integration**
-   - Template quiz package in publish-frt
+   - Template quiz package in publish-frontend
    - Space Builder with credentials
    - i18n system integration
    - Build system compatibility
@@ -381,12 +381,12 @@ interface EditingValidationResult {
 
 ### External Dependencies
 - `@universo/template-mmoomm`: Reference implementation for template patterns
-- `@universo/publish-srv`: UPDL type definitions
-- `@universo/space-builder-srv`: Backend API integration
+- `@universo/publish-backend`: UPDL type definitions
+- `@universo/space-builder-backend`: Backend API integration
 - Main Flowise credentials system
 
 ### Integration Points
-- **Template Registry**: Register quiz template in publish-frt
+- **Template Registry**: Register quiz template in publish-frontend
 - **Credentials Service**: Main server credential resolution
 - **i18n System**: Translation integration
 - **Build System**: Workspace compilation and packaging

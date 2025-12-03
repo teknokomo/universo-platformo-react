@@ -36,7 +36,7 @@
 
 ## Приоритетные приложения
 
-### 1. Developer Ecosystem (developer-portal-frt/srv)
+### 1. Developer Ecosystem (developer-portal-frontend/srv)
 
 **Приоритет**: Критический
 **Время разработки**: 12 недель
@@ -44,13 +44,13 @@
 
 #### Функциональные требования
 
-**Frontend (developer-portal-frt)**:
+**Frontend (developer-portal-frontend)**:
 - Портал для разработчиков
 - Документация API и SDK
 - Песочница для тестирования
 - Marketplace для приложений
 
-**Backend (developer-portal-srv)**:
+**Backend (developer-portal-backend)**:
 - API для сторонних разработчиков
 - Система аутентификации разработчиков
 - Управление приложениями и ключами
@@ -174,7 +174,7 @@ interface MobileCompanionApp {
 }
 ```
 
-### 3. Advanced Analytics (analytics-enhanced-frt/srv)
+### 3. Advanced Analytics (analytics-enhanced-frontend/srv)
 
 **Приоритет**: Высокий
 **Время разработки**: 8 недель
@@ -182,13 +182,13 @@ interface MobileCompanionApp {
 
 #### Функциональные требования
 
-**Frontend (analytics-enhanced-frt)**:
+**Frontend (analytics-enhanced-frontend)**:
 - Дашборды для игроков и корпораций
 - Рыночная аналитика и прогнозы
 - Аналитика боевых действий
 - Персональные рекомендации
 
-**Backend (analytics-enhanced-srv)**:
+**Backend (analytics-enhanced-backend)**:
 - Система сбора и обработки данных
 - Машинное обучение для прогнозов
 - Real-time аналитика
@@ -253,7 +253,7 @@ interface AdvancedAnalytics {
 }
 ```
 
-### 4. Content Marketplace (marketplace-frt/srv)
+### 4. Content Marketplace (marketplace-frontend/srv)
 
 **Приоритет**: Средний
 **Время разработки**: 6 недель
@@ -261,13 +261,13 @@ interface AdvancedAnalytics {
 
 #### Функциональные требования
 
-**Frontend (marketplace-frt)**:
+**Frontend (marketplace-frontend)**:
 - Каталог пользовательского контента
 - Система оценок и отзывов
 - Инструменты для создателей контента
 - Система покупок и загрузок
 
-**Backend (marketplace-srv)**:
+**Backend (marketplace-backend)**:
 - API управления контентом
 - Система модерации
 - Биллинг и выплаты

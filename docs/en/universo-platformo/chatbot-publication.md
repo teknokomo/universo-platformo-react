@@ -82,7 +82,7 @@ Provides streaming chat functionality for the specified canvas.
 
 ### Publish Service
 
-The publication service (`packages/publish-srv`) supports both Canvas and legacy Canvas IDs:
+The publication service (`packages/publish-backend`) supports both Canvas and legacy Canvas IDs:
 
 ```typescript
 // New Canvas-based publication

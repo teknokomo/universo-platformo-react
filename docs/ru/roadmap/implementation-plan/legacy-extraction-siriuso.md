@@ -13,8 +13,8 @@
 
 ## Куда переносим
 
--   `resources-srv`: ресурсы/версии/BOM
--   `entities-srv`: сущности и компоненты (Transform/Visual/Health/Inventory/...)
+-   `resources-backend`: ресурсы/версии/BOM
+-   `entities-backend`: сущности и компоненты (Transform/Visual/Health/Inventory/...)
 -   Доменные сервисы: ships/economy/trading/... — правила и API
 
 ## Критерии паритета

@@ -22,8 +22,8 @@ import accessRu from './locales/ru/core/access.json'
 import adminEn from './locales/en/views/admin.json'
 import adminRu from './locales/ru/views/admin.json'
 
-// apiKeys translations removed - now in @flowise/apikey-frt
-// assistants translations removed - now in @flowise/assistants-frt
+// apiKeys translations removed - now in @flowise/apikey-frontend
+// assistants translations removed - now in @flowise/assistants-frontend
 
 import authEn from './locales/en/views/auth.json'
 import authRu from './locales/ru/views/auth.json'
@@ -34,8 +34,8 @@ import canvasRu from './locales/ru/views/canvas.json'
 import canvasesEn from './locales/en/views/canvases.json'
 import canvasesRu from './locales/ru/views/canvases.json'
 
-// chatmessage translations removed - now in @flowise/chatmessage-frt
-// document-store translations removed - now in @flowise/docstore-frt
+// chatmessage translations removed - now in @flowise/chatmessage-frontend
+// document-store translations removed - now in @flowise/docstore-frontend
 
 import flowListEn from './locales/en/views/flowList.json'
 import flowListRu from './locales/ru/views/flowList.json'
@@ -52,7 +52,7 @@ import chatbotRu from './locales/ru/views/chatbot.json'
 import templatesEn from './locales/en/views/templates.json'
 import templatesRu from './locales/ru/views/templates.json'
 
-// vector-store translations removed - now in @flowise/docstore-frt
+// vector-store translations removed - now in @flowise/docstore-frontend
 
 // Import dialogs
 import aboutEn from './locales/en/dialogs/about.json'
@@ -125,7 +125,7 @@ import promptGeneratorRu from './locales/ru/features/prompt-generator.json'
 import speechToTextEn from './locales/en/features/speech-to-text.json'
 import speechToTextRu from './locales/ru/features/speech-to-text.json'
 
-// Docstore/vector-store translations are provided by @flowise/docstore-frt
+// Docstore/vector-store translations are provided by @flowise/docstore-frontend
 
 declare global {
     // eslint-disable-next-line no-var
@@ -152,19 +152,19 @@ export function getInstance(): typeof i18n {
                         access: accessEn.access,
                         // Views
                         admin: adminEn.admin,
-                        // apiKeys: now in @flowise/apikey-frt
-                        // assistants: now in @flowise/assistants-frt
+                        // apiKeys: now in @flowise/apikey-frontend
+                        // assistants: now in @flowise/assistants-frontend
                         auth: authEn.auth,
                         canvas: canvasEn.canvas,
                         canvases: canvasesEn.canvases,
-                        // chatmessage: now in @flowise/chatmessage-frt
+                        // chatmessage: now in @flowise/chatmessage-frontend
                         chatbot: chatbotEn.chatbot,
-                        // 'document-store': now in @flowise/docstore-frt
+                        // 'document-store': now in @flowise/docstore-frontend
                         flowList: flowListEn.flowList,
                         menu: menuEn.menu,
                         'profile-menu': profileMenuEn.profileMenu,
                         templates: templatesEn.templates,
-                        // 'vector-store': now in @flowise/docstore-frt
+                        // 'vector-store': now in @flowise/docstore-frontend
                         // Dialogs
                         about: aboutEn.about,
                         allowedDomains: allowedDomainsEn.allowedDomains,
@@ -200,19 +200,19 @@ export function getInstance(): typeof i18n {
                         access: accessRu.access,
                         // Views
                         admin: adminRu.admin,
-                        // apiKeys: now in @flowise/apikey-frt
-                        // assistants: now in @flowise/assistants-frt
+                        // apiKeys: now in @flowise/apikey-frontend
+                        // assistants: now in @flowise/assistants-frontend
                         auth: authRu.auth,
                         canvas: canvasRu.canvas,
                         canvases: canvasesRu.canvases,
-                        // chatmessage: now in @flowise/chatmessage-frt
+                        // chatmessage: now in @flowise/chatmessage-frontend
                         chatbot: chatbotRu.chatbot,
-                        // 'document-store': now in @flowise/docstore-frt
+                        // 'document-store': now in @flowise/docstore-frontend
                         flowList: flowListRu.flowList,
                         menu: menuRu.menu,
                         'profile-menu': profileMenuRu.profileMenu,
                         templates: templatesRu.templates,
-                        // 'vector-store': now in @flowise/docstore-frt
+                        // 'vector-store': now in @flowise/docstore-frontend
                         // Dialogs
                         about: aboutRu.about,
                         allowedDomains: allowedDomainsRu.allowedDomains,

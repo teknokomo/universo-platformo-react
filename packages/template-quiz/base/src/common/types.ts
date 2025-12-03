@@ -1,6 +1,6 @@
 // Common types for template-quiz package
 
-// Quiz data types (compatible with space-builder-srv)
+// Quiz data types (compatible with space-builder-backend)
 export interface QuizAnswer {
     text: string
     isCorrect: boolean
@@ -81,7 +81,7 @@ export interface IFlowData {
     [key: string]: any
 }
 
-// Build result interface (compatible with publish-frt)
+// Build result interface (compatible with publish-frontend)
 export interface BuildResult {
     success: boolean
     html?: string

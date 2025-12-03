@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/api-docs-frt/base/
+packages/api-docs-frontend/base/
   src/app/...
 ```

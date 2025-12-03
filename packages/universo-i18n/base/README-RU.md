@@ -66,7 +66,7 @@ export const MyComponent = () => {
 
 ### Пространства имен пакетов функций (Типизированные хуки)
 
-Пакеты функций (`metaverses-frt`, `uniks-frt`, `publish-frt`) предоставляют типизированные хуки для своих пространств имен:
+Пакеты функций (`metaverses-frontend`, `uniks-frontend`, `publish-frontend`) предоставляют типизированные хуки для своих пространств имен:
 
 ```typescript
 // Вместо этого (без типобезопасности):
@@ -74,7 +74,7 @@ import { useTranslation } from '@universo/i18n'
 const { t } = useTranslation('publish')
 
 // Используйте это (полная типобезопасность):
-import { usePublishTranslation } from '@universo/publish-frt/i18n/types'
+import { usePublishTranslation } from '@universo/publish-frontend/i18n/types'
 const { t } = usePublishTranslation()
 
 // Теперь вы получаете:
@@ -84,9 +84,9 @@ t('wrongKey')     // ❌ Ошибка компиляции TypeScript
 ```
 
 **Доступные типизированные хуки:**
-- `useMetaversesTranslation()` из `@universo/metaverses-frt/i18n/types`
-- `useUniksTranslation()` из `@universo/uniks-frt/i18n/types`
-- `usePublishTranslation()` из `@universo/publish-frt/i18n/types`
+- `useMetaversesTranslation()` из `@universo/metaverses-frontend/i18n/types`
+- `useUniksTranslation()` из `@universo/uniks-frontend/i18n/types`
+- `usePublishTranslation()` из `@universo/publish-frontend/i18n/types`
 
 ### Как это работает
 
@@ -159,7 +159,7 @@ export const MyComponent = () => {
 ### Регистрация пространства имен из FRT пакета
 
 ```typescript
-// packages/my-frt/base/src/i18n/index.ts
+// packages/my-frontend/base/src/i18n/index.ts
 import { registerNamespace } from '@universo/i18n/registry'
 import type { NamespaceTranslations } from '@universo/i18n/types'
 
@@ -197,7 +197,7 @@ i18n.t('translation:key')
   ├─ registry.ts (API registerNamespace)
   └─ locales/ (базовые переводы из flowise-ui)
 
-FRT пакеты (publish-frt, analytics-frt, и т.д.)
+FRT пакеты (publish-frontend, analytics-frontend, и т.д.)
   └─ i18n/index.ts → вызывает registerNamespace()
 
 Пакеты приложений (flowise-ui, template-mui, и т.д.)
@@ -213,7 +213,7 @@ FRT пакеты (publish-frt, analytics-frt, и т.д.)
 - `flowList`, `menu`, `profile-menu`, `templates`
 - Диалоги вроде `about`, `manageLinks`, `viewLeads` и др.
 
-> Специализированные пространства (document-store, vector-store, assistants, tools, credentials, variables, api-keys и т.д.) **регистрируются самими функциональными пакетами**. Перед рендерингом соответствующих страниц импортируйте эти пакеты (например, `import '@flowise/docstore-frt/i18n'`).
+> Специализированные пространства (document-store, vector-store, assistants, tools, credentials, variables, api-keys и т.д.) **регистрируются самими функциональными пакетами**. Перед рендерингом соответствующих страниц импортируйте эти пакеты (например, `import '@flowise/docstore-frontend/i18n'`).
 
 FRT пакеты добавляют свои собственные пространства имён динамически.
 

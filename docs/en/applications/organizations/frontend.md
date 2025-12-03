@@ -1,4 +1,4 @@
-# Organizations Frontend (`@universo/organizations-frt`)
+# Organizations Frontend (`@universo/organizations-frontend`)
 
 > **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific capabilities.
 
@@ -20,7 +20,7 @@ The frontend package of the Organizations module provides a complete user interf
 ## Package Architecture
 
 ```
-packages/organizations-frt/base/
+packages/organizations-frontend/base/
 ├── src/
 │   ├── api/              # API Client
 │   │   └── organizations.ts
@@ -67,7 +67,7 @@ Organization list with pagination, search, and filtering.
 
 **Usage Example:**
 ```tsx
-import { OrganizationList } from '@universo/organizations-frt';
+import { OrganizationList } from '@universo/organizations-frontend';
 
 function MyPage() {
   return <OrganizationList />;
@@ -226,7 +226,7 @@ const {
 ### Configuration
 
 ```typescript
-import { OrganizationsApi } from '@universo/organizations-frt';
+import { OrganizationsApi } from '@universo/organizations-frontend';
 
 const api = new OrganizationsApi({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3000',
@@ -320,7 +320,7 @@ function MyComponent() {
 ```json
 {
   "dependencies": {
-    "@universo/organizations-frt": "workspace:*"
+    "@universo/organizations-frontend": "workspace:*"
   }
 }
 ```
@@ -331,13 +331,13 @@ function MyComponent() {
 import {
   OrganizationList,
   OrganizationDetail
-} from '@universo/organizations-frt';
+} from '@universo/organizations-frontend';
 ```
 
 **3. Add routes:**
 ```tsx
 // In template-mui/src/routes/MainRoutesMUI.tsx
-import { OrganizationList, OrganizationDetail } from '@universo/organizations-frt';
+import { OrganizationList, OrganizationDetail } from '@universo/organizations-frontend';
 
 const routes = [
   {
@@ -404,7 +404,7 @@ const OrganizationCard = styled('div')(({ theme }) => ({
 ### Access Control
 
 ```tsx
-import { useAuth } from '@universo/auth-frt';
+import { useAuth } from '@universo/auth-frontend';
 
 function SecureComponent() {
   const { user, hasPermission } = useAuth();
@@ -473,7 +473,7 @@ test('creates organization', async () => {
 ### Bundle size
 
 ```
-@universo/organizations-frt
+@universo/organizations-frontend
 ├── CJS: 15.18 kB
 └── ESM: 14.04 kB
 ```
@@ -492,4 +492,4 @@ test('creates organization', async () => {
 - [Organizations Backend](backend.md) - Backend API
 - [Organizations Overview](README.md) - Overview
 - [@universo/template-mui](../../universo-template-mui/README.md) - UI components
-- [@universo/auth-frt](../auth/frontend.md) - Authentication
+- [@universo/auth-frontend](../auth/frontend.md) - Authentication

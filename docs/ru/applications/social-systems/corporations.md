@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/corporations-frt/base/
-packages/corporations-srv/base/
+packages/corporations-frontend/base/
+packages/corporations-backend/base/
 ```

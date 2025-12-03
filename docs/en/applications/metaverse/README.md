@@ -9,8 +9,8 @@ Metaverse is a core domain of Universo Platformo. It provides a way to organize 
 
 ## Components
 
--   Backend: `@universo/metaverse-srv`
--   Frontend: `@universo/metaverse-frt`
+-   Backend: `@universo/metaverse-backend`
+-   Frontend: `@universo/metaverse-frontend`
 
 ## Features (MVP)
 
@@ -32,4 +32,4 @@ Metaverse is a core domain of Universo Platformo. It provides a way to organize 
 
 ## See also
 
--   RU docs: `docs/ru/applications/metaverse/metaverse-frt.md`, `docs/ru/applications/metaverse/metaverse-srv.md`
+-   RU docs: `docs/ru/applications/metaverse/metaverse-frontend.md`, `docs/ru/applications/metaverse/metaverse-backend.md`

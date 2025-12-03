@@ -72,8 +72,8 @@
     "@mui/material": "5.15.0",
     "@mui/x-data-grid": "^5.17.26",
     "@universo/api-client": "workspace:*",
-    "@flowise/credentials-frt": "workspace:*",
-    "@flowise/tools-frt": "workspace:*",
+    "@flowise/credentials-frontend": "workspace:*",
+    "@flowise/tools-frontend": "workspace:*",
     "@universo/i18n": "workspace:*",
     "@uiw/codemirror-theme-sublime": "^4.23.0",
     "@uiw/codemirror-theme-vscode": "^4.23.0",
@@ -105,7 +105,7 @@
     "typescript": "catalog:"
   },
   "peerDependencies": {
-    "@flowise/assistants-frt": "workspace:*",
+    "@flowise/assistants-frontend": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "catalog:"

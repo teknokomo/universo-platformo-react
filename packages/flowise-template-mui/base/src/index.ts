@@ -52,7 +52,7 @@ export { default as SourceDocDialog } from './ui-components/dialog/SourceDocDial
 export { default as SpeechToTextDialog } from './ui-components/dialog/SpeechToTextDialog'
 export { default as StarterPromptsDialog } from './ui-components/dialog/StarterPromptsDialog'
 export { default as TagDialog } from './ui-components/dialog/TagDialog'
-// VectorStore dialogs moved to @flowise/docstore-frt
+// VectorStore dialogs moved to @flowise/docstore-frontend
 export { default as ViewLeadsDialog } from './ui-components/dialog/ViewLeadsDialog'
 export { default as ViewMessagesDialog } from './ui-components/dialog/ViewMessagesDialog'
 

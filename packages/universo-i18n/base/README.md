@@ -66,7 +66,7 @@ export const MyComponent = () => {
 
 ### Feature Package Namespaces (Typed Hooks)
 
-Feature packages (`metaverses-frt`, `uniks-frt`, `publish-frt`) provide typed hooks for their namespaces:
+Feature packages (`metaverses-frontend`, `uniks-frontend`, `publish-frontend`) provide typed hooks for their namespaces:
 
 ```typescript
 // Instead of this (no type safety):
@@ -74,7 +74,7 @@ import { useTranslation } from '@universo/i18n'
 const { t } = useTranslation('publish')
 
 // Use this (full type safety):
-import { usePublishTranslation } from '@universo/publish-frt/i18n/types'
+import { usePublishTranslation } from '@universo/publish-frontend/i18n/types'
 const { t } = usePublishTranslation()
 
 // Now you get:
@@ -84,9 +84,9 @@ t('wrongKey')     // ❌ TypeScript compile error
 ```
 
 **Available typed hooks:**
-- `useMetaversesTranslation()` from `@universo/metaverses-frt/i18n/types`
-- `useUniksTranslation()` from `@universo/uniks-frt/i18n/types`
-- `usePublishTranslation()` from `@universo/publish-frt/i18n/types`
+- `useMetaversesTranslation()` from `@universo/metaverses-frontend/i18n/types`
+- `useUniksTranslation()` from `@universo/uniks-frontend/i18n/types`
+- `usePublishTranslation()` from `@universo/publish-frontend/i18n/types`
 
 ### How It Works
 
@@ -159,7 +159,7 @@ export const MyComponent = () => {
 ### Registering namespace from FRT package
 
 ```typescript
-// packages/my-frt/base/src/i18n/index.ts
+// packages/my-frontend/base/src/i18n/index.ts
 import { registerNamespace } from '@universo/i18n/registry'
 import type { NamespaceTranslations } from '@universo/i18n/types'
 
@@ -197,7 +197,7 @@ i18n.t('translation:key')
   ├─ registry.ts (registerNamespace API)
   └─ locales/ (base translations from flowise-ui)
 
-FRT packages (publish-frt, analytics-frt, etc.)
+FRT packages (publish-frontend, analytics-frontend, etc.)
   └─ i18n/index.ts → calls registerNamespace()
 
 App packages (flowise-ui, template-mui, etc.)
@@ -213,7 +213,7 @@ The following namespaces are included by default (EN + RU):
 - `flowList`, `menu`, `profile-menu`, `templates`
 - Dialog namespaces such as `about`, `manageLinks`, `viewLeads`, etc.
 
-> Module-specific namespaces (document-store, vector-store, assistants, tools, credentials, variables, api-keys, etc.) are **registered by their respective feature packages**. Import those packages (e.g., `import '@flowise/docstore-frt/i18n'`) before rendering the related routes/components.
+> Module-specific namespaces (document-store, vector-store, assistants, tools, credentials, variables, api-keys, etc.) are **registered by their respective feature packages**. Import those packages (e.g., `import '@flowise/docstore-frontend/i18n'`) before rendering the related routes/components.
 
 FRT packages add their own namespaces dynamically.
 

@@ -1,4 +1,4 @@
-# Clusters Frontend (`@universo/clusters-frt`)
+# Clusters Frontend (`@universo/clusters-frontend`)
 
 > **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и адаптируется для Universo Platformo.
 
@@ -21,7 +21,7 @@ Frontend пакет для управления трёхуровневой ст�
 Список кластеров с пагинацией и поиском.
 
 ```tsx
-import { ClusterList } from '@universo/clusters-frt';
+import { ClusterList } from '@universo/clusters-frontend';
 
 <ClusterList />
 ```
@@ -44,7 +44,7 @@ import { ClusterList } from '@universo/clusters-frt';
 ## API Интеграция
 
 ```typescript
-import { ClustersApi } from '@universo/clusters-frt';
+import { ClustersApi } from '@universo/clusters-frontend';
 
 const api = new ClustersApi();
 
@@ -125,14 +125,14 @@ const { t } = useTranslation('clusters');
 ```json
 {
   "dependencies": {
-    "@universo/clusters-frt": "workspace:*"
+    "@universo/clusters-frontend": "workspace:*"
   }
 }
 ```
 
 **2. Добавить маршруты:**
 ```tsx
-import { ClusterList, ClusterDetail } from '@universo/clusters-frt';
+import { ClusterList, ClusterDetail } from '@universo/clusters-frontend';
 
 const routes = [
   { path: '/clusters', element: <ClusterList /> },

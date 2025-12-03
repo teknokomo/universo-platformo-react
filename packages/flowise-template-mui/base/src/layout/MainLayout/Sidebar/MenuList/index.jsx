@@ -3,10 +3,10 @@ import { useLocation } from 'react-router-dom'
 import { api } from '@universo/api-client'
 import NavGroup from './NavGroup'
 import dashboard from '../../../../menu-items/dashboard'
-import unikDashboard from '@universo/uniks-frt/menu-items/unikDashboard'
-import { metaversesDashboard } from '@universo/metaverses-frt'
-import { clustersDashboard } from '@universo/clusters-frt'
-import { campaignsDashboard } from '@universo/campaigns-frt'
+import unikDashboard from '@universo/uniks-frontend/menu-items/unikDashboard'
+import { metaversesDashboard } from '@universo/metaverses-frontend'
+import { clustersDashboard } from '@universo/clusters-frontend'
+import { campaignsDashboard } from '@universo/campaigns-frontend'
 
 const MenuList = () => {
     const location = useLocation()

@@ -131,7 +131,7 @@ The Vitest suite validates Flowise node ports and lead-collection flags to keep 
 
 This module is intentionally focused **only on node definitions**:
 
--   **No Space Builders**: Handled by the publication system (`publish-frt`).
+-   **No Space Builders**: Handled by the publication system (`publish-frontend`).
 -   **No Export Logic**: Handled by publication applications.
 -   **No API Clients**: Not needed for node definitions.
 -   **No State Management**: Nodes are stateless definitions.
@@ -152,8 +152,8 @@ When contributing to this package:
 ## Related Documentation
 
 - [Main Apps Documentation](../README.md)
-- [Publishing Frontend](../publish-frt/base/README.md)
-- [Space Builder](../space-builder-frt/base/README.md)
+- [Publishing Frontend](../publish-frontend/base/README.md)
+- [Space Builder](../space-builder-frontend/base/README.md)
 - [Template MMOOMM](../template-mmoomm/base/README.md)
 - [Flowise Documentation](https://docs.flowiseai.com/)
 

@@ -4,8 +4,8 @@
 
 ##  
 
-- **Frontend **: `@universo/projects-frt`
-- **Backend **: `@universo/projects-srv`
+- **Frontend **: `@universo/projects-frontend`
+- **Backend **: `@universo/projects-backend`
 
 ## Overview 
 

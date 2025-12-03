@@ -6,7 +6,7 @@ This directory contains modular applications that extend the main Flowise platfo
 
 ```
 packages/
-├── analytics-frt/       # Quiz analytics frontend
+├── analytics-frontend/       # Quiz analytics frontend
 │   └── base/            # Core analytics functionality
 │       ├── src/         # Source code
 │       │   ├── components/ # Analytics UI components
@@ -16,7 +16,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── auth-frt/            # Authentication UI primitives
+├── auth-frontend/            # Authentication UI primitives
 │   └── base/            # Core auth UI functionality
 │       ├── src/         # Source code
 │       │   ├── components/ # Auth components (LoginForm, SessionGuard)
@@ -26,7 +26,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── auth-srv/            # Passport.js + Supabase session backend
+├── auth-backend/            # Passport.js + Supabase session backend
 │   └── base/            # Core auth backend functionality
 │       ├── src/         # Source code
 │       │   ├── middleware/ # Passport strategies and session handlers
@@ -93,7 +93,7 @@ packages/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── README.md
-├── metaverses-frt/      # Metaverse management frontend
+├── metaverses-frontend/      # Metaverse management frontend
 │   └── base/            # Core metaverse UI functionality
 │       ├── src/         # Source code
 │       │   ├── components/ # Metaverse management UI
@@ -104,7 +104,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── metaverses-srv/      # Metaverse management backend
+├── metaverses-backend/      # Metaverse management backend
 │   └── base/            # Core metaverse backend functionality
 │       ├── src/         # Source code
 │       │   ├── routes/  # Express routes for metaverse CRUD
@@ -114,7 +114,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── multiplayer-colyseus-srv/ # Colyseus multiplayer server
+├── multiplayer-colyseus-backend/ # Colyseus multiplayer server
 │   ├── src/             # Source code
 │   │   ├── rooms/       # Colyseus room implementations
 │   │   ├── schemas/     # State schemas
@@ -123,7 +123,7 @@ packages/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── README.md
-├── profile-frt/         # User profile management frontend
+├── profile-frontend/         # User profile management frontend
 │   └── base/            # Core profile functionality
 │       ├── src/         # Source code
 │       │   ├── i18n/    # Localization
@@ -135,7 +135,7 @@ packages/
 │       ├── gulpfile.ts
 │       ├── README.md
 │       └── README-RU.md
-├── profile-srv/         # User profile management backend (workspace package)
+├── profile-backend/         # User profile management backend (workspace package)
 │   └── base/            # Core profile functionality
 │       ├── src/         # Source code
 │       │   ├── routes/  # Express routes for profile operations
@@ -146,7 +146,7 @@ packages/
 │       ├── tsconfig.json
 │       ├── README.md
 │       └── README-RU.md
-├── publish-frt/         # Publication system frontend for exporting and sharing content
+├── publish-frontend/         # Publication system frontend for exporting and sharing content
 │   └── base/            # Core frontend functionality for publication
 │       ├── src/         # Source code
 │       │   ├── api/     # HTTP clients to backend
@@ -168,7 +168,7 @@ packages/
 │       ├── tsconfig.json
 │       ├── gulpfile.ts
 │       └── README.md
-├── publish-srv/         # Publication system backend (workspace package)
+├── publish-backend/         # Publication system backend (workspace package)
 │   └── base/            # Core backend functionality for publication
 │       ├── src/         # Source code
 │       │   ├── controllers/ # Express controllers
@@ -180,7 +180,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── space-builder-frt/   # Space Builder UI (prompt-to-flow)
+├── space-builder-frontend/   # Space Builder UI (prompt-to-flow)
 │   └── base/            # Core Space Builder frontend functionality
 │       ├── src/         # Source code
 │       │   ├── components/ # Prompt dialog, FAB, model selector
@@ -190,7 +190,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── space-builder-srv/   # Space Builder API (prompt-to-flow)
+├── space-builder-backend/   # Space Builder API (prompt-to-flow)
 │   └── base/            # Core Space Builder backend functionality
 │       ├── src/         # Source code
 │       │   ├── routes/  # Generate, health, config endpoints
@@ -200,7 +200,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── spaces-frt/          # Spaces/Canvases frontend
+├── spaces-frontend/          # Spaces/Canvases frontend
 │   └── base/            # Core spaces UI functionality
 │       ├── src/         # Source code
 │       │   ├── components/ # Canvas UI components
@@ -210,7 +210,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── spaces-srv/          # Spaces domain backend
+├── spaces-backend/          # Spaces domain backend
 │   └── base/            # Core spaces backend functionality
 │       ├── src/         # Source code
 │       │   ├── routes/  # Express routes for spaces CRUD
@@ -238,7 +238,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── uniks-frt/           # Workspace management frontend
+├── uniks-frontend/           # Workspace management frontend
 │   └── base/            # Core workspace functionality
 │       ├── src/         # Source code
 │       │   ├── i18n/    # Internationalization
@@ -249,7 +249,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── uniks-srv/           # Workspace management backend (workspace package)
+├── uniks-backend/           # Workspace management backend (workspace package)
 │   └── base/            # Core workspace functionality
 │       ├── src/         # Source code
 │       │   ├── routes/  # Express routes for Uniks CRUD operations
@@ -358,7 +358,7 @@ The main backend server for Universo Platformo, providing API endpoints, databas
 -   Entity and migration registry system
 -   Asynchronous route initialization
 
-**Documentation:** See [packages/flowise-server/README.md](./flowise-server/README.md)
+**Documentation:** See [packages/flowise-core-backend/base/README.md](./flowise-server/README.md)
 
 #### Flowise UI (flowise-ui)
 
@@ -372,7 +372,7 @@ The main React frontend application providing the visual programming interface.
 -   Credential and configuration management
 -   Multi-workspace support
 
-**Documentation:** See [packages/flowise-ui/README.md](./flowise-ui/README.md)
+**Documentation:** See [packages/flowise-core-frontend/base/README.md](./flowise-ui/README.md)
 
 ### Shared UI Components
 
@@ -502,7 +502,7 @@ API documentation server using OpenAPI/Swagger specifications.
 
 ### Authentication System
 
-#### Auth Frontend (@universo/auth-frt)
+#### Auth Frontend (@universo/auth-frontend)
 
 Shared authentication UI primitives for Universo Platformo.
 
@@ -514,9 +514,9 @@ Shared authentication UI primitives for Universo Platformo.
 -   Integration with Supabase auth
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/auth-frt/base/README.md](./auth-frt/base/README.md)
+**Documentation:** See [packages/auth-frontend/base/README.md](./auth-frontend/base/README.md)
 
-#### Auth Server (@universo/auth-srv)
+#### Auth Server (@universo/auth-backend)
 
 Passport.js + Supabase session toolkit for backend authentication.
 
@@ -528,7 +528,7 @@ Passport.js + Supabase session toolkit for backend authentication.
 -   Login, logout, and session validation routes
 -   Dual build system (tsdown): CJS + ESM
 
-**Documentation:** See [packages/auth-srv/base/README.md](./auth-srv/base/README.md)
+**Documentation:** See [packages/auth-backend/base/README.md](./auth-backend/base/README.md)
 
 ### Template Packages
 
@@ -564,7 +564,7 @@ A specialized template package for creating PlayCanvas space MMO experiences.
 
 ### Multiplayer Infrastructure
 
-#### Multiplayer Colyseus Server (@universo/multiplayer-colyseus-srv)
+#### Multiplayer Colyseus Server (@universo/multiplayer-colyseus-backend)
 
 Colyseus multiplayer server for real-time networking in MMOOMM experiences.
 
@@ -576,7 +576,7 @@ Colyseus multiplayer server for real-time networking in MMOOMM experiences.
 -   Entity replication for ships, asteroids, and projectiles
 -   Integration with template-mmoomm
 
-**Documentation:** See [packages/multiplayer-colyseus-srv/README.md](./multiplayer-colyseus-srv/README.md)
+**Documentation:** See [packages/multiplayer-colyseus-backend/README.md](./multiplayer-colyseus-backend/README.md)
 
 ### Domain Modules
 
@@ -584,7 +584,7 @@ Colyseus multiplayer server for real-time networking in MMOOMM experiences.
 
 The Uniks application provides workspace management functionality, allowing users to create, manage, and organize their workspaces. It consists of a frontend application and a backend workspace package.
 
-##### Uniks Frontend (@universo/uniks-frt)
+##### Uniks Frontend (@universo/uniks-frontend)
 
 **Key Features:**
 
@@ -595,11 +595,11 @@ The Uniks application provides workspace management functionality, allowing user
 -   Internationalization support (English and Russian)
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/uniks-frt/base/README.md](./uniks-frt/base/README.md)
+**Documentation:** See [packages/uniks-frontend/base/README.md](./uniks-frontend/base/README.md)
 
-##### Uniks Server (@universo/uniks-srv)
+##### Uniks Server (@universo/uniks-backend)
 
-This is a backend service, structured as a workspace package (`@universo/uniks-srv`), responsible for handling workspace data and operations.
+This is a backend service, structured as a workspace package (`@universo/uniks-backend`), responsible for handling workspace data and operations.
 
 **Key Features:**
 
@@ -609,13 +609,13 @@ This is a backend service, structured as a workspace package (`@universo/uniks-s
 -   Supabase integration for authentication
 -   Nested route mounting for Flowise routes under `/:unikId` prefix
 
-**Documentation:** See [packages/uniks-srv/base/README.md](./uniks-srv/base/README.md)
+**Documentation:** See [packages/uniks-backend/base/README.md](./uniks-backend/base/README.md)
 
 #### Profile
 
 The Profile application provides user profile management functionality. It consists of a frontend application and a backend workspace package.
 
-##### Profile Frontend (@universo/profile-frt)
+##### Profile Frontend (@universo/profile-frontend)
 
 **Key Features:**
 
@@ -624,11 +624,11 @@ The Profile application provides user profile management functionality. It consi
 -   Mobile-friendly responsive design
 -   Internationalization support (English and Russian)
 
-**Documentation:** See [packages/profile-frt/base/README.md](./profile-frt/base/README.md)
+**Documentation:** See [packages/profile-frontend/base/README.md](./profile-frontend/base/README.md)
 
-##### Profile Server (@universo/profile-srv)
+##### Profile Server (@universo/profile-backend)
 
-This is a backend service, structured as a workspace package (`@universo/profile-srv`), responsible for handling user profile data securely.
+This is a backend service, structured as a workspace package (`@universo/profile-backend`), responsible for handling user profile data securely.
 
 **Key Features:**
 
@@ -636,13 +636,13 @@ This is a backend service, structured as a workspace package (`@universo/profile
 -   Uses custom SQL functions with `SECURITY DEFINER` for safe data updates
 -   Asynchronous route initialization to prevent race conditions with the database connection
 
-**Documentation:** See [packages/profile-srv/base/README.md](./profile-srv/base/README.md)
+**Documentation:** See [packages/profile-backend/base/README.md](./profile-backend/base/README.md)
 
 #### Spaces (Canvas Management)
 
 The Spaces application provides canvas and flow management functionality. It consists of a frontend application and a backend workspace package.
 
-##### Spaces Frontend (@universo/spaces-frt)
+##### Spaces Frontend (@universo/spaces-frontend)
 
 **Key Features:**
 
@@ -651,9 +651,9 @@ The Spaces application provides canvas and flow management functionality. It con
 -   Integration with React Flow
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/spaces-frt/base/README.md](./spaces-frt/base/README.md)
+**Documentation:** See [packages/spaces-frontend/base/README.md](./spaces-frontend/base/README.md)
 
-##### Spaces Server (@universo/spaces-srv)
+##### Spaces Server (@universo/spaces-backend)
 
 This is a backend service for managing spaces and canvases.
 
@@ -664,13 +664,13 @@ This is a backend service for managing spaces and canvases.
 -   PostgreSQL database migrations
 -   Integration with flowise-server
 
-**Documentation:** See [packages/spaces-srv/base/README.md](./spaces-srv/base/README.md)
+**Documentation:** See [packages/spaces-backend/base/README.md](./spaces-backend/base/README.md)
 
 #### Metaverses
 
 The Metaverses application provides metaverse management functionality. It consists of a frontend application and a backend workspace package.
 
-##### Metaverses Frontend (@universo/metaverses-frt)
+##### Metaverses Frontend (@universo/metaverses-frontend)
 
 **Key Features:**
 
@@ -680,9 +680,9 @@ The Metaverses application provides metaverse management functionality. It consi
 -   Internationalization support
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/metaverses-frt/base/README.md](./metaverses-frt/base/README.md)
+**Documentation:** See [packages/metaverses-frontend/base/README.md](./metaverses-frontend/base/README.md)
 
-##### Metaverses Server (@universo/metaverses-srv)
+##### Metaverses Server (@universo/metaverses-backend)
 
 This is a backend service for metaverse management.
 
@@ -693,13 +693,13 @@ This is a backend service for metaverse management.
 -   PostgreSQL database migrations
 -   Integration with flowise-server
 
-**Documentation:** See [packages/metaverses-srv/base/README.md](./metaverses-srv/base/README.md)
+**Documentation:** See [packages/metaverses-backend/base/README.md](./metaverses-backend/base/README.md)
 
 #### Analytics
 
 The Analytics application provides quiz analytics functionality.
 
-##### Analytics Frontend (@universo/analytics-frt)
+##### Analytics Frontend (@universo/analytics-frontend)
 
 **Key Features:**
 
@@ -708,13 +708,13 @@ The Analytics application provides quiz analytics functionality.
 -   Internationalization support
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/analytics-frt/base/README.md](./analytics-frt/base/README.md)
+**Documentation:** See [packages/analytics-frontend/base/README.md](./analytics-frontend/base/README.md)
 
 ### Space Builder (Prompt-to-Flow)
 
 The Space Builder application turns natural-language prompts into Flow graphs composed of UPDL nodes. It consists of a frontend application and a backend workspace package.
 
-#### Space Builder Frontend (@universo/space-builder-frt)
+#### Space Builder Frontend (@universo/space-builder-frontend)
 
 **Key Features:**
 
@@ -724,11 +724,11 @@ The Space Builder application turns natural-language prompts into Flow graphs co
 -   I18n integration
 -   Dual build system (tsdown): CJS + ESM + Types
 
-**Documentation:** See [packages/space-builder-frt/base/README.md](./space-builder-frt/base/README.md)
+**Documentation:** See [packages/space-builder-frontend/base/README.md](./space-builder-frontend/base/README.md)
 
-#### Space Builder Server (@universo/space-builder-srv)
+#### Space Builder Server (@universo/space-builder-backend)
 
-This is a backend service, structured as a workspace package (`@universo/space-builder-srv`), responsible for LLM call and safe JSON graph return.
+This is a backend service, structured as a workspace package (`@universo/space-builder-backend`), responsible for LLM call and safe JSON graph return.
 
 **Key Features:**
 
@@ -737,7 +737,7 @@ This is a backend service, structured as a workspace package (`@universo/space-b
 -   Credential resolution integrated with platform services
 -   Zod-based validation and server-side normalization
 
-**Documentation:** See [packages/space-builder-srv/base/README.md](./space-builder-srv/base/README.md)
+**Documentation:** See [packages/space-builder-backend/base/README.md](./space-builder-backend/base/README.md)
 
 ### UPDL (Universal Platform Definition Language)
 
@@ -765,7 +765,7 @@ The UPDL application provides a unified node system for describing 3D/AR/VR spac
 
 The Publish application provides mechanisms for exporting UPDL spaces to AR.js and publishing them with shareable URLs.
 
-#### Publish Frontend (@universo/publish-frt)
+#### Publish Frontend (@universo/publish-frontend)
 
 The frontend application is responsible for the entire user-facing publication workflow, including the final conversion of data to viewable AR.js and PlayCanvas formats.
 
@@ -778,20 +778,20 @@ The frontend application is responsible for the entire user-facing publication w
 -   **Supabase Integration**: Persists publication configurations
 -   **Multi-Technology Support**: Supports AR.js quizzes and PlayCanvas MMO experiences through dedicated template packages
 
-**Documentation:** See [packages/publish-frt/base/README.md](./publish-frt/base/README.md)
+**Documentation:** See [packages/publish-frontend/base/README.md](./publish-frontend/base/README.md)
 
-#### Publish Backend (@universo/publish-srv)
+#### Publish Backend (@universo/publish-backend)
 
-This is a backend service, refactored into a workspace package (`@universo/publish-srv`), with a single responsibility: serving data to the frontend.
+This is a backend service, refactored into a workspace package (`@universo/publish-backend`), with a single responsibility: serving data to the frontend.
 
 **Key Features:**
 
--   **Workspace Package**: Provides shared types and services as `@universo/publish-srv`
+-   **Workspace Package**: Provides shared types and services as `@universo/publish-backend`
 -   **Raw Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend
 -   **Source of Truth for Types**: Exports all shared UPDL and publication-related TypeScript types
 -   **Asynchronous Route Initialization**: Prevents race conditions by initializing routes only after a database connection is established
 
-**Documentation:** See [packages/publish-srv/base/README.md](./publish-srv/base/README.md)
+**Documentation:** See [packages/publish-backend/base/README.md](./publish-backend/base/README.md)
 
 ## Architecture for Future Expansion
 
@@ -841,19 +841,19 @@ Many packages have migrated from the legacy tsc+gulp build system to **tsdown** 
 
 **Migrated packages (tsdown):**
 
--   `@universo/analytics-frt`
--   `@universo/auth-frt`
--   `@universo/auth-srv`
+-   `@universo/analytics-frontend`
+-   `@universo/auth-frontend`
+-   `@universo/auth-backend`
 -   `@flowise/chatmessage`
 -   `@flowise/store`
--   `@universo/metaverses-frt`
--   `@universo/spaces-frt`
--   `@universo/space-builder-frt`
+-   `@universo/metaverses-frontend`
+-   `@universo/spaces-frontend`
+-   `@universo/space-builder-frontend`
 -   `@universo/template-mmoomm`
 -   `@universo/template-quiz`
 -   `@universo/template-mui`
 -   `@universo/types`
--   `@universo/uniks-frt`
+-   `@universo/uniks-frontend`
 -   `@universo/updl`
 -   `@universo/utils`
 -   `@universo/api-client`
@@ -861,8 +861,8 @@ Many packages have migrated from the legacy tsc+gulp build system to **tsdown** 
 
 **Legacy packages (tsc+gulp):**
 
--   `@universo/profile-frt` (has gulpfile.ts)
--   `@universo/publish-frt` (has gulpfile.ts)
+-   `@universo/profile-frontend` (has gulpfile.ts)
+-   `@universo/publish-frontend` (has gulpfile.ts)
 
 **tsdown benefits:**
 
@@ -983,27 +983,27 @@ pnpm build --filter @universo/template-quiz
 pnpm build --filter @universo/template-mmoomm
 
 # Build authentication packages
-pnpm build --filter @universo/auth-frt
-pnpm build --filter @universo/auth-srv
+pnpm build --filter @universo/auth-frontend
+pnpm build --filter @universo/auth-backend
 
 # Build domain frontend applications
-pnpm build --filter @universo/analytics-frt
-pnpm build --filter @universo/metaverses-frt
-pnpm build --filter @universo/profile-frt
-pnpm build --filter @universo/publish-frt
-pnpm build --filter @universo/space-builder-frt
-pnpm build --filter @universo/spaces-frt
-pnpm build --filter @universo/uniks-frt
+pnpm build --filter @universo/analytics-frontend
+pnpm build --filter @universo/metaverses-frontend
+pnpm build --filter @universo/profile-frontend
+pnpm build --filter @universo/publish-frontend
+pnpm build --filter @universo/space-builder-frontend
+pnpm build --filter @universo/spaces-frontend
+pnpm build --filter @universo/uniks-frontend
 pnpm build --filter @universo/updl
 
 # Build domain backend applications
-pnpm build --filter @universo/metaverses-srv
-pnpm build --filter @universo/profile-srv
-pnpm build --filter @universo/publish-srv
-pnpm build --filter @universo/space-builder-srv
-pnpm build --filter @universo/spaces-srv
-pnpm build --filter @universo/uniks-srv
-pnpm build --filter @universo/multiplayer-colyseus-srv
+pnpm build --filter @universo/metaverses-backend
+pnpm build --filter @universo/profile-backend
+pnpm build --filter @universo/publish-backend
+pnpm build --filter @universo/space-builder-backend
+pnpm build --filter @universo/spaces-backend
+pnpm build --filter @universo/uniks-backend
+pnpm build --filter @universo/multiplayer-colyseus-backend
 
 # Build core platform
 pnpm build --filter flowise-components
@@ -1018,26 +1018,26 @@ To run a specific application in development mode (watches for changes and rebui
 
 ```bash
 # Frontend packages (tsdown watch mode)
-pnpm --filter @universo/analytics-frt dev
-pnpm --filter @universo/auth-frt dev
+pnpm --filter @universo/analytics-frontend dev
+pnpm --filter @universo/auth-frontend dev
 pnpm --filter @flowise/chatmessage dev
-pnpm --filter @universo/metaverses-frt dev
-pnpm --filter @universo/profile-frt dev
-pnpm --filter @universo/publish-frt dev
-pnpm --filter @universo/space-builder-frt dev
-pnpm --filter @universo/spaces-frt dev
-pnpm --filter @universo/uniks-frt dev
+pnpm --filter @universo/metaverses-frontend dev
+pnpm --filter @universo/profile-frontend dev
+pnpm --filter @universo/publish-frontend dev
+pnpm --filter @universo/space-builder-frontend dev
+pnpm --filter @universo/spaces-frontend dev
+pnpm --filter @universo/uniks-frontend dev
 pnpm --filter @universo/updl dev
 
 # Backend packages
-pnpm --filter @universo/auth-srv dev
-pnpm --filter @universo/metaverses-srv dev
-pnpm --filter @universo/profile-srv dev
-pnpm --filter @universo/publish-srv dev
-pnpm --filter @universo/space-builder-srv dev
-pnpm --filter @universo/spaces-srv dev
-pnpm --filter @universo/uniks-srv dev
-pnpm --filter @universo/multiplayer-colyseus-srv dev
+pnpm --filter @universo/auth-backend dev
+pnpm --filter @universo/metaverses-backend dev
+pnpm --filter @universo/profile-backend dev
+pnpm --filter @universo/publish-backend dev
+pnpm --filter @universo/space-builder-backend dev
+pnpm --filter @universo/spaces-backend dev
+pnpm --filter @universo/uniks-backend dev
+pnpm --filter @universo/multiplayer-colyseus-backend dev
 ```
 
 **Note about resources:** For packages still using gulp (legacy build), watch scripts don't automatically copy SVG icons. If you add or modify SVG resources during development, run `pnpm build --filter <app>` to ensure they are properly copied to the dist directory. Packages using tsdown handle assets automatically.

@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '@universo/auth-frt'
+import { useAuth } from '@universo/auth-frontend'
 import { Loader } from '@flowise/template-mui'
 
 /**

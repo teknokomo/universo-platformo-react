@@ -8,10 +8,10 @@
 
 Система управления профилями состоит из двух основных компонентов:
 
-- **Фронтенд (profile-frt)**: Пользовательский интерфейс для управления профилем
-- **Бэкенд (profile-srv)**: Безопасные API и управление данными
+- **Фронтенд (profile-frontend)**: Пользовательский интерфейс для управления профилем
+- **Бэкенд (profile-backend)**: Безопасные API и управление данными
 
-## Фронтенд (profile-frt)
+## Фронтенд (profile-frontend)
 
 Фронтенд модуль для управления профилем пользователя и аутентификации в Universo Platformo.
 
@@ -56,7 +56,7 @@ Body: {
 }
 ```
 
-## Бэкенд (profile-srv)
+## Бэкенд (profile-backend)
 
 Бэкенд сервис для управления профилем пользователя и аутентификации, реализованный как workspace пакет для чистой интеграции и будущей модульности.
 
@@ -158,7 +158,7 @@ $$;
 
 Сервис профилей интегрируется с основной платформой Flowise как **workspace пакет**:
 
-1. **Импорт пакета**: Основной сервер импортирует через `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+1. **Импорт пакета**: Основной сервер импортирует через `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-backend'`
 2. **Интеграция сущностей**: Сущность Profile автоматически включается в основной индекс сущностей
 3. **Интеграция миграций**: Миграции профилей включаются в систему миграций PostgreSQL через spread оператор
 4. **Интеграция маршрутов**: Маршруты профилей монтируются на `/api/v1/profile` с middleware аутентификации
@@ -180,20 +180,20 @@ $$;
 pnpm install
 
 # Собрать workspace пакет
-pnpm --filter @universo/profile-srv build
+pnpm --filter @universo/profile-backend build
 ```
 
 ### Режим разработки
 ```bash
 # Разработка с режимом наблюдения
-pnpm --filter @universo/profile-srv dev
+pnpm --filter @universo/profile-backend dev
 ```
 
 ### Сборка
 ```bash
 # Чистая сборка
-pnpm --filter @universo/profile-srv clean
-pnpm --filter @universo/profile-srv build
+pnpm --filter @universo/profile-backend clean
+pnpm --filter @universo/profile-backend build
 ```
 
 ## Соображения безопасности

@@ -1,4 +1,4 @@
-# `packages/uniks-frt` — Uniks Frontend — [Статус: MVP]
+# `packages/uniks-frontend` — Uniks Frontend — [Статус: MVP]
 
 Фронтенд приложение для управления рабочими пространствами (workspaces) в Universo Platformo.
 
@@ -65,10 +65,10 @@ Workspace routes монтируются под `/:unikId` префиксом с 
 pnpm install
 
 # Сборка для продакшена
-pnpm build --filter @universo/uniks-frt
+pnpm build --filter @universo/uniks-frontend
 
 # Режим разработки
-pnpm --filter @universo/uniks-frt dev
+pnpm --filter @universo/uniks-frontend dev
 ```
 
 ## См. также

@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/sovereignty-frt/base/
-packages/sovereignty-srv/base/
+packages/sovereignty-frontend/base/
+packages/sovereignty-backend/base/
 ```

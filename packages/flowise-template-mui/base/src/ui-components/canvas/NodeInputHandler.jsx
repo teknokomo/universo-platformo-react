@@ -37,7 +37,7 @@ import { Tab } from '../tabs/Tab'
 import { TabPanel } from '../tabs/TabPanel'
 import { TabsList } from '../tabs/TabsList'
 import { TooltipWithParser } from '../tooltip/TooltipWithParser'
-import { AssistantDialog } from '@flowise/assistants-frt'
+import { AssistantDialog } from '@flowise/assistants-frontend'
 import CredentialInputHandler from '../dialogs/CredentialInputHandler'
 
 // utils

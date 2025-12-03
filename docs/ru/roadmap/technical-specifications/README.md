@@ -172,31 +172,31 @@ api_gateway:
 
     routes:
         - path: '/api/v1/auth/*'
-          service: 'auth-enhanced-srv'
+          service: 'auth-enhanced-backend'
           timeout: 5000
           rate_limit: '100/minute'
           auth_required: false
 
         - path: '/api/v1/resources/*'
-          service: 'resources-srv'
+          service: 'resources-backend'
           timeout: 3000
           rate_limit: '200/minute'
           auth_required: true
 
         - path: '/api/v1/ships/*'
-          service: 'ships-srv'
+          service: 'ships-backend'
           timeout: 3000
           rate_limit: '150/minute'
           auth_required: true
 
         - path: '/api/v1/economy/*'
-          service: 'economy-srv'
+          service: 'economy-backend'
           timeout: 5000
           rate_limit: '100/minute'
           auth_required: true
 
         - path: '/api/v1/corporations/*'
-          service: 'corporations-srv'
+          service: 'corporations-backend'
           timeout: 3000
           rate_limit: '50/minute'
           auth_required: true

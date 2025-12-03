@@ -1,0 +1,49 @@
+{
+    "name": "@universo/profile-frontend",
+    "version": "0.1.0",
+    "description": "Frontend module for user profile",
+    "main": "./src/index.ts",
+    "module": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts",
+            "require": "./src/index.ts"
+        },
+        "./i18n": {
+            "types": "./dist/i18n/index.d.ts",
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        },
+        "./pages/*": {
+            "default": "./src/pages/*"
+        }
+    },
+    "files": ["dist", "src"],
+    "scripts": {
+        "build": "tsdown",
+        "build:watch": "tsdown --watch",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts,.tsx,.jsx src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "keywords": ["universo", "profile"],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "react": "^18.2.0",
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "@types/react": "^18.2.55",
+        "@testing-library/jest-dom": "^6.4.5",
+        "@testing-library/react": "^14.1.2",
+        "@testing-library/user-event": "^14.5.2",
+        "eslint": "^8.56.0",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "vitest": "^2.1.4"
+    }
+}

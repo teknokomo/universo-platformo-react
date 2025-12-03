@@ -7,7 +7,7 @@
 
 ## 1. Feature Overview
 
-Successfully extracted Uniks (workspace) functionality from the monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues that emerged during the extraction process. This architectural refactoring involved creating separate backend and frontend packages, resolving circular dependencies, fixing TypeScript compilation issues, and correcting internationalization (i18n) configuration.
+Successfully extracted Uniks (workspace) functionality from the monolithic codebase into dedicated packages `@universo/uniks-backend` and `@universo/uniks-frontend`, resolving critical build system issues that emerged during the extraction process. This architectural refactoring involved creating separate backend and frontend packages, resolving circular dependencies, fixing TypeScript compilation issues, and correcting internationalization (i18n) configuration.
 
 **Original Task**: [memory-bank/tasks.md#recently-completed-tasks](memory-bank/tasks.md#recently-completed-tasks)
 
@@ -15,8 +15,8 @@ Successfully extracted Uniks (workspace) functionality from the monolithic codeb
 
 ### Functional Requirements
 
--   ✅ **Package Extraction**: Created dedicated `@universo/uniks-srv` backend package with Express routes, TypeORM entities, and PostgreSQL migrations
--   ✅ **Frontend Modularization**: Created `@universo/uniks-frt` frontend package with React components, menu configurations, and i18n support
+-   ✅ **Package Extraction**: Created dedicated `@universo/uniks-backend` backend package with Express routes, TypeORM entities, and PostgreSQL migrations
+-   ✅ **Frontend Modularization**: Created `@universo/uniks-frontend` frontend package with React components, menu configurations, and i18n support
 -   ✅ **Build System Stability**: All packages build successfully without errors
 -   ✅ **Functionality Preservation**: All Uniks features work as expected after extraction
 
@@ -31,7 +31,7 @@ Successfully extracted Uniks (workspace) functionality from the monolithic codeb
 
 ### Architecture Decisions
 
--   **Package Separation**: Clear separation of backend (`uniks-srv`) and frontend (`uniks-frt`) concerns
+-   **Package Separation**: Clear separation of backend (`uniks-backend`) and frontend (`uniks-frontend`) concerns
 -   **TypeScript Path Aliases**: Used for external module imports to avoid circular dependencies
 -   **Module Declarations**: Created `flowiseRoutes.d.ts` for third-party module integration
 -   **Vite Alias Configuration**: Proper ordering of path aliases for i18n imports
@@ -58,8 +58,8 @@ The implementation followed a phased approach to resolve complex build system is
 
 ### Primary Components Created
 
--   **Backend Package**: `packages/uniks-srv/base/` with Express routes, TypeORM entities, database migrations
--   **Frontend Package**: `packages/uniks-frt/base/` with React components, menu configurations, i18n support
+-   **Backend Package**: `packages/uniks-backend/base/` with Express routes, TypeORM entities, database migrations
+-   **Frontend Package**: `packages/uniks-frontend/base/` with React components, menu configurations, i18n support
 -   **Type Declarations**: `flowiseRoutes.d.ts` for external module integration
 -   **Configuration Updates**: TypeScript and Vite configuration modifications
 
@@ -136,30 +136,30 @@ The implementation followed a phased approach to resolve complex build system is
 
 ## Key Files and Components Affected
 
-### Backend Package (`@universo/uniks-srv`)
+### Backend Package (`@universo/uniks-backend`)
 
--   `packages/uniks-srv/base/src/routes/uniksRoutes.ts` - Express routes for Uniks CRUD operations
--   `packages/uniks-srv/base/src/types/flowiseRoutes.d.ts` - TypeScript declarations for external modules
--   `packages/uniks-srv/base/package.json` - Package dependencies and scripts
--   `packages/uniks-srv/base/tsconfig.json` - TypeScript configuration
+-   `packages/uniks-backend/base/src/routes/uniksRoutes.ts` - Express routes for Uniks CRUD operations
+-   `packages/uniks-backend/base/src/types/flowiseRoutes.d.ts` - TypeScript declarations for external modules
+-   `packages/uniks-backend/base/package.json` - Package dependencies and scripts
+-   `packages/uniks-backend/base/tsconfig.json` - TypeScript configuration
 
-### Frontend Package (`@universo/uniks-frt`)
+### Frontend Package (`@universo/uniks-frontend`)
 
--   `packages/uniks-frt/base/src/pages/` - React components (UnikList, UnikDetail, UnikDialog)
--   `packages/uniks-frt/base/src/i18n/` - Internationalization files
--   `packages/uniks-frt/base/src/menu-items/` - Menu configurations
--   `packages/uniks-frt/base/package.json` - Package dependencies
--   `packages/uniks-frt/base/tsconfig.json` - TypeScript configuration
+-   `packages/uniks-frontend/base/src/pages/` - React components (UnikList, UnikDetail, UnikDialog)
+-   `packages/uniks-frontend/base/src/i18n/` - Internationalization files
+-   `packages/uniks-frontend/base/src/menu-items/` - Menu configurations
+-   `packages/uniks-frontend/base/package.json` - Package dependencies
+-   `packages/uniks-frontend/base/tsconfig.json` - TypeScript configuration
 
 ### Build System Configuration
 
--   `packages/flowise-ui/vite.config.js` - Vite alias configuration updates
--   `packages/flowise-ui/src/i18n/index.js` - i18n import path corrections
+-   `packages/flowise-core-frontend/base/vite.config.js` - Vite alias configuration updates
+-   `packages/flowise-core-frontend/base/src/i18n/index.js` - i18n import path corrections
 
 ### Integration Points
 
--   `packages/flowise-server/` - Integration with main server package
--   `packages/flowise-ui/` - Integration with main UI package
+-   `packages/flowise-core-backend/base/` - Integration with main server package
+-   `packages/flowise-core-frontend/base/` - Integration with main UI package
 
 ## Related Documentation
 

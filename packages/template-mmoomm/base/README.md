@@ -125,8 +125,8 @@ When contributing to this package:
 
 - [Main Apps Documentation](../README.md)
 - [UPDL Node Definitions](../updl/base/README.md)
-- [Publishing Frontend](../publish-frt/base/README.md)
-- [Space Builder](../space-builder-frt/base/README.md)
+- [Publishing Frontend](../publish-frontend/base/README.md)
+- [Space Builder](../space-builder-frontend/base/README.md)
 - [PlayCanvas Documentation](https://developer.playcanvas.com/)
 
 ---

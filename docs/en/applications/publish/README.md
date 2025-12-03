@@ -8,8 +8,8 @@ The Publication System provides comprehensive mechanisms for exporting UPDL spac
 
 The Publication System consists of two main components working together to provide a complete content publishing solution:
 
--   **Frontend (publish-frt)**: Client-side processing, template builders, and user interface
--   **Backend (publish-srv)**: Data management, API endpoints, and type definitions
+-   **Frontend (publish-frontend)**: Client-side processing, template builders, and user interface
+-   **Backend (publish-backend)**: Data management, API endpoints, and type definitions
 
 ## Architecture
 
@@ -30,7 +30,7 @@ The Publication System consists of two main components working together to provi
                                               └─────────────────┘
 ```
 
-## Frontend (publish-frt)
+## Frontend (publish-frontend)
 
 The frontend application provides the user interface for configuring and initiating the publication process. It acts as a consumer of template packages, such as `@universo/template-mmoomm`, to generate the final user experience.
 
@@ -71,7 +71,7 @@ builders/templates/
 #### Integration Pattern
 
 ```typescript
-// publish-frt consumes external template packages
+// publish-frontend consumes external template packages
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
 
 export class PlayCanvasBuilder extends AbstractTemplateBuilder {
@@ -146,16 +146,16 @@ User-selectable library sources solve CDN blocking issues:
 -   Persistence: `chatbotConfig.arjs` stores `arDisplayType` and `wallpaperType` along with `libraryConfig`.
 -   Public API: the AR.js public endpoint returns optional `renderConfig` with the above fields; frontend falls back to marker mode if absent.
 
-## Backend (publish-srv)
+## Backend (publish-backend)
 
-The backend service provides data management and API endpoints as a workspace package (`@universo/publish-srv`).
+The backend service provides data management and API endpoints as a workspace package (`@universo/publish-backend`).
 
 ### Key Features
 
 -   **Publication Management**: API endpoints to create and retrieve publication records
 -   **Flow Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend
 -   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types
--   **Modular and Decoupled**: Fully independent from `packages/flowise-server` business logic
+-   **Modular and Decoupled**: Fully independent from `packages/flowise-core-backend/base` business logic
 -   **Asynchronous Route Initialization**: Prevents race conditions with database connections
 
 ### API Endpoints
@@ -191,7 +191,7 @@ Response: {
 
 The backend is implemented as a **pnpm workspace package**:
 
--   **Package Name**: `@universo/publish-srv`
+-   **Package Name**: `@universo/publish-backend`
 -   **Integration**: Used as dependency in main server
 -   **Exports**: Routes, types, services, controllers via `src/index.ts`
 -   **Type Sharing**: Source of truth for UPDL types consumed by frontend
@@ -203,7 +203,7 @@ The frontend includes independent UPDL processing capabilities through the `UPDL
 ### Key Components
 
 -   **UPDLProcessor**: Central class for UPDL flow processing
--   **Type Imports**: UPDL types imported from `@universo/publish-srv` package
+-   **Type Imports**: UPDL types imported from `@universo/publish-backend` package
 -   **Frontend Independence**: Complete UPDL processing without backend dependencies
 
 ### Features
@@ -287,20 +287,20 @@ The MMOOMM (Massive Multiplayer Online Object Mining Management) template provid
 pnpm install
 
 # Build frontend
-pnpm --filter publish-frt build
+pnpm --filter publish-frontend build
 
 # Build backend
-pnpm --filter @universo/publish-srv build
+pnpm --filter @universo/publish-backend build
 ```
 
 ### Development Mode
 
 ```bash
 # Frontend development
-pnpm --filter publish-frt dev
+pnpm --filter publish-frontend dev
 
 # Backend development
-pnpm --filter @universo/publish-srv dev
+pnpm --filter @universo/publish-backend dev
 ```
 
 ### Build Process

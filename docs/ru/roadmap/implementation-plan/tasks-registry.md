@@ -6,22 +6,22 @@
 
 -   **Переработать систему авторизации (Supabase, подготовка к Passport.js)**
 
-    Задача: стабилизировать многопользовательскую авторизацию, исправить обработку и обновление токенов (refresh), консистентно прокидывать аутентификацию на фронт/бэкенд и в экспортируемые приложения. Создать приложения `packages/auth-frt` и `packages/auth-srv`.
+    Задача: стабилизировать многопользовательскую авторизацию, исправить обработку и обновление токенов (refresh), консистентно прокидывать аутентификацию на фронт/бэкенд и в экспортируемые приложения. Создать приложения `packages/auth-frontend` и `packages/auth-backend`.
 
     Детали:
 
-    -   В `packages/auth-srv` реализовать слой абстракции поверх Supabase Auth (валидация access/refresh, ротация, webhook-события), предусмотреть адаптер под Passport.js на будущее.
-    -   В `packages/auth-frt` — UI компонентов входа/регистрации/обновления токена, интеграция с Supabase SDK, хранение/обновление токенов, перехватчики запросов.
-    -   Обновить интеграцию аутентификации в `packages/publish-frt`, `packages/template-engine-srv` (экспорт в PlayCanvas), `packages/multiplayer-colyseus-srv` (JWT в join-параметрах).
+    -   В `packages/auth-backend` реализовать слой абстракции поверх Supabase Auth (валидация access/refresh, ротация, webhook-события), предусмотреть адаптер под Passport.js на будущее.
+    -   В `packages/auth-frontend` — UI компонентов входа/регистрации/обновления токена, интеграция с Supabase SDK, хранение/обновление токенов, перехватчики запросов.
+    -   Обновить интеграцию аутентификации в `packages/publish-frontend`, `packages/template-engine-backend` (экспорт в PlayCanvas), `packages/multiplayer-colyseus-backend` (JWT в join-параметрах).
 
 -   **Метавселенные: фронт и сервер, связи и роли Unik/Space**
 
-    Задача: создать `packages/metaverse-frt` и `packages/metaverse-srv` как базовые приложения домена метавселенных. Обеспечить модели связей мета↔мета (дочерние/партнёрские), каталог мета, и связку с Unik/Space.
+    Задача: создать `packages/metaverse-frontend` и `packages/metaverse-backend` как базовые приложения домена метавселенных. Обеспечить модели связей мета↔мета (дочерние/партнёрские), каталог мета, и связку с Unik/Space.
 
     Детали:
 
-    -   В `metaverse-srv`: схемы `metaverse.metaverses`, `metaverse.links`, базовый REST (`/metaverses`, `/metaverses/:id/links`, `/overview`).
-    -   В `metaverse-frt`: интерфейсы управления мета, обзор связей, подключение Unik/Space.
+    -   В `metaverse-backend`: схемы `metaverse.metaverses`, `metaverse.links`, базовый REST (`/metaverses`, `/metaverses/:id/links`, `/overview`).
+    -   В `metaverse-frontend`: интерфейсы управления мета, обзор связей, подключение Unik/Space.
     -   Определить архитектурно: Unik как параллельный каталог (не дочерний мета), мета — каталог миров (общих и личных). Уточнить в документации и API связи «мета ↔ unik ↔ space».
 
 -   **Многохолстовая архитектура UPDL: связки Space↔Space/Unik/Metaverse**
@@ -49,8 +49,8 @@
 
     Детали:
 
-    -   Создать `packages/embed-frt` на базе `FlowiseEmbedReact` (обёртка и конфигурация), интеграция с нашими API.
-    -   В `publish-frt`/`template-engine-srv` обновить pipeline публикации чат-бота.
+    -   Создать `packages/embed-frontend` на базе `FlowiseEmbedReact` (обёртка и конфигурация), интеграция с нашими API.
+    -   В `publish-frontend`/`template-engine-backend` обновить pipeline публикации чат-бота.
 
 -   **Miro‑подобные возможности на холсте Space**
 
@@ -63,13 +63,13 @@
 
 -   **Публикация с предварительной генерацией (server‑side build, артефакты на сервере/S3)**
 
-    Задача: добавить режим предварительной генерации приложений вместо потоковой генерации в браузере. По запросу публикации `template-engine-srv` генерирует целевой проект (например, PlayCanvas) на сервере, сохраняет артефакты в хранилище (S3 или локально), и при открытии пользователю выдается уже готовый собранный бандл.
+    Задача: добавить режим предварительной генерации приложений вместо потоковой генерации в браузере. По запросу публикации `template-engine-backend` генерирует целевой проект (например, PlayCanvas) на сервере, сохраняет артефакты в хранилище (S3 или локально), и при открытии пользователю выдается уже готовый собранный бандл.
 
     Детали:
 
-    -   `packages/template-engine-srv`: серверный пайплайн генерации (job‑очередь, статусы jobs, логи), конфигурация таргетов (playcanvas/aframe/arjs), сохранение артефактов (S3/локально), CDN‑ссылки.
-    -   `packages/publish-srv`: API для запуска/мониторинга сборки, выдачи ссылок на артефакты, управление правами доступа.
-    -   `packages/publish-frt`: UI публикации (кнопка «Сгенерировать», статус джоба, предпросмотр, кнопка «Опубликовать»), отображение ошибок/логов.
+    -   `packages/template-engine-backend`: серверный пайплайн генерации (job‑очередь, статусы jobs, логи), конфигурация таргетов (playcanvas/aframe/arjs), сохранение артефактов (S3/локально), CDN‑ссылки.
+    -   `packages/publish-backend`: API для запуска/мониторинга сборки, выдачи ссылок на артефакты, управление правами доступа.
+    -   `packages/publish-frontend`: UI публикации (кнопка «Сгенерировать», статус джоба, предпросмотр, кнопка «Опубликовать»), отображение ошибок/логов.
     -   Сохранить потоковую генерацию как опцию для простых кейсов; по умолчанию — предварительная генерация.
 
 -   **Версионирование публикаций и артефактов генерации**
@@ -78,22 +78,22 @@
 
     Детали:
 
-    -   `publish-srv`: схемы `publication.projects`, `publication.versions`, `publication.artifacts` (хэш/метаданные/ссылки), статусы (draft/prerelease/release/deprecated), ACL.
-    -   `template-engine-srv`: детерминированные сборки (контроль хэша входных данных), сохранение метаданных генерации (версия шаблона, таргет, параметры).
-    -   `publish-frt`: UI версий (создать/комментировать/сравнить/активировать/откатить), выдача предпросмотра по токену, аудит действий.
+    -   `publish-backend`: схемы `publication.projects`, `publication.versions`, `publication.artifacts` (хэш/метаданные/ссылки), статусы (draft/prerelease/release/deprecated), ACL.
+    -   `template-engine-backend`: детерминированные сборки (контроль хэша входных данных), сохранение метаданных генерации (версия шаблона, таргет, параметры).
+    -   `publish-frontend`: UI версий (создать/комментировать/сравнить/активировать/откатить), выдача предпросмотра по токену, аудит действий.
 
 -   **Рефакторинг шаблонов публикации (workspace‑плагины)**
 
-    Задача: вынести тяжёлые шаблоны из `publish-frt` в отдельные workspace‑пакеты и стандартизировать их API как плагины для `template-engine-srv`. Сохранить потоковую генерацию в браузере только как режим «быстрого превью».
+    Задача: вынести тяжёлые шаблоны из `publish-frontend` в отдельные workspace‑пакеты и стандартизировать их API как плагины для `template-engine-backend`. Сохранить потоковую генерацию в браузере только как режим «быстрого превью».
 
     Детали:
 
     -   Создать пакеты шаблонов: `packages/template-playcanvas-core`, `packages/template-playcanvas-mmoomm`, `packages/template-arjs-core`, `packages/template-aframe-core`.
     -   Определить плагин‑интерфейс: манифест, схема конфигурации (JSON Schema), точки расширения (генерация сцен/ассетов/скриптов), версии шаблона.
-    -   `template-engine-srv`: загрузка плагинов из workspace (npm‑пакеты), выполнение генерации, валидация конфигов по схеме, возврат artifactId/URL.
-    -   `publish-srv`: реестр доступных шаблонов (метаданные/версии/совместимость), выдача схем конфигов, привязка к публикациям/версиям.
-    -   `publish-frt`: UI выбора шаблона и его настроек (форма из схемы), запуск предгенерации; «потоковая генерация» оставить только для лёгкого превью в браузере.
-    -   Миграция: в `packages/publish-frt/base/src/builders/templates` оставить только слой превью, тяжёлую генерацию удалить после переноса.
+    -   `template-engine-backend`: загрузка плагинов из workspace (npm‑пакеты), выполнение генерации, валидация конфигов по схеме, возврат artifactId/URL.
+    -   `publish-backend`: реестр доступных шаблонов (метаданные/версии/совместимость), выдача схем конфигов, привязка к публикациям/версиям.
+    -   `publish-frontend`: UI выбора шаблона и его настроек (форма из схемы), запуск предгенерации; «потоковая генерация» оставить только для лёгкого превью в браузере.
+    -   Миграция: в `packages/publish-frontend/base/src/builders/templates` оставить только слой превью, тяжёлую генерацию удалить после переноса.
 
 ---
 
@@ -113,7 +113,7 @@
 
 -   **Актуализировать PNPM workspace‑настройки**
 
-    Убедиться, что `pnpm-workspace.yaml` включает `packages/**`. В корневом `package.json` настроить порядок сборки: сборка пакетов ядра (`types`, `utils`, `client-sdk`) выполняется до сборки приложений `packages/*-srv`.
+    Убедиться, что `pnpm-workspace.yaml` включает `packages/**`. В корневом `package.json` настроить порядок сборки: сборка пакетов ядра (`types`, `utils`, `client-sdk`) выполняется до сборки приложений `packages/*-backend`.
 
 -   **Обновить документацию по протоколу и сетевой модели**
 
@@ -121,7 +121,7 @@
 
 -   **Интеграция пакетов в будущие приложения (подготовительные изменения)**
 
-    Добавить зависимости `"@universo-platformo/types": "workspace:*"` и `"@universo-platformo/utils": "workspace:*"` в серверные приложения (`packages/entities-srv`, `packages/resources-srv`, `packages/multiplayer-colyseus-srv`) — для использования единых DTO и валидации. Для клиента (экспорт в PlayCanvas) предусмотреть подключение `@universo-platformo/client-sdk` через `template-engine-srv` (будет реализовано на последующих этапах).
+    Добавить зависимости `"@universo-platformo/types": "workspace:*"` и `"@universo-platformo/utils": "workspace:*"` в серверные приложения (`packages/entities-backend`, `packages/resources-backend`, `packages/multiplayer-colyseus-backend`) — для использования единых DTO и валидации. Для клиента (экспорт в PlayCanvas) предусмотреть подключение `@universo-platformo/client-sdk` через `template-engine-backend` (будет реализовано на последующих этапах).
 
 -   **(Опционально) Создать агрегатор `@universo-platformo/core`**
 
@@ -149,17 +149,17 @@
 
 -   **Актуализировать PNPM workspace‑настройки (MMOOMM)**
 
-    Убедиться, что `pnpm-workspace.yaml` включает шаблоны `packages/universo-mmoomm-*`. В корневом `package.json` задать порядок: сборка платформенных пакетов (`@universo-platformo/*`) → сборка MMOOMM‑пакетов (`@universo-mmoomm/*`) → сборка `packages/*-srv`.
+    Убедиться, что `pnpm-workspace.yaml` включает шаблоны `packages/universo-mmoomm-*`. В корневом `package.json` задать порядок: сборка платформенных пакетов (`@universo-platformo/*`) → сборка MMOOMM‑пакетов (`@universo-mmoomm/*`) → сборка `packages/*-backend`.
 
 -   **Интеграция пакетов в приложения (MMOOMM)**
 
-    Для серверов использовать платформенные типы/утилиты, а доменные типы MMOOMM — в соответствующих сервисах (например, `combat-srv`, `economy-srv`). Для клиента (экспорт в PlayCanvas) — подключать оба слоя SDK: базовый `@universo-platformo/client-sdk` и надстройку `@universo-mmoomm/client-sdk` через `template-engine-srv` (конфиг экспорта выберет нужные рантаймы/транспорты).
+    Для серверов использовать платформенные типы/утилиты, а доменные типы MMOOMM — в соответствующих сервисах (например, `combat-backend`, `economy-backend`). Для клиента (экспорт в PlayCanvas) — подключать оба слоя SDK: базовый `@universo-platformo/client-sdk` и надстройку `@universo-mmoomm/client-sdk` через `template-engine-backend` (конфиг экспорта выберет нужные рантаймы/транспорты).
 
 ---
 
 ## Этап 3. Бэкенд ядра данных (ECS + Ресурсы)
 
--   **Создать `packages/entities-srv` (ядро ECS)**
+-   **Создать `packages/entities-backend` (ядро ECS)**
 
     Задача: хранение канонического состояния сущностей по модели ECS (Entity + Components + Relations), инстансирование из версий ресурсов, представление деревьев сборки.
 
@@ -169,7 +169,7 @@
     -   REST (v1): `POST /api/v1/entities/instantiate`, `GET /api/v1/entities/:id`, `GET /api/v1/entities/:id/tree`, `PATCH /api/v1/entities/:id`.
     -   Назначение: создать Entity из `resourceVersionId`, хранить компоненты (минимум: Transform/Visual/Health), строить дерево по BOM, возвращать дерево/срез состояния.
 
--   **Создать `packages/resources-srv` (каталог ресурсов/версий/BOM)**
+-   **Создать `packages/resources-backend` (каталог ресурсов/версий/BOM)**
 
     Задача: канонический справочник Resource → ResourceVersion (immutable) → BOM (состав) и Units, публикации версий и валидации DAG.
 
@@ -181,9 +181,9 @@
 
 -   **Интеграции**
 
-    -   `template-engine-srv`: берёт `ResourceVersion/BOM` → материализует сцену (SP/MP таргеты).
-    -   `multiplayer-srv` (см. Этап 4): будет опираться на ECS для формирования снапшотов/дельт и авторитетного состояния.
-    -   Доменные сервисы (`ships-srv`, `economy-srv`, `combat-srv`): добавляют собственные компоненты/правила поверх ECS.
+    -   `template-engine-backend`: берёт `ResourceVersion/BOM` → материализует сцену (SP/MP таргеты).
+    -   `multiplayer-backend` (см. Этап 4): будет опираться на ECS для формирования снапшотов/дельт и авторитетного состояния.
+    -   Доменные сервисы (`ships-backend`, `economy-backend`, `combat-backend`): добавляют собственные компоненты/правила поверх ECS.
 
 -   **Критерии готовности**
 
@@ -194,7 +194,7 @@
 
 ## Этап 4. Авторитетный мультиплеер (Colyseus)
 
--   **Создать `packages/multiplayer-colyseus-srv` (Node/TS + Colyseus + Redis)**
+-   **Создать `packages/multiplayer-colyseus-backend` (Node/TS + Colyseus + Redis)**
 
     Задача: реализовать авторитетный сервер реального времени: комнаты по миру/инстансу, фиксированный тик, снапшоты/дельты, интерес‑менеджмент, античит и лаг‑компенсацию.
 
@@ -209,10 +209,10 @@
 
 -   **Интеграции (сервер/клиент)**
 
-    -   Зависит от Этапа 3: `entities-srv` и `resources-srv` должны быть доступны (каноническое состояние ECS и BOM)
-    -   `auth-srv`/Supabase: JWT при join, скоупы доступа
-    -   `entities-srv`/`resources-srv`: чтение/синхронизация состояния ECS, деревья по BOM
-    -   `template-engine-srv`: инъекция транспортного клиента (Colyseus) и переключение SP/MP в экспортируемом проекте
+    -   Зависит от Этапа 3: `entities-backend` и `resources-backend` должны быть доступны (каноническое состояние ECS и BOM)
+    -   `auth-backend`/Supabase: JWT при join, скоупы доступа
+    -   `entities-backend`/`resources-backend`: чтение/синхронизация состояния ECS, деревья по BOM
+    -   `template-engine-backend`: инъекция транспортного клиента (Colyseus) и переключение SP/MP в экспортируемом проекте
 
 -   **Критерии готовности**
 
@@ -228,7 +228,7 @@
 
 ## Этап 5. Клиент PlayCanvas: предикция/реконсилиация
 
--   **Включить клиентский модуль в `template-engine-srv`**
+-   **Включить клиентский модуль в `template-engine-backend`**
 
     Задача: встроить в экспортируемый проект PlayCanvas клиентский рантайм, сглаживающий сетевую задержку: локальная предикция, реконсилиация по ack/snapshot, интерполяция/экстраполяция чужих сущностей, origin rebasing для больших сцен.
 
@@ -243,9 +243,9 @@
 
 -   **Интеграции**
 
-    -   Зависит от Этапа 4 (`multiplayer-srv`): авторитетный сервер должен быть доступен
+    -   Зависит от Этапа 4 (`multiplayer-backend`): авторитетный сервер должен быть доступен
     -   Использует `@universo-platformo/client-sdk` (транспорт Colyseus)
-    -   Интеграция с `template-engine-srv`: автоматическая инъекция рантайма в экспортируемый проект
+    -   Интеграция с `template-engine-backend`: автоматическая инъекция рантайма в экспортируемый проект
 
 -   **Критерии готовности**
 
@@ -261,7 +261,7 @@
 
 ## Этап 6. Минимальные домены для геймплея (базовые)
 
--   **Создать `packages/ships-srv` (минимум)**
+-   **Создать `packages/ships-backend` (минимум)**
 
     Задача: предоставить базовый домен «корабли» поверх ECS без привязки к конкретной игре.
 
@@ -271,17 +271,17 @@
     -   Компонент ECS: `Ship` (ядро параметров), валидация простого фиттинга
     -   REST (v1): GET каталоги, POST проверка фиттинга, GET/PUT компонент `Ship` сущности
 
--   **Создать `packages/combat-srv` (минимум)**
+-   **Создать `packages/combat-backend` (минимум)**
 
     Задача: серверные формулы урона/резистов и применение урона к ECS‑состоянию.
 
     Детали:
 
     -   Модель урона: shield/armor/hull + резисты, кулдауны/стоимость выстрела
-    -   REST (v1): POST `/combat/apply` {attackerId, targetId, weaponId, tClient?} → изменения Health/Integrity через `entities-srv`
+    -   REST (v1): POST `/combat/apply` {attackerId, targetId, weaponId, tClient?} → изменения Health/Integrity через `entities-backend`
     -   Публикация событий: `combat.hit`, `combat.destroyed`
 
--   **Создать `packages/economy-srv` (минимум)**
+-   **Создать `packages/economy-backend` (минимум)**
 
     Задача: кошельки/валюты и безопасные денежные операции с инвариантами.
 
@@ -293,16 +293,16 @@
 
 -   **Интеграции**
 
-    -   `multiplayer-srv`: на интенты `fire/use_module` вызывает `combat-srv`/`ships-srv`; транзакции — через `economy-srv`
-    -   `entities-srv`: чтение/запись компонент `Ship`, `Health/Integrity`
-    -   `template-engine-srv`: может подтягивать каталоги для клиентских UI (опционально)
+    -   `multiplayer-backend`: на интенты `fire/use_module` вызывает `combat-backend`/`ships-backend`; транзакции — через `economy-backend`
+    -   `entities-backend`: чтение/запись компонент `Ship`, `Health/Integrity`
+    -   `template-engine-backend`: может подтягивать каталоги для клиентских UI (опционально)
 
 -   **Критерии готовности**
 
     -   Стрельба и базовый урон рассчитываются на сервере и отражаются в ECS‑состоянии
     -   Денежные операции проходят через ledger с идемпотентностью и аудитом
 
-Примечание: продукт‑специфичные расширения (например, `packages/mmoomm-ships-srv`, `packages/mmoomm-combat-srv`) могут быть добавлены позднее как оверлеи поверх базовых доменов, с собственными каталогами/балансом и независимым версионированием.
+Примечание: продукт‑специфичные расширения (например, `packages/mmoomm-ships-backend`, `packages/mmoomm-combat-backend`) могут быть добавлены позднее как оверлеи поверх базовых доменов, с собственными каталогами/балансом и независимым версионированием.
 
 ---
 
@@ -310,25 +310,25 @@
 
 -   **Подготовить `@universo-platformo/client-sdk` (браузерный ESM)**
 
-    Задача: предоставить типобезопасный клиент для REST (из OpenAPI `packages/*-srv`) и транспорт Colyseus (Room API), который автоматически встраивается в экспортируемые проекты.
+    Задача: предоставить типобезопасный клиент для REST (из OpenAPI `packages/*-backend`) и транспорт Colyseus (Room API), который автоматически встраивается в экспортируемые проекты.
 
     Детали:
 
     -   Генерация REST‑клиентов по OpenAPI; унификация вызовов (auth headers, идемпотентность)
     -   Транспорт Colyseus: `joinRoom/sendIntent/onSnapshot` с типами DTO
-    -   Бандл браузерного SDK для подключения `template-engine-srv`
+    -   Бандл браузерного SDK для подключения `template-engine-backend`
 
--   **`publish-frt`: UI конфигурации публикаций**
+-   **`publish-frontend`: UI конфигурации публикаций**
 
     Задача: единое место настройки таргета/шаблона, ENV (API/WS endpoints), профилей (dev/stage/prod) и запуска публикации.
 
     Детали:
 
     -   Форма настроек из схем шаблонов; выбор профиля окружения
-    -   Запуск предгенерации/релиза; отображение статусов jobs/логов (через `publish-srv`)
+    -   Запуск предгенерации/релиза; отображение статусов jobs/логов (через `publish-backend`)
     -   Переключение версий публикаций (см. Этап 1)
 
--   **`template-engine-srv`: инъекция SDK и ENV в сборку**
+-   **`template-engine-backend`: инъекция SDK и ENV в сборку**
 
     Задача: при экспорте подключать `@universo-platformo/client-sdk`, подставлять ENV и выдавать готовые артефакты.
 
@@ -339,8 +339,8 @@
 
 -   **Интеграции**
 
-    -   Зависит от Этапа 1: серверная предгенерация и версии публикаций должны быть доступны (`template-engine-srv`, `publish-srv`)
-    -   Использует плагин‑шаблоны (`packages/template-*`) и реестр шаблонов (`publish-srv`)
+    -   Зависит от Этапа 1: серверная предгенерация и версии публикаций должны быть доступны (`template-engine-backend`, `publish-backend`)
+    -   Использует плагин‑шаблоны (`packages/template-*`) и реестр шаблонов (`publish-backend`)
 
 -   **Критерии готовности**
 
@@ -375,7 +375,7 @@
 
 -   **Интеграции**
 
-    -   Использует `multiplayer-srv` (Этап 4), клиентский рантайм (Этап 5), домены (Этап 6)
+    -   Использует `multiplayer-backend` (Этап 4), клиентский рантайм (Этап 5), домены (Этап 6)
     -   Техническая база: Prometheus/Grafana или Otel‑совместимые метрики; централизованное логирование
     -   Документация: см. `roadmap/technical-specifications/observability.md` и `testing-strategy.md`
 
@@ -433,8 +433,8 @@
 -   **Интеграции**
 
     -   Зависит от Этапа 4 (multiplayer‑srv), Этапа 5 (клиент), Этапа 6 (домены), Этапа 8 (наблюдаемость)
-    -   `auth-srv`: выдача `transferToken`; `entities-srv`: сериализация/десериализация компонент
-    -   LB/Ingress (sticky WS), Redis‑кластер, координатор размещения (как часть `multiplayer-srv` или отдельный `world-coordinator-srv`)
+    -   `auth-backend`: выдача `transferToken`; `entities-backend`: сериализация/десериализация компонент
+    -   LB/Ingress (sticky WS), Redis‑кластер, координатор размещения (как часть `multiplayer-backend` или отдельный `world-coordinator-backend`)
 
 -   **Критерии готовности**
 

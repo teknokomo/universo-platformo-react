@@ -1,4 +1,4 @@
-# Spaces Backend (`@universo/spaces-srv`)
+# Spaces Backend (`@universo/spaces-backend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 

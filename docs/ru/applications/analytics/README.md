@@ -13,7 +13,7 @@
 Приложение аналитики построено как легкий фронтенд модуль:
 
 ```
-packages/analytics-frt/base/
+packages/analytics-frontend/base/
 ├── src/
 │   └── pages/
 │       └── Analytics.jsx    # Основная страница аналитики
@@ -49,7 +49,7 @@ packages/analytics-frt/base/
 
 ```javascript
 // Импорт в основном приложении Flowise
-import { AnalyticsPage } from '@packages/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frontend'
 ```
 
 ### Источники данных
@@ -106,7 +106,7 @@ import { AnalyticsPage } from '@packages/analytics-frt'
 ### Базовая интеграция
 ```javascript
 import React from 'react'
-import { AnalyticsPage } from '@packages/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frontend'
 
 function App() {
   return (
@@ -156,22 +156,22 @@ const analyticsFilters = {
 pnpm install
 
 # Запустить в режиме разработки
-pnpm --filter analytics-frt dev
+pnpm --filter analytics-frontend dev
 ```
 
 ### Сборка
 ```bash
 # Собрать для продакшена
-pnpm --filter analytics-frt build
+pnpm --filter analytics-frontend build
 ```
 
 ### Тестирование
 ```bash
 # Запустить тесты
-pnpm --filter analytics-frt test
+pnpm --filter analytics-frontend test
 
 # Запустить линтер
-pnpm --filter analytics-frt lint
+pnpm --filter analytics-frontend lint
 ```
 
 ## Конфигурация

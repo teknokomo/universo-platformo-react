@@ -48,7 +48,7 @@ interface NodeConnection {
 }
 ```
 
-### 2. Publication System (`packages/publish-frt/`, `packages/publish-srv/`)
+### 2. Publication System (`packages/publish-frontend/`, `packages/publish-backend/`)
 
 **Current Status**: Production Ready
 **Technology Stack**: React + Node.js + Template Engine
@@ -80,7 +80,7 @@ interface MMOOMMTemplate extends ExportTemplate {
 }
 ```
 
-### 3. Profile Management (`packages/profile-frt/`, `packages/profile-srv/`)
+### 3. Profile Management (`packages/profile-frontend/`, `packages/profile-backend/`)
 
 **Current Status**: Beta
 **Technology Stack**: React + Express.js + Supabase
@@ -114,7 +114,7 @@ interface GameAccount {
 }
 ```
 
-### 4. Analytics System (`packages/analytics-frt/`)
+### 4. Analytics System (`packages/analytics-frontend/`)
 
 **Current Status**: Alpha
 **Technology Stack**: React + Chart.js + Supabase
@@ -134,9 +134,9 @@ interface GameAccount {
 ┌─────────────────────────────────────────┐
 │           Flowise Monolith              │
 ├─────────────────────────────────────────┤
-│  packages/updl/        packages/publish-frt/    │
-│  packages/profile-frt/ packages/analytics-frt/  │
-│  packages/publish-srv/ packages/profile-srv/    │
+│  packages/updl/        packages/publish-frontend/    │
+│  packages/profile-frontend/ packages/analytics-frontend/  │
+│  packages/publish-backend/ packages/profile-backend/    │
 ├─────────────────────────────────────────┤
 │         Shared Packages                 │
 │  components/ server/ ui/ api-docs/      │
@@ -235,13 +235,13 @@ CREATE TABLE analytics_events (
 ### Migration Readiness by Application
 
 #### High Readiness (Easy Migration)
-- **analytics-frt**: Simple frontend, minimal dependencies
-- **profile-frt**: Standard CRUD operations
-- **profile-srv**: Well-defined API surface
+- **analytics-frontend**: Simple frontend, minimal dependencies
+- **profile-frontend**: Standard CRUD operations
+- **profile-backend**: Well-defined API surface
 
 #### Medium Readiness (Moderate Migration)
-- **publish-frt**: Template dependencies need refactoring
-- **publish-srv**: Complex template engine
+- **publish-frontend**: Template dependencies need refactoring
+- **publish-backend**: Complex template engine
 
 #### Low Readiness (Complex Migration)
 - **updl**: Core system with many dependencies
@@ -249,14 +249,14 @@ CREATE TABLE analytics_events (
 ### Migration Strategy
 
 #### Phase 1: Extract Simple Applications
-1. **analytics-frt** → `analytics-frt` microservice
-2. **profile-srv** → `profile-srv` microservice
-3. **profile-frt** → Update to use new profile API
+1. **analytics-frontend** → `analytics-frontend` microservice
+2. **profile-backend** → `profile-backend` microservice
+3. **profile-frontend** → Update to use new profile API
 
 #### Phase 2: Extract Publishing System
-1. **publish-srv** → `publish-srv` microservice
+1. **publish-backend** → `publish-backend` microservice
 2. **Template Engine** → Separate service
-3. **publish-frt** → Update to use new APIs
+3. **publish-frontend** → Update to use new APIs
 
 #### Phase 3: Extract UPDL System
 1. **Node Registry** → Separate service

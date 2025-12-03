@@ -4,8 +4,8 @@
 
 ## Application Components
 
-- **Frontend Package**: `@universo/organizations-frt`
-- **Backend Package**: `@universo/organizations-srv`
+- **Frontend Package**: `@universo/organizations-frontend`
+- **Backend Package**: `@universo/organizations-backend`
 
 ## Functionality Overview
 

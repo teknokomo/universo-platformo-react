@@ -10,72 +10,72 @@
 -   **Технические системы**: `auth-enhanced`, `multiplayer`, `security`, `analytics-enhanced`, `monitoring`, `backup`
 -   **Игровые механики**: `resources`, `ships`, `economy`, `mining`, `stations`, `navigation`, `combat`, `skills`, `sovereignty`, `industry`
 -   **Социальные системы**: `corporations`, `diplomacy`, `trading`, `communications`, `reputation`, `events`
--   **Существующие**: `updl`, `publish-frt/srv`, `profile-frt/srv`, `analytics-frt`, `auth-frt`
+-   **Существующие**: `updl`, `publish-frontend/srv`, `profile-frontend/srv`, `analytics-frontend`, `auth-frontend`
 
 ## Ожидаемая структура каталогов (укрупнённо)
 
 ```txt
 packages/
   updl/
-  publish-frt/
-  publish-srv/
-  profile-frt/
-  profile-srv/
-  analytics-frt/
-  auth-frt/
+  publish-frontend/
+  publish-backend/
+  profile-frontend/
+  profile-backend/
+  analytics-frontend/
+  auth-frontend/
 
   # Платформа
-  api-gateway-srv/
-  template-engine-srv/
-  node-registry-srv/
-  workflow-engine-srv/
-  api-docs-frt/
+  api-gateway-backend/
+  template-engine-backend/
+  node-registry-backend/
+  workflow-engine-backend/
+  api-docs-frontend/
 
   # Технические системы
-  auth-enhanced-frt/
-  auth-enhanced-srv/
-  multiplayer-srv/
-  security-srv/
-  analytics-enhanced-frt/
-  analytics-enhanced-srv/
-  monitoring-frt/
-  backup-srv/
+  auth-enhanced-frontend/
+  auth-enhanced-backend/
+  multiplayer-backend/
+  security-backend/
+  analytics-enhanced-frontend/
+  analytics-enhanced-backend/
+  monitoring-frontend/
+  backup-backend/
 
   # Игровые механики
-  resources-frt/  resources-srv/
-  ships-frt/      ships-srv/
-  economy-frt/    economy-srv/
-  mining-frt/     mining-srv/
-  stations-frt/   stations-srv/
-  navigation-frt/ navigation-srv/
-  combat-frt/     combat-srv/
-  skills-frt/     skills-srv/
-  sovereignty-frt/ sovereignty-srv/
-  industry-frt/    industry-srv/
+  resources-frontend/  resources-backend/
+  ships-frontend/      ships-backend/
+  economy-frontend/    economy-backend/
+  mining-frontend/     mining-backend/
+  stations-frontend/   stations-backend/
+  navigation-frontend/ navigation-backend/
+  combat-frontend/     combat-backend/
+  skills-frontend/     skills-backend/
+  sovereignty-frontend/ sovereignty-backend/
+  industry-frontend/    industry-backend/
 
   # Социальные системы
-  corporations-frt/ corporations-srv/
-  diplomacy-frt/    diplomacy-srv/
-  trading-frt/      trading-srv/
-  communications-frt/ communications-srv/
-  reputation-frt/     reputation-srv/
-  events-frt/         events-srv/
+  corporations-frontend/ corporations-backend/
+  diplomacy-frontend/    diplomacy-backend/
+  trading-frontend/      trading-backend/
+  communications-frontend/ communications-backend/
+  reputation-frontend/     reputation-backend/
+  events-frontend/         events-backend/
 ```
 
 ## Маппинг UPDL → сервисы (кратко)
 
--   **Space** → `navigation-srv`, `stations-srv`, `security-srv`, `sovereignty-srv`
--   **Entity** → `ships-srv`, `resources-srv`, `mining-srv`, `industry-srv`
--   **Component** → `ships-srv`, `stations-srv`, `skills-srv`, `industry-srv`
--   **Event** → `multiplayer-srv`, `combat-srv`, `trading-srv`, `events-srv`
--   **Action** → `combat-srv`, `trading-srv`, `mining-srv`, `industry-srv`
--   **Data** → `resources-srv`, `economy-srv`, `analytics-enhanced-srv`
--   **Universo** → `workflow-engine-srv`, `node-registry-srv`, `security-srv`
+-   **Space** → `navigation-backend`, `stations-backend`, `security-backend`, `sovereignty-backend`
+-   **Entity** → `ships-backend`, `resources-backend`, `mining-backend`, `industry-backend`
+-   **Component** → `ships-backend`, `stations-backend`, `skills-backend`, `industry-backend`
+-   **Event** → `multiplayer-backend`, `combat-backend`, `trading-backend`, `events-backend`
+-   **Action** → `combat-backend`, `trading-backend`, `mining-backend`, `industry-backend`
+-   **Data** → `resources-backend`, `economy-backend`, `analytics-enhanced-backend`
+-   **Universo** → `workflow-engine-backend`, `node-registry-backend`, `security-backend`
 
 ## Стандарт скелета каталогов (для страниц приложений)
 
 ```txt
-packages/<service>-srv/base/
+packages/<service>-backend/base/
   package.json
   README-RU.md
   src/
@@ -95,7 +95,7 @@ packages/<service>-srv/base/
     ws/
     index.ts
 
-packages/<service>-frt/base/
+packages/<service>-frontend/base/
   package.json
   README-RU.md
   gulpfile.ts

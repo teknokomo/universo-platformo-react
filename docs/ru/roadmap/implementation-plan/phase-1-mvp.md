@@ -35,7 +35,7 @@
 
 ## Приоритетные приложения
 
-### 1. Resources System (resources-frt/srv)
+### 1. Resources System (resources-frontend/srv)
 
 **Приоритет**: Критический
 **Время разработки**: 4 недели
@@ -43,14 +43,14 @@
 
 #### Функциональные требования
 
-**Frontend (resources-frt)**:
+**Frontend (resources-frontend)**:
 
 -   Интерфейс инвентаря с отображением веса/объема
 -   Калькулятор плотности материалов
 -   Система передачи ресурсов между локациями
 -   Визуализация типов материалов
 
-**Backend (resources-srv)**:
+**Backend (resources-backend)**:
 
 -   API управления инвентарем
 -   Расчеты физических свойств материалов
@@ -121,7 +121,7 @@ interface TransferRequest {
 }
 ```
 
-### 2. Ships Management (ships-frt/srv)
+### 2. Ships Management (ships-frontend/srv)
 
 **Приоритет**: Высокий
 **Время разработки**: 3 недели
@@ -129,14 +129,14 @@ interface TransferRequest {
 
 #### Функциональные требования
 
-**Frontend (ships-frt)**:
+**Frontend (ships-frontend)**:
 
 -   Интерфейс флота игрока
 -   Базовый конфигуратор кораблей
 -   Система назначения кораблей на задачи
 -   Мониторинг состояния кораблей
 
-**Backend (ships-srv)**:
+**Backend (ships-backend)**:
 
 -   API управления кораблями
 -   Система конфигураций и модулей
@@ -182,7 +182,7 @@ const shipTypes: ShipType[] = [
 ]
 ```
 
-### 3. Economy System (economy-frt/srv)
+### 3. Economy System (economy-frontend/srv)
 
 **Приоритет**: Высокий
 **Время разработки**: 3 недели
@@ -190,14 +190,14 @@ const shipTypes: ShipType[] = [
 
 #### Функциональные требования
 
-**Frontend (economy-frt)**:
+**Frontend (economy-frontend)**:
 
 -   Интерфейс кошелька Inmo
 -   Калькулятор курсов между мирами
 -   История транзакций
 -   Базовая торговая аналитика
 
-**Backend (economy-srv)**:
+**Backend (economy-backend)**:
 
 -   API управления балансами
 -   Система межмировых переводов
@@ -299,7 +299,7 @@ interface PlayCanvasIntegration {
 **Задачи**:
 
 -   Настройка workspace структуры для новых приложений
--   Создание базовой архитектуры resources-frt/srv
+-   Создание базовой архитектуры resources-frontend/srv
 -   Реализация API для управления материалами
 -   Создание UI компонентов инвентаря
 -   Добавить каталог ресурсов с версиями и BOM (draft → publish), валидация DAG
@@ -315,11 +315,11 @@ interface PlayCanvasIntegration {
 
 **Задачи**:
 
--   Создание архитектуры ships-frt/srv
+-   Создание архитектуры ships-frontend/srv
 -   Реализация API управления кораблями
 -   Интеграция с системой ресурсов
 -   Создание UI управления флотом
--   Ввести `entities-srv` (MVP): сущности (Entity) + компонентная модель (Component JSONB)
+-   Ввести `entities-backend` (MVP): сущности (Entity) + компонентная модель (Component JSONB)
 -   Endpoints: instantiate (по ResourceVersion), move/update-state, get/tree
 
 **Deliverables**:
@@ -333,7 +333,7 @@ interface PlayCanvasIntegration {
 
 **Задачи**:
 
--   Создание архитектуры economy-frt/srv
+-   Создание архитектуры economy-frontend/srv
 -   Реализация системы валюты Inmo
 -   Создание межмировой экономики
 -   Интеграция с системами ресурсов и кораблей

@@ -47,7 +47,7 @@ if (!userId) return
 
 -   **Languages**: English (base) + Russian (full translation)
 -   **Implementation**: Complete UI text extraction and translation
--   **Files**: `packages/flowise-ui/src/i18n/locales/en.json` & `ru.json`
+-   **Files**: `packages/flowise-core-frontend/base/src/i18n/locales/en.json` & `ru.json`
 
 #### 4. UPDL Nodes & Multi-Technology Export
 
@@ -96,7 +96,7 @@ if (!userId) return
 
 ### Key Architecture Benefits
 
--   **Workspace Packages**: `@universo/profile-srv`, `@universo/resources-srv` with clean imports and professional structure
+-   **Workspace Packages**: `@universo/profile-backend`, `@universo/resources-backend` with clean imports and professional structure
 -   **Template-First**: Reusable export templates across multiple technologies
 -   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
 -   **Data Isolation**: Complete cluster-based data separation with TypeORM Repository pattern
@@ -205,9 +205,9 @@ if (!userId) return
 **Key Implementation Details:**
 
 -   No direct database calls - all operations through Repository pattern
--   Shared DataSource via `getDataSource()` from `packages/flowise-server/src/DataSource.ts`
--   Entity registration in central registry `packages/flowise-server/src/database/entities/index.ts`
--   Migration registration in `packages/flowise-server/src/database/migrations/postgres/index.ts`
+-   Shared DataSource via `getDataSource()` from `packages/flowise-core-backend/base/src/DataSource.ts`
+-   Entity registration in central registry `packages/flowise-core-backend/base/src/database/entities/index.ts`
+-   Migration registration in `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts`
 -   CASCADE delete relationships for data integrity
 -   UNIQUE constraints on junction tables to prevent duplicates
 

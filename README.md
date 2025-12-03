@@ -198,16 +198,16 @@ Each implementation shares the same core concepts and goals while leveraging the
 
 3. Set up environment variables
 
-    - Create `.env` file in `packages/flowise-server` directory
+    - Create `.env` file in `packages/flowise-core-backend/base` directory
     - Add required Supabase configuration:
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
         ```
-    - Optionally, create `.env` file in `packages/flowise-ui` directory for UI-specific settings like `VITE_PORT`
+    - Optionally, create `.env` file in `packages/flowise-core-frontend/base` directory for UI-specific settings like `VITE_PORT`
 
-    Note: After refactoring, Supabase configuration should only be specified in the `packages/flowise-server` directory.
+    Note: After refactoring, Supabase configuration should only be specified in the `packages/flowise-core-backend/base` directory.
 
 4. Build the project
 

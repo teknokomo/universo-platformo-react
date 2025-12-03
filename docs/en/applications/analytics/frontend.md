@@ -1,4 +1,4 @@
-# Analytics Frontend (`@universo/analytics-frt`)
+# Analytics Frontend (`@universo/analytics-frontend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 

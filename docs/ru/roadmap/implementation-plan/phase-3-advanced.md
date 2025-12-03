@@ -35,7 +35,7 @@
 
 ## Приоритетные приложения
 
-### 1. Sovereignty System (sovereignty-frt/srv)
+### 1. Sovereignty System (sovereignty-frontend/srv)
 
 **Приоритет**: Критический
 **Время разработки**: 10 недель
@@ -43,13 +43,13 @@
 
 #### Функциональные требования
 
-**Frontend (sovereignty-frt)**:
+**Frontend (sovereignty-frontend)**:
 - Интерфейс управления территориями
 - Карта влияния и контроля
 - Система развертывания структур
 - Мониторинг войн и конфликтов
 
-**Backend (sovereignty-srv)**:
+**Backend (sovereignty-backend)**:
 - API управления суверенитетом
 - Система влияния и контроля
 - Механики захвата территорий
@@ -101,7 +101,7 @@ interface EntosisLinkSystem {
 }
 ```
 
-### 2. Industry System (industry-frt/srv)
+### 2. Industry System (industry-frontend/srv)
 
 **Приоритет**: Высокий
 **Время разработки**: 8 недель
@@ -109,13 +109,13 @@ interface EntosisLinkSystem {
 
 #### Функциональные требования
 
-**Frontend (industry-frt)**:
+**Frontend (industry-frontend)**:
 - Интерфейс управления производством
 - Система исследований и разработок
 - Калькулятор материалов и прибыли
 - Мониторинг производственных линий
 
-**Backend (industry-srv)**:
+**Backend (industry-backend)**:
 - API производственной системы
 - Система чертежей и исследований
 - Управление цепочками поставок
@@ -184,7 +184,7 @@ interface ManufacturingJob {
 }
 ```
 
-### 3. Wormhole System (wormhole-srv)
+### 3. Wormhole System (wormhole-backend)
 
 **Приоритет**: Средний
 **Время разработки**: 6 недель
@@ -192,14 +192,14 @@ interface ManufacturingJob {
 
 #### Функциональные требования
 
-**Backend (wormhole-srv)**:
+**Backend (wormhole-backend)**:
 - Система динамических соединений
 - Генерация и управление червоточинами
 - Sleeper NPC и аномалии
 - Уникальные эффекты систем
 
 **Frontend Integration**:
-- Интеграция с navigation-frt
+- Интеграция с navigation-frontend
 - Отображение соединений на карте
 - Информация о стабильности
 
@@ -308,7 +308,7 @@ interface AdvancedPerformanceTargets {
 ### Неделя 1-4: Sovereignty System - Основа
 
 **Задачи**:
-- Создание архитектуры sovereignty-frt/srv
+- Создание архитектуры sovereignty-frontend/srv
 - Система влияния и контроля
 - Базовые механики захвата территорий
 - Интерфейс управления территориями

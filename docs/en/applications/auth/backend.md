@@ -1,4 +1,4 @@
-# Authentication Backend (`@universo/auth-srv`)
+# Authentication Backend (`@universo/auth-backend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 
@@ -35,7 +35,7 @@ POST   /api/v1/auth/reset-password
 ## Middleware
 
 ```typescript
-import { authenticateJWT } from '@universo/auth-srv';
+import { authenticateJWT } from '@universo/auth-backend';
 
 router.get('/protected', authenticateJWT, (req, res) => {
   res.json({ user: req.user });

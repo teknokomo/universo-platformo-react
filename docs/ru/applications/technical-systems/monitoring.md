@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/monitoring-frt/base/
+packages/monitoring-frontend/base/
   src/app/...
 ```

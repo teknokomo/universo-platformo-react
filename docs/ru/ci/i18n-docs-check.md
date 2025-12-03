@@ -34,7 +34,7 @@ I18N_SCOPE=all        pnpm docs:i18n:check
 
 Области:
 
-- `resources` — только пары, относящиеся к приложениям Resources (`packages/resources-frt`, `packages/resources-srv`) и их документации (`docs/en|ru/applications/resources/README.md`)
+- `resources` — только пары, относящиеся к приложениям Resources (`packages/resources-frontend`, `packages/resources-backend`) и их документации (`docs/en|ru/applications/resources/README.md`)
 - `all` — сканировать весь репозиторий (включать после полной синхронизации остальной документации)
 
 ## CI‑воркфлоу

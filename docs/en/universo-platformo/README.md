@@ -59,9 +59,9 @@ universo-platformo-react/
 ├── packages/                  # Original Flowise packages
 ├── packages/                      # Universo Platformo extensions
 │   ├── updl/                  # UPDL node system
-│   ├── publish-frt/           # Frontend publishing system
-│   ├── publish-srv/           # Backend publishing system
-│   └── profile-frt/           # User profile management
+│   ├── publish-frontend/           # Frontend publishing system
+│   ├── publish-backend/           # Backend publishing system
+│   └── profile-frontend/           # User profile management
 └── docs/                      # This documentation
 ```
 

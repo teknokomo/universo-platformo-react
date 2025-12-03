@@ -1,4 +1,4 @@
-# Projects Frontend (`@universo/projects-frt`)
+# Projects Frontend (`@universo/projects-frontend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 
@@ -22,7 +22,7 @@ Frontend for managing   projects (Projects → Milestones → Tasks).
 ## API Integration
 
 ```typescript
-import { ProjectsApi } from '@universo/projects-frt';
+import { ProjectsApi } from '@universo/projects-frontend';
 
 await api.getProjects({ page, limit });
 await api.createProject(data);
