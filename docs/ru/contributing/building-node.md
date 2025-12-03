@@ -118,7 +118,7 @@ module.exports = { nodeClass: Calculator_Tools }
 
 ### Сборка и запуск
 
-В файле `.env` внутри `packages/flowise-server` создайте новую переменную окружения:
+В файле `.env` внутри `packages/flowise-core-backend/base` создайте новую переменную окружения:
 
 ```javascript
 SHOW_COMMUNITY_NODES=true

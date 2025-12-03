@@ -158,7 +158,7 @@ class LocalUPDLProcessor { /* ... */ }
 Используйте систему реестра шаблонов для динамической загрузки шаблонов:
 
 ```typescript
-import { TemplateRegistry } from '@universo/publish-frt'
+import { TemplateRegistry } from '@universo/publish-frontend'
 
 const builder = TemplateRegistry.createBuilder('quiz')
 ```

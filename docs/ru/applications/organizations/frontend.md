@@ -1,4 +1,4 @@
-# Organizations Frontend (`@universo/organizations-frt`)
+# Organizations Frontend (`@universo/organizations-frontend`)
 
 > **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и в настоящее время адаптируется для Universo Platformo. Некоторые разделы могут все еще ссылаться на функциональность Flowise, которая еще не была полностью обновлена для специфичных возможностей Universo Platformo.
 
@@ -20,7 +20,7 @@ Frontend пакет модуля Organizations предоставляет пол
 ## Архитектура пакета
 
 ```
-packages/organizations-frt/base/
+packages/organizations-frontend/base/
 ├── src/
 │   ├── api/              # API клиенты
 │   │   └── organizations.ts
@@ -67,7 +67,7 @@ packages/organizations-frt/base/
 
 **Пример использования:**
 ```tsx
-import { OrganizationList } from '@universo/organizations-frt';
+import { OrganizationList } from '@universo/organizations-frontend';
 
 function MyPage() {
   return <OrganizationList />;
@@ -226,7 +226,7 @@ const {
 ### Конфигурация
 
 ```typescript
-import { OrganizationsApi } from '@universo/organizations-frt';
+import { OrganizationsApi } from '@universo/organizations-frontend';
 
 const api = new OrganizationsApi({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3000',
@@ -320,7 +320,7 @@ function MyComponent() {
 ```json
 {
   "dependencies": {
-    "@universo/organizations-frt": "workspace:*"
+    "@universo/organizations-frontend": "workspace:*"
   }
 }
 ```
@@ -331,13 +331,13 @@ function MyComponent() {
 import {
   OrganizationList,
   OrganizationDetail
-} from '@universo/organizations-frt';
+} from '@universo/organizations-frontend';
 ```
 
 **3. Добавление маршрутов:**
 ```tsx
 // В template-mui/src/routes/MainRoutesMUI.tsx
-import { OrganizationList, OrganizationDetail } from '@universo/organizations-frt';
+import { OrganizationList, OrganizationDetail } from '@universo/organizations-frontend';
 
 const routes = [
   {
@@ -404,7 +404,7 @@ const OrganizationCard = styled('div')(({ theme }) => ({
 ### Проверка прав доступа
 
 ```tsx
-import { useAuth } from '@universo/auth-frt';
+import { useAuth } from '@universo/auth-frontend';
 
 function SecureComponent() {
   const { user, hasPermission } = useAuth();
@@ -473,7 +473,7 @@ test('creates organization', async () => {
 ### Bundle size
 
 ```
-@universo/organizations-frt
+@universo/organizations-frontend
 ├── CJS: 15.18 kB
 └── ESM: 14.04 kB
 ```
@@ -492,4 +492,4 @@ test('creates organization', async () => {
 - [Organizations Backend](backend.md) - Backend API
 - [Organizations Overview](README.md) - Общий обзор
 - [@universo/template-mui](../../universo-template-mui/README.md) - UI компоненты
-- [@universo/auth-frt](../auth/frontend.md) - Аутентификация
+- [@universo/auth-frontend](../auth/frontend.md) - Аутентификация

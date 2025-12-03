@@ -1,0 +1,40 @@
+{
+  "name": "@universo/space-builder-frontend",
+  "version": "0.1.0",
+  "description": "Frontend UI components for Space Builder (prompt-to-flow) in Universo Platformo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "lint": "eslint --ext .ts,.tsx src/",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "keywords": ["universo", "space-builder", "frontend", "prompt-to-flow"],
+  "author": "Vladimir Levadnij and Teknokomo",
+  "license": "Omsk Open License",
+  "dependencies": {
+    "react": "^18.2.0",
+    "typescript": "^5.4.5",
+    "@universo/auth-frontend": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "@types/react": "^18.2.55",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.2",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "tsdown": "catalog:",
+    "vitest": "^2.1.4"
+  }
+}

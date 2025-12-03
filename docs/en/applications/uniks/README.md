@@ -8,8 +8,8 @@ The Uniks workspace management system provides comprehensive functionality for c
 
 The Uniks system now consists of clearly separated components with stricter security and access control layers:
 
-- **uniks-frt**: Frontend application (React + Material UI + i18n) providing workspace UI
-- **uniks-srv**: Backend package exposing workspace/member APIs and TypeORM entities
+- **uniks-frontend**: Frontend application (React + Material UI + i18n) providing workspace UI
+- **uniks-backend**: Backend package exposing workspace/member APIs and TypeORM entities
 - **Main Server**: Passport.js session + Supabase auth bridge + global middleware
 
 Key 2025 Enhancements:
@@ -23,7 +23,7 @@ Key 2025 Enhancements:
 
 ```
 ┌───────────────┐    ┌────────────────┐    ┌────────────────┐
-│   uniks-frt   │◄──►│   uniks-srv    │◄──►│  Main Server    │
+│   uniks-frontend   │◄──►│   uniks-backend    │◄──►│  Main Server    │
 │ (Frontend)    │    │ (Workspace API)│    │ (platform core)│
 └───────────────┘    └────────────────┘    └────────────────┘
     │                    │                      │
@@ -54,7 +54,7 @@ const membership = await WorkspaceAccessService.ensure(userId, unikId, ['admin',
 // membership contains validated role (cached per request)
 ```
 
-## Frontend Application (uniks-frt)
+## Frontend Application (uniks-frontend)
 
 ### Key Features
 
@@ -101,7 +101,7 @@ Modal dialog for workspace operations:
 -   **i18next**: Internationalization framework
 -   **TypeScript**: Type safety and development experience
 
-## Backend Package (uniks-srv)
+## Backend Package (uniks-backend)
 
 ### Key Features
 
@@ -232,22 +232,22 @@ The Uniks system integrates with the main Flowise platform through:
 pnpm install
 
 # Build both applications
-pnpm build --filter @universo/uniks-frt
-pnpm build --filter @universo/uniks-srv
+pnpm build --filter @universo/uniks-frontend
+pnpm build --filter @universo/uniks-backend
 
 # Run in development mode
-pnpm --filter @universo/uniks-frt dev
-pnpm --filter @universo/uniks-srv dev
+pnpm --filter @universo/uniks-frontend dev
+pnpm --filter @universo/uniks-backend dev
 ```
 
 ### Build Commands
 
 ```bash
 # Build frontend
-pnpm build --filter @universo/uniks-frt
+pnpm build --filter @universo/uniks-frontend
 
 # Build backend
-pnpm build --filter @universo/uniks-srv
+pnpm build --filter @universo/uniks-backend
 
 # Build both
 pnpm build --filter @universo/uniks-*

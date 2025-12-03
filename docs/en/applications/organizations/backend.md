@@ -1,4 +1,4 @@
-# Organizations Backend (`@universo/organizations-srv`)
+# Organizations Backend (`@universo/organizations-backend`)
 
 > **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality, that has not yet been fully updated for Universo Platformo-specific capabilities.
 
@@ -20,7 +20,7 @@ The backend package of the Organizations module provides a RESTful API for manag
 ## Package Architecture
 
 ```
-packages/organizations-srv/base/
+packages/organizations-backend/base/
 ├── src/
 │   ├── database/
 │   │   ├── entities/
@@ -617,10 +617,10 @@ export class AddOrganizationsDepartmentsPositions1741500000000 {
 
 ### Migration Registration
 
-`packages/flowise-server/src/database/migrations/postgres/index.ts`:
+`packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts`:
 
 ```typescript
-import { postgresMigrations as orgMigrations } from '@universo/organizations-srv/base/src/database/migrations/postgres';
+import { postgresMigrations as orgMigrations } from '@universo/organizations-backend/base/src/database/migrations/postgres';
 
 export const postgresMigrations = [
   ...existingMigrations,
@@ -634,7 +634,7 @@ export const postgresMigrations = [
 
 **1. Entities:**
 ```typescript
-// packages/flowise-server/src/database/entities/index.ts
+// packages/flowise-core-backend/base/src/database/entities/index.ts
 import {
   Organization,
   OrganizationUser,
@@ -643,7 +643,7 @@ import {
   Position,
   PositionDepartment,
   PositionOrganization
-} from '@universo/organizations-srv';
+} from '@universo/organizations-backend';
 
 export const entities = [
   ...existingEntities,
@@ -659,8 +659,8 @@ export const entities = [
 
 **2. Routes:**
 ```typescript
-// packages/flowise-server/src/routes/index.ts
-import { registerOrganizationsRoutes } from '@universo/organizations-srv';
+// packages/flowise-core-backend/base/src/routes/index.ts
+import { registerOrganizationsRoutes } from '@universo/organizations-backend';
 
 export function registerRoutes(app: Express) {
   registerOrganizationsRoutes(app);
@@ -672,7 +672,7 @@ export function registerRoutes(app: Express) {
 ```json
 {
   "dependencies": {
-    "@universo/organizations-srv": "workspace:*"
+    "@universo/organizations-backend": "workspace:*"
   }
 }
 ```

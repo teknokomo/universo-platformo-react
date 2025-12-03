@@ -94,45 +94,45 @@ graph TB
 
 Core gameplay systems for Universo MMOOMM:
 
-- **resources-frt/srv**: Resource management with 16 material types
-- **ships-frt/srv**: Fleet management and ship customization
-- **economy-frt/srv**: Inmo currency and inter-world economics
-- **mining-frt/srv**: Industrial laser mining with automation
-- **stations-frt/srv**: Space stations and production facilities
-- **navigation-frt/srv**: Star gates and inter-world travel
-- **combat-frt/srv**: PvP combat and warfare mechanics
-- **skills-frt/srv**: Character progression and skill system
+- **resources-frontend/srv**: Resource management with 16 material types
+- **ships-frontend/srv**: Fleet management and ship customization
+- **economy-frontend/srv**: Inmo currency and inter-world economics
+- **mining-frontend/srv**: Industrial laser mining with automation
+- **stations-frontend/srv**: Space stations and production facilities
+- **navigation-frontend/srv**: Star gates and inter-world travel
+- **combat-frontend/srv**: PvP combat and warfare mechanics
+- **skills-frontend/srv**: Character progression and skill system
 
 ### 2. Social Systems (6 Applications)
 
 Player interaction and organization systems:
 
-- **corporations-frt/srv**: Corporate structures and management
-- **diplomacy-frt/srv**: Alliances, wars, and negotiations
-- **trading-frt/srv**: Advanced trading and market systems
-- **communications-frt/srv**: In-game messaging and forums
-- **reputation-frt/srv**: Player reputation and trust systems
-- **events-frt/srv**: Game events and community activities
+- **corporations-frontend/srv**: Corporate structures and management
+- **diplomacy-frontend/srv**: Alliances, wars, and negotiations
+- **trading-frontend/srv**: Advanced trading and market systems
+- **communications-frontend/srv**: In-game messaging and forums
+- **reputation-frontend/srv**: Player reputation and trust systems
+- **events-frontend/srv**: Game events and community activities
 
 ### 3. Technical Systems (6 Applications)
 
 Platform infrastructure and support services:
 
-- **auth-enhanced-frt/srv**: Advanced authentication and authorization
-- **multiplayer-frt/srv**: Real-time multiplayer synchronization
-- **security-frt/srv**: Anti-cheat and security monitoring
-- **analytics-enhanced-frt/srv**: Advanced analytics and metrics
-- **monitoring-frt/srv**: System monitoring and alerting
-- **backup-frt/srv**: Data backup and recovery systems
+- **auth-enhanced-frontend/srv**: Advanced authentication and authorization
+- **multiplayer-frontend/srv**: Real-time multiplayer synchronization
+- **security-frontend/srv**: Anti-cheat and security monitoring
+- **analytics-enhanced-frontend/srv**: Advanced analytics and metrics
+- **monitoring-frontend/srv**: System monitoring and alerting
+- **backup-frontend/srv**: Data backup and recovery systems
 
 ### 4. Platform Core (4 Applications)
 
 Core platform functionality:
 
-- **workflow-engine-srv**: Chatflow execution engine
-- **node-registry-srv**: UPDL node management
-- **template-engine-srv**: Multi-platform export system
-- **api-gateway-srv**: Unified API gateway
+- **workflow-engine-backend**: Chatflow execution engine
+- **node-registry-backend**: UPDL node management
+- **template-engine-backend**: Multi-platform export system
+- **api-gateway-backend**: Unified API gateway
 
 ## Microservices Design
 
@@ -238,31 +238,31 @@ Mapping of UPDL high-level nodes to microservices:
 ```typescript
 interface UPDLServiceMapping {
     Space: {
-        services: ['navigation-srv', 'stations-srv'];
+        services: ['navigation-backend', 'stations-backend'];
         description: 'Game worlds and spatial systems';
     };
     Entity: {
-        services: ['ships-srv', 'resources-srv', 'mining-srv'];
+        services: ['ships-backend', 'resources-backend', 'mining-backend'];
         description: 'Game objects and entities';
     };
     Component: {
-        services: ['ships-srv', 'stations-srv'];
+        services: ['ships-backend', 'stations-backend'];
         description: 'Entity components and modules';
     };
     Event: {
-        services: ['multiplayer-srv', 'events-srv', 'communications-srv'];
+        services: ['multiplayer-backend', 'events-backend', 'communications-backend'];
         description: 'Game events and triggers';
     };
     Action: {
-        services: ['combat-srv', 'trading-srv', 'diplomacy-srv'];
+        services: ['combat-backend', 'trading-backend', 'diplomacy-backend'];
         description: 'Player and system actions';
     };
     Data: {
-        services: ['resources-srv', 'economy-srv', 'analytics-enhanced-srv'];
+        services: ['resources-backend', 'economy-backend', 'analytics-enhanced-backend'];
         description: 'Game data and metrics';
     };
     Universo: {
-        services: ['workflow-engine-srv', 'node-registry-srv'];
+        services: ['workflow-engine-backend', 'node-registry-backend'];
         description: 'Global rules and configuration';
     };
 }
@@ -273,7 +273,7 @@ interface UPDLServiceMapping {
 ```typescript
 interface PlayCanvasIntegration {
     gameClient: {
-        services: ['multiplayer-srv', 'ships-srv', 'resources-srv'];
+        services: ['multiplayer-backend', 'ships-backend', 'resources-backend'];
         realTimeEvents: ['player.position', 'ship.status', 'resource.update'];
     };
     visualization: {

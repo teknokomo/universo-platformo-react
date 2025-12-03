@@ -114,7 +114,7 @@ module.exports = { nodeClass: Calculator_Tools }
 
 ### Build and Run
 
-In the `.env` file inside `packages/flowise-server`, create a new env variable:
+In the `.env` file inside `packages/flowise-core-backend/base`, create a new env variable:
 
 ```javascript
 SHOW_COMMUNITY_NODES=true

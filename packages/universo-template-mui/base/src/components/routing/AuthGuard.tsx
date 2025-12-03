@@ -1,6 +1,6 @@
 import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '@universo/auth-frt'
+import { useAuth } from '@universo/auth-frontend'
 
 // Local imports - use universo version instead of flowise
 import { Loader } from '../feedback/loading'

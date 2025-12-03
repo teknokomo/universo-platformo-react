@@ -8,7 +8,7 @@
 
 ```
 ┌───────────────┐    ┌────────────────┐    ┌────────────────┐
-│   uniks-frt   │◄──►│   uniks-srv    │◄──►│  Main Server    │
+│   uniks-frontend   │◄──►│   uniks-backend    │◄──►│  Main Server    │
 │ (Frontend)    │    │ (Workspace API)│    │ (platform core)│
 └───────────────┘    └────────────────┘    └────────────────┘
         │                    │                      │
@@ -86,13 +86,13 @@ const membership = await WorkspaceAccessService.ensure(userId, unikId, allowed)
 // membership содержит актуальную роль и кэшируется на время запроса
 ```
 
-## Структура фронтенда (`uniks-frt`)
+## Структура фронтенда (`uniks-frontend`)
 - Список рабочих пространств
 - Детальная страница + управление участниками
 - Диалог создания/редактирования
 - i18n EN/RU
 
-## Структура бэкенда (`uniks-srv`)
+## Структура бэкенда (`uniks-backend`)
 - Express роуты `/uniks`, `/uniks/:id/members`
 - TypeORM сущности `Unik`, `UnikUser`
 - Сервис доступа `WorkspaceAccessService`

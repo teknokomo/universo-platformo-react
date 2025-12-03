@@ -4,8 +4,8 @@
 
 ##  
 
-- **Frontend **: `@universo/spaces-frt`
-- **Backend **: `@universo/spaces-srv`
+- **Frontend **: `@universo/spaces-frontend`
+- **Backend **: `@universo/spaces-backend`
 
 ## Overview 
 

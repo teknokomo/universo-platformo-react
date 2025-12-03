@@ -1,4 +1,4 @@
-# Metaverse Frontend (metaverse-frt) — [Статус: MVP]
+# Metaverse Frontend (metaverse-frontend) — [Статус: MVP]
 
 ## Назначение
 
@@ -16,7 +16,7 @@
 ## Структура каталогов (ожидаемая)
 
 ```txt
-packages/metaverse-frt/base/
+packages/metaverse-frontend/base/
   src/
     app/
     components/
@@ -27,9 +27,9 @@ packages/metaverse-frt/base/
 
 ## Интеграции
 
--   API `metaverse-srv`
+-   API `metaverse-backend`
 -   Импорт/конвертер UPDL
--   `publish-frt`, `template-engine-srv`
+-   `publish-frontend`, `template-engine-backend`
 -   Supabase Auth
 
 ## Метрики UX

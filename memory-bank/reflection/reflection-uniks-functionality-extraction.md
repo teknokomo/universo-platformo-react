@@ -7,13 +7,13 @@
 
 ## Brief Feature Summary
 
-Successfully extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues that emerged during the extraction process. The work involved creating separate backend and frontend packages, resolving circular dependencies, fixing TypeScript compilation issues, and correcting internationalization (i18n) configuration.
+Successfully extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-backend` and `@universo/uniks-frontend`, resolving critical build system issues that emerged during the extraction process. The work involved creating separate backend and frontend packages, resolving circular dependencies, fixing TypeScript compilation issues, and correcting internationalization (i18n) configuration.
 
 ## 1. Overall Outcome & Requirements Alignment
 
 ### Requirements Met
 
--   ✅ **Package Extraction**: Successfully created `@universo/uniks-srv` and `@universo/uniks-frt` packages
+-   ✅ **Package Extraction**: Successfully created `@universo/uniks-backend` and `@universo/uniks-frontend` packages
 -   ✅ **Build System**: All packages build successfully without errors
 -   ✅ **Functionality**: All Uniks features work as expected
 -   ✅ **Modular Architecture**: Clean separation of concerns achieved

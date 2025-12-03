@@ -170,14 +170,14 @@ pnpm start
 
 9. Для сборки разработки:
 
-* Создайте файл `.env` и укажите `PORT` (обратитесь к `.env.example`) в `packages/flowise-ui`
-* Создайте файл `.env` и укажите `PORT` (обратитесь к `.env.example`) в `packages/flowise-server`
+* Создайте файл `.env` и укажите `PORT` (обратитесь к `.env.example`) в `packages/flowise-core-frontend/base`
+* Создайте файл `.env` и укажите `PORT` (обратитесь к `.env.example`) в `packages/flowise-core-backend/base`
 
 ```bash
 pnpm dev
 ```
 
-* Любые изменения, внесенные в `packages/flowise-ui` или `packages/flowise-server`, будут отражены по адресу [http://localhost:8080](http://localhost:8080/)
+* Любые изменения, внесенные в `packages/flowise-core-frontend/base` или `packages/flowise-core-backend/base`, будут отражены по адресу [http://localhost:8080](http://localhost:8080/)
 * Для изменений, внесенных в `packages/flowise-components`, вам нужно будет собрать снова, чтобы подхватить изменения
 * После внесения всех изменений выполните:
 

@@ -65,9 +65,9 @@ universo-platformo-react/
 ├── packages/                  # Оригинальные пакеты Flowise
 ├── packages/                      # Расширения Universo Platformo
 │   ├── updl/                  # Система узлов UPDL
-│   ├── publish-frt/           # Фронтенд система публикации
-│   ├── publish-srv/           # Бэкенд система публикации
-│   └── profile-frt/           # Управление профилем пользователя
+│   ├── publish-frontend/           # Фронтенд система публикации
+│   ├── publish-backend/           # Бэкенд система публикации
+│   └── profile-frontend/           # Управление профилем пользователя
 └── docs/                      # Эта документация
 ```
 

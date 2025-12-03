@@ -4,1383 +4,365 @@
 
 ---
 
-## ✅ COMPLETED: Zod Validation Schemas for spaces-srv
+## ✅ COMPLETED: Package Naming Refactoring (2025-01-22)
 
-### 2025-01-20: Add Zod schemas to replace manual DTO validation
+**Goal**: Rename and restructure core Flowise packages with modern naming conventions.
 
-**Status**: ✅ COMPLETE (2025-01-20)
-
-**Summary**: Added comprehensive Zod validation schemas to `spaces-srv` package, replacing verbose manual validation in `spacesController.ts`. Following patterns from `projects-srv`, `campaigns-srv`, and `metaverses-srv`.
-
-**Tasks Completed**:
-- [x] 1: Created `packages/spaces-srv/base/src/schemas/index.ts` with all Zod schemas
-- [x] 2: Added helper functions: `extractUnikId()`, `formatZodError()`, `validateBody()`, `safeValidateBody()`
-- [x] 3: Refactored `createSpace` method to use `CreateSpaceSchema.parse()`
-- [x] 4: Refactored `updateSpace` method to use `UpdateSpaceSchema.parse()`
-- [x] 5: Refactored `createCanvas` method to use `CreateCanvasSchema.parse()`
-- [x] 6: Refactored `updateCanvas` method to use `UpdateCanvasSchema.parse()`
-- [x] 7: Refactored `createCanvasVersion` method to use `CreateCanvasVersionSchema.parse()`
-- [x] 8: Refactored `updateCanvasVersion` method to use `UpdateCanvasVersionSchema.parse()`
-- [x] 9: Refactored `reorderCanvases` method to use `ReorderCanvasesSchema.parse()`
-- [x] 10: Replaced all `(req.params.unikId || req.params.id)` with `extractUnikId(req.params)`
-- [x] 11: Added ZodError handling with user-friendly error messages
-- [x] 12: Cleaned up code style (single-line JSON responses)
-- [x] 13: Run pnpm build - SUCCESS
-
-**Files Created**:
-- `packages/spaces-srv/base/src/schemas/index.ts` (~220 lines) with schemas:
-  - `CreateSpaceSchema`, `UpdateSpaceSchema` - Space CRUD validation
-  - `CreateCanvasSchema`, `UpdateCanvasSchema` - Canvas CRUD validation
-  - `CreateCanvasVersionSchema`, `UpdateCanvasVersionSchema` - Version management
-  - `ReorderCanvasesSchema` - Canvas ordering validation
-  - `UnikIdParamSchema`, `SpaceParamsSchema`, `CanvasParamsSchema`, `CanvasVersionParamsSchema` - Path params
-  - Helper functions for DRY validation
-
-**Files Modified**:
-- `packages/spaces-srv/base/src/controllers/spacesController.ts` - refactored from ~750 lines to ~515 lines (~30% reduction)
-
-**Code Quality Improvements**:
-- Declarative validation instead of imperative if/else chains
-- Centralized error messages via Zod
-- Type-safe inferred types from schemas (e.g., `CreateSpaceInput`)
-- Consistent `extractUnikId()` helper for param extraction
-- Clean single-line JSON response formatting
-
----
-
-## ✅ COMPLETED: System Status Fields for Spaces & Canvases
-
-### 2025-01-20: Add is_active, is_published, is_deleted, deleted_date, deleted_by fields
-
-**Status**: ✅ COMPLETE (2025-01-20)
-
-**Summary**: Added comprehensive system status fields to both Spaces and Canvases tables. Merged FixActiveVersions logic into main migration. Added versioning support to Spaces (previously only Canvases had versioning).
+**Changes**:
+- `packages/flowise-ui` → `packages/flowise-core-frontend/base` ("@flowise/core-frontend")
+- `packages/flowise-server` → `packages/flowise-core-backend/base` ("@flowise/core-backend")
+- `packages/flowise-components` → `packages/flowise-components/base` (added base/ structure)
+- `packages/universo-api-client` → `packages/universo-api-client/base` (added base/ structure)
 
 **Tasks Completed**:
-- [x] 1: Consolidated FixActiveVersions migration into AddSpacesAndCanvases
-- [x] 2: Deleted 1743000000003-FixActiveVersions.ts migration file
-- [x] 3: Updated migrations index.ts to remove FixActiveVersions import
-- [x] 4: Added status fields to Space entity: is_active, is_published, is_deleted, deleted_date, deleted_by
-- [x] 5: Added versioning fields to Space entity: version_group_id, version_uuid, version_label, version_description, version_index
-- [x] 6: Added status fields to Canvas entity: is_published, is_deleted, deleted_date, deleted_by (is_active already existed)
-- [x] 7: Updated SpaceResponse interface with all new fields
-- [x] 8: Updated CanvasResponse interface with status fields
-- [x] 9: Created toSpaceResponse() helper function in spacesService.ts
-- [x] 10: Updated toCanvasResponse() helper with new status fields
-- [x] 11: Fixed all service methods (getSpacesForUnik, createSpace, getSpaceDetails, updateSpace) to use helpers
-- [x] 12: Added is_deleted filter to getSpacesForUnik query
-- [x] 13: Run pnpm build - SUCCESS (50/50 packages)
+- [x] Create base/ structure for all 4 packages
+- [x] Update package.json names and dependencies
+- [x] Update getNodeModulesPackagePath call in index.ts
+- [x] Update all documentation and agent instructions
+- [x] Fix tsconfig.json files - added `"types": ["node"]` to ~50 packages
+- [x] Fix vite.config.js paths for node_modules resolution
+- [x] Build: 50/50 successful
 
-**Files Changed**:
-- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000000-AddSpacesAndCanvases.ts` - complete rewrite with:
-  - Step 3: Backfill versioning for existing spaces (version_group_id, version_uuid, version_label, version_index)
-  - Step 4: Merged FixActiveVersions logic (is_active defaults + unique constraint)
-  - Added is_published, is_deleted, deleted_date, deleted_by columns for both tables
-  - Created partial indexes: idx_spaces_active, idx_spaces_published, idx_canvases_published, idx_canvases_not_deleted
-  - Updated RLS policies to filter `NOT is_deleted`
-- `packages/spaces-srv/base/src/database/migrations/postgres/index.ts` - removed FixActiveVersions
-- `packages/spaces-srv/base/src/database/entities/Space.ts` - added versionGroupId, versionUuid, versionLabel, versionDescription, versionIndex, isActive, isPublished, isDeleted, deletedDate, deletedBy
-- `packages/spaces-srv/base/src/database/entities/Canvas.ts` - added isPublished, isDeleted, deletedDate, deletedBy
-- `packages/spaces-srv/base/src/types/index.ts` - updated SpaceResponse and CanvasResponse interfaces
-- `packages/spaces-srv/base/src/services/spacesService.ts` - created toSpaceResponse helper, updated all methods
-
-**Files Deleted**:
-- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000003-FixActiveVersions.ts`
-
-**Database Schema Changes**:
-- `spaces` table gets: version_group_id, version_uuid, version_label, version_description, version_index, is_active, is_published, is_deleted, deleted_date, deleted_by
-- `canvases` table gets: is_published, is_deleted, deleted_date, deleted_by
-- Both tables: partial indexes for efficient filtering
-- RLS policies: updated to exclude deleted records
+Details: progress.md#2025-01-22
 
 ---
 
-## ✅ COMPLETED: Canvases Migration Consolidation
+## ✅ COMPLETED: Zod Validation Schemas for spaces-backend (2025-01-20)
 
-### 2025-12-02: Consolidate chat_flow migrations into spaces-srv
+**Summary**: Added Zod validation schemas to `spaces-backend`, replacing verbose manual validation.
 
-**Status**: ✅ COMPLETE (2025-01-20)
+**Results**:
+- Created `packages/spaces-backend/base/src/schemas/index.ts` (~220 lines)
+- Refactored `spacesController.ts` from ~750 lines to ~515 lines (~30% reduction)
+- Schemas: CreateSpaceSchema, UpdateSpaceSchema, CreateCanvasSchema, UpdateCanvasSchema, etc.
+- Helper functions: `extractUnikId()`, `formatZodError()`, `validateBody()`, `safeValidateBody()`
 
-**Summary**: Removed all chat_flow migrations from flowise-server and consolidated into spaces-srv. Renamed ChatflowType → CanvasType. Cleaned up legacy code.
-
-**Phase 1: Type Refactoring** ✅
-- [x] 0.1: Remove duplicate ChatflowType from Canvas.ts entity
-- [x] 0.2: Rename ChatflowType → CanvasType in types/index.ts
-- [x] 0.3: Update imports in canvasService.ts
-- [x] 0.4: Update imports in canvasServiceFactory.ts
-- [x] 0.5: Update imports in spacesService.ts
-- [x] 0.6: Update imports in canvasController.ts
-- [x] 0.7: Update imports in spacesController.ts
-- [x] 0.8: Update tests - SKIPPED (no tests with ChatflowType found)
-- [x] 0.9: Update Canvas.ts entity to import type from types
-
-**Phase 2: Migration Consolidation** ✅
-- [x] 1: Rename SpacesCore → AddSpacesAndCanvases
-- [x] 2: Delete DropLegacyChatFlow migration
-- [x] 3: Update index.ts in spaces-srv
-- [x] 4: Delete 7 chat_flow migrations from flowise-server
-- [x] 5: Rewrite index.ts in flowise-server with documented migration order
-
-**Phase 3: Legacy Code Cleanup** ✅
-- [x] 6: Remove IActiveChatflows from Interface.ts
-- [x] 7: Remove validateChatflowAPIKey alias from validateKey.ts
-- [x] 8: Rename getUsedChatflowNames → getUsedCanvasNames in documentstore service
-- [x] 9: Update documentstore controller call
-
-**Phase 4: Template Types Alignment** ⏭️ SKIPPED
-- [ ] 10: Align Template types to use UPPERCASE literals
-  - Decision: Template types ('Chatflow'|'Agentflow'|'Tool') are UI/marketplace labels, separate domain from CanvasType database enum. No changes needed.
-
-**Phase 5: Testing** ✅
-- [x] 11: Run pnpm build - SUCCESS
-- [ ] 12: Verify migrations work correctly - Pending user to recreate database
-
-**Files Changed**:
-- `packages/spaces-srv/base/src/types/index.ts` - ChatflowType → CanvasType
-- `packages/spaces-srv/base/src/database/entities/Canvas.ts` - import CanvasType from types
-- `packages/spaces-srv/base/src/services/canvasService.ts` - ChatflowType → CanvasType
-- `packages/spaces-srv/base/src/services/canvasServiceFactory.ts` - ChatflowType → CanvasType
-- `packages/spaces-srv/base/src/services/spacesService.ts` - ChatflowType → CanvasType
-- `packages/spaces-srv/base/src/controllers/canvasController.ts` - ChatflowType → CanvasType
-- `packages/spaces-srv/base/src/controllers/spacesController.ts` - ChatflowType → CanvasType
-- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000000-AddSpacesAndCanvases.ts` - renamed from SpacesCore
-- `packages/spaces-srv/base/src/database/migrations/postgres/index.ts` - updated imports
-
-**Files Deleted**:
-- `packages/spaces-srv/base/src/database/migrations/postgres/1743000000002-DropLegacyChatFlow.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1693891895163-Init.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1693995626941-ModifyChatFlow.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1694099183389-AddApiConfig.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1694432361423-AddAnalytic.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1699900910291-AddCategoryToChatFlow.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1706364937060-AddSpeechToText.ts`
-- `packages/flowise-server/src/database/migrations/postgres/1716300000000-AddTypeToChatFlow.ts`
-
-**flowise-server files modified**:
-- `packages/flowise-server/src/database/migrations/postgres/index.ts` - complete rewrite with documented order
-- `packages/flowise-server/src/Interface.ts` - removed IActiveChatflows
-- `packages/flowise-server/src/utils/validateKey.ts` - removed validateChatflowAPIKey alias
-- `packages/flowise-server/src/services/documentstore/index.ts` - getUsedChatflowNames → getUsedCanvasNames
-- `packages/flowise-server/src/controllers/documentstore/index.ts` - updated function call
+Details: progress.md#2025-01-20
 
 ---
 
-## ✅ COMPLETED: Templates API Route Fix
+## ✅ COMPLETED: System Status Fields for Spaces & Canvases (2025-01-20)
 
-### 2025-01-19: Fix 500 error on My Templates tab
+**Summary**: Added versioning and status fields to Spaces and Canvases.
 
-**Status**: ✅ COMPLETE
+**Database Changes**:
+- Spaces: 9 new columns (version_group_id, version_uuid, version_label, version_index, is_active, is_published, is_deleted, deleted_date, deleted_by)
+- Canvases: 4 new columns (is_published, is_deleted, deleted_date, deleted_by)
+- Partial indexes for performance
+- RLS policies updated to exclude deleted records
 
-**Summary**: Fixed 500 error when clicking "My Templates" (Мои шаблоны) tab in Templates page. The API client was calling `/unik/:unikId/templates/custom` but the controller regex only matched `/uniks/` (plural).
+**Migration Consolidation**:
+- Deleted `1743000000003-FixActiveVersions.ts` (merged into main migration)
+- Main migration now has 10-step idempotent process
 
-**Tasks**:
-- [x] Identify route mismatch: server routes at `/unik/:unikId/templates`, controller regex looking for `/uniks/`
-- [x] Fix regex in getAllTemplates: `/\/uniks\/` → `/\/uniks?\/` (makes 's' optional)
-- [x] Fix regex in getAllCustomTemplates
-- [x] Fix regex in saveCustomTemplate
-- [x] Fix regex in deleteCustomTemplate
-- [x] Rebuild project and verify 500 error is resolved
-
-**File Changed**:
-- `packages/flowise-server/src/controllers/marketplaces/index.ts` - regex fix in 4 methods
+Details: progress.md#2025-01-20
 
 ---
 
-## ✅ COMPLETED: Templates Page Responsive Layout Fix
+## ✅ COMPLETED: Canvas Versions API Client (2025-01-20)
 
-### 2025-12-03: Fix grid layout and card positioning in Templates page
+**Summary**: Added `api.canvasVersions` to @universo/api-client.
 
-**Status**: ✅ COMPLETE
+**Methods**: `list`, `create`, `update`, `activate`, `remove`
+**Types**: `CanvasVersion`, `CreateCanvasVersionPayload`, `UpdateCanvasVersionPayload`
 
-**Summary**: Fixed layout issues in Templates page when displayed within MainLayoutMUI (with sidebar). Made grid responsive and fixed Badge positioning.
-
-**Tasks**:
-- [x] Make grid responsive with breakpoints (xs: 1 col, sm: 2 cols, lg: 3 cols) in community templates section
-- [x] Make grid responsive in custom templates (My Templates) section
-- [x] Fix Badge positioning (added `top: 10` to prevent overlap)
-- [x] Add position: relative to Box containers for proper Badge anchoring
-- [x] Add fallback theme values in ItemCard.jsx for card.main, darkTextPrimary, card.hover
-
-**Files Changed**:
-- `packages/flowise-customtemplates-frt/base/src/pages/Templates/index.jsx` - responsive grid, Badge positioning
-- `packages/flowise-template-mui/base/src/ui-components/cards/ItemCard.jsx` - theme fallbacks
+Details: progress.md#2025-01-20
 
 ---
 
-## ✅ COMPLETED: QA Cleanup - Remove Duplicate Marketplaces from flowise-ui
+## ✅ COMPLETED: Canvases Migration Consolidation (2025-01-20)
 
-### 2025-12-03: Post-CustomTemplates extraction cleanup
+**Summary**: Consolidated 7 chat_flow migrations from flowise-server into spaces-backend.
 
-**Status**: ✅ COMPLETE
+**Changes**:
+- Renamed ChatflowType → CanvasType throughout codebase
+- Deleted 7 old migrations from flowise-server
+- Cleaned up legacy code (IActiveChatflows, validateChatflowAPIKey, getUsedChatflowNames)
+- Rewrote flowise-server migrations index with documented phase order
 
-**Summary**: After creating @flowise/customtemplates-frt, removed duplicate marketplaces code from flowise-ui and updated all imports.
-
-**Tasks**:
-- [x] Add @flowise/customtemplates-frt dependency to spaces-frt/package.json
-- [x] Update CanvasRoutes.jsx: Change `MarketplaceCanvas` import from `@ui/views/marketplaces/MarketplaceCanvas` to `TemplateCanvas` from `@flowise/customtemplates-frt`
-- [x] Update ExportAsTemplateDialog.jsx: Change `api.marketplaces.saveAsCustomTemplate` to `api.templates.saveCustom`
-- [x] Remove TODO comment about `api.marketplaces` in ExportAsTemplateDialog.jsx
-- [x] Delete duplicate folder: `packages/flowise-ui/src/views/marketplaces/` (now in @flowise/customtemplates-frt)
-
-**Naming Alignment**: Completed migration from `Marketplaces` → `Templates` naming across the codebase:
-- API: `MarketplacesApi` → `TemplatesApi` (with legacy aliases for backward compatibility)
-- Routes: `/marketplaces` → `/templates`
-- Components: `MarketplaceCanvas` → `TemplateCanvas`
+Details: progress.md#2025-01-20
 
 ---
 
-## ✅ COMPLETED: CustomTemplates Package Extraction
+## ✅ COMPLETED: CustomTemplates Package Extraction (2025-01-19)
 
-### 2025-12-03: Extract CustomTemplate functionality to standalone packages
+**Summary**: Extracted CustomTemplate (Marketplace) functionality.
 
-**Status**: ✅ COMPLETE
+**Packages Created**:
+- `@flowise/customtemplates-backend`: entity, migration, DI service, exports
+- `@flowise/customtemplates-frontend`: Templates pages, i18n (en/ru)
 
-**Goal**: Extract CustomTemplate (formerly Marketplace) functionality from flowise-server and flowise-ui into dedicated packages @flowise/customtemplates-srv and @flowise/customtemplates-frt.
+**API Client**: `MarketplacesApi` with getAllTemplates, getAllCustom, saveCustom, deleteCustom
 
-**Package Naming Decision**: Using `customtemplates` to avoid confusion with existing `template-quiz` and `template-mmoomm` which are export templates.
+**Integration**:
+- flowise-server: imports from @flowise/customtemplates-backend
+- universo-template-mui: routes and menu added
+- Naming migration: Marketplaces → Templates complete
 
-**Tasks**:
-- [x] Task 1: Create @flowise/customtemplates-srv package structure
-  - Created entity, migration, service with DI pattern
-  - Files: CustomTemplate.ts, 1725629836652-AddCustomTemplate.ts, customTemplatesService.ts, index.ts
-  
-- [x] Task 2: Create @flowise/customtemplates-frt package structure
-  - Created i18n with en/ru translations
-  - Created Templates page component
-  - Created TemplateCanvas, TemplateCanvasHeader, TemplateCanvasNode components
-  - Files: index.jsx, TemplateCanvas.jsx, TemplateCanvasHeader.jsx, TemplateCanvasNode.jsx
-
-- [x] Task 3: Implement API client in @universo/api-client
-  - Implemented MarketplacesApi with full types and methods
-  - Added getAllTemplatesFromMarketplaces, getAllToolsMarketplaces, getAllCustomTemplates, saveAsCustomTemplate, deleteCustomTemplate
-  - Added TanStack Query keys factory
-  - Exported types: Template, MarketplaceTemplate, ToolTemplate, CustomTemplate, SaveCustomTemplateBody
-
-- [x] Task 4: Integrate customtemplates-srv into flowise-server
-  - Updated entities/index.ts to import from @flowise/customtemplates-srv
-  - Updated migrations/postgres/index.ts to use customTemplatesMigrations
-  - Removed duplicate files: CustomTemplate.ts entity and 1725629836652-AddCustomTemplate.ts migration
-  - Added @flowise/customtemplates-srv dependency to flowise-server
-  - Added @flowise/customtemplates-frt dependency to flowise-ui
-
-- [x] Task 5: Update menu navigation in flowise-ui
-  - Added templates menu item in menuConfigs.ts
-  - Added IconLayoutDashboard icon import
-  - Menu item positioned after analytics and before access
-
-- [x] Task 6: Add routes in flowise-ui
-  - Added i18n registration import for @flowise/customtemplates-frt
-  - Added Templates and TemplateCanvas lazy component imports
-  - Added routes for templates list and template detail view
-  - Added @flowise/customtemplates-frt dependency to universo-template-mui
-
-- [x] Task 7: Build and verify
-  - Fixed import issues in flowise-server services (export-import, marketplaces)
-  - Updated imports from local path to @flowise/customtemplates-srv package
-  - Fixed entity type casting in marketplaces service
-  - Build successful: 50/50 packages
-
-- [x] Task 8: Cleanup old files (after verification)
-  - Removed CustomTemplate.ts entity from flowise-server/src/database/entities
-  - Removed 1725629836652-AddCustomTemplate.ts migration from flowise-server
-  - Note: flowise-ui/src/views/marketplaces and flowise-server/src/services/marketplaces still contain legacy code that is being used; can be deprecated later
-
-**Dependencies Resolved**:
-- saveCustomTemplate calls canvasService.getCanvasById() → solved via DI in new service
+Build: 50/50 successful. Details: progress.md#2025-01-19
 
 ---
 
-## ✅ COMPLETED: Refactor Duplicate Code & Document Isolation
+## ✅ COMPLETED: QA Cleanup - Remove Duplicates (2025-01-19)
 
-### 2025-12-02: Remove duplicate methods and document future isolation plan
+**VectorStore Dialogs**:
+- Deleted 4 duplicate files from template-mui
+- Updated imports in spaces-frontend to use @flowise/docstore-frontend
 
-**Status**: ✅ COMPLETE
+**Marketplaces**:
+- Deleted `flowise-ui/src/views/marketplaces/`
+- Updated CanvasRoutes.jsx, ExportAsTemplateDialog.jsx
 
-**Summary**: Removed duplicated code in flowise-server that was already implemented in @flowise/docstore-srv. Documented blocking dependencies and future isolation plan in package READMEs.
-
-**Code Refactoring**:
-- [x] `deleteDocumentStore` - Now delegates DB operations to `getDocumentStoreService()`, keeps only file storage cleanup
-- [x] `updateDocumentStoreUsage` - Complete delegation to `getDocumentStoreService()`
-
-**Documentation Added**:
-- [x] `@flowise/docstore-srv/README.md`:
-  - "Partial Extraction" section with what's in package vs flowise-server
-  - "Blocking Dependencies Analysis" detailing getRunningExpressApp, flowise-components, nodesPool, queueManager
-  - "Future Isolation Plan" with DI interfaces (IStorageProvider, INodeRunner, IQueueProvider)
-  - "Integration with flowise-server" section showing how delegation works
-
-- [x] `@flowise/docstore-frt/README.md`:
-  - "Integration Notes" section
-  - "Current State" table showing all components are extracted
-  - "Integration with flowise-ui" explaining lazy loading pattern
-
-**Build Result**: 39/39 packages successful (turbo cache for dependencies)
+Details: progress.md#2025-01-19
 
 ---
 
-## ✅ COMPLETED: QA Cleanup - Code Quality Fixes
+## ✅ COMPLETED: DocumentStore Full Migration (2025-12-01-02)
 
-### 2025-12-02: Fix linting errors and remove unused code
+**Summary**: Full extraction to @flowise/docstore-backend and @flowise/docstore-frontend.
 
-**Status**: ✅ COMPLETE
+**Backend (@flowise/docstore-backend)**:
+- 3 entities: DocumentStore, DocumentStoreFileChunk, UpsertHistory
+- 4 DI services: documentStoreService, chunkService, loaderService, vectorStoreConfigService
+- Consolidated migration: 1711637331047-AddDocumentStore.ts
+- Controller and Router for basic CRUD
 
-**Summary**: Fixed QA recommendations from DocumentStore migration analysis.
+**Frontend (@flowise/docstore-frontend)**:
+- 20 JSX files (~7254 lines)
+- Merged i18n (document-store + vector-store = 600 lines)
 
-**Fixes Applied**:
-- [x] Fixed prettier error in `VectorStoreConfigure.jsx` (misplaced closing brace)
-- [x] Deleted unused `flowise-ui/src/api/documentstore.js` (replaced by @universo/api-client)
-- [x] Removed unused `moment` dependency from docstore-frt (dayjs is used)
-- [x] Fixed unused imports in `docstore-srv/services/documentStoreService.ts`
-- [x] Fixed unused imports in `docstore-srv/services/chunkService.ts`
-- [x] Auto-fixed all prettier formatting issues in docstore-srv via `lint:fix`
+**Integration**:
+- Clean Integration pattern: CRUD delegates to DI, complex ops stay in flowise-server
+- Fixed 403 error on Preview & Process
+- Fixed i18n interpolation: `{var}` → `{{var}}`
 
-**Build Result**: 48/48 packages successful
-
----
-
-## ✅ COMPLETED: QA Cleanup - Remove Duplicate VectorStore Components
-
-### 2025-12-02: Remove duplicate VectorStore dialogs from template-mui
-
-**Status**: ✅ COMPLETE
-
-**Summary**: QA analysis found 4 duplicate VectorStore dialog files in `@flowise/template-mui` that also existed in `@flowise/docstore-frt`. Removed duplicates and updated imports.
-
-**Files Deleted**:
-- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/VectorStoreDialog.jsx`
-- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/VectorStorePopUp.jsx`
-- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/UpsertHistoryDialog.jsx`
-- [x] `packages/flowise-template-mui/base/src/ui-components/dialog/UpsertResultDialog.jsx`
-
-**Exports Updated**:
-- [x] Removed exports from `template-mui/base/src/index.ts` (UpsertHistoryDialog, VectorStorePopUp)
-- [x] Added comment: `// VectorStore dialogs moved to @flowise/docstore-frt`
-
-**Imports Updated**:
-- [x] `spaces-frt/base/src/views/canvas/index.jsx`: Changed `VectorStorePopUp` import from `@flowise/template-mui` to `@flowise/docstore-frt`
-- [x] `spaces-frt/base/src/views/canvas/CanvasHeader.jsx`: Changed `UpsertHistoryDialog` import from `@flowise/template-mui` to `@flowise/docstore-frt`
-- [x] Added `@flowise/docstore-frt: workspace:*` dependency to spaces-frt/package.json
-
-**VectorStorePopUp Export Fix**:
-- [x] Changed `export const VectorStorePopUp` to `const VectorStorePopUp` + `export default VectorStorePopUp` to match index.js re-export pattern
-
-**Build Result**: 48/48 packages successful
+Build: 48/48 successful. Details: progress.md#2025-12-01
 
 ---
 
-## ✅ COMPLETED: VectorStoreConfigure i18n and API Fixes
+## ✅ COMPLETED: Package Extractions (2025-11-27-29)
 
-### 2025-12-01: Fix i18n keys and API binding in VectorStoreConfigure page
+**ChatMessage** (2025-11-29):
+- @universo/flowise-chatmessage-backend: ChatMessage + Feedback entities, consolidated migration
+- Full DI pattern with createChatMessagesService, createFeedbackService factories
+- Utility wrappers for buildCanvasFlow compatibility
+- Deleted 10 legacy migrations from flowise-server
 
-**Status**: ✅ COMPLETE
+**Leads** (2025-11-29):
+- @universo/flowise-leads-backend: Lead entity, DI service, routes
+- @universo/flowise-leads-frontend: minimal (namespace exports only)
+- Fixed critical bugs in ChatMessage.jsx and Analytics.jsx
 
-**Summary**: Fixed i18n key format errors and API method binding issues in VectorStoreConfigure page.
+**Assistants** (2025-11-28):
+- @universo/flowise-assistants-backend: Assistant entity, consolidated migration
+- @universo/flowise-assistants-frontend: 8 JSX pages, i18n
+- Optional dependencies via DI config
+- Fixed cyclic dependency via peerDependency
 
-**Root Causes**:
-1. i18n keys used incorrect format `vector-store:vectorStore.xxx` instead of `vector-store:xxx`
-2. API methods passed to ComponentsListDialog lost `this` context (class method binding issue)
-3. ViewHeader "Back" button tooltip was hardcoded
+**ApiKey** (2025-11-28):
+- @universo/flowise-apikey-backend: dual storage mode (JSON + DB)
+- @universo/flowise-apikey-frontend: 3 pages, i18n
+- UUID for IDs throughout
 
-**Fixes Applied**:
-- [x] Fixed 15 i18n keys: removed extra `vectorStore.` prefix from all translation keys
-- [x] Fixed API calls: wrapped `api.documentStore.getEmbeddingProviders` etc. in arrow functions `(...args) => api.documentStore.getEmbeddingProviders(...args)`
-- [x] Fixed ViewHeader: changed `title='Back'` to `title={t('common:back', 'Back')}`
-- [x] Build 48/48 successful
+**Variables** (2025-11-28):
+- @universo/flowise-variables-backend: DI pattern with Zod validation
+- @universo/flowise-variables-frontend: 3 pages, i18n
 
----
+**Credentials** (2025-11-27):
+- @universo/flowise-credentials-backend: encryption via DI callbacks
+- @universo/flowise-credentials-frontend: Credentials page, i18n
 
-## ✅ COMPLETED: DocumentStore Preview 403 Error & i18n Issues
+**Tools** (2025-11-27):
+- @universo/flowise-tools-backend: DI service with telemetry
+- @universo/flowise-tools-frontend: Tools page
+- Migration order: Init → Tools → Credentials
 
-### 2025-12-01: Fix remaining issues after migration
+All packages use DI pattern, consolidated migrations, Zod validation.
+User testing pending for all.
 
-**Status**: ✅ COMPLETE
-
-**Summary**: Fixed 403 error when clicking "Preview and Process" on existing loader, and fixed i18n interpolation format.
-
-**Root Cause**: 
-- API call `getSpecificDocumentStoreApi.request(storeId)` was missing `unikId` as first parameter
-- i18n translations used `{total}` (single braces) instead of `{{total}}` (double braces)
-
-**Fixes Applied**:
-- [x] Fix 403 error: Changed `getSpecificDocumentStoreApi.request(storeId)` to `getSpecificDocumentStoreApi.request(unikId, storeId)` in LoaderConfigPreviewChunks.jsx line 272
-- [x] Fix i18n interpolation: Updated all `{variable}` to `{{variable}}` in document-store.json (both en and ru)
-- [x] Fix hardcoded tooltips: Changed `title='Refresh Document Store'` and `title='Refresh'` to use `t('document-store:...')` translations
-- [x] Build 48/48 successful
-
----
-
-## ✅ COMPLETED: DocumentStore i18n Fix
-
-### 2025-12-01: Fix Document Store page localization
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Fixed localization issues on Document Store page - wrong title "Пространства" and language keys displayed instead of translated text.
-
-**Root Cause**: Components used `t('document-store:xxx')` with hyphenated namespace, but universo-i18n only had `docstore` namespace (without hyphen), causing fallback to `spaces` namespace.
-
-**Solution**:
-- [x] Copy document-store.json and vector-store.json from flowise-docstore-frt to universo-i18n
-- [x] Add imports in instance.ts for new translation files
-- [x] Register 'document-store' and 'vector-store' namespaces in resources
-- [x] Build successful 48/48
+Details: progress.md#2025-11-27, progress.md#2025-11-28, progress.md#2025-11-29
 
 ---
 
-## ✅ COMPLETED: Full DocumentStore Migration to @flowise/docstore-frt
-
-### 2025-12-01: Migrate docstore/vectorstore components from flowise-ui
-
-**Status**: ✅ COMPLETE
-
-**Goals**: Complete migration of docstore UI components from flowise-ui monolith to standalone @flowise/docstore-frt package with proper API client integration.
-
-**Checklist**:
-- [x] **Этап 1**: Delete old broken copies in docstore-frt/src/pages/
-- [x] **Этап 2**: Implement DocumentStoreApi in @universo/api-client
-- [x] **Этап 2b**: Add getSpecificNode/getNodesByCategory to NodesApi
-- [x] **Этап 2c**: Implement VectorStoreApi in @universo/api-client
-- [x] **Этап 3**: Copy corrected files from flowise-ui to docstore-frt
-- [x] **Этап 4**: Refactor imports in all 20 JSX files (api.*, relative imports)
-- [x] **Этап 5**: Update routes in MainRoutesMUI.tsx (imports + param names)
-- [x] **Этап 6**: Update package.json (peerDependencies pattern)
-- [x] **Testing**: pnpm build 48/48 successful
-- [x] **Этап 7**: Delete legacy code from flowise-ui 
-- [x] **Hotfix**: Wrap useApi calls in arrow functions to preserve `this` context
-- [x] **Dependency fix**: Update flowise-assistants-frt to import DocStoreInputHandler from @flowise/docstore-frt
-
-**Build Result**: 48/48 packages successful
-
----
-
-## ✅ COMPLETED: Extract DocumentStore to Separate Packages
-
-### 2025-11-30: Extract DocumentStore + VectorStore + UpsertHistory
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Extracted DocumentStore functionality from flowise-server/flowise-ui into `@flowise/docstore-srv` and `@flowise/docstore-frt` packages with DI pattern and split into logical sub-services.
-
-**IMPORTANT NOTE**: Used **hybrid approach** - new packages provide entities, migrations, base CRUD services, DI interfaces while legacy flowise-server provides complex operations (upsert, preview, vector ops).
-
-**Phase 1: Create Backend Package Structure** ✅ COMPLETE
-- [x] 1.1 Create `packages/flowise-docstore-srv/base/` structure
-- [x] 1.2 Create package.json, tsconfig.json
-- [x] 1.3 Copy and adapt entities (DocumentStore, DocumentStoreFileChunk, UpsertHistory)
-- [x] 1.4 Create consolidated migration (1711637331047-AddDocumentStore.ts)
-- [x] 1.5 Create Interface.ts with all types
-- [x] 1.6 Create DI sub-services (4 services: documentStoreService, chunkService, loaderService, vectorStoreConfigService)
-- [x] 1.7 Create DTO (DocumentStoreDTO.ts)
-- [x] 1.8 Create DI config and errors
-- [x] 1.9 Create controller and router (basic CRUD)
-- [x] 1.10 Create index.ts with all exports
-- [x] 1.11 Create README.md and README-RU.md
-
-**Phase 2: Create Frontend Package Structure** ✅ COMPLETE
-- [x] 2.1 Create `packages/flowise-docstore-frt/base/` structure
-- [x] 2.2 Copy views/docstore/* (16 files) and views/vectorstore/* (4 files)
-- [x] 2.3 Merge i18n translations from universo-i18n (document-store + vector-store → 300 lines each)
-- [x] 2.4 Create index.js with exports
-- [x] 2.5 Create README.md and README-RU.md
-- [x] 2.6 Run prettier and lint (8 warnings, 0 errors)
-
-**Phase 3: Integrate in flowise-server** ✅ COMPLETE
-- [x] 3.1 Add @flowise/docstore-srv dependency in flowise-server/package.json
-- [x] 3.2 Update migrations/postgres/index.ts to use docstoreMigrations
-- [x] 3.3 Update entities/index.ts to import from @flowise/docstore-srv
-- [x] 3.4 Update legacy service/controller/utils to use new entities from docstore-srv
-- [x] 3.5 Keep legacy routes/controllers for complex operations (upsert, preview, vector ops)
-
-**Phase 4: Cleanup Legacy Duplicates** ✅ COMPLETE
-- [x] 4.1 Delete duplicate entity files from flowise-server/database/entities (3 files)
-- [x] 4.2 Delete duplicate migrations from flowise-server/database/migrations (3 files)
-- [x] 4.3 Legacy service/controller/route kept (complex node integration required)
-
-**Phase 5: Build & Test** ✅ COMPLETE
-- [x] 5.1 Run pnpm build - 48/48 tasks successful
-- [x] 5.2 All import errors fixed
-- [x] 5.3 Build verified
-
----
-
-## ✅ COMPLETED: ChatMessage Migration QA Fixes
-
-### 2025-11-30: Fix remaining issues found in QA analysis
-
-**Status**: ✅ COMPLETE
-
-**Summary**: QA analysis found migration gaps - duplicate AddChatHistory migration and FieldTypes placement. All fixed.
-
-- [x] 1. Delete `AddChatHistory1694658756136` from flowise-server (still modifies chat_message but was not removed)
-- [x] 2. Add `1694658756136-AddChatHistory` to consolidation comment in chatmessage-srv
-- [x] 3. Move credential uuid conversion from FieldTypes.ts to AddAssistant.ts in assistants-srv
-- [x] 4. Build and verify (47/47 tasks successful)
-
----
-
-## ✅ COMPLETED: ChatMessage Full Migration (Delete Legacy Code)
-
-### 2025-11-29: Complete ChatMessage migration - remove all legacy code from flowise-server
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Fully migrated all ChatMessage functionality to `@universo/flowise-chatmessage-srv`, deleted all legacy migrations/services/controllers/routes/utils from flowise-server.
-
-**Phase 1: Consolidate Migrations in chatmessage-srv** ✅ COMPLETE
-- [x] 1.1 Verified consolidated migration includes ALL columns
-- [x] 1.2 Added index on chatId for feedback table
-
-**Phase 2: Create Utility Wrappers in chatmessage-srv** ✅ COMPLETE
-- [x] 2.1 Created `utilAddChatMessage` wrapper function for buildCanvasFlow compatibility
-- [x] 2.2 Created `utilGetChatMessage` wrapper function  
-- [x] 2.3 Created `utilAddChatMessageFeedback`, `utilGetChatMessageFeedback`, `utilUpdateChatMessageFeedback`
-- [x] 2.4 All utils exported from package
-
-**Phase 3: Update buildCanvasFlow.ts** ✅ COMPLETE
-- [x] 3.1 Replaced import of utilAddChatMessage from local to chatmessage-srv
-- [x] 3.2 Updated stats service to use chatmessage-srv imports
-
-**Phase 4: Integrate DI Routes in flowise-server** ✅ COMPLETE
-- [x] 4.1 Updated routes/index.ts - created services/controllers/routers via DI
-- [x] 4.2 Created error handlers (chatMessagesErrorHandler, feedbackErrorHandler)
-- [x] 4.3 Mounted new routers at same paths
-
-**Phase 5: Delete Legacy Migrations (10 files)** ✅ COMPLETE
-- [x] 5.1 Deleted 1693996694528-ModifyChatMessage.ts
-- [x] 5.2 Deleted 1699481607341-AddUsedToolsToChatMessage.ts
-- [x] 5.3 Deleted 1700271021237-AddFileAnnotationsToChatMessage.ts
-- [x] 5.4 Deleted 1701788586491-AddFileUploadsToChatMessage.ts
-- [x] 5.5 Deleted 1707213601923-AddFeedback.ts
-- [x] 5.6 Deleted 1711538016098-AddLeadToChatMessage.ts
-- [x] 5.7 Deleted 1714679514451-AddAgentReasoningToChatMessage.ts
-- [x] 5.8 Deleted 1721078251523-AddActionToChatMessage.ts
-- [x] 5.9 Deleted 1726156258465-AddArtifactsToChatMessage.ts
-- [x] 5.10 Deleted 1726666309552-AddFollowUpPrompts.ts
-- [x] 5.11 Updated migrations/postgres/index.ts
-- [x] 5.12 Kept 1710497452584-FieldTypes.ts (only assistant credential change)
-
-**Phase 6: Delete Legacy Services/Controllers/Routes** ✅ COMPLETE
-- [x] 6.1 Deleted src/services/canvas-messages/
-- [x] 6.2 Deleted src/services/feedback/
-- [x] 6.3 Deleted src/controllers/canvas-messages/
-- [x] 6.4 Deleted src/controllers/feedback/
-- [x] 6.5 Deleted src/routes/canvas-messages/
-- [x] 6.6 Deleted src/routes/feedback/
-- [x] 6.7 Deleted src/routes/internal-canvas-messages/
-
-**Phase 7: Delete Legacy Utils** ✅ COMPLETE
-- [x] 7.1 Deleted src/utils/addChatMessage.ts
-- [x] 7.2 Deleted src/utils/getChatMessage.ts
-- [x] 7.3 Deleted src/utils/addChatMessageFeedback.ts
-- [x] 7.4 Deleted src/utils/getChatMessageFeedback.ts
-- [x] 7.5 Deleted src/utils/updateChatMessageFeedback.ts
-- [x] 7.6 Fixed export-import/index.ts (removed canvasMessagesService dependency)
-
-**Phase 8: Build & Verify** ✅ COMPLETE
-- [x] 8.1 pnpm build successful (38/38 tasks)
-- [x] 8.2 Lint --fix applied (remaining warnings are non-critical unused variables)
-
-**Phase 9: Memory Bank Update** ✅ COMPLETE
-- [x] 9.1 Update tasks.md
-- [x] 9.2 Update progress.md (next)
-- [x] 9.3 Update activeContext.md (next)
-
----
-
-## ✅ RECENTLY COMPLETED: ChatMessage Package QA Fixes
-
-### 2025-11-29: Fix QA issues found in ChatMessage extraction
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Fix duplicate types, consolidate migrations markers, and clean up redundant code after ChatMessage package extraction.
-
-**Phase 1-3**: All complete (see progress.md)
-
----
-
-## ✅ RECENTLY COMPLETED: ChatMessage Package Extraction
-
-### 2025-11-29: Extract ChatMessage functionality into separate packages
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Extract ChatMessage/Feedback functionality from flowise-server into `@universo/flowise-chatmessage-srv` and rename `@flowise/chatmessage` to `@flowise/chatmessage-frt`. Full DI pattern with all dependencies injected via config.
-
-**Phase 1-13**: All phases complete (see progress.md for details)
-
----
-
-## ✅ RECENTLY COMPLETED: Leads Package Extraction
-
-### 2025-11-29: Extract Leads functionality into separate packages
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Extract Leads functionality from flowise-server into `@universo/flowise-leads-srv` and create minimal `@universo/flowise-leads-frt` package. Fix critical bugs in ChatMessage.jsx and Analytics.jsx.
-
-**Phase 1: Backend Package (flowise-leads-srv)** ✅ COMPLETE
-- [x] 1.1 Create package structure (package.json, tsconfig.json)
-- [x] 1.2 Create Interface.ts with ILead, CreateLeadBody
-- [x] 1.3 Create Lead entity (copy from flowise-server)
-- [x] 1.4 Create migration 1710832137905-AddLead.ts (only lead table, NOT chat_message)
-- [x] 1.5 Create leadsService with DI pattern
-- [x] 1.6 Create leadsRoutes with DI pattern
-- [x] 1.7 Create index.ts with all exports
-- [x] 1.8 Create README.md and README-RU.md
-
-**Phase 2: Frontend Package (flowise-leads-frt) - Minimal** ✅ COMPLETE
-- [x] 2.1 Create minimal package structure (reexports only, no component copying)
-- [x] 2.2 Create README.md and README-RU.md
-
-**Phase 3: API Client** ✅ COMPLETE
-- [x] 3.1 Implement LeadApi with getCanvasLeads, addLead methods
-- [x] 3.2 Define ILead, CreateLeadBody types locally in api/lead.ts
-
-**Phase 4: Update flowise-server** ✅ COMPLETE
-- [x] 4.1 Add @universo/flowise-leads-srv to dependencies
-- [x] 4.2 Update database/entities/index.ts - import Lead from new package
-- [x] 4.3 Update database/migrations/postgres/index.ts - add leadsMigrations
-- [x] 4.4 Update routes/index.ts - create leadsService/Router via DI
-- [x] 4.5 Update utils/index.ts - import Lead from new package
-- [x] 4.6 Delete old files (entity, service, controller, router, migration AddLead)
-- [x] 4.7 KEEP migration AddLeadToChatMessage in flowise-server
-
-**Phase 5: Bug Fixes (CRITICAL)** ✅ COMPLETE
-- [x] 5.1 Fix ChatMessage.jsx - add `const leadsApi = api.leads`
-- [x] 5.2 Fix Analytics.jsx - replace old import with @universo/api-client
-
-**Phase 6: Cleanup** ✅ COMPLETE
-- [x] 6.1 Delete flowise-ui/src/api/lead.js
-
-**Phase 7: Build & Verify** ✅ COMPLETE
-- [x] 7.1 Run pnpm build - 46/46 packages successful
-- [x] 7.2 Update progress.md and activeContext.md
-
-**Phase 8: QA Fixes** ✅ COMPLETE
-- [x] 8.1 Connect leadsErrorHandler in routes/index.ts (was imported but not used)
-- [x] 8.2 Fix prettier errors in leads-srv (lint --fix)
-- [x] 8.3 Eliminate ILead duplication - re-export from leads-srv in flowise-server/Interface.ts and api-client/lead.ts
-
----
-
-## ✅ RECENTLY COMPLETED TASKS
-
-### 2025-11-29: Assistants API Clean Refactoring (Remove Legacy Aliases) ✅ COMPLETE
-
-**Status**: Complete. Build successful (45/45 packages).
-
-**Summary**: Clean refactoring of Assistants components to use modern API methods from `@universo/api-client`. Removed all legacy method aliases. Principle: `unikId` always first argument (industry standard: GitHub, Stripe, Firebase).
-
-**Phase 1: Update API Client** ✅ COMPLETE
-- [x] 1.1 Fix `generateInstructions` signature to match backend
-- [x] 1.2 Remove legacy aliases (~120 lines, lines 337-450 deleted)
-
-**Phase 2: Update Assistants Frontend Components** ✅ COMPLETE
-- [x] 2.1 Update `CustomAssistantLayout.jsx` - `getAllAssistants`→`getAll`, swapped args
-- [x] 2.2 Update `OpenAIAssistantLayout.jsx` - same changes
-- [x] 2.3 Update `LoadAssistantDialog.jsx` - `getAllAvailableAssistants`→`listOpenAIAssistants`, fix CredentialInputHandler import (use canvas/)
-- [x] 2.4 Update `AddCustomAssistantDialog.jsx` - `createNewAssistant`→`create`, fixed response
-- [x] 2.5 Update `AssistantDialog.jsx` (15+ changes) - all API calls updated
-- [x] 2.6 Update `CustomAssistantConfigurePreview.jsx` - renamed hooks & API calls, added canvasHeaderPalette fallback
-- [x] 2.7 Update `AssistantVectorStoreDialog.jsx` - `*AssistantVectorStore`→`*VectorStore`
-
-**Phase 3: Update External Components** ✅ COMPLETE
-- [x] 3.1 Fix `PromptGeneratorDialog.jsx` - added missing `api` import, `generateAssistantInstruction`→`generateInstructions`
-- [x] 3.2 Fix `AsyncDropdown.jsx` - added missing `api` import
-
-**Phase 4: Fix Route & Export Issues** ✅ COMPLETE
-- [x] 4.1 Add missing route `/unik/:unikId/assistants/custom/:id` in MainRoutesMUI.tsx
-- [x] 4.2 Add export for `CustomAssistantConfigurePreview` in flowise-assistants-frt package.json
-- [x] 4.3 Fix i18n JSON structure - remove nested `assistants` object, change `{type}` to `{{type}}`
-
-**Phase 5: Fix Runtime Palette Issues** ✅ COMPLETE
-- [x] 5.1 Add defensive `canvasHeaderPalette` fallback in CustomAssistantConfigurePreview.jsx (same pattern as CanvasHeader.jsx)
-
-**Phase 6: Build & Verify** ✅ COMPLETE
-- [x] 6.1 Run pnpm build - verified 45/45 packages successful
-- [x] 6.2 Update progress.md
-
-**Key API Method Mappings Applied:**
-| Legacy | Modern | Arg Change |
-|--------|--------|------------|
-| `getAllAssistants(type, unikId)` | `getAll(unikId, type)` | Swapped |
-| `getSpecificAssistant(id, unikId)` | `getById(unikId, id)` | Swapped |
-| `getAllAvailableAssistants(credId, unikId)` | `listOpenAIAssistants(unikId, credId)` | Swapped |
-| `getAssistantObj(id, credId, unikId)` | `getOpenAIAssistant(unikId, id, credId)` | Swapped |
-| `createNewAssistant(unikId, obj)` | `create(unikId, obj)` | Same |
-| `updateAssistant(unikId, id, obj)` | `update(unikId, id, obj)` | Same |
-| `deleteAssistant(unikId, id, bool)` | `delete(unikId, id, bool)` | Same |
-| `*AssistantVectorStore(...)` | `*VectorStore(unikId, ...)` | Swapped |
-| Response: `resp.data.id` | `resp.id` | Direct access |
-
-**Runtime Fixes Applied:**
-1. **`this` context loss in useApi**: Wrap class methods in arrow functions: `useApi((...args) => api.assistants.getAll(...args))`
-2. **Missing CredentialInputHandler dropdown**: Use `canvas/CredentialInputHandler` for type=credential
-3. **i18n interpolation**: Use double braces `{{variable}}` for i18next
-4. **Missing theme palette**: Add defensive fallback for `theme.palette.canvasHeader`
-
----
-
-### 2025-11-28: Assistants Package Extraction ✅ COMPLETE
-
-**Status**: Complete. Build successful (45/45 packages).
-
-**Summary**: Extract Assistants functionality from flowise-server and flowise-ui into separate packages `@universo/flowise-assistants-srv` and `@universo/flowise-assistants-frt`. Following DI factory pattern from Tools/Credentials/Variables/ApiKey.
-
-**Key Design Decisions:**
-- DI factory pattern: `createAssistantsService`, `createAssistantsController`, `createAssistantsRouter`
-- Consolidated migration (combines AddAssistantEntity + AddTypeToAssistant)
-- Optional dependencies via config (nodesService, documentStoreRepository, nodesPool)
-- MVP approach: copy files with minimal changes, keep JSX for frontend
-- Fixed cyclic dependency by using peerDependency in flowise-template-mui
-
-**Phase 1: Backend Package (flowise-assistants-srv)** ✅ COMPLETE
-- [x] 1.1 Create package structure (package.json, tsconfig.json, README.md)
-- [x] 1.2 Create Interface.ts with IAssistant, AssistantType
-- [x] 1.3 Create Assistant entity with Unik relation
-- [x] 1.4 Create consolidated migration 1699325775451-AddAssistant.ts
-- [x] 1.5 Create assistantsService with DI pattern (~600 lines)
-- [x] 1.6 Create assistantsController with DI pattern
-- [x] 1.7 Create assistantsRouter with error handler
-- [x] 1.8 Create index.ts with all exports
-
-**Phase 2: Update flowise-server** ✅ COMPLETE
-- [x] 2.1 Add @universo/flowise-assistants-srv to package.json dependencies
-- [x] 2.2 Update database/entities/index.ts - import Assistant from new package
-- [x] 2.3 Update database/migrations/postgres/index.ts - import assistantsMigrations
-- [x] 2.4 Update Interface.ts - re-export IAssistant, AssistantType from new package
-- [x] 2.5 Update routes/index.ts - create assistantsService/Controller/Router with DI config
-- [x] 2.6 Update utils/index.ts - import Assistant from new package
-- [x] 2.7 Update export-import service - use direct repository query
-- [x] 2.8 Delete old files (services/assistants, controllers/assistants, routes/assistants, entity, migrations)
-
-**Phase 3: Frontend Package (flowise-assistants-frt)** ✅ COMPLETE
-- [x] 3.1 Create package structure (package.json with exports, index.ts)
-- [x] 3.2 Copy AssistantListDialog pages from flowise-ui (JSX)
-- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
-- [x] 3.4 Export all pages and i18n resources
-
-**Phase 4: Update universo-template-mui** ✅ COMPLETE
-- [x] 4.1 Add @universo/flowise-assistants-frt dependency
-- [x] 4.2 Add i18n side-effect import
-- [x] 4.3 Update MainRoutesMUI.tsx - import Assistants from new package
-
-**Phase 5: Update flowise-template-mui** ✅ COMPLETE
-- [x] 5.1 Add @universo/flowise-assistants-frt as peerDependency (avoid cycle)
-- [x] 5.2 Update NodeInputHandler.jsx - import AssistantDialog from new package
-
-**Phase 6: Cleanup legacy code** ✅ COMPLETE
-- [x] 6.1 Delete flowise-ui/src/views/assistants/ directory
-- [x] 6.2 Delete spaces-frt/base/src/views/assistants/ directory
-- [x] 6.3 Delete spaces-frt/base/src/i18n/locales/*/views/assistants.json files
-
-**Phase 7: Build & Testing** ✅ COMPLETE
-- [x] 7.1 Fix react-i18next version in catalog (pin to 15.5.3 for i18next 23.x compatibility)
-- [x] 7.2 Run pnpm build - verify all packages (45/45 successful)
-- [x] 7.3 Test migrations (USER - database)
-- [x] 7.4 Functional testing (USER - browser)
-- [x] 7.5 Fix missing routes for /assistants/custom and /assistants/openai
-
----
-
-### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅ COMPLETE
-
-**Status**: Complete. Build successful (44/44 packages).
-
-**Summary**: Fix two P1 bugs from PR #570 bot review - verify route missing unikId param, and validateKey functions not passing unikId to getAllApiKeys().
-
-**Phase 1: Fix verify/index.ts route**
-- [x] 1.1 Change route from `/apikey/:apikey` to `/unik/:unikId/apikey/:apikey`
-- [x] 1.2 Update WHITELISTED_ENDPOINTS in constants.ts
-
-**Phase 2: Fix validateCanvasApiKey in validateKey.ts**
-- [x] 2.1 Add getApiKeyById method to IApikeyService interface
-- [x] 2.2 Implement getApiKeyById in apikeyService
-- [x] 2.3 Update validateCanvasApiKey to use getApiKeyById
-
-**Phase 3: Fix validateAPIKey in validateKey.ts**
-- [x] 3.1 Extract unikId from req.params (for unik-scoped routes)
-- [x] 3.2 Use getApiKey with optional unikId
-
-**Phase 4: Build & Test**
-- [x] 4.1 Run pnpm build - 44/44 packages successful
-- [x] 4.2 Verify no lint errors
-
----
-
-### 2025-11-28: ApiKey Package Extraction ✅ COMPLETE
-
-**Status**: All phases complete. Build successful (44/44 packages).
-
-**Summary**: Extracted ApiKey functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-apikey-srv` and `@universo/flowise-apikey-frt`. Following DI factory pattern from Tools/Credentials/Variables.
-
-**Phase 1: Backend Package (flowise-apikey-srv)** ✅ COMPLETE
-- [x] 1.1 Create package structure (package.json, tsconfig.json, index.ts)
-- [x] 1.2 Create ApiKey entity with Unik relation
-- [x] 1.3 Create migration `1720230151480-AddApiKey.ts` with hasTable checks
-- [x] 1.4 Create apiKeyUtils (generateAPIKey, generateSecretHash, compareKeys)
-- [x] 1.5 Create jsonStorage (full JSON storage support for dual mode)
-- [x] 1.6 Create apikeyService with DI pattern and Zod validation (dual storage mode)
-- [x] 1.7 Create apikeyRoutes with validation middleware
-- [x] 1.8 Export ApiKey, apikeyMigrations, createApikeyService, createApikeyRouter
-
-**Phase 2: Update flowise-server** ✅ COMPLETE
-- [x] 2.1 Add @universo/flowise-apikey-srv to dependencies
-- [x] 2.2 Import apikeyMigrations in migrations index (removed old AddApiKey import)
-- [x] 2.3 Update entities/index.ts - import ApiKey from new package
-- [x] 2.4 Update routes/index.ts - create apikeyService with DI, register router, add errorHandler
-- [x] 2.5 Update validateKey.ts - use new service via lazy initialization
-- [x] 2.6 Update routes/verify/index.ts - use new service
-- [x] 2.7 Update index.ts - use getAPIKeysFromJson with getDefaultAPIKeyPath
-
-**Phase 3: Frontend Package (flowise-apikey-frt)** ✅ COMPLETE
-- [x] 3.1 Create package structure (package.json, index.ts)
-- [x] 3.2 Copy APIKey, APIKeyDialog, UploadJSONFileDialog pages from flowise-ui
-- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
-- [x] 3.4 Export all pages and i18n resources
-
-**Phase 4: API Client** ✅ COMPLETE
-- [x] 4.1 Implement ApiKeyApi class in universo-api-client
-- [x] 4.2 Export types and methods
-
-**Phase 5: Update templates and routing** ✅ COMPLETE
-- [x] 5.1 Add @universo/flowise-apikey-frt dependency to universo-template-mui
-- [x] 5.2 Update MainRoutesMUI.tsx - import from new package
-- [x] 5.3 Register i18n namespace via side-effect import
-
-**Phase 6: Cleanup old files** ✅ COMPLETE
-- [x] 6.1 Delete flowise-server routes/apikey, controllers/apikey, services/apikey
-- [x] 6.2 Delete flowise-server utils/apiKey.ts
-- [x] 6.3 Delete flowise-server database/entities/ApiKey.ts
-- [x] 6.4 Delete flowise-server migration 1720230151480-AddApiKey.ts
-- [x] 6.5 Delete flowise-ui views/apikey directory
-- [x] 6.6 Delete api-keys.json from universo-i18n and spaces-frt
-- [x] 6.7 Update universo-i18n/instance.ts - remove apiKeys imports
-
-**Phase 7: Build & Testing** ✅ COMPLETE
-- [x] 7.1 Run `pnpm build` - all 44 packages successful
-- [ ] 7.2 Test migrations (USER - database)
-- [ ] 7.3 Functional testing (USER - browser)
-
-**Phase 8: QA Fixes** ✅ COMPLETE (2025-11-28)
-- [x] 8.1 Run prettier fix on all backend files
-- [x] 8.2 Fix critical useApi pattern bug in APIKey.jsx (wrap in arrow function)
-- [x] 8.3 Unify ID format to UUID (Entity, Service, jsonStorage)
-- [x] 8.4 Add replaceAll handling in importKeysToJson()
-- [x] 8.5 Fix API response handling - check `createResp` directly, not `.data` (APIKeyDialog, APIKey, UploadJSONFileDialog)
-- [x] 8.6 Run full project rebuild - 44/44 packages successful
-
----
-
-### 2025-11-28: Variables Package Extraction ✅ COMPLETE (Pending Tests)
-
-**Status**: Implementation complete, build successful (43/43 packages), user testing pending
-
-**Summary**: Extract variables functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-variables-srv` and `@universo/flowise-variables-frt`. Following QA-approved plan from plan mode.
-
-**Phase 1: Backend Package (flowise-variables-srv)** ✅ COMPLETE
-- [x] 1.1 Create package structure (package.json, tsconfig.json, index.ts)
-- [x] 1.2 Create Variable entity with Unik relation (copied from flowise-server)
-- [x] 1.3 Create migration `1702200925471-AddVariables.ts` with hasTable checks
-- [x] 1.4 Create variablesService with DI pattern and Zod validation
-- [x] 1.5 Create variablesRoutes with validation middleware
-- [x] 1.6 Export Variable, variablesMigrations, createVariablesService, createVariablesRouter
-
-**Phase 2: Update flowise-server** ✅ COMPLETE
-- [x] 2.1 Add @universo/flowise-variables-srv to dependencies
-- [x] 2.2 Import variablesMigrations in migrations index (removed old AddVariableEntity)
-- [x] 2.3 Update entities/index.ts - import Variable from new package
-- [x] 2.4 Update all utils files - buildCanvasFlow, buildAgentGraph, upsertVector, openai-realtime
-- [x] 2.5 Update export-import service - use direct repository query (like Tools pattern)
-- [x] 2.6 Update routes/index.ts - create variablesService with DI, register router
-
-**Phase 3: Frontend Package (flowise-variables-frt)** ✅ COMPLETE
-- [x] 3.1 Create package structure (package.json, tsconfig.json, index.ts)
-- [x] 3.2 Copy Variables page from flowise-ui (Variables.jsx, AddEditVariableDialog.jsx, HowToUseVariablesDialog.jsx)
-- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
-- [x] 3.4 Export all pages and i18n resources
-
-**Phase 4: Update templates and routing** ✅ COMPLETE
-- [x] 4.1 Add @universo/flowise-variables-frt dependency to universo-template-mui
-- [x] 4.2 Update MainRoutesMUI.tsx - import from new package instead of @/views/variables
-- [x] 4.3 Register i18n namespace via side-effect import
-
-**Phase 5: Cleanup old files** ✅ COMPLETE
-- [x] 5.1 Delete flowise-server routes/variables, controllers/variables, services/variables
-- [x] 5.2 Delete flowise-server database/entities/Variable.ts
-- [x] 5.3 Delete flowise-server migration 1702200925471-AddVariableEntity.ts
-- [x] 5.4 Delete flowise-ui views/variables directory
-- [x] 5.5 Delete duplicate variables.json from spaces-frt i18n
-- [x] 5.6 Delete variables.json from universo-i18n and update instance.ts, i18next.d.ts
-
-**Phase 6: Build & Testing** ✅ BUILD COMPLETE
-- [x] 6.1 Run `pnpm build` - 43/43 packages successful
-- [ ] 6.2 Test migrations (USER - database)
-- [ ] 6.3 Functional testing (USER - browser)
-
----
-
-### 2025-11-28: QA Fixes - PR #566 Bot Review Comments ✅ COMPLETE
-
-**Status**: All code fixes complete, build successful (42/42 packages)
-
-**Summary**: Review and fix valid issues from Gemini Code Assist and Copilot code review
-
-**Critical Issues (Fixed)**:
-- [x] 1. Fix N+1 query / query builder reuse bug in `getAllCredentials` - used IN clause instead of loop
-- [x] 2. Add UUID validation for credentialId in `getCredentialById`, `updateCredential`, `deleteCredential`
-
-**Medium Issues (Fixed)**:
-- [x] 3. Extract unikId/credentialId validation to middleware in routes
-- [x] 4. Add specific error handling for encryption operation in `createCredential` and `updateCredential`
-- [x] 5. Improve migration `down()` method with existence check
-
-**Low / Nitpick Issues (Skipped - Low Priority)**:
-- ⏭️ TypeScript noUnusedLocals/noUnusedParameters - Consistent with other packages in monorepo
-- ⏭️ CredentialsTranslation interface specificity - Works as is, type safety not critical for JSON
-- ⏭️ Error handling order consistency - Minor style preference
-
-**False Positives (Already Valid)**:
-- ✅ zod version 3.25.76 exists (verified via npm registry)
-- ✅ decryptCredentialData callback has proper fallback logic
-
----
-
-### 2025-11-28: QA Fixes - useApi Universal Response Handling ✅ COMPLETE
-
-**Status**: All code fixes complete, build successful, user testing pending
-
-**Summary**: Fixed useApi.jsx to support both legacy axios responses and modern @universo/api-client direct data responses.
-
-**Root Cause**: `useApi.jsx` expected axios response format (`result.data`), but `@universo/api-client` methods already unwrap `.data` internally and return data directly. This caused `componentsCredentials` to be `undefined` in the Credentials dialog.
-
-**Fix Applied**:
-- [x] Modified `useApi.jsx` to detect response format automatically
-- [x] Uses `result.data` if response has `.data` property (legacy axios)
-- [x] Uses `result` directly if no `.data` property (modern API client)
-
-**Build**: 42/42 packages successful ✅
-
----
-
-### 2025-11-28: QA Fixes - Credentials API Migration ✅ COMPLETE
-
-**Status**: All code fixes complete, build successful
-
-**Summary**: Fixed Credentials page API method calls to use @universo/api-client method names
-
-**Root Cause**: Credentials.jsx and related components used old flowise-ui API method names, but imported from @universo/api-client which has different method names.
-
-**API Method Mapping Applied**:
-| Old (flowise-ui) | New (@universo/api-client) |
-|------------------|----------------------------|
-| `getAllCredentials(unikId)` | `getAll(unikId)` |
-| `getAllComponentsCredentials()` | `getAllComponents()` |
-| `getSpecificCredential(unikId, id)` | `getById(unikId, id)` |
-| `getSpecificComponentCredential(name)` | `getComponentSchema(name)` |
-| `createCredential(unikId, body)` | `create(unikId, body)` |
-| `updateCredential(unikId, id, body)` | `update(unikId, id, body)` |
-| `deleteCredential(unikId, id)` | `delete(unikId, id)` |
-| `getCredentialsByName(unikId, name)` | `getByName(unikId, name)` |
-
-**Files Fixed**:
-- [x] `flowise-credentials-frt/pages/Credentials.jsx` - getAll, getAllComponents, delete
-- [x] `flowise-template-mui/CredentialInputHandler.jsx` - getComponentSchema
-- [x] `flowise-template-mui/AddEditCredentialDialog.jsx` - getById, getComponentSchema, create, update
-- [x] `flowise-template-mui/AsyncDropdown.jsx` - getByName
-
-**Additional Fixes**:
-- Removed `.data` wrapping (new API returns data directly)
-- Fixed useApi wrapper to use arrow functions
-
-**Build**: 42/42 packages successful ✅
-
----
-
-### 2025-11-27: QA Fixes - useApi & i18n ✅ COMPLETE
-
-**Status**: All code fixes complete, build successful
-
-**Summary**: Fixed useApi shim, CredentialListDialog i18n, cleanup dead code
-
-**Phase 1: Fix useApi hooks (Critical - Tools/Credentials not working)** ✅
-- [x] 1.1 Update `hooks/index.ts` - export real hooks from `./hooks/` subfolder
-- [x] 1.2 Delete shim files `useApi.js`, `useConfirm.js`
-- [x] 1.3 Fix `index.ts` and `package.json` exports
-- [x] 1.4 Fix 12 component files with relative imports
-
-**Phase 2: Fix CredentialListDialog i18n** ✅
-- [x] 2.1 Fix double namespace in `t()` calls (removed 'credentials.' prefix)
-
-**Phase 3: Cleanup dead code** ✅
-- [x] 3.1 Delete `up-admin/AdminPanel.jsx` (unused backend)
-- [x] 3.2 Remove AdminPanel route from `MainRoutes.jsx`
-
-**Phase 4: Verification** ✅
-- [x] 4.1 Full build - 42/42 packages successful
-- [ ] 4.2 Browser testing (USER)
-
----
-
-### 2025-11-27: Credentials Package Extraction ✅ COMPLETE (Pending Tests)
-
-**Status**: Implementation complete, user testing pending
-
-**Summary**: Extract credentials functionality from flowise-ui/flowise-server into separate packages `@universo/flowise-credentials-srv` and `@universo/flowise-credentials-frt`.
-
-**Phase 0: Prepare - Split Init migration** ✅
-- [x] 0.1 Remove credential table creation from `Init.ts`
-- [x] 0.2 Delete `1693997070000-ModifyCredential.ts`
-- [x] 0.3 Remove ModifyCredential import from `migrations/postgres/index.ts`
-
-**Phase 1: Backend Package (flowise-credentials-srv)** ✅
-- [x] 1.1 Create package structure
-- [x] 1.2 Create migration `1693891895165-AddCredentials.ts`
-- [x] 1.3 Move and adapt Credential entity
-- [x] 1.4 Create credentialsService with DI (encryptCredentialData, decryptCredentialData via config)
-- [x] 1.5 Create credentialsRoutes factory (transformToCredentialEntity now internal)
-- [x] 1.6 Export Credential, credentialsMigrations, createCredentialsService, createCredentialsRouter
-
-**Phase 2: Update flowise-server** ✅
-- [x] 2.1 Add @universo/flowise-credentials-srv to dependencies
-- [x] 2.2 Import credentialsMigrations in migrations index
-- [x] 2.3 Update entities/index.ts - import Credential from new package
-- [x] 2.4 Update databaseEntities in utils/index.ts
-- [x] 2.5 Delete old files (entity, service, controller, routes)
-- [x] 2.6 Update routes/index.ts - create credentials service with DI, register router
-- [x] 2.7 Update assistants, openai-assistants, openai-assistants-vector-store imports
-
-**Phase 3: Frontend Package (flowise-credentials-frt)** ✅
-- [x] 3.1 Create package structure
-- [x] 3.2 Move credentials page from flowise-ui
-- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
-- [x] 3.4 Update exports
-
-**Phase 4: Update templates and routing** ✅
-- [x] 4.1 Add dependency to flowise-template-mui, universo-template-mui
-- [x] 4.2 Update MainRoutesMUI.tsx with credentials route
-- [x] 4.3 Register i18n namespace via side-effect import
-- [x] 4.4 Add TypeScript module declarations
-
-**Phase 5: Cleanup & Integration** ✅
-- [x] 5.1 Delete old credentials from flowise-ui/views/credentials
-- [x] 5.2 Delete credentials.json from universo-i18n locales (en/ru)
-- [x] 5.3 Remove credentials imports from universo-i18n instance.ts
-- [x] 5.4 Remove credentials from universo-i18n i18next.d.ts
-- [x] 5.5 Full build `pnpm build` - 42/42 successful
-
-**Phase 6: Testing** 🧪
-- [ ] 6.1 Test migrations (USER - database)
-- [ ] 6.2 Functional testing (USER - browser)
-
----
-
-### 2025-11-27: Tools Package Extraction ✅ COMPLETE (Pending Tests)
-
-**Status**: Implementation complete, user testing pending
-
-**Summary**: Extract tools functionality from flowise-ui/flowise-server into separate packages.
-
-**Phase 0: Prepare - Split Init migration** ✅
-- [x] 0.1 Modify `1693891895163-Init.ts` - remove tool table creation
-- [x] 0.2 Delete `1693997339912-ModifyTool.ts` from flowise-server
-- [x] 0.3 Modify `1731200000000-AddUniksAndLinked.ts` - remove 'tool' from flowiseTables
-
-**Phase 1: Backend Package (flowise-tools-srv)** ✅
-- [x] 1.1 Create package structure
-- [x] 1.2 Create consolidated migration `AddTools.ts`
-- [x] 1.3 Create migrations export index
-- [x] 1.4 Move and adapt Tool entity
-- [x] 1.5 Create toolsService with DI
-- [x] 1.6 Configure package.json exports
-
-**Phase 2: Update flowise-server** ✅
-- [x] 2.1 Import toolsMigrations in migrations index
-- [x] 2.2 Update entities/index.ts - import Tool from new package
-- [x] 2.3 Update utils/index.ts - databaseEntities
-- [x] 2.4 Delete old files (entity, service, controller, routes)
-- [x] 2.5 Update routes/index.ts
-- [x] 2.6 Update export-import service
-
-**Phase 3: Frontend Package (flowise-tools-frt)** ✅
-- [x] 3.1 Create package structure
-- [x] 3.2 Move Tools page from flowise-ui
-- [x] 3.3 Update API Client with CRUD methods
-- [x] 3.4 Update routes (MainRoutesMUI.tsx, MainRoutes.jsx)
-- [x] 3.5 Add TypeScript module declarations
-
-**Phase 4: Integration & Testing** ✅
-- [x] 4.1 Build all packages (41/41 successful)
-- [ ] 4.2 Test migrations (USER - database) 🧪
-- [ ] 4.3 Functional testing (USER - browser) 🧪
-
-**Phase 5: QA Bot Review Fixes** ✅
-- [x] 5.1 Add missing @universo/flowise-tools-srv to template-mui dependencies
-- [x] 5.2 Fix migration AddTools.ts - add PostgreSQL error codes for CREATE TABLE IF NOT EXISTS
-- [x] 5.3 Remove 19 unused lazy imports from MainRoutes.jsx
-- [x] 5.4 Add i18n support to flowise-tools-frt (en/ru translations migrated from universo-i18n)
-- [x] 5.5 Register tools namespace in MainRoutesMUI.tsx
-- [x] 5.6 Remove tools.json files from universo-i18n and update instance.ts
-
-**Phase 6: Migration Architecture Refactoring** ✅
-- [x] 6.1 Rename AddTools migration: 1748400000000 → 1693891895164 (right after Init)
-- [x] 6.2 Simplify AddTools: only creates table, unik_id handled by AddUniksAndLinked
-- [x] 6.3 Return 'tool' to flowiseTables in AddUniksAndLinked
-- [x] 6.4 Move toolsMigrations right after Init in postgresMigrations array
-- [x] 6.5 Fix importTools: don't mutate input array (create new objects)
-
-**Phase 7: Remaining Bot Review Fixes** ✅
-- [x] 7.1 Register toolsErrorHandler in flowise-server routes/index.ts
-- [x] 7.2 Fix package.json: remove zod from devDependencies (duplicate)
-- [x] 7.3 Remove redundant `typeof req.params === 'undefined'` checks in toolsRoutes.ts
-- [x] 7.4 Keep `dbResponse.affected ?? undefined` (TypeORM returns null, not undefined) - ⚠️ False positive
-- [x] 7.5 Improve type safety: use `Pick<Unik, 'id'>` instead of `as any` in toolsService.ts
-
----
-
-### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
-### 2025-11-26: DepartmentList.tsx Bug Fix ✅ COMPLETE
-
-**Status**: Fixed copy-paste error in DepartmentList.tsx, all other List pages verified correct.
-
-**Summary**: Organization edit was not working due to wrong method names in createDepartmentContext.
-
-**Root Cause**: Copy-paste from PositionList.tsx left `updatePosition`/`deletePosition` instead of `updateEntity`/`deleteEntity`.
-
-**Fixed Files**:
-- [x] organizations-frt/DepartmentList.tsx - Changed `updatePosition` → `updateEntity`, `deletePosition` → `deleteEntity`
-
-**Verified Correct** (no changes needed):
-- [x] organizations-frt/OrganizationList.tsx ✅ (fixed in previous session)
-- [x] organizations-frt/PositionList.tsx ✅ (correctly uses position methods)
-- [x] projects-frt/ProjectList.tsx, MilestoneList.tsx, TaskList.tsx ✅
-- [x] metaverses-frt/MetaverseList.tsx, SectionList.tsx, EntityList.tsx ✅
-- [x] storages-frt/StorageList.tsx, ContainerList.tsx, SlotList.tsx ✅
-- [x] campaigns-frt/CampaignList.tsx, ActivityList.tsx, EventList.tsx ✅
-- [x] clusters-frt/ClusterList.tsx, ResourceList.tsx, DomainList.tsx ✅
-- [x] uniks-frt/UnikList.tsx ✅
-
----
-
-### 2025-01-26: useApi → useMutation QA Fixes ✅ COMPLETE
-
-**Status**: All 4 QA recommendations implemented, build passed (40/40)
-
-**Summary**: QA analysis identified remaining issues after main refactoring.
-
-**Completed Tasks**:
-- [x] 1. Migrate handleInviteMember to use mutation hooks (5 packages)
-  - organizations-frt/OrganizationMembers.tsx ✅
-  - projects-frt/ProjectMembers.tsx ✅
-  - storages-frt/StorageMembers.tsx ✅
-  - metaverses-frt/MetaverseMembers.tsx ✅
-  - clusters-frt/ClusterMembers.tsx ✅
-  - Note: campaigns-frt already uses useMemberMutations correctly
-- [x] 2. Unify uniks-frt useMemberMutations API (added unikId parameter)
-  - Also fixed UnikMember.tsx to use unified API
-- [x] 3. Delete 7 unused useApi.ts files (spaces-frt kept - still used)
-- [x] 4. Reviewed refreshList helpers - no action needed (part of ActionContext pattern)
-
----
-
-### 2025-11-25: useApi → useMutation Refactoring ✅ COMPLETE
-
-**Status**: All 8 packages migrated, full build passed
-
-**Summary**: Replaced custom useApi hook with idiomatic useMutation from @tanstack/react-query.
-**Architecture**: 1 consolidated `hooks/mutations.ts` per package (TkDodo colocation principle).
-
-**Completed Packages** (7 with mutations.ts + 1 N/A):
-- [x] campaigns-frt ✅ - hooks/mutations.ts (12 hooks), lint/build passed
-- [x] clusters-frt ✅ - hooks/mutations.ts (12 hooks), lint/build passed
-- [x] metaverses-frt ✅ - hooks/mutations.ts (12 hooks), lint/build passed
-- [x] organizations-frt ✅ - hooks/mutations.ts (~340 lines), 4 pages updated
-- [x] projects-frt ✅ - hooks/mutations.ts (~330 lines), 4 pages updated
-- [x] storages-frt ✅ - hooks/mutations.ts (~330 lines), 4 pages updated
-- [x] uniks-frt ✅ - hooks/mutations.ts (~160 lines), 2 pages updated
-- [x] spaces-frt - N/A (no useApi usage)
-
-**Total Changes**: ~20 page files updated, 7 mutations.ts created (~2000 lines)
-
----
-
-### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
-
-**Status**: All valid issues fixed, PR merged
-
-**Summary**: QA analysis of Copilot and Gemini Code Assist comments on PR #560.
-
----
-
-### 2025-11-25: AR.js Node Connections Mode Fix ✅ COMPLETE
-
-**Status**: Implementation complete, browser testing pending 🧪
-
-**Summary**: Fixed `quizState is not defined` error in Node Connections mode.
-- File: `packages/template-quiz/base/src/arjs/handlers/DataHandler/index.ts`
-- Build: ✅ Full project (40/40 packages)
-- Details: progress.md#2025-11-25
-
-**Browser Testing (USER)** 🧪:
-- [ ] Navigate to AR.js publishing page
-- [ ] Set "Режим взаимодействия" to "Соединение узлов"
-- [ ] Verify quiz displays correctly, no console errors
-
----
-
-### 2025-01-22: Campaigns Integration ⏳ Phase 8/9
-
-**Status**: Build fixes complete, menu integration in progress
-
-**Summary**: Three-tier hierarchy (Campaigns → Events → Activities) following Metaverses/Clusters patterns.
-
-**Completed Phases**:
-- [x] Phase 1-7: Backend + Frontend + Routes + Menu + Breadcrumbs
-- [x] Phase 8.1-8.16: Build error fixes (9 files, 22+ changes)
-
-**Remaining**:
-- [ ] Phase 9: Browser testing (USER) - CRUD operations, permissions, i18n
-
-**Build Fixes Applied**:
-- IconBullhorn → IconFlag
-- createActivityActions → createEntityActions (3 files)
-- BaseActivityMenu → BaseEntityMenu (4 files, 22 changes)
-
----
-
-### 2025-01-20: PR #558 Storages QA ✅ COMPLETE
-
-**Status**: Pushed to upstream PR #558
-
-**Summary**: 17 bot recommendations validated, 9 fixed, 3 false alarms identified.
-
-**Fixed**: Duplicate files deleted, copy-paste errors, BOM characters, unused code.
-
-**False Alarms**: RLS filtering (correct by design), lazy router pattern (global).
-
----
-
-## ✅ COMPLETED: DocumentStore Backend Clean Integration
-
-### 2025-01-19: Clean Integration of DocumentStore CRUD with @flowise/docstore-srv
-
-**Status**: ✅ COMPLETE
-
-**Summary**: Migrated DocumentStore CRUD operations to use @flowise/docstore-srv DI services, keeping complex operations (preview, process, vector ops) in flowise-server.
-
-**Approach**: Practical "Clean Integration" - CRUD delegates to docstore-srv, complex ops remain local.
-
-**Phase 1: Extend DI Interfaces** ✅
-- [x] 1.1 Added INodeMetadata, INodeProvider interfaces
-- [x] 1.2 Added IEncryptionService, IStorageService interfaces  
-- [x] 1.3 Extended DocstoreServiceDependencies with new providers
-- [x] 1.4 Exported all new interfaces from di/index.ts
-
-**Phase 2: Create NodeProvider** ✅
-- [x] 2.1 Created providers/nodeProvider.ts with INodeProvider implementation
-- [x] 2.2 Wrapped nodesPool access via getRunningExpressApp()
-- [x] 2.3 Fixed type conversion for optional field (boolean | INodeDisplay)
-- [x] 2.4 Exported from providers/index.ts
-
-**Phase 3: Create Service Factory** ✅
-- [x] 3.1 Created services/docstore-integration/index.ts
-- [x] 3.2 Implemented createDocstoreServiceDependencies() factory
-- [x] 3.3 Implemented getDocumentStoreService() singleton pattern
-- [x] 3.4 Proper lazy initialization with initializeDocstoreService()
-
-**Phase 4: Delegate CRUD Operations** ✅
-- [x] 4.1 createDocumentStore - delegates to getDocumentStoreService()
-- [x] 4.2 getAllDocumentStores - delegates to getDocumentStoreService()
-- [x] 4.3 getDocumentStoreById - delegates to getDocumentStoreService()
-- [x] 4.4 updateDocumentStore - delegates to getDocumentStoreService()
-- [x] 4.5 updateDocumentStoreUsage, deleteDocumentStore - kept local (complex logic)
-
-**Phase 5: Build & Verify** ✅
-- [x] 5.1 Fixed type error in nodeProvider.ts (optional field)
-- [x] 5.2 Build successful: 39 tasks passed
-
-**Files Created**:
-- `packages/flowise-docstore-srv/base/src/di/config.ts` - Extended interfaces
-- `packages/flowise-server/src/providers/nodeProvider.ts` - INodeProvider implementation
-- `packages/flowise-server/src/providers/index.ts` - exports
-- `packages/flowise-server/src/services/docstore-integration/index.ts` - Service factory
-
-**Files Modified**:
-- `packages/flowise-server/src/services/documentstore/index.ts` - CRUD delegation
+## ✅ COMPLETED: QA Fixes & Refactoring (2025-11-25-28)
+
+**useApi → useMutation Refactoring**:
+- 7 packages migrated (campaigns, clusters, metaverses, organizations, projects, storages, uniks)
+- Consolidated `hooks/mutations.ts` per package (~2000 lines total)
+- Deleted 7 unused useApi.ts files
+
+**PR Bot Review Fixes**:
+- PR #560: campaigns-backend displayName, unused variables
+- PR #564: toolsErrorHandler registration, package.json cleanup
+- PR #566: N+1 query fix, UUID validation, error handling
+
+**AR.js Node Connections Mode**:
+- Fixed `quizState is not defined` error
+- Changed nested template literal to string concatenation
+
+**useApi Shim Fix**:
+- Fixed flowise-template-mui hooks exports
+- Deleted stub files, fixed 12 relative imports
+
+Details: progress.md#2025-11-25
 
 ---
 
 ## 🚧 IN PROGRESS
 
-### 2025-01-19: Organizations Integration ⏸️ PAUSED
+### Campaigns Integration (Phase 8/9)
 
-**Status**: Phases 1-8 complete, paused for ItemCard fix
+**Status**: Build fixes complete, menu integration done.
 
-**Summary**: Full backend + frontend integration ready.
+**Completed**:
+- [x] Phase 1-7: Backend + Frontend + Routes + Menu + Breadcrumbs
+- [x] Phase 8: Build error fixes (9 files, 22+ changes)
 
-**Remaining**: Phase 9 browser testing after ItemCard fix.
+**Remaining**:
+- [ ] Phase 9: Browser testing (USER) - CRUD operations, permissions, i18n
 
 ---
 
-### 2025-11-22: ItemCard Click Handling ✅ 🧪 TESTING
+### Organizations Integration (PAUSED)
 
-**Status**: Implementation complete, browser testing pending
+**Status**: Phases 1-8 complete, paused for ItemCard fix.
 
-**Summary**: "Overlay Link" pattern implemented.
+**Remaining**:
+- [ ] Phase 9: Browser testing after ItemCard fix
 
-**Browser Tests** (USER):
+---
+
+### ItemCard Click Handling 🧪
+
+**Status**: "Overlay Link" pattern implemented.
+
+**Pattern**:
+- RouterLink replaced with Link overlay (z-index: 5)
+- Menu button z-index: 10 (above link)
+- Prevents navigation on menu click
+
+**Tests** (USER):
 - [ ] Card body click → navigation
 - [ ] Menu button click → menu opens (no navigation)
-- [ ] All modules: Organizations, Metaverses, Clusters, Projects
+- [ ] Verify in: Organizations, Metaverses, Clusters, Projects
+
+---
+
+### Browser Testing Backlog 🧪
+
+**Pending user verification**:
+- [ ] Package extractions (ChatMessage, Leads, Assistants, ApiKey, Variables, Credentials, Tools)
+- [ ] DocumentStore migration functional testing
+- [ ] AR.js Node Connections Mode
+- [ ] Templates page after CustomTemplates extraction
 
 ---
 
 ## 📦 DEFERRED
 
 ### Template MUI CommonJS Shims
-- **Problem**: flowise-ui ESM/CJS conflict
+- **Problem**: flowise-ui ESM/CJS conflict with @flowise/template-mui
 - **Solution**: Extract to @universo package with dual build
-- **Status**: DEFERRED
+- **Status**: Low priority, workarounds in place
 
 ---
 
-## ✅ RECENTLY COMPLETED (Last 30 Days)
+## ✅ HISTORICAL TASKS (Before November 2025)
 
-### 2025-11-25
-- Compression Rules Enhancement ✅
-  - Added trigger condition: compress ONLY files exceeding limits
-  - Added minimum size requirement: ≥80% of limit after compression
-  - Updated validation rubric with over-compression check
-  - File: `.github/instructions/memory-bank-compression.instructions.md`
-- QA Fixes & Documentation Cleanup ✅
-- AR.js Node Connections Mode Fix ✅
-
-### 2025-11-23-24
-- Documentation Major Refactoring ✅
-- Storages i18n Architecture Fix ✅
-
-### 2025-11-22
-- i18n Members & Tables Refactoring ✅
-- ItemCard Click Handling Fix ✅
-- PR #554 Fixes ✅
-- Applications Documentation ✅
-
-### 2025-11-17-18
-- Projects Integration (23 issues fixed) ✅
-- AR.js InteractionMode Persistence ✅
-- Line Endings Normalization ✅
-
-### 2025-11-14
-- Cluster Breadcrumbs ✅
-- Code Quality (Guards Factory) ✅
-- PR #545 QA Fixes ✅
-
-### 2025-11-13
-- Uniks Refactoring (Stages 1-8) ✅
-- UnikBoard Dashboard Expansion ✅
-- Space Builder Namespace ✅
+For completed tasks before November 2025, see progress.md:
+- October 2025: Rate limiting, i18n migration, tsdown build system
+- September 2025: AR.js configuration, TanStack Query, cluster isolation
+- August 2025 and earlier: Space Builder MVP, Metaverse module, Flowise integration
 
 ---
 
-**Note**: For completed tasks older than 30 days, see progress.md.
+**Note**: For implementation details, see progress.md. For patterns, see systemPatterns.md.
+
+---
+
+## ✅ COMPLETED: Earlier November Tasks
+
+### 2025-11-25: Compression Rules Enhancement ✅
+- Added trigger conditions: compress ONLY files exceeding limits
+- Added minimum size requirement: ≥80% of limit after compression
+- Updated validation rubric with over-compression check
+
+### 2025-11-24: Documentation Major Refactoring ✅
+- Configuration docs: 22 files synced EN→RU
+- Integrations docs: 249 files synced
+- Applications docs: Main README rewritten (593→234 lines)
+- Created 4 new module pages (Organizations, Clusters, Projects, Spaces)
+
+### 2025-11-23: Storages i18n Architecture Fix ✅
+- Removed duplicates from storages.json
+- Removed module-specific keys from common.json
+- Fixed translation function usage
+
+### 2025-11-22: i18n Members & Tables Refactoring ✅
+- Centralized `members` keys in common.json
+- Decentralized module-specific table keys
+- Updated 16+ files across 5 modules
+
+### 2025-11-17-18: Projects Integration ✅
+- 23 issues fixed (11 QA + 12 runtime)
+- Router registered, all pages loading
+- Terminology consistency: "Milestones" label unified in Russian UI
+
+### 2025-11-14: Code Quality & Clusters ✅
+- Created `createAccessGuards` factory (auth-backend)
+- Fixed M2M logic in ensureSectionAccess
+- Cluster breadcrumbs with useClusterName hook
+
+### 2025-11-13: Uniks Refactoring ✅
+- Route cleanup, type definitions updated
+- Backend: spacesCount/toolsCount metrics
+- UnikBoard dashboard: 3 → 7 metric cards
+
+---
+
+## 📋 Task Management Guidelines
+
+### Task States
+- `[ ]` - Not started / Pending
+- `[x]` - Completed
+- `🚧` - In progress
+- `🧪` - Awaiting user testing
+- `⏸️` - Paused
+
+### Task Format
+```markdown
+## ✅ COMPLETED: [Feature Name] (YYYY-MM-DD)
+
+**Summary**: One-line description.
+
+**Key Changes**:
+- Change 1
+- Change 2
+
+**Build**: X/X successful
+Details: progress.md#YYYY-MM-DD
+```
+
+### Archival Rules
+- Tasks >60 days: Move to progress.md, keep 1-line summary here
+- Tasks 15-60 days: Condense to summary format
+- Tasks <15 days: Keep full details
+
+---
+
+## 🔗 Cross-References
+
+### Related Files
+- **progress.md**: Chronological completion log
+- **systemPatterns.md**: Architectural patterns
+- **activeContext.md**: Current focus
+
+### Key Patterns
+- DI Factory Pattern: systemPatterns.md#service-factory-nodeprovider-pattern
+- RLS Integration: systemPatterns.md#rls-integration-pattern
+- i18n Architecture: systemPatterns.md#i18n-architecture
+- Universal List: systemPatterns.md#universal-list-pattern
+
+---
+
+**Last Updated**: 2025-12-03

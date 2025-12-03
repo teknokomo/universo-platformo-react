@@ -7,6 +7,6 @@ PvP урон/броня, таргетинг, потери кораблей.
 ## Структура (ожидаемая)
 
 ```txt
-packages/combat-frt/base/
-packages/combat-srv/base/
+packages/combat-frontend/base/
+packages/combat-backend/base/
 ```

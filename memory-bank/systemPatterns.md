@@ -11,7 +11,7 @@
 **Required**:
 - `package.json`: peerDependencies for all external imports
 - Parent app: dependencies for actual installation
-- Example: `@flowise/template-mui` (source-only) → `flowise-ui` (installs deps)
+- Example: `@flowise/template-mui` (source-only) → `@flowise/core-frontend` (installs deps)
 
 **Detection**:
 ```bash
@@ -65,8 +65,8 @@ grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules
 
 **Required**:
 - Shared namespaces stay under `@universo/i18n` (core + generic views/dialogs)
-- Feature packages expose `register<Feature>I18n()` helpers (see `@flowise/docstore-frt/i18n`)
-- Apps must import feature packages before rendering related routes: `import '@flowise/docstore-frt/i18n'`
+- Feature packages expose `register<Feature>I18n()` helpers (see `@flowise/docstore-frontend/i18n`)
+- Apps must import feature packages before rendering related routes: `import '@flowise/docstore-frontend/i18n'`
 - `getInstance()` to access i18n singleton
 - `registerNamespace(name, { en, ru })` for setup
 - `useTranslation('[namespace]')` in components
@@ -77,27 +77,7 @@ grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules
 grep -r "i18next.use" packages/*/src --exclude-dir=node_modules
 ```
 
-**Example**:
-```typescript
-// Feature package (@flowise/docstore-frt/i18n)
-import { registerNamespace } from '@universo/i18n/registry'
-import enDocStore from './locales/en/document-store.json'
-import ruDocStore from './locales/ru/document-store.json'
-
-let registered = false
-export const registerDocstoreI18n = () => {
-  if (registered) return
-  registerNamespace('document-store', { en: enDocStore, ru: ruDocStore })
-  registered = true
-}
-
-// Side-effect registration
-registerDocstoreI18n()
-
-// App route
-import '@flowise/docstore-frt/i18n'
-const { t } = useTranslation('document-store')
-```
+**Example**: See `@flowise/docstore-frontend/i18n` for reference implementation.
 
 **Why**: Single source of truth, prevents duplicate registrations, easier testing.
 
@@ -138,7 +118,7 @@ grep -r "jsdom" packages/*/vitest.config.ts
 
 **Required**:
 ```typescript
-// 1. Define interfaces in DI config (e.g., @flowise/docstore-srv/di/config.ts)
+// 1. Define interfaces in DI config (e.g., @flowise/docstore-backend/di/config.ts)
 interface INodeProvider {
   getComponentNodes(): Map<string, INodeMetadata>
   getNode(name: string): INodeMetadata | undefined
@@ -151,7 +131,7 @@ interface DocstoreServiceDependencies {
   nodeProvider: INodeProvider  // New provider
 }
 
-// 2. Create provider implementation (e.g., flowise-server/providers/nodeProvider.ts)
+// 2. Create provider implementation (e.g., flowise-core-backend/base/src/providers/nodeProvider.ts)
 export function createNodeProvider(): INodeProvider {
   return {
     getComponentNodes: () => getRunningExpressApp().nodesPool.componentNodes,
@@ -160,7 +140,7 @@ export function createNodeProvider(): INodeProvider {
   }
 }
 
-// 3. Create service factory (e.g., flowise-server/services/docstore-integration/index.ts)
+// 3. Create service factory (e.g., flowise-core-backend/base/src/services/docstore-integration/index.ts)
 let serviceInstance: IDocumentStoreService | null = null
 
 export function createDocstoreServiceDependencies(): DocstoreServiceDependencies {
@@ -189,7 +169,7 @@ const store = await getDocumentStoreService().createDocumentStore(data)
 **Detection**:
 ```bash
 # Find direct nodesPool access outside providers (antipattern)
-grep -r "nodesPool" packages/flowise-server/src/services --exclude-dir=providers
+grep -r "nodesPool" packages/flowise-core-backend/base/src/services --exclude-dir=providers
 ```
 
 **Why**: Enables TDD, cleaner architecture, easier refactoring.
@@ -278,13 +258,13 @@ grep -r "StrictMode" packages/*/src/main.tsx | grep -v "isProduction"
 **Rule**: All database operations via `getRepository(Entity)`, not direct SQL.
 
 **Required**:
-- `getDataSource()` from `packages/flowise-server/src/DataSource.ts`
+- `getDataSource()` from `packages/flowise-core-backend/base/src/DataSource.ts`
 - Repository methods: `find()`, `findOne()`, `save()`, `delete()`
 - User context for RLS policies
 
 **Pattern**:
 ```typescript
-import { getDataSource } from '@flowise/server/DataSource'
+import { getDataSource } from '@flowise/core-backend/DataSource'
 import { Profile } from '../database/entities'
 
 const profileRepo = getDataSource().getRepository(Profile)

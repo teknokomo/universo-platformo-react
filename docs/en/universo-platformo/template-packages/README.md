@@ -309,7 +309,7 @@ Add build scripts to `package.json`:
 Register your template in the main application:
 
 ```typescript
-// In publish-frt/src/builders/common/TemplateRegistry.ts
+// In publish-frontend/src/builders/common/TemplateRegistry.ts
 import { MyTemplateBuilder } from '@universo/template-mytemplate'
 
 // Register template

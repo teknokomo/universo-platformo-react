@@ -11,7 +11,7 @@ This guide summarizes our proven practices for adding frontend/backends apps and
 
 - Keep `dependsOn: ["^build"]` at the root.
 - Ensure consumers declare real dependencies so templates/libs build before UI.
-- For cold start, consider server → `publish-frt` if static assets are needed.
+- For cold start, consider server → `publish-frontend` if static assets are needed.
 
 ## Frontend Packages (TSX)
 

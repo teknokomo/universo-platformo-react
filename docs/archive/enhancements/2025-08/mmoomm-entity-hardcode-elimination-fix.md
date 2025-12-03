@@ -10,11 +10,11 @@ Successfully eliminated all hardcoded transform values in MMOOMM Entity types th
 
 ## Key Files Modified
 
--   `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/ship.ts`
--   `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/station.ts`
--   `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/gate.ts`
--   `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/asteroid.ts`
--   `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/utils.ts` (helper functions added)
+-   `packages/publish-frontend/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/ship.ts`
+-   `packages/publish-frontend/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/station.ts`
+-   `packages/publish-frontend/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/gate.ts`
+-   `packages/publish-frontend/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/entityTypes/asteroid.ts`
+-   `packages/publish-frontend/base/src/builders/templates/mmoomm/playcanvas/handlers/EntityHandler/utils.ts` (helper functions added)
 
 ## Requirements Addressed
 

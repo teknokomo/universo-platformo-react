@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/economy-frt/base/
-packages/economy-srv/base/
+packages/economy-frontend/base/
+packages/economy-backend/base/
 ```

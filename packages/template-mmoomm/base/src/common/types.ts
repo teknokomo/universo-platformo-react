@@ -18,7 +18,7 @@ export interface ITemplateBuilder {
     getTemplateInfo(): TemplateConfig
 }
 
-// Import UPDL types from publish-srv
+// Import UPDL types from publish-backend
 export interface IFlowData {
     flowData?: string | any
     updlSpace?: IUPDLSpace

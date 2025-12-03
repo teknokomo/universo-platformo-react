@@ -4,8 +4,8 @@
 
 ## Состав приложения
 
-- **Frontend пакет**: `@universo/spaces-frt`
-- **Backend пакет**: `@universo/spaces-srv`
+- **Frontend пакет**: `@universo/spaces-frontend`
+- **Backend пакет**: `@universo/spaces-backend`
 
 ## Обзор функционала
 

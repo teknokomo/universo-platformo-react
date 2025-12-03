@@ -9,7 +9,7 @@ UPDL — это чисто **frontend модуль с определениями
 UPDL следует принципу **чистого разделения ответственности**:
 
 - **Определения нод**: Обрабатываются в `packages/updl` (только frontend)
-- **Логика сборки пространств**: Обрабатывается в `packages/publish-srv` и `packages/space-builder-srv`
+- **Логика сборки пространств**: Обрабатывается в `packages/publish-backend` и `packages/space-builder-backend`
 - **API для экспорта**: Обрабатывается в публикационных сервисах
 - **Хранение данных**: Обрабатывается в Flowise Server через TypeORM
 

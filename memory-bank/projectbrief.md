@@ -71,7 +71,7 @@ pnpm build
 pnpm dev
 
 # Build specific application
-pnpm build --filter publish-frt
+pnpm build --filter publish-frontend
 pnpm build --filter updl
 ```
 
@@ -80,11 +80,11 @@ pnpm build --filter updl
 ```
 packages/
 ├── updl/base/                # High-level UPDL abstract nodes
-├── publish-frt/base/         # Multi-technology export frontend
-├── publish-srv/base/         # Publication backend with template system
-├── profile-frt/base/         # Enhanced user profile management
-├── profile-srv/base/         # @universo/profile-srv workspace package
-└── analytics-frt/base/       # Quiz analytics and performance tracking
+├── publish-frontend/base/         # Multi-technology export frontend
+├── publish-backend/base/         # Publication backend with template system
+├── profile-frontend/base/         # Enhanced user profile management
+├── profile-backend/base/         # @universo/profile-backend workspace package
+└── analytics-frontend/base/       # Quiz analytics and performance tracking
 ```
 
 **Key Benefits:**
@@ -96,7 +96,7 @@ packages/
 
 ### Environment Setup
 
-Create `.env` file in `packages/flowise-server/` directory:
+Create `.env` file in `packages/flowise-core-backend/base/` directory:
 
 ```bash
 SUPABASE_URL=your_supabase_url
@@ -104,7 +104,7 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 ```
 
-**Note**: After refactoring, Supabase configuration should only be specified in `packages/flowise-server/` directory.
+**Note**: After refactoring, Supabase configuration should only be specified in `packages/flowise-core-backend/base/` directory.
 
 ## Coding Standards & Guidelines
 

@@ -75,20 +75,20 @@ gantt
 
 #### 1. Resources System (4 недели)
 
--   **resources-frt**: Интерфейс управления ресурсами
--   **resources-srv**: API системы ресурсов с плотностью материалов
+-   **resources-frontend**: Интерфейс управления ресурсами
+-   **resources-backend**: API системы ресурсов с плотностью материалов
 -   Добавить: **версии ресурсов и BOM** (draft→publish), валидация DAG
 
 #### 2. Ships Management (3 недели)
 
--   **ships-frt**: Интерфейс управления кораблями
--   **ships-srv**: API флота и кастомизации
--   Добавить: **ECS-основа** — `entities-srv` (Entity + Components), создание сущностей из ResourceVersion
+-   **ships-frontend**: Интерфейс управления кораблями
+-   **ships-backend**: API флота и кастомизации
+-   Добавить: **ECS-основа** — `entities-backend` (Entity + Components), создание сущностей из ResourceVersion
 
 #### 3. Economy System (3 недели)
 
--   **economy-frt**: Интерфейс экономической системы
--   **economy-srv**: API валюты Inmo и торговли
+-   **economy-frontend**: Интерфейс экономической системы
+-   **economy-backend**: API валюты Inmo и торговли
 -   Добавить: компоненты **Visual** (варианты по состояниям) и **Health/Integrity** (пороги) для визуальных состояний в PlayCanvas
 
 **Критерии готовности Фазы 1**:
@@ -110,18 +110,18 @@ gantt
 
 #### 4. Corporations System (4 недели)
 
--   **corporations-frt**: Интерфейс корпораций
--   **corporations-srv**: API организаций и ролей
+-   **corporations-frontend**: Интерфейс корпораций
+-   **corporations-backend**: API организаций и ролей
 
 #### 5. Enhanced Authentication (3 недели)
 
--   **auth-enhanced-frt**: Расширенный интерфейс авторизации
--   **auth-enhanced-srv**: Интеграция игровых и платформенных аккаунтов
+-   **auth-enhanced-frontend**: Расширенный интерфейс авторизации
+-   **auth-enhanced-backend**: Интеграция игровых и платформенных аккаунтов
 
 #### 6. Multiplayer System (5 недель)
 
--   **multiplayer-frt**: Интерфейс мультиплеера
--   **multiplayer-srv**: Синхронизация в реальном времени
+-   **multiplayer-frontend**: Интерфейс мультиплеера
+-   **multiplayer-backend**: Синхронизация в реальном времени
 
 **Критерии готовности Фазы 2**:
 
@@ -141,18 +141,18 @@ gantt
 
 #### 7. Stations System (4 недели)
 
--   **stations-frt**: Интерфейс космических станций
--   **stations-srv**: API строительства и производства
+-   **stations-frontend**: Интерфейс космических станций
+-   **stations-backend**: API строительства и производства
 
 #### 8. Trading Platform (3 недели)
 
--   **trading-frt**: Интерфейс торговых операций
--   **trading-srv**: API аукционов и контрактов
+-   **trading-frontend**: Интерфейс торговых операций
+-   **trading-backend**: API аукционов и контрактов
 
 #### 9. Diplomacy System (3 недели)
 
--   **diplomacy-frt**: Интерфейс дипломатии
--   **diplomacy-srv**: API союзов и конфликтов
+-   **diplomacy-frontend**: Интерфейс дипломатии
+-   **diplomacy-backend**: API союзов и конфликтов
 
 **Критерии готовности Фазы 3**:
 
@@ -172,19 +172,19 @@ gantt
 
 #### 10. Workflow Engine (6 недель)
 
--   **workflow-engine-srv**: Выделение движка Chatflow
+-   **workflow-engine-backend**: Выделение движка Chatflow
 
 #### 11. Node Registry (4 недели)
 
--   **node-registry-srv**: Центральный реестр узлов
+-   **node-registry-backend**: Центральный реестр узлов
 
 #### 12. API Gateway (4 недели)
 
--   **api-gateway-srv**: Единая точка входа
+-   **api-gateway-backend**: Единая точка входа
 
 #### 13. Template Engine (2 недели)
 
--   **template-engine-srv**: Система шаблонов экспорта
+-   **template-engine-backend**: Система шаблонов экспорта
 
 **Критерии готовности Фазы 4**:
 

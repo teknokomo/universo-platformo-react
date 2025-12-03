@@ -140,7 +140,7 @@ When contributing to this package:
 
 - [Main Apps Documentation](../README.md)
 - [UPDL Node Definitions](../updl/base/README.md)
-- [Publishing Frontend](../publish-frt/base/README.md)
+- [Publishing Frontend](../publish-frontend/base/README.md)
 - [AR.js Documentation](https://ar-js-org.github.io/AR.js-Docs/)
 
 ## License

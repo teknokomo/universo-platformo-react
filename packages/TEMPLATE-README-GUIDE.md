@@ -6,7 +6,7 @@ This template provides a standardized structure for README documentation across 
 
 ### Package Information Placeholders
 - `{Package Name}`: Replace with the actual package name
-- `{package-name}`: Package identifier (e.g., `analytics-frt`, `@universo/auth-srv`)
+- `{package-name}`: Package identifier (e.g., `analytics-frontend`, `@universo/auth-backend`)
 - `{version}`: Current package version
 - `{language}`: Programming language for code examples (js, ts, tsx, bash, etc.)
 

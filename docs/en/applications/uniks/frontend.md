@@ -1,4 +1,4 @@
-# `packages/uniks-frt` — Uniks Frontend — [Status: MVP]
+# `packages/uniks-frontend` — Uniks Frontend — [Status: MVP]
 
 Frontend application for workspace management in Universo Platformo.
 
@@ -65,10 +65,10 @@ Uses Supabase JWT tokens for user authentication.
 pnpm install
 
 # Build for production
-pnpm build --filter @universo/uniks-frt
+pnpm build --filter @universo/uniks-frontend
 
 # Development mode
-pnpm --filter @universo/uniks-frt dev
+pnpm --filter @universo/uniks-frontend dev
 ```
 
 ## See Also

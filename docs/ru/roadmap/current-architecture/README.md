@@ -25,11 +25,11 @@ universo-platformo-react/
 │   └── universo-rest-docs/     # Swagger документация
 ├── packages/                      # Расширения Universo Platformo
 │   ├── updl/                  # Система узлов UPDL
-│   ├── publish-frt/           # Фронтенд публикации
-│   ├── publish-srv/           # Бэкенд публикации
-│   ├── profile-frt/           # Фронтенд профилей
-│   ├── profile-srv/           # Бэкенд профилей
-│   └── analytics-frt/         # Фронтенд аналитики
+│   ├── publish-frontend/           # Фронтенд публикации
+│   ├── publish-backend/           # Бэкенд публикации
+│   ├── profile-frontend/           # Фронтенд профилей
+│   ├── profile-backend/           # Бэкенд профилей
+│   └── analytics-frontend/         # Фронтенд аналитики
 └── docs/                      # Документация
 ```
 
@@ -70,9 +70,9 @@ interface UPDLNode {
 }
 ```
 
-### 2. Publish Frontend (publish-frt)
+### 2. Publish Frontend (publish-frontend)
 
-**Расположение**: `packages/publish-frt/base/`
+**Расположение**: `packages/publish-frontend/base/`
 
 **Функциональность**:
 - Экспорт UPDL в AR.js и PlayCanvas
@@ -94,10 +94,10 @@ class UPDLProcessor {
 }
 ```
 
-### 3. Publish Backend (publish-srv)
+### 3. Publish Backend (publish-backend)
 
-**Расположение**: `packages/publish-srv/base/`
-**Workspace пакет**: `@universo/publish-srv`
+**Расположение**: `packages/publish-backend/base/`
+**Workspace пакет**: `@universo/publish-backend`
 
 **Функциональность**:
 - API для получения flowData
@@ -109,9 +109,9 @@ class UPDLProcessor {
 - **PublicationController**: REST API контроллеры
 - **TypeDefinitions**: Общие UPDL типы
 
-### 4. Profile Frontend (profile-frt)
+### 4. Profile Frontend (profile-frontend)
 
-**Расположение**: `packages/profile-frt/base/`
+**Расположение**: `packages/profile-frontend/base/`
 
 **Функциональность**:
 - Управление профилями пользователей
@@ -123,19 +123,19 @@ class UPDLProcessor {
 - Управление настройками профиля
 - Интеграция с системой авторизации
 
-### 5. Profile Backend (profile-srv)
+### 5. Profile Backend (profile-backend)
 
-**Расположение**: `packages/profile-srv/base/`
-**Workspace пакет**: `@universo/profile-srv`
+**Расположение**: `packages/profile-backend/base/`
+**Workspace пакет**: `@universo/profile-backend`
 
 **Функциональность**:
 - Безопасные API для данных пользователей
 - SQL функции с SECURITY DEFINER
 - Асинхронная инициализация маршрутов
 
-### 6. Analytics Frontend (analytics-frt)
+### 6. Analytics Frontend (analytics-frontend)
 
-**Расположение**: `packages/analytics-frt/base/`
+**Расположение**: `packages/analytics-frontend/base/`
 
 **Функциональность**:
 - Отслеживание производительности квизов
@@ -163,14 +163,14 @@ class UPDLProcessor {
 **Предложения по рефакторингу**:
 ```
 packages/flowise-components → packages/
-├── langchain-nodes-srv/       # LangChain специфичные узлы
-├── ai-models-srv/             # AI модели и провайдеры
-├── vector-stores-srv/         # Векторные хранилища
-├── document-loaders-srv/      # Загрузчики документов
-└── tools-srv/                 # Инструменты и утилиты
+├── langchain-nodes-backend/       # LangChain специфичные узлы
+├── ai-models-backend/             # AI модели и провайдеры
+├── vector-stores-backend/         # Векторные хранилища
+├── document-loaders-backend/      # Загрузчики документов
+└── tools-backend/                 # Инструменты и утилиты
 ```
 
-### packages/flowise-server
+### packages/flowise-core-backend/base
 
 **Текущее состояние**: Монолитный Express сервер
 
@@ -188,15 +188,15 @@ packages/flowise-components → packages/
 
 **Предложения по рефакторингу**:
 ```
-packages/flowise-server → packages/
-├── workflow-engine-srv/       # Движок выполнения потоков
-├── api-gateway-srv/           # Единая точка входа
-├── auth-core-srv/             # Базовая авторизация
-├── database-srv/              # Управление базой данных
-└── websocket-srv/             # WebSocket соединения
+packages/flowise-core-backend/base → packages/
+├── workflow-engine-backend/       # Движок выполнения потоков
+├── api-gateway-backend/           # Единая точка входа
+├── auth-core-backend/             # Базовая авторизация
+├── database-backend/              # Управление базой данных
+└── websocket-backend/             # WebSocket соединения
 ```
 
-### packages/flowise-ui
+### packages/flowise-core-frontend/base
 
 **Текущее состояние**: Монолитное React приложение
 
@@ -208,11 +208,11 @@ packages/flowise-server → packages/
 
 **Предложения по рефакторингу**:
 ```
-packages/flowise-ui → packages/
-├── workflow-editor-frt/       # Редактор потоков
-├── node-palette-frt/          # Палитра узлов
-├── dashboard-frt/             # Основная панель
-└── settings-frt/              # Настройки
+packages/flowise-core-frontend/base → packages/
+├── workflow-editor-frontend/       # Редактор потоков
+├── node-palette-frontend/          # Палитра узлов
+├── dashboard-frontend/             # Основная панель
+└── settings-frontend/              # Настройки
 ```
 
 ## Паттерны интеграции
@@ -223,8 +223,8 @@ packages/flowise-ui → packages/
 ```json
 {
   "dependencies": {
-    "@universo/publish-srv": "workspace:*",
-    "@universo/profile-srv": "workspace:*"
+    "@universo/publish-backend": "workspace:*",
+    "@universo/profile-backend": "workspace:*"
   }
 }
 ```

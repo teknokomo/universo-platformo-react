@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/skills-frt/base/
-packages/skills-srv/base/
+packages/skills-frontend/base/
+packages/skills-backend/base/
 ```

@@ -1,4 +1,4 @@
-# `packages/space-builder-frt` — Space Builder Frontend — [Status: MVP]
+# `packages/space-builder-frontend` — Space Builder Frontend — [Status: MVP]
 
 User interface for converting natural language requests into valid flow graphs from UPDL nodes.
 
@@ -36,7 +36,7 @@ Provides user interface for quiz generation based on natural language using LLM 
 Main component — floating action button with full generation dialog.
 
 ```tsx
-import { SpaceBuilderFab } from '@universo/space-builder-frt'
+import { SpaceBuilderFab } from '@universo/space-builder-frontend'
 
 <SpaceBuilderFab
     models={availableChatModels}
@@ -58,7 +58,7 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 ```ts
 import i18n from '@/i18n'
-import { registerSpaceBuilderI18n } from '@universo/space-builder-frt'
+import { registerSpaceBuilderI18n } from '@universo/space-builder-frontend'
 registerSpaceBuilderI18n(i18n)
 ```
 
@@ -67,7 +67,7 @@ registerSpaceBuilderI18n(i18n)
 Dual build system (CJS + ESM) for optimal compatibility:
 
 ```bash
-pnpm build --filter @universo/space-builder-frt
+pnpm build --filter @universo/space-builder-frontend
 ```
 
 ## Technologies

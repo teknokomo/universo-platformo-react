@@ -677,7 +677,7 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 
 -   Fixed React StrictMode production bug (conditional wrapper, 2025-11-02)
 -   Fixed missing peerDependency in @flowise/template-mui (react-router-dom)
--   Modified 1 file: flowise-ui/src/index.jsx
+-   Modified 1 file: flowise-core-frontend/base/src/index.jsx
 -   Pattern: systemPatterns.md#react-strictmode-pattern
 -   Next: Browser QA verification
 

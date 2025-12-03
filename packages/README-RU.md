@@ -6,7 +6,7 @@
 
 ```
 packages/
-├── analytics-frt/       # Фронтенд аналитики квизов
+├── analytics-frontend/       # Фронтенд аналитики квизов
 │   └── base/            # Ключевая функциональность аналитики
 │       ├── src/         # Исходный код
 │       │   ├── components/ # UI компоненты аналитики
@@ -16,7 +16,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── auth-frt/            # UI примитивы аутентификации
+├── auth-frontend/            # UI примитивы аутентификации
 │   └── base/            # Ключевая функциональность UI аутентификации
 │       ├── src/         # Исходный код
 │       │   ├── components/ # Компоненты аутентификации (LoginForm, SessionGuard)
@@ -26,7 +26,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── auth-srv/            # Passport.js + Supabase сессии бекенд
+├── auth-backend/            # Passport.js + Supabase сессии бекенд
 │   └── base/            # Ключевая функциональность бекенда аутентификации
 │       ├── src/         # Исходный код
 │       │   ├── middleware/ # Стратегии Passport и обработчики сессий
@@ -93,7 +93,7 @@ packages/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── README.md
-├── metaverses-frt/      # Фронтенд управления метавселенными
+├── metaverses-frontend/      # Фронтенд управления метавселенными
 │   └── base/            # Ключевая функциональность UI метавселенных
 │       ├── src/         # Исходный код
 │       │   ├── components/ # UI управления метавселенными
@@ -104,7 +104,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── metaverses-srv/      # Бекенд управления метавселенными
+├── metaverses-backend/      # Бекенд управления метавселенными
 │   └── base/            # Ключевая функциональность бекенда метавселенных
 │       ├── src/         # Исходный код
 │       │   ├── routes/  # Express роуты для CRUD метавселенных
@@ -114,7 +114,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── multiplayer-colyseus-srv/ # Мультиплеерный сервер Colyseus
+├── multiplayer-colyseus-backend/ # Мультиплеерный сервер Colyseus
 │   ├── src/             # Исходный код
 │   │   ├── rooms/       # Реализации комнат Colyseus
 │   │   ├── schemas/     # Схемы состояний
@@ -123,7 +123,7 @@ packages/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── README.md
-├── profile-frt/         # Фронтенд управления профилем пользователя
+├── profile-frontend/         # Фронтенд управления профилем пользователя
 │   └── base/            # Ключевая функциональность профиля
 │       ├── src/         # Исходный код
 │       │   ├── i18n/    # Локализация
@@ -135,7 +135,7 @@ packages/
 │       ├── gulpfile.ts
 │       ├── README.md
 │       └── README-RU.md
-├── profile-srv/         # Бекенд управления профилем (workspace-пакет)
+├── profile-backend/         # Бекенд управления профилем (workspace-пакет)
 │   └── base/            # Ключевая функциональность профиля
 │       ├── src/         # Исходный код
 │       │   ├── routes/  # Express роуты для операций с профилем
@@ -146,7 +146,7 @@ packages/
 │       ├── tsconfig.json
 │       ├── README.md
 │       └── README-RU.md
-├── publish-frt/         # Фронтенд системы публикаций для экспорта и шеринга
+├── publish-frontend/         # Фронтенд системы публикаций для экспорта и шеринга
 │   └── base/            # Ключевая функциональность фронтенда публикаций
 │       ├── src/         # Исходный код
 │       │   ├── api/     # HTTP клиенты к бекенду
@@ -168,7 +168,7 @@ packages/
 │       ├── tsconfig.json
 │       ├── gulpfile.ts
 │       └── README.md
-├── publish-srv/         # Бекенд системы публикаций (workspace-пакет)
+├── publish-backend/         # Бекенд системы публикаций (workspace-пакет)
 │   └── base/            # Ключевая функциональность бекенда публикаций
 │       ├── src/         # Исходный код
 │       │   ├── controllers/ # Контроллеры Express
@@ -180,7 +180,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── space-builder-frt/   # UI Space Builder (промпт-в-поток)
+├── space-builder-frontend/   # UI Space Builder (промпт-в-поток)
 │   └── base/            # Ключевая функциональность фронтенда Space Builder
 │       ├── src/         # Исходный код
 │       │   ├── components/ # Диалог промптов, FAB, селектор моделей
@@ -190,7 +190,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── space-builder-srv/   # API Space Builder (промпт-в-поток)
+├── space-builder-backend/   # API Space Builder (промпт-в-поток)
 │   └── base/            # Ключевая функциональность бекенда Space Builder
 │       ├── src/         # Исходный код
 │       │   ├── routes/  # Эндпоинты generate, health, config
@@ -200,7 +200,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── spaces-frt/          # Фронтенд Spaces/Canvases
+├── spaces-frontend/          # Фронтенд Spaces/Canvases
 │   └── base/            # Ключевая функциональность UI пространств
 │       ├── src/         # Исходный код
 │       │   ├── components/ # UI компоненты Canvas
@@ -210,7 +210,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── spaces-srv/          # Бекенд домена Spaces
+├── spaces-backend/          # Бекенд домена Spaces
 │   └── base/            # Ключевая функциональность бекенда пространств
 │       ├── src/         # Исходный код
 │       │   ├── routes/  # Express роуты для CRUD пространств
@@ -238,7 +238,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── uniks-frt/           # Фронтенд управления рабочими пространствами
+├── uniks-frontend/           # Фронтенд управления рабочими пространствами
 │   └── base/            # Ключевая функциональность рабочих пространств
 │       ├── src/         # Исходный код
 │       │   ├── i18n/    # Интернационализация
@@ -249,7 +249,7 @@ packages/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── README.md
-├── uniks-srv/           # Бекенд управления рабочими пространствами (workspace-пакет)
+├── uniks-backend/           # Бекенд управления рабочими пространствами (workspace-пакет)
 │   └── base/            # Ключевая функциональность рабочих пространств
 │       ├── src/         # Исходный код
 │       │   ├── routes/  # Express роуты для CRUD операций Uniks
@@ -358,7 +358,7 @@ packages/
 -   Система регистрации сущностей и миграций
 -   Асинхронная инициализация роутов
 
-**Документация:** См. [packages/flowise-server/README.md](./flowise-server/README.md)
+**Документация:** См. [packages/flowise-core-backend/base/README.md](./flowise-server/README.md)
 
 #### Flowise UI (flowise-ui)
 
@@ -372,7 +372,7 @@ packages/
 -   Управление учётными данными и конфигурацией
 -   Поддержка множественных рабочих пространств
 
-**Документация:** См. [packages/flowise-ui/README.md](./flowise-ui/README.md)
+**Документация:** См. [packages/flowise-core-frontend/base/README.md](./flowise-ui/README.md)
 
 ### Общие UI компоненты
 
@@ -502,7 +502,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 
 ### Система аутентификации
 
-#### Auth Frontend (@universo/auth-frt)
+#### Auth Frontend (@universo/auth-frontend)
 
 Общие UI примитивы аутентификации для Universo Platformo.
 
@@ -514,9 +514,9 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Интеграция с Supabase auth
 -   Двойная система сборки (tsdown): CJS + ESM + Типы
 
-**Документация:** См. [packages/auth-frt/base/README.md](./auth-frt/base/README.md)
+**Документация:** См. [packages/auth-frontend/base/README.md](./auth-frontend/base/README.md)
 
-#### Auth Server (@universo/auth-srv)
+#### Auth Server (@universo/auth-backend)
 
 Набор инструментов Passport.js + Supabase сессии для бекенд-аутентификации.
 
@@ -528,7 +528,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Роуты login, logout и валидации сессий
 -   Двойная система сборки (tsdown): CJS + ESM
 
-**Документация:** См. [packages/auth-srv/base/README.md](./auth-srv/base/README.md)
+**Документация:** См. [packages/auth-backend/base/README.md](./auth-backend/base/README.md)
 
 ### Пакеты шаблонов
 
@@ -564,7 +564,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 
 ### Мультиплеерная инфраструктура
 
-#### Multiplayer Colyseus Server (@universo/multiplayer-colyseus-srv)
+#### Multiplayer Colyseus Server (@universo/multiplayer-colyseus-backend)
 
 Мультиплеерный сервер Colyseus для сетевого взаимодействия в реальном времени в MMOOMM опытах.
 
@@ -576,7 +576,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Репликация сущностей для кораблей, астероидов и снарядов
 -   Интеграция с template-mmoomm
 
-**Документация:** См. [packages/multiplayer-colyseus-srv/README.md](./multiplayer-colyseus-srv/README.md)
+**Документация:** См. [packages/multiplayer-colyseus-backend/README.md](./multiplayer-colyseus-backend/README.md)
 
 ### Доменные модули
 
@@ -584,7 +584,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 
 Приложение Uniks обеспечивает функциональность управления рабочими пространствами, позволяя пользователям создавать, управлять и организовывать свои рабочие пространства. Состоит из фронтенд-приложения и бекенд workspace-пакета.
 
-##### Uniks Frontend (@universo/uniks-frt)
+##### Uniks Frontend (@universo/uniks-frontend)
 
 **Ключевые возможности:**
 
@@ -595,11 +595,11 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Поддержка интернационализации (английский и русский)
 -   Двойная система сборки (tsdown): CJS + ESM + Типы
 
-**Документация:** См. [packages/uniks-frt/base/README.md](./uniks-frt/base/README.md)
+**Документация:** См. [packages/uniks-frontend/base/README.md](./uniks-frontend/base/README.md)
 
-##### Uniks Server (@universo/uniks-srv)
+##### Uniks Server (@universo/uniks-backend)
 
-Это бекенд-сервис, структурированный как workspace-пакет (`@universo/uniks-srv`), отвечающий за обработку данных и операций рабочих пространств.
+Это бекенд-сервис, структурированный как workspace-пакет (`@universo/uniks-backend`), отвечающий за обработку данных и операций рабочих пространств.
 
 **Ключевые возможности:**
 
@@ -609,13 +609,13 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Интеграция Supabase для аутентификации
 -   Вложенное монтирование роутов Flowise под префиксом `/:unikId`
 
-**Документация:** См. [packages/uniks-srv/base/README.md](./uniks-srv/base/README.md)
+**Документация:** См. [packages/uniks-backend/base/README.md](./uniks-backend/base/README.md)
 
 #### Profile
 
 Приложение Profile обеспечивает функциональность управления профилем пользователя. Состоит из фронтенд-приложения и бекенд workspace-пакета.
 
-##### Profile Frontend (@universo/profile-frt)
+##### Profile Frontend (@universo/profile-frontend)
 
 **Ключевые возможности:**
 
@@ -624,11 +624,11 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Мобильно-дружественный отзывчивый дизайн
 -   Поддержка интернационализации (английский и русский)
 
-**Документация:** См. [packages/profile-frt/base/README.md](./profile-frt/base/README.md)
+**Документация:** См. [packages/profile-frontend/base/README.md](./profile-frontend/base/README.md)
 
-##### Profile Server (@universo/profile-srv)
+##### Profile Server (@universo/profile-backend)
 
-Это бекенд-сервис, структурированный как workspace-пакет (`@universo/profile-srv`), отвечающий за безопасную обработку данных профиля пользователя.
+Это бекенд-сервис, структурированный как workspace-пакет (`@universo/profile-backend`), отвечающий за безопасную обработку данных профиля пользователя.
 
 **Ключевые возможности:**
 
@@ -636,13 +636,13 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Использует пользовательские SQL функции с `SECURITY DEFINER` для безопасных обновлений данных
 -   Асинхронная инициализация роутов для предотвращения race conditions с подключением к БД
 
-**Документация:** См. [packages/profile-srv/base/README.md](./profile-srv/base/README.md)
+**Документация:** См. [packages/profile-backend/base/README.md](./profile-backend/base/README.md)
 
 #### Spaces (Управление Canvas)
 
 Приложение Spaces обеспечивает функциональность управления canvas и потоками. Состоит из фронтенд-приложения и бекенд workspace-пакета.
 
-##### Spaces Frontend (@universo/spaces-frt)
+##### Spaces Frontend (@universo/spaces-frontend)
 
 **Ключевые возможности:**
 
@@ -651,9 +651,9 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Интеграция с React Flow
 -   Двойная система сборки (tsdown): CJS + ESM + Типы
 
-**Документация:** См. [packages/spaces-frt/base/README.md](./spaces-frt/base/README.md)
+**Документация:** См. [packages/spaces-frontend/base/README.md](./spaces-frontend/base/README.md)
 
-##### Spaces Server (@universo/spaces-srv)
+##### Spaces Server (@universo/spaces-backend)
 
 Это бекенд-сервис для управления пространствами и canvases.
 
@@ -664,13 +664,13 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Миграции базы данных PostgreSQL
 -   Интеграция с flowise-server
 
-**Документация:** См. [packages/spaces-srv/base/README.md](./spaces-srv/base/README.md)
+**Документация:** См. [packages/spaces-backend/base/README.md](./spaces-backend/base/README.md)
 
 #### Metaverses
 
 Приложение Metaverses обеспечивает функциональность управления метавселенными. Состоит из фронтенд-приложения и бекенд workspace-пакета.
 
-##### Metaverses Frontend (@universo/metaverses-frt)
+##### Metaverses Frontend (@universo/metaverses-frontend)
 
 **Ключевые возможности:**
 
@@ -680,9 +680,9 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Поддержка интернационализации
 -   Двойная система сборки (tsdown): CJS + ESM + Типы
 
-**Документация:** См. [packages/metaverses-frt/base/README.md](./metaverses-frt/base/README.md)
+**Документация:** См. [packages/metaverses-frontend/base/README.md](./metaverses-frontend/base/README.md)
 
-##### Metaverses Server (@universo/metaverses-srv)
+##### Metaverses Server (@universo/metaverses-backend)
 
 Это бекенд-сервис для управления метавселенными.
 
@@ -693,13 +693,13 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Миграции базы данных PostgreSQL
 -   Интеграция с flowise-server
 
-**Документация:** См. [packages/metaverses-srv/base/README.md](./metaverses-srv/base/README.md)
+**Документация:** См. [packages/metaverses-backend/base/README.md](./metaverses-backend/base/README.md)
 
 #### Analytics
 
 Приложение Analytics обеспечивает функциональность аналитики квизов.
 
-##### Analytics Frontend (@universo/analytics-frt)
+##### Analytics Frontend (@universo/analytics-frontend)
 
 **Ключевые возможности:**
 
@@ -708,13 +708,13 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Поддержка интернационализации
 -   Двойная система сборки (tsdown): CJS + ESM + Типы
 
-**Документация:** См. [packages/analytics-frt/base/README.md](./analytics-frt/base/README.md)
+**Документация:** См. [packages/analytics-frontend/base/README.md](./analytics-frontend/base/README.md)
 
 ### Space Builder (Промпт-в-поток)
 
 Приложение Space Builder превращает промпты на естественном языке в графы потоков, составленные из узлов UPDL. Состоит из фронтенд-приложения и бекенд workspace-пакета.
 
-#### Space Builder Frontend (@universo/space-builder-frt)
+#### Space Builder Frontend (@universo/space-builder-frontend)
 
 **Ключевые возможности:**
 
@@ -724,11 +724,11 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Интеграция i18n
 -   Двойная система сборки (tsdown): CJS + ESM + Типы
 
-**Документация:** См. [packages/space-builder-frt/base/README.md](./space-builder-frt/base/README.md)
+**Документация:** См. [packages/space-builder-frontend/base/README.md](./space-builder-frontend/base/README.md)
 
-#### Space Builder Server (@universo/space-builder-srv)
+#### Space Builder Server (@universo/space-builder-backend)
 
-Это бекенд-сервис, структурированный как workspace-пакет (`@universo/space-builder-srv`), отвечающий за вызов LLM и безопасный возврат JSON графа.
+Это бекенд-сервис, структурированный как workspace-пакет (`@universo/space-builder-backend`), отвечающий за вызов LLM и безопасный возврат JSON графа.
 
 **Ключевые возможности:**
 
@@ -737,7 +737,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   Разрешение Credential интегрировано с сервисами платформы
 -   Валидация на основе Zod и серверная нормализация
 
-**Документация:** См. [packages/space-builder-srv/base/README.md](./space-builder-srv/base/README.md)
+**Документация:** См. [packages/space-builder-backend/base/README.md](./space-builder-backend/base/README.md)
 
 ### UPDL (Universal Platform Definition Language)
 
@@ -765,7 +765,7 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 
 Приложение Publish предоставляет механизмы для экспорта UPDL пространств в AR.js и публикации их с шарируемыми URL.
 
-#### Publish Frontend (@universo/publish-frt)
+#### Publish Frontend (@universo/publish-frontend)
 
 Фронтенд-приложение отвечает за весь пользовательский рабочий процесс публикации, включая финальную конвертацию данных в просматриваемые AR.js и PlayCanvas форматы.
 
@@ -778,20 +778,20 @@ TypeScript API клиент для бекенд-сервисов Universo Platfo
 -   **Интеграция Supabase**: Сохраняет конфигурации публикаций
 -   **Поддержка множественных технологий**: Поддерживает AR.js квизы и PlayCanvas MMO опыты через выделенные пакеты шаблонов
 
-**Документация:** См. [packages/publish-frt/base/README.md](./publish-frt/base/README.md)
+**Документация:** См. [packages/publish-frontend/base/README.md](./publish-frontend/base/README.md)
 
-#### Publish Backend (@universo/publish-srv)
+#### Publish Backend (@universo/publish-backend)
 
-Это бекенд-сервис, рефакторенный в workspace-пакет (`@universo/publish-srv`), с единственной ответственностью: предоставление данных фронтенду.
+Это бекенд-сервис, рефакторенный в workspace-пакет (`@universo/publish-backend`), с единственной ответственностью: предоставление данных фронтенду.
 
 **Ключевые возможности:**
 
--   **Workspace пакет**: Предоставляет общие типы и сервисы как `@universo/publish-srv`
+-   **Workspace пакет**: Предоставляет общие типы и сервисы как `@universo/publish-backend`
 -   **Провайдер сырых данных**: Предоставляет сырые `flowData` из базы данных, делегируя всю обработку UPDL фронтенду
 -   **Источник истины для типов**: Экспортирует все общие UPDL и связанные с публикацией TypeScript типы
 -   **Асинхронная инициализация роутов**: Предотвращает race conditions, инициализируя роуты только после установки подключения к БД
 
-**Документация:** См. [packages/publish-srv/base/README.md](./publish-srv/base/README.md)
+**Документация:** См. [packages/publish-backend/base/README.md](./publish-backend/base/README.md)
 
 ## Архитектура для будущего расширения
 
@@ -841,19 +841,19 @@ app-name/
 
 **Мигрированные пакеты (tsdown):**
 
--   `@universo/analytics-frt`
--   `@universo/auth-frt`
--   `@universo/auth-srv`
+-   `@universo/analytics-frontend`
+-   `@universo/auth-frontend`
+-   `@universo/auth-backend`
 -   `@flowise/chatmessage`
 -   `@flowise/store`
--   `@universo/metaverses-frt`
--   `@universo/spaces-frt`
--   `@universo/space-builder-frt`
+-   `@universo/metaverses-frontend`
+-   `@universo/spaces-frontend`
+-   `@universo/space-builder-frontend`
 -   `@universo/template-mmoomm`
 -   `@universo/template-quiz`
 -   `@universo/template-mui`
 -   `@universo/types`
--   `@universo/uniks-frt`
+-   `@universo/uniks-frontend`
 -   `@universo/updl`
 -   `@universo/utils`
 -   `@universo/api-client`
@@ -861,8 +861,8 @@ app-name/
 
 **Устаревшие пакеты (tsc+gulp):**
 
--   `@universo/profile-frt` (имеет gulpfile.ts)
--   `@universo/publish-frt` (имеет gulpfile.ts)
+-   `@universo/profile-frontend` (имеет gulpfile.ts)
+-   `@universo/publish-frontend` (имеет gulpfile.ts)
 
 **Преимущества tsdown:**
 
@@ -983,27 +983,27 @@ pnpm build --filter @universo/template-quiz
 pnpm build --filter @universo/template-mmoomm
 
 # Сборка пакетов аутентификации
-pnpm build --filter @universo/auth-frt
-pnpm build --filter @universo/auth-srv
+pnpm build --filter @universo/auth-frontend
+pnpm build --filter @universo/auth-backend
 
 # Сборка доменных фронтенд приложений
-pnpm build --filter @universo/analytics-frt
-pnpm build --filter @universo/metaverses-frt
-pnpm build --filter @universo/profile-frt
-pnpm build --filter @universo/publish-frt
-pnpm build --filter @universo/space-builder-frt
-pnpm build --filter @universo/spaces-frt
-pnpm build --filter @universo/uniks-frt
+pnpm build --filter @universo/analytics-frontend
+pnpm build --filter @universo/metaverses-frontend
+pnpm build --filter @universo/profile-frontend
+pnpm build --filter @universo/publish-frontend
+pnpm build --filter @universo/space-builder-frontend
+pnpm build --filter @universo/spaces-frontend
+pnpm build --filter @universo/uniks-frontend
 pnpm build --filter @universo/updl
 
 # Сборка доменных бекенд приложений
-pnpm build --filter @universo/metaverses-srv
-pnpm build --filter @universo/profile-srv
-pnpm build --filter @universo/publish-srv
-pnpm build --filter @universo/space-builder-srv
-pnpm build --filter @universo/spaces-srv
-pnpm build --filter @universo/uniks-srv
-pnpm build --filter @universo/multiplayer-colyseus-srv
+pnpm build --filter @universo/metaverses-backend
+pnpm build --filter @universo/profile-backend
+pnpm build --filter @universo/publish-backend
+pnpm build --filter @universo/space-builder-backend
+pnpm build --filter @universo/spaces-backend
+pnpm build --filter @universo/uniks-backend
+pnpm build --filter @universo/multiplayer-colyseus-backend
 
 # Сборка основной платформы
 pnpm build --filter flowise-components
@@ -1018,26 +1018,26 @@ pnpm build --filter universo-rest-docs
 
 ```bash
 # Фронтенд пакеты (режим отслеживания tsdown)
-pnpm --filter @universo/analytics-frt dev
-pnpm --filter @universo/auth-frt dev
+pnpm --filter @universo/analytics-frontend dev
+pnpm --filter @universo/auth-frontend dev
 pnpm --filter @flowise/chatmessage dev
-pnpm --filter @universo/metaverses-frt dev
-pnpm --filter @universo/profile-frt dev
-pnpm --filter @universo/publish-frt dev
-pnpm --filter @universo/space-builder-frt dev
-pnpm --filter @universo/spaces-frt dev
-pnpm --filter @universo/uniks-frt dev
+pnpm --filter @universo/metaverses-frontend dev
+pnpm --filter @universo/profile-frontend dev
+pnpm --filter @universo/publish-frontend dev
+pnpm --filter @universo/space-builder-frontend dev
+pnpm --filter @universo/spaces-frontend dev
+pnpm --filter @universo/uniks-frontend dev
 pnpm --filter @universo/updl dev
 
 # Бекенд пакеты
-pnpm --filter @universo/auth-srv dev
-pnpm --filter @universo/metaverses-srv dev
-pnpm --filter @universo/profile-srv dev
-pnpm --filter @universo/publish-srv dev
-pnpm --filter @universo/space-builder-srv dev
-pnpm --filter @universo/spaces-srv dev
-pnpm --filter @universo/uniks-srv dev
-pnpm --filter @universo/multiplayer-colyseus-srv dev
+pnpm --filter @universo/auth-backend dev
+pnpm --filter @universo/metaverses-backend dev
+pnpm --filter @universo/profile-backend dev
+pnpm --filter @universo/publish-backend dev
+pnpm --filter @universo/space-builder-backend dev
+pnpm --filter @universo/spaces-backend dev
+pnpm --filter @universo/uniks-backend dev
+pnpm --filter @universo/multiplayer-colyseus-backend dev
 ```
 
 **Примечание о ресурсах:** Для пакетов, всё ещё использующих gulp (устаревшая сборка), скрипты отслеживания не копируют SVG иконки автоматически. Если вы добавляете или изменяете SVG ресурсы во время разработки, запустите `pnpm build --filter <app>`, чтобы убедиться, что они правильно скопированы в директорию dist. Пакеты, использующие tsdown, обрабатывают ассеты автоматически.

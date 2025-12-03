@@ -158,7 +158,7 @@ class LocalUPDLProcessor { /* ... */ }
 Use the template registry system for dynamic template loading:
 
 ```typescript
-import { TemplateRegistry } from '@universo/publish-frt'
+import { TemplateRegistry } from '@universo/publish-frontend'
 
 const builder = TemplateRegistry.createBuilder('quiz')
 ```

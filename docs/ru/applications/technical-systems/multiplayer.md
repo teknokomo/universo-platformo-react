@@ -12,7 +12,7 @@
 -   **Хранилище**: Supabase (PostgreSQL) — долговременные данные; Redis — presence/pubsub/скейлинг (планируется)
 -   **Клиент**: PlayCanvas + colyseus.js (SDK), локальная предикция и реконсилиация
 
-### Пакет: `@universo/multiplayer-colyseus-srv`
+### Пакет: `@universo/multiplayer-colyseus-backend`
 
 Полная реализация мультиплеерного сервера для Universo MMOOMM с поддержкой до 16 игроков в комнате.
 
@@ -84,14 +84,14 @@
 
 ### Планируется
 
--   `entities-srv`: инстансы ECS и компоненты
--   `combat-srv`: формулы урона/резисты, лаг-компенсация
--   `economy-srv`: кошельки/сделки (идемпотентность)
+-   `entities-backend`: инстансы ECS и компоненты
+-   `combat-backend`: формулы урона/резисты, лаг-компенсация
+-   `economy-backend`: кошельки/сделки (идемпотентность)
 
 ## Структура (реализована)
 
 ```
-packages/multiplayer-colyseus-srv/base/
+packages/multiplayer-colyseus-backend/base/
 ├── src/
 │   ├── index.ts              # Точка входа сервера
 │   ├── manager.ts            # Менеджер комнат
@@ -113,7 +113,7 @@ packages/multiplayer-colyseus-srv/base/
 ### Разработка
 
 ```bash
-cd packages/multiplayer-colyseus-srv/base
+cd packages/multiplayer-colyseus-backend/base
 pnpm install
 pnpm dev
 ```

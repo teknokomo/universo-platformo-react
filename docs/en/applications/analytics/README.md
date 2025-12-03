@@ -13,7 +13,7 @@ The Analytics System provides comprehensive tools for analyzing quiz performance
 The analytics application is built as a lightweight frontend module:
 
 ```
-packages/analytics-frt/base/
+packages/analytics-frontend/base/
 ├── src/
 │   └── pages/
 │       └── Analytics.jsx    # Main analytics page
@@ -49,7 +49,7 @@ The analytics module integrates with the core Flowise frontend through the alias
 
 ```javascript
 // Import in the main Flowise application
-import { AnalyticsPage } from '@packages/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frontend'
 ```
 
 ### Data Sources
@@ -106,7 +106,7 @@ The main component that provides:
 ### Basic Integration
 ```javascript
 import React from 'react'
-import { AnalyticsPage } from '@packages/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frontend'
 
 function App() {
   return (
@@ -156,22 +156,22 @@ const analyticsFilters = {
 pnpm install
 
 # Run in development mode
-pnpm --filter analytics-frt dev
+pnpm --filter analytics-frontend dev
 ```
 
 ### Build
 ```bash
 # Build for production
-pnpm --filter analytics-frt build
+pnpm --filter analytics-frontend build
 ```
 
 ### Testing
 ```bash
 # Run tests
-pnpm --filter analytics-frt test
+pnpm --filter analytics-frontend test
 
 # Run linter
-pnpm --filter analytics-frt lint
+pnpm --filter analytics-frontend lint
 ```
 
 ## Configuration

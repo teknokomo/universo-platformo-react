@@ -1,4 +1,4 @@
-# `packages/uniks-srv` — Uniks Backend — [Статус: MVP]
+# `packages/uniks-backend` — Uniks Backend — [Статус: MVP]
 
 Backend сервис для управления рабочими пространствами с TypeORM, RLS и расширенной ролевой моделью.
 
@@ -93,9 +93,9 @@ export class UnikUser {
 ## Разработка
 
 ```bash
-pnpm build --filter @universo/uniks-srv
-pnpm --filter @universo/uniks-srv dev
-pnpm --filter @universo/uniks-srv test
+pnpm build --filter @universo/uniks-backend
+pnpm --filter @universo/uniks-backend dev
+pnpm --filter @universo/uniks-backend test
 ```
 
 ## Технологии

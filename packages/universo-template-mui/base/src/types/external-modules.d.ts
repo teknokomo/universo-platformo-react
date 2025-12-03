@@ -9,31 +9,31 @@ declare module '@ui/ui-components/loading/Loadable' {
     export default function Loadable<T extends ComponentType<any> | LazyExoticComponent<ComponentType<any>>>(component: T): T
 }
 
-declare module '@universo/uniks-frt/pages/UnikList' {
+declare module '@universo/uniks-frontend/pages/UnikList' {
     import type { ComponentType } from 'react'
     const Component: ComponentType<any>
     export default Component
 }
 
-declare module '@universo/profile-frt/pages/Profile.jsx' {
+declare module '@universo/profile-frontend/pages/Profile.jsx' {
     import type { ComponentType } from 'react'
     const Component: ComponentType<any>
     export default Component
 }
 
-declare module '@universo/metaverses-frt/pages/MetaverseList' {
+declare module '@universo/metaverses-frontend/pages/MetaverseList' {
     import type { ComponentType } from 'react'
     const Component: ComponentType<any>
     export default Component
 }
 
-declare module '@universo/metaverses-frt/pages/MetaverseBoard' {
+declare module '@universo/metaverses-frontend/pages/MetaverseBoard' {
     import type { ComponentType } from 'react'
     const Component: ComponentType<any>
     export default Component
 }
 
-declare module '@universo/metaverses-frt' {
+declare module '@universo/metaverses-frontend' {
     import type { ComponentType } from 'react'
     export const MetaverseList: ComponentType<any>
     export const MetaverseBoard: ComponentType<any>
@@ -43,12 +43,12 @@ declare module '@universo/metaverses-frt' {
     export const EntityDetail: ComponentType<any>
 }
 
-declare module '@universo/resources-frt' {
+declare module '@universo/resources-frontend' {
     import type { ComponentType } from 'react'
     export const ClusterList: ComponentType<any>
 }
 
-declare module '@flowise/tools-frt/pages/Tools' {
+declare module '@flowise/tools-frontend/pages/Tools' {
     import type { ComponentType } from 'react'
     const Component: ComponentType<any>
     export default Component

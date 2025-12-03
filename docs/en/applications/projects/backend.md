@@ -1,4 +1,4 @@
-# Projects Backend (`@universo/projects-srv`)
+# Projects Backend (`@universo/projects-backend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 

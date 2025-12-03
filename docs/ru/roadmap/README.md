@@ -26,11 +26,11 @@ Universo Platformo в настоящее время состоит из 6 раб
 ```
 packages/
 ├── updl/                # Система узлов UPDL (7 высокоуровневых узлов)
-├── publish-frt/         # Фронтенд публикации (AR.js, PlayCanvas)
-├── publish-srv/         # Бэкенд публикации (workspace пакет)
-├── profile-frt/         # Фронтенд профилей пользователей
-├── profile-srv/         # Бэкенд профилей (workspace пакет)
-└── analytics-frt/       # Фронтенд аналитики квизов
+├── publish-frontend/         # Фронтенд публикации (AR.js, PlayCanvas)
+├── publish-backend/         # Бэкенд публикации (workspace пакет)
+├── profile-frontend/         # Фронтенд профилей пользователей
+├── profile-backend/         # Бэкенд профилей (workspace пакет)
+└── analytics-frontend/       # Фронтенд аналитики квизов
 ```
 
 ### Ключевые достижения
@@ -77,9 +77,9 @@ packages/
 
 **Приоритетные приложения**:
 
--   `resources-frt/srv` - Система ресурсов с плотностью материалов
--   `ships-frt/srv` - Управление кораблями
--   `economy-frt/srv` - Базовая экономика между мирами
+-   `resources-frontend/srv` - Система ресурсов с плотностью материалов
+-   `ships-frontend/srv` - Управление кораблями
+-   `economy-frontend/srv` - Базовая экономика между мирами
 
 **Критерии готовности**:
 
@@ -93,9 +93,9 @@ packages/
 
 **Приложения**:
 
--   `corporations-frt/srv` - Корпорации и организации
--   `auth-enhanced-frt/srv` - Расширенная авторизация
--   `multiplayer-frt/srv` - Реальное время мультиплеер
+-   `corporations-frontend/srv` - Корпорации и организации
+-   `auth-enhanced-frontend/srv` - Расширенная авторизация
+-   `multiplayer-frontend/srv` - Реальное время мультиплеер
 
 ### Фаза 3: Продвинутые функции - Q4 2025
 
@@ -103,9 +103,9 @@ packages/
 
 **Приложения**:
 
--   `stations-frt/srv` - Космические станции
--   `trading-frt/srv` - Продвинутая торговля
--   `diplomacy-frt/srv` - Дипломатические отношения
+-   `stations-frontend/srv` - Космические станции
+-   `trading-frontend/srv` - Продвинутая торговля
+-   `diplomacy-frontend/srv` - Дипломатические отношения
 
 ### Фаза 4: Экосистема - 2026+
 
@@ -113,9 +113,9 @@ packages/
 
 **Приложения**:
 
--   `workflow-engine-srv` - Движок Chatflow
--   `node-registry-srv` - Реестр узлов
--   `api-gateway-srv` - API Gateway
+-   `workflow-engine-backend` - Движок Chatflow
+-   `node-registry-backend` - Реестр узлов
+-   `api-gateway-backend` - API Gateway
 
 ## Приложения
 

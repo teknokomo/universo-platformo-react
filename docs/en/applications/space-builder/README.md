@@ -6,8 +6,8 @@ Turn a natural‑language request into a valid Flow graph built from UPDL nodes.
 
 Space Builder consists of two packages:
 
--   `packages/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
--   `packages/space-builder-srv` — API (meta‑prompt, provider call, JSON extraction, Zod validation)
+-   `packages/space-builder-frontend` — UI (FAB + MUI Dialog + i18n + hook)
+-   `packages/space-builder-backend` — API (meta‑prompt, provider call, JSON extraction, Zod validation)
 
 The UI supports a three‑step workflow for quiz building (Prepare → Preview → Settings → Generate):
 
@@ -30,7 +30,7 @@ The UI can apply the generated graph in three modes (Creation mode):
 
 ## Environment
 
-Configure in `packages/flowise-server/.env`:
+Configure in `packages/flowise-core-backend/base/.env`:
 
 -   Test mode flags
     -   `SPACE_BUILDER_TEST_MODE=true|false`
@@ -89,12 +89,12 @@ Three-step UI (Prepare → Preview → Settings → Generate):
 
 ```ts
 import i18n from '@/i18n'
-import { registerSpaceBuilderI18n } from '@universo/space-builder-frt'
+import { registerSpaceBuilderI18n } from '@universo/space-builder-frontend'
 registerSpaceBuilderI18n(i18n)
 ```
 
 ```tsx
-import { SpaceBuilderFab } from '@universo/space-builder-frt'
+import { SpaceBuilderFab } from '@universo/space-builder-frontend'
 ;<SpaceBuilderFab
     models={availableChatModels}
     onApply={(graph, mode) => {
@@ -115,8 +115,8 @@ The UI fetches available models from existing Credentials and reads Test mode an
 Workspace commands:
 
 ```
-pnpm build --filter @universo/space-builder-frt
-pnpm build --filter @universo/space-builder-srv
+pnpm build --filter @universo/space-builder-frontend
+pnpm build --filter @universo/space-builder-backend
 ```
 
 ## Notes

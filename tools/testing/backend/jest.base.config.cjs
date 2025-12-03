@@ -18,8 +18,8 @@ module.exports = {
   moduleNameMapper: {
     '^@testing/backend/(.*)$': path.join(__dirname, '$1'),
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@universo/auth-srv$': path.join(repoRoot, 'packages/auth-srv/base/dist/index.js'),
-    '^@universo/auth-srv/(.*)$': path.join(repoRoot, 'packages/auth-srv/base/dist/$1')
+    '^@universo/auth-backend$': path.join(repoRoot, 'packages/auth-backend/base/dist/index.js'),
+    '^@universo/auth-backend/(.*)$': path.join(repoRoot, 'packages/auth-backend/base/dist/$1')
   },
   collectCoverageFrom: [
     '<rootDir>/src/**/*.{ts,tsx}',

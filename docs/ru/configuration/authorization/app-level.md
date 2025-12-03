@@ -16,7 +16,7 @@ Universo Platformo поставляется со стеком сессий на 
 
 ### Обязательные переменные окружения
 
-Добавьте следующие переменные в `packages/flowise-server/.env` (или передайте их через флаги CLI):
+Добавьте следующие переменные в `packages/flowise-core-backend/base/.env` (или передайте их через флаги CLI):
 
 - `SESSION_SECRET` — Секретная строка для подписи Express сессий.
 - `SUPABASE_URL` — URL вашего проекта Supabase.
@@ -83,7 +83,7 @@ environment:
 
 ### Git clone
 
-При запуске из исходного кода добавьте переменные в `packages/flowise-server/.env`:
+При запуске из исходного кода добавьте переменные в `packages/flowise-core-backend/base/.env`:
 
 ```dotenv
 SESSION_SECRET=super-secret

@@ -35,7 +35,7 @@
 
 ## Приоритетные приложения
 
-### 1. Corporations System (corporations-frt/srv)
+### 1. Corporations System (corporations-frontend/srv)
 
 **Приоритет**: Критический
 **Время разработки**: 6 недель
@@ -43,14 +43,14 @@
 
 #### Функциональные требования
 
-**Frontend (corporations-frt)**:
+**Frontend (corporations-frontend)**:
 
 -   Интерфейс создания и управления корпорациями
 -   Система ролей и прав доступа
 -   Управление корпоративными активами
 -   Дипломатический интерфейс
 
-**Backend (corporations-srv)**:
+**Backend (corporations-backend)**:
 
 -   API управления корпорациями
 -   Система иерархии ролей
@@ -157,7 +157,7 @@ interface UpdateMemberRolesRequest {
 }
 ```
 
-### 2. Enhanced Authentication (auth-enhanced-frt/srv)
+### 2. Enhanced Authentication (auth-enhanced-frontend/srv)
 
 **Приоритет**: Высокий
 **Время разработки**: 4 недели
@@ -165,14 +165,14 @@ interface UpdateMemberRolesRequest {
 
 #### Функциональные требования
 
-**Frontend (auth-enhanced-frt)**:
+**Frontend (auth-enhanced-frontend)**:
 
 -   Единый интерфейс входа (SSO)
 -   Управление игровыми аккаунтами
 -   Настройки безопасности
 -   Двухфакторная аутентификация
 
-**Backend (auth-enhanced-srv)**:
+**Backend (auth-enhanced-backend)**:
 
 -   Интеграция с Supabase Auth
 -   Управление игровыми сессиями
@@ -241,7 +241,7 @@ interface LoginRecord {
 }
 ```
 
-### 3. Multiplayer System (multiplayer-colyseus-srv)
+### 3. Multiplayer System (multiplayer-colyseus-backend)
 
 **Приоритет**: Критический
 **Статус**: ✅ **ЗАВЕРШЕНО** - Полный мультиплеерный сервер на базе Colyseus реализован
@@ -250,14 +250,14 @@ interface LoginRecord {
 
 #### Функциональные требования
 
-**Frontend (multiplayer-frt)**:
+**Frontend (multiplayer-frontend)**:
 
 -   Интерфейс списка игроков онлайн
 -   Система чата и коммуникаций
 -   Отображение активности других игроков
 -   Уведомления о событиях
 
-**Backend (multiplayer-srv)**:
+**Backend (multiplayer-backend)**:
 
 -   WebSocket сервер для real-time коммуникации
 -   Система синхронизации позиций
@@ -383,7 +383,7 @@ interface PerformanceTargets {
 
 **Задачи**:
 
--   Создание архитектуры corporations-frt/srv
+-   Создание архитектуры corporations-frontend/srv
 -   Реализация базового API корпораций
 -   Система ролей и разрешений
 -   Интерфейс создания корпораций

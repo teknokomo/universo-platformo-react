@@ -6,5 +6,5 @@ build
 **/build
 **/dist
 
-packages/flowise-server/.env
-packages/flowise-ui/.env
+packages/flowise-core-backend/base/.env
+packages/flowise-core-frontend/base/.env

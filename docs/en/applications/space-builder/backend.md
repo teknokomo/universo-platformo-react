@@ -1,4 +1,4 @@
-# `packages/space-builder-srv` — Space Builder Backend — [Status: MVP]
+# `packages/space-builder-backend` — Space Builder Backend — [Status: MVP]
 
 Backend service for converting natural language requests into quiz plans and UPDL graphs via LLM providers.
 
@@ -156,7 +156,7 @@ Per-provider settings (example for OpenAI):
 Single CJS build:
 
 ```bash
-pnpm build --filter @universo/space-builder-srv
+pnpm build --filter @universo/space-builder-backend
 ```
 
 ## Security

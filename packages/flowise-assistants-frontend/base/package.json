@@ -1,0 +1,52 @@
+{
+    "name": "@flowise/assistants-frontend",
+    "version": "0.1.0",
+    "description": "Universo Platformo - Assistants Frontend Package",
+    "license": "SEE LICENSE IN LICENSE-Flowise.md",
+    "homepage": "https://universo.pro",
+    "author": {
+        "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+        "email": "info@universo.pro"
+    },
+    "main": "src/index.ts",
+    "module": "src/index.ts",
+    "exports": {
+        ".": "./src/index.ts",
+        "./i18n": "./src/i18n/index.ts",
+        "./pages/Assistants": "./src/pages/index.jsx",
+        "./pages/custom/CustomAssistantLayout": "./src/pages/custom/CustomAssistantLayout.jsx",
+        "./pages/custom/CustomAssistantConfigurePreview": "./src/pages/custom/CustomAssistantConfigurePreview.jsx",
+        "./pages/openai/OpenAIAssistantLayout": "./src/pages/openai/OpenAIAssistantLayout.jsx"
+    },
+    "scripts": {
+        "lint": "eslint src --ext .js,.jsx,.ts,.tsx --max-warnings 50"
+    },
+    "dependencies": {
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.0",
+        "@flowise/docstore-frontend": "workspace:*",
+        "@flowise/store": "workspace:*",
+        "@mui/icons-material": "^5.17.1",
+        "@mui/material": "^5.17.1",
+        "@tabler/icons-react": "^3.30.0",
+        "@universo/i18n": "workspace:*",
+        "i18next": "catalog:",
+        "lodash": "^4.17.21",
+        "prop-types": "^15.8.1",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-i18next": "catalog:",
+        "react-markdown": "^9.0.3",
+        "react-redux": "^9.2.0",
+        "react-router-dom": "^6.28.0",
+        "uuid": "^11.0.3"
+    },
+    "peerDependencies": {
+        "@universo/api-client": "workspace:*"
+    },
+    "devDependencies": {
+        "eslint": "^8.57.1",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^4.6.2"
+    }
+}

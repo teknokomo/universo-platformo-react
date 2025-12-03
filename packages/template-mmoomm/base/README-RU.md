@@ -125,8 +125,8 @@ pnpm --filter @universo/template-mmoomm test
 
 - [Документация основных приложений](../README-RU.md)
 - [Определения узлов UPDL](../updl/base/README-RU.md)
-- [Publishing Frontend](../publish-frt/base/README-RU.md)
-- [Конструктор пространств](../space-builder-frt/base/README-RU.md)
+- [Publishing Frontend](../publish-frontend/base/README-RU.md)
+- [Конструктор пространств](../space-builder-frontend/base/README-RU.md)
 - [Документация PlayCanvas](https://developer.playcanvas.com/)
 
 ---

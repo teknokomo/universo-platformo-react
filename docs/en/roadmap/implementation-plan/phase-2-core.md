@@ -35,7 +35,7 @@ Create a fully functional social and technical infrastructure to support complex
 
 ## Priority Applications
 
-### 1. Corporations System (corporations-frt/srv)
+### 1. Corporations System (corporations-frontend/srv)
 
 **Priority**: Critical
 **Development Time**: 6 weeks
@@ -43,14 +43,14 @@ Create a fully functional social and technical infrastructure to support complex
 
 #### Functional Requirements
 
-**Frontend (corporations-frt)**:
+**Frontend (corporations-frontend)**:
 
 -   Corporation creation and management interface
 -   Role and access rights system
 -   Corporate asset management
 -   Diplomatic interface
 
-**Backend (corporations-srv)**:
+**Backend (corporations-backend)**:
 
 -   Corporation management API
 -   Role hierarchy system
@@ -157,7 +157,7 @@ interface UpdateMemberRolesRequest {
 }
 ```
 
-### 2. Enhanced Authentication (auth-enhanced-frt/srv)
+### 2. Enhanced Authentication (auth-enhanced-frontend/srv)
 
 **Priority**: High
 **Development Time**: 4 weeks
@@ -165,14 +165,14 @@ interface UpdateMemberRolesRequest {
 
 #### Functional Requirements
 
-**Frontend (auth-enhanced-frt)**:
+**Frontend (auth-enhanced-frontend)**:
 
 -   Single Sign-On (SSO) interface
 -   Game account management
 -   Security settings
 -   Two-factor authentication
 
-**Backend (auth-enhanced-srv)**:
+**Backend (auth-enhanced-backend)**:
 
 -   Supabase Auth integration
 -   Game session management
@@ -241,7 +241,7 @@ interface LoginRecord {
 }
 ```
 
-### 3. Multiplayer System (multiplayer-colyseus-srv)
+### 3. Multiplayer System (multiplayer-colyseus-backend)
 
 **Priority**: Critical
 **Status**: ✅ **COMPLETED** - Full Colyseus-based multiplayer server implemented
@@ -250,14 +250,14 @@ interface LoginRecord {
 
 #### Functional Requirements
 
-**Frontend (multiplayer-frt)**:
+**Frontend (multiplayer-frontend)**:
 
 -   Online players list interface
 -   Chat and communication system
 -   Other players' activity display
 -   Event notifications
 
-**Backend (multiplayer-srv)**:
+**Backend (multiplayer-backend)**:
 
 -   WebSocket server for real-time communication
 -   Position synchronization system
@@ -387,7 +387,7 @@ interface PerformanceTargets {
 
 **Tasks**:
 
--   Create corporations-frt/srv architecture
+-   Create corporations-frontend/srv architecture
 -   Implement basic corporation API
 -   Role and permission system
 -   Corporation creation interface

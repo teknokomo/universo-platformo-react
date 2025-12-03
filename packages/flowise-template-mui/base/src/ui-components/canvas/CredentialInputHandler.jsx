@@ -61,7 +61,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                 setShowSpecificCredentialDialog(true)
             }
         } catch (error) {
-            console.error('[spaces-frt][CredentialInputHandler] Failed to load credentials', error)
+            console.error('[spaces-frontend][CredentialInputHandler] Failed to load credentials', error)
         }
     }
 

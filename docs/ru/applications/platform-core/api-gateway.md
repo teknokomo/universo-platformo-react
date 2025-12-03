@@ -12,13 +12,13 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/api-gateway-srv/base/
+packages/api-gateway-backend/base/
   src/{api,infra}/...
 ```
 
 ## Зависимости
 
--   Auth, все доменные `*-srv`
+-   Auth, все доменные `*-backend`
 
 ## Связь с UPDL
 

@@ -9,8 +9,8 @@
   - Create basic README.md documentation
   - _Requirements: 1.1, 1.7_
 
-- [x] 1.1 Copy existing quiz functionality from publish-frt
-  - Copy all files from `packages/publish-frt/base/src/builders/templates/quiz` to `packages/template-quiz/base/src`
+- [x] 1.1 Copy existing quiz functionality from publish-frontend
+  - Copy all files from `packages/publish-frontend/base/src/builders/templates/quiz` to `packages/template-quiz/base/src`
   - Preserve directory structure and file organization
   - Ensure all handlers, builders, and utilities are included
   - _Requirements: 1.2_
@@ -29,8 +29,8 @@
   - Create translation export functions matching template-mmoomm
   - _Requirements: 1.4_
 
-- [x] 1.4 Update publish-frt to use new template-quiz package
-  - Add @universo/template-quiz dependency to publish-frt package.json
+- [x] 1.4 Update publish-frontend to use new template-quiz package
+  - Add @universo/template-quiz dependency to publish-frontend package.json
   - Update TemplateRegistry to import from new package
   - Modify TypeScript path mappings for new package
   - Update template references in builders
@@ -40,7 +40,7 @@
   - Test that quiz generation works with new package
   - Verify AR.js output matches original functionality
   - Run full build and test cycle
-  - Remove original quiz code from publish-frt after verification
+  - Remove original quiz code from publish-frontend after verification
   - _Requirements: 1.6_
 
 - [x] 2. Fix credentials integration in Space Builder
@@ -53,7 +53,7 @@
   - _Requirements: 2.3, 2.5_
 
 - [x] 2.1 Enhance credential resolution in main server
-  - Update resolveCredential function in packages/flowise-server/src/routes/index.ts
+  - Update resolveCredential function in packages/flowise-core-backend/base/src/routes/index.ts
   - Implement proper credential type detection and field extraction
   - Add support for multiple provider credential types (OpenAI, Groq, etc.)
   - Handle decryption errors and provide meaningful error messages

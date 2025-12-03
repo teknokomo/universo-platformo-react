@@ -111,9 +111,9 @@
 
 ## Карта приложений для метавселенных
 
--   `metaverse-srv` — бэкенд домена метавселенных (управление, связи, публикация хаков)
--   `metaverse-frt` — фронтенд управления метавселенными (консоль, визард, маркетплейс интеграция)
--   Связанные сервисы: `resources-srv`, `entities-srv`, `economy-srv`, `publish-frt`, `template-engine-srv`
+-   `metaverse-backend` — бэкенд домена метавселенных (управление, связи, публикация хаков)
+-   `metaverse-frontend` — фронтенд управления метавселенными (консоль, визард, маркетплейс интеграция)
+-   Связанные сервисы: `resources-backend`, `entities-backend`, `economy-backend`, `publish-frontend`, `template-engine-backend`
 
 ## Связанные разделы
 

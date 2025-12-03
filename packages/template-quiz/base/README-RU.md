@@ -140,7 +140,7 @@ pnpm --filter @universo/template-quiz test
 
 - [Документация основных приложений](../README-RU.md)
 - [Определения узлов UPDL](../updl/base/README-RU.md)
-- [Publishing Frontend](../publish-frt/base/README-RU.md)
+- [Publishing Frontend](../publish-frontend/base/README-RU.md)
 - [Документация AR.js](https://ar-js-org.github.io/AR.js-Docs/)
 
 ## Лицензия

@@ -59,7 +59,7 @@ File naming should be **consistent**, **predictable**, and **semantic**. The con
 
 **Examples**:
 ```
-✅ space-builder-frt/
+✅ space-builder-frontend/
 ✅ universo-template-mui/
 ✅ memory-bank/
 ✅ menu-items/
@@ -135,13 +135,13 @@ Does the file contain JSX elements (<Component />)?
 
 1. **Use Git rename** to preserve history:
    ```bash
-   git mv packages/metaverses-frt/base/src/pages/metaverseActions.tsx packages/metaverses-frt/base/src/pages/MetaverseActions.tsx
+   git mv packages/metaverses-frontend/base/src/pages/metaverseActions.tsx packages/metaverses-frontend/base/src/pages/MetaverseActions.tsx
    ```
 
 2. **Find all imports**:
    ```bash
-   grep -r "from './metaverseActions'" packages/metaverses-frt/
-   grep -r "from '../pages/metaverseActions'" packages/metaverses-frt/
+   grep -r "from './metaverseActions'" packages/metaverses-frontend/
+   grep -r "from '../pages/metaverseActions'" packages/metaverses-frontend/
    ```
 
 3. **Update imports**:
@@ -165,7 +165,7 @@ Does the file contain JSX elements (<Component />)?
 | Utility | **camelCase** | utils/ | `genericHelper.ts` |
 | Type Definitions | **camelCase** | types/ | `template-mui.d.ts` |
 | Configuration (no JSX) | **camelCase** | menu-items/ | `metaverseDashboard.ts` |
-| Directory | **kebab-case** | anywhere | `space-builder-frt/` |
+| Directory | **kebab-case** | anywhere | `space-builder-frontend/` |
 
 ## Enforcement
 

@@ -111,27 +111,27 @@ graph TB
 
 #### Resources Management
 
--   **resources-frt**: Фронтенд управления ресурсами
--   **resources-srv**: Бэкенд системы ресурсов с плотностью материалов
+-   **resources-frontend**: Фронтенд управления ресурсами
+-   **resources-backend**: Бэкенд системы ресурсов с плотностью материалов
 
 #### Economy System
 
--   **economy-frt**: Фронтенд экономической системы
--   **economy-srv**: Бэкенд валюты Inmo и торговых операций
+-   **economy-frontend**: Фронтенд экономической системы
+-   **economy-backend**: Бэкенд валюты Inmo и торговых операций
 
 #### Ships & Navigation
 
--   **ships-frt**: Фронтенд управления кораблями
--   **ships-srv**: Бэкенд флота и кастомизации кораблей
--   **navigation-frt**: Фронтенд навигации между мирами
--   **navigation-srv**: Бэкенд звездных врат и картографии
+-   **ships-frontend**: Фронтенд управления кораблями
+-   **ships-backend**: Бэкенд флота и кастомизации кораблей
+-   **navigation-frontend**: Фронтенд навигации между мирами
+-   **navigation-backend**: Бэкенд звездных врат и картографии
 
 #### Stations & Mining
 
--   **stations-frt**: Фронтенд космических станций
--   **stations-srv**: Бэкенд строительства и производства
--   **mining-frt**: Фронтенд промышленного майнинга
--   **mining-srv**: Бэкенд лазерных систем и дронов
+-   **stations-frontend**: Фронтенд космических станций
+-   **stations-backend**: Бэкенд строительства и производства
+-   **mining-frontend**: Фронтенд промышленного майнинга
+-   **mining-backend**: Бэкенд лазерных систем и дронов
 
 ### 2. Социальные системы (6 приложений)
 
@@ -139,23 +139,23 @@ graph TB
 
 #### Corporations & Organizations
 
--   **corporations-frt**: Фронтенд корпораций
--   **corporations-srv**: Бэкенд организаций и иерархии ролей
+-   **corporations-frontend**: Фронтенд корпораций
+-   **corporations-backend**: Бэкенд организаций и иерархии ролей
 
 #### Diplomacy & Relations
 
--   **diplomacy-frt**: Фронтенд дипломатических отношений
--   **diplomacy-srv**: Бэкенд союзов, конфликтов и переговоров
+-   **diplomacy-frontend**: Фронтенд дипломатических отношений
+-   **diplomacy-backend**: Бэкенд союзов, конфликтов и переговоров
 
 #### Trading & Commerce
 
--   **trading-frt**: Фронтенд торговых операций
--   **trading-srv**: Бэкенд аукционов, контрактов и логистики
+-   **trading-frontend**: Фронтенд торговых операций
+-   **trading-backend**: Бэкенд аукционов, контрактов и логистики
 
 #### Communication & Social
 
--   **communication-frt**: Фронтенд внутриигровой связи
--   **communication-srv**: Бэкенд форумов и сообществ
+-   **communication-frontend**: Фронтенд внутриигровой связи
+-   **communication-backend**: Бэкенд форумов и сообществ
 
 ### 3. Технические системы (6 приложений)
 
@@ -163,33 +163,33 @@ graph TB
 
 #### Enhanced Authentication
 
--   **auth-enhanced-frt**: Фронтенд расширенной авторизации
--   **auth-enhanced-srv**: Бэкенд интеграции игровых и платформенных аккаунтов
+-   **auth-enhanced-frontend**: Фронтенд расширенной авторизации
+-   **auth-enhanced-backend**: Бэкенд интеграции игровых и платформенных аккаунтов
 
 #### Multiplayer & Networking
 
--   **multiplayer-frt**: Фронтенд мультиплеера
--   **multiplayer-srv**: Бэкенд синхронизации в реальном времени
+-   **multiplayer-frontend**: Фронтенд мультиплеера
+-   **multiplayer-backend**: Бэкенд синхронизации в реальном времени
 
 #### Security & Monitoring
 
--   **security-frt**: Фронтенд систем безопасности
--   **security-srv**: Бэкенд защиты от читов и мониторинга
+-   **security-frontend**: Фронтенд систем безопасности
+-   **security-backend**: Бэкенд защиты от читов и мониторинга
 
 #### Enhanced Analytics
 
--   **analytics-enhanced-frt**: Фронтенд расширенной аналитики
--   **analytics-enhanced-srv**: Бэкенд метрик и поведенческого анализа
+-   **analytics-enhanced-frontend**: Фронтенд расширенной аналитики
+-   **analytics-enhanced-backend**: Бэкенд метрик и поведенческого анализа
 
 #### Events & Activities
 
--   **events-frt**: Фронтенд игровых событий
--   **events-srv**: Бэкенд динамических событий и мероприятий
+-   **events-frontend**: Фронтенд игровых событий
+-   **events-backend**: Бэкенд динамических событий и мероприятий
 
 #### Performance Monitoring
 
--   **monitoring-frt**: Фронтенд мониторинга производительности
--   **monitoring-srv**: Бэкенд системного мониторинга и алертов
+-   **monitoring-frontend**: Фронтенд мониторинга производительности
+-   **monitoring-backend**: Бэкенд системного мониторинга и алертов
 
 ### 4. Платформенные приложения (4 приложения)
 
@@ -197,19 +197,19 @@ graph TB
 
 #### Workflow Engine
 
--   **workflow-engine-srv**: Движок выполнения Chatflow и обработки узлов
+-   **workflow-engine-backend**: Движок выполнения Chatflow и обработки узлов
 
 #### Node Registry
 
--   **node-registry-srv**: Центральный реестр всех типов узлов с версионированием
+-   **node-registry-backend**: Центральный реестр всех типов узлов с версионированием
 
 #### Template Engine
 
--   **template-engine-srv**: Система шаблонов экспорта и генерации кода
+-   **template-engine-backend**: Система шаблонов экспорта и генерации кода
 
 #### API Gateway
 
--   **api-gateway-srv**: Единая точка входа, маршрутизация и авторизация
+-   **api-gateway-backend**: Единая точка входа, маршрутизация и авторизация
 
 ## Микросервисный дизайн
 
@@ -399,17 +399,17 @@ CREATE TABLE ecs.relation (
 ```yaml
 routes:
     - path: /api/v1/resources/*
-      service: resources-srv
+      service: resources-backend
       auth_required: true
       rate_limit: 100/minute
 
     - path: /api/v1/ships/*
-      service: ships-srv
+      service: ships-backend
       auth_required: true
       rate_limit: 50/minute
 
     - path: /api/v1/economy/*
-      service: economy-srv
+      service: economy-backend
       auth_required: true
       rate_limit: 200/minute
 ```

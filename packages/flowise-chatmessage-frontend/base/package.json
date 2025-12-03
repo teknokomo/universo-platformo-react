@@ -1,0 +1,63 @@
+{
+  "name": "@flowise/chatmessage-frontend",
+  "version": "0.1.0",
+  "description": "Chat message frontend components for Flowise - reusable chat interface with streaming, audio recording, and file uploads",
+  "license": "SEE LICENSE IN LICENSE-Flowise.md",
+  "homepage": "https://universo.pro",
+  "author": {
+    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+    "email": "info@universo.pro"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "clean": "rimraf dist",
+    "nuke": "rimraf node_modules .turbo"
+  },
+  "dependencies": {
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "@mui/material": "5.15.0",
+    "@mui/system": "^6.4.3",
+    "@tabler/icons-react": "^3.30.0",
+    "@universo/auth-frontend": "workspace:*",
+    "@universo/api-client": "workspace:*",
+    "@universo/i18n": "workspace:*",
+    "@universo/utils": "workspace:*",
+    "@flowise/template-mui": "workspace:*",
+    "@flowise/store": "workspace:*",
+    "lodash": "^4.17.21",
+    "prop-types": "^15.7.2",
+    
+    "react-markdown": "^8.0.6",
+    "react-redux": "^8.0.5",
+    "rehype-mathjax": "^4.0.2",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^3.0.1",
+    "remark-math": "^5.1.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.5",
+    "tsdown": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  }
+}

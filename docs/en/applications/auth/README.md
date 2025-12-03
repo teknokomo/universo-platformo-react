@@ -2,8 +2,8 @@
 
 Universo Platformo now uses Passport.js sessions backed by Supabase for authentication. The implementation lives in two reusable packages:
 
-- `@universo/auth-srv` — Express/Passport integration mounted inside `packages/flowise-server`
-- `@universo/auth-frt` — React primitives (`createAuthClient`, `useSession`, `LoginForm`) consumed by `packages/flowise-ui`
+- `@universo/auth-backend` — Express/Passport integration mounted inside `packages/flowise-core-backend/base`
+- `@universo/auth-frontend` — React primitives (`createAuthClient`, `useSession`, `LoginForm`) consumed by `packages/flowise-core-frontend/base`
 
 ## Request flow
 
@@ -23,7 +23,7 @@ CSRF protection is enforced on state-changing routes via `csurf` and the `X-CSRF
 
 ## Frontend integration
 
-`packages/flowise-ui` consumes `@universo/auth-frt`:
+`packages/flowise-core-frontend/base` consumes `@universo/auth-frontend`:
 
 ```ts
 const authClient = createAuthClient({ baseURL: `${baseURL}/api/v1` })
@@ -34,7 +34,7 @@ The login screen reuses `LoginForm`, removes all `localStorage` token handling, 
 
 ## Environment variables
 
-Defined in `packages/flowise-server`:
+Defined in `packages/flowise-core-backend/base`:
 
 - `SESSION_SECRET`
 - `SESSION_COOKIE_NAME` (optional, default `up.sid`)
@@ -46,9 +46,9 @@ Defined in `packages/flowise-server`:
 ## Build & testing tips
 
 ```bash
-pnpm --filter @universo/auth-srv build
-pnpm --filter @universo/auth-frt build
-pnpm --filter flowise build   # packages/flowise-server
+pnpm --filter @universo/auth-backend build
+pnpm --filter @universo/auth-frontend build
+pnpm --filter flowise build   # packages/flowise-core-backend/base
 pnpm --filter flowise lint
 ```
 

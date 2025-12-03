@@ -11,7 +11,7 @@
 ### Ключевые архитектурные принципы
 
 1. **Минимальные изменения в core Flowise** - сохранение совместимости с будущими обновлениями
-2. **Изоляция в приложениях** - новый функционал размещается в `packages/spaces-srv`
+2. **Изоляция в приложениях** - новый функционал размещается в `packages/spaces-backend`
 3. **Постепенная миграция** - поэтапный перенос функционала без нарушения работы системы
 4. **Обратная несовместимость** - полная замена структуры БД (проект в разработке)
 
@@ -26,7 +26,7 @@
   - создаём первый `canvas` с тем же `id`, что и `chat_flow.id` (главная совместимость);
   - связываем `spaces_canvases(space_id = id, canvas_id = id, sort_order = 1)`.
 - Переклеиваем ORM‑сущность `ChatFlow` (в core) на таблицу `canvases` — текущие сервисы продолжают работать «как есть» (минимум правок).
-- Параллельно добавляем новый сервис `packages/spaces-srv` с API `/uniks/:unikId/spaces`, UI вкладки Canvas, редиректы `/chatflows → /spaces` (в режиме `compat`).
+- Параллельно добавляем новый сервис `packages/spaces-backend` с API `/uniks/:unikId/spaces`, UI вкладки Canvas, редиректы `/chatflows → /spaces` (в режиме `compat`).
 - После стабилизации: обновляем Swagger, переводим UI на `strict`, удаляем старую таблицу `chat_flow` (последний шаг).
 
 ## Архитектура
@@ -36,15 +36,15 @@
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        UI[packages/flowise-ui - Main UI]
-        SpaceFRT[packages/spaces-frt - Spaces Frontend]
-        PubFRT[packages/publish-frt - Publication Frontend]
+        UI[packages/flowise-core-frontend/base - Main UI]
+        SpaceFRT[packages/spaces-frontend - Spaces Frontend]
+        PubFRT[packages/publish-frontend - Publication Frontend]
     end
     
     subgraph "Backend Layer"
-        Server[packages/flowise-server - Core Flowise]
-        SpaceSRV[packages/spaces-srv - Spaces Backend]
-        PubSRV[packages/publish-srv - Publication Backend]
+        Server[packages/flowise-core-backend/base - Core Flowise]
+        SpaceSRV[packages/spaces-backend - Spaces Backend]
+        PubSRV[packages/publish-backend - Publication Backend]
     end
     
     subgraph "Database Layer"
@@ -68,17 +68,17 @@ graph TB
     ChatMessages --> Canvases
 ```
 
-### Архитектурное решение: Создание packages/spaces-srv
+### Архитектурное решение: Создание packages/spaces-backend
 
 **Обоснование выбора:**
-- Создание нового приложения `packages/spaces-srv` вместо размещения в `packages/space-builder-srv`
-- Постепенный перенос функционала из `packages/flowise-server` в изолированное приложение
+- Создание нового приложения `packages/spaces-backend` вместо размещения в `packages/space-builder-backend`
+- Постепенный перенос функционала из `packages/flowise-core-backend/base` в изолированное приложение
 - Сохранение принципов модульной архитектуры проекта
 
 **Альтернативы рассмотренные:**
-1. **Размещение в `packages/space-builder-srv`** - отклонено, так как это бэкенд билдера, не подходит для общего функционала Spaces
+1. **Размещение в `packages/space-builder-backend`** - отклонено, так как это бэкенд билдера, не подходит для общего функционала Spaces
 2. **Модификация исходной миграции** - отклонено для сохранения совместимости с Flowise
-3. **Создание `packages/spaces-srv`** - выбрано как оптимальное решение
+3. **Создание `packages/spaces-backend`** - выбрано как оптимальное решение
 
 **Преимущества выбранного подхода:**
 - Четкое разделение ответственности
@@ -221,7 +221,7 @@ CREATE POLICY spaces_member_read ON spaces
 
 #### Создание новых Entity классов (примерный код)
 
-**packages/spaces-srv/base/src/database/entities/Space.ts**
+**packages/spaces-backend/base/src/database/entities/Space.ts**
 ```typescript
 // Comments in English only
 @Entity('spaces')
@@ -253,7 +253,7 @@ export class Space {
 }
 ```
 
-**packages/spaces-srv/base/src/database/entities/Canvas.ts**
+**packages/spaces-backend/base/src/database/entities/Canvas.ts**
 ```typescript
 // Comments in English only
 @Entity('canvases')
@@ -280,7 +280,7 @@ export class Canvas {
 }
 ```
 
-**packages/spaces-srv/base/src/database/entities/SpaceCanvas.ts**
+**packages/spaces-backend/base/src/database/entities/SpaceCanvas.ts**
 ```typescript
 // Comments in English only
 @Entity('spaces_canvases')
@@ -306,9 +306,9 @@ export class SpaceCanvas {
 
 #### Миграции: структура и перенос данных (без изменения chat_message)
 
-**packages/spaces-srv/base/src/database/migrations/postgres/1743000000000-SpacesCore.ts** — создание таблиц, индексов, включение RLS (см. выше SQL‑блок и TypeORM шаблон ниже).
+**packages/spaces-backend/base/src/database/migrations/postgres/1743000000000-SpacesCore.ts** — создание таблиц, индексов, включение RLS (см. выше SQL‑блок и TypeORM шаблон ниже).
 
-**packages/spaces-srv/base/src/database/migrations/postgres/1743000000001-SpacesDataMigration.ts** — перенос данных. Важно: первый Canvas получает ТОТ ЖЕ `id`, что и ChatFlow, поэтому перепривязка `chat_message` не требуется.
+**packages/spaces-backend/base/src/database/migrations/postgres/1743000000001-SpacesDataMigration.ts** — перенос данных. Важно: первый Canvas получает ТОТ ЖЕ `id`, что и ChatFlow, поэтому перепривязка `chat_message` не требуется.
 
 ```typescript
 // Comments in English only
@@ -350,7 +350,7 @@ export class SpacesDataMigration1743000000001 implements MigrationInterface {
 
 Расположение новых маршрутов: под зонтичным префиксом `/uniks/:unikId/spaces` (согласовано с текущей архитектурой вложенных сервисов). Временная совместимость (`compat`) допустима только на время разработки; в финале спецификации все `chatflows`‑маршруты удаляются из публичного API.
 
-#### Spaces API (packages/spaces-srv)
+#### Spaces API (packages/spaces-backend)
 
 ```typescript
 // GET /api/v1/spaces
@@ -480,7 +480,7 @@ interface ReorderCanvasesRequest {
 
 ### 4. Адаптация системы публикации
 
-#### Изменения в packages/publish-srv
+#### Изменения в packages/publish-backend
 
 **Новая логика публикации холстов:**
 
@@ -533,7 +533,7 @@ async function migratePublications() {
 Пример изменения декоратора:
 
 ```typescript
-// packages/flowise-server/src/database/entities/ChatFlow.ts
+// packages/flowise-core-backend/base/src/database/entities/ChatFlow.ts
 // BEFORE: @Entity('chat_flow')
 // AFTER:  @Entity('canvases')
 ```
@@ -752,7 +752,7 @@ interface CanvasTabsProps {
 #### Обновление роутинга
 
 ```typescript
-// packages/flowise-ui/src/routes/index.tsx
+// packages/flowise-core-frontend/base/src/routes/index.tsx
 const routes = [
     // Редиректы для совместимости
     { path: '/chatflow/:id', redirect: '/space/:id' },
@@ -770,7 +770,7 @@ const routes = [
 #### Обновление переводов
 
 ```json
-// packages/flowise-ui/src/i18n/en.json
+// packages/flowise-core-frontend/base/src/i18n/en.json
 {
     "spaces": "Spaces",
     "space": "Space",
@@ -782,7 +782,7 @@ const routes = [
     "canvasSettings": "Canvas Settings"
 }
 
-// packages/flowise-ui/src/i18n/ru.json
+// packages/flowise-core-frontend/base/src/i18n/ru.json
 {
     "spaces": "Пространства",
     "space": "Пространство", 
@@ -905,7 +905,7 @@ async function migrateConfigurations() {
 **Цель:** Создание базовой структуры без нарушения существующего функционала
 
 **Задачи (обновлено):**
-1. Создание приложения `packages/spaces-srv`
+1. Создание приложения `packages/spaces-backend`
 2. Создание Entity классов (Space, Canvas, SpaceCanvas)
 3. Регистрация entities в центральном реестре
 4. Создание базовых API endpoints для Spaces и Canvas
@@ -913,7 +913,7 @@ async function migrateConfigurations() {
 6. Ввод флага `FEATURE_SPACES_MODE` (env) и режимов `legacy|compat|strict`
 
 **Критерии готовности:**
-- Приложение `packages/spaces-srv` создано и собирается
+- Приложение `packages/spaces-backend` создано и собирается
 - Новые таблицы создаются в БД
 - Базовые CRUD операции работают через API
 

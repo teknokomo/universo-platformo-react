@@ -1,4 +1,4 @@
-# `packages/analytics-srv` — Analytics System Backend — [Status: Planned]
+# `packages/analytics-backend` — Analytics System Backend — [Status: Planned]
 
 > **📋 Notice**: This documentation describes the planned backend component of the analytics system. The module is in the design stage.
 
@@ -89,7 +89,7 @@ Response: {
 ### External Services
 
 -   **flowise-server**: Integration with main server
--   **auth-srv**: User authentication and authorization
+-   **auth-backend**: User authentication and authorization
 -   **Cache**: Redis for caching aggregated data
 
 ## Security
@@ -108,23 +108,23 @@ Response: {
 pnpm install
 
 # Run in development mode
-pnpm --filter analytics-srv dev
+pnpm --filter analytics-backend dev
 
 # Build for production
-pnpm --filter analytics-srv build
+pnpm --filter analytics-backend build
 ```
 
 ### Testing
 
 ```bash
 # Run unit tests
-pnpm --filter analytics-srv test
+pnpm --filter analytics-backend test
 
 # Run integration tests
-pnpm --filter analytics-srv test:integration
+pnpm --filter analytics-backend test:integration
 
 # Linting
-pnpm --filter analytics-srv lint
+pnpm --filter analytics-backend lint
 ```
 
 ## Roadmap

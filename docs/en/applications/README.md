@@ -12,14 +12,14 @@ All applications follow a unified modular structure:
 
 ```
 packages/
-├── [application]-frt/    # Frontend package (React + TypeScript + Material-UI)
-├── [application]-srv/    # Backend package (Node.js + Express + TypeORM)
+├── [application]-frontend/    # Frontend package (React + TypeScript + Material-UI)
+├── [application]-backend/    # Backend package (Node.js + Express + TypeORM)
 └── [name]/              # Specialized package (UPDL, templates, utilities)
 ```
 
 **Key Principles:**
-- **Frontend packages** (`*-frt`): React 18, TypeScript, Material-UI, dual build (CJS + ESM)
-- **Backend packages** (`*-srv`): Express.js, TypeORM, PostgreSQL, RESTful API
+- **Frontend packages** (`*-frontend`): React 18, TypeScript, Material-UI, dual build (CJS + ESM)
+- **Backend packages** (`*-backend`): Express.js, TypeORM, PostgreSQL, RESTful API
 - **Minimal core changes**: Functionality added through packages without modifying Flowise
 - **Shared types**: Centralized TypeScript definitions in `@universo/types`
 
@@ -54,36 +54,36 @@ Reusable libraries and components:
 #### 3.1 Content Management
 
 **Workspaces (Uniks)** - Workspace management
-- Packages: `@universo/uniks-frt`, `@universo/uniks-srv`
+- Packages: `@universo/uniks-frontend`, `@universo/uniks-backend`
 - Features: Workspace creation, member management, roles (owner/admin/editor/member)
 - [Learn more →](uniks/README.md)
 
 **Spaces** - Canvas/space management
-- Packages: `@universo/spaces-frt`, `@universo/spaces-srv`
+- Packages: `@universo/spaces-frontend`, `@universo/spaces-backend`
 - Features: Flow graph creation and management, canvas persistence
 - [Learn more →](spaces/README.md)
 
 **Metaverses** - Metaverse management
-- Packages: `@universo/metaverses-frt`, `@universo/metaverses-srv`
+- Packages: `@universo/metaverses-frontend`, `@universo/metaverses-backend`
 - Features: Virtual world and space organization
 - [Learn more →](metaverse/README.md)
 
 #### 3.2 Organization Management
 
 **Organizations** - Three-tier organization structure
-- Packages: `@universo/organizations-frt`, `@universo/organizations-srv`
+- Packages: `@universo/organizations-frontend`, `@universo/organizations-backend`
 - Architecture: Organizations → Departments → Positions
 - Features: Complete data isolation, role management, hierarchy
 - Status: ✅ Active (Q4 2024)
 
 **Clusters** - Three-tier cluster structure
-- Packages: `@universo/clusters-frt`, `@universo/clusters-srv`
+- Packages: `@universo/clusters-frontend`, `@universo/clusters-backend`
 - Architecture: Clusters → Domains → Resources
 - Features: Resource management with cluster isolation
 - Status: ✅ Active (Q4 2024)
 
 **Projects** - Three-tier project structure
-- Packages: `@universo/projects-frt`, `@universo/projects-srv`
+- Packages: `@universo/projects-frontend`, `@universo/projects-backend`
 - Architecture: Projects → Milestones → Tasks
 - Features: Task and milestone management
 - Status: ✅ Active (Q4 2024)
@@ -91,31 +91,31 @@ Reusable libraries and components:
 #### 3.3 User System
 
 **Authentication** - Hybrid authentication
-- Packages: `@universo/auth-frt`, `@universo/auth-srv`
+- Packages: `@universo/auth-frontend`, `@universo/auth-backend`
 - Technologies: Passport.js + Supabase JWT
 - Features: Login, sessions, route protection
 - [Learn more →](auth/README.md)
 
 **Profile** - User profile management
-- Packages: `@universo/profile-frt`, `@universo/profile-srv`
+- Packages: `@universo/profile-frontend`, `@universo/profile-backend`
 - Features: Email/password updates, user profile
 - [Learn more →](profile/README.md)
 
 **Analytics** - Analytics and reporting
-- Package: `@universo/analytics-frt` (frontend only)
+- Package: `@universo/analytics-frontend` (frontend only)
 - Features: Quiz analytics, engagement metrics
 - [Learn more →](analytics/README.md)
 
 #### 3.4 Publishing and Export
 
 **Publish System** - Export spaces to various platforms
-- Packages: `@universo/publish-frt`, `@universo/publish-srv`
+- Packages: `@universo/publish-frontend`, `@universo/publish-backend`
 - Technologies: AR.js, PlayCanvas
 - Features: Export UPDL graphs to public URLs
 - [Learn more →](publish/README.md)
 
 **Space Builder (Prompt-to-Flow)** - Graph generation from text
-- Packages: `@universo/space-builder-frt`, `@universo/space-builder-srv`
+- Packages: `@universo/space-builder-frontend`, `@universo/space-builder-backend`
 - Features: LLM-powered UPDL graph generation from text descriptions
 - [Learn more →](space-builder/README.md)
 
@@ -134,7 +134,7 @@ Reusable libraries and components:
 - [Learn more →](template-mmoomm/README.md)
 
 **Multiplayer Server**
-- Package: `@universo/multiplayer-colyseus-srv`
+- Package: `@universo/multiplayer-colyseus-backend`
 - Technology: Colyseus WebSocket server
 - Features: Real-time multiplayer for MMOOMM (up to 16 players)
 - [Learn more →](multiplayer/README.md)
@@ -143,20 +143,20 @@ Reusable libraries and components:
 
 | Application | Packages | Description | Status |
 |------------|----------|-------------|--------|
-| **Workspaces (Uniks)** | uniks-frt, uniks-srv | Workspace management | ✅ Active |
-| **Organizations** | organizations-frt, organizations-srv | Three-tier organization structure | ✅ Active |
-| **Clusters** | clusters-frt, clusters-srv | Three-tier cluster structure | ✅ Active |
-| **Projects** | projects-frt, projects-srv | Three-tier project structure | ✅ Active |
-| **Spaces** | spaces-frt, spaces-srv | Flow canvas management | ✅ Active |
-| **Metaverses** | metaverses-frt, metaverses-srv | Metaverse management | ✅ Active |
-| **Publish System** | publish-frt, publish-srv | Export to AR.js/PlayCanvas | ✅ Active |
-| **Space Builder** | space-builder-frt, space-builder-srv | Text-to-graph generation (LLM) | ✅ Active |
-| **Authentication** | auth-frt, auth-srv | Passport.js + Supabase auth | ✅ Active |
-| **Profile** | profile-frt, profile-srv | User profile management | ✅ Active |
-| **Analytics** | analytics-frt | Quiz analytics | ✅ Active |
+| **Workspaces (Uniks)** | uniks-frontend, uniks-backend | Workspace management | ✅ Active |
+| **Organizations** | organizations-frontend, organizations-backend | Three-tier organization structure | ✅ Active |
+| **Clusters** | clusters-frontend, clusters-backend | Three-tier cluster structure | ✅ Active |
+| **Projects** | projects-frontend, projects-backend | Three-tier project structure | ✅ Active |
+| **Spaces** | spaces-frontend, spaces-backend | Flow canvas management | ✅ Active |
+| **Metaverses** | metaverses-frontend, metaverses-backend | Metaverse management | ✅ Active |
+| **Publish System** | publish-frontend, publish-backend | Export to AR.js/PlayCanvas | ✅ Active |
+| **Space Builder** | space-builder-frontend, space-builder-backend | Text-to-graph generation (LLM) | ✅ Active |
+| **Authentication** | auth-frontend, auth-backend | Passport.js + Supabase auth | ✅ Active |
+| **Profile** | profile-frontend, profile-backend | User profile management | ✅ Active |
+| **Analytics** | analytics-frontend | Quiz analytics | ✅ Active |
 | **UPDL** | updl | Node system for 3D/AR/VR | ✅ Active |
 | **Template MMOOMM** | template-mmoomm | PlayCanvas MMO template | ✅ Active |
-| **Multiplayer** | multiplayer-colyseus-srv | Colyseus multiplayer server | ✅ Active |
+| **Multiplayer** | multiplayer-colyseus-backend | Colyseus multiplayer server | ✅ Active |
 
 ## Application Interactions
 
@@ -195,13 +195,13 @@ Reusable libraries and components:
 
 When creating a new module, follow this template:
 
-1. **Frontend package** (`packages/[app]-frt/base/`):
+1. **Frontend package** (`packages/[app]-frontend/base/`):
    - TypeScript + React + Material-UI
    - Dual build (tsdown): CJS + ESM
    - i18n support (EN, RU)
    - React Query for API
 
-2. **Backend package** (`packages/[app]-srv/base/`):
+2. **Backend package** (`packages/[app]-backend/base/`):
    - TypeScript + Express + TypeORM
    - Entities in `src/database/entities/`
    - Migrations in `src/database/migrations/postgres/`

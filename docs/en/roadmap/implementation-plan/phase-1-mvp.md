@@ -35,7 +35,7 @@ Create a functioning MVP of a space MMO with basic game mechanics, demonstrating
 
 ## Priority Applications
 
-### 1. Resources System (resources-frt/srv)
+### 1. Resources System (resources-frontend/srv)
 
 **Priority**: Critical
 **Development Time**: 4 weeks
@@ -43,13 +43,13 @@ Create a functioning MVP of a space MMO with basic game mechanics, demonstrating
 
 #### Functional Requirements
 
-**Frontend (resources-frt)**:
+**Frontend (resources-frontend)**:
 - Inventory interface with weight/volume display
 - Material density calculator
 - Resource transfer system between locations
 - Material type visualization
 
-**Backend (resources-srv)**:
+**Backend (resources-backend)**:
 - Inventory management API
 - Material physics calculations
 - Weight/volume constraint validation
@@ -119,7 +119,7 @@ interface TransferRequest {
 }
 ```
 
-### 2. Ships Management (ships-frt/srv)
+### 2. Ships Management (ships-frontend/srv)
 
 **Priority**: High
 **Development Time**: 3 weeks
@@ -127,13 +127,13 @@ interface TransferRequest {
 
 #### Functional Requirements
 
-**Frontend (ships-frt)**:
+**Frontend (ships-frontend)**:
 - Player fleet interface
 - Basic ship configurator
 - Ship task assignment system
 - Ship status monitoring
 
-**Backend (ships-srv)**:
+**Backend (ships-backend)**:
 - Ship management API
 - Configuration and modules system
 - Performance calculations
@@ -178,7 +178,7 @@ const shipTypes: ShipType[] = [
 ];
 ```
 
-### 3. Economy System (economy-frt/srv)
+### 3. Economy System (economy-frontend/srv)
 
 **Priority**: High
 **Development Time**: 3 weeks
@@ -186,13 +186,13 @@ const shipTypes: ShipType[] = [
 
 #### Functional Requirements
 
-**Frontend (economy-frt)**:
+**Frontend (economy-frontend)**:
 - Inmo wallet interface
 - Inter-world exchange rate calculator
 - Transaction history
 - Basic trading analytics
 
-**Backend (economy-srv)**:
+**Backend (economy-backend)**:
 - Balance management API
 - Inter-world transfer system
 - Dynamic pricing
@@ -292,7 +292,7 @@ interface PlayCanvasIntegration {
 
 **Tasks**:
 - Set up workspace structure for new applications
-- Create basic architecture for resources-frt/srv
+- Create basic architecture for resources-frontend/srv
 - Implement API for material management
 - Create inventory UI components
 
@@ -304,7 +304,7 @@ interface PlayCanvasIntegration {
 ### Week 3-4: Ships System
 
 **Tasks**:
-- Create ships-frt/srv architecture
+- Create ships-frontend/srv architecture
 - Implement ship management API
 - Integrate with resources system
 - Create fleet management UI
@@ -317,7 +317,7 @@ interface PlayCanvasIntegration {
 ### Week 5-6: Economy System
 
 **Tasks**:
-- Create economy-frt/srv architecture
+- Create economy-frontend/srv architecture
 - Implement Inmo currency system
 - Create inter-world economy
 - Integrate with resources and ships systems

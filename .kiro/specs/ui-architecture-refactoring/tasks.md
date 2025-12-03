@@ -114,7 +114,7 @@
   - **ОБЯЗАТЕЛЬНО**: Сохранить всю оригинальную логику пагинации из dashboard
   - **ОБЯЗАТЕЛЬНО**: Сохранить все стили таблицы из оригинала
   - Постепенно и осторожно заменить демо-данные на интерфейс для реальных данных сущностей, там будут размещаться список Уников, Метавселенных, Кластеров и множества других данных, это будет альтернатива варианту отображения карточками, который мы реализовывали на предыдущем этапе.
-  - Создать типы для EntityListProps и ColumnDefinition, совместимые с оригинальным компонентом. Это будет заменять старый функционал UI списков, который можно найти и изучить в `packages/flowise-ui/src/ui-components`
+  - Создать типы для EntityListProps и ColumnDefinition, совместимые с оригинальным компонентом. Это будет заменять старый функционал UI списков, который можно найти и изучить в `packages/flowise-core-frontend/base/src/ui-components`
   - Вносить изменения инкрементально, тестируя каждый шаг
   - НЕ изменять основную структуру таблицы или логику пагинации, но при этом адаптировать под новый необходимый функционал.
   - Убедиться, что пагинация работает точно так же, как в оригинале
@@ -140,7 +140,7 @@
 
 - [x] 4. Создание панели инструментов
 - [x] 4.1 Анализ существующих компонентов панели инструментов
-  - Проанализировать компоненты в `packages/flowise-ui/src/ui-components` на предмет возможного использования
+  - Проанализировать компоненты в `packages/flowise-core-frontend/base/src/ui-components` на предмет возможного использования
   - Определить, какие компоненты можно адаптировать, а какие нужно создать заново
   - Изучить паттерны дизайна из нового MUI шаблона для панели инструментов
   - _Требования: 4.1, 14.3_
@@ -160,13 +160,13 @@
 
 - [x] 5. Исправление интеграции маршрутизации
 - [x] 5.1 Очистка мусорного кода в маршрутизации
-  - Удалить весь мусорный/лишний код из `packages/flowise-ui/src/routes/index.jsx` и `packages/flowise-ui/src/routes/MainRoutes.jsx`
+  - Удалить весь мусорный/лишний код из `packages/flowise-core-frontend/base/src/routes/index.jsx` и `packages/flowise-core-frontend/base/src/routes/MainRoutes.jsx`
   - Заменить на простое подключение новой структуры
   - Избегать чрезмерной абстракции
   - _Требования: 6.1, 6.2, 6.4, 14.1_
 
 - [x] 5.2 Правильная интеграция MainRoutesMUI и MainLayoutMUI
-  - Сделать правильное подключение в `packages/flowise-ui/src/App.jsx` (нужно помнить, что MainRoutesMUI и MainLayoutMUI - это TypeScript файлы и их нужно правильно подключить в JavaScript-файлe, смотри примеры работы в других частях проекта, например в `packages/resources-frt`) или нормально в `packages/flowise-ui/src/routes/index.jsx`
+  - Сделать правильное подключение в `packages/flowise-core-frontend/base/src/App.jsx` (нужно помнить, что MainRoutesMUI и MainLayoutMUI - это TypeScript файлы и их нужно правильно подключить в JavaScript-файлe, смотри примеры работы в других частях проекта, например в `packages/resources-frontend`) или нормально в `packages/flowise-core-frontend/base/src/routes/index.jsx`
   - Обеспечить простой и прямой подход к интеграции
   - Проверить корректность работы маршрутизации
   - _Требования: 6.1, 6.3, 14.2_
@@ -197,22 +197,22 @@
   Чтобы исправить текущие ошибки, которые возникли после того, как на предыдущих шагах были удалены временные компоненты:
 
   ```
-  @universo/resources-frt:build: src/pages/ClusterDetail.tsx(21,10): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalCard'.
-  @universo/resources-frt:build: src/pages/ClusterDetail.tsx(21,25): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalTable'.
-  @universo/resources-frt:build: src/pages/ClusterDetail.tsx(21,41): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalViewLayout'.
-  @universo/resources-frt:build: src/pages/ClusterList.tsx(9,10): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalCard'.
-  @universo/resources-frt:build: src/pages/ClusterList.tsx(9,25): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalTable'.
-  @universo/resources-frt:build: src/pages/ClusterList.tsx(9,41): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalViewLayout'.
-  @universo/resources-frt:build:  ELIFECYCLE  Command failed with exit code 2.
-  @universo/resources-frt:build: ERROR: command finished with error: command (/home/vladimir/GigaProjects/universo-platformo-react/packages/resources-frt/base) pnpm run build exited (2)
-  @universo/uniks-frt:build: cache bypass, force executing 736a4facfb11291f
-  analytics-frt:build: cache bypass, force executing a5083004870a463e
-  @universo/resources-frt#build: command (/home/vladimir/GigaProjects/universo-platformo-react/packages/resources-frt/base) pnpm run build exited (2)
+  @universo/resources-frontend:build: src/pages/ClusterDetail.tsx(21,10): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalCard'.
+  @universo/resources-frontend:build: src/pages/ClusterDetail.tsx(21,25): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalTable'.
+  @universo/resources-frontend:build: src/pages/ClusterDetail.tsx(21,41): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalViewLayout'.
+  @universo/resources-frontend:build: src/pages/ClusterList.tsx(9,10): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalCard'.
+  @universo/resources-frontend:build: src/pages/ClusterList.tsx(9,25): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalTable'.
+  @universo/resources-frontend:build: src/pages/ClusterList.tsx(9,41): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalViewLayout'.
+  @universo/resources-frontend:build:  ELIFECYCLE  Command failed with exit code 2.
+  @universo/resources-frontend:build: ERROR: command finished with error: command (/home/vladimir/GigaProjects/universo-platformo-react/packages/resources-frontend/base) pnpm run build exited (2)
+  @universo/uniks-frontend:build: cache bypass, force executing 736a4facfb11291f
+  analytics-frontend:build: cache bypass, force executing a5083004870a463e
+  @universo/resources-frontend#build: command (/home/vladimir/GigaProjects/universo-platformo-react/packages/resources-frontend/base) pnpm run build exited (2)
 
   Tasks:    22 successful, 29 total
   Cached:    0 cached, 29 total
     Time:    3m7.039s 
-  Failed:    @universo/resources-frt#build
+  Failed:    @universo/resources-frontend#build
 
   ERROR  run failed: command  exited (2)
    ELIFECYCLE  Command failed with exit code 2.
@@ -241,7 +241,7 @@
   - _Требования: 7.1, 7.2, 7.3, 7.4_
 - [ ] 9. Очистка и удаление устаревших компонентов
 - [ ] 9.1 Анализ и удаление дублирующих компонентов
-  - Проанализировать компоненты в `packages/flowise-ui/src/ui-components`, доработанные для нового дизайна
+  - Проанализировать компоненты в `packages/flowise-core-frontend/base/src/ui-components`, доработанные для нового дизайна
   - Найти все дублирующие и тестовые компоненты
   - Удалить их после создания правильных версий
   - _Требования: 5.3, 5.4, 14.3, 14.4_

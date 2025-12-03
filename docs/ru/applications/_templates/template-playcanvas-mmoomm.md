@@ -10,6 +10,6 @@
 -   Встраивание сетевого рантайма (Colyseus client, буферы снапшотов, интерполяция).
 -   Базовый HUD (скорость, состояние корабля, цели), примеры подписок на события.
 
-Интеграции: `@universo-platformo/client-sdk`, `@universo-mmoomm/client-sdk`, `multiplayer-srv`.
+Интеграции: `@universo-platformo/client-sdk`, `@universo-mmoomm/client-sdk`, `multiplayer-backend`.
 
 См. также: `roadmap/technical-specifications/authoritative-mmo-networking.md`, `applications/technical-systems/multiplayer.md`.

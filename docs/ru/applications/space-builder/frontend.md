@@ -1,4 +1,4 @@
-# `packages/space-builder-frt` — Space Builder Frontend — [Статус: MVP]
+# `packages/space-builder-frontend` — Space Builder Frontend — [Статус: MVP]
 
 Интерфейс для преобразования естественноязыкового запроса в валидный граф потока из UPDL узлов.
 
@@ -36,7 +36,7 @@
 Главный компонент — плавающая кнопка действия с полным диалогом генерации.
 
 ```tsx
-import { SpaceBuilderFab } from '@universo/space-builder-frt'
+import { SpaceBuilderFab } from '@universo/space-builder-frontend'
 
 <SpaceBuilderFab
     models={availableChatModels}
@@ -58,7 +58,7 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 ```ts
 import i18n from '@/i18n'
-import { registerSpaceBuilderI18n } from '@universo/space-builder-frt'
+import { registerSpaceBuilderI18n } from '@universo/space-builder-frontend'
 registerSpaceBuilderI18n(i18n)
 ```
 
@@ -67,7 +67,7 @@ registerSpaceBuilderI18n(i18n)
 Dual build система (CJS + ESM) для оптимальной совместимости:
 
 ```bash
-pnpm build --filter @universo/space-builder-frt
+pnpm build --filter @universo/space-builder-frontend
 ```
 
 ## Технологии

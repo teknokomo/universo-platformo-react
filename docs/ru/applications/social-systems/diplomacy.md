@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/diplomacy-frt/base/
-packages/diplomacy-srv/base/
+packages/diplomacy-frontend/base/
+packages/diplomacy-backend/base/
 ```

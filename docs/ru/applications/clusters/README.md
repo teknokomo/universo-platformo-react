@@ -4,8 +4,8 @@
 
 ## Состав приложения
 
-- **Frontend пакет**: `@universo/clusters-frt`
-- **Backend пакет**: `@universo/clusters-srv`
+- **Frontend пакет**: `@universo/clusters-frontend`
+- **Backend пакет**: `@universo/clusters-backend`
 
 ## Обзор функционала
 

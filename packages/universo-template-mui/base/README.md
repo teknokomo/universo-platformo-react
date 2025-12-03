@@ -223,7 +223,7 @@ const generateBreadcrumbs = (pathname: string, unikId?: string, t?: any): Breadc
 
 ### With Uniks Frontend
 
-The template integrates with `@universo/uniks-frt` through:
+The template integrates with `@universo/uniks-frontend` through:
 
 - **Route Factory**: `createMainRoutes()` accepts component props
 - **Navigation Hook**: `useUnikNavigation()` provides menu items
@@ -317,7 +317,7 @@ When contributing to the template:
 ## Related Documentation
 
 - [Main Apps Documentation](../../../packages/README.md)
-- [Uniks Frontend Documentation](../../uniks-frt/base/README.md)
+- [Uniks Frontend Documentation](../../uniks-frontend/base/README.md)
 - [Platform Architecture](../../../docs/en/applications/README.md)
 
 ---

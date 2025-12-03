@@ -15,6 +15,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-packages/resources-frt/base/
-packages/resources-srv/base/
+packages/resources-frontend/base/
+packages/resources-backend/base/
 ```

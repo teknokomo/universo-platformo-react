@@ -1,4 +1,4 @@
-# Clusters Frontend (`@universo/clusters-frt`)
+# Clusters Frontend (`@universo/clusters-frontend`)
 
 > **📋 Notice**: This documentation is based on the original Flowise documentation and is being adapted for Universo Platformo.
 
@@ -21,7 +21,7 @@ Frontend package for managing three-tier structure of clusters (Clusters → Dom
 List clusters with pagination and search.
 
 ```tsx
-import { ClusterList } from '@universo/clusters-frt';
+import { ClusterList } from '@universo/clusters-frontend';
 
 <ClusterList />
 ```
@@ -44,7 +44,7 @@ Management resources /.
 ## API Integration
 
 ```typescript
-import { ClustersApi } from '@universo/clusters-frt';
+import { ClustersApi } from '@universo/clusters-frontend';
 
 const api = new ClustersApi();
 
@@ -125,14 +125,14 @@ const { t } = useTranslation('clusters');
 ```json
 {
   "dependencies": {
-    "@universo/clusters-frt": "workspace:*"
+    "@universo/clusters-frontend": "workspace:*"
   }
 }
 ```
 
 **2.  routes:**
 ```tsx
-import { ClusterList, ClusterDetail } from '@universo/clusters-frt';
+import { ClusterList, ClusterDetail } from '@universo/clusters-frontend';
 
 const routes = [
   { path: '/clusters', element: <ClusterList /> },

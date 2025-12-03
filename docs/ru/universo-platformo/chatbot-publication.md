@@ -82,7 +82,7 @@ GET /api/v1/bots/:canvasId/stream/:sessionId?
 
 ### Сервис публикации
 
-Сервис публикации (`packages/publish-srv`) поддерживает как Canvas, так и устаревшие Canvas ID:
+Сервис публикации (`packages/publish-backend`) поддерживает как Canvas, так и устаревшие Canvas ID:
 
 ```typescript
 // Новая публикация на основе Canvas

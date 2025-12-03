@@ -16,21 +16,21 @@ Detailed description of specialized applications for implementing Universo MMOOM
 
 Applications implementing core Universo MMOOMM game mechanics:
 
-- **resources-frt/srv**: Resource system with 16 material types
-- **ships-frt/srv**: Ship and fleet management
-- **economy-frt/srv**: Economy with Inmo currency
-- **mining-frt/srv**: Industrial laser mining
-- **stations-frt/srv**: Space stations and production
-- **navigation-frt/srv**: Navigation between worlds
-- **security-frt/srv**: Space security system
-- **combat-frt/srv**: PvP combat system
-- **skills-frt/srv**: Skills and progression system
-- **sovereignty-frt/srv**: Territorial warfare system
-- **industry-frt/srv**: Manufacturing and production
+- **resources-frontend/srv**: Resource system with 16 material types
+- **ships-frontend/srv**: Ship and fleet management
+- **economy-frontend/srv**: Economy with Inmo currency
+- **mining-frontend/srv**: Industrial laser mining
+- **stations-frontend/srv**: Space stations and production
+- **navigation-frontend/srv**: Navigation between worlds
+- **security-frontend/srv**: Space security system
+- **combat-frontend/srv**: PvP combat system
+- **skills-frontend/srv**: Skills and progression system
+- **sovereignty-frontend/srv**: Territorial warfare system
+- **industry-frontend/srv**: Manufacturing and production
 
 ### Resources Management System
 
-#### resources-frt/srv
+#### resources-frontend/srv
 **Purpose**: Resource management with material density physics
 
 **Key Features**:
@@ -59,7 +59,7 @@ Applications implementing core Universo MMOOMM game mechanics:
 
 ### Security & Combat System
 
-#### security-frt/srv
+#### security-frontend/srv
 **Purpose**: Space security system
 
 **Key Features**:
@@ -86,7 +86,7 @@ interface SecurityZone {
 }
 ```
 
-#### combat-frt/srv
+#### combat-frontend/srv
 **Purpose**: PvP combat system
 
 **Key Features**:
@@ -98,7 +98,7 @@ interface SecurityZone {
 
 ### Skills & Progression System
 
-#### skills-frt/srv
+#### skills-frontend/srv
 **Purpose**: Character skills and progression system
 
 **Key Features**:
@@ -109,7 +109,7 @@ interface SecurityZone {
 
 ### Sovereignty & Territorial Warfare
 
-#### sovereignty-frt/srv
+#### sovereignty-frontend/srv
 **Purpose**: Territorial warfare and system control
 
 **Key Features**:
@@ -158,7 +158,7 @@ interface SovereigntyHub {
 
 ### Industry & Manufacturing
 
-#### industry-frt/srv
+#### industry-frontend/srv
 **Purpose**: Manufacturing and production system
 
 **Key Features**:
@@ -197,7 +197,7 @@ interface Blueprint {
 
 ### Corporations System
 
-#### corporations-frt/srv
+#### corporations-frontend/srv
 **Purpose**: Corporations and organizations
 
 **Key Features**:
@@ -208,7 +208,7 @@ interface Blueprint {
 
 ### Diplomacy System
 
-#### diplomacy-frt/srv
+#### diplomacy-frontend/srv
 **Purpose**: Diplomatic relations
 
 **Key Features**:
@@ -219,7 +219,7 @@ interface Blueprint {
 
 ### Trading System
 
-#### trading-frt/srv
+#### trading-frontend/srv
 **Purpose**: Advanced trading system
 
 **Key Features**:
@@ -253,7 +253,7 @@ interface TradingSystem {
 
 ### Enhanced Authentication
 
-#### auth-enhanced-frt/srv
+#### auth-enhanced-frontend/srv
 **Purpose**: Enhanced authentication system
 
 **Key Features**:
@@ -264,7 +264,7 @@ interface TradingSystem {
 
 ### Multiplayer System
 
-#### multiplayer-frt/srv
+#### multiplayer-frontend/srv
 **Purpose**: Real-time multiplayer
 
 **Key Features**:
@@ -275,7 +275,7 @@ interface TradingSystem {
 
 ### Security & Monitoring
 
-#### security-frt/srv
+#### security-frontend/srv
 **Purpose**: Security and anti-cheat protection
 
 **Key Features**:
@@ -293,7 +293,7 @@ Each high-level UPDL node corresponds to specific applications and game mechanic
 ```typescript
 interface UPDLServiceMapping {
     Space: {
-        services: ['navigation-srv', 'stations-srv', 'security-srv', 'sovereignty-srv'];
+        services: ['navigation-backend', 'stations-backend', 'security-backend', 'sovereignty-backend'];
         description: 'Game worlds, security zones, and spatial systems';
         gameLogic: {
             worlds: ['kubio', 'konkordo', 'triumfo'];
@@ -304,7 +304,7 @@ interface UPDLServiceMapping {
         };
     };
     Entity: {
-        services: ['ships-srv', 'resources-srv', 'mining-srv', 'industry-srv'];
+        services: ['ships-backend', 'resources-backend', 'mining-backend', 'industry-backend'];
         description: 'Game objects and entities';
         gameLogic: {
             ships: 'player and NPC ships';
@@ -315,7 +315,7 @@ interface UPDLServiceMapping {
         };
     };
     Component: {
-        services: ['ships-srv', 'stations-srv', 'skills-srv', 'industry-srv'];
+        services: ['ships-backend', 'stations-backend', 'skills-backend', 'industry-backend'];
         description: 'Object components and modules';
         gameLogic: {
             shipModules: 'engines, weapons, shields';
@@ -326,7 +326,7 @@ interface UPDLServiceMapping {
         };
     };
     Event: {
-        services: ['multiplayer-srv', 'combat-srv', 'trading-srv', 'sovereignty-srv'];
+        services: ['multiplayer-backend', 'combat-backend', 'trading-backend', 'sovereignty-backend'];
         description: 'Game events and triggers';
         gameLogic: {
             combatEvents: 'attacks, destructions, damage';
@@ -337,7 +337,7 @@ interface UPDLServiceMapping {
         };
     };
     Action: {
-        services: ['combat-srv', 'trading-srv', 'diplomacy-srv', 'mining-srv', 'industry-srv'];
+        services: ['combat-backend', 'trading-backend', 'diplomacy-backend', 'mining-backend', 'industry-backend'];
         description: 'Player and system actions';
         gameLogic: {
             playerActions: 'attack, mine, trade, move';
@@ -348,7 +348,7 @@ interface UPDLServiceMapping {
         };
     };
     Data: {
-        services: ['resources-srv', 'economy-srv', 'analytics-enhanced-srv'];
+        services: ['resources-backend', 'economy-backend', 'analytics-enhanced-backend'];
         description: 'Game data and metrics';
         gameLogic: {
             gameState: 'world state';
@@ -358,7 +358,7 @@ interface UPDLServiceMapping {
         };
     };
     Universo: {
-        services: ['workflow-engine-srv', 'node-registry-srv', 'security-srv'];
+        services: ['workflow-engine-backend', 'node-registry-backend', 'security-backend'];
         description: 'Global rules and configuration';
         gameLogic: {
             gameRules: 'PvP, economy, progression rules';

@@ -1,4 +1,4 @@
-# Spaces Frontend (`@universo/spaces-frt`)
+# Spaces Frontend (`@universo/spaces-frontend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 
@@ -22,7 +22,7 @@ Frontend for managing Flow-canvases (canvases) and spaces.
 ## API Integration
 
 ```typescript
-import { SpacesApi } from '@universo/spaces-frt';
+import { SpacesApi } from '@universo/spaces-frontend';
 
 await api.getSpaces({ page, limit });
 await api.createSpace(data);

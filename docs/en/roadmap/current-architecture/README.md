@@ -19,11 +19,11 @@ Analysis of the current Universo Platformo architecture in Alpha status (v0.21.0
 ```
 packages/
 ├── updl/                # UPDL Node System (7 high-level nodes)
-├── publish-frt/         # Publication Frontend (AR.js, PlayCanvas)
-├── publish-srv/         # Publication Backend (workspace package)
-├── profile-frt/         # User Profile Frontend
-├── profile-srv/         # Profile Backend (workspace package)
-└── analytics-frt/       # Quiz Analytics Frontend
+├── publish-frontend/         # Publication Frontend (AR.js, PlayCanvas)
+├── publish-backend/         # Publication Backend (workspace package)
+├── profile-frontend/         # User Profile Frontend
+├── profile-backend/         # Profile Backend (workspace package)
+└── analytics-frontend/       # Quiz Analytics Frontend
 ```
 
 ### Application Details
@@ -35,7 +35,7 @@ packages/
 - Visual flow editor for creating game logic
 - Export capabilities to multiple platforms
 
-#### Publication System (`packages/publish-frt/`, `packages/publish-srv/`)
+#### Publication System (`packages/publish-frontend/`, `packages/publish-backend/`)
 **Purpose**: Multi-platform export and publishing
 **Key Features**:
 - AR.js export (production ready)
@@ -43,14 +43,14 @@ packages/
 - Template-based code generation
 - MMOOMM template support
 
-#### Profile Management (`packages/profile-frt/`, `packages/profile-srv/`)
+#### Profile Management (`packages/profile-frontend/`, `packages/profile-backend/`)
 **Purpose**: User account and profile management
 **Key Features**:
 - User registration and authentication
 - Profile customization
 - Settings management
 
-#### Analytics System (`packages/analytics-frt/`)
+#### Analytics System (`packages/analytics-frontend/`)
 **Purpose**: Quiz and interaction analytics
 **Key Features**:
 - Quiz result tracking
@@ -77,13 +77,13 @@ packages/
 - Validation utilities
 - Storage utilities
 
-#### Server Core (`packages/flowise-server/`)
+#### Server Core (`packages/flowise-core-backend/base/`)
 - Express.js server foundation
 - Authentication middleware
 - Database connections
 - API routing
 
-#### UI Library (`packages/flowise-ui/`)
+#### UI Library (`packages/flowise-core-frontend/base/`)
 - React components
 - Material-UI integration
 - Custom themes

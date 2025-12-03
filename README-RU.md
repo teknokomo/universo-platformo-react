@@ -198,16 +198,16 @@ Universo Platformo разрабатывается на нескольких те
 
 3. Настройте переменные окружения
 
-    - Создайте файл `.env` в директории `packages/flowise-server`
+    - Создайте файл `.env` в директории `packages/flowise-core-backend/base`
     - Добавьте необходимую конфигурацию Supabase:
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
         ```
-    - Опционально создайте файл `.env` в директории `packages/flowise-ui` для UI-специфичных настроек, таких как `VITE_PORT`
+    - Опционально создайте файл `.env` в директории `packages/flowise-core-frontend/base` для UI-специфичных настроек, таких как `VITE_PORT`
 
-    Примечание: После рефакторинга конфигурация Supabase должна указываться только в директории `packages/flowise-server`.
+    Примечание: После рефакторинга конфигурация Supabase должна указываться только в директории `packages/flowise-core-backend/base`.
 
 4. Соберите проект
 

@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from '@universo/i18n'
-import { useAuth } from '@universo/auth-frt'
+import { useAuth } from '@universo/auth-frontend'
 
 // material-ui
 import {

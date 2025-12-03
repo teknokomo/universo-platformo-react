@@ -3,29 +3,29 @@ import { Outlet } from 'react-router-dom'
 
 // CRITICAL: Import i18n registrations BEFORE lazy components
 // Ensures namespaces are registered before route components try to use translations
-import '@universo/uniks-frt/i18n'
-import '@universo/metaverses-frt/i18n'
-import '@universo/clusters-frt/i18n'
-import '@universo/projects-frt/i18n'
-import '@universo/campaigns-frt/i18n'
-import '@universo/organizations-frt/i18n'
-import '@universo/storages-frt/i18n'
+import '@universo/uniks-frontend/i18n'
+import '@universo/metaverses-frontend/i18n'
+import '@universo/clusters-frontend/i18n'
+import '@universo/projects-frontend/i18n'
+import '@universo/campaigns-frontend/i18n'
+import '@universo/organizations-frontend/i18n'
+import '@universo/storages-frontend/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
-import '@universo/analytics-frt/i18n'
+import '@universo/analytics-frontend/i18n'
 // Register tools translations before lazy loading Tools component
-import '@flowise/tools-frt/i18n'
+import '@flowise/tools-frontend/i18n'
 // Register credentials translations before lazy loading Credentials component
-import '@flowise/credentials-frt/i18n'
+import '@flowise/credentials-frontend/i18n'
 // Register variables translations before lazy loading Variables component
-import '@flowise/variables-frt/i18n'
+import '@flowise/variables-frontend/i18n'
 // Register apiKeys translations before lazy loading ApiKeys component
-import '@flowise/apikey-frt/i18n'
+import '@flowise/apikey-frontend/i18n'
 // Register assistants translations before lazy loading Assistants component
-import '@flowise/assistants-frt/i18n'
+import '@flowise/assistants-frontend/i18n'
 // Register document-store translations before lazy loading Document Store component
-import '@flowise/docstore-frt/i18n'
+import '@flowise/docstore-frontend/i18n'
 // Register customtemplates translations before lazy loading Templates component
-import '@flowise/customtemplates-frt/i18n'
+import '@flowise/customtemplates-frontend/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -36,117 +36,117 @@ import { ErrorBoundary } from '../components'
 import { AuthGuard, Loadable } from '../components/routing'
 
 // Unik module components
-const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
+const UnikList = Loadable(lazy(() => import('@universo/uniks-frontend/pages/UnikList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const UnikBoard = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikBoard')))
+const UnikBoard = Loadable(lazy(() => import('@universo/uniks-frontend/pages/UnikBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const UnikMember = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikMember')))
+const UnikMember = Loadable(lazy(() => import('@universo/uniks-frontend/pages/UnikMember')))
 
 // Legacy components (temporarily loaded in new UI)
-const Spaces = Loadable(lazy(() => import('@universo/spaces-frt/src/views/spaces/index.jsx')))
-const Canvas = Loadable(lazy(() => import('@universo/spaces-frt/src/views/canvas/index.jsx')))
-// Tools page - moved to @flowise/tools-frt
-const Tools = Loadable(lazy(() => import('@flowise/tools-frt/pages/Tools')))
-// Credentials page - moved to @flowise/credentials-frt
+const Spaces = Loadable(lazy(() => import('@universo/spaces-frontend/src/views/spaces/index.jsx')))
+const Canvas = Loadable(lazy(() => import('@universo/spaces-frontend/src/views/canvas/index.jsx')))
+// Tools page - moved to @flowise/tools-frontend
+const Tools = Loadable(lazy(() => import('@flowise/tools-frontend/pages/Tools')))
+// Credentials page - moved to @flowise/credentials-frontend
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
-const Credentials = Loadable(lazy(() => import('@flowise/credentials-frt/pages/Credentials')))
-// Variables page - moved to @flowise/variables-frt
+const Credentials = Loadable(lazy(() => import('@flowise/credentials-frontend/pages/Credentials')))
+// Variables page - moved to @flowise/variables-frontend
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
-const Variables = Loadable(lazy(() => import('@flowise/variables-frt/pages/Variables')))
-// ApiKeys page - moved to @flowise/apikey-frt
+const Variables = Loadable(lazy(() => import('@flowise/variables-frontend/pages/Variables')))
+// ApiKeys page - moved to @flowise/apikey-frontend
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
-const ApiKeys = Loadable(lazy(() => import('@flowise/apikey-frt/pages/APIKey')))
-// Document Store pages - moved to @flowise/docstore-frt
-const DocumentStores = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore')))
-const DocumentStoreDetail = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/DocumentStoreDetail')))
-const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/LoaderConfigPreviewChunks')))
-const ShowStoredChunks = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/ShowStoredChunks')))
-const VectorStoreConfigure = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/VectorStoreConfigure')))
-const VectorStoreQuery = Loadable(lazy(() => import('@flowise/docstore-frt/pages/docstore/VectorStoreQuery')))
-// Assistants pages - moved to @flowise/assistants-frt
-const Assistants = Loadable(lazy(() => import('@flowise/assistants-frt/pages/Assistants')))
-const CustomAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frt/pages/custom/CustomAssistantLayout')))
-const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@flowise/assistants-frt/pages/custom/CustomAssistantConfigurePreview')))
-const OpenAIAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frt/pages/openai/OpenAIAssistantLayout')))
-// @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frt
-const Analytics = Loadable(lazy(() => import('@universo/analytics-frt/pages/Analytics')))
-// Custom Templates pages - moved to @flowise/customtemplates-frt
+const ApiKeys = Loadable(lazy(() => import('@flowise/apikey-frontend/pages/APIKey')))
+// Document Store pages - moved to @flowise/docstore-frontend
+const DocumentStores = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore')))
+const DocumentStoreDetail = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore/DocumentStoreDetail')))
+const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore/LoaderConfigPreviewChunks')))
+const ShowStoredChunks = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore/ShowStoredChunks')))
+const VectorStoreConfigure = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore/VectorStoreConfigure')))
+const VectorStoreQuery = Loadable(lazy(() => import('@flowise/docstore-frontend/pages/docstore/VectorStoreQuery')))
+// Assistants pages - moved to @flowise/assistants-frontend
+const Assistants = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/Assistants')))
+const CustomAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/custom/CustomAssistantLayout')))
+const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/custom/CustomAssistantConfigurePreview')))
+const OpenAIAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/openai/OpenAIAssistantLayout')))
+// @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frontend
+const Analytics = Loadable(lazy(() => import('@universo/analytics-frontend/pages/Analytics')))
+// Custom Templates pages - moved to @flowise/customtemplates-frontend
 // Note: TemplateCanvas is routed via CanvasRoutes with MinimalLayout
-const Templates = Loadable(lazy(() => import('@flowise/customtemplates-frt/pages/Templates')))
+const Templates = Loadable(lazy(() => import('@flowise/customtemplates-frontend/pages/Templates')))
 
 // Metaverse module components
-const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseList')))
-const MetaverseBoard = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseBoard')))
+const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/MetaverseList')))
+const MetaverseBoard = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/MetaverseBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const SectionList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/SectionList')))
+const SectionList = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/SectionList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const EntityList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/EntityList')))
+const EntityList = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/EntityList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseMembers')))
+const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/MetaverseMembers')))
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
-// Removed: ClusterList from @universo/resources-frt (package deleted)
+// Removed: ClusterList from @universo/resources-frontend (package deleted)
 
 // Cluster module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ClusterList = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterList')))
+const ClusterList = Loadable(lazy(() => import('@universo/clusters-frontend/pages/ClusterList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ClusterBoard = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterBoard')))
+const ClusterBoard = Loadable(lazy(() => import('@universo/clusters-frontend/pages/ClusterBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const DomainList = Loadable(lazy(() => import('@universo/clusters-frt/pages/DomainList')))
+const DomainList = Loadable(lazy(() => import('@universo/clusters-frontend/pages/DomainList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ResourceList = Loadable(lazy(() => import('@universo/clusters-frt/pages/ResourceList')))
+const ResourceList = Loadable(lazy(() => import('@universo/clusters-frontend/pages/ResourceList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ClusterMembers = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterMembers')))
+const ClusterMembers = Loadable(lazy(() => import('@universo/clusters-frontend/pages/ClusterMembers')))
 
 // Project module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ProjectList = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectList')))
+const ProjectList = Loadable(lazy(() => import('@universo/projects-frontend/pages/ProjectList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ProjectBoard = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectBoard')))
+const ProjectBoard = Loadable(lazy(() => import('@universo/projects-frontend/pages/ProjectBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const MilestoneList = Loadable(lazy(() => import('@universo/projects-frt/pages/MilestoneList')))
+const MilestoneList = Loadable(lazy(() => import('@universo/projects-frontend/pages/MilestoneList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const TaskList = Loadable(lazy(() => import('@universo/projects-frt/pages/TaskList')))
+const TaskList = Loadable(lazy(() => import('@universo/projects-frontend/pages/TaskList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ProjectMembers = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectMembers')))
+const ProjectMembers = Loadable(lazy(() => import('@universo/projects-frontend/pages/ProjectMembers')))
 
 // Campaign module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const CampaignList = Loadable(lazy(() => import('@universo/campaigns-frt/pages/CampaignList')))
+const CampaignList = Loadable(lazy(() => import('@universo/campaigns-frontend/pages/CampaignList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const CampaignBoard = Loadable(lazy(() => import('@universo/campaigns-frt/pages/CampaignBoard')))
+const CampaignBoard = Loadable(lazy(() => import('@universo/campaigns-frontend/pages/CampaignBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const EventList = Loadable(lazy(() => import('@universo/campaigns-frt/pages/EventList')))
+const EventList = Loadable(lazy(() => import('@universo/campaigns-frontend/pages/EventList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ActivityList = Loadable(lazy(() => import('@universo/campaigns-frt/pages/ActivityList')))
+const ActivityList = Loadable(lazy(() => import('@universo/campaigns-frontend/pages/ActivityList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const CampaignMembers = Loadable(lazy(() => import('@universo/campaigns-frt/pages/CampaignMembers')))
+const CampaignMembers = Loadable(lazy(() => import('@universo/campaigns-frontend/pages/CampaignMembers')))
 
 // Organization module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const OrganizationList = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationList')))
+const OrganizationList = Loadable(lazy(() => import('@universo/organizations-frontend/pages/OrganizationList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const OrganizationBoard = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationBoard')))
+const OrganizationBoard = Loadable(lazy(() => import('@universo/organizations-frontend/pages/OrganizationBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const DepartmentList = Loadable(lazy(() => import('@universo/organizations-frt/pages/DepartmentList')))
+const DepartmentList = Loadable(lazy(() => import('@universo/organizations-frontend/pages/DepartmentList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const PositionList = Loadable(lazy(() => import('@universo/organizations-frt/pages/PositionList')))
+const PositionList = Loadable(lazy(() => import('@universo/organizations-frontend/pages/PositionList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const OrganizationMembers = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationMembers')))
+const OrganizationMembers = Loadable(lazy(() => import('@universo/organizations-frontend/pages/OrganizationMembers')))
 
 // Storage module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const StorageList = Loadable(lazy(() => import('@universo/storages-frt/pages/StorageList')))
+const StorageList = Loadable(lazy(() => import('@universo/storages-frontend/pages/StorageList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const StorageBoard = Loadable(lazy(() => import('@universo/storages-frt/pages/StorageBoard')))
+const StorageBoard = Loadable(lazy(() => import('@universo/storages-frontend/pages/StorageBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const ContainerList = Loadable(lazy(() => import('@universo/storages-frt/pages/ContainerList')))
+const ContainerList = Loadable(lazy(() => import('@universo/storages-frontend/pages/ContainerList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const SlotList = Loadable(lazy(() => import('@universo/storages-frt/pages/SlotList')))
+const SlotList = Loadable(lazy(() => import('@universo/storages-frontend/pages/SlotList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const StorageMembers = Loadable(lazy(() => import('@universo/storages-frt/pages/StorageMembers')))
+const StorageMembers = Loadable(lazy(() => import('@universo/storages-frontend/pages/StorageMembers')))
 
-const ProfilePage = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile.jsx')))
+const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
 // Main routes configuration object
 // Using ErrorBoundary at layout level to ensure proper Router context

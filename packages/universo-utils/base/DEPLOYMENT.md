@@ -510,10 +510,10 @@ sudo ufw status | grep 6379
 
 **Solution:**
 
-1. Review current limits in `metaverses-srv/routes/index.ts`:
+1. Review current limits in `metaverses-backend/routes/index.ts`:
 ```typescript
 await createRateLimiters({
-    keyPrefix: 'metaverses-srv',
+    keyPrefix: 'metaverses-backend',
     maxRead: 100,   // ← Adjust this
     maxWrite: 60,   // ← Adjust this
     windowMs: 15 * 60 * 1000  // 15 minutes
@@ -673,7 +673,7 @@ sudo firewall-cmd --reload
 ```typescript
 // Each service uses unique prefix
 await createRateLimiters({
-    keyPrefix: 'metaverses-srv',  // Prevents key collision
+    keyPrefix: 'metaverses-backend',  // Prevents key collision
     // ...
 })
 ```

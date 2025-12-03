@@ -37,7 +37,7 @@ The multiplayer system enables real-time collaborative space gameplay in Univers
 ### Package Structure
 
 ```
-packages/multiplayer-colyseus-srv/base/
+packages/multiplayer-colyseus-backend/base/
 ├── package.json          # Dependencies: colyseus, @colyseus/schema
 ├── tsconfig.json         # TypeScript configuration
 ├── src/

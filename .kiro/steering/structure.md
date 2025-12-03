@@ -45,13 +45,13 @@ packages/{app-name}/
 
 ## Current Applications
 - **updl**: UPDL node system for 3D/AR/VR scene definition
-- **uniks-frt/uniks-srv**: Workspace management (frontend/backend)
-- **profile-frt/profile-srv**: User profile management (frontend/backend)
-- **publish-frt/publish-srv**: Publication system (frontend/backend)
-- **space-builder-frt/space-builder-srv**: AI prompt-to-flow generation
-- **metaverse-frt/metaverse-srv**: Metaverse functionality
-- **analytics-frt**: Analytics frontend
-- **auth-frt**: Authentication frontend
+- **uniks-frontend/uniks-backend**: Workspace management (frontend/backend)
+- **profile-frontend/profile-backend**: User profile management (frontend/backend)
+- **publish-frontend/publish-backend**: Publication system (frontend/backend)
+- **space-builder-frontend/space-builder-backend**: AI prompt-to-flow generation
+- **metaverse-frontend/metaverse-backend**: Metaverse functionality
+- **analytics-frontend**: Analytics frontend
+- **auth-frontend**: Authentication frontend
 
 ## Workspace Configuration
 - **pnpm-workspace.yaml**: Defines workspace packages
@@ -60,7 +60,7 @@ packages/{app-name}/
 
 ## Key Conventions
 - Use `pnpm` not `npm`
-- Frontend apps end with `-frt`, backend with `-srv`
+- Frontend apps end with `-frontend`, backend with `-backend`
 - All apps are in `packages/*/base/` structure
 - Shared types are exported from backend packages
 - Assets (SVGs, icons) processed via Gulp in frontend apps

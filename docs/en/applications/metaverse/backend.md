@@ -1,4 +1,4 @@
-# Metaverse Backend (metaverse-srv) — [Status: MVP]
+# Metaverse Backend (metaverse-backend) — [Status: MVP]
 
 ## Purpose
 
@@ -9,7 +9,7 @@ See broader context in [About Universo Platformo](../../universo-platformo/READM
 ## Service boundaries
 
 -   Inside: `metaverse`, `unik`, `space`, `link` (meta↔meta), ACL
--   Outside: ECS (`entities-srv`), resources (`resources-srv`), economy (`economy-srv`), publishing (`template-engine-srv`, `publish-frt`)
+-   Outside: ECS (`entities-backend`), resources (`resources-backend`), economy (`economy-backend`), publishing (`template-engine-backend`, `publish-frontend`)
 
 ## Interfaces
 
@@ -26,7 +26,7 @@ See broader context in [About Universo Platformo](../../universo-platformo/READM
 ## Directory structure (expected)
 
 ```txt
-packages/metaverse-srv/base/
+packages/metaverse-backend/base/
   src/
     api/
     domain/

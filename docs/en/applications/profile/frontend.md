@@ -1,4 +1,4 @@
-# Profile Frontend (`@universo/profile-frt`)
+# Profile Frontend (`@universo/profile-frontend`)
 
 > **📋 Notice**: This documentation is being adapted for Universo Platformo.
 

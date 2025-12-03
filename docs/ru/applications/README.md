@@ -12,14 +12,14 @@
 
 ```
 packages/
-├── [приложение]-frt/    # Frontend пакет (React + TypeScript + Material-UI)
-├── [приложение]-srv/    # Backend пакет (Node.js + Express + TypeORM)
+├── [приложение]-frontend/    # Frontend пакет (React + TypeScript + Material-UI)
+├── [приложение]-backend/    # Backend пакет (Node.js + Express + TypeORM)
 └── [название]/          # Специализированный пакет (UPDL, шаблоны, утилиты)
 ```
 
 **Ключевые принципы:**
-- **Frontend пакеты** (`*-frt`): React 18, TypeScript, Material-UI, двойная сборка (CJS + ESM)
-- **Backend пакеты** (`*-srv`): Express.js, TypeORM, PostgreSQL, RESTful API
+- **Frontend пакеты** (`*-frontend`): React 18, TypeScript, Material-UI, двойная сборка (CJS + ESM)
+- **Backend пакеты** (`*-backend`): Express.js, TypeORM, PostgreSQL, RESTful API
 - **Минимальные изменения ядра**: Функциональность добавляется через пакеты без модификации Flowise
 - **Общие типы**: Централизованные TypeScript определения в `@universo/types`
 
@@ -54,36 +54,36 @@ packages/
 #### 3.1 Управление контентом
 
 **Workspaces (Uniks)** - Управление рабочими пространствами
-- Пакеты: `@universo/uniks-frt`, `@universo/uniks-srv`
+- Пакеты: `@universo/uniks-frontend`, `@universo/uniks-backend`
 - Функционал: Создание workspace, управление членами, роли (owner/admin/editor/member)
 - [Подробнее →](uniks/README.md)
 
 **Spaces** - Управление холстами/пространствами
-- Пакеты: `@universo/spaces-frt`, `@universo/spaces-srv`
+- Пакеты: `@universo/spaces-frontend`, `@universo/spaces-backend`
 - Функционал: Создание и управление Flow-графами, сохранение холстов
 - [Подробнее →](spaces/README.md)
 
 **Metaverses** - Управление метавселенными
-- Пакеты: `@universo/metaverses-frt`, `@universo/metaverses-srv`
+- Пакеты: `@universo/metaverses-frontend`, `@universo/metaverses-backend`
 - Функционал: Организация виртуальных миров и пространств
 - [Подробнее →](metaverse/README.md)
 
 #### 3.2 Управление организацией
 
 **Organizations** - Трёхуровневая структура организаций
-- Пакеты: `@universo/organizations-frt`, `@universo/organizations-srv`
+- Пакеты: `@universo/organizations-frontend`, `@universo/organizations-backend`
 - Архитектура: Organizations → Departments → Positions
 - Функционал: Полная изоляция данных, управление ролями, иерархия
 - Статус: ✅ Активен (Q4 2024)
 
 **Clusters** - Трёхуровневая структура кластеров
-- Пакеты: `@universo/clusters-frt`, `@universo/clusters-srv`
+- Пакеты: `@universo/clusters-frontend`, `@universo/clusters-backend`
 - Архитектура: Clusters → Domains → Resources
 - Функционал: Управление ресурсами с изоляцией по кластерам
 - Статус: ✅ Активен (Q4 2024)
 
 **Projects** - Трёхуровневая структура проектов
-- Пакеты: `@universo/projects-frt`, `@universo/projects-srv`
+- Пакеты: `@universo/projects-frontend`, `@universo/projects-backend`
 - Архитектура: Projects → Milestones → Tasks
 - Функционал: Управление задачами и milestone'ами проектов
 - Статус: ✅ Активен (Q4 2024)
@@ -91,31 +91,31 @@ packages/
 #### 3.3 Система пользователя
 
 **Authentication** - Гибридная аутентификация
-- Пакеты: `@universo/auth-frt`, `@universo/auth-srv`
+- Пакеты: `@universo/auth-frontend`, `@universo/auth-backend`
 - Технологии: Passport.js + Supabase JWT
 - Функционал: Login, сессии, защита маршрутов
 - [Подробнее →](auth/README.md)
 
 **Profile** - Управление профилем пользователя
-- Пакеты: `@universo/profile-frt`, `@universo/profile-srv`
+- Пакеты: `@universo/profile-frontend`, `@universo/profile-backend`
 - Функционал: Обновление email/пароля, профиль пользователя
 - [Подробнее →](profile/README.md)
 
 **Analytics** - Аналитика и отчётность
-- Пакет: `@universo/analytics-frt` (только frontend)
+- Пакет: `@universo/analytics-frontend` (только frontend)
 - Функционал: Аналитика викторин, метрики вовлеченности
 - [Подробнее →](analytics/README.md)
 
 #### 3.4 Публикация и экспорт
 
 **Publish System** - Экспорт пространств на различные платформы
-- Пакеты: `@universo/publish-frt`, `@universo/publish-srv`
+- Пакеты: `@universo/publish-frontend`, `@universo/publish-backend`
 - Технологии: AR.js, PlayCanvas
 - Функционал: Экспорт UPDL графов в публичные URL
 - [Подробнее →](publish/README.md)
 
 **Space Builder (Prompt-to-Flow)** - Генерация графа из текста
-- Пакеты: `@universo/space-builder-frt`, `@universo/space-builder-srv`
+- Пакеты: `@universo/space-builder-frontend`, `@universo/space-builder-backend`
 - Функционал: LLM-генерация графов UPDL из текстового описания
 - [Подробнее →](space-builder/README.md)
 
@@ -134,7 +134,7 @@ packages/
 - [Подробнее →](template-mmoomm/README.md)
 
 **Multiplayer Server**
-- Пакет: `@universo/multiplayer-colyseus-srv`
+- Пакет: `@universo/multiplayer-colyseus-backend`
 - Технология: Colyseus WebSocket сервер
 - Функционал: Мультиплеер в реальном времени для MMOOMM (до 16 игроков)
 - [Подробнее →](multiplayer/README.md)
@@ -143,20 +143,20 @@ packages/
 
 | Приложение | Пакеты | Описание | Статус |
 |-----------|--------|----------|--------|
-| **Workspaces (Uniks)** | uniks-frt, uniks-srv | Управление рабочими пространствами | ✅ Активен |
-| **Organizations** | organizations-frt, organizations-srv | Трёхуровневая структура организаций | ✅ Активен |
-| **Clusters** | clusters-frt, clusters-srv | Трёхуровневая структура кластеров | ✅ Активен |
-| **Projects** | projects-frt, projects-srv | Трёхуровневая структура проектов | ✅ Активен |
-| **Spaces** | spaces-frt, spaces-srv | Управление Flow-холстами | ✅ Активен |
-| **Metaverses** | metaverses-frt, metaverses-srv | Управление метавселенными | ✅ Активен |
-| **Publish System** | publish-frt, publish-srv | Экспорт на AR.js/PlayCanvas | ✅ Активен |
-| **Space Builder** | space-builder-frt, space-builder-srv | Генерация графов из текста (LLM) | ✅ Активен |
-| **Authentication** | auth-frt, auth-srv | Passport.js + Supabase auth | ✅ Активен |
-| **Profile** | profile-frt, profile-srv | Управление профилем пользователя | ✅ Активен |
-| **Analytics** | analytics-frt | Аналитика викторин | ✅ Активен |
+| **Workspaces (Uniks)** | uniks-frontend, uniks-backend | Управление рабочими пространствами | ✅ Активен |
+| **Organizations** | organizations-frontend, organizations-backend | Трёхуровневая структура организаций | ✅ Активен |
+| **Clusters** | clusters-frontend, clusters-backend | Трёхуровневая структура кластеров | ✅ Активен |
+| **Projects** | projects-frontend, projects-backend | Трёхуровневая структура проектов | ✅ Активен |
+| **Spaces** | spaces-frontend, spaces-backend | Управление Flow-холстами | ✅ Активен |
+| **Metaverses** | metaverses-frontend, metaverses-backend | Управление метавселенными | ✅ Активен |
+| **Publish System** | publish-frontend, publish-backend | Экспорт на AR.js/PlayCanvas | ✅ Активен |
+| **Space Builder** | space-builder-frontend, space-builder-backend | Генерация графов из текста (LLM) | ✅ Активен |
+| **Authentication** | auth-frontend, auth-backend | Passport.js + Supabase auth | ✅ Активен |
+| **Profile** | profile-frontend, profile-backend | Управление профилем пользователя | ✅ Активен |
+| **Analytics** | analytics-frontend | Аналитика викторин | ✅ Активен |
 | **UPDL** | updl | Система узлов для 3D/AR/VR | ✅ Активен |
 | **Template MMOOMM** | template-mmoomm | PlayCanvas MMO шаблон | ✅ Активен |
-| **Multiplayer** | multiplayer-colyseus-srv | Colyseus мультиплеер сервер | ✅ Активен |
+| **Multiplayer** | multiplayer-colyseus-backend | Colyseus мультиплеер сервер | ✅ Активен |
 
 ## Взаимодействие приложений
 
@@ -195,13 +195,13 @@ packages/
 
 При создании нового модуля следуйте шаблону:
 
-1. **Frontend пакет** (`packages/[app]-frt/base/`):
+1. **Frontend пакет** (`packages/[app]-frontend/base/`):
    - TypeScript + React + Material-UI
    - Двойная сборка (tsdown): CJS + ESM
    - i18n поддержка (EN, RU)
    - React Query для API
 
-2. **Backend пакет** (`packages/[app]-srv/base/`):
+2. **Backend пакет** (`packages/[app]-backend/base/`):
    - TypeScript + Express + TypeORM
    - Entities в `src/database/entities/`
    - Migrations в `src/database/migrations/postgres/`

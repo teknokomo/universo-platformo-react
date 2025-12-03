@@ -8,10 +8,10 @@ Complete user profile and authentication system with secure data management.
 
 The profile management system consists of two main components:
 
-- **Frontend (profile-frt)**: User interface for profile management
-- **Backend (profile-srv)**: Secure APIs and data management
+- **Frontend (profile-frontend)**: User interface for profile management
+- **Backend (profile-backend)**: Secure APIs and data management
 
-## Frontend (profile-frt)
+## Frontend (profile-frontend)
 
 Frontend module for user profile management and authentication in Universo Platformo.
 
@@ -56,7 +56,7 @@ Body: {
 }
 ```
 
-## Backend (profile-srv)
+## Backend (profile-backend)
 
 Backend service for user profile management and authentication, implemented as a workspace package for clean integration and future modularity.
 
@@ -158,7 +158,7 @@ $$;
 
 The profile service integrates with the core Flowise platform as a **workspace package**:
 
-1. **Package Import**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+1. **Package Import**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-backend'`
 2. **Entity Integration**: Profile entity automatically included in main entity index
 3. **Migration Integration**: Profile migrations included in PostgreSQL migration system via spread operator
 4. **Route Integration**: Profile routes mounted at `/api/v1/profile` with authentication middleware
@@ -180,20 +180,20 @@ The profile service integrates with the core Flowise platform as a **workspace p
 pnpm install
 
 # Build workspace package
-pnpm --filter @universo/profile-srv build
+pnpm --filter @universo/profile-backend build
 ```
 
 ### Development Mode
 ```bash
 # Development with watch mode
-pnpm --filter @universo/profile-srv dev
+pnpm --filter @universo/profile-backend dev
 ```
 
 ### Build
 ```bash
 # Clean build
-pnpm --filter @universo/profile-srv clean
-pnpm --filter @universo/profile-srv build
+pnpm --filter @universo/profile-backend clean
+pnpm --filter @universo/profile-backend build
 ```
 
 ## Security Considerations

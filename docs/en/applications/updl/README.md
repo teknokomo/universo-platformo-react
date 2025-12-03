@@ -216,7 +216,7 @@ eventNode.outputs.push({
 
 This module is intentionally focused **only on node definitions**:
 
-- **No Space Builders**: Handled by the publication system (`publish-frt`)
+- **No Space Builders**: Handled by the publication system (`publish-frontend`)
 - **No Export Logic**: Handled by publication applications
 - **No API Clients**: Not needed for node definitions
 - **No State Management**: Nodes are stateless definitions
