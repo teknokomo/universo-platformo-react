@@ -270,13 +270,25 @@ const AdminAccess = () => {
                     // Support both direct strings and translation keys
                     const confirmed = await confirm({
                         title: spec.titleKey && baseContext.t ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title || '',
-                        description: spec.descriptionKey && baseContext.t ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description || '',
-                        confirmButtonName: spec.confirmKey && baseContext.t ? baseContext.t(spec.confirmKey) : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm.remove.confirm') : 'Confirm'),
-                        cancelButtonName: spec.cancelKey && baseContext.t ? baseContext.t(spec.cancelKey) : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
+                        description:
+                            spec.descriptionKey && baseContext.t
+                                ? baseContext.t(spec.descriptionKey, spec.interpolate)
+                                : spec.description || '',
+                        confirmButtonName:
+                            spec.confirmKey && baseContext.t
+                                ? baseContext.t(spec.confirmKey)
+                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm.remove.confirm') : 'Confirm'),
+                        cancelButtonName:
+                            spec.cancelKey && baseContext.t
+                                ? baseContext.t(spec.cancelKey)
+                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
                     })
                     return confirmed
                 },
-                enqueueSnackbar: (payload: { message: string; options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' } }) => {
+                enqueueSnackbar: (payload: {
+                    message: string
+                    options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                }) => {
                     if (payload?.message) {
                         enqueueSnackbar(payload.message, payload.options)
                     }
@@ -291,13 +303,24 @@ const AdminAccess = () => {
     )
 
     return (
-        <MainCard sx={{ maxWidth: '100%', width: '100%' }} contentSX={{ px: 0, py: 0 }} disableContentPadding disableHeader border={false} shadow={false}>
+        <MainCard
+            sx={{ maxWidth: '100%', width: '100%' }}
+            contentSX={{ px: 0, py: 0 }}
+            disableContentPadding
+            disableHeader
+            border={false}
+            shadow={false}
+        >
             {error ? (
                 <EmptyListState
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={tc('errors.connectionFailed')}
-                    description={!(error as { response?: { status?: number } })?.response?.status ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
+                    description={
+                        !(error as { response?: { status?: number } })?.response?.status
+                            ? tc('errors.checkConnection')
+                            : tc('errors.pleaseTryLater')
+                    }
                     action={{
                         label: tc('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)
@@ -305,7 +328,12 @@ const AdminAccess = () => {
                 />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader search={true} searchPlaceholder={t('access.searchPlaceholder', 'Search by email or nickname...')} onSearchChange={handleSearchChange} title={t('access.title', 'Global Access Management')}>
+                    <ViewHeader
+                        search={true}
+                        searchPlaceholder={t('access.searchPlaceholder', 'Search by email or nickname...')}
+                        onSearchChange={handleSearchChange}
+                        title={t('access.title', 'Global Access Management')}
+                    >
                         <ToolbarControls
                             viewToggleEnabled
                             viewMode={view as 'card' | 'list'}
@@ -331,7 +359,11 @@ const AdminAccess = () => {
                             <Skeleton variant='rectangular' height={120} />
                         )
                     ) : !isLoading && members.length === 0 ? (
-                        <EmptyListState image={APIEmptySVG} imageAlt='No global users' title={t('access.noUsersFound', 'No global users found')} />
+                        <EmptyListState
+                            image={APIEmptySVG}
+                            imageAlt='No global users'
+                            title={t('access.noUsersFound', 'No global users found')}
+                        />
                     ) : (
                         <>
                             {view === 'card' ? (
@@ -363,7 +395,13 @@ const AdminAccess = () => {
                                                 }}
                                                 images={images[member.id] || []}
                                                 onClick={undefined}
-                                                footerEndContent={<RoleChip role={member.roleName || member.role} roleMetadata={member.roleMetadata} size='small' />}
+                                                footerEndContent={
+                                                    <RoleChip
+                                                        role={member.roleName || member.role}
+                                                        roleMetadata={member.roleMetadata}
+                                                        size='small'
+                                                    />
+                                                }
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
@@ -375,7 +413,11 @@ const AdminAccess = () => {
                                                                 i18nInstance={i18n}
                                                                 createContext={createMemberContext}
                                                                 renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton size='small' sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }} {...props}>
+                                                                    <IconButton
+                                                                        size='small'
+                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
+                                                                        {...props}
+                                                                    >
                                                                         <MoreVertRoundedIcon fontSize='small' />
                                                                     </IconButton>
                                                                 )}
@@ -425,7 +467,13 @@ const AdminAccess = () => {
                     {/* Table Pagination at bottom - only show when there's data */}
                     {!isLoading && members.length > 0 && (
                         <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <PaginationControls pagination={paginationResult.pagination} actions={paginationResult.actions} isLoading={paginationResult.isLoading} rowsPerPageOptions={[10, 20, 50, 100]} namespace='common' />
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
                         </Box>
                     )}
                 </Stack>
@@ -458,11 +506,18 @@ const AdminAccess = () => {
             {/* Independent ConfirmDeleteDialog for Remove button in edit dialog */}
             <ConfirmDeleteDialog
                 open={removeDialogState.open}
-                title={removeDialogState.member?.userId === user?.id ? t('access.selfActionWarning', 'Cannot remove yourself') : t('access.confirmRemove', 'Remove global access?')}
+                title={
+                    removeDialogState.member?.userId === user?.id
+                        ? t('access.selfActionWarning', 'Cannot remove yourself')
+                        : t('access.confirmRemove', 'Remove global access?')
+                }
                 description={
                     removeDialogState.member?.userId === user?.id
                         ? t('access.selfActionWarning', 'Cannot remove yourself')
-                        : t('access.confirmRemoveDescription', { email: removeDialogState.member?.email || '', defaultValue: 'Remove global access for {{email}}?' })
+                        : t('access.confirmRemoveDescription', {
+                              email: removeDialogState.member?.email || '',
+                              defaultValue: 'Remove global access for {{email}}?'
+                          })
                 }
                 confirmButtonText={tc('actions.remove', 'Remove')}
                 deletingButtonText={tc('actions.deleting', 'Removing...')}
@@ -474,8 +529,18 @@ const AdminAccess = () => {
                             await revokeMutation.mutateAsync(removeDialogState.member.userId)
                             setRemoveDialogState({ open: false, member: null })
                         } catch (err: unknown) {
-                            const responseMessage = err && typeof err === 'object' && 'response' in err ? (err as { response?: { data?: { message?: string } } })?.response?.data?.message : undefined
-                            const message = typeof responseMessage === 'string' ? responseMessage : err instanceof Error ? err.message : typeof err === 'string' ? err : t('access.revokeError', 'Failed to revoke access')
+                            const responseMessage =
+                                err && typeof err === 'object' && 'response' in err
+                                    ? (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                                    : undefined
+                            const message =
+                                typeof responseMessage === 'string'
+                                    ? responseMessage
+                                    : err instanceof Error
+                                    ? err.message
+                                    : typeof err === 'string'
+                                    ? err
+                                    : t('access.revokeError', 'Failed to revoke access')
                             enqueueSnackbar(message, { variant: 'error' })
                             setRemoveDialogState({ open: false, member: null })
                         }

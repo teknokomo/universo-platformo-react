@@ -28,6 +28,12 @@ export interface EntityActionsConfig<TEntity, TFormData> {
     showDeleteInEdit?: boolean
 
     /**
+     * Whether the delete button in edit dialog should be disabled
+     * @default false
+     */
+    deleteButtonDisabledInEdit?: boolean
+
+    /**
      * Extract entity name for delete confirmation
      * @default (entity) => entity.name
      */
@@ -117,6 +123,7 @@ export function createEntityActions<TEntity extends { id: string; name: string }
         i18nPrefix,
         i18nKeys = {},
         showDeleteInEdit = true,
+        deleteButtonDisabledInEdit = false,
         getEntityName = (entity) => entity.name,
         getInitialFormData,
         formLabels = {}
@@ -157,6 +164,7 @@ export function createEntityActions<TEntity extends { id: string; name: string }
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     ...getInitialFormData(ctx.entity),
                     showDeleteButton: showDeleteInEdit,
+                    deleteButtonDisabled: deleteButtonDisabledInEdit,
                     deleteButtonText: ctx.t('common:actions.delete'),
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing

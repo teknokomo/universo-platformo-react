@@ -7,7 +7,15 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 // Project imports
-import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG, StatCard, HighlightedCard, SessionsChart, PageViewsBarChart } from '@universo/template-mui'
+import {
+    ViewHeaderMUI as ViewHeader,
+    EmptyListState,
+    APIEmptySVG,
+    StatCard,
+    HighlightedCard,
+    SessionsChart,
+    PageViewsBarChart
+} from '@universo/template-mui'
 
 import apiClient from '../api/apiClient'
 import { createAdminApi } from '../api/adminApi'
@@ -34,7 +42,12 @@ const AdminBoard = () => {
     const navigate = useNavigate()
 
     // Fetch admin statistics
-    const { data: stats, isLoading, error, isError } = useQuery({
+    const {
+        data: stats,
+        isLoading,
+        error,
+        isError
+    } = useQuery({
         queryKey: adminQueryKeys.stats(),
         queryFn: () => adminApi.getStats()
     })
@@ -59,7 +72,11 @@ const AdminBoard = () => {
 
         return (
             <Stack spacing={3} sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%', p: 2 }}>
-                <EmptyListState image={APIEmptySVG} imageAlt='Error loading dashboard' title={t('board.error', 'Failed to load dashboard data')} />
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Error loading dashboard'
+                    title={t('board.error', 'Failed to load dashboard data')}
+                />
                 <Alert severity='error' sx={{ mx: 'auto', maxWidth: 600 }}>
                     {errorMessage}
                 </Alert>
@@ -140,7 +157,10 @@ const AdminBoard = () => {
 
                     {/* Activity Chart (Demo Data) */}
                     <Grid item xs={12} md={6}>
-                        <SessionsChart title={t('board.charts.activity.title', 'Activity')} description={t('board.charts.activity.description', 'Platform activity over time')} />
+                        <SessionsChart
+                            title={t('board.charts.activity.title', 'Activity')}
+                            description={t('board.charts.activity.description', 'Platform activity over time')}
+                        />
                     </Grid>
 
                     {/* Global Users Chart (Demo Data) */}

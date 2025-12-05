@@ -4,6 +4,131 @@
 
 ---
 
+## ✅ COMPLETED: InstanceList UI Polish (2025-12-06)
+
+**Goal**: Fix UI polishing issues in Instances management after second QA review.
+
+### Completed Tasks:
+- [x] Show disabled "Удалить" button in edit dialog (was hidden)
+  - Added `deleteButtonDisabled` prop to `EntityFormDialog`
+  - Added `deleteButtonDisabledInEdit` config option to `createEntityActions`
+- [x] Fix Alert width to match other elements (was narrower)
+  - Applied `mx: { xs: -1.5, md: -2 }` negative margin pattern
+- [x] Remove section description "Управление экземплярами платформы"
+  - Removed `description` prop from ViewHeader
+- [x] Remove duplicate "Локальный" text on Access page
+  - Removed Typography with getDisplayName from InstanceAccess.tsx
+  - Removed unused getDisplayName function
+- [x] Full build validation (52/52 packages successful)
+
+### Files Modified:
+- `universo-template-mui/base/src/components/dialogs/EntityFormDialog.tsx` - deleteButtonDisabled prop
+- `universo-template-mui/base/src/factories/createEntityActions.tsx` - deleteButtonDisabledInEdit config
+- `admin-frontend/base/src/pages/InstanceActions.tsx` - showDeleteInEdit: true, deleteButtonDisabledInEdit: true
+- `admin-frontend/base/src/pages/InstanceList.tsx` - Alert width fix, description removal
+- `admin-frontend/base/src/pages/InstanceAccess.tsx` - duplicate text removal
+
+---
+
+## ✅ COMPLETED: InstanceList UI Improvements (2025-12-06)
+
+**Goal**: Fix UI issues in Instances management after QA review.
+
+### Completed Tasks:
+- [x] Move MVP notice Alert above pagination (was below)
+- [x] Add disabled "Удалить" item in context menu (visible but not clickable)
+- [x] Add `table.status`, `table.domains`, `table.resources` to common.json (EN/RU)
+- [x] Fix editTitle in dialog (was showing key instead of translation)
+- [x] Set `showDeleteInEdit: false` to hide delete button in edit dialog
+- [x] Add `footerStartContent` prop to ItemCard for icon display
+- [x] Add `i18nKeys` override in InstanceActions.tsx for proper translation paths
+- [x] Add `confirmDelete`, `confirmDeleteDescription` keys to admin.json
+- [x] Full build validation (52/52 packages successful)
+
+### Files Modified:
+- `admin-frontend/base/src/pages/InstanceList.tsx` - alert position, type fixes
+- `admin-frontend/base/src/pages/InstanceActions.tsx` - i18n keys, showDeleteInEdit
+- `admin-frontend/base/src/i18n/*/admin.json` - confirmDelete keys
+- `universo-i18n/base/src/locales/*/core/common.json` - table.status/domains/resources
+- `universo-template-mui/base/src/components/cards/ItemCard.tsx` - footerStartContent prop
+
+---
+
+## ✅ COMPLETED: InstanceList Standard UI Refactoring (2025-12-05)
+
+**Goal**: Refactor `InstanceList.tsx` to use standard card/table view like `ClusterList.tsx`.
+
+### Completed Tasks:
+- [x] Create `InstanceActions.tsx` using `createEntityActions` pattern
+- [x] Update `instancesApi.ts` with direct export functions for `usePaginated`
+- [x] Update `instanceMutations.ts` to match clusters pattern
+- [x] Update `instancesQueryKeys.ts` to add `lists()` for cache invalidation
+- [x] Rewrite `InstanceList.tsx` with:
+  - [x] Card/Table view toggle
+  - [x] `ItemCard` and `FlowListTable` components
+  - [x] `BaseEntityMenu` with edit action
+  - [x] `ToolbarControls` with disabled "Add" button
+  - [x] `PaginationControls`
+  - [x] MVP notice alert
+- [x] Update i18n translations (EN/RU) with new keys
+- [x] Full build validation (52/52 packages successful)
+
+---
+
+## ✅ COMPLETED: Admin Instances Module (2025-12-05)
+
+**Goal**: Create "Экземпляры (Instances)" management following Clusters module pattern.
+
+**MVP Scope**:
+- Single pre-seeded "Local" instance representing current installation
+- Context menu inside instance (Board, Access)
+- Simplify left menu: single "Администрирование" item instead of section
+- Create/Delete buttons disabled (future: remote instances)
+
+### Phase 0: Migration Rename
+- [x] Rename `1733400000000-CreateAdminRBAC.ts` → `1733400000000-CreateAdminSchema.ts`
+
+### Phase 1: Backend Entity & Migration
+- [x] Create `Instance.ts` entity in `admin-backend/base/src/database/entities/`
+- [x] Add instances table to migration
+- [x] Add RLS policies for instances
+- [x] Seed "Local" instance
+- [x] Export entity from admin-backend index.ts
+- [x] Register in flowise-core-backend entities
+
+### Phase 2: Backend Routes
+- [x] Create `instancesRoutes.ts` with CRUD endpoints
+- [x] Create Zod validation schemas
+- [x] Wire routes in flowise-core-backend
+
+### Phase 3: Frontend API & Types
+- [x] Add `Instance` type to types.ts
+- [x] Create `instancesApi.ts` with CRUD functions
+- [x] Create `instancesQueryKeys.ts`
+- [x] Create `useInstanceDetails.ts` hook
+- [x] Create mutation hooks
+
+### Phase 4: Frontend Pages
+- [x] Create `InstanceList.tsx` page
+- [x] Rename `AdminBoard.tsx` → `InstanceBoard.tsx` with useParams
+- [x] Rename `AdminAccess.tsx` → `InstanceAccess.tsx` with useParams
+- [x] Update pages index.ts exports
+
+### Phase 5: Navigation Updates
+- [x] Update `universo-template-mui` routes for `/admin/instance/:id/*`
+- [x] Update `MenuContent.tsx` for simplified admin menu + context menu
+- [x] Update `NavbarBreadcrumbs.tsx` for instance routes
+
+### Phase 6: i18n Updates
+- [x] Add admin namespace translations (EN/RU)
+- [x] Add menu namespace translations (EN/RU)
+
+### Phase 7: Build & Test
+- [x] Full build validation (52/52 packages successful)
+- [x] Update memory-bank documentation
+
+---
+
 ## ✅ COMPLETED: Admin Packages QA Fixes (2025-12-05)
 
 **Goal**: Fix issues identified during QA analysis of admin-backend and admin-frontend packages.

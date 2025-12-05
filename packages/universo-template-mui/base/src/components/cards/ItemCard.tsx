@@ -20,6 +20,9 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     onClick?: () => void
     href?: string
     allowStretch?: boolean
+    /** Content to display at the start (left) of the footer */
+    footerStartContent?: React.ReactNode
+    /** Content to display at the end (right) of the footer */
     footerEndContent?: React.ReactNode
     headerAction?: React.ReactNode
     sx?: SxProps<Theme>
@@ -55,6 +58,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     onClick,
     href,
     allowStretch = false,
+    footerStartContent = null,
     footerEndContent = null,
     headerAction = null,
     sx = {}
@@ -62,8 +66,9 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     const theme = useTheme()
     const imageList = Array.isArray(images) ? images : []
     const hasImages = imageList.length > 0
+    const hasFooterStartContent = Boolean(footerStartContent)
     const hasFooterEndContent = Boolean(footerEndContent)
-    const showFooter = hasImages || hasFooterEndContent
+    const showFooter = hasImages || hasFooterStartContent || hasFooterEndContent
 
     const cardContent = (
         <CardWrapper
@@ -164,48 +169,52 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                             sx={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent:
-                                    hasImages && hasFooterEndContent ? 'space-between' : hasFooterEndContent ? 'flex-end' : 'flex-start',
+                                justifyContent: 'space-between',
                                 gap: 1
                             }}
                         >
-                            {hasImages && (
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'start',
-                                        gap: 1,
-                                        flexWrap: 'wrap'
-                                    }}
-                                >
-                                    {imageList.slice(0, imageList.length > 3 ? 3 : imageList.length).map((img, index) => (
-                                        <Box
-                                            key={`${img}-${index}`}
-                                            sx={{
-                                                width: 30,
-                                                height: 30,
-                                                borderRadius: '50%',
-                                                backgroundColor:
-                                                    theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[300]
-                                            }}
-                                        >
-                                            <img
-                                                style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }}
-                                                alt=''
-                                                src={img}
-                                            />
-                                        </Box>
-                                    ))}
-                                    {imageList.length > 3 && (
-                                        <Typography sx={{ alignItems: 'center', display: 'flex', fontSize: '.9rem', fontWeight: 200 }}>
-                                            + {imageList.length - 3} More
-                                        </Typography>
-                                    )}
-                                </Box>
-                            )}
+                            {/* Left side: footerStartContent or images */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                                {hasFooterStartContent && footerStartContent}
+                                {hasImages && (
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'start',
+                                            gap: 1,
+                                            flexWrap: 'wrap'
+                                        }}
+                                    >
+                                        {imageList.slice(0, imageList.length > 3 ? 3 : imageList.length).map((img, index) => (
+                                            <Box
+                                                key={`${img}-${index}`}
+                                                sx={{
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: '50%',
+                                                    backgroundColor:
+                                                        theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[300]
+                                                }}
+                                            >
+                                                <img
+                                                    style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }}
+                                                    alt=''
+                                                    src={img}
+                                                />
+                                            </Box>
+                                        ))}
+                                        {imageList.length > 3 && (
+                                            <Typography sx={{ alignItems: 'center', display: 'flex', fontSize: '.9rem', fontWeight: 200 }}>
+                                                + {imageList.length - 3} More
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                )}
+                            </Box>
+                            {/* Right side: footerEndContent */}
                             {hasFooterEndContent && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', ml: hasImages ? 1 : 0 }}>{footerEndContent}</Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{footerEndContent}</Box>
                             )}
                         </Box>
                     )}

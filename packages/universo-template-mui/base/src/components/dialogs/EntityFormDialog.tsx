@@ -29,6 +29,8 @@ export interface EntityFormDialogProps {
     autoCloseOnSuccess?: boolean
     /** Show delete button in edit mode (default: false) */
     showDeleteButton?: boolean
+    /** Disable delete button (shows button but in disabled state) */
+    deleteButtonDisabled?: boolean
     /** Callback when delete button is clicked (only in edit mode) */
     onDelete?: () => void | Promise<void>
     extraFields?: (helpers: {
@@ -61,6 +63,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     onSuccess,
     autoCloseOnSuccess = true,
     showDeleteButton = false,
+    deleteButtonDisabled = false,
     onDelete,
     extraFields,
     initialExtraValues,
@@ -182,11 +185,11 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                 </Box>
             </DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'space-between' }}>
-                {/* Delete button - only shown in edit mode when enabled */}
-                {mode === 'edit' && showDeleteButton && onDelete ? (
+                {/* Delete button - shown in edit mode when showDeleteButton is true */}
+                {mode === 'edit' && showDeleteButton ? (
                     <Button
-                        onClick={onDelete}
-                        disabled={isLoading}
+                        onClick={deleteButtonDisabled ? undefined : onDelete}
+                        disabled={isLoading || deleteButtonDisabled}
                         variant='outlined'
                         color='error'
                         startIcon={<DeleteIcon />}

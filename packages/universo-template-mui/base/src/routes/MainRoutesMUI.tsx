@@ -153,6 +153,12 @@ const StorageMembers = Loadable(lazy(() => import('@universo/storages-frontend/p
 const AdminBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/AdminBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const AdminAccess = Loadable(lazy(() => import('@universo/admin-frontend/pages/AdminAccess')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const InstanceList = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const InstanceBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const InstanceAccess = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceAccess')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
@@ -797,13 +803,54 @@ const MainRoutesMUI = {
                 </AuthGuard>
             )
         },
-        // Admin routes (global users management) - with nested routes
+        // Admin routes (instances and global access management)
         {
             path: 'admin',
             element: <Outlet />,
             children: [
+                // Instance list (main admin page)
                 {
                     index: true,
+                    element: (
+                        <AuthGuard>
+                            <InstanceList />
+                        </AuthGuard>
+                    )
+                },
+                // Instance context routes
+                {
+                    path: 'instance/:instanceId',
+                    element: <Outlet />,
+                    children: [
+                        {
+                            index: true,
+                            element: (
+                                <AuthGuard>
+                                    <InstanceBoard />
+                                </AuthGuard>
+                            )
+                        },
+                        {
+                            path: 'board',
+                            element: (
+                                <AuthGuard>
+                                    <InstanceBoard />
+                                </AuthGuard>
+                            )
+                        },
+                        {
+                            path: 'access',
+                            element: (
+                                <AuthGuard>
+                                    <InstanceAccess />
+                                </AuthGuard>
+                            )
+                        }
+                    ]
+                },
+                // Legacy routes (kept for backward compatibility during transition)
+                {
+                    path: 'board',
                     element: (
                         <AuthGuard>
                             <AdminBoard />

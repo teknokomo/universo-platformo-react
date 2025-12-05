@@ -71,7 +71,7 @@ import { ensureAuth, createEnsureAuthWithRls } from '@universo/auth-backend'
 // Universo Platformo | AR.js publishing integration
 import { createPublishRoutes } from '@universo/publish-backend'
 // Universo Platformo | Admin - global users management
-import { createGlobalUsersRoutes, createGlobalAccessService } from '@universo/admin-backend'
+import { createGlobalUsersRoutes, createGlobalAccessService, createInstancesRoutes } from '@universo/admin-backend'
 // Universo Platformo | Profile service integration
 import { createProfileRoutes } from '@universo/profile-backend'
 import { getDataSource } from '../DataSource'
@@ -534,6 +534,10 @@ router.use('/publish', createPublishRoutes(getDataSource()))
 const globalAccessService = createGlobalAccessService({ getDataSource })
 const globalUsersRouter = createGlobalUsersRoutes({ globalAccessService })
 router.use('/admin/global-users', ensureAuthWithRls, globalUsersRouter)
+
+// Universo Platformo | Admin Routes (instances management)
+const instancesRouter = createInstancesRoutes({ globalAccessService, getDataSource })
+router.use('/admin/instances', ensureAuthWithRls, instancesRouter)
 
 // Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
 // Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints

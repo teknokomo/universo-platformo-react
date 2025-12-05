@@ -396,9 +396,23 @@ export default function NavbarBreadcrumbs() {
         if (primary === 'admin') {
             const items = [{ label: t('administration'), to: '/admin' }]
 
-            // Sub-pages (access) - use keys from menu namespace
-            if (segments[1] === 'access') {
+            // Instance context routes
+            if (segments[1] === 'instance' && segments[2]) {
+                const instanceId = segments[2]
+                items.push({ label: t('instance'), to: `/admin/instance/${instanceId}` })
+
+                // Sub-pages within instance
+                if (segments[3] === 'board') {
+                    items.push({ label: t('board'), to: `/admin/instance/${instanceId}/board` })
+                } else if (segments[3] === 'access') {
+                    items.push({ label: t('access'), to: `/admin/instance/${instanceId}/access` })
+                }
+            }
+            // Legacy routes
+            else if (segments[1] === 'access') {
                 items.push({ label: t('access'), to: '/admin/access' })
+            } else if (segments[1] === 'board') {
+                items.push({ label: t('board'), to: '/admin/board' })
             }
 
             return items
