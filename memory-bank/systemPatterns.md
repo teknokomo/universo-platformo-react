@@ -83,6 +83,186 @@ grep -r "i18next.use" packages/*/src --exclude-dir=node_modules
 
 ---
 
+## RBAC + CASL Authorization Pattern (2025-06-14)
+
+**Rule**: Use hybrid RBAC (database) + CASL (application) for flexible, isomorphic permission checks.
+
+### Architecture Layers
+
+1. **Database Layer (PostgreSQL)**:
+   - `admin.roles` - Role definitions
+   - `admin.role_permissions` - Module/action permissions with wildcard support
+   - `admin.user_roles` - User to role assignments
+   - `admin.has_permission()` - SQL function for RLS policies
+   - `admin.get_user_permissions()` - Returns all permissions for CASL
+
+2. **Backend Layer (Express)**:
+   - `@universo/auth-backend` exports `createAbilityMiddleware()`
+   - Attaches `req.ability` to Express request
+   - Use `requireAbility(req).can('delete', 'Metaverse')` for checks
+
+3. **Frontend Layer (React)**:
+   - `@flowise/store` exports `AbilityContextProvider`, `useAbility`, `Can`
+   - Wrap app with `<AbilityContextProvider>` to load permissions
+   - Use `<Can I="create" a="Project">` for declarative checks
+
+### Wildcard Support
+
+```sql
+-- Superadmin has full access
+INSERT INTO admin.role_permissions (role_id, module, action)
+VALUES ('role-id', '*', '*');
+
+-- CASL maps: module='*' → subject='all', action='*' → action='manage'
+```
+
+### Usage Examples
+
+**Backend (Express Route)**:
+```typescript
+import { requireAbility, ForbiddenError } from '@universo/auth-backend'
+
+router.delete('/:id', async (req, res) => {
+  const ability = requireAbility(req)
+  if (ability.cannot('delete', 'Metaverse')) {
+    throw new ForbiddenError('Cannot delete metaverse')
+  }
+  // proceed with deletion
+})
+```
+
+**Frontend (React Component)**:
+```jsx
+import { Can, useAbility } from '@flowise/store'
+
+// Declarative
+<Can I="create" a="Project">
+  <CreateButton />
+</Can>
+
+// Imperative
+const { ability } = useAbility()
+if (ability.can('update', 'Metaverse')) { ... }
+```
+
+### Key Files
+
+- Types: `@universo/types/abilities`
+- Backend: `@universo/auth-backend` (permissionService, abilityMiddleware)
+- Frontend: `@flowise/store` (AbilityContextProvider, Can, useAbility)
+- Migration: `admin-backend/migrations/1733400000000-CreateRBACSystem.ts`
+
+---
+
+## Scoped-API Pattern for RLS (2025-01-05)
+
+**Rule**: When fetching child entities within a parent context (e.g., entities within a metaverse), use parent-scoped API endpoints to ensure RLS policies work correctly for global admin access.
+
+### Problem
+
+Global admins (superadmin/supermoderator) need to view child entities of any parent, even those owned by other users. RLS policies use `admin.has_global_access()` to bypass ownership checks, but this only works when the query includes the parent context.
+
+**Antipattern** (doesn't work for global admins):
+```typescript
+// ❌ Global /entities endpoint - RLS can't determine parent context
+const { data } = useQuery({
+  queryKey: ['entities'],
+  queryFn: () => api.get('/entities')  // No metaverse context!
+})
+```
+
+**Correct Pattern** (works for all users including global admins):
+```typescript
+// ✅ Parent-scoped endpoint - RLS knows the metaverse context
+const { metaverseId } = useParams()
+const { data } = useQuery({
+  queryKey: ['metaverses', metaverseId, 'entities'],
+  queryFn: () => api.get(`/metaverses/${metaverseId}/entities`)
+})
+```
+
+### Implementation Checklist
+
+When implementing a new parent-child relationship with RLS:
+
+1. **Backend**: Ensure parent-scoped endpoints exist:
+   ```
+   GET /parents/:parentId/children     ← Use this
+   GET /children                       ← Avoid for nested views
+   ```
+
+2. **Frontend API Layer**: Add paginated scoped functions:
+   ```typescript
+   // api/parents.ts
+   export const listParentChildren = async (
+     parentId: string,
+     params?: PaginationParams
+   ): Promise<PaginatedResponse<Child>> => {
+     const response = await apiClient.get(`/parents/${parentId}/children`, { params })
+     return { items: response.data, pagination: extractPaginationMeta(response) }
+   }
+   ```
+
+3. **Query Keys**: Add parent-scoped query keys:
+   ```typescript
+   // api/queryKeys.ts
+   export const parentsQueryKeys = {
+     children: (parentId: string) => [...parentsQueryKeys.detail(parentId), 'children'] as const,
+     childrenList: (parentId: string, params?: PaginationParams) => 
+       [...parentsQueryKeys.children(parentId), 'list', normalizedParams] as const,
+   }
+   ```
+
+4. **List Component**: Conditionally use scoped API when parent ID present:
+   ```typescript
+   const { parentId } = useParams<{ parentId?: string }>()
+   
+   const paginationResult = usePaginated({
+     queryKeyFn: parentId 
+       ? (params) => parentsQueryKeys.childrenList(parentId, params)
+       : childrenQueryKeys.list,
+     queryFn: parentId
+       ? (params) => parentsApi.listParentChildren(parentId, params)
+       : childrenApi.listChildren,
+     enabled: true
+   })
+   ```
+
+5. **Cache Invalidation**: Invalidate both scoped and global caches:
+   ```typescript
+   // On create/update/delete
+   if (parentId) {
+     await queryClient.invalidateQueries({
+       queryKey: parentsQueryKeys.children(parentId)
+     })
+   }
+   await queryClient.invalidateQueries({
+     queryKey: childrenQueryKeys.lists()
+   })
+   ```
+
+### Example Implementation
+
+Reference: `metaverses-frontend` module
+- `api/metaverses.ts`: `listMetaverseEntities()`, `listMetaverseSections()`
+- `api/queryKeys.ts`: `metaversesQueryKeys.entitiesList()`, `sectionsList()`
+- `pages/EntityList.tsx`: Conditional API usage with `useParams()`
+- `pages/SectionList.tsx`: Same pattern
+
+### Affected Modules (May Need Similar Treatment)
+
+| Module | Parent → Children | Status |
+|--------|-------------------|--------|
+| Metaverses → Sections | ✅ Implemented |
+| Metaverses → Entities | ✅ Implemented |
+| Organizations → Departments | ⚠️ Not yet scoped |
+| Projects → Milestones | ⚠️ Not yet scoped |
+| Clusters → Domains | ⚠️ Not yet scoped |
+
+**Note**: Apply this pattern to other modules when RLS is enabled for them.
+
+---
+
 ## Testing Environment Pattern (CRITICAL)
 
 **Rule**: Use happy-dom for 4-9x faster tests vs jsdom.

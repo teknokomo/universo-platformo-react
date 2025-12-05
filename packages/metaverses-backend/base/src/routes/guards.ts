@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { MetaverseRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { EntitySection } from '../database/entities/EntitySection'
@@ -54,6 +55,7 @@ export interface MetaverseMembershipContext {
 }
 
 // Create base guards using generic factory from auth-backend
+// Includes global admin bypass for superadmin/supermoderator
 const baseGuards = createAccessGuards<MetaverseRole, MetaverseUser>({
     entityName: 'metaverse',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
@@ -64,7 +66,17 @@ const baseGuards = createAccessGuards<MetaverseRole, MetaverseUser>({
     },
     extractRole: (m) => (m.role || 'member') as MetaverseRole,
     extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.metaverse_id
+    extractEntityId: (m) => m.metaverse_id,
+    // Global admin bypass - users with global access get owner-level access
+    hasGlobalAccess: hasGlobalAccessByDataSource,
+    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+        ({
+            user_id: userId,
+            metaverse_id: entityId,
+            role: 'owner', // Global admins get owner-level access
+            created_at: new Date()
+        }) as MetaverseUser
 })
 
 // Re-export base guards (assertPermission, hasPermission are re-exported directly)

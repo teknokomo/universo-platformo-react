@@ -101,6 +101,8 @@
       "description": "Описание",
       "id": "ID",
       "role": "Роль",
+      "sections": "Секции",
+      "entities": "Сущности",
       "added": "Добавлен",
       "email": "Email"
     },

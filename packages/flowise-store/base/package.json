@@ -23,6 +23,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@casl/ability": "^6.7.3",
+    "@casl/react": "^5.0.0",
     "redux": "^5.0.1"
   },
   "peerDependencies": {

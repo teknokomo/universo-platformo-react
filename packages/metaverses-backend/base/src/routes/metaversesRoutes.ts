@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { Entity } from '../database/entities/Entity'
@@ -165,6 +166,17 @@ export function createMetaversesRoutes(
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             try {
+                // Check if user has global access
+                const ds = getDataSource()
+                const isGlobalAdmin = await hasGlobalAccessByDataSource(ds, userId)
+                // Get global role name for accessType if user is global admin
+                const globalRoleName = isGlobalAdmin ? await getGlobalRoleNameByDataSource(ds, userId) : null
+
+                // Check showAll query parameter (only applicable for global admins)
+                // If showAll=false (or not set), global admin sees only their own items
+                const showAllParam = req.query.showAll
+                const showAll = isGlobalAdmin && showAllParam === 'true'
+
                 // Validate and parse query parameters with Zod
                 const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
 
@@ -181,15 +193,25 @@ export function createMetaversesRoutes(
                 const sortByField = ALLOWED_SORT_FIELDS[sortBy]
                 const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
-                // Aggregate counts per metaverse in a single query filtered by current user membership
+                // Aggregate counts per metaverse
+                // Global admins can see all metaverses
                 const { metaverseRepo } = repos(req)
                 const qb = metaverseRepo
                     .createQueryBuilder('m')
-                    // Join using entity classes to respect schema mapping and avoid alias parsing issues
-                    .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = m.id')
                     .leftJoin(SectionMetaverse, 'sm', 'sm.metaverse_id = m.id')
                     .leftJoin(EntityMetaverse, 'em', 'em.metaverse_id = m.id')
-                    .where('mu.user_id = :userId', { userId })
+
+                // For regular users, filter by membership
+                // For global admins with showAll=true, show all metaverses
+                // For global admins with showAll=false, filter by membership (like regular users)
+                if (showAll) {
+                    // Global admin with showAll: left join to get role if they are a member, otherwise null
+                    qb.leftJoin(MetaverseUser, 'mu', 'mu.metaverse_id = m.id AND mu.user_id = :userId', { userId })
+                } else {
+                    // Regular user or global admin with showAll=false: inner join to filter by membership
+                    qb.innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = m.id')
+                        .where('mu.user_id = :userId', { userId })
+                }
 
                 // Add search filter if provided
                 if (normalizedSearch) {
@@ -198,6 +220,8 @@ export function createMetaversesRoutes(
                     })
                 }
 
+                // For global admins with showAll without membership, show 'owner' role (full access)
+                // accessType indicates how access was obtained: 'member' for direct membership, or the global role
                 qb.select([
                     'm.id as id',
                     'm.name as name',
@@ -208,7 +232,14 @@ export function createMetaversesRoutes(
                 ])
                     .addSelect('COUNT(DISTINCT sm.id)', 'sectionsCount')
                     .addSelect('COUNT(DISTINCT em.id)', 'entitiesCount')
-                    .addSelect('mu.role', 'role')
+                    .addSelect(showAll ? "COALESCE(mu.role, 'owner')" : 'mu.role', 'role')
+                    // accessType: 'member' if has direct membership, otherwise global role name
+                    .addSelect(
+                        showAll
+                            ? `CASE WHEN mu.user_id IS NOT NULL THEN 'member' ELSE '${globalRoleName || 'global_admin'}' END`
+                            : "'member'",
+                        'accessType'
+                    )
                     // Use window function to get total count in single query (performance optimization)
                     .addSelect('COUNT(*) OVER()', 'window_total')
                     .groupBy('m.id')
@@ -217,6 +248,7 @@ export function createMetaversesRoutes(
                     .addGroupBy('m.createdAt')
                     .addGroupBy('m.updatedAt')
                     .addGroupBy('mu.role')
+                    .addGroupBy('mu.user_id')
                     .orderBy(sortByField, sortDirection)
                     .limit(limit)
                     .offset(offset)
@@ -230,6 +262,7 @@ export function createMetaversesRoutes(
                     sectionsCount: string
                     entitiesCount: string
                     role: MetaverseRole | null
+                    accessType: string
                     window_total?: string
                 }>()
 
@@ -239,6 +272,9 @@ export function createMetaversesRoutes(
 
                 const response = raw.map((row) => {
                     const role = (row.role ?? undefined) as MetaverseRole | undefined
+                    // accessType indicates how user obtained access:
+                    // 'member' - direct membership, 'superadmin'/'supermoderator' - global admin access
+                    const accessType = row.accessType as 'member' | 'superadmin' | 'supermoderator'
                     return {
                         id: row.id,
                         name: row.name,
@@ -250,6 +286,7 @@ export function createMetaversesRoutes(
                         sectionsCount: parseInt(row.sectionsCount || '0', 10) || 0,
                         entitiesCount: parseInt(row.entitiesCount || '0', 10) || 0,
                         role,
+                        accessType,
                         permissions: role ? ROLE_PERMISSIONS[role] : undefined
                     }
                 })
@@ -604,17 +641,35 @@ export function createMetaversesRoutes(
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
-            // Debug log removed
+
+            console.log(`[DEBUG] GET /metaverses/${metaverseId}/entities - userId: ${userId}`)
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
-            await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
+            // Check global access
+            const ds = getDataSource()
+            const isGlobalAdmin = await hasGlobalAccessByDataSource(ds, userId)
+            console.log(`[DEBUG] isGlobalAdmin: ${isGlobalAdmin}`)
+
+            await ensureMetaverseAccess(ds, userId, metaverseId)
+            console.log(`[DEBUG] ensureMetaverseAccess passed`)
 
             const { linkRepo } = repos(req)
             try {
+                // Debug: check what RLS context returns
+                const manager = linkRepo.manager
+                const rlsCheck = await manager.query(`
+                    SELECT 
+                        auth.uid() as current_uid,
+                        admin.has_global_access(auth.uid()) as has_global_access,
+                        (SELECT COUNT(*) FROM metaverses.entities_metaverses WHERE metaverse_id = $1) as total_links
+                `, [metaverseId])
+                console.log(`[DEBUG] RLS context check:`, rlsCheck)
+
                 const links = await linkRepo.find({ where: { metaverse: { id: metaverseId } }, relations: ['entity', 'metaverse'] })
+                console.log(`[DEBUG] Found ${links.length} entity links`)
+                
                 const entities = links.map((l) => ({ ...l.entity, sortOrder: l.sortOrder }))
-                // Debug log removed
                 res.json(entities)
             } catch (error) {
                 console.error(`GET /metaverses/${metaverseId}/entities - Error:`, error)

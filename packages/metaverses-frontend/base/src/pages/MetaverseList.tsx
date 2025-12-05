@@ -24,7 +24,8 @@ import {
     gridSpacing,
     ConfirmDialog,
     useConfirm,
-    RoleChip
+    RoleChip,
+    useUserSettings
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -53,14 +54,24 @@ const MetaverseList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('metaversesMetaverseDisplayStyle') || 'card')
 
+    // Get user settings for showAll preference
+    const { settings } = useUserSettings()
+    const showAll = settings.admin?.showAllItems ?? false
+
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
 
+    // Create query function that includes showAll parameter
+    const queryFnWithShowAll = useCallback(
+        (params: any) => metaversesApi.listMetaverses({ ...params, showAll }),
+        [showAll]
+    )
+
     // Use paginated hook for metaverses list
     const paginationResult = usePaginated<Metaverse, 'name' | 'created' | 'updated'>({
-        queryKeyFn: metaversesQueryKeys.list,
-        queryFn: metaversesApi.listMetaverses,
+        queryKeyFn: (params) => [...metaversesQueryKeys.list(params), { showAll }],
+        queryFn: queryFnWithShowAll,
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc'
@@ -220,7 +231,7 @@ const MetaverseList = () => {
                 label: tc('table.role', 'Role'),
                 width: '10%',
                 align: 'center',
-                render: (row: Metaverse) => (row.role ? <RoleChip role={row.role} /> : '—')
+                render: (row: Metaverse) => (row.role ? <RoleChip role={row.role} accessType={row.accessType} /> : '—')
             },
             {
                 id: 'sections',
@@ -321,6 +332,7 @@ const MetaverseList = () => {
                     >
                         <ToolbarControls
                             viewToggleEnabled
+                            settingsEnabled
                             viewMode={view as 'card' | 'list'}
                             onViewModeChange={(mode: string) => handleChange(null, mode)}
                             cardViewTitle={tc('cardView')}
@@ -373,7 +385,7 @@ const MetaverseList = () => {
                                                 data={metaverse}
                                                 images={images[metaverse.id] || []}
                                                 href={`/metaverse/${metaverse.id}`}
-                                                footerEndContent={metaverse.role ? <RoleChip role={metaverse.role} /> : null}
+                                                footerEndContent={metaverse.role ? <RoleChip role={metaverse.role} accessType={metaverse.accessType} /> : null}
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>

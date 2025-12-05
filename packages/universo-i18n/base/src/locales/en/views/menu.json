@@ -41,6 +41,8 @@
         "docs": "Help",
         "profile": "Profile",
         "access": "Access",
+        "administration": "Administration",
+        "adminboard": "Admin Board",
         "rename": "Rename",
         "duplicate": "Duplicate",
         "export": "Export",

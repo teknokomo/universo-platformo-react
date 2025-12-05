@@ -1,6 +1,10 @@
-import type { MetaverseRole } from '@universo/types'
+import type { MetaverseRole, GlobalRole } from '@universo/types'
 
 export type { MetaverseRole }
+
+// Access type indicates how user obtained access to the entity
+// 'member' = direct membership, 'superadmin'/'supermoderator' = global admin access
+export type AccessType = 'member' | GlobalRole
 
 export type MetaverseAssignableRole = Exclude<MetaverseRole, 'owner'>
 
@@ -39,6 +43,9 @@ export interface Metaverse {
     entitiesCount?: number
     membersCount?: number
     role?: MetaverseRole
+    // accessType indicates how user obtained access: 'member' for direct membership, 
+    // 'superadmin'/'supermoderator' for global admin access
+    accessType?: AccessType
     permissions?: MetaversePermissions
 }
 

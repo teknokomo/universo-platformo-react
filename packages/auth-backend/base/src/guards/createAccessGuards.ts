@@ -26,12 +26,31 @@ const createError = (httpErrors as any).default || httpErrors
  *   },
  *   extractRole: (m) => m.role || 'member',
  *   extractUserId: (m) => m.user_id,
- *   extractEntityId: (m) => m.metaverse_id
+ *   extractEntityId: (m) => m.metaverse_id,
+ *   // Enable global admin bypass (new API)
+ *   hasGlobalAccess: async (ds, userId) => hasGlobalAccessByDataSource(ds, userId),
+ *   getGlobalRoleName: async (ds, userId) => getGlobalRoleNameByDataSource(ds, userId),
+ *   createGlobalAdminMembership: (userId, entityId, globalRole) => ({
+ *     user_id: userId,
+ *     metaverse_id: entityId,
+ *     role: 'owner' // Global admins get owner-level access
+ *   })
  * })
  * ```
  */
 export function createAccessGuards<TRole extends string, TMembership>(config: AccessGuardsConfig<TRole, TMembership>) {
-    const { entityName, permissions, getMembership, extractRole, extractUserId, extractEntityId } = config
+    const {
+        entityName,
+        permissions,
+        getMembership,
+        extractRole,
+        extractUserId,
+        extractEntityId,
+        hasGlobalAccess: hasGlobalAccessFn,
+        getGlobalRoleName,
+        getGlobalRole, // deprecated, for backward compatibility
+        createGlobalAdminMembership
+    } = config
 
     /**
      * Assert that membership has required permission for an action
@@ -56,6 +75,7 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
 
     /**
      * Ensure user has access to entity (optionally with specific permission)
+     * Checks global access first (dynamic roles), then membership
      * @throws 403 if user is not a member or lacks permission
      * @throws 401 if userId is not provided
      */
@@ -67,6 +87,41 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
     ): Promise<MembershipContext<TMembership>> {
         if (!userId) {
             throw createError(401, 'Authentication required')
+        }
+
+        // Check global access (new API with hasGlobalAccess function)
+        if (hasGlobalAccessFn && createGlobalAdminMembership) {
+            const hasAccess = await hasGlobalAccessFn(ds, userId)
+            if (hasAccess) {
+                // Get role name for logging (optional)
+                const roleName = getGlobalRoleName ? await getGlobalRoleName(ds, userId) : 'global_admin'
+                console.info('[ACCESS] Global admin access granted', {
+                    timestamp: new Date().toISOString(),
+                    userId,
+                    entityId,
+                    entityName,
+                    globalRole: roleName
+                })
+                // Create synthetic membership with full permissions
+                const syntheticMembership = createGlobalAdminMembership(userId, entityId, roleName)
+                return { membership: syntheticMembership, entityId }
+            }
+        }
+        // Fallback to deprecated getGlobalRole API for backward compatibility
+        else if (getGlobalRole && createGlobalAdminMembership) {
+            const globalRole = await getGlobalRole(ds, userId)
+            if (globalRole === 'superadmin' || globalRole === 'supermoderator') {
+                console.info('[ACCESS] Global admin access granted (legacy)', {
+                    timestamp: new Date().toISOString(),
+                    userId,
+                    entityId,
+                    entityName,
+                    globalRole
+                })
+                // Create synthetic membership with full permissions
+                const syntheticMembership = createGlobalAdminMembership(userId, entityId, globalRole)
+                return { membership: syntheticMembership, entityId }
+            }
         }
 
         const membership = await getMembership(ds, userId, entityId)

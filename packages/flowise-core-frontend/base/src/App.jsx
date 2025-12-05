@@ -14,6 +14,32 @@ import themes from '@flowise/template-mui/themes'
 // project imports
 import NavigationScroll from '@flowise/template-mui/layout/NavigationScroll'
 
+// CASL Ability context
+import { AbilityContextProvider, useAbility } from '@flowise/store'
+
+// ==============================|| CASL DEBUG COMPONENT ||============================== //
+// TODO: Remove this after testing CASL integration
+const CaslDebugger = () => {
+    const { ability, loading, error } = useAbility()
+
+    useEffect(() => {
+        if (loading) {
+            console.log('[CASL Debug] Loading permissions...')
+        } else if (error) {
+            console.error('[CASL Debug] Error loading permissions:', error)
+        } else if (ability) {
+            console.log('[CASL Debug] Ability loaded:', {
+                rulesCount: ability.rules?.length || 0,
+                rules: ability.rules,
+                canCreateMetaverse: ability.can('create', 'Metaverse'),
+                canManageAll: ability.can('manage', 'all')
+            })
+        }
+    }, [ability, loading, error])
+
+    return null // This component only logs, doesn't render anything
+}
+
 // ==============================|| APP ||============================== //
 
 const App = () => {
@@ -65,9 +91,12 @@ const App = () => {
         <StyledEngineProvider injectFirst>
             <ThemeProvider theme={themeInstance}>
                 <CssBaseline />
-                <NavigationScroll>
-                    <Routes />
-                </NavigationScroll>
+                <AbilityContextProvider>
+                    <CaslDebugger />
+                    <NavigationScroll>
+                        <Routes />
+                    </NavigationScroll>
+                </AbilityContextProvider>
             </ThemeProvider>
         </StyledEngineProvider>
     )

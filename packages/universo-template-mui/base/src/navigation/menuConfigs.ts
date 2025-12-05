@@ -18,7 +18,9 @@ import {
     IconRobot,
     IconChartBar,
     IconFlag,
-    IconLayoutDashboard
+    IconLayoutDashboard,
+    IconShield,
+    IconUsersGroup
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -333,3 +335,33 @@ export const rootMenuItems: TemplateMenuItem[] = [
         }
     }
 ]
+
+/**
+ * Admin menu items (shown only for super users)
+ * Returns array of menu items for the admin section
+ */
+export const getAdminMenuItems = (): TemplateMenuItem[] => [
+    {
+        id: 'admin-board',
+        titleKey: 'adminboard',
+        url: '/admin',
+        icon: IconLayoutDashboard
+    },
+    {
+        id: 'admin-access',
+        titleKey: 'access',
+        url: '/admin/access',
+        icon: IconUsersGroup
+    }
+]
+
+/**
+ * @deprecated Use getAdminMenuItems() instead
+ * Legacy admin menu item - kept for backward compatibility
+ */
+export const adminMenuItem: TemplateMenuItem = {
+    id: 'admin',
+    titleKey: 'administration',
+    url: '/admin',
+    icon: IconShield
+}

@@ -4,13 +4,16 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
+import Divider from '@mui/material/Divider'
+import Typography from '@mui/material/Typography'
 // import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 // import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 // import HelpRoundedIcon from '@mui/icons-material/HelpRounded';
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
-import { rootMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems, getProjectMenuItems, getOrganizationMenuItems, getStorageMenuItems, getCampaignMenuItems } from '../../navigation/menuConfigs'
+import { useGlobalRoleCheck } from '../../hooks/useGlobalRoleCheck'
+import { rootMenuItems, getAdminMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems, getProjectMenuItems, getOrganizationMenuItems, getStorageMenuItems, getCampaignMenuItems } from '../../navigation/menuConfigs'
 
 // const secondaryListItems = [
 //   { text: 'Settings', icon: <SettingsRoundedIcon /> },
@@ -21,6 +24,7 @@ import { rootMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuI
 export default function MenuContent() {
     const { t, i18n: i18nInst } = useTranslation('menu', { i18n })
     const location = useLocation()
+    const isSuperUser = useGlobalRoleCheck()
 
     // Check if we're in a unik context
     const isUnikContext = location.pathname.match(/^\/unik\/([^/]+)/)
@@ -116,6 +120,42 @@ export default function MenuContent() {
                         </ListItem>
                     )
                 })}
+
+                {/* Admin section with divider and header - only for super users */}
+                {isSuperUser && (
+                    <>
+                        <Divider sx={{ my: 1 }} />
+                        {/* Section header */}
+                        <Typography
+                            variant='overline'
+                            sx={{
+                                px: 2,
+                                py: 0.5,
+                                color: 'text.secondary',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                letterSpacing: '0.08em'
+                            }}
+                        >
+                            {t('administration')}
+                        </Typography>
+                        {/* Admin menu items */}
+                        {getAdminMenuItems().map((item) => {
+                            const Icon = item.icon
+                            const isSelected = location.pathname === item.url
+                            return (
+                                <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                    <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                        <ListItemIcon>
+                                            <Icon size={20} stroke={1.5} />
+                                        </ListItemIcon>
+                                        <ListItemText primary={t(item.titleKey)} />
+                                    </ListItemButton>
+                                </ListItem>
+                            )
+                        })}
+                    </>
+                )}
             </List>
             {/* TODO: restore settings/about/feedback once backed by real data */}
             {/*

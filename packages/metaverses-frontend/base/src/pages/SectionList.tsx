@@ -30,7 +30,8 @@ import type { TriggerProps } from '@universo/template-mui'
 
 import { useUpdateSection, useDeleteSection } from '../hooks/mutations'
 import * as sectionsApi from '../api/sections'
-import { sectionsQueryKeys } from '../api/queryKeys'
+import * as metaversesApi from '../api/metaverses'
+import { sectionsQueryKeys, metaversesQueryKeys } from '../api/queryKeys'
 import { Section } from '../types'
 import sectionActions from './SectionActions'
 
@@ -58,9 +59,14 @@ const SectionList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Use paginated hook for sections list
+    // When metaverseId is present, use metaverse-scoped API to respect RLS
     const paginationResult = usePaginated<Section, 'name' | 'created' | 'updated'>({
-        queryKeyFn: sectionsQueryKeys.list,
-        queryFn: sectionsApi.listSections,
+        queryKeyFn: metaverseId
+            ? (params) => metaversesQueryKeys.sectionsList(metaverseId, params)
+            : sectionsQueryKeys.list,
+        queryFn: metaverseId
+            ? (params) => metaversesApi.listMetaverseSections(metaverseId, params)
+            : sectionsApi.listSections,
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc',
@@ -183,7 +189,12 @@ const SectionList = () => {
             },
             helpers: {
                 refreshList: async () => {
-                    // Explicit cache invalidation
+                    // Explicit cache invalidation - invalidate both metaverse-scoped and global lists
+                    if (metaverseId) {
+                        await queryClient.invalidateQueries({
+                            queryKey: metaversesQueryKeys.sections(metaverseId)
+                        })
+                    }
                     await queryClient.invalidateQueries({
                         queryKey: sectionsQueryKeys.lists()
                     })
@@ -216,7 +227,7 @@ const SectionList = () => {
                 }
             }
         }),
-        [confirm, deleteSectionMutation, enqueueSnackbar, queryClient, updateSectionMutation]
+        [confirm, deleteSectionMutation, enqueueSnackbar, metaverseId, queryClient, updateSectionMutation]
     )
 
     // Validate metaverseId from URL AFTER all hooks
@@ -253,7 +264,12 @@ const SectionList = () => {
                 metaverseId: metaverseId
             })
 
-            // Invalidate cache to refetch sections list
+            // Invalidate cache to refetch sections list (both metaverse-scoped and global)
+            if (metaverseId) {
+                await queryClient.invalidateQueries({
+                    queryKey: metaversesQueryKeys.sections(metaverseId)
+                })
+            }
             await queryClient.invalidateQueries({
                 queryKey: sectionsQueryKeys.lists()
             })

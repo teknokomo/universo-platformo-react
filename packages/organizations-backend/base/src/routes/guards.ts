@@ -2,6 +2,7 @@
 import * as httpErrors from 'http-errors'
 import { OrganizationRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { OrganizationUser } from '../database/entities/OrganizationUser'
 import { DepartmentOrganization } from '../database/entities/DepartmentOrganization'
 import { PositionDepartment } from '../database/entities/PositionDepartment'
@@ -48,6 +49,7 @@ export const ROLE_PERMISSIONS = {
 export type RolePermission = keyof (typeof ROLE_PERMISSIONS)['owner']
 
 // Create base guards using generic factory from auth-backend
+// Includes global admin bypass for superadmin/supermoderator
 const baseGuards = createAccessGuards<OrganizationRole, OrganizationUser>({
     entityName: 'organization',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
@@ -58,7 +60,17 @@ const baseGuards = createAccessGuards<OrganizationRole, OrganizationUser>({
     },
     extractRole: (m) => (m.role || 'member') as OrganizationRole,
     extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.organization_id
+    extractEntityId: (m) => m.organization_id,
+    // Global admin bypass - users with global access get owner-level access
+    hasGlobalAccess: hasGlobalAccessByDataSource,
+    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+        ({
+            user_id: userId,
+            organization_id: entityId,
+            role: 'owner', // Global admins get owner-level access
+            created_at: new Date()
+        }) as OrganizationUser
 })
 
 // Export base guards

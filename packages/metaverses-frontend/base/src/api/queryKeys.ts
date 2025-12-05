@@ -36,6 +36,34 @@ export const metaversesQueryKeys = {
             search: params?.search?.trim() || undefined
         }
         return [...metaversesQueryKeys.members(id), 'list', normalized] as const
+    },
+
+    // Entities scoped to a specific metaverse
+    entities: (metaverseId: string) => [...metaversesQueryKeys.detail(metaverseId), 'entities'] as const,
+
+    entitiesList: (metaverseId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metaversesQueryKeys.entities(metaverseId), 'list', normalized] as const
+    },
+
+    // Sections scoped to a specific metaverse
+    sections: (metaverseId: string) => [...metaversesQueryKeys.detail(metaverseId), 'sections'] as const,
+
+    sectionsList: (metaverseId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metaversesQueryKeys.sections(metaverseId), 'list', normalized] as const
     }
 }
 

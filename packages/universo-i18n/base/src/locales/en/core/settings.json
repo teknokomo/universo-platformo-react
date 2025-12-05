@@ -1,0 +1,15 @@
+{
+    "dialog": {
+        "title": "Settings",
+        "adminSection": "Admin Settings",
+        "displaySection": "Display Settings",
+        "moreSettingsComingSoon": "More settings coming soon...",
+        "showAllItems": {
+            "label": "Show all items",
+            "description": "When enabled, lists will show items from all users, not just your own."
+        }
+    },
+    "button": {
+        "tooltip": "Settings"
+    }
+}

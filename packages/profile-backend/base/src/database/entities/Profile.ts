@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm'
+import type { UserSettingsData } from '../../types'
 
 @Entity({ name: 'profiles' })
 export class Profile {
@@ -19,6 +20,9 @@ export class Profile {
 
     @Column({ type: 'varchar', length: 100, nullable: true })
     last_name?: string
+
+    @Column({ type: 'jsonb', nullable: false, default: () => "'{}'" })
+    settings!: UserSettingsData
 
     @CreateDateColumn()
     created_at!: Date

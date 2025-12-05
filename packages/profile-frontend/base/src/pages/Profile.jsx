@@ -7,7 +7,7 @@ import { Box, TextField, Button, Stack, Alert, Typography, Grid, Paper, Divider 
 
 const Profile = () => {
     const { t } = useTranslation('profile')
-    const { user, getAccessToken } = useAuth()
+    const { user } = useAuth()
 
     // Profile state
     const [profile, setProfile] = useState({
@@ -37,11 +37,10 @@ const Profile = () => {
             if (!user?.id) return
 
             try {
-                const token = await getAccessToken()
-                const response = await fetch(`${window.location.origin}/api/v1/profile/${user.id}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
+                // Use /me endpoint which auto-creates profile if not exists
+                // Use credentials: 'include' for cookie-based auth
+                const response = await fetch(`${window.location.origin}/api/v1/profile/me`, {
+                    credentials: 'include'
                 })
 
                 if (response.ok) {
@@ -64,7 +63,7 @@ const Profile = () => {
         }
 
         loadProfile()
-    }, [user, getAccessToken])
+    }, [user])
 
     const updateProfile = async (e) => {
         e.preventDefault()
@@ -79,13 +78,12 @@ const Profile = () => {
         setProfileLoading(true)
 
         try {
-            const token = await getAccessToken()
             const response = await fetch(`${window.location.origin}/api/v1/profile/${user.id}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     nickname: profile.nickname,
                     first_name: profile.first_name,
@@ -127,14 +125,12 @@ const Profile = () => {
         }
 
         try {
-            const token = await getAccessToken()
-
             const res = await fetch(`${window.location.origin}/api/v1/auth/email`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ email })
             })
 
@@ -193,14 +189,12 @@ const Profile = () => {
         }
 
         try {
-            const token = await getAccessToken()
-
             const res = await fetch(`${window.location.origin}/api/v1/auth/password`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     currentPassword,
                     newPassword

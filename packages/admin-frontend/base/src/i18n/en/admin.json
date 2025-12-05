@@ -1,0 +1,74 @@
+{
+    "board": {
+        "title": "Administration Dashboard",
+        "description": "Global platform administration and statistics",
+        "loading": "Loading dashboard...",
+        "error": "Failed to load dashboard data",
+        "overview": "Overview",
+        "manageAccess": "Manage Global Access",
+        "stats": {
+            "totalUsers": {
+                "title": "Total Global Users",
+                "interval": "All time",
+                "description": "Users with global access"
+            },
+            "superadmins": {
+                "title": "Superadmins",
+                "interval": "Full access",
+                "description": "Can manage all global users"
+            },
+            "supermoderators": {
+                "title": "Supermoderators",
+                "interval": "View access",
+                "description": "Can view global users"
+            }
+        },
+        "documentation": {
+            "title": "Documentation",
+            "description": "Learn about global administration",
+            "button": "Read Docs"
+        },
+        "charts": {
+            "activity": {
+                "title": "Activity",
+                "description": "Platform activity over time"
+            },
+            "users": {
+                "title": "Global Users",
+                "description": "Distribution of global roles"
+            }
+        }
+    },
+    "access": {
+        "title": "Global Access Management",
+        "addUser": "Add Global User",
+        "searchPlaceholder": "Search by email or nickname...",
+        "noUsersFound": "No global users found",
+        "emailLabel": "Email",
+        "roleLabel": "Role",
+        "grantSuccess": "Global access granted successfully",
+        "grantError": "Failed to grant access",
+        "updateSuccess": "Role updated successfully",
+        "updateError": "Failed to update role",
+        "revokeSuccess": "Global access revoked successfully",
+        "revokeError": "Failed to revoke access",
+        "userAlreadyHasAccess": "User {{email}} already has global access",
+        "selfActionWarning": "Cannot modify your own access",
+        "confirmRemove": "Remove global access?",
+        "confirmRemoveDescription": "Remove global access for {{email}}?"
+    },
+    "roles": {
+        "superadmin": "Superadmin",
+        "supermoderator": "Supermoderator"
+    },
+    "members": {
+        "editTitle": "Edit Global User",
+        "emailLabel": "Email",
+        "roleLabel": "Role",
+        "confirmRemove": "Remove access?",
+        "confirmRemoveDescription": "This will remove global access for {{email}}"
+    },
+    "menu": {
+        "administration": "Administration"
+    }
+}

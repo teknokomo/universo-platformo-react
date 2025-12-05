@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { ProfileService } from '../services/profileService'
-import { CreateProfileDto, UpdateProfileDto, ApiResponse } from '../types'
+import { CreateProfileDto, UpdateProfileDto, ApiResponse, UpdateSettingsDto } from '../types'
 
 export class ProfileController {
     constructor(private profileService: ProfileService) {}
@@ -227,6 +227,117 @@ export class ProfileController {
                 data: profiles
             } as ApiResponse)
         } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * GET /profile/settings - Get current user's settings
+     */
+    async getSettings(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = (req as any).user?.id
+
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Authentication required'
+                } as ApiResponse)
+                return
+            }
+
+            const settings = await this.profileService.getUserSettings(userId)
+
+            res.json({
+                success: true,
+                data: settings
+            } as ApiResponse)
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * GET /profile/me - Get or create current user's profile
+     * Auto-creates profile if it doesn't exist
+     */
+    async getOrCreateCurrentProfile(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = (req as any).user?.id
+            const email = (req as any).user?.email
+
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Authentication required'
+                } as ApiResponse)
+                return
+            }
+
+            const profile = await this.profileService.getOrCreateProfile(userId, email)
+
+            res.json({
+                success: true,
+                data: profile
+            } as ApiResponse)
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * PUT /profile/settings - Update current user's settings
+     * Auto-creates profile if it doesn't exist
+     */
+    async updateSettings(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = (req as any).user?.id
+            const email = (req as any).user?.email
+            const { settings }: UpdateSettingsDto = req.body
+
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Authentication required'
+                } as ApiResponse)
+                return
+            }
+
+            if (!settings || typeof settings !== 'object') {
+                res.status(400).json({
+                    success: false,
+                    error: 'Settings object is required'
+                } as ApiResponse)
+                return
+            }
+
+            const updatedSettings = await this.profileService.updateUserSettings(userId, settings, email)
+
+            res.json({
+                success: true,
+                data: updatedSettings,
+                message: 'Settings updated successfully'
+            } as ApiResponse)
+        } catch (error) {
+            // Profile not found error should not happen now (auto-created)
+            // but keep for safety
+            if (error instanceof Error && error.message === 'Profile not found') {
+                res.status(404).json({
+                    success: false,
+                    error: 'Profile not found'
+                } as ApiResponse)
+                return
+            }
+
             res.status(500).json({
                 success: false,
                 error: error instanceof Error ? error.message : 'Internal server error'

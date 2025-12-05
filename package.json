@@ -146,6 +146,7 @@
         ]
     },
     "dependencies": {
+        "@casl/ability": "^6.7.3",
         "@colyseus/ws-transport": "^0.16.0",
         "redis": "^4.6.7"
     }

@@ -1,3 +1,3 @@
-import { AddMetaversesSectionsEntities1730600000000 } from './1730600000000-AddMetaversesSectionsEntities'
+import { CreateMetaversesSchema1733600000000 } from './1733600000000-CreateMetaversesSchema'
 
-export const metaversesMigrations = [AddMetaversesSectionsEntities1730600000000]
+export const metaversesMigrations = [CreateMetaversesSchema1733600000000]

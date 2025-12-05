@@ -1,6 +1,20 @@
 import { Repository } from 'typeorm'
 import { Profile } from '../database/entities/Profile'
-import { CreateProfileDto, UpdateProfileDto } from '../types'
+import { CreateProfileDto, UpdateProfileDto, UserSettingsData } from '../types'
+
+/**
+ * Generate a unique nickname based on email or user ID
+ */
+function generateNickname(userId: string, email?: string): string {
+    if (email) {
+        // Use email prefix, sanitized for nickname rules
+        const prefix = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20)
+        const suffix = userId.substring(0, 8)
+        return `${prefix}_${suffix}`
+    }
+    // Fallback to user ID based nickname
+    return `user_${userId.substring(0, 16).replace(/-/g, '')}`
+}
 
 export class ProfileService {
     constructor(private profileRepository: Repository<Profile>) {}
@@ -12,6 +26,44 @@ export class ProfileService {
         return await this.profileRepository.findOne({
             where: { user_id: userId }
         })
+    }
+
+    /**
+     * Get or create user profile.
+     * If profile doesn't exist, creates one with auto-generated nickname.
+     * @param userId - User ID from auth
+     * @param email - Optional email for generating nickname
+     */
+    async getOrCreateProfile(userId: string, email?: string): Promise<Profile> {
+        let profile = await this.profileRepository.findOne({
+            where: { user_id: userId }
+        })
+
+        if (!profile) {
+            // Generate unique nickname
+            let nickname = generateNickname(userId, email)
+            let attempts = 0
+            const maxAttempts = 10
+
+            // Ensure nickname uniqueness
+            while (attempts < maxAttempts) {
+                const isAvailable = await this.checkNicknameAvailable(nickname)
+                if (isAvailable) break
+                nickname = `${generateNickname(userId, email)}_${Date.now() % 10000}`
+                attempts++
+            }
+
+            // Create new profile
+            profile = this.profileRepository.create({
+                user_id: userId,
+                nickname,
+                settings: {}
+            })
+            profile = await this.profileRepository.save(profile)
+            console.log(`[ProfileService] Auto-created profile for user ${userId} with nickname ${nickname}`)
+        }
+
+        return profile
     }
 
     /**
@@ -90,5 +142,60 @@ export class ProfileService {
     async deleteProfile(userId: string): Promise<boolean> {
         const result = await this.profileRepository.delete({ user_id: userId })
         return (result.affected ?? 0) > 0
+    }
+
+    /**
+     * Get user settings
+     */
+    async getUserSettings(userId: string): Promise<UserSettingsData> {
+        const profile = await this.profileRepository.findOne({
+            where: { user_id: userId }
+        })
+        return profile?.settings || {}
+    }
+
+    /**
+     * Update user settings (deep merge).
+     * Auto-creates profile if it doesn't exist.
+     */
+    async updateUserSettings(userId: string, settingsUpdate: Partial<UserSettingsData>, email?: string): Promise<UserSettingsData> {
+        // Get or create profile - ensures profile exists
+        let profile = await this.profileRepository.findOne({
+            where: { user_id: userId }
+        })
+
+        if (!profile) {
+            // Auto-create profile
+            profile = await this.getOrCreateProfile(userId, email)
+        }
+
+        // Deep merge existing settings with update
+        const currentSettings = profile.settings || {}
+        const newSettings: UserSettingsData = {
+            ...currentSettings,
+            admin: {
+                ...currentSettings.admin,
+                ...settingsUpdate.admin
+            },
+            display: {
+                ...currentSettings.display,
+                ...settingsUpdate.display
+            }
+        }
+
+        // Remove undefined keys
+        if (newSettings.admin && Object.keys(newSettings.admin).length === 0) {
+            delete newSettings.admin
+        }
+        if (newSettings.display && Object.keys(newSettings.display).length === 0) {
+            delete newSettings.display
+        }
+
+        await this.profileRepository.update(
+            { user_id: userId },
+            { settings: newSettings, updated_at: new Date() }
+        )
+
+        return newSettings
     }
 }

@@ -4,7 +4,7 @@ export class AddProfile1741277504477 implements MigrationInterface {
     name = 'AddProfile1741277504477'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // 1. Create profiles table
+        // 1. Create profiles table with settings JSONB column
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "profiles" (
                 "id" uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -12,6 +12,7 @@ export class AddProfile1741277504477 implements MigrationInterface {
                 "nickname" character varying(50) NOT NULL UNIQUE,
                 "first_name" character varying(100),
                 "last_name" character varying(100),
+                "settings" jsonb NOT NULL DEFAULT '{}',
                 "created_at" TIMESTAMP NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_profiles" PRIMARY KEY ("id"),
@@ -89,10 +90,10 @@ export class AddProfile1741277504477 implements MigrationInterface {
                                 temp_nickname := temp_nickname || '_' || attempt_count;
                             END IF;
 
-                            -- Try to insert profile with generated nickname
+                            -- Try to insert profile with generated nickname and default settings
                             BEGIN
-                                INSERT INTO public.profiles (user_id, nickname)
-                                VALUES (NEW.id, temp_nickname);
+                                INSERT INTO public.profiles (user_id, nickname, settings)
+                                VALUES (NEW.id, temp_nickname, '{}');
                                 EXIT; -- Success, exit loop
                             EXCEPTION
                                 WHEN unique_violation THEN
@@ -100,8 +101,8 @@ export class AddProfile1741277504477 implements MigrationInterface {
                                     IF attempt_count >= max_attempts THEN
                                         -- Use timestamp as fallback
                                         temp_nickname := 'user_' || extract(epoch from now())::bigint;
-                                        INSERT INTO public.profiles (user_id, nickname)
-                                        VALUES (NEW.id, temp_nickname);
+                                        INSERT INTO public.profiles (user_id, nickname, settings)
+                                        VALUES (NEW.id, temp_nickname, '{}');
                                         EXIT;
                                     END IF;
                             END;

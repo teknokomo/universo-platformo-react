@@ -5,6 +5,7 @@
  * Migrations are grouped by domain and executed in sequence.
  *
  * Order rationale:
+ * 0. Admin (creates admin schema and has_permission function used by RLS in other modules)
  * 1. Foundation tables (no FK dependencies): chat_message, tools, credentials, etc.
  * 2. Uniks (creates uniks schema, adds unik_id to Flowise tables)
  * 3. Profile, Metaverses, Clusters, etc. (depend on uniks)
@@ -25,6 +26,7 @@ import { apikeyMigrations } from '@flowise/apikey-backend'
 import { customTemplatesMigrations } from '@flowise/customtemplates-backend'
 
 // Universo package migrations
+import { adminMigrations } from '@universo/admin-backend'
 import { uniksMigrations } from '@universo/uniks-backend'
 import { profileMigrations } from '@universo/profile-backend'
 import { metaversesMigrations } from '@universo/metaverses-backend'
@@ -37,6 +39,12 @@ import { spacesMigrations } from '@universo/spaces-backend'
 import { publishMigrations } from '@universo/publish-backend'
 
 export const postgresMigrations = [
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 0: Admin (MUST BE FIRST - creates admin.has_permission function)
+    // Other modules' RLS policies depend on this function
+    // ═══════════════════════════════════════════════════════════════════════
+    ...adminMigrations,
+
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 1: Foundation tables (no FK dependencies)
     // ═══════════════════════════════════════════════════════════════════════

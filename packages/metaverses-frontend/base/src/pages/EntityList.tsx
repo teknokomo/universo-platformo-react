@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
     Box,
     Skeleton,
@@ -43,8 +43,9 @@ import type { TriggerProps } from '@universo/template-mui'
 import { useUpdateEntity, useDeleteEntity } from '../hooks/mutations'
 import * as entitiesApi from '../api/entities'
 import * as sectionsApi from '../api/sections'
-import { entitiesQueryKeys, sectionsQueryKeys } from '../api/queryKeys'
-import { Entity, Section } from '../types'
+import * as metaversesApi from '../api/metaverses'
+import { entitiesQueryKeys, sectionsQueryKeys, metaversesQueryKeys } from '../api/queryKeys'
+import { Entity, Section, PaginationParams } from '../types'
 import entityActions from './EntityActions'
 
 // Type for entity update/create data
@@ -55,6 +56,9 @@ type EntityData = {
 
 const EntityList = () => {
     const navigate = useNavigate()
+    // Get metaverseId from URL params (if present, we're viewing entities within a specific metaverse)
+    const { metaverseId } = useParams<{ metaverseId?: string }>()
+    
     // Use entities namespace for view-specific keys
     const { t, i18n } = useTranslation(['metaverses', 'common', 'flowList'])
     // Use common namespace for table headers and common actions
@@ -77,9 +81,15 @@ const EntityList = () => {
     })
 
     // Use paginated hook for entities list
+    // If metaverseId is present, fetch entities for that specific metaverse
+    // Otherwise, fetch all entities accessible to the user
     const paginationResult = usePaginated<Entity, 'name' | 'created' | 'updated'>({
-        queryKeyFn: entitiesQueryKeys.list,
-        queryFn: entitiesApi.listEntities,
+        queryKeyFn: metaverseId 
+            ? (params: PaginationParams) => metaversesQueryKeys.entitiesList(metaverseId, params)
+            : entitiesQueryKeys.list,
+        queryFn: metaverseId
+            ? (params: PaginationParams) => metaversesApi.listMetaverseEntities(metaverseId, params)
+            : entitiesApi.listEntities,
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc'
@@ -169,7 +179,12 @@ const EntityList = () => {
                 sectionId: data.sectionId
             })
 
-            // Invalidate cache to refetch entities list
+            // Invalidate cache to refetch entities list (both metaverse-scoped and global)
+            if (metaverseId) {
+                await queryClient.invalidateQueries({
+                    queryKey: metaversesQueryKeys.entities(metaverseId)
+                })
+            }
             await queryClient.invalidateQueries({
                 queryKey: entitiesQueryKeys.lists()
             })
@@ -258,7 +273,12 @@ const EntityList = () => {
             },
             helpers: {
                 refreshList: async () => {
-                    // Explicit cache invalidation
+                    // Explicit cache invalidation - invalidate both metaverse-scoped and global lists
+                    if (metaverseId) {
+                        await queryClient.invalidateQueries({
+                            queryKey: metaversesQueryKeys.entities(metaverseId)
+                        })
+                    }
                     await queryClient.invalidateQueries({
                         queryKey: entitiesQueryKeys.lists()
                     })
@@ -291,7 +311,7 @@ const EntityList = () => {
                 }
             }
         }),
-        [confirm, deleteEntityMutation, enqueueSnackbar, queryClient, updateEntityMutation]
+        [confirm, deleteEntityMutation, enqueueSnackbar, metaverseId, queryClient, updateEntityMutation]
     )
 
     return (

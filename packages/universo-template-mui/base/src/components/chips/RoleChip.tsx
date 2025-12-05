@@ -2,46 +2,127 @@ import React from 'react'
 import { Chip } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
-import type { BaseRole } from '@universo/types'
+import type { BaseRole, GlobalRole, RoleMetadata, LocalizedString } from '@universo/types'
+
+// Access type indicates how user obtained access to the entity
+// 'member' = direct membership, other strings = global role name
+export type AccessType = 'member' | string
 
 export interface RoleChipProps {
-    role: BaseRole
+    role: BaseRole | GlobalRole | string
+    // accessType indicates how access was obtained; if not 'member', show that role instead
+    accessType?: AccessType
+    // Optional role metadata for dynamic colors (from AbilityContext.rolesMetadata)
+    roleMetadata?: RoleMetadata
     size?: 'small' | 'medium'
     variant?: 'filled' | 'outlined'
     className?: string
 }
 
-// Custom color styles for roles with soft backgrounds and darker text for readability
-const ROLE_STYLE_MAP: Record<BaseRole, { bgcolor: string; color: string; borderColor: string }> = {
+// Fallback color styles for known roles (used when roleMetadata is not provided)
+const ROLE_STYLE_MAP: Record<string, { bgcolor: string; color: string; borderColor: string }> = {
+    // Global roles (platform-wide)
+    superadmin: {
+        bgcolor: '#fce4ec',
+        color: '#ad1457',
+        borderColor: '#f06292'
+    },
+    supermoderator: {
+        bgcolor: '#fff3e0',
+        color: '#e65100',
+        borderColor: '#ffb74d'
+    },
+    // Entity roles (per-resource)
     owner: {
-        bgcolor: '#ffebee', // light red background
-        color: '#c62828', // dark red text
-        borderColor: '#e57373' // soft red border
+        bgcolor: '#ffebee',
+        color: '#c62828',
+        borderColor: '#e57373'
     },
     admin: {
-        bgcolor: '#f3e5f5', // light purple background
-        color: '#7b1fa2', // dark purple text
-        borderColor: '#ba68c8' // soft purple border
+        bgcolor: '#f3e5f5',
+        color: '#7b1fa2',
+        borderColor: '#ba68c8'
     },
     editor: {
-        bgcolor: '#e3f2fd', // light blue background
-        color: '#1976d2', // dark blue text
-        borderColor: '#64b5f6' // soft blue border
+        bgcolor: '#e3f2fd',
+        color: '#1976d2',
+        borderColor: '#64b5f6'
     },
     member: {
-        bgcolor: '#f5f5f5', // light grey background
-        color: '#616161', // dark grey text
-        borderColor: '#9e9e9e' // grey border
+        bgcolor: '#f5f5f5',
+        color: '#616161',
+        borderColor: '#9e9e9e'
     }
 }
 
-export const RoleChip: React.FC<RoleChipProps> = ({ role, size = 'small', variant = 'filled', className }) => {
-    const { t } = useTranslation('roles', { i18n })
-    const styles = ROLE_STYLE_MAP[role]
+// Fallback style for unknown roles
+const FALLBACK_STYLE = {
+    bgcolor: '#f5f5f5',
+    color: '#616161',
+    borderColor: '#9e9e9e'
+}
+
+/**
+ * Generate styles from metadata color (hex code like '#ad1457')
+ * Creates a light background and uses the color for text/border
+ */
+function stylesFromMetadata(metadata: RoleMetadata): { bgcolor: string; color: string; borderColor: string } {
+    const color = metadata.color || '#616161'
+    // Create light background by adding transparency or using a lighter version
+    // For simplicity, use alpha channel for light background
+    return {
+        bgcolor: `${color}15`, // 15% opacity background
+        color: color,
+        borderColor: `${color}80` // 50% opacity border
+    }
+}
+
+/**
+ * Get display name from metadata based on current language
+ */
+function getDisplayName(
+    displayName: LocalizedString | undefined,
+    roleName: string,
+    t: (key: string) => string,
+    currentLanguage: string
+): string {
+    if (displayName) {
+        // Try current language, then English, then first available
+        const name = displayName[currentLanguage] || displayName['en'] || Object.values(displayName)[0]
+        if (name) return name
+    }
+    // Fall back to translation
+    return t(roleName)
+}
+
+export const RoleChip: React.FC<RoleChipProps> = ({
+    role,
+    accessType,
+    roleMetadata,
+    size = 'small',
+    variant = 'filled',
+    className
+}) => {
+    const { t, i18n: i18nInstance } = useTranslation('roles', { i18n })
+    const currentLanguage = i18nInstance.language?.split('-')[0] || 'en'
+
+    // Determine which role to display:
+    // If accessType is not 'member', show that instead of entity role
+    const displayRole = accessType && accessType !== 'member' ? accessType : role
+
+    // Get styles: prefer metadata if provided, else use static map
+    const styles = roleMetadata
+        ? stylesFromMetadata(roleMetadata)
+        : ROLE_STYLE_MAP[displayRole] || FALLBACK_STYLE
+
+    // Get label: prefer metadata displayName if provided
+    const label = roleMetadata
+        ? getDisplayName(roleMetadata.displayName, displayRole, t, currentLanguage)
+        : t(displayRole)
 
     return (
         <Chip
-            label={t(role)}
+            label={label}
             size={size}
             variant={variant}
             className={className}
@@ -59,3 +140,4 @@ export const RoleChip: React.FC<RoleChipProps> = ({ role, size = 'small', varian
         />
     )
 }
+
