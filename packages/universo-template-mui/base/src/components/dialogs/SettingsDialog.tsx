@@ -14,57 +14,8 @@ import {
     CircularProgress
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import i18n from 'i18next'
 import { useUserSettings, type UserSettingsData } from '../../hooks/useUserSettings'
 import { useGlobalRoleCheck } from '../../hooks/useGlobalRoleCheck'
-
-// Settings translations (inline to ensure they're bundled)
-const settingsTranslations = {
-    en: {
-        dialog: {
-            title: 'Settings',
-            adminSection: 'Admin Settings',
-            displaySection: 'Display Settings',
-            moreSettingsComingSoon: 'More settings coming soon...',
-            showAllItems: {
-                label: "Show other users' items"
-            }
-        },
-        button: { tooltip: 'Settings' }
-    },
-    ru: {
-        dialog: {
-            title: 'Настройки',
-            adminSection: 'Настройки администратора',
-            displaySection: 'Настройки отображения',
-            moreSettingsComingSoon: 'Дополнительные настройки скоро появятся...',
-            showAllItems: {
-                label: 'Показывать элементы других пользователей'
-            }
-        },
-        button: { tooltip: 'Настройки' }
-    }
-}
-
-// Register settings namespace on module load
-const SETTINGS_NS = 'settings'
-if (i18n.isInitialized) {
-    if (!i18n.hasResourceBundle('en', SETTINGS_NS)) {
-        i18n.addResourceBundle('en', SETTINGS_NS, settingsTranslations.en, true, true)
-    }
-    if (!i18n.hasResourceBundle('ru', SETTINGS_NS)) {
-        i18n.addResourceBundle('ru', SETTINGS_NS, settingsTranslations.ru, true, true)
-    }
-} else {
-    i18n.on('initialized', () => {
-        if (!i18n.hasResourceBundle('en', SETTINGS_NS)) {
-            i18n.addResourceBundle('en', SETTINGS_NS, settingsTranslations.en, true, true)
-        }
-        if (!i18n.hasResourceBundle('ru', SETTINGS_NS)) {
-            i18n.addResourceBundle('ru', SETTINGS_NS, settingsTranslations.ru, true, true)
-        }
-    })
-}
 
 export interface SettingsDialogProps {
     open: boolean

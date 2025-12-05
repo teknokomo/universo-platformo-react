@@ -2,9 +2,6 @@
 // Intentionally exporting ONLY config to keep API surface tiny.
 // Raw MUI templates will be added under ./views (not yet exported here).
 
-// Register i18n namespaces (side-effect import)
-import './i18n'
-
 export { templateConfig as config } from './config'
 export { default as Dashboard } from './views/dashboard/Dashboard'
 
