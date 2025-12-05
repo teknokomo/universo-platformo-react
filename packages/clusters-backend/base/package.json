@@ -22,6 +22,7 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@universo/admin-backend": "workspace:*",
         "@universo/auth-backend": "workspace:*",
         "@universo/profile-backend": "workspace:*",
         "@universo/utils": "workspace:*",

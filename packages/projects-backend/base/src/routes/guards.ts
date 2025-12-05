@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ProjectRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { ProjectUser } from '../database/entities/ProjectUser'
 import { MilestoneProject } from '../database/entities/MilestoneProject'
 import { TaskMilestone } from '../database/entities/TaskMilestone'
@@ -54,6 +55,7 @@ export interface ProjectMembershipContext {
 }
 
 // Create base guards using generic factory from auth-backend
+// Includes global admin bypass for superadmin/supermoderator
 const baseGuards = createAccessGuards<ProjectRole, ProjectUser>({
     entityName: 'project',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
@@ -64,7 +66,17 @@ const baseGuards = createAccessGuards<ProjectRole, ProjectUser>({
     },
     extractRole: (m) => (m.role || 'member') as ProjectRole,
     extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.project_id
+    extractEntityId: (m) => m.project_id,
+    // Global admin bypass - users with global access get owner-level access
+    hasGlobalAccess: hasGlobalAccessByDataSource,
+    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+        ({
+            user_id: userId,
+            project_id: entityId,
+            role: 'owner', // Global admins get owner-level access
+            created_at: new Date()
+        }) as ProjectUser
 })
 
 // Re-export base guards (assertPermission, hasPermission are re-exported directly)

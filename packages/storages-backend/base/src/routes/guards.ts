@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { StorageRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { StorageUser } from '../database/entities/StorageUser'
 import { ContainerStorage } from '../database/entities/ContainerStorage'
 import { SlotContainer } from '../database/entities/SlotContainer'
@@ -54,6 +55,7 @@ export interface StorageMembershipContext {
 }
 
 // Create base guards using generic factory from auth-backend
+// Includes global admin bypass for superadmin/supermoderator
 const baseGuards = createAccessGuards<StorageRole, StorageUser>({
     entityName: 'storage',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
@@ -64,7 +66,17 @@ const baseGuards = createAccessGuards<StorageRole, StorageUser>({
     },
     extractRole: (m) => (m.role || 'member') as StorageRole,
     extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.storage_id
+    extractEntityId: (m) => m.storage_id,
+    // Global admin bypass - users with global access get owner-level access
+    hasGlobalAccess: hasGlobalAccessByDataSource,
+    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+        ({
+            user_id: userId,
+            storage_id: entityId,
+            role: 'owner', // Global admins get owner-level access
+            created_at: new Date()
+        }) as StorageUser
 })
 
 // Re-export base guards (assertPermission, hasPermission are re-exported directly)

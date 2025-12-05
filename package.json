@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "upr-0.39.0-alpha",
+    "version": "upr-0.40.0-alpha",
     "private": true,
     "homepage": "https://universo.pro",
     "workspaces": [
@@ -146,6 +146,7 @@
         ]
     },
     "dependencies": {
+        "@casl/ability": "^6.7.3",
         "@colyseus/ws-transport": "^0.16.0",
         "redis": "^4.6.7"
     }

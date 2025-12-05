@@ -60,6 +60,11 @@ export { ConfirmContext, ConfirmContextProvider } from './contexts'
 export { useConfirm } from './hooks/useConfirm'
 export type { ConfirmPayload } from './store/actions'
 
+// User settings system
+export { useUserSettings, resetUserSettingsCache, getShowAllItemsSetting } from './hooks/useUserSettings'
+export type { UserSettingsData } from './hooks/useUserSettings'
+export { useGlobalRoleCheck, resetGlobalRoleCache } from './hooks/useGlobalRoleCheck'
+
 // Constants
 export { gridSpacing } from './constants'
 

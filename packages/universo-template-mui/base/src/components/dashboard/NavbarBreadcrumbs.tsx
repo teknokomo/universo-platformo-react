@@ -75,7 +75,8 @@ export default function NavbarBreadcrumbs() {
         storages: 'storages',
         profile: 'profile',
         docs: 'docs',
-        spaces: 'spaces'
+        spaces: 'spaces',
+        admin: 'administration'
     }
 
     const segments = location.pathname.split('/').filter(Boolean)
@@ -386,6 +387,18 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('members'), to: location.pathname })
                 }
+            }
+
+            return items
+        }
+
+        // Admin routes handling
+        if (primary === 'admin') {
+            const items = [{ label: t('administration'), to: '/admin' }]
+
+            // Sub-pages (access) - use keys from menu namespace
+            if (segments[1] === 'access') {
+                items.push({ label: t('access'), to: '/admin/access' })
             }
 
             return items

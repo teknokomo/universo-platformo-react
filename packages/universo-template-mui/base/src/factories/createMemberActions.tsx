@@ -50,6 +50,13 @@ export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
     getMemberEmail?: (member: TMember) => string
 
     /**
+     * Extract member ID for API calls (update/delete operations)
+     * Useful when entity has different ID fields (e.g., 'id' vs 'userId')
+     * @default (member) => member.id
+     */
+    getMemberId?: (member: TMember) => string
+
+    /**
      * Extract initial form data for edit dialog
      * @default (member) => ({ email: member.email || '', role: member.role, comment: member.comment || '' })
      */
@@ -61,9 +68,24 @@ export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
 
     /**
      * Available roles to select from in the edit dialog
+     * Supports both entity roles (admin, editor, member) and global roles (superadmin, supermoderator)
      * @default ['admin', 'editor', 'member']
      */
-    availableRoles?: ReadonlyArray<import('@universo/types').AssignableRole>
+    availableRoles?: ReadonlyArray<import('@universo/types').MemberRole>
+
+    /**
+     * Custom labels for roles in the dropdown
+     * Key is role value, value is display label
+     * If not provided, labels are generated from translation keys
+     */
+    roleLabels?: Partial<Record<import('@universo/types').MemberRole, string>>
+
+    /**
+     * i18n key pattern for role labels
+     * Used to generate role labels dynamically via ctx.t()
+     * @default 'roles.{role}' (e.g., 'roles.admin', 'roles.superadmin')
+     */
+    roleLabelsKey?: string
 }
 
 /**
@@ -139,7 +161,10 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
         entityType,
         i18nKeys = {},
         availableRoles,
+        roleLabels: staticRoleLabels,
+        roleLabelsKey = 'roles:{role}',
         getMemberEmail = (member) => member.email || '',
+        getMemberId = (member) => member.id,
         getInitialFormData = (member) => ({
             initialEmail: member.email || '',
             initialRole: member.role,
@@ -176,41 +201,56 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
                     const module = await import('../components/dialogs')
                     return { default: module.MemberFormDialog }
                 },
-                buildProps: (ctx: MemberActionContext) => ({
-                    open: true,
-                    mode: 'edit' as const,
-                    title: ctx.t(editTitleKey),
-                    emailLabel: ctx.t(emailLabelKey),
-                    roleLabel: ctx.t(roleLabelKey),
-                    commentLabel: ctx.t(commentLabelKey),
-                    commentPlaceholder: ctx.t(commentPlaceholderKey),
-                    commentCharacterCountFormatter: (count: number, max: number) => ctx.t(commentCharacterCountKey, { count, max }),
-                    saveButtonText: ctx.t('common:actions.save'),
-                    savingButtonText: ctx.t('common:actions.saving'),
-                    cancelButtonText: ctx.t('common:actions.cancel'),
-                    ...(availableRoles && { availableRoles }),
-                    ...getInitialFormData(ctx.entity),
-                    onClose: () => {
-                        // BaseEntityMenu handles dialog closing
-                    },
-                    onSuccess: async () => {
-                        try {
-                            await ctx.helpers?.refreshList?.()
-                        } catch (e) {
-                            // eslint-disable-next-line no-console
-                            console.error(`Failed to refresh ${entityType} members list after edit`, e)
-                        }
-                    },
-                    onSave: async (data: MemberFormData) => {
-                        try {
-                            await ctx.api?.updateEntity?.(ctx.entity.id, data)
-                            await ctx.helpers?.refreshList?.()
-                        } catch (error: unknown) {
-                            notifyMemberError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                            throw error
+                buildProps: (ctx: MemberActionContext) => {
+                    // Build role labels - either from static config or via translation
+                    const roles = availableRoles || ['admin', 'editor', 'member']
+                    const roleLabels: Record<string, string> = staticRoleLabels
+                        ? { ...staticRoleLabels }
+                        : roles.reduce((acc, role) => {
+                              // Use roleLabelsKey pattern: 'roles:{role}' -> 'roles:admin', 'roles:superadmin', etc.
+                              const key = roleLabelsKey.replace('{role}', role)
+                              acc[role] = ctx.t(key, role)
+                              return acc
+                          }, {} as Record<string, string>)
+
+                    return {
+                        open: true,
+                        mode: 'edit' as const,
+                        title: ctx.t(editTitleKey),
+                        emailLabel: ctx.t(emailLabelKey),
+                        roleLabel: ctx.t(roleLabelKey),
+                        commentLabel: ctx.t(commentLabelKey),
+                        commentPlaceholder: ctx.t(commentPlaceholderKey),
+                        commentCharacterCountFormatter: (count: number, max: number) => ctx.t(commentCharacterCountKey, { count, max }),
+                        saveButtonText: ctx.t('common:actions.save'),
+                        savingButtonText: ctx.t('common:actions.saving'),
+                        cancelButtonText: ctx.t('common:actions.cancel'),
+                        ...(availableRoles && { availableRoles }),
+                        roleLabels,
+                        ...getInitialFormData(ctx.entity),
+                        onClose: () => {
+                            // BaseEntityMenu handles dialog closing
+                        },
+                        onSuccess: async () => {
+                            try {
+                                await ctx.helpers?.refreshList?.()
+                            } catch (e) {
+                                // eslint-disable-next-line no-console
+                                console.error(`Failed to refresh ${entityType} members list after edit`, e)
+                            }
+                        },
+                        onSave: async (data: MemberFormData) => {
+                            try {
+                                const memberId = getMemberId(ctx.entity)
+                                await ctx.api?.updateEntity?.(memberId, data)
+                                await ctx.helpers?.refreshList?.()
+                            } catch (error: unknown) {
+                                notifyMemberError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                                throw error
+                            }
                         }
                     }
-                })
+                }
             }
         },
         {
@@ -235,7 +275,8 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
                     },
                     onConfirm: async () => {
                         try {
-                            await ctx.api?.deleteEntity?.(ctx.entity.id)
+                            const memberId = getMemberId(ctx.entity)
+                            await ctx.api?.deleteEntity?.(memberId)
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             notifyMemberError(ctx.t, ctx.helpers?.enqueueSnackbar, error)

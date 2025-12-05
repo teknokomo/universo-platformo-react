@@ -1,2 +1,2 @@
 export { createAccessGuards } from './createAccessGuards'
-export type { AccessGuardsConfig, MembershipContext, RolePermission } from './types'
+export type { AccessGuardsConfig, MembershipContext, RolePermission, GlobalRole } from './types'

@@ -38,6 +38,22 @@ export function createProfileRoutes(dataSource: any, authMiddleware?: any): Rout
         router.use(authMiddleware)
     }
 
+    // Settings routes (must be before /:userId to avoid conflict)
+    router.get('/settings', async (req, res) => {
+        const controller = await getController()
+        return controller.getSettings(req, res)
+    })
+    router.put('/settings', async (req, res) => {
+        const controller = await getController()
+        return controller.updateSettings(req, res)
+    })
+
+    // Get or create current user's profile (auto-creates if not exists)
+    router.get('/me', async (req, res) => {
+        const controller = await getController()
+        return controller.getOrCreateCurrentProfile(req, res)
+    })
+
     // Protected routes
     router.get('/:userId', async (req, res) => {
         const controller = await getController()

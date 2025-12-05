@@ -2,6 +2,7 @@
 import * as httpErrors from 'http-errors'
 import { CampaignRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { CampaignMember } from '../database/entities/CampaignMember'
 import { EventCampaign } from '../database/entities/EventCampaign'
 import { ActivityEvent } from '../database/entities/ActivityEvent'
@@ -54,6 +55,7 @@ export interface CampaignMembershipContext {
 }
 
 // Create base guards using generic factory from auth-backend
+// Includes global admin bypass for superadmin/supermoderator
 const baseGuards = createAccessGuards<CampaignRole, CampaignMember>({
     entityName: 'campaign',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
@@ -64,7 +66,17 @@ const baseGuards = createAccessGuards<CampaignRole, CampaignMember>({
     },
     extractRole: (m) => (m.role || 'member') as CampaignRole,
     extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.campaign_id
+    extractEntityId: (m) => m.campaign_id,
+    // Global admin bypass - users with global access get owner-level access
+    hasGlobalAccess: hasGlobalAccessByDataSource,
+    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+        ({
+            user_id: userId,
+            campaign_id: entityId,
+            role: 'owner', // Global admins get owner-level access
+            created_at: new Date()
+        }) as CampaignMember
 })
 
 // Re-export base guards (assertPermission, hasPermission are re-exported directly)

@@ -1,5 +1,7 @@
 {
   "roles": {
+    "superadmin": "Суперадмин",
+    "supermoderator": "Супермодератор",
     "owner": "Владелец",
     "admin": "Администратор",
     "editor": "Редактор",

@@ -3,6 +3,8 @@ import passport from 'passport'
 import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import { ensureAuthenticated, getSupabaseForReq, ensureAndRefresh, type AuthenticatedRequest } from '../services/supabaseSession'
+import { createPermissionService } from '../services/permissionService'
+import type { DataSource } from 'typeorm'
 
 const LoginSchema = z.object({
     email: z.string().email().max(320),
@@ -16,9 +18,15 @@ const RegisterSchema = z.object({
 
 type MiddlewareFn = (...args: any[]) => unknown
 
-type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn) => Router
+type RouterFactoryOptions = {
+    csrfProtection: MiddlewareFn
+    loginLimiter: MiddlewareFn
+    getDataSource?: () => DataSource
+}
 
-export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter) => {
+type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, getDataSource?: () => DataSource) => Router
+
+export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getDataSource) => {
     const router = Router()
 
     router.get('/csrf', csrfProtection, (req, res) => {
@@ -97,6 +105,38 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter) =>
             console.error('[auth] Supabase signOut failed, proceeding with local logout', e);
         }
         request.logout(() => request.session?.destroy?.(() => res.json({ success: true })))
+    })
+
+    // CASL permissions endpoint - returns user's permissions with metadata for frontend
+    router.get('/permissions', ensureAuthenticated, async (req, res) => {
+        const request = req as AuthenticatedRequest
+        const userId = request.user?.id
+
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' })
+        }
+
+        if (!getDataSource) {
+            console.warn('[auth] /permissions called but getDataSource not provided')
+            return res.status(501).json({ error: 'Permissions endpoint not configured' })
+        }
+
+        try {
+            const permissionService = createPermissionService({ getDataSource })
+            const fullPermissions = await permissionService.getFullPermissions(userId)
+
+            console.info('[auth] /permissions success', {
+                userId,
+                permissionsCount: fullPermissions.permissions.length,
+                globalRolesCount: fullPermissions.globalRoles.length,
+                hasGlobalAccess: fullPermissions.hasGlobalAccess
+            })
+
+            return res.json(fullPermissions)
+        } catch (error) {
+            console.error('[auth] Failed to load permissions', error)
+            return res.status(500).json({ error: 'Failed to load permissions' })
+        }
     })
 
     return router

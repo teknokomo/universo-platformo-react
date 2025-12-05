@@ -18,6 +18,9 @@ import rolesRu from './locales/ru/core/roles.json'
 import accessEn from './locales/en/core/access.json'
 import accessRu from './locales/ru/core/access.json'
 
+import settingsEn from './locales/en/core/settings.json'
+import settingsRu from './locales/ru/core/settings.json'
+
 // Import views
 import adminEn from './locales/en/views/admin.json'
 import adminRu from './locales/ru/views/admin.json'
@@ -150,6 +153,7 @@ export function getInstance(): typeof i18n {
                         spaces: spacesEn.spaces,
                         roles: rolesEn.roles,
                         access: accessEn.access,
+                        settings: settingsEn.settings,
                         // Views
                         admin: adminEn.admin,
                         // apiKeys: now in @flowise/apikey-frontend
@@ -198,6 +202,7 @@ export function getInstance(): typeof i18n {
                         spaces: spacesRu.spaces,
                         roles: rolesRu.roles,
                         access: accessRu.access,
+                        settings: settingsRu.settings,
                         // Views
                         admin: adminRu.admin,
                         // apiKeys: now in @flowise/apikey-frontend

@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import type { MetaverseRole } from '@universo/types'
+import { hasGlobalAccessByDataSource } from '@universo/admin-backend'
 import { Entity } from '../database/entities/Entity'
 import { Section } from '../database/entities/Section'
 import { EntitySection } from '../database/entities/EntitySection'
@@ -132,6 +133,15 @@ export function createEntitiesRouter(
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             try {
+                // Check if user has global access
+                const ds = getDataSource()
+                const isGlobalAdmin = await hasGlobalAccessByDataSource(ds, userId)
+
+                // Check showAll query parameter (only applicable for global admins)
+                // If showAll=false (or not set), global admin sees only their own items
+                const showAllParam = req.query.showAll
+                const showAll = isGlobalAdmin && showAllParam === 'true'
+
                 // Validate and parse query parameters with Zod
                 const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
 
@@ -149,6 +159,7 @@ export function createEntitiesRouter(
                 const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
                 // Get entities accessible to user through section membership
+                // Global admins with showAll=true can see all entities
                 const { entityRepo } = getRepositories(req, getDataSource)
                 const qb = entityRepo
                     .createQueryBuilder('e')
@@ -158,9 +169,18 @@ export function createEntitiesRouter(
                     .innerJoin(Section, 's', 's.id = es.section_id')
                     // Join with section-metaverse link
                     .innerJoin(SectionMetaverse, 'sm', 'sm.section_id = s.id')
-                    // Join with metaverse user to filter by user access
-                    .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id')
-                    .where('mu.user_id = :userId', { userId })
+
+                // For regular users, filter by metaverse membership
+                // For global admins with showAll=true, show all entities
+                // For global admins with showAll=false, filter by membership (like regular users)
+                if (showAll) {
+                    // Global admin with showAll: left join to get role if they are a member, otherwise null
+                    qb.leftJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id AND mu.user_id = :userId', { userId })
+                } else {
+                    // Regular user or global admin with showAll=false: inner join to filter by membership
+                    qb.innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id')
+                        .where('mu.user_id = :userId', { userId })
+                }
 
                 // Add search filter if provided
                 if (escapedSearch) {
@@ -169,13 +189,14 @@ export function createEntitiesRouter(
                     })
                 }
 
+                // For global admins with showAll without membership, show 'owner' role (full access)
                 qb.select([
                     'e.id as id',
                     'e.name as name',
                     'e.description as description',
                     'e.createdAt as created_at',
                     'e.updatedAt as updated_at',
-                    'mu.role as user_role'
+                    showAll ? "COALESCE(mu.role, 'owner') as user_role" : 'mu.role as user_role'
                 ])
                     // Use window function to get total count in single query (performance optimization)
                     .addSelect('COUNT(*) OVER()', 'window_total')

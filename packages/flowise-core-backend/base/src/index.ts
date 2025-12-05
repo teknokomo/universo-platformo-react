@@ -232,7 +232,7 @@ export class App {
         // Add the sanitizeMiddleware to guard against XSS
         this.app.use(sanitizeMiddleware)
 
-        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter))
+        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getDataSource))
 
         const whitelistURLs = WHITELIST_URLS
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i

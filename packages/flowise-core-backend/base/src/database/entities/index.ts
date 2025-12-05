@@ -18,6 +18,7 @@ import { organizationsEntities } from '@universo/organizations-backend'
 import { storagesEntities } from '@universo/storages-backend'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-backend'
 import { PublishCanvas } from '@universo/publish-backend'
+import { adminEntities } from '@universo/admin-backend'
 
 // TypeORM entities here are constructor functions/classes; we only need their names and references
 const metaversesEntitiesObject = Object.fromEntries(metaversesEntities.map((entity) => [entity.name, entity]))
@@ -31,6 +32,8 @@ const campaignsEntitiesObject = Object.fromEntries(campaignsEntities.map((entity
 const organizationsEntitiesObject = Object.fromEntries(organizationsEntities.map((entity) => [entity.name, entity]))
 
 const storagesEntitiesObject = Object.fromEntries(storagesEntities.map((entity) => [entity.name, entity]))
+
+const adminEntitiesObject = Object.fromEntries(adminEntities.map((entity) => [entity.name, entity]))
 
 export const entities = {
     ChatMessage,
@@ -67,5 +70,7 @@ export const entities = {
     Space,
     Canvas,
     SpaceCanvas,
-    PublishCanvas
+    PublishCanvas,
+    // Admin RBAC entities
+    ...adminEntitiesObject
 }

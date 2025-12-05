@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ClusterRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
+import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { ClusterUser } from '../database/entities/ClusterUser'
 import { DomainCluster } from '../database/entities/DomainCluster'
 import { ResourceDomain } from '../database/entities/ResourceDomain'
@@ -54,6 +55,7 @@ export interface ClusterMembershipContext {
 }
 
 // Create base guards using generic factory from auth-backend
+// Includes global admin bypass for superadmin/supermoderator
 const baseGuards = createAccessGuards<ClusterRole, ClusterUser>({
     entityName: 'cluster',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
@@ -64,7 +66,17 @@ const baseGuards = createAccessGuards<ClusterRole, ClusterUser>({
     },
     extractRole: (m) => (m.role || 'member') as ClusterRole,
     extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.cluster_id
+    extractEntityId: (m) => m.cluster_id,
+    // Global admin bypass - users with global access get owner-level access
+    hasGlobalAccess: hasGlobalAccessByDataSource,
+    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+        ({
+            user_id: userId,
+            cluster_id: entityId,
+            role: 'owner', // Global admins get owner-level access
+            created_at: new Date()
+        }) as ClusterUser
 })
 
 // Re-export base guards (assertPermission, hasPermission are re-exported directly)

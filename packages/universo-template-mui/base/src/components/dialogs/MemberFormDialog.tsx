@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, MenuItem, Alert } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { memberFormSchema, type MemberFormData, type AssignableRole } from '@universo/types'
+import { memberFormSchema, type MemberFormData, type MemberRole } from '@universo/types'
 
 export interface MemberFormDialogProps {
     open: boolean
@@ -19,22 +19,22 @@ export interface MemberFormDialogProps {
     savingButtonText?: string
     cancelButtonText?: string
     initialEmail?: string
-    initialRole?: AssignableRole
+    initialRole?: MemberRole
     initialComment?: string
     loading?: boolean
     error?: string
     /** Show warning when trying to downgrade or remove self */
     selfActionWarning?: string
     onClose: () => void
-    onSave: (data: { email: string; role: AssignableRole; comment?: string }) => Promise<void> | void
+    onSave: (data: { email: string; role: MemberRole; comment?: string }) => Promise<void> | void
     /** Optional callback called after successful save */
     onSuccess?: () => void
     /** If true (default), the dialog will auto-close after a successful save */
     autoCloseOnSuccess?: boolean
     /** Available roles to select from */
-    availableRoles?: AssignableRole[]
+    availableRoles?: MemberRole[]
     /** Role labels for dropdown */
-    roleLabels?: Record<AssignableRole, string>
+    roleLabels?: Partial<Record<MemberRole, string>>
 }
 
 /**

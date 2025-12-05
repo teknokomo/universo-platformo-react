@@ -7,10 +7,18 @@ import { z } from 'zod'
 export const emailSchema = z.string().min(1, 'Email is required').email('Invalid email address')
 
 /**
- * Zod schema for role validation
- * Used in member form validation
+ * All valid roles for member forms (entity roles + global roles)
+ * - Entity roles: admin, editor, member (owner is assigned on creation)
+ * - Global roles: superadmin, supermoderator
  */
-export const roleSchema = z.enum(['admin', 'editor', 'member'], {
+export const ALL_MEMBER_ROLES = ['admin', 'editor', 'member', 'superadmin', 'supermoderator'] as const
+export type MemberRole = (typeof ALL_MEMBER_ROLES)[number]
+
+/**
+ * Zod schema for role validation
+ * Used in member form validation - supports both entity and global roles
+ */
+export const roleSchema = z.enum(ALL_MEMBER_ROLES, {
     errorMap: () => ({ message: 'Please select a valid role' })
 })
 

@@ -92,6 +92,7 @@
         "@universo/profile-backend": "workspace:*",
         "@universo/projects-backend": "workspace:*",
         "@universo/publish-backend": "workspace:*",
+        "@universo/admin-backend": "workspace:*",
         "@universo/space-builder-backend": "workspace:*",
         "@universo/spaces-backend": "workspace:*",
         "@universo/uniks-backend": "workspace:*",

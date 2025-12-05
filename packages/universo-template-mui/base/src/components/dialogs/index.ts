@@ -9,5 +9,8 @@ export { ConfirmDialog } from './ConfirmDialog'
 export { MemberFormDialog } from './MemberFormDialog'
 export type { MemberFormDialogProps } from './MemberFormDialog'
 
+export { SettingsDialog } from './SettingsDialog'
+export type { SettingsDialogProps } from './SettingsDialog'
+
 // Re-export AssignableRole from @universo/types for convenience
 export type { AssignableRole } from '@universo/types'

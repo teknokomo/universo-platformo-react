@@ -101,6 +101,8 @@
       "description": "Description",
       "id": "ID",
       "role": "Role",
+      "sections": "Sections",
+      "entities": "Entities",
       "added": "Added",
       "email": "Email"
     },

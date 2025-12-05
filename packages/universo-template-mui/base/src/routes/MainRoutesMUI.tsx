@@ -10,6 +10,8 @@ import '@universo/projects-frontend/i18n'
 import '@universo/campaigns-frontend/i18n'
 import '@universo/organizations-frontend/i18n'
 import '@universo/storages-frontend/i18n'
+// Register admin translations before lazy loading Admin component
+import '@universo/admin-frontend/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frontend/i18n'
 // Register tools translations before lazy loading Tools component
@@ -145,6 +147,12 @@ const ContainerList = Loadable(lazy(() => import('@universo/storages-frontend/pa
 const SlotList = Loadable(lazy(() => import('@universo/storages-frontend/pages/SlotList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const StorageMembers = Loadable(lazy(() => import('@universo/storages-frontend/pages/StorageMembers')))
+
+// Admin module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const AdminBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/AdminBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const AdminAccess = Loadable(lazy(() => import('@universo/admin-frontend/pages/AdminAccess')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
@@ -788,6 +796,29 @@ const MainRoutesMUI = {
                     <ProfilePage />
                 </AuthGuard>
             )
+        },
+        // Admin routes (global users management) - with nested routes
+        {
+            path: 'admin',
+            element: <Outlet />,
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <AdminBoard />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'access',
+                    element: (
+                        <AuthGuard>
+                            <AdminAccess />
+                        </AuthGuard>
+                    )
+                }
+            ]
         },
         // Temporary dashboard route for testing
         {

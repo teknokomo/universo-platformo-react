@@ -1,15 +1,21 @@
 import apiClient, { extractPaginationMeta } from './apiClient'
 import { Metaverse, Section, Entity, MetaverseMember, MetaverseAssignableRole, PaginationParams, PaginatedResponse } from '../types'
 
+// Extended pagination params with showAll for admin users
+export interface MetaversePaginationParams extends PaginationParams {
+    showAll?: boolean
+}
+
 // Updated listMetaverses with pagination support
-export const listMetaverses = async (params?: PaginationParams): Promise<PaginatedResponse<Metaverse>> => {
+export const listMetaverses = async (params?: MetaversePaginationParams): Promise<PaginatedResponse<Metaverse>> => {
     const response = await apiClient.get<Metaverse[]>('/metaverses', {
         params: {
             limit: params?.limit,
             offset: params?.offset,
             sortBy: params?.sortBy,
             sortOrder: params?.sortOrder,
-            search: params?.search
+            search: params?.search,
+            showAll: params?.showAll
         }
     })
 
@@ -31,6 +37,27 @@ export const deleteMetaverse = (id: string) => apiClient.delete<void>(`/metavers
 // Metaverse-Entity relationships
 export const getMetaverseEntities = (metaverseId: string) => apiClient.get<Entity[]>(`/metaverses/${metaverseId}/entities`)
 
+// Paginated version of getMetaverseEntities
+export const listMetaverseEntities = async (
+    metaverseId: string,
+    params?: PaginationParams
+): Promise<PaginatedResponse<Entity>> => {
+    const response = await apiClient.get<Entity[]>(`/metaverses/${metaverseId}/entities`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search
+        }
+    })
+
+    return {
+        items: response.data,
+        pagination: extractPaginationMeta(response)
+    }
+}
+
 export const addEntityToMetaverse = (metaverseId: string, entityId: string) =>
     apiClient.post<void>(`/metaverses/${metaverseId}/entities/${entityId}`)
 
@@ -42,6 +69,27 @@ export const reorderMetaverseEntities = (metaverseId: string, items: Array<{ ent
 
 // Metaverse-Section relationships
 export const getMetaverseSections = (metaverseId: string) => apiClient.get<Section[]>(`/metaverses/${metaverseId}/sections`)
+
+// Paginated version of getMetaverseSections
+export const listMetaverseSections = async (
+    metaverseId: string,
+    params?: PaginationParams
+): Promise<PaginatedResponse<Section>> => {
+    const response = await apiClient.get<Section[]>(`/metaverses/${metaverseId}/sections`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search
+        }
+    })
+
+    return {
+        items: response.data,
+        pagination: extractPaginationMeta(response)
+    }
+}
 
 export const addSectionToMetaverse = (metaverseId: string, sectionId: string) =>
     apiClient.post<void>(`/metaverses/${metaverseId}/sections/${sectionId}`)
