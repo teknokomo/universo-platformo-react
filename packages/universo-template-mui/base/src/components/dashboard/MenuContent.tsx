@@ -134,6 +134,8 @@ export default function MenuContent() {
                         {/* Admin menu items */}
                         {getAdminMenuItems().map((item) => {
                             const Icon = item.icon
+                            // Intentionally using startsWith('/admin') to keep admin menu highlighted
+                            // for all admin sub-routes (instances, roles, etc.)
                             const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
                             return (
                                 <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>

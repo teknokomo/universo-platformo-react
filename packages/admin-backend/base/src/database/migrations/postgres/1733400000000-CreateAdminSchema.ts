@@ -108,6 +108,11 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             CREATE INDEX IF NOT EXISTS idx_roles_has_global_access 
             ON admin.roles(has_global_access) WHERE has_global_access = true
         `)
+        // GIN index for efficient JSONB search on display_name
+        await queryRunner.query(`
+            CREATE INDEX IF NOT EXISTS idx_instances_display_name_gin 
+            ON admin.instances USING GIN (display_name)
+        `)
 
         // ═══════════════════════════════════════════════════════════════
         // 7. CREATE SYSTEM ROLES WITH METADATA

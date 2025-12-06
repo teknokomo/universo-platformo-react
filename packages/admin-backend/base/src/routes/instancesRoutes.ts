@@ -186,7 +186,7 @@ export function createInstancesRoutes({ globalAccessService, getDataSource }: In
             if (updateData.url !== undefined) instance.url = updateData.url ?? undefined
             if (updateData.status !== undefined) instance.status = updateData.status
 
-            instance.updated_at = new Date()
+            // Note: updated_at is automatically handled by TypeORM @UpdateDateColumn
 
             const updated = await instanceRepo.save(instance)
 

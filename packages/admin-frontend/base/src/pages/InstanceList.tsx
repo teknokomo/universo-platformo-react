@@ -294,13 +294,8 @@ const InstanceList = () => {
                             listViewTitle={tc('listView', 'List View')}
                             primaryAction={{
                                 label: tc('addNew', 'Add'),
-                                onClick: () => {
-                                    // MVP: Show message that adding is not available
-                                    enqueueSnackbar(
-                                        t('instances.mvpNotice', 'Remote instances management will be available in future versions.'),
-                                        { variant: 'info' }
-                                    )
-                                },
+                                // MVP: Button disabled - remote instances will be available in future versions
+                                onClick: () => {},
                                 startIcon: <AddRoundedIcon />,
                                 disabled: true
                             }}
@@ -410,12 +405,14 @@ const InstanceList = () => {
                         </>
                     )}
 
-                    {/* MVP Notice - shown above pagination */}
-                    <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                        <Alert severity='info'>
-                            {t('instances.mvpNotice', 'Remote instances management will be available in future versions.')}
-                        </Alert>
-                    </Box>
+                    {/* MVP Notice - shown above pagination only when data exists */}
+                    {!isLoading && instances.length > 0 && (
+                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                            <Alert severity='info'>
+                                {t('instances.mvpNotice', 'Remote instances management will be available in future versions.')}
+                            </Alert>
+                        </Box>
+                    )}
 
                     {/* Table Pagination at bottom - only show when there's data */}
                     {!isLoading && instances.length > 0 && (
