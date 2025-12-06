@@ -1,9 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
 /**
- * Consolidated RBAC Migration for Admin System
+ * Consolidated Admin Schema Migration
  *
  * Creates the complete admin schema with:
+ * - instances: Platform instances (Local, remote future)
  * - roles: System and custom roles with metadata (display_name, color, has_global_access)
  * - role_permissions: Permission assignments with wildcard support
  * - user_roles: User-to-role assignments
@@ -13,9 +14,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * System roles created:
  * - superadmin: Full platform access (* → *)
  * - supermoderator: Platform-wide moderation (read, update, delete)
+ *
+ * Default instances:
+ * - Local: Current installation (pre-seeded)
  */
-export class CreateAdminRBAC1733400000000 implements MigrationInterface {
-    name = 'CreateAdminRBAC1733400000000'
+export class CreateAdminSchema1733400000000 implements MigrationInterface {
+    name = 'CreateAdminSchema1733400000000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // ═══════════════════════════════════════════════════════════════
@@ -24,7 +28,25 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS admin`)
 
         // ═══════════════════════════════════════════════════════════════
-        // 2. ROLES TABLE (with metadata columns)
+        // 2. INSTANCES TABLE (platform instances)
+        // ═══════════════════════════════════════════════════════════════
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS admin.instances (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(100) NOT NULL UNIQUE,
+                display_name JSONB DEFAULT '{}',
+                description TEXT,
+                url VARCHAR(255),
+                status VARCHAR(20) NOT NULL DEFAULT 'active',
+                is_local BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT instances_status_check CHECK (status IN ('active', 'inactive', 'maintenance'))
+            )
+        `)
+
+        // ═══════════════════════════════════════════════════════════════
+        // 3. ROLES TABLE (with metadata columns)
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.roles (
@@ -41,7 +63,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 3. ROLE PERMISSIONS TABLE (with wildcard and ABAC support)
+        // 4. ROLE PERMISSIONS TABLE (with wildcard and ABAC support)
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.role_permissions (
@@ -57,7 +79,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 4. USER ROLES TABLE
+        // 5. USER ROLES TABLE
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.user_roles (
@@ -72,7 +94,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 5. INDEXES
+        // 6. INDEXES
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_user_roles_user_id 
@@ -86,9 +108,14 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
             CREATE INDEX IF NOT EXISTS idx_roles_has_global_access 
             ON admin.roles(has_global_access) WHERE has_global_access = true
         `)
+        // GIN index for efficient JSONB search on display_name
+        await queryRunner.query(`
+            CREATE INDEX IF NOT EXISTS idx_instances_display_name_gin 
+            ON admin.instances USING GIN (display_name)
+        `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 6. CREATE SYSTEM ROLES WITH METADATA
+        // 7. CREATE SYSTEM ROLES WITH METADATA
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             INSERT INTO admin.roles (name, description, display_name, color, has_global_access, is_system)
@@ -131,7 +158,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 7. has_permission FUNCTION (with wildcard support)
+        // 8. has_permission FUNCTION (with wildcard support)
         // Uses SECURITY DEFINER to bypass RLS when checking permissions
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
@@ -159,7 +186,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 8. get_user_permissions FUNCTION (for CASL, with metadata)
+        // 9. get_user_permissions FUNCTION (for CASL, with metadata)
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.get_user_permissions(p_user_id UUID)
@@ -193,7 +220,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 9. has_global_access FUNCTION
+        // 10. has_global_access FUNCTION
         // Uses SECURITY DEFINER to bypass RLS when checking user roles
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
@@ -217,7 +244,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 10. get_user_global_roles FUNCTION
+        // 11. get_user_global_roles FUNCTION
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.get_user_global_roles(p_user_id UUID)
@@ -241,14 +268,15 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 11. ENABLE RLS
+        // 12. ENABLE RLS
         // ═══════════════════════════════════════════════════════════════
+        await queryRunner.query(`ALTER TABLE admin.instances ENABLE ROW LEVEL SECURITY`)
         await queryRunner.query(`ALTER TABLE admin.roles ENABLE ROW LEVEL SECURITY`)
         await queryRunner.query(`ALTER TABLE admin.role_permissions ENABLE ROW LEVEL SECURITY`)
         await queryRunner.query(`ALTER TABLE admin.user_roles ENABLE ROW LEVEL SECURITY`)
 
         // ═══════════════════════════════════════════════════════════════
-        // 12. RLS POLICIES
+        // 13. RLS POLICIES
         // ═══════════════════════════════════════════════════════════════
         // Drop existing policies if they exist (for idempotent migration)
         await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_roles" ON admin.roles`)
@@ -256,6 +284,8 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_user_roles" ON admin.user_roles`)
         await queryRunner.query(`DROP POLICY IF EXISTS "users_read_own_roles" ON admin.user_roles`)
         await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_roles" ON admin.roles`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_global_access" ON admin.instances`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_global_access" ON admin.instances`)
 
         // Allow authenticated users to read roles table (needed for UI to show role names)
         await queryRunner.query(`
@@ -291,10 +321,43 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
                 admin.has_global_access(auth.uid())
             )
         `)
+
+        // Users with global access can read instances
+        await queryRunner.query(`
+            CREATE POLICY "instances_select_global_access" ON admin.instances
+            FOR SELECT USING (
+                admin.has_global_access(auth.uid())
+            )
+        `)
+
+        // Users with global access can manage instances
+        await queryRunner.query(`
+            CREATE POLICY "instances_manage_global_access" ON admin.instances
+            FOR ALL USING (
+                admin.has_global_access(auth.uid())
+            )
+        `)
+
+        // ═══════════════════════════════════════════════════════════════
+        // 14. SEED LOCAL INSTANCE
+        // ═══════════════════════════════════════════════════════════════
+        await queryRunner.query(`
+            INSERT INTO admin.instances (name, display_name, description, status, is_local)
+            VALUES (
+                'local',
+                '{"en": "Local", "ru": "Локальный"}'::jsonb,
+                'Current local installation',
+                'active',
+                true
+            )
+            ON CONFLICT (name) DO NOTHING
+        `)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Drop policies
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_global_access" ON admin.instances`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_global_access" ON admin.instances`)
         await queryRunner.query(`DROP POLICY IF EXISTS "users_read_own_roles" ON admin.user_roles`)
         await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_user_roles" ON admin.user_roles`)
         await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_role_permissions" ON admin.role_permissions`)
@@ -311,6 +374,7 @@ export class CreateAdminRBAC1733400000000 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE IF EXISTS admin.user_roles CASCADE`)
         await queryRunner.query(`DROP TABLE IF EXISTS admin.role_permissions CASCADE`)
         await queryRunner.query(`DROP TABLE IF EXISTS admin.roles CASCADE`)
+        await queryRunner.query(`DROP TABLE IF EXISTS admin.instances CASCADE`)
 
         // Drop schema
         await queryRunner.query(`DROP SCHEMA IF EXISTS admin CASCADE`)

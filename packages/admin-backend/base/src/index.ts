@@ -2,7 +2,7 @@
 export { adminMigrations } from './database/migrations/postgres'
 
 // Entities
-export { adminEntities, Role, RolePermission, UserRole } from './database/entities'
+export { adminEntities, Instance, Role, RolePermission, UserRole } from './database/entities'
 
 // Services
 export {
@@ -24,6 +24,7 @@ export {
 
 // Routes
 export { createGlobalUsersRoutes, type GlobalUsersRoutesConfig } from './routes'
+export { createInstancesRoutes, type InstancesRoutesConfig } from './routes'
 
 // Schemas
 export { GrantRoleSchema, formatZodError, validateListQuery, type GrantRoleInput, type ListQueryInput } from './schemas'

@@ -338,19 +338,32 @@ export const rootMenuItems: TemplateMenuItem[] = [
 
 /**
  * Admin menu items (shown only for super users)
- * Returns array of menu items for the admin section
+ * Returns single menu item pointing to instances list
  */
 export const getAdminMenuItems = (): TemplateMenuItem[] => [
     {
-        id: 'admin-board',
-        titleKey: 'adminboard',
+        id: 'admin',
+        titleKey: 'administration',
         url: '/admin',
+        icon: IconShield
+    }
+]
+
+/**
+ * Instance context menu items (shown when inside /admin/instance/:id)
+ * Returns array of menu items for the instance context
+ */
+export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => [
+    {
+        id: 'instance-board',
+        titleKey: 'instanceboard',
+        url: `/admin/instance/${instanceId}/board`,
         icon: IconLayoutDashboard
     },
     {
-        id: 'admin-access',
+        id: 'instance-access',
         titleKey: 'access',
-        url: '/admin/access',
+        url: `/admin/instance/${instanceId}/access`,
         icon: IconUsersGroup
     }
 ]

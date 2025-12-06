@@ -104,7 +104,10 @@
       "sections": "Sections",
       "entities": "Entities",
       "added": "Added",
-      "email": "Email"
+      "email": "Email",
+      "status": "Status",
+      "domains": "Domains",
+      "resources": "Resources"
     },
     "columns": {
       "actions": "Actions",

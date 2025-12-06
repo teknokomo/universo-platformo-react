@@ -13,7 +13,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useGlobalRoleCheck } from '../../hooks/useGlobalRoleCheck'
-import { rootMenuItems, getAdminMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems, getProjectMenuItems, getOrganizationMenuItems, getStorageMenuItems, getCampaignMenuItems } from '../../navigation/menuConfigs'
+import { rootMenuItems, getAdminMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems, getProjectMenuItems, getOrganizationMenuItems, getStorageMenuItems, getCampaignMenuItems, getInstanceMenuItems } from '../../navigation/menuConfigs'
 
 // const secondaryListItems = [
 //   { text: 'Settings', icon: <SettingsRoundedIcon /> },
@@ -54,6 +54,10 @@ export default function MenuContent() {
     const campaignMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
     const campaignId = campaignMatch ? campaignMatch[1] : null
 
+    // Check if we're in an instance context (/admin/instance/:id)
+    const instanceMatch = location.pathname.match(/^\/admin\/instance\/([^/]+)/)
+    const instanceId = instanceMatch ? instanceMatch[1] : null
+
     // Use context-specific menu or root menu
     const menuItems = unikId
         ? getUnikMenuItems(unikId)
@@ -69,6 +73,8 @@ export default function MenuContent() {
         ? getStorageMenuItems(storageId)
         : campaignId
         ? getCampaignMenuItems(campaignId)
+        : instanceId
+        ? getInstanceMenuItems(instanceId)
         : rootMenuItems
 
     // Debug diagnostics for i18n menu resolution
@@ -121,28 +127,16 @@ export default function MenuContent() {
                     )
                 })}
 
-                {/* Admin section with divider and header - only for super users */}
-                {isSuperUser && (
+                {/* Admin section with divider - only for super users and not in instance context */}
+                {isSuperUser && !instanceId && (
                     <>
                         <Divider sx={{ my: 1 }} />
-                        {/* Section header */}
-                        <Typography
-                            variant='overline'
-                            sx={{
-                                px: 2,
-                                py: 0.5,
-                                color: 'text.secondary',
-                                display: 'block',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.08em'
-                            }}
-                        >
-                            {t('administration')}
-                        </Typography>
                         {/* Admin menu items */}
                         {getAdminMenuItems().map((item) => {
                             const Icon = item.icon
-                            const isSelected = location.pathname === item.url
+                            // Intentionally using startsWith('/admin') to keep admin menu highlighted
+                            // for all admin sub-routes (instances, roles, etc.)
+                            const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
                             return (
                                 <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
                                     <ListItemButton component={NavLink} to={item.url} selected={isSelected}>

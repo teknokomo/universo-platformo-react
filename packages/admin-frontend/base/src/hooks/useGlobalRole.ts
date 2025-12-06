@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '../api/apiClient'
-import { createAdminApi, type MyRoleResponse } from '../api/adminApi'
+import { createAdminApi } from '../api/adminApi'
 import type { RoleMetadata } from '../types'
 
 export const globalRoleQueryKey = ['global-role', 'me'] as const

@@ -104,7 +104,10 @@
       "sections": "Секции",
       "entities": "Сущности",
       "added": "Добавлен",
-      "email": "Email"
+      "email": "Email",
+      "status": "Статус",
+      "domains": "Домены",
+      "resources": "Ресурсы"
     },
     "columns": {
       "actions": "Действия",

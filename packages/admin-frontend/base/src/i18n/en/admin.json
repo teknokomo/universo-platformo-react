@@ -1,15 +1,53 @@
 {
+    "instances": {
+        "title": "Instances",
+        "description": "Manage platform instances",
+        "loading": "Loading instances...",
+        "error": "Failed to load instances",
+        "empty": "No instances found",
+        "local": "Local",
+        "remote": "Remote",
+        "type": "Type",
+        "create": "Create Instance",
+        "editTitle": "Edit Instance",
+        "confirmDelete": "Delete Instance?",
+        "confirmDeleteDescription": "Are you sure you want to delete instance \"{{name}}\"?",
+        "updateSuccess": "Instance updated",
+        "updateError": "Failed to update instance",
+        "mvpNotice": "Remote instances management will be available in future versions.",
+        "searchPlaceholder": "Search instances...",
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive",
+            "maintenance": "Maintenance"
+        }
+    },
+    "actions": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "retry": "Retry"
+    },
+    "errors": {
+        "checkConnection": "Check your connection",
+        "pleaseTryLater": "Please try again later"
+    },
     "board": {
         "title": "Administration Dashboard",
         "description": "Global platform administration and statistics",
         "loading": "Loading dashboard...",
         "error": "Failed to load dashboard data",
         "overview": "Overview",
-        "manageAccess": "Manage Global Access",
+        "manageAccess": "Manage Access",
+        "statsNotAvailable": "Statistics not available for remote instances in MVP",
         "stats": {
             "totalUsers": {
-                "title": "Total Global Users",
+                "title": "Total Users",
                 "interval": "All time",
+                "description": "Registered users"
+            },
+            "globalAccess": {
+                "title": "Global Access",
+                "interval": "With permissions",
                 "description": "Users with global access"
             },
             "superadmins": {
@@ -25,22 +63,24 @@
         },
         "documentation": {
             "title": "Documentation",
-            "description": "Learn about global administration",
+            "description": "Learn about administration",
             "button": "Read Docs"
         },
         "charts": {
             "activity": {
                 "title": "Activity",
-                "description": "Platform activity over time"
+                "description": "Instance activity over time"
             },
             "users": {
-                "title": "Global Users",
-                "description": "Distribution of global roles"
+                "title": "Users",
+                "description": "User distribution"
             }
         }
     },
     "access": {
         "title": "Global Access Management",
+        "loading": "Loading...",
+        "instanceNotFound": "Instance not found",
         "addUser": "Add Global User",
         "searchPlaceholder": "Search by email or nickname...",
         "noUsersFound": "No global users found",
@@ -67,6 +107,9 @@
         "roleLabel": "Role",
         "confirmRemove": "Remove access?",
         "confirmRemoveDescription": "This will remove global access for {{email}}"
+    },
+    "common": {
+        "back": "Back"
     },
     "menu": {
         "administration": "Administration"

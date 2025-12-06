@@ -51,7 +51,8 @@ export function useUpdateGlobalRole() {
         onError: (error: unknown) => {
             const message =
                 error && typeof error === 'object' && 'response' in error
-                    ? ((error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? t('access.updateError', 'Failed to update role'))
+                    ? (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                      t('access.updateError', 'Failed to update role')
                     : t('access.updateError', 'Failed to update role')
             enqueueSnackbar(message, { variant: 'error' })
         }
@@ -76,7 +77,8 @@ export function useRevokeGlobalRole() {
         onError: (error: unknown) => {
             const message =
                 error && typeof error === 'object' && 'response' in error
-                    ? ((error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? t('access.revokeError', 'Failed to revoke access'))
+                    ? (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                      t('access.revokeError', 'Failed to revoke access')
                     : t('access.revokeError', 'Failed to revoke access')
             enqueueSnackbar(message, { variant: 'error' })
         }
