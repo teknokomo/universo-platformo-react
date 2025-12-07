@@ -1,12 +1,144 @@
 # Active Context
 
-> **Last Updated**: 2025-01-06
+> **Last Updated**: 2025-12-07
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Recently Completed: Admin Instances UI Polish (2025-01-06) ✅
+## Recently Completed: SettingsDialog UX Improvement (2025-12-07) ✅
+
+### Problem
+When `GLOBAL_ADMIN_ENABLED=false`, the "Show other users' items" toggle in SettingsDialog appeared active but didn't work — misleading UX that confused users.
+
+### Solution
+1. **Alert Warning**: Added info Alert explaining privileges are disabled by admin
+2. **Disabled Switch**: Toggle is now disabled when `globalAdminEnabled=false`
+3. **Visual Indication**: Added opacity 0.6 when section is disabled
+4. **i18n**: Added `globalAdminDisabledWarning` translations (EN/RU)
+5. **ENV Documentation**: Updated `.env.example` with combination matrix table
+
+### Code Pattern
+```tsx
+// SettingsDialog.tsx
+const { adminConfig } = useHasGlobalAccess()
+
+{!adminConfig.globalAdminEnabled && (
+    <Alert severity="info">
+        {t('settings.globalAdminDisabledWarning')}
+    </Alert>
+)}
+
+<Switch
+    checked={showOthersItems}
+    onChange={handleToggle}
+    disabled={saving || !adminConfig.globalAdminEnabled}
+/>
+```
+
+### QA Analysis Results
+- Architecture: ✅ Correct separation of concerns
+- Libraries: ✅ Using standard stack (TanStack Query, CASL, MUI)
+- Security: ✅ No unsafe patterns
+- MetaverseGuard placement: ✅ Correctly in `metaverses-frontend` as domain-specific
+- Auth.jsx error handling: ✅ Already has try/catch for refreshAbility()
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Previously Completed: Fix UI Flicker for Metaverse Routes (2025-12-07) ✅
+
+### Problem
+When navigating to `/admin` without admin access, breadcrumbs ("Администрирование", "Администрирование > Экземпляр") appeared briefly before `AdminGuard` redirected to home. This was:
+1. A UX issue (visual flicker)
+2. A minor security concern (revealed protected route structure)
+
+### Root Cause
+Route architecture caused layout to render before guard:
+```
+MainLayoutMUI (renders Header with breadcrumbs) → Outlet → AdminGuard (check here, too late)
+```
+
+`NavbarBreadcrumbs` generated text from URL path **synchronously**, without waiting for access check.
+
+### Solution
+Added access check directly in `NavbarBreadcrumbs.tsx`:
+- Imported `useHasGlobalAccess` from `@flowise/store`
+- For admin routes: returns empty breadcrumbs if loading or no access
+- Breadcrumbs only appear after access is confirmed
+
+### Code Change
+```tsx
+// NavbarBreadcrumbs.tsx
+const { canAccessAdminPanel, loading: adminAccessLoading } = useHasGlobalAccess()
+
+// In crumbs calculation for admin routes:
+if (primary === 'admin') {
+    if (adminAccessLoading || !canAccessAdminPanel) {
+        return []  // No breadcrumbs while checking or if no access
+    }
+    // ... rest of admin breadcrumbs logic
+}
+```
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Previously Completed: Route Protection Guards (2025-12-06) ✅
+
+### Summary
+Implemented route protection system with `AdminGuard` and `ResourceGuard` to redirect unauthorized users to home instead of showing pages with errors.
+
+### Problem Solved
+Previously, when accessing protected routes without permission:
+1. Admin pages rendered UI with API errors (instead of redirecting)
+2. Resource pages (e.g., `/metaverse/:id`) showed "no access" message but revealed resource existence
+3. This was a security concern (information disclosure)
+
+### Solution: Guard Components
+
+#### AdminGuard
+- Checks authentication AND `canAccessAdminPanel`
+- If not authenticated → redirect to `/auth`
+- If no admin access → redirect to `/`
+- Applied to all `/admin/*` routes
+
+#### ResourceGuard
+- Universal guard for resource-based routes
+- Uses TanStack Query to prefetch resource
+- On 403/404 → redirect to home
+- Caches data for child components (no duplicate API calls)
+
+#### MetaverseGuard
+- Specialized wrapper around `ResourceGuard` for metaverse routes
+- Uses `getMetaverse()` and `metaversesQueryKeys.detail`
+- Applied to `/metaverse/:metaverseId/*` routes
+
+### Usage Pattern
+```tsx
+// AdminGuard - protects entire admin section
+<Route path="admin" element={<AdminGuard><Outlet /></AdminGuard>}>
+  <Route index element={<InstanceList />} />
+  ...
+</Route>
+
+// MetaverseGuard - protects metaverse detail routes
+<Route path="metaverse/:metaverseId" element={<MetaverseGuard><Outlet /></MetaverseGuard>}>
+  <Route index element={<MetaverseBoard />} />
+  ...
+</Route>
+```
+
+### Build Status
+✅ Full build successful (52/52 packages)
+
+---
+
+## Previously Completed: Admin Instances UI Polish (2025-01-06) ✅
 
 ### Summary
 Fixed UI polishing issues in Instances management after second QA review.

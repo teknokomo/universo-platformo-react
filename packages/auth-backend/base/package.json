@@ -17,6 +17,7 @@
         "dependencies": {
                 "@supabase/supabase-js": "^2.45.4",
                 "@universo/types": "workspace:^",
+                "@universo/utils": "workspace:^",
                 "csurf": "^1.11.0",
                 "express": "^4.19.2",
                 "express-rate-limit": "^7.4.0",

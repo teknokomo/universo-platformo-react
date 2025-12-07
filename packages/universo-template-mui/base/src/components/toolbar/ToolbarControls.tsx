@@ -5,7 +5,7 @@ import { useTheme } from '@mui/material/styles'
 import { IconLayoutGrid, IconList, IconSettings } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { SettingsDialog } from '../dialogs/SettingsDialog'
-import { useGlobalRoleCheck } from '../../hooks/useGlobalRoleCheck'
+import { useHasGlobalAccess } from '@flowise/store'
 
 export type ViewMode = 'card' | 'list'
 
@@ -42,11 +42,12 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
 }) => {
     const theme = useTheme()
     const { t } = useTranslation()
-    const isSuperUser = useGlobalRoleCheck()
+    // hasGlobalAccess = user has superadmin/supermoderator role
+    const { hasGlobalAccess } = useHasGlobalAccess()
     const [settingsOpen, setSettingsOpen] = useState(false)
 
     // Only show settings button if enabled AND user is superuser
-    const showSettingsButton = settingsEnabled && isSuperUser
+    const showSettingsButton = settingsEnabled && hasGlobalAccess
 
     return (
         <>

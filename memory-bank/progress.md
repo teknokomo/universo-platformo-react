@@ -28,7 +28,154 @@
 
 ---
 
+## December 2025
+
+### 2025-12-07: SettingsDialog UX Improvement ✅
+
+**Goal**: Fix misleading UX when `GLOBAL_ADMIN_ENABLED=false` - "Show other users' items" toggle appeared active but didn't work.
+
+**Problem**: User reported that with admin privileges disabled, the settings toggle was visually active but had no effect. This was confusing and misleading.
+
+**Solution**:
+1. **Alert Warning**: Added info Alert when `globalAdminEnabled=false` explaining that super user privileges are disabled by system administrator
+2. **Disabled Switch**: Toggle is now disabled when `adminConfig.globalAdminEnabled=false`
+3. **Visual Indication**: Added `opacity: 0.6` styling to the disabled section
+4. **i18n Translations**: Added `globalAdminDisabledWarning` key in EN/RU
+5. **ENV Documentation**: Updated `.env.example` files with combination matrix table
+
+**QA Analysis Results**:
+- Architecture: ✅ Correct separation of concerns
+- Libraries: ✅ Using standard stack (TanStack Query, CASL, MUI)
+- Security: ✅ No unsafe patterns
+- MetaverseGuard placement: ✅ Correctly in `metaverses-frontend` as domain-specific wrapper
+- Auth.jsx error handling: ✅ Already has try/catch for `refreshAbility()` (non-blocking)
+
+**Files Modified**:
+- `universo-template-mui/base/src/components/dialogs/SettingsDialog.tsx` - Alert, disabled switch, opacity
+- `universo-i18n/base/src/locales/en/core/settings.json` - globalAdminDisabledWarning
+- `universo-i18n/base/src/locales/ru/core/settings.json` - globalAdminDisabledWarning
+- `flowise-core-backend/base/.env.example` - combination matrix table
+- `docker/.env.example` - combination matrix table
+
+**Build Validation**: 52/52 packages successful
+
+---
+
+### 2025-12-07: Fix Admin Access Logic ✅
+
+**Goal**: Fix incorrect `hasGlobalAccess` logic that caused admin menu to be hidden when `GLOBAL_ADMIN_ENABLED=false`, and sync cache after login.
+
+**Problems Identified**:
+1. `hasGlobalAccess` returned false when `GLOBAL_ADMIN_ENABLED=false` (wrong - should reflect DB role)
+2. Two duplicate hooks (`useGlobalRoleCheck` and `useHasGlobalAccess`) caused race conditions
+3. `AbilityContext` not refreshed after login → admin menu doesn't work until direct URL navigation
+
+**Solution**:
+1. **permissionService.ts**: Decoupled `hasGlobalAccess` from `GLOBAL_ADMIN_ENABLED`
+   - `hasGlobalAccess` now reflects DB fact (user has global role)
+   - `GLOBAL_ADMIN_ENABLED` only affects RLS bypass privileges
+2. **Removed duplicate hook**: Deleted `useGlobalRoleCheck.ts`, unified on `useHasGlobalAccess` from `@flowise/store`
+   - Updated `MenuContent.tsx`, `SettingsDialog.tsx`, `ToolbarControls.tsx`
+3. **Login flow**: Added `await refreshAbility()` call after successful login in `Auth.jsx`
+
+**Files Modified**:
+- `auth-backend/base/src/services/permissionService.ts`
+- `universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
+- `universo-template-mui/base/src/components/dialogs/SettingsDialog.tsx`
+- `universo-template-mui/base/src/components/toolbar/ToolbarControls.tsx`
+- `universo-template-mui/base/src/hooks/index.ts`
+- `universo-template-mui/base/src/index.ts`
+- `flowise-core-frontend/base/src/views/up-auth/Auth.jsx`
+
+**Files Deleted**:
+- `universo-template-mui/base/src/hooks/useGlobalRoleCheck.ts`
+
+**Build Validation**: 52/52 packages successful
+
+---
+
+### 2025-12-07: Fix UI Flicker for Metaverse Routes ✅
+
+**Goal**: Prevent breadcrumbs and side menu from flashing when accessing metaverse without permission.
+
+**Problem**: When accessing `/metaverse/:id` as unauthorized user, breadcrumbs "Метавселенные" and side menu with metaverse-specific items appeared briefly before `MetaverseGuard` redirected to home.
+
+**Solution**:
+1. **NavbarBreadcrumbs**: For metaverse routes (`/metaverse/:id`, `/metaverses/:id/...`), return empty breadcrumbs if `metaverseName` is null (still loading or access denied)
+2. **MenuContent**: Added `useMetaverseName` hook to verify resource access. Only show metaverse-specific menu if name is loaded, otherwise fall back to root menu.
+
+**Files Modified**:
+- `universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
+- `universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
+
+**Build Validation**: 52/52 packages successful
+
+---
+
+### 2025-12-07: Fix UI Flicker in Route Guards ✅
+
+**Goal**: Prevent breadcrumbs and layout elements from appearing before guard redirects unauthorized users.
+
+**Problem**: When navigating to `/admin` with admin panel disabled or no access, breadcrumbs showed "Администрирование" briefly before redirect. This happened because `MainLayoutMUI` (containing `NavbarBreadcrumbs`) renders BEFORE the `AdminGuard` inside the route's `Outlet`.
+
+**Solution**: Added access check directly in `NavbarBreadcrumbs` component:
+- For admin routes (`/admin/*`), breadcrumbs only render if user has admin panel access
+- While loading access status, returns empty breadcrumbs array
+- If no access, returns empty breadcrumbs array (prevents flicker before redirect)
+
+**Files Modified**:
+- `universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
+  - Added `useHasGlobalAccess` hook import from `@flowise/store`
+  - Added access check before rendering admin breadcrumbs
+  - Returns `[]` if `adminAccessLoading` or `!canAccessAdminPanel`
+
+**Build Validation**: 52/52 packages successful
+
+---
+
 ## January 2025
+
+### 2025-01-06: Admin Feature Flags Implementation ✅
+
+**Goal**: Implement two independent ENV-based feature flags for admin functionality.
+
+**New Environment Variables**:
+- `ADMIN_PANEL_ENABLED` (default: true) - Controls UI and API access to admin panel
+- `GLOBAL_ADMIN_ENABLED` (default: true) - Controls super user privileges (RLS bypass, see all data)
+
+**Configuration Matrix**:
+| ADMIN_PANEL | GLOBAL_ADMIN | Result |
+|-------------|--------------|--------|
+| true | true | Full admin functionality (default) |
+| false | true | No admin panel, but super users keep privileges elsewhere |
+| true | false | Admin panel visible but no special data access |
+| false | false | Admin functionality completely disabled |
+
+**Files Created**:
+- `universo-utils/base/src/env/adminConfig.ts` - Centralized admin config functions
+
+**Files Modified**:
+- `universo-utils/base/src/env/index.ts` - Re-export adminConfig
+- `universo-utils/base/src/index.ts` - Direct exports for config functions
+- `universo-utils/base/tsdown.config.ts` - Added env/index entry
+- `universo-utils/base/package.json` - Added ./env export path
+- `universo-types/base/src/common/admin.ts` - Added AdminConfig interface, updated UserPermissionsResponse
+- `auth-backend/base/package.json` - Added @universo/utils dependency
+- `auth-backend/base/src/services/permissionService.ts` - Added config to response, check isGlobalAdminEnabled
+- `admin-backend/base/package.json` - Added @universo/utils dependency
+- `admin-backend/base/src/guards/ensureGlobalAccess.ts` - Use isAdminPanelEnabled from centralized module
+- `admin-backend/base/src/index.ts` - Re-export admin config functions
+- `admin-backend/base/src/routes/globalUsersRoutes.ts` - Use isAdminPanelEnabled
+- `admin-backend/base/src/services/globalAccessService.ts` - Check isGlobalAdminEnabled in hasGlobalAccessByDataSource
+- `flowise-store/base/src/context/AbilityContextProvider.jsx` - Added adminConfig state
+- `flowise-store/base/src/context/useHasGlobalAccess.js` - Added canAccessAdminPanel computed property
+- `universo-template-mui/base/src/hooks/useGlobalRoleCheck.ts` - Simplified to use /auth/permissions endpoint
+- `flowise-core-backend/base/.env.example` - Updated with new ENV documentation
+- `docker/.env.example` - Added admin panel section
+
+**Architecture Pattern**: Centralized configuration in @universo/utils avoids circular dependencies between auth-backend and admin-backend. Config is transmitted to frontend via /auth/permissions endpoint.
+
+---
 
 ### 2025-01-06: Admin Instances UI Polish (QA Round 2) ✅
 

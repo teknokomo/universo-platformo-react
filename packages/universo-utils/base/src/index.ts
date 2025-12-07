@@ -32,6 +32,7 @@ export { UPDLProcessor } from './updl/UPDLProcessor'
 
 // Direct exports for commonly used environment utilities
 export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env'
+export { isAdminPanelEnabled, isGlobalAdminEnabled, getAdminConfig, type AdminConfig } from './env/adminConfig'
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'

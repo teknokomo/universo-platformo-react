@@ -12,7 +12,8 @@ import Typography from '@mui/material/Typography'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
-import { useGlobalRoleCheck } from '../../hooks/useGlobalRoleCheck'
+import { useHasGlobalAccess } from '@flowise/store'
+import { useMetaverseName } from '../../hooks/useMetaverseName'
 import { rootMenuItems, getAdminMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems, getProjectMenuItems, getOrganizationMenuItems, getStorageMenuItems, getCampaignMenuItems, getInstanceMenuItems } from '../../navigation/menuConfigs'
 
 // const secondaryListItems = [
@@ -24,7 +25,8 @@ import { rootMenuItems, getAdminMenuItems, getMetaverseMenuItems, getUnikMenuIte
 export default function MenuContent() {
     const { t, i18n: i18nInst } = useTranslation('menu', { i18n })
     const location = useLocation()
-    const isSuperUser = useGlobalRoleCheck()
+    // Use canAccessAdminPanel which checks both hasGlobalAccess AND adminPanelEnabled
+    const { canAccessAdminPanel } = useHasGlobalAccess()
 
     // Check if we're in a unik context
     const isUnikContext = location.pathname.match(/^\/unik\/([^/]+)/)
@@ -33,6 +35,9 @@ export default function MenuContent() {
     // Check if we're in a metaverse context (both /metaverse/:id and /metaverses/:id paths)
     const metaverseMatch = location.pathname.match(/^\/metaverses?\/([^/]+)/)
     const metaverseId = metaverseMatch ? metaverseMatch[1] : null
+    // Verify metaverse access by checking if name loads successfully
+    // If null (loading/error), don't show metaverse-specific menu to prevent flicker
+    const metaverseName = useMetaverseName(metaverseId)
 
     // Check if we're in a cluster context (both /cluster/:id and /clusters/:id paths)
     const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
@@ -59,9 +64,10 @@ export default function MenuContent() {
     const instanceId = instanceMatch ? instanceMatch[1] : null
 
     // Use context-specific menu or root menu
+    // For metaverse context, only show context menu if resource access is verified (name loaded)
     const menuItems = unikId
         ? getUnikMenuItems(unikId)
-        : metaverseId
+        : metaverseId && metaverseName
         ? getMetaverseMenuItems(metaverseId)
         : clusterId
         ? getClusterMenuItems(clusterId)
@@ -127,8 +133,8 @@ export default function MenuContent() {
                     )
                 })}
 
-                {/* Admin section with divider - only for super users and not in instance context */}
-                {isSuperUser && !instanceId && (
+                {/* Admin section with divider - only if user can access admin panel and not in instance context */}
+                {canAccessAdminPanel && !instanceId && (
                     <>
                         <Divider sx={{ my: 1 }} />
                         {/* Admin menu items */}

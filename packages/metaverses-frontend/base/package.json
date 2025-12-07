@@ -19,6 +19,12 @@
         "./pages/*": {
             "default": "./src/pages/*"
         },
+        "./components": {
+            "default": "./src/components/index.ts"
+        },
+        "./components/*": {
+            "default": "./src/components/*"
+        },
         "./package.json": "./package.json"
     },
     "sideEffects": [

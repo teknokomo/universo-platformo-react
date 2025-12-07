@@ -1,3 +1,7 @@
 export { Loadable } from './Loadable'
 export { AuthGuard } from './AuthGuard'
 export type { AuthGuardProps } from './AuthGuard'
+export { AdminGuard } from './AdminGuard'
+export type { AdminGuardProps } from './AdminGuard'
+export { ResourceGuard } from './ResourceGuard'
+export type { ResourceGuardProps } from './ResourceGuard'

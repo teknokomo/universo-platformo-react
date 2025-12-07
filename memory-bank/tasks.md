@@ -4,6 +4,186 @@
 
 ---
 
+## ✅ COMPLETED: SettingsDialog UX Improvement (2025-12-07)
+
+**Goal**: Fix misleading UX when `GLOBAL_ADMIN_ENABLED=false` - toggle appeared active but didn't work.
+
+### Implementation:
+- [x] Task 1: Add Alert warning when `globalAdminEnabled=false`
+  - Imported `Alert` from MUI
+  - Added info Alert explaining privileges are disabled by admin
+- [x] Task 2: Disable Switch when privileges are off
+  - Added `disabled={saving || !adminConfig.globalAdminEnabled}` to Switch
+- [x] Task 3: Add visual indication (opacity) when disabled
+  - Applied `opacity: 0.6` styling to disabled section
+- [x] Task 4: Add i18n translations
+  - EN: `settings.globalAdminDisabledWarning`
+  - RU: `settings.globalAdminDisabledWarning`
+- [x] Task 5: Update ENV documentation
+  - Updated `.env.example` with combination matrix table
+  - Updated `docker/.env.example` similarly
+- [x] Task 6: QA analysis of implementation
+  - Architecture ✅, Libraries ✅, Security ✅
+  - Auth.jsx already has proper error handling for refreshAbility()
+- [x] Task 7: Full build validation (52/52 packages successful)
+
+---
+
+## ✅ COMPLETED: Fix Admin Access Logic (2025-12-07)
+
+**Goal**: Fix incorrect `hasGlobalAccess` logic and eliminate hook duplication.
+
+**Problems identified**:
+1. `hasGlobalAccess` returns false when `GLOBAL_ADMIN_ENABLED=false` (wrong - should reflect DB role)
+2. Two hooks (`useGlobalRoleCheck` and `useHasGlobalAccess`) cause race conditions
+3. Cache not synced after login → admin menu doesn't work until direct navigation
+
+### Implementation Plan:
+- [x] Task 1: Fix `permissionService.ts` - decouple `hasGlobalAccess` from `GLOBAL_ADMIN_ENABLED`
+  - Removed `globalAdminEnabled` check from global roles collection
+  - `hasGlobalAccess` now reflects DB role (globalRoles.length > 0)
+- [x] Task 2: Remove `useGlobalRoleCheck`, use `useHasGlobalAccess` everywhere
+  - Deleted `universo-template-mui/base/src/hooks/useGlobalRoleCheck.ts`
+  - Removed exports from `hooks/index.ts` and main `index.ts`
+- [x] Task 3: Update components to use `useHasGlobalAccess` from `@flowise/store`
+  - MenuContent.tsx - replaced useGlobalRoleCheck with useHasGlobalAccess
+  - SettingsDialog.tsx - replaced useGlobalRoleCheck with useHasGlobalAccess
+  - ToolbarControls.tsx - replaced useGlobalRoleCheck with useHasGlobalAccess
+- [x] Task 4: NavbarBreadcrumbs already uses `useHasGlobalAccess` (no change needed)
+- [x] Task 5: Add `refreshAbility()` call after login in Auth.jsx
+  - Added `useAbility` import from `@flowise/store`
+  - Call `await refreshAbility()` after successful login
+- [x] Task 6: Full build validation (52/52 packages successful)
+- [ ] Task 7: Test scenarios (requires user testing)
+
+---
+
+## ✅ COMPLETED: Fix UI Flicker for Metaverse Routes (2025-12-07)
+
+**Goal**: Prevent breadcrumbs and side menu from showing when accessing metaverse without permission.
+
+**Problem**: When accessing `/metaverse/:id` as unauthorized user, breadcrumbs "Метавселенная" and side menu flash briefly before `MetaverseGuard` redirects.
+
+### Solution:
+- [x] Add resource access check to NavbarBreadcrumbs for metaverse routes
+  - For `/metaverse/:id` and `/metaverses/:id/...` routes
+  - Return empty breadcrumbs if `metaverseName` is null (loading or no access)
+- [x] Fix MenuContent for metaverse context
+  - Added `useMetaverseName` hook to verify resource access
+  - Only show metaverse-specific menu if `metaverseName` is loaded
+  - Falls back to root menu during loading/error
+- [x] Full build validation (52/52 packages successful)
+
+### Files Modified:
+- `universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
+  - Added access check before rendering metaverse breadcrumbs
+- `universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
+  - Added `useMetaverseName` hook import
+  - Conditional metaverse context menu rendering
+
+---
+
+## ✅ COMPLETED: Fix UI Flicker in Route Guards (2025-12-07)
+
+**Goal**: Prevent breadcrumbs and layout from showing before guard redirects unauthorized users.
+
+**Root Cause**: Layout (`MainLayoutMUI`) renders BEFORE guard check because guards are inside route children, not wrapping the layout itself. `NavbarBreadcrumbs` generates text like "Администрирование" immediately from URL path.
+
+### Solution: Conditional rendering in NavbarBreadcrumbs
+- [x] Add access check to NavbarBreadcrumbs for admin routes
+  - Imported `useHasGlobalAccess` from `@flowise/store`
+  - Returns empty breadcrumbs for admin routes if loading or no access
+- [x] Verify MetaverseGuard is applied to metaverse routes (already done)
+  - `/metaverses/:metaverseId/entities` - protected ✓
+  - `/metaverses/:metaverseId/sections` - protected ✓
+  - `/metaverse/:metaverseId/*` - protected ✓
+- [x] Full build validation (52/52 packages successful)
+
+### Files Modified:
+- `universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
+  - Added `useHasGlobalAccess` hook import
+  - Added access check before rendering admin breadcrumbs
+  - Returns empty array if loading or no access
+
+---
+
+## ✅ COMPLETED: Route Protection Guards Implementation (2025-12-06)
+
+**Goal**: Create route protection system to redirect unauthorized users instead of showing pages with errors.
+
+### Phase 1: AdminGuard
+- [x] Create `AdminGuard.tsx` in `@universo/template-mui/components/routing/`
+  - Checks authentication (→ /auth if not logged in)
+  - Checks `canAccessAdminPanel` (→ / if no admin access)
+- [x] Export from `routing/index.ts`
+- [x] Apply to `/admin/*` routes in `MainRoutesMUI.tsx`
+  - Wrapped entire admin block in `<AdminGuard>`
+  - Removed redundant inner `<AuthGuard>` wrappers
+
+### Phase 2: ResourceGuard (Universal)
+- [x] Create `ResourceGuard.tsx` in `@universo/template-mui/components/routing/`
+  - Checks authentication (→ /auth if not logged in)
+  - Fetches resource via TanStack Query to verify access
+  - Redirects on 403/404 errors (→ accessDeniedRedirectTo)
+  - Caches data for child components (no duplicate API calls)
+- [x] Export from `routing/index.ts` and main `index.ts`
+- [x] Add `@flowise/store` and `@tanstack/react-query` dependencies
+
+### Phase 3: MetaverseGuard (Specialized)
+- [x] Create `MetaverseGuard.tsx` in `@universo/metaverses-frontend/components/`
+  - Uses `ResourceGuard` with metaverse-specific config
+  - Fetches via `getMetaverse()` API
+  - Uses `metaversesQueryKeys.detail` for cache
+- [x] Export from `components/index.ts` with package.json exports
+- [x] Apply to `/metaverse/:metaverseId/*` routes in `MainRoutesMUI.tsx`
+
+### Phase 4: Validation
+- [x] Full build validation (52/52 packages successful)
+
+### Files Created:
+- `universo-template-mui/base/src/components/routing/AdminGuard.tsx`
+- `universo-template-mui/base/src/components/routing/ResourceGuard.tsx`
+- `metaverses-frontend/base/src/components/MetaverseGuard.tsx`
+- `metaverses-frontend/base/src/components/index.ts`
+
+### Files Modified:
+- `universo-template-mui/base/src/components/routing/index.ts` - exports
+- `universo-template-mui/base/src/components/index.ts` - exports
+- `universo-template-mui/base/src/index.ts` - exports
+- `universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - guard application
+- `universo-template-mui/base/package.json` - dependencies
+- `metaverses-frontend/base/package.json` - exports
+
+---
+
+## ✅ COMPLETED: Admin Feature Flags Implementation (2025-12-06)
+
+**Goal**: Implement two independent ENV-based feature flags for admin functionality.
+
+### Phase 1: Backend Configuration
+- [x] Create `adminConfig.ts` in `@universo/utils/env/`
+- [x] Export adminConfig from `env/index.ts`
+- [x] Add `AdminConfig` interface to `@universo/types`
+
+### Phase 2: Auth Backend Integration
+- [x] Update `permissionService.ts` to include config in response
+- [x] Ensure `hasGlobalAccess()` respects `GLOBAL_ADMIN_ENABLED`
+
+### Phase 3: Admin Backend Integration
+- [x] Update `ensureGlobalAccess.ts` guard to check `ADMIN_PANEL_ENABLED`
+- [x] Update `hasGlobalAccessByDataSource()` to check `GLOBAL_ADMIN_ENABLED`
+
+### Phase 4: Frontend Integration
+- [x] Update `AbilityContextProvider.jsx` with adminConfig state
+- [x] Update `useHasGlobalAccess.js` with `canAccessAdminPanel`
+- [x] Simplify `useGlobalRoleCheck.ts` to use new hook
+
+### Phase 5: Configuration & Validation
+- [x] Update `.env.example` files with new ENV variables
+- [x] Full build validation (52/52 packages successful)
+
+---
+
 ## ✅ COMPLETED: InstanceList UI Polish (2025-12-06)
 
 **Goal**: Fix UI polishing issues in Instances management after second QA review.

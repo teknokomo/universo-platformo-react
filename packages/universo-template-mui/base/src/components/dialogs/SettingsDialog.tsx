@@ -15,7 +15,7 @@ import {
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useUserSettings, type UserSettingsData } from '../../hooks/useUserSettings'
-import { useGlobalRoleCheck } from '../../hooks/useGlobalRoleCheck'
+import { useHasGlobalAccess } from '@flowise/store'
 
 export interface SettingsDialogProps {
     open: boolean
@@ -31,7 +31,9 @@ export interface SettingsDialogProps {
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
     const { t } = useTranslation('settings')
     const { settings, updateSettings, loading, error } = useUserSettings()
-    const isSuperUser = useGlobalRoleCheck()
+    // hasGlobalAccess = user has superadmin/supermoderator role (shows admin settings section)
+    // adminConfig.globalAdminEnabled = server-side flag that enables super user privileges
+    const { hasGlobalAccess, adminConfig } = useHasGlobalAccess()
 
     // Local state for form
     const [localSettings, setLocalSettings] = useState<UserSettingsData>({})
@@ -95,22 +97,36 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                         )}
 
                         {/* Admin Settings - only for superadmin/supermoderator */}
-                        {isSuperUser && (
+                        {hasGlobalAccess && (
                             <>
                                 <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>
                                     {t('dialog.adminSection', 'Admin Settings')}
                                 </Typography>
+
+                                {/* Show warning when global admin privileges are disabled */}
+                                {!adminConfig.globalAdminEnabled && (
+                                    <Alert severity='warning' sx={{ mb: 2 }}>
+                                        {t(
+                                            'dialog.globalAdminDisabledWarning',
+                                            'Super user privileges are disabled by the system administrator. These settings are inactive.'
+                                        )}
+                                    </Alert>
+                                )}
 
                                 <FormControlLabel
                                     control={
                                         <Switch
                                             checked={localSettings.admin?.showAllItems ?? false}
                                             onChange={handleShowAllItemsChange}
-                                            disabled={saving}
+                                            disabled={saving || !adminConfig.globalAdminEnabled}
                                         />
                                     }
                                     label={t('dialog.showAllItems.label', "Show other users' items")}
-                                    sx={{ ml: 0, mb: 2 }}
+                                    sx={{
+                                        ml: 0,
+                                        mb: 2,
+                                        opacity: adminConfig.globalAdminEnabled ? 1 : 0.6
+                                    }}
                                 />
 
                                 <Divider sx={{ my: 2 }} />

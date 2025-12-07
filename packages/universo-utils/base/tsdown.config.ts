@@ -4,6 +4,7 @@ export default defineConfig({
     entry: {
         index: './src/index.ts',
         'index.browser': './src/index.browser.ts',
+        'env/index': './src/env/index.ts',
         'ui-utils': './src/ui-utils/index.js',
         'rate-limiting': './src/rate-limiting/index.ts'
     },

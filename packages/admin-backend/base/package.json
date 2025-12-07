@@ -22,6 +22,7 @@
     "dependencies": {
         "@universo/auth-backend": "workspace:*",
         "@universo/types": "workspace:*",
+        "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "http-errors": "catalog:",
         "typeorm": "catalog:",

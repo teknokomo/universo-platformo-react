@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import type { GlobalAccessService } from '../services/globalAccessService'
-import { createEnsureGlobalAccess, isGlobalAdminEnabled, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
+import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
+import { isAdminPanelEnabled } from '@universo/utils'
 import { GrantRoleSchema, UpdateGlobalUserSchema, formatZodError, validateListQuery } from '../schemas'
 
 export interface GlobalUsersRoutesConfig {
@@ -48,9 +49,9 @@ export function createGlobalUsersRoutes({ globalAccessService }: GlobalUsersRout
      */
     router.get('/me', async (req, res, next) => {
         try {
-            const enabled = isGlobalAdminEnabled()
+            const enabled = isAdminPanelEnabled()
 
-            // If disabled, don't reveal any role info
+            // If admin panel is disabled, don't reveal any role info
             if (!enabled) {
                 return res.json({
                     success: true,
