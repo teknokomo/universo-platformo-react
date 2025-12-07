@@ -67,7 +67,6 @@ export default function NavbarBreadcrumbs() {
 
     // Check admin panel access for admin routes
     // This prevents breadcrumbs from showing "Администрирование" before redirect
-    const isAdminRoute = location.pathname.startsWith('/admin')
     const { canAccessAdminPanel, loading: adminAccessLoading } = useHasGlobalAccess()
 
     // Clean keys without 'menu.' prefix since we're already using 'menu' namespace
@@ -93,6 +92,13 @@ export default function NavbarBreadcrumbs() {
         }
 
         const primary = segments[0]
+
+        // Early return for metaverse context routes when access is not yet verified
+        // This prevents UI flicker before MetaverseGuard redirects unauthorized users
+        const isMetaverseContextRoute = (primary === 'metaverses' || primary === 'metaverse') && segments.length > 1
+        if (isMetaverseContextRoute && !metaverseName) {
+            return []
+        }
         if (primary === 'unik') {
             const items = [{ label: t(menuMap.uniks), to: '/uniks' }]
 
@@ -127,13 +133,6 @@ export default function NavbarBreadcrumbs() {
         }
 
         if (primary === 'metaverses') {
-            // For nested metaverse routes (/metaverses/:id/...), don't show breadcrumbs
-            // until resource access is verified (metaverseName loaded)
-            // This prevents UI flicker before MetaverseGuard redirects unauthorized users
-            if (segments[1] && !metaverseName) {
-                return []
-            }
-
             const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
 
             // Handle nested routes like /metaverses/:id/sections or /metaverses/:id/entities
@@ -155,12 +154,6 @@ export default function NavbarBreadcrumbs() {
         }
 
         if (primary === 'metaverse') {
-            // Don't show breadcrumbs until resource access is verified (metaverseName loaded)
-            // This prevents UI flicker before MetaverseGuard redirects unauthorized users
-            if (segments[1] && !metaverseName) {
-                return []
-            }
-
             const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
 
             if (segments[1] && metaverseName) {

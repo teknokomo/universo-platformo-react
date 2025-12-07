@@ -105,7 +105,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
 
                                 {/* Show warning when global admin privileges are disabled */}
                                 {!adminConfig.globalAdminEnabled && (
-                                    <Alert severity='info' sx={{ mb: 2 }}>
+                                    <Alert severity='warning' sx={{ mb: 2 }}>
                                         {t(
                                             'dialog.globalAdminDisabledWarning',
                                             'Super user privileges are disabled by the system administrator. These settings are inactive.'
