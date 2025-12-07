@@ -8,6 +8,17 @@
  */
 
 /**
+ * Admin panel and super user configuration
+ * Returned by /auth/permissions endpoint for frontend feature flags
+ */
+export interface AdminConfig {
+    /** Whether admin panel UI and API endpoints are accessible */
+    adminPanelEnabled: boolean
+    /** Whether super user privileges (RLS bypass, see all data) are active */
+    globalAdminEnabled: boolean
+}
+
+/**
  * Localized display name for a role
  * Keys are ISO 639-1 language codes (e.g., 'en', 'ru')
  */
@@ -68,6 +79,8 @@ export interface UserPermissionsResponse {
     hasGlobalAccess: boolean
     /** Role metadata map for UI display (keyed by role name) */
     rolesMetadata: Record<string, RoleMetadata>
+    /** Admin feature flags configuration */
+    config: AdminConfig
 }
 
 /**

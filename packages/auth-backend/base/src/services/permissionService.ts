@@ -5,8 +5,9 @@
  * Also provides global role information with metadata for frontend display.
  */
 import type { DataSource, QueryRunner } from 'typeorm'
-import type { AppAbility, DbPermission, RoleMetadata, GlobalRoleInfo, PermissionRule, LocalizedString } from '@universo/types'
+import type { AppAbility, DbPermission, RoleMetadata, GlobalRoleInfo, PermissionRule, LocalizedString, AdminConfig } from '@universo/types'
 import { defineAbilitiesFor } from '@universo/types'
+import { getAdminConfig, isGlobalAdminEnabled } from '@universo/utils'
 
 /**
  * Raw permission row from database (with metadata)
@@ -34,6 +35,8 @@ export interface FullPermissionsResponse {
     hasGlobalAccess: boolean
     /** Role metadata map for UI display (keyed by role name) */
     rolesMetadata: Record<string, RoleMetadata>
+    /** Admin feature flags configuration */
+    config: AdminConfig
 }
 
 /**
@@ -140,6 +143,9 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
                 }
             }
 
+            // Collect global roles based on DB role flag (not ENV)
+            // hasGlobalAccess reflects the FACT that user has a global role in DB
+            // GLOBAL_ADMIN_ENABLED only affects RLS bypass privileges, not role existence
             if (row.has_global_access) {
                 globalRolesSet.add(row.role_name)
             }
@@ -154,8 +160,11 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
         return {
             permissions,
             globalRoles,
+            // hasGlobalAccess = user has a global role in DB (independent of ENV flags)
+            // Frontend uses this + adminConfig to determine what user can access
             hasGlobalAccess: globalRoles.length > 0,
-            rolesMetadata
+            rolesMetadata,
+            config: getAdminConfig()
         }
     }
 
@@ -169,8 +178,14 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
 
     /**
      * Check if user has global access (any role with has_global_access=true)
+     * Returns false if GLOBAL_ADMIN_ENABLED=false
      */
     async function hasGlobalAccess(userId: string, queryRunner?: QueryRunner): Promise<boolean> {
+        // If global admin is disabled, no one has global access
+        if (!isGlobalAdminEnabled()) {
+            return false
+        }
+
         const runner = queryRunner ?? getDataSource().createQueryRunner()
         const shouldRelease = !queryRunner
 

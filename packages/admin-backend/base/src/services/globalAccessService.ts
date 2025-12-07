@@ -8,6 +8,7 @@ import type {
     GlobalUserMember,
     LocalizedString
 } from '@universo/types'
+import { isGlobalAdminEnabled } from '@universo/utils'
 import { Role } from '../database/entities/Role'
 import { UserRole } from '../database/entities/UserRole'
 
@@ -552,8 +553,14 @@ export type GlobalAccessService = ReturnType<typeof createGlobalAccessService>
 /**
  * Standalone function to check global access by DataSource
  * Used by access guards in other modules for superadmin bypass
+ * Returns false if GLOBAL_ADMIN_ENABLED=false
  */
 export async function hasGlobalAccessByDataSource(ds: DataSource, userId: string): Promise<boolean> {
+    // If global admin privileges are disabled, no one has global access
+    if (!isGlobalAdminEnabled()) {
+        return false
+    }
+
     const result = (await ds.query(`
         SELECT admin.has_global_access($1::uuid) as has_access
     `, [userId])) as { has_access: boolean }[]

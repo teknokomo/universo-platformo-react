@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, AuthView } from '@universo/auth-frontend'
+import { useAbility } from '@flowise/store'
 import { MainCard } from '@flowise/template-mui'
 import { useTranslation } from '@universo/i18n'
 
@@ -25,6 +26,7 @@ const Auth = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const { login, client, isAuthenticated, loading } = useAuth()
+    const { refreshAbility } = useAbility()
 
     useEffect(() => {
         if (!loading && isAuthenticated) {
@@ -59,6 +61,18 @@ const Auth = () => {
 
     const handleLogin = async (email, password) => {
         await login(email, password)
+
+        // Refresh abilities after login to load user's permissions
+        // If refreshAbility fails, we still navigate (user is authenticated)
+        // but permissions may load on next page via AbilityContextProvider
+        try {
+            await refreshAbility()
+        } catch (err) {
+            // Non-critical: abilities will be fetched on next navigation
+            // Log for debugging but don't block login flow
+            console.warn('[Auth] Failed to refresh abilities after login:', err?.message || err)
+        }
+
         const from = location.state?.from || '/'
         navigate(from, { replace: true })
     }

@@ -6,6 +6,7 @@ import Link from '@mui/material/Link'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
+import { useHasGlobalAccess } from '@flowise/store'
 import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetaverseName'
 import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
 import { useProjectName, truncateProjectName } from '../../hooks/useProjectName'
@@ -64,6 +65,11 @@ export default function NavbarBreadcrumbs() {
     const unikId = unikIdMatch ? unikIdMatch[1] : null
     const unikName = useUnikName(unikId)
 
+    // Check admin panel access for admin routes
+    // This prevents breadcrumbs from showing "Администрирование" before redirect
+    const isAdminRoute = location.pathname.startsWith('/admin')
+    const { canAccessAdminPanel, loading: adminAccessLoading } = useHasGlobalAccess()
+
     // Clean keys without 'menu.' prefix since we're already using 'menu' namespace
     const menuMap: Record<string, string> = {
         uniks: 'uniks',
@@ -121,6 +127,13 @@ export default function NavbarBreadcrumbs() {
         }
 
         if (primary === 'metaverses') {
+            // For nested metaverse routes (/metaverses/:id/...), don't show breadcrumbs
+            // until resource access is verified (metaverseName loaded)
+            // This prevents UI flicker before MetaverseGuard redirects unauthorized users
+            if (segments[1] && !metaverseName) {
+                return []
+            }
+
             const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
 
             // Handle nested routes like /metaverses/:id/sections or /metaverses/:id/entities
@@ -142,6 +155,12 @@ export default function NavbarBreadcrumbs() {
         }
 
         if (primary === 'metaverse') {
+            // Don't show breadcrumbs until resource access is verified (metaverseName loaded)
+            // This prevents UI flicker before MetaverseGuard redirects unauthorized users
+            if (segments[1] && !metaverseName) {
+                return []
+            }
+
             const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
 
             if (segments[1] && metaverseName) {
@@ -393,7 +412,13 @@ export default function NavbarBreadcrumbs() {
         }
 
         // Admin routes handling
+        // Don't show admin breadcrumbs while checking access or if user doesn't have access
+        // This prevents UI flicker before AdminGuard redirects unauthorized users
         if (primary === 'admin') {
+            if (adminAccessLoading || !canAccessAdminPanel) {
+                return []
+            }
+
             const items = [{ label: t('administration'), to: '/admin' }]
 
             // Instance context routes

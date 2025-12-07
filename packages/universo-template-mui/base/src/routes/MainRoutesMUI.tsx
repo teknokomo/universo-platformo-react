@@ -35,7 +35,7 @@ import Dashboard from '../views/dashboard/Dashboard'
 import { ErrorBoundary } from '../components'
 
 // Use local routing components (migrated from @flowise/template-mui)
-import { AuthGuard, Loadable } from '../components/routing'
+import { AuthGuard, AdminGuard, Loadable } from '../components/routing'
 
 // Unik module components
 const UnikList = Loadable(lazy(() => import('@universo/uniks-frontend/pages/UnikList')))
@@ -85,6 +85,8 @@ const SectionList = Loadable(lazy(() => import('@universo/metaverses-frontend/pa
 const EntityList = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/EntityList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/MetaverseMembers')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetaverseGuard = Loadable(lazy(() => import('@universo/metaverses-frontend/components/MetaverseGuard')))
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frontend (package deleted)
 
@@ -405,48 +407,48 @@ const MainRoutesMUI = {
                         </AuthGuard>
                     )
                 },
-                // Aliases and nested lists inside a specific metaverse
+                // Nested lists inside a specific metaverse - protected by MetaverseGuard
                 {
                     path: ':metaverseId/entities',
                     element: (
-                        <AuthGuard>
+                        <MetaverseGuard>
                             <EntityList />
-                        </AuthGuard>
+                        </MetaverseGuard>
                     )
                 },
                 {
                     path: ':metaverseId/sections',
                     element: (
-                        <AuthGuard>
+                        <MetaverseGuard>
                             <SectionList />
-                        </AuthGuard>
+                        </MetaverseGuard>
                     )
                 }
             ]
         },
+        // Metaverse detail routes - protected by MetaverseGuard
+        // MetaverseGuard checks both authentication and resource access
         {
             path: 'metaverse/:metaverseId',
             element: (
-                <AuthGuard>
-                    <MetaverseBoard />
-                </AuthGuard>
-            )
-        },
-        {
-            path: 'metaverse/:metaverseId/members',
-            element: (
-                <AuthGuard>
-                    <MetaverseMembers />
-                </AuthGuard>
-            )
-        },
-        {
-            path: 'metaverse/:metaverseId/access',
-            element: (
-                <AuthGuard>
-                    <MetaverseMembers />
-                </AuthGuard>
-            )
+                <MetaverseGuard>
+                    <Outlet />
+                </MetaverseGuard>
+            ),
+            children: [
+                {
+                    index: true,
+                    element: <MetaverseBoard />
+                },
+                {
+                    path: 'members',
+                    element: <MetaverseMembers />
+                },
+                {
+                    path: 'access',
+                    element: <MetaverseMembers />
+                }
+            ]
         },
         {
             path: 'sections',
@@ -804,18 +806,19 @@ const MainRoutesMUI = {
             )
         },
         // Admin routes (instances and global access management)
+        // Wrapped in AdminGuard to check both authentication and admin panel access
         {
             path: 'admin',
-            element: <Outlet />,
+            element: (
+                <AdminGuard>
+                    <Outlet />
+                </AdminGuard>
+            ),
             children: [
                 // Instance list (main admin page)
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <InstanceList />
-                        </AuthGuard>
-                    )
+                    element: <InstanceList />
                 },
                 // Instance context routes
                 {
@@ -824,46 +827,26 @@ const MainRoutesMUI = {
                     children: [
                         {
                             index: true,
-                            element: (
-                                <AuthGuard>
-                                    <InstanceBoard />
-                                </AuthGuard>
-                            )
+                            element: <InstanceBoard />
                         },
                         {
                             path: 'board',
-                            element: (
-                                <AuthGuard>
-                                    <InstanceBoard />
-                                </AuthGuard>
-                            )
+                            element: <InstanceBoard />
                         },
                         {
                             path: 'access',
-                            element: (
-                                <AuthGuard>
-                                    <InstanceAccess />
-                                </AuthGuard>
-                            )
+                            element: <InstanceAccess />
                         }
                     ]
                 },
                 // Legacy routes (kept for backward compatibility during transition)
                 {
                     path: 'board',
-                    element: (
-                        <AuthGuard>
-                            <AdminBoard />
-                        </AuthGuard>
-                    )
+                    element: <AdminBoard />
                 },
                 {
                     path: 'access',
-                    element: (
-                        <AuthGuard>
-                            <AdminAccess />
-                        </AuthGuard>
-                    )
+                    element: <AdminAccess />
                 }
             ]
         },

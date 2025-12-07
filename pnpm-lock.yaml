@@ -320,6 +320,9 @@ importers:
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       express:
         specifier: ^4.18.2
         version: 4.22.1
@@ -458,6 +461,9 @@ importers:
       '@universo/types':
         specifier: workspace:^
         version: link:../../universo-types/base
+      '@universo/utils':
+        specifier: workspace:^
+        version: link:../../universo-utils/base
       csurf:
         specifier: ^1.11.0
         version: 1.11.0
@@ -4649,6 +4655,9 @@ importers:
       '@flowise/docstore-frontend':
         specifier: workspace:*
         version: link:../../flowise-docstore-frontend/base
+      '@flowise/store':
+        specifier: workspace:*
+        version: link:../../flowise-store/base
       '@flowise/template-mui':
         specifier: workspace:*
         version: link:../../flowise-template-mui/base
@@ -4685,6 +4694,9 @@ importers:
       '@mui/x-tree-view':
         specifier: ^7.22.2
         version: 7.29.10(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/react-query':
+        specifier: ^5.62.13
+        version: 5.90.11(react@18.3.1)
       '@universo/admin-frontend':
         specifier: workspace:*
         version: link:../../admin-frontend/base
@@ -4713,9 +4725,6 @@ importers:
         specifier: ^10.0.6
         version: 10.0.6(react@18.3.1)
     devDependencies:
-      '@tanstack/react-query':
-        specifier: ^5.62.13
-        version: 5.90.11(react@18.3.1)
       '@testing-library/jest-dom':
         specifier: 'catalog:'
         version: 6.9.1

@@ -1,6 +1,9 @@
 // Universo Platformo | Environment configuration utilities
 // Safe access to environment variables with fallbacks
 
+// Re-export admin config utilities
+export * from './adminConfig'
+
 /**
  * Get API base URL from environment or window.location
  * Works in both browser and Node.js environments

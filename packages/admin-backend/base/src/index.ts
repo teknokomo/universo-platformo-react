@@ -16,11 +16,10 @@ export {
 } from './services/globalAccessService'
 
 // Guards
-export {
-    createEnsureGlobalAccess,
-    isGlobalAdminEnabled,
-    type RequestWithGlobalRole
-} from './guards/ensureGlobalAccess'
+export { createEnsureGlobalAccess, type RequestWithGlobalRole } from './guards/ensureGlobalAccess'
+
+// Re-export admin config utilities from @universo/utils for convenience
+export { isAdminPanelEnabled, isGlobalAdminEnabled, getAdminConfig, type AdminConfig } from '@universo/utils'
 
 // Routes
 export { createGlobalUsersRoutes, type GlobalUsersRoutesConfig } from './routes'

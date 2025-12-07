@@ -4,6 +4,68 @@
 
 ---
 
+## Route Protection Guards Pattern (2025-12-06)
+
+**Location**: `@universo/template-mui/components/routing/`
+
+**Rule**: Protected routes must redirect unauthorized users to home, not show error pages.
+
+### Guard Components
+
+| Guard | Purpose | Checks | Redirect |
+|-------|---------|--------|----------|
+| `AuthGuard` | Authentication only | `isAuthenticated` | → `/auth` |
+| `AdminGuard` | Admin panel access | `isAuthenticated` + `canAccessAdminPanel` | → `/` |
+| `ResourceGuard` | Resource ownership | `isAuthenticated` + API 403/404 | → `/` |
+
+### AdminGuard Usage
+```tsx
+// Wrap entire admin section - children don't need AuthGuard
+<Route path="admin" element={<AdminGuard><Outlet /></AdminGuard>}>
+  <Route index element={<InstanceList />} />
+  <Route path="instance/:id" element={<InstanceBoard />} />
+</Route>
+```
+
+### ResourceGuard Usage (Generic)
+```tsx
+<ResourceGuard
+  resourceType="metaverse"
+  resourceIdParam="metaverseId"
+  fetchResource={(id) => getMetaverse(id).then(r => r.data)}
+  queryKeyFn={metaversesQueryKeys.detail}
+>
+  <Outlet />
+</ResourceGuard>
+```
+
+### Specialized Guards (Recommended)
+Create module-specific guards that wrap ResourceGuard:
+- `MetaverseGuard` in `@universo/metaverses-frontend/components/`
+- Future: `ProjectGuard`, `ClusterGuard`, etc.
+
+```tsx
+// MetaverseGuard.tsx
+export const MetaverseGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <ResourceGuard
+    resourceType="metaverse"
+    resourceIdParam="metaverseId"
+    fetchResource={(id) => getMetaverse(id).then(r => r.data)}
+    queryKeyFn={metaversesQueryKeys.detail}
+  >
+    {children}
+  </ResourceGuard>
+)
+```
+
+### Key Benefits
+1. **Security**: No information disclosure about protected resources
+2. **UX**: Clean redirect instead of error-filled pages
+3. **Performance**: ResourceGuard caches data via TanStack Query
+4. **Reusability**: Same pattern for all resource types
+
+---
+
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
 **Rule**: Source-only packages (no dist/) must use peerDependencies, NOT dependencies.

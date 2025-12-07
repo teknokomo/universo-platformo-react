@@ -34,6 +34,8 @@ export {
     Loader,
     Loadable,
     AuthGuard,
+    AdminGuard,
+    ResourceGuard,
     TooltipWithParser,
     BaseEntityMenu
 } from './components'
@@ -43,6 +45,8 @@ export type {
     ActionContext,
     TriggerProps,
     AuthGuardProps,
+    AdminGuardProps,
+    ResourceGuardProps,
     TooltipWithParserProps,
     TableColumn,
     FlowListTableData,
@@ -63,7 +67,6 @@ export type { ConfirmPayload } from './store/actions'
 // User settings system
 export { useUserSettings, resetUserSettingsCache, getShowAllItemsSetting } from './hooks/useUserSettings'
 export type { UserSettingsData } from './hooks/useUserSettings'
-export { useGlobalRoleCheck, resetGlobalRoleCache } from './hooks/useGlobalRoleCheck'
 
 // Constants
 export { gridSpacing } from './constants'
