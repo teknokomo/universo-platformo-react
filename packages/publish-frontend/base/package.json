@@ -75,7 +75,7 @@
         "@universo/publish-backend": "workspace:*",
         "@universo/template-mmoomm": "workspace:*",
         "@universo/template-quiz": "workspace:*",
-        "axios": "1.7.9",
+        "axios": "catalog:",
         "file-saver": "^2.0.5",
         "jszip": "^3.10.1",
         "react": "^18.2.0",

@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "upr-0.40.0-alpha",
+    "version": "upr-0.41.0-alpha",
     "private": true,
     "homepage": "https://universo.pro",
     "workspaces": [
@@ -75,7 +75,7 @@
             "sqlite3"
         ],
         "overrides": {
-            "axios": "1.7.9",
+            "axios": "1.13.2",
             "body-parser": "2.0.2",
             "braces": "3.0.3",
             "cross-spawn": "7.0.6",

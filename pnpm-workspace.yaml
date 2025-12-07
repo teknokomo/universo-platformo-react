@@ -67,7 +67,7 @@ catalog:
     
     # Utilities
     dayjs: ^1.11.18
-    axios: ^1.7.9
+    axios: 1.13.2
     
     # Rate limiting - updated to latest stable
     express-rate-limit: ^8.2.0
