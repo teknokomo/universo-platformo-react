@@ -6,7 +6,7 @@
  * - CASL permissions refresh via @flowise/store
  * - MainCard styling via @flowise/template-mui
  */
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { AuthPage, mapSupabaseError } from '@universo/auth-frontend'
 import { MainCard } from '@flowise/template-mui'
 import { useTranslation } from '@universo/i18n'
@@ -60,9 +60,8 @@ const Auth = () => {
         [t]
     )
 
-    const handleErrorMapping = useMemo(() => {
-        return (message) => t(mapSupabaseError(message))
-    }, [t])
+    // Use useCallback for memoizing functions (more semantically correct than useMemo)
+    const handleErrorMapping = useCallback((message) => t(mapSupabaseError(message)), [t])
 
     return <AuthPage labels={labels} onLoginSuccess={refreshAbility} errorMapper={handleErrorMapping} slots={{ Card: CardSlot }} />
 }

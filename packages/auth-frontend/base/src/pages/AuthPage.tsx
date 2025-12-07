@@ -4,7 +4,7 @@
  * Full authentication page with login/register forms.
  * Provides integration points via callbacks for application-specific logic.
  */
-import { useEffect, type ComponentType, type ReactNode } from 'react'
+import { useCallback, useEffect, type ComponentType, type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { BoxProps } from '@mui/material'
 
@@ -66,8 +66,10 @@ export interface AuthPageProps {
  *   const { t } = useTranslation('auth')
  *   const { refreshAbility } = useAbility()
  *
+ *   // Note: When using useTranslation('auth'), the namespace is already set,
+ *   // so keys should NOT have 'auth.' prefix
  *   const labels = useMemo(() => ({
- *     welcomeBack: t('auth.welcomeBack'),
+ *     welcomeBack: t('welcomeBack'),
  *     // ... other labels
  *   }), [t])
  *
@@ -75,7 +77,7 @@ export interface AuthPageProps {
  *     <AuthPage
  *       labels={labels}
  *       onLoginSuccess={refreshAbility}
- *       errorMapper={(msg) => t(`auth.${mapSupabaseError(msg)}`)}
+ *       errorMapper={(msg) => t(mapSupabaseError(msg))}
  *     />
  *   )
  * }
@@ -86,38 +88,48 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
     const location = useLocation()
     const { login, client, isAuthenticated, loading } = useAuth()
 
+    // Memoize redirect path calculation to avoid duplication (DRY principle)
+    const getRedirectPath = useCallback(() => {
+        return (location.state as { from?: string } | null)?.from ?? redirectTo ?? '/'
+    }, [location.state, redirectTo])
+
     // Redirect if already authenticated
     useEffect(() => {
         if (!loading && isAuthenticated) {
-            const from = (location.state as { from?: string } | null)?.from ?? redirectTo ?? '/'
-            navigate(from, { replace: true })
+            navigate(getRedirectPath(), { replace: true })
         }
-    }, [isAuthenticated, loading, navigate, location, redirectTo])
+    }, [isAuthenticated, loading, navigate, getRedirectPath])
 
     // Don't render until client is ready
     if (!client) return null
 
-    const handleLogin = async (email: string, password: string): Promise<void> => {
-        await login(email, password)
+    // Memoize handlers to prevent unnecessary re-renders of AuthView
+    const handleLogin = useCallback(
+        async (email: string, password: string): Promise<void> => {
+            await login(email, password)
 
-        // Execute post-login callback (e.g., refresh CASL abilities)
-        // Non-critical: errors logged but don't block navigation
-        if (onLoginSuccess) {
-            try {
-                await onLoginSuccess()
-            } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : String(err)
-                console.warn('[AuthPage] onLoginSuccess callback failed:', errorMessage)
+            // Execute post-login callback (e.g., refresh CASL abilities)
+            // Non-critical: errors logged but don't block navigation
+            if (onLoginSuccess) {
+                try {
+                    await onLoginSuccess()
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : String(err)
+                    console.warn('[AuthPage] onLoginSuccess callback failed:', errorMessage)
+                }
             }
-        }
 
-        const from = (location.state as { from?: string } | null)?.from ?? redirectTo ?? '/'
-        navigate(from, { replace: true })
-    }
+            navigate(getRedirectPath(), { replace: true })
+        },
+        [login, onLoginSuccess, navigate, getRedirectPath]
+    )
 
-    const handleRegister = async (email: string, password: string): Promise<void> => {
-        await client.post('auth/register', { email, password })
-    }
+    const handleRegister = useCallback(
+        async (email: string, password: string): Promise<void> => {
+            await client.post('auth/register', { email, password })
+        },
+        [client]
+    )
 
     return <AuthView labels={labels} onLogin={handleLogin} onRegister={handleRegister} errorMapper={errorMapper} slots={slots} />
 }

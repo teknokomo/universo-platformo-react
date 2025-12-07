@@ -16,8 +16,10 @@
  * import { mapSupabaseError } from '@universo/auth-frontend'
  * import { useTranslation } from '@universo/i18n'
  *
+ * // Note: When using useTranslation('auth'), the namespace is already set,
+ * // so keys should NOT have 'auth.' prefix
  * const { t } = useTranslation('auth')
- * const translatedError = t(`auth.${mapSupabaseError(error.message)}`)
+ * const translatedError = t(mapSupabaseError(error.message))
  * ```
  */
 export const mapSupabaseError = (errorMessage: string | null | undefined): string => {
