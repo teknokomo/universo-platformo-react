@@ -23,7 +23,7 @@
                 "lint": "eslint --ext .ts,.tsx src"
         },
         "dependencies": {
-                "axios": "^1.7.2"
+                "axios": "catalog:"
         },
         "peerDependencies": {
                 "@mui/material": "^5.15.0",
