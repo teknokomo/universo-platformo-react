@@ -11,6 +11,11 @@
                         "types": "./dist/index.d.ts",
                         "import": "./dist/index.mjs",
                         "require": "./dist/index.js"
+                },
+                "./pages/AuthPage": {
+                        "types": "./dist/pages/AuthPage.d.ts",
+                        "import": "./dist/pages/AuthPage.mjs",
+                        "require": "./dist/pages/AuthPage.js"
                 }
         },
         "engines": {

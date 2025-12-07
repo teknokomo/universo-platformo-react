@@ -1,0 +1,137 @@
+/**
+ * Universo Platformo | AuthPage Component
+ *
+ * Full authentication page with login/register forms.
+ * Provides integration points via callbacks for application-specific logic.
+ */
+import { useCallback, useEffect, type ComponentType, type ReactNode } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import type { BoxProps } from '@mui/material'
+
+import { useAuth } from '../providers/authProvider'
+import { AuthView, type AuthViewLabels } from '../components/AuthView'
+
+export interface AuthPageProps {
+    /**
+     * Localized labels for the authentication form.
+     * All fields are required for proper display.
+     */
+    labels: AuthViewLabels
+
+    /**
+     * Called after successful login, before navigation.
+     * Use for side effects like refreshing CASL permissions.
+     * Errors are caught and logged but don't block navigation.
+     */
+    onLoginSuccess?: () => Promise<void> | void
+
+    /**
+     * Maps API error messages to display strings.
+     * @param message - Raw error message from API
+     * @returns Translated or user-friendly error message
+     */
+    errorMapper?: (message: string) => string
+
+    /**
+     * Redirect path after successful login.
+     * Defaults to location.state.from or '/'
+     */
+    redirectTo?: string
+
+    /**
+     * Custom UI slots for AuthView composition.
+     * Card slot is commonly used for custom card styling (e.g., MainCard).
+     */
+    slots?: {
+        Card?: ComponentType<{ children: ReactNode; sx?: BoxProps['sx'] }>
+    }
+}
+
+/**
+ * Full authentication page component.
+ *
+ * Handles:
+ * - Login/register form display via AuthView
+ * - Automatic redirect if already authenticated
+ * - Post-login side effects via onLoginSuccess callback
+ * - Navigation after successful authentication
+ *
+ * @example
+ * ```tsx
+ * import { AuthPage } from '@universo/auth-frontend'
+ * import { useTranslation } from '@universo/i18n'
+ * import { useAbility } from '@flowise/store'
+ *
+ * const AuthRoute = () => {
+ *   const { t } = useTranslation('auth')
+ *   const { refreshAbility } = useAbility()
+ *
+ *   // Note: When using useTranslation('auth'), the namespace is already set,
+ *   // so keys should NOT have 'auth.' prefix
+ *   const labels = useMemo(() => ({
+ *     welcomeBack: t('welcomeBack'),
+ *     // ... other labels
+ *   }), [t])
+ *
+ *   return (
+ *     <AuthPage
+ *       labels={labels}
+ *       onLoginSuccess={refreshAbility}
+ *       errorMapper={(msg) => t(mapSupabaseError(msg))}
+ *     />
+ *   )
+ * }
+ * ```
+ */
+export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slots }: AuthPageProps): JSX.Element | null => {
+    const navigate = useNavigate()
+    const location = useLocation()
+    const { login, client, isAuthenticated, loading } = useAuth()
+
+    // Memoize redirect path calculation to avoid duplication (DRY principle)
+    const getRedirectPath = useCallback(() => {
+        return (location.state as { from?: string } | null)?.from ?? redirectTo ?? '/'
+    }, [location.state, redirectTo])
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!loading && isAuthenticated) {
+            navigate(getRedirectPath(), { replace: true })
+        }
+    }, [isAuthenticated, loading, navigate, getRedirectPath])
+
+    // Don't render until client is ready
+    if (!client) return null
+
+    // Memoize handlers to prevent unnecessary re-renders of AuthView
+    const handleLogin = useCallback(
+        async (email: string, password: string): Promise<void> => {
+            await login(email, password)
+
+            // Execute post-login callback (e.g., refresh CASL abilities)
+            // Non-critical: errors logged but don't block navigation
+            if (onLoginSuccess) {
+                try {
+                    await onLoginSuccess()
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : String(err)
+                    console.warn('[AuthPage] onLoginSuccess callback failed:', errorMessage)
+                }
+            }
+
+            navigate(getRedirectPath(), { replace: true })
+        },
+        [login, onLoginSuccess, navigate, getRedirectPath]
+    )
+
+    const handleRegister = useCallback(
+        async (email: string, password: string): Promise<void> => {
+            await client.post('auth/register', { email, password })
+        },
+        [client]
+    )
+
+    return <AuthView labels={labels} onLogin={handleLogin} onRegister={handleRegister} errorMapper={errorMapper} slots={slots} />
+}
+
+export default AuthPage

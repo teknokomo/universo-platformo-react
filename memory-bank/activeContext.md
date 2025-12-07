@@ -1,8 +1,55 @@
 # Active Context
 
-> **Last Updated**: 2025-12-07
+> **Last Updated**: 2025-12-08
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## Recently Completed: Auth.jsx Migration to auth-frontend Package (2025-12-08) ✅
+
+### Problem
+Auth component was in `flowise-core-frontend/base/src/views/up-auth/Auth.jsx` - tightly coupled to application, mixing generic auth logic with app-specific integrations.
+
+### Solution - Layered Architecture
+1. **Generic Component** (`@universo/auth-frontend`): `AuthPage.tsx` with props for labels, callbacks, slots
+2. **Application Wrapper** (`@flowise/template-mui`): `Auth.jsx` integrating i18n, CASL, MainCard
+
+### Key Pattern: Callback for Cross-Package Communication
+```tsx
+// flowise-template-mui/routes/Auth.jsx
+import { AuthPage } from '@universo/auth-frontend'
+import { useAbility } from '@flowise/store'
+
+const Auth = () => {
+    const { refreshAbility } = useAbility()
+    const { t } = useTranslation('auth')
+    
+    // Note: keys WITHOUT namespace prefix when using useTranslation('auth')
+    const labels = { welcomeBack: t('welcomeBack'), ... }
+    
+    return <AuthPage labels={labels} onLoginSuccess={refreshAbility} />
+}
+```
+
+### i18n Key Pattern (Important!)
+When using `useTranslation('auth')`, the namespace is already set. Keys should be:
+- ✅ `t('welcomeBack')` 
+- ❌ `t('auth.welcomeBack')` 
+
+This is because JSON structure `{ "auth": { "key": "value" } }` is unwrapped in i18n init.
+
+### Files Changed
+- Created: `auth-frontend/base/src/utils/errorMapping.ts`
+- Created: `auth-frontend/base/src/pages/AuthPage.tsx`
+- Created: `flowise-template-mui/base/src/routes/Auth.jsx`
+- Modified: `auth-frontend/base/src/index.ts`, `tsdown.config.ts`, `package.json`
+- Modified: `flowise-template-mui/base/src/routes/MainRoutes.jsx`
+- Modified: `universo-i18n/base/src/locales/{en,ru}/views/auth.json` (added `email` key)
+- Deleted: `flowise-core-frontend/base/src/views/up-auth/` folder
+
+### Build Status
+52/52 packages successful
 
 ---
 

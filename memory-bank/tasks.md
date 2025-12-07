@@ -83,6 +83,57 @@
 
 ---
 
+## ✅ COMPLETED: Move Auth.jsx to auth-frontend Package (2025-12-08)
+
+**Goal**: Migrate `Auth.jsx` from `flowise-core-frontend/base/src/views/up-auth/` to `@universo/auth-frontend` package with TypeScript refactoring.
+
+### Architecture:
+- **@universo/auth-frontend**: Compiled library package with generic `AuthPage` component
+- **@flowise/template-mui**: Source-only package with `Auth.jsx` wrapper for app-specific integrations (i18n, CASL, MainCard)
+- **Callback pattern**: `onLoginSuccess` prop for post-login side effects (e.g., CASL ability refresh)
+
+### Implementation:
+- [x] Task 1: Create `errorMapping.ts` in auth-frontend
+  - `mapSupabaseError()` function mapping Supabase errors to i18n keys
+- [x] Task 2: Create `AuthPage.tsx` generic component
+  - Props for labels, callbacks (`onLoginSuccess`, `onLoginError`, `onRegisterSuccess`, `onRegisterError`)
+  - Slots pattern for UI customization (Card component)
+  - `errorMapper` prop for i18n error translation
+- [x] Task 3: Update auth-frontend exports
+  - Added exports in `src/index.ts`
+  - Added entry in `tsdown.config.ts` for pages/AuthPage
+  - Added subpath export in `package.json`
+- [x] Task 4: Create wrapper `Auth.jsx` in flowise-template-mui/routes
+  - Integrates i18n via `useTranslation('auth')`
+  - CASL integration via `useAbility().refreshAbility`
+  - MainCard slot for consistent styling
+- [x] Task 5: Update MainRoutes.jsx import
+  - Changed from `@/views/up-auth/Auth` to `./Auth`
+- [x] Task 6: Delete legacy `up-auth/` folder
+  - Removed entire `flowise-core-frontend/base/src/views/up-auth/` directory
+- [x] Task 7: Build validation (52/52 packages successful)
+- [x] Task 8: Fix i18n key issue
+  - Removed `auth.` prefix from translation keys (namespace already set)
+  - Added missing `email` key to EN/RU auth.json files
+
+### Files Created:
+- `packages/auth-frontend/base/src/utils/errorMapping.ts`
+- `packages/auth-frontend/base/src/pages/AuthPage.tsx`
+- `packages/flowise-template-mui/base/src/routes/Auth.jsx`
+
+### Files Modified:
+- `packages/auth-frontend/base/src/index.ts`
+- `packages/auth-frontend/base/tsdown.config.ts`
+- `packages/auth-frontend/base/package.json`
+- `packages/flowise-template-mui/base/src/routes/MainRoutes.jsx`
+- `packages/universo-i18n/base/src/locales/en/views/auth.json`
+- `packages/universo-i18n/base/src/locales/ru/views/auth.json`
+
+### Files Deleted:
+- `packages/flowise-core-frontend/base/src/views/up-auth/` (entire folder)
+
+---
+
 ## ✅ COMPLETED: Fix UI Flicker in Route Guards (2025-12-07)
 
 **Goal**: Prevent breadcrumbs and layout from showing before guard redirects unauthorized users.

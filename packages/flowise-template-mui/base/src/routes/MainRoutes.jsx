@@ -13,8 +13,8 @@ import AuthGuard from './AuthGuard'
 // Universo Platformo | Universal Public Flow Viewer
 const PublicFlowView = Loadable(lazy(() => import('@universo/publish-frontend/pages/public/PublicFlowView')))
 
-// Components for authentication
-const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
+// Components for authentication (from local routes wrapper)
+const Auth = Loadable(lazy(() => import('./Auth')))
 
 // Profile component from profile-frontend package
 const Profile = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile')))
