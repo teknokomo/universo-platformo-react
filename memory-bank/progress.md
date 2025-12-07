@@ -30,6 +30,29 @@
 
 ## December 2025
 
+### 2025-12-08: Auth.jsx Migration to auth-frontend Package ✅
+
+**Goal**: Move `Auth.jsx` from `flowise-core-frontend/base/src/views/up-auth/` to `@universo/auth-frontend` package with TypeScript refactoring.
+
+**Problem**: Auth component was tightly coupled to application code, mixing generic auth logic with app-specific integrations (i18n, CASL, UI components).
+
+**Solution**: Applied the established architectural pattern from other packages:
+1. **Generic Component**: Created `AuthPage.tsx` in `@universo/auth-frontend` - a compiled, reusable TypeScript component with props for labels, callbacks, and slots
+2. **Application Wrapper**: Created `Auth.jsx` in `@flowise/template-mui/routes` - a JSX wrapper that integrates i18n (`useTranslation('auth')`), CASL (`refreshAbility`), and UI (`MainCard`)
+3. **Callback Pattern**: Implemented `onLoginSuccess` prop to allow app-specific post-login actions without creating cyclic dependencies
+4. **Error Mapping**: Created `mapSupabaseError()` utility to translate Supabase errors to i18n keys
+
+**Key Architectural Decisions**:
+- `AuthPage` accepts `labels` object instead of directly using i18n hooks → keeps it application-agnostic
+- `slots.Card` pattern allows UI customization without hardcoding MainCard dependency
+- `errorMapper` function prop decouples error translation from component implementation
+
+**Files Created/Modified/Deleted**: See tasks.md for complete list
+
+**Issue Fixed During Implementation**: i18n keys were showing raw (`auth.welcomeBack`) instead of translated text. Root cause: when using `useTranslation('auth')`, the namespace is already set, so keys should be `t('welcomeBack')` not `t('auth.welcomeBack')`. This was fixed along with adding missing `email` translation key.
+
+---
+
 ### 2025-12-07: SettingsDialog UX Improvement ✅
 
 **Goal**: Fix misleading UX when `GLOBAL_ADMIN_ENABLED=false` - "Show other users' items" toggle appeared active but didn't work.

@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) 
 
     const session = useSession({ client })
     const logoutInProgress = useRef(false)
-    
+
     // DEBUG: Log session state and module identity (kept even in production; low volume)
     // eslint-disable-next-line no-console
     console.log('[AuthProvider] Session state:', {

@@ -1,9 +1,10 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-    // Entry point - main package export
+    // Entry points - main package export and subpath exports
     entry: {
-        index: './src/index.ts'
+        index: './src/index.ts',
+        'pages/AuthPage': './src/pages/AuthPage.tsx'
     },
 
     // Output formats: ESM + CJS for maximum compatibility

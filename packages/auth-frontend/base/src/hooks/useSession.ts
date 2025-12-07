@@ -37,12 +37,12 @@ export const useSession = ({ client, fetchOnMount = true }: UseSessionOptions): 
 
             const response = await client.get<AuthUser>('/auth/me')
             console.log('[useSession] /auth/me response:', response.data)
-            
+
             setUser(response.data)
             return response.data
         } catch (err) {
             console.error('[useSession] /auth/me error:', err)
-            
+
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user'
             setError(errorMessage)
             setUser(null)
