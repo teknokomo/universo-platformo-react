@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
 import { isAdminPanelEnabled } from '@universo/utils'
@@ -6,22 +7,23 @@ import { GrantRoleSchema, UpdateGlobalUserSchema, formatZodError, validateListQu
 
 export interface GlobalUsersRoutesConfig {
     globalAccessService: GlobalAccessService
+    permissionService: IPermissionService
 }
 
 /**
  * Create routes for global users management
  * Uses new GlobalAccessService with RBAC and role metadata
  */
-export function createGlobalUsersRoutes({ globalAccessService }: GlobalUsersRoutesConfig): Router {
+export function createGlobalUsersRoutes({ globalAccessService, permissionService }: GlobalUsersRoutesConfig): Router {
     const router = Router()
-    const ensureGlobalAccess = createEnsureGlobalAccess(globalAccessService)
+    const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
 
     /**
      * GET /api/v1/admin/global-users
      * List all global users with details (view permission required)
      * Supports pagination and search
      */
-    router.get('/', ensureGlobalAccess('view'), async (req, res, next) => {
+    router.get('/', ensureGlobalAccess('users', 'read'), async (req, res, next) => {
         try {
             // Parse and validate query parameters
             const params = validateListQuery(req.query)
@@ -97,7 +99,7 @@ export function createGlobalUsersRoutes({ globalAccessService }: GlobalUsersRout
      * GET /api/v1/admin/global-users/stats
      * Get statistics for admin dashboard
      */
-    router.get('/stats', ensureGlobalAccess('view'), async (req, res, next) => {
+    router.get('/stats', ensureGlobalAccess('users', 'read'), async (req, res, next) => {
         try {
             const stats = await globalAccessService.getStats()
             res.json({ success: true, data: stats })
@@ -110,7 +112,7 @@ export function createGlobalUsersRoutes({ globalAccessService }: GlobalUsersRout
      * POST /api/v1/admin/global-users
      * Grant global role to user by email (manage permission required - superadmin only)
      */
-    router.post('/', ensureGlobalAccess('manage'), async (req, res, next) => {
+    router.post('/', ensureGlobalAccess('users', 'create'), async (req, res, next) => {
         try {
             const parsed = GrantRoleSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -153,7 +155,7 @@ export function createGlobalUsersRoutes({ globalAccessService }: GlobalUsersRout
      * PATCH /api/v1/admin/global-users/:memberId
      * Update global user's role and/or comment (manage permission required - superadmin only)
      */
-    router.patch('/:memberId', ensureGlobalAccess('manage'), async (req, res, next) => {
+    router.patch('/:memberId', ensureGlobalAccess('users', 'update'), async (req, res, next) => {
         try {
             const { memberId } = req.params
             const currentUserId = (req as RequestWithGlobalRole).user!.id
@@ -200,7 +202,7 @@ export function createGlobalUsersRoutes({ globalAccessService }: GlobalUsersRout
      * DELETE /api/v1/admin/global-users/:memberId
      * Revoke global role from user (manage permission required - superadmin only)
      */
-    router.delete('/:memberId', ensureGlobalAccess('manage'), async (req, res, next) => {
+    router.delete('/:memberId', ensureGlobalAccess('users', 'delete'), async (req, res, next) => {
         try {
             const { memberId } = req.params
             const currentUserId = (req as RequestWithGlobalRole).user!.id

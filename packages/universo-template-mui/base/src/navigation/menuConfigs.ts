@@ -20,7 +20,8 @@ import {
     IconFlag,
     IconLayoutDashboard,
     IconShield,
-    IconUsersGroup
+    IconUsersGroup,
+    IconUserShield
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -361,8 +362,14 @@ export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => 
         icon: IconLayoutDashboard
     },
     {
+        id: 'instance-roles',
+        titleKey: 'roles',
+        url: `/admin/instance/${instanceId}/roles`,
+        icon: IconUserShield
+    },
+    {
         id: 'instance-access',
-        titleKey: 'access',
+        titleKey: 'superusers',
         url: `/admin/instance/${instanceId}/access`,
         icon: IconUsersGroup
     }

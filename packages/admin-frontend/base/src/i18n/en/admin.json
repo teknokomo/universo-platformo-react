@@ -86,6 +86,8 @@
         "noUsersFound": "No global users found",
         "emailLabel": "Email",
         "roleLabel": "Role",
+        "rolesLoadError": "Failed to load available roles",
+        "noRolesAvailable": "No roles available for assignment",
         "grantSuccess": "Global access granted successfully",
         "grantError": "Failed to grant access",
         "updateSuccess": "Role updated successfully",
@@ -99,7 +101,135 @@
     },
     "roles": {
         "superadmin": "Superadmin",
-        "supermoderator": "Supermoderator"
+        "supermoderator": "Supermoderator",
+        "title": "Roles Management",
+        "description": "Manage RBAC roles and their permissions",
+        "loading": "Loading roles...",
+        "errorLoading": "Failed to load roles",
+        "unknownError": "Unknown error",
+        "addNew": "Add Role",
+        "searchPlaceholder": "Search roles...",
+        "empty": {
+            "title": "No roles found",
+            "description": "Create your first role to get started"
+        },
+        "table": {
+            "name": "Name",
+            "displayName": "Display Name",
+            "globalAccess": "Global Access",
+            "permissions": "Permissions",
+            "type": "Type"
+        },
+        "globalAccessYes": "Yes",
+        "globalAccessNo": "No",
+        "noPermissions": "None",
+        "fullAccess": "Full Access",
+        "systemRole": "System",
+        "customRole": "Custom",
+        "systemRoleHint": "System roles cannot be deleted",
+        "viewUsers": "View Users",
+        "confirmDelete": "Delete Role?",
+        "confirmDeleteDescription": "Are you sure you want to delete role \"{{name}}\"? This action cannot be undone.",
+        "deleteConfirm": {
+            "title": "Delete Role",
+            "description": "Are you sure you want to delete role \"{{name}}\"? This action cannot be undone."
+        },
+        "deleteSuccess": "Role deleted successfully",
+        "deleteError": "Failed to delete role",
+        "createTitle": "Create New Role",
+        "createDescription": "Define a new role with permissions",
+        "editTitle": "Edit Role",
+        "editDescription": "Editing role: {{name}}",
+        "loadingRole": "Loading role...",
+        "errorLoadingRole": "Failed to load role",
+        "backToList": "Back to Roles",
+        "systemRoleWarning": "This is a system role. Only description, display name, and color can be modified.",
+        "section": {
+            "basicInfo": "Basic Information",
+            "accessSettings": "Access Settings",
+            "permissions": "Permissions"
+        },
+        "field": {
+            "name": "Unique Identifier",
+            "nameHint": "Lowercase alphanumeric with underscores/dashes (e.g. meta_editor)",
+            "color": "Color",
+            "displayNameEn": "Name (English)",
+            "displayNameRu": "Name (Russian)",
+            "description": "Description",
+            "hasGlobalAccess": "Has Global Access",
+            "hasGlobalAccessHint": "Enable to make this role available when assigning superusers. Users with this role can manage platform-wide settings"
+        },
+        "validation": {
+            "nameRequired": "Name is required",
+            "nameFormat": "Name must be lowercase alphanumeric with underscores or dashes",
+            "displayNameRequired": "English display name is required",
+            "colorFormat": "Invalid color format",
+            "permissionsRequired": "At least one permission is required"
+        },
+        "create": "Create Role",
+        "createSuccess": "Role created successfully",
+        "createError": "Failed to create role",
+        "updateSuccess": "Role updated successfully",
+        "updateError": "Failed to update role",
+        "permissions": {
+            "selectAll": "Grant all permissions",
+            "fullAccess": "Full Access",
+            "module": "Module",
+            "toggleColumnHint": "Click to toggle all",
+            "allActionsHint": "All actions for module",
+            "hint": "Check individual cells or use row/column headers for bulk selection. \"*\" means all actions.",
+            "modules": {
+                "metaverses": "Metaverses",
+                "clusters": "Clusters",
+                "projects": "Projects",
+                "spaces": "Spaces",
+                "storages": "Storages",
+                "organizations": "Organizations",
+                "campaigns": "Campaigns",
+                "uniks": "Uniks",
+                "sections": "Sections",
+                "entities": "Entities",
+                "canvases": "Canvases",
+                "publications": "Publications",
+                "admin": "Administration"
+            },
+            "actions": {
+                "create": "Create",
+                "read": "Read",
+                "update": "Update",
+                "delete": "Delete",
+                "*": "All"
+            }
+        },
+        "users": {
+            "title": "Role Users",
+            "description": "Users assigned to role: {{roleName}}",
+            "searchPlaceholder": "Search users...",
+            "empty": {
+                "title": "No users found",
+                "description": "No users are currently assigned to this role"
+            },
+            "table": {
+                "user": "User",
+                "email": "Email",
+                "assignedAt": "Assigned",
+                "status": "Status"
+            },
+            "count": "{{count}} user(s) with this role",
+            "loading": "Loading users...",
+            "anonymous": "Anonymous",
+            "status": {
+                "active": "Active",
+                "inactive": "Inactive",
+                "pending": "Pending",
+                "banned": "Banned"
+            },
+            "sortBy": {
+                "email": "Email",
+                "assignedAt": "Date Assigned",
+                "name": "Name"
+            }
+        }
     },
     "members": {
         "editTitle": "Edit Global User",

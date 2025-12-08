@@ -16,7 +16,12 @@ export {
 } from './services/globalAccessService'
 
 // Guards
-export { createEnsureGlobalAccess, type RequestWithGlobalRole } from './guards/ensureGlobalAccess'
+export {
+    createEnsureGlobalAccess,
+    type RequestWithGlobalRole,
+    type CrudAction,
+    type EnsureGlobalAccessOptions
+} from './guards/ensureGlobalAccess'
 
 // Re-export admin config utilities from @universo/utils for convenience
 export { isAdminPanelEnabled, isGlobalAdminEnabled, getAdminConfig, type AdminConfig } from '@universo/utils'
@@ -24,6 +29,15 @@ export { isAdminPanelEnabled, isGlobalAdminEnabled, getAdminConfig, type AdminCo
 // Routes
 export { createGlobalUsersRoutes, type GlobalUsersRoutesConfig } from './routes'
 export { createInstancesRoutes, type InstancesRoutesConfig } from './routes'
+export { createRolesRoutes, type RolesRoutesConfig } from './routes/rolesRoutes'
 
 // Schemas
-export { GrantRoleSchema, formatZodError, validateListQuery, type GrantRoleInput, type ListQueryInput } from './schemas'
+export {
+    GrantRoleSchema,
+    CreateRoleSchema,
+    UpdateRoleSchema,
+    formatZodError,
+    validateListQuery,
+    type GrantRoleInput,
+    type ListQueryInput
+} from './schemas'

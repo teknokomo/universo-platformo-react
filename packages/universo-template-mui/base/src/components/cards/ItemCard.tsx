@@ -26,6 +26,8 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     footerEndContent?: React.ReactNode
     headerAction?: React.ReactNode
     sx?: SxProps<Theme>
+    /** Size of the color dot in pixels (default: 35) */
+    colorDotSize?: number
 }
 
 // Use Card instead of MainCard for new UI
@@ -61,7 +63,8 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     footerStartContent = null,
     footerEndContent = null,
     headerAction = null,
-    sx = {}
+    sx = {},
+    colorDotSize = 35
 }: ItemCardProps<T>): React.ReactElement => {
     const theme = useTheme()
     const imageList = Array.isArray(images) ? images : []
@@ -123,13 +126,14 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                             {!data.iconSrc && data.color && (
                                 <div
                                     style={{
-                                        width: 35,
-                                        height: 35,
+                                        width: colorDotSize,
+                                        height: colorDotSize,
                                         display: 'flex',
                                         flexShrink: 0,
                                         marginRight: 10,
                                         borderRadius: '50%',
-                                        background: data.color
+                                        background: data.color,
+                                        border: colorDotSize <= 16 ? '1px solid rgba(0,0,0,0.12)' : undefined
                                     }}
                                 ></div>
                             )}
