@@ -161,6 +161,12 @@ const InstanceList = Loadable(lazy(() => import('@universo/admin-frontend/pages/
 const InstanceBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const InstanceAccess = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceAccess')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const RolesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/RolesList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const RoleEdit = Loadable(lazy(() => import('@universo/admin-frontend/pages/RoleEdit')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const RoleUsers = Loadable(lazy(() => import('@universo/admin-frontend/pages/RoleUsers')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
@@ -832,6 +838,25 @@ const MainRoutesMUI = {
                         {
                             path: 'board',
                             element: <InstanceBoard />
+                        },
+                        // Roles management routes (scoped to instance context)
+                        {
+                            path: 'roles',
+                            element: <Outlet />,
+                            children: [
+                                {
+                                    index: true,
+                                    element: <RolesList />
+                                },
+                                {
+                                    path: ':roleId',
+                                    element: <RoleEdit />
+                                },
+                                {
+                                    path: ':roleId/users',
+                                    element: <RoleUsers />
+                                }
+                            ]
                         },
                         {
                             path: 'access',

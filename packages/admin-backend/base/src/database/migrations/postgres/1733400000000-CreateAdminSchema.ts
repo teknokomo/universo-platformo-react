@@ -160,17 +160,19 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // ═══════════════════════════════════════════════════════════════
         // 8. has_permission FUNCTION (with wildcard support)
         // Uses SECURITY DEFINER to bypass RLS when checking permissions
+        // Accepts optional p_user_id; falls back to auth.uid() for RLS context
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.has_permission(
-                p_module TEXT,
-                p_action TEXT,
+                p_user_id UUID DEFAULT NULL,
+                p_module TEXT DEFAULT '*',
+                p_action TEXT DEFAULT '*',
                 p_context JSONB DEFAULT '{}'
             ) RETURNS BOOLEAN AS $$
             DECLARE
                 v_user_id UUID;
             BEGIN
-                v_user_id := auth.uid();
+                v_user_id := COALESCE(p_user_id, auth.uid());
                 IF v_user_id IS NULL THEN RETURN FALSE; END IF;
                 
                 RETURN EXISTS (
@@ -368,7 +370,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.get_user_global_roles(UUID)`)
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_global_access(UUID)`)
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.get_user_permissions(UUID)`)
-        await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_permission(TEXT, TEXT, JSONB)`)
+        await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_permission(UUID, TEXT, TEXT, JSONB)`)
 
         // Drop tables (in reverse FK order)
         await queryRunner.query(`DROP TABLE IF EXISTS admin.user_roles CASCADE`)

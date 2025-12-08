@@ -1,6 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
-import type { RequestWithDbContext } from '@universo/auth-backend'
+import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Instance } from '../database/entities/Instance'
@@ -35,6 +35,7 @@ const ListQuerySchema = z.object({
 
 export interface InstancesRoutesConfig {
     globalAccessService: GlobalAccessService
+    permissionService: IPermissionService
     getDataSource: () => DataSource
 }
 
@@ -42,9 +43,9 @@ export interface InstancesRoutesConfig {
  * Create routes for instances management
  * Requires global access for all operations
  */
-export function createInstancesRoutes({ globalAccessService, getDataSource }: InstancesRoutesConfig): Router {
+export function createInstancesRoutes({ globalAccessService, permissionService, getDataSource }: InstancesRoutesConfig): Router {
     const router = Router()
-    const ensureGlobalAccess = createEnsureGlobalAccess(globalAccessService)
+    const ensureGlobalAccess = createEnsureGlobalAccess({ globalAccessService, permissionService })
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<void>): RequestHandler =>
@@ -64,7 +65,7 @@ export function createInstancesRoutes({ globalAccessService, getDataSource }: In
      */
     router.get(
         '/',
-        ensureGlobalAccess('view'),
+        ensureGlobalAccess('instances', 'read'),
         asyncHandler(async (req, res) => {
             const instanceRepo = getInstanceRepo(req)
             const parsed = ListQuerySchema.safeParse(req.query)
@@ -117,7 +118,7 @@ export function createInstancesRoutes({ globalAccessService, getDataSource }: In
      */
     router.get(
         '/:id',
-        ensureGlobalAccess('view'),
+        ensureGlobalAccess('instances', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
             const instanceRepo = getInstanceRepo(req)
@@ -142,7 +143,7 @@ export function createInstancesRoutes({ globalAccessService, getDataSource }: In
      */
     router.put(
         '/:id',
-        ensureGlobalAccess('manage'),
+        ensureGlobalAccess('instances', 'update'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
             const instanceRepo = getInstanceRepo(req)
@@ -201,7 +202,7 @@ export function createInstancesRoutes({ globalAccessService, getDataSource }: In
      */
     router.get(
         '/:id/stats',
-        ensureGlobalAccess('view'),
+        ensureGlobalAccess('instances', 'read'),
         asyncHandler(async (req, res) => {
             const { id } = req.params
             const instanceRepo = getInstanceRepo(req)

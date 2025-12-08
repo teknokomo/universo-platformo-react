@@ -7,11 +7,15 @@ import type { GlobalUserMember } from '../types'
  *
  * Note: For global users, we use 'userId' as the member identifier instead of 'id'
  * since the entity stores user_id as the unique identifier for API operations
+ *
+ * Dynamic roles: Instead of hardcoding availableRoles here, the roles are passed
+ * dynamically via context.meta.dynamicRoles from useAssignableGlobalRoles hook.
+ * This allows the role dropdown to include custom roles created by admins.
  */
 export default createMemberActions<GlobalUserMember>({
     i18nPrefix: 'admin',
     entityType: 'global-user',
-    availableRoles: ['superadmin', 'supermoderator'],
+    // Roles are passed dynamically via context.meta.dynamicRoles
     getMemberEmail: (member) => member.email || '',
     getMemberId: (member) => member.userId,
     getInitialFormData: (member) => ({

@@ -7,20 +7,44 @@ import { z } from 'zod'
 export const emailSchema = z.string().min(1, 'Email is required').email('Invalid email address')
 
 /**
- * All valid roles for member forms (entity roles + global roles)
+ * Built-in entity roles for member forms
  * - Entity roles: admin, editor, member (owner is assigned on creation)
- * - Global roles: superadmin, supermoderator
+ * - Global roles: loaded dynamically from database
+ */
+export const ENTITY_MEMBER_ROLES = ['admin', 'editor', 'member'] as const
+export type EntityMemberRole = (typeof ENTITY_MEMBER_ROLES)[number]
+
+/**
+ * Legacy constant for backward compatibility
+ * @deprecated Use ENTITY_MEMBER_ROLES for entity roles, or load global roles dynamically
  */
 export const ALL_MEMBER_ROLES = ['admin', 'editor', 'member', 'superadmin', 'supermoderator'] as const
-export type MemberRole = (typeof ALL_MEMBER_ROLES)[number]
+
+/**
+ * MemberRole type - now accepts any string to support dynamic roles from database
+ * Entity roles (admin, editor, member) and global roles (superadmin, custom roles, etc.)
+ */
+export type MemberRole = string
 
 /**
  * Zod schema for role validation
- * Used in member form validation - supports both entity and global roles
+ * Changed from z.enum to z.string to support dynamic roles from database
  */
-export const roleSchema = z.enum(ALL_MEMBER_ROLES, {
-    errorMap: () => ({ message: 'Please select a valid role' })
-})
+export const roleSchema = z.string().min(1, 'Please select a role')
+
+/**
+ * Assignable global role returned from /api/v1/admin/roles/assignable endpoint
+ * Used for populating role dropdowns with dynamic roles that have global access
+ *
+ * Note: This is different from AssignableRole in common/roles.ts which is a type alias
+ * for entity-level roles (BaseRole excluding 'owner')
+ */
+export interface GlobalAssignableRole {
+    id: string
+    name: string
+    displayName: Record<string, string>
+    color: string | null
+}
 
 /**
  * Zod schema for member form validation

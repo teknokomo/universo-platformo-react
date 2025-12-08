@@ -4,6 +4,459 @@
 
 ---
 
+## ✅ COMPLETED: Dynamic Role Dropdown for Global Users (2025-12-08)
+
+**Goal**: Make role dropdown dynamic - load roles with `hasGlobalAccess: true` from database instead of hardcoded `['superadmin', 'supermoderator']`
+
+### Completed Steps:
+- [x] Step 1: Update i18n labels for role form fields (en + ru)
+- [x] Step 2: Extend MemberRole type for dynamic roles (GlobalAssignableRole interface)
+- [x] Step 3: Create backend GET /api/v1/admin/roles/assignable endpoint
+- [x] Step 4: Add frontend API getAssignableRoles() method
+- [x] Step 5: Add assignable query key to queryKeys.ts
+- [x] Step 6: Create useAssignableGlobalRoles hook
+- [x] Step 7: Update components for dynamic role loading (AdminAccess, InstanceAccess, MemberActions, createMemberActions)
+- [x] Step 8: Implement cache invalidation on role CRUD (RoleEdit.tsx, RolesList.tsx)
+
+### Files Modified:
+- `packages/admin-frontend/base/src/i18n/en/admin.json`
+- `packages/admin-frontend/base/src/i18n/ru/admin.json`
+- `packages/universo-types/base/src/validation/member.ts`
+- `packages/admin-backend/base/src/routes/rolesRoutes.ts`
+- `packages/admin-frontend/base/src/api/rolesApi.ts`
+- `packages/admin-frontend/base/src/api/queryKeys.ts`
+- `packages/admin-frontend/base/src/hooks/useAssignableGlobalRoles.ts` (new)
+- `packages/admin-frontend/base/src/hooks/index.ts`
+- `packages/admin-frontend/base/src/pages/AdminAccess.tsx`
+- `packages/admin-frontend/base/src/pages/InstanceAccess.tsx`
+- `packages/admin-frontend/base/src/pages/MemberActions.tsx`
+- `packages/admin-frontend/base/src/pages/RoleEdit.tsx`
+- `packages/admin-frontend/base/src/pages/RolesList.tsx`
+- `packages/universo-template-mui/base/src/factories/createMemberActions.tsx`
+
+---
+
+## ✅ COMPLETED: useRoleName Hook Fix for Create Mode (2025-12-08)
+
+**Goal**: Fix 400 Bad Request error when navigating to `/admin/instance/.../roles/new`
+
+### Root Cause:
+`useRoleName` hook in `universo-template-mui` was making a fetch request to `/api/v1/admin/roles/new` without checking if roleId === 'new'. The backend correctly rejects this as invalid UUID format.
+
+### Solution Applied:
+- Added early return in `useRoleName.ts` when `roleId === 'new'`
+
+### Files Modified:
+- `packages/universo-template-mui/base/src/hooks/useRoleName.ts`:
+  - Added check: `if (roleId === 'new') { setName(null); return; }`
+
+### Build Verification:
+- universo-template-mui package: ✅ builds successfully
+- Full project build: ✅ 52/52 packages successful
+
+---
+
+## ✅ COMPLETED: Role Creation UX Fix (2025-12-08)
+
+**Goal**: Fix role creation flow - navigate to RoleEdit page instead of using EntityFormDialog.
+
+### Root Cause:
+The 400 Bad Request error when creating roles was caused by:
+1. `EntityFormDialog` only collects `name` and `description`
+2. Backend `CreateRoleSchema` requires: `name`, `displayName`, `color`, `hasGlobalAccess`, `permissions[].min(1)`
+3. `handleCreateRole` passed `permissions: []` which failed validation
+
+### Solution Applied:
+- Changed `handleAddNew` to navigate to `/admin/instance/${instanceId}/roles/new`
+- Removed `EntityFormDialog` usage from `RolesList.tsx`
+- RoleEdit already supports create mode (`isNew = roleId === 'new'`)
+- RoleEdit has complete form with all required fields
+
+### Files Modified:
+- `packages/admin-frontend/base/src/pages/RolesList.tsx`:
+  - Removed `EntityFormDialog` import
+  - Removed `isDialogOpen`, `isCreating`, `dialogError` states
+  - Removed `handleDialogClose`, `handleCreateRole` functions
+  - Changed `handleAddNew` to use `navigate()` instead of `setDialogOpen(true)`
+  - Removed `<EntityFormDialog>` component from JSX
+
+### Build Verification:
+- admin-frontend package: ✅ builds successfully
+- Full project build: ✅ 52/52 packages successful
+
+---
+
+## ✅ COMPLETED: RBAC Refactoring - Database-driven Permission Checks (2025-01-17)
+
+**Goal**: Replace hardcoded `roleName !== 'superadmin'` check in `ensureGlobalAccess.ts` with database-driven CRUD permissions using existing CASL/permissionService infrastructure.
+
+### Root Cause:
+The 403 Forbidden error when PATCH `/api/v1/admin/roles/:id` was caused by hardcoded check:
+```typescript
+if (permission === 'manage' && roleName !== 'superadmin') {
+    throw createError(403, 'Access denied: superadmin role required')
+}
+```
+
+### Solution Applied:
+- Refactored `ensureGlobalAccess` to use `permissionService.hasPermission(userId, module, action)`
+- Changed signature from `('view'|'manage')` to `(module: string, action: CrudAction)`
+- Added 'Role' and 'Instance' to CASL Subjects in universo-types and flowise-store
+- Updated all admin routes to use new module:action pattern
+
+### Tasks:
+- [x] Add 'Role' | 'Instance' to Subjects type in universo-types/abilities
+- [x] Add roles/instances mapping in flowise-store AbilityContextProvider
+- [x] Refactor ensureGlobalAccess.ts with IPermissionService dependency
+- [x] Update rolesRoutes.ts: `ensureGlobalAccess('roles', 'read'|'create'|'update'|'delete')`
+- [x] Update instancesRoutes.ts: `ensureGlobalAccess('instances', 'read'|'update')`
+- [x] Update globalUsersRoutes.ts: `ensureGlobalAccess('users', 'read'|'create'|'update'|'delete')`
+- [x] Update flowise-core-backend routes/index.ts with permissionService injection
+- [x] Build validation (52/52 packages successful)
+
+### Files Modified:
+- `packages/universo-types/base/src/abilities/index.ts` (+Role, +Instance to Subjects)
+- `packages/flowise-store/base/src/context/AbilityContextProvider.jsx` (+roles, +instances mapping)
+- `packages/admin-backend/base/src/guards/ensureGlobalAccess.ts` (complete refactoring)
+- `packages/admin-backend/base/src/routes/rolesRoutes.ts` (module:action pattern)
+- `packages/admin-backend/base/src/routes/instancesRoutes.ts` (module:action pattern)
+- `packages/admin-backend/base/src/routes/globalUsersRoutes.ts` (module:action pattern)
+- `packages/admin-backend/base/src/index.ts` (export CrudAction, EnsureGlobalAccessOptions)
+- `packages/flowise-core-backend/base/src/routes/index.ts` (permissionService injection)
+
+### Impact:
+- supermoderator role with `roles:update` permission can now edit role displayName/description/color
+- System roles (`is_system=true`) still protected by route logic (cannot modify name/is_system)
+- Future roles (Суперредактор, Супераудитор) can have granular CRUD permissions
+- No more hardcoded role name checks - all permission decisions from database
+
+---
+
+## ✅ COMPLETED: RoleUsers usePaginated Pattern Alignment (2025-01-17)
+
+**Goal**: Align RoleUsers component with MetaverseList/InstanceList patterns - server-side pagination with `usePaginated` hook.
+
+### Issues Fixed:
+1. **Client-side Pagination** → Server-side with `usePaginated` hook
+2. **`toLocaleDateString()`** → `formatDate` from `@universo/utils`
+3. **Missing PageSize Selector** → `rowsPerPageOptions={[10, 20, 50, 100]}`
+4. **`delay: 300`** → `delay: 0` for instant search
+5. **Count text below pagination** → Removed (info already in PaginationControls)
+
+### Tasks:
+- [x] Backend: Add `RoleUsersQuerySchema` (Zod) with limit/offset/search/sortBy/sortOrder
+- [x] Backend: Update GET /:id/users with search via EXISTS subquery, getManyAndCount, X-Pagination-* headers
+- [x] Update `queryKeys.ts` with `usersList(id, params)` using normalized defaults
+- [x] Update `rolesApi.ts` with `RoleUsersParams` + `PaginatedResponse<RoleUser>`
+- [x] Refactor `RoleUsers.tsx` with `usePaginated`, `formatDate`, proper PaginationControls
+- [x] Fix exports in `index.ts` (remove `RoleUsersResponse`, add `RoleUsersParams`)
+- [x] Build validation (52/52 packages successful)
+
+### Files Modified:
+- `packages/admin-backend/base/src/routes/rolesRoutes.ts` (RoleUsersQuerySchema + pagination)
+- `packages/admin-frontend/base/src/api/queryKeys.ts` (usersList with normalized params)
+- `packages/admin-frontend/base/src/api/rolesApi.ts` (RoleUsersParams + PaginatedResponse)
+- `packages/admin-frontend/base/src/pages/RoleUsers.tsx` (usePaginated + formatDate)
+- `packages/admin-frontend/base/src/index.ts` (exports fix)
+
+---
+
+## ✅ COMPLETED: RoleUsers TypeORM Refactoring (2025-01-16)
+
+**Goal**: Refactor rolesRoutes.ts to use TypeORM Repository pattern instead of raw SQL, matching the established patterns in rls-integration-pattern.md.
+
+### Issues Fixed:
+1. **Raw SQL Violation** - Replaced `ds.query()` with TypeORM Repository pattern following organizations example
+2. **Missing AuthUser Fields** - Extended AuthUser entity with status computation fields
+3. **Type Mismatches** - Frontend now uses proper camelCase `RoleUser` from API
+4. **PaginationControls Errors** - Fixed prop names to match `PaginationState`/`PaginationActions` interfaces
+
+### Tasks:
+- [x] Extend AuthUser entity with status-related fields (raw_user_meta_data, confirmed_at, last_sign_in_at, banned_until)
+- [x] Add computed getters to AuthUser (fullName, status)
+- [x] Refactor rolesRoutes.ts GET /:id/users to use TypeORM Repository pattern
+- [x] Refactor rolesRoutes.ts DELETE /:id to use userRoleRepo.count() instead of raw SQL
+- [x] Update rolesApi.ts types with UserStatus type and status field
+- [x] Fix RoleUsers.tsx field names (camelCase instead of snake_case)
+- [x] Fix RoleUsers.tsx PaginationControls props
+- [x] Build validation (52/52 packages successful)
+
+### Files Modified:
+- `packages/auth-backend/base/src/database/entities/AuthUser.ts` (extended with status fields + getters)
+- `packages/admin-backend/base/src/routes/rolesRoutes.ts` (TypeORM Repository pattern)
+- `packages/admin-frontend/base/src/api/rolesApi.ts` (UserStatus type + status field)
+- `packages/admin-frontend/base/src/pages/RoleUsers.tsx` (camelCase fields + PaginationControls fix)
+
+---
+
+## ✅ COMPLETED: RoleUsers Page Redesign (2025-01-15)
+
+**Goal**: Complete redesign of RoleUsers page with standard UI pattern and fix breadcrumbs instance name display.
+
+### Issues Fixed:
+1. **Breadcrumbs Instance Name** - Fixed useInstanceName hook to parse API response structure (same as useRoleName)
+2. **RoleUsers UI Complete Redesign** - Replaced basic table with full standard UI matching RolesList pattern
+3. **Dynamic User Status** - Backend now returns real user status (active/inactive/pending/banned) from auth.users
+
+### Tasks:
+- [x] Fix useInstanceName.ts to handle `{ success: true, data: instance }` response structure
+- [x] Add roles.users.* i18n keys to admin.json (EN)
+- [x] Add roles.users.* i18n keys to admin.json (RU)
+- [x] Update rolesRoutes.ts /:id/users endpoint with status calculation SQL
+- [x] Complete rewrite of RoleUsers.tsx with card/list views, search, pagination, StatusChip
+- [x] Build validation (52/52 packages successful)
+
+### Files Modified:
+- `packages/universo-template-mui/base/src/hooks/useInstanceName.ts` (response parsing fix)
+- `packages/admin-frontend/base/i18n/en/admin.json` (roles.users.* section)
+- `packages/admin-frontend/base/i18n/ru/admin.json` (roles.users.* section)
+- `packages/admin-backend/base/src/routes/rolesRoutes.ts` (status calculation in SQL)
+- `packages/admin-frontend/base/src/pages/RoleUsers.tsx` (complete UI redesign)
+
+---
+
+## ✅ COMPLETED: Roles UI Final Polish (2025-01-14)
+
+**Goal**: Final visual and backend fixes for unified Roles UI.
+
+### Issues Fixed:
+1. **Small Color Dot** - Added 12px color dot before role name in card view (matching table view)
+2. **Button Text** - Changed "Добавить роль" → "Добавить" (using common i18n key)
+3. **Breadcrumbs Dynamic Name** - Fixed useRoleName hook to handle API response structure (data wrapper + snake_case)
+4. **Backend 500 Error** - Fixed SQL query using correct column names (created_at/granted_by instead of assigned_at/assigned_by)
+
+### Tasks:
+- [x] Add `colorDotSize` prop to ItemCard component (default: 35px)
+- [x] Use `colorDotSize={12}` in RolesList cards with `color: role.color`
+- [x] Change primaryAction label from `t('roles.addNew')` to `tc('addNew')`
+- [x] Fix useRoleName hook to handle `{ success: true, data: role }` response structure
+- [x] Fix useRoleName hook to check both `displayName` and `display_name` variants
+- [x] Fix rolesRoutes.ts SQL query: `created_at AS assigned_at`, `granted_by AS assigned_by`
+- [x] Build validation (52/52 packages successful)
+
+### Files Modified:
+- `packages/universo-template-mui/base/src/components/cards/ItemCard.tsx` (colorDotSize prop)
+- `packages/universo-template-mui/base/src/hooks/useRoleName.ts` (response parsing fix)
+- `packages/admin-frontend/base/src/pages/RolesList.tsx` (color dot + button text)
+- `packages/admin-backend/base/src/routes/rolesRoutes.ts` (SQL column names fix)
+
+---
+
+## ✅ COMPLETED: Roles UI Additional Refinements (2025-12-07)
+
+**Goal**: Fix 4 additional issues identified during QA testing.
+
+### Issues Fixed:
+1. **Chips Position** - Code was already correct; user needed to refresh after build
+2. **Breadcrumbs Role Name** - Added `useRoleName` hook for dynamic role name display
+3. **Breadcrumbs Instance Name** - Added `useInstanceName` hook for dynamic instance name display
+4. **Admin Menu in Entity Contexts** - Fixed condition to hide Admin menu in all entity contexts (metaverse, cluster, project, etc.)
+
+### Tasks:
+- [x] Verify Chips code in RolesList.tsx is correct (footerStartContent)
+- [x] Create `useInstanceName` hook with API fetch and caching
+- [x] Create `useRoleName` hook with API fetch and caching (handles displayName localization)
+- [x] Export new hooks from hooks/index.ts
+- [x] Update NavbarBreadcrumbs.tsx to use dynamic instance/role names
+- [x] Fix MenuContent.tsx to hide Admin menu in all entity contexts
+- [x] Build validation (52/52 packages successful)
+
+### Files Created:
+- `packages/universo-template-mui/base/src/hooks/useInstanceName.ts`
+- `packages/universo-template-mui/base/src/hooks/useRoleName.ts`
+
+### Files Modified:
+- `packages/universo-template-mui/base/src/hooks/index.ts` (added exports)
+- `packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx` (dynamic names)
+- `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx` (hide Admin in entity contexts)
+
+---
+
+## ✅ COMPLETED: Roles UI Refinements (2025-01-14)
+
+**Goal**: Fix 4 issues identified during QA testing of unified Roles UI.
+
+### Issues Fixed:
+1. **Card Footer Icons → Chips** - Replaced raw icons with Chip components (matching table view pattern)
+2. **Menu Label Rename** - Changed "Доступ" (access) → "Суперпользователи" (superusers) in Instance menu
+3. **Breadcrumbs Missing** - Added roles/role/users segments to NavbarBreadcrumbs for admin routes
+4. **RoleUsers Demo Data → Real API** - Replaced DEMO_USERS with actual `getRoleUsers` API call
+
+### Tasks:
+- [x] Replace icons with Chips in RolesList.tsx footerStartContent (system/custom role + global access)
+- [x] Change titleKey from `access` to `superusers` in menuConfigs.ts
+- [x] Add i18n keys: `superusers`, `users`, `role` in menu.json (EN/RU)
+- [x] Add roles route handling in NavbarBreadcrumbs.tsx with nested users sub-page
+- [x] Refactor RoleUsers.tsx to use getRoleUsers API instead of DEMO_USERS
+- [x] Remove unused Alert/AlertTitle imports and isDemo flag from RoleUsers.tsx
+- [x] Remove unused AdminPanelSettingsRoundedIcon import from RolesList.tsx
+- [x] Build validation (52/52 packages successful)
+- [x] Lint validation (0 errors)
+
+### Files Modified:
+- `packages/admin-frontend/base/src/pages/RolesList.tsx` (Chips in card footer)
+- `packages/admin-frontend/base/src/pages/RoleUsers.tsx` (real API data)
+- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts` (titleKey: superusers)
+- `packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx` (roles handling)
+- `packages/universo-i18n/base/src/locales/en/views/menu.json` (superusers, users, role keys)
+- `packages/universo-i18n/base/src/locales/ru/views/menu.json` (superusers, users, role keys)
+
+---
+
+## ✅ COMPLETED: Roles UI Unification (2025-12-07)
+
+**Goal**: Refactor RolesList.tsx to use unified list pattern (MetaverseList style) with card/table views, pagination, search, and BaseEntityMenu.
+
+### Strategy
+Copy-then-adapt approach: Used MetaverseList.tsx as reference, adapted imports/types for admin-frontend context.
+
+### Tasks:
+- [x] Create `RoleActions.tsx` using createEntityActions + custom viewUsers action
+- [x] Add direct exports (listRoles, createRole, etc.) to `rolesApi.ts` for usePaginated compatibility
+- [x] Verify `rolesQueryKeys.lists()` exists in queryKeys.ts
+- [x] Create new `RolesList.tsx` with full unified pattern:
+  - usePaginated hook with rolesApi.listRoles
+  - useDebouncedSearch hook
+  - Card/Table view toggle with localStorage persistence
+  - BaseEntityMenu with roleActions (edit, viewUsers, delete)
+  - EntityFormDialog for create
+  - ConfirmDeleteDialog for delete
+  - PaginationControls at bottom
+  - SkeletonGrid/Skeleton loading states
+  - EmptyListState for empty/error states
+- [x] Add missing i18n keys (searchPlaceholder, confirmDelete, confirmDeleteDescription) EN/RU
+- [x] Auto-fix Prettier formatting
+- [x] Build validation (52/52 packages successful)
+- [x] Lint validation (0 errors)
+- [x] Remove backup file
+
+### Files Created:
+- `packages/admin-frontend/base/src/pages/RoleActions.tsx`
+
+### Files Modified:
+- `packages/admin-frontend/base/src/pages/RolesList.tsx` (replaced)
+- `packages/admin-frontend/base/src/api/rolesApi.ts` (added exports)
+- `packages/admin-frontend/base/src/i18n/en/admin.json`
+- `packages/admin-frontend/base/src/i18n/ru/admin.json`
+
+### New Features:
+- Card view with color indicator, system/global access badges, permissions count
+- Table view with FlowListTable and custom columns
+- Search with debounce (300ms)
+- Pagination (10, 20, 50, 100 rows per page)
+- View preference saved to localStorage
+- BaseEntityMenu with Edit, View Users, Delete actions
+- System roles cannot be deleted (action filtered)
+- Only superadmins can edit/delete roles
+
+---
+
+## ✅ COMPLETED: Admin Roles Menu Relocation (2025-12-07)
+
+**Goal**: Move "Roles" (Роли) menu item from main admin menu to Instance context menu.
+
+### Tasks:
+- [x] Update `menuConfigs.ts` - remove `admin-roles` from `getAdminMenuItems()`
+- [x] Update `menuConfigs.ts` - add `instance-roles` to `getInstanceMenuItems(instanceId)`
+- [x] Update `MainRoutesMUI.tsx` - move `/admin/roles/*` routes inside `/admin/instance/:instanceId/`
+- [x] Update `MainRoutesMUI.tsx` - change param from `:id` to `:roleId` to avoid conflict
+- [x] Update `RolesList.tsx` - add `instanceId` param, update all navigation paths
+- [x] Update `RoleEdit.tsx` - change `id` to `roleId`, add `instanceId`, update navigation
+- [x] Update `RoleUsers.tsx` - change `id` to `roleId`, add `instanceId`, update navigation
+- [x] Auto-fix prettier formatting issues
+- [x] Remove unused `i18n` variable from RoleEdit.tsx
+- [x] Build validation (3/3 packages successful)
+- [x] Lint validation (0 errors)
+
+### Files Modified:
+- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- `packages/admin-frontend/base/src/pages/RolesList.tsx`
+- `packages/admin-frontend/base/src/pages/RoleEdit.tsx`
+- `packages/admin-frontend/base/src/pages/RoleUsers.tsx`
+
+### New URL Structure:
+- **Before**: `/admin/roles`, `/admin/roles/:id`, `/admin/roles/:id/users`
+- **After**: `/admin/instance/:instanceId/roles`, `/admin/instance/:instanceId/roles/:roleId`, `/admin/instance/:instanceId/roles/:roleId/users`
+
+---
+
+## ✅ COMPLETED: Admin Roles UI - TypeScript Fixes (2025-12-07)
+
+**Goal**: Fix TypeScript errors identified during QA analysis of Admin Roles Management UI.
+
+### Issues Fixed:
+1. **PermissionRule type mismatch** - Created `BasePermission` and `PermissionInput` types for CASL-compatible forms
+2. **ViewHeaderMUI prop error** - `onAddNew`/`addNewLabel` props don't exist, use `children` instead
+3. **DOM event types missing** - Added `"lib": ["ES2022", "DOM", "DOM.Iterable"]` to tsconfig
+4. **RoleUser map type error** - Created `ApiRoleUser` interface for snake_case API response
+
+### Type Architecture:
+- `BasePermission`: Core fields (module, action, conditions?, fields?) - CASL-compatible
+- `PermissionRule`: Extends `BasePermission` with required `roleName` - for DB storage
+- `PermissionInput`: Alias for `BasePermission` - for forms and API payloads
+
+### Tasks:
+- [x] Add `BasePermission`, `PermissionInput` types to `@universo/types/common/admin.ts`
+- [x] Update `PermissionMatrix.tsx` to use `PermissionInput`
+- [x] Fix `rolesApi.ts` types with `ApiRoleUser`, `ApiRoleUsersResponse`
+- [x] Fix `ColorPicker.tsx` event handler type
+- [x] Add DOM lib to `admin-frontend/tsconfig.json`
+- [x] Fix `RoleEdit.tsx` - replace `PermissionRule` with `PermissionInput`
+- [x] Fix `RolesList.tsx` - replace `onAddNew` prop with Button as children
+- [x] Create `RoleUsers.tsx` demo page with sample data and info alert
+- [x] Add `/admin/roles/:id/users` route to `MainRoutesMUI.tsx`
+- [x] Full build validation (52/52 packages successful)
+
+### Files Modified:
+- `packages/universo-types/base/src/common/admin.ts`
+- `packages/admin-frontend/base/src/components/PermissionMatrix.tsx`
+- `packages/admin-frontend/base/src/api/rolesApi.ts`
+- `packages/admin-frontend/base/src/components/ColorPicker.tsx`
+- `packages/admin-frontend/base/tsconfig.json`
+- `packages/admin-frontend/base/src/pages/RoleEdit.tsx`
+- `packages/admin-frontend/base/src/pages/RolesList.tsx`
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+
+### Files Created:
+- `packages/admin-frontend/base/src/pages/RoleUsers.tsx`
+
+---
+
+## ✅ COMPLETED: Admin Roles Management UI (2025-12-07)
+
+**Goal**: Create UI for managing RBAC roles and permissions with ABAC-ready architecture.
+
+### Phase A: Backend API for Roles ✅
+- [x] A.1: Add types to `@universo/types/common/admin.ts`
+  - PermissionAction, PermissionModule types
+  - RoleWithPermissions, CreateRolePayload, UpdateRolePayload interfaces
+- [x] A.2: Create `rolesRoutes.ts` with CRUD endpoints
+  - GET /admin/roles - list all roles
+  - GET /admin/roles/:id - get role with permissions
+  - POST /admin/roles - create role (superadmin only)
+  - PATCH /admin/roles/:id - update role
+  - DELETE /admin/roles/:id - delete role (non-system only)
+- [x] A.3: Create Zod schemas in `schemas/index.ts`
+- [x] A.4: Register routes in flowise-core-backend
+- [x] A.5: Export from admin-backend index.ts
+
+### Phase B: Frontend Components ✅
+- [x] B.1: Create `rolesApi.ts` API client
+- [x] B.2: Add query keys for roles
+- [x] B.3: Create `ColorPicker.tsx` component
+- [x] B.4: Create `PermissionMatrix.tsx` component
+- [x] B.5: Create `RolesList.tsx` page
+- [x] B.6: Create `RoleEdit.tsx` page
+
+### Phase C: Integration ✅
+- [x] C.1: Add routes to MainRoutesMUI.tsx
+- [x] C.2: Add menu item for Roles
+- [x] C.3: Add i18n translations (EN, RU)
+- [x] C.4: Build and test
+
+---
+
 ## ✅ COMPLETED: SettingsDialog UX Improvement (2025-12-07)
 
 **Goal**: Fix misleading UX when `GLOBAL_ADMIN_ENABLED=false` - toggle appeared active but didn't work.
@@ -1245,4 +1698,4 @@ Details: progress.md#YYYY-MM-DD
 
 ---
 
-**Last Updated**: 2025-12-03
+**Last Updated**: 2025-12-07

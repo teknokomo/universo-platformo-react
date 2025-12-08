@@ -17,7 +17,8 @@ export type {
 // API
 export { createAdminApi, type AdminApi, type GrantRolePayload, type UpdateRolePayload, type MyRoleResponse } from './api/adminApi'
 export { createInstancesApi, type InstancesApi, type InstancesListParams } from './api/instancesApi'
-export { adminQueryKeys, instancesQueryKeys } from './api/queryKeys'
+export { createRolesApi, type RolesApi, type RoleListItem, type RolesListParams, type RoleUsersParams, type RoleUser } from './api/rolesApi'
+export { adminQueryKeys, instancesQueryKeys, rolesQueryKeys } from './api/queryKeys'
 
 // Hooks
 export {
@@ -35,5 +36,8 @@ export {
     useInstanceStats,
     useUpdateInstance
 } from './hooks'
+
+// Components
+export { ColorPicker, PermissionMatrix } from './components'
 
 // Pages are exported via package.json exports field: ./pages/*

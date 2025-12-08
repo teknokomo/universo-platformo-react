@@ -48,6 +48,8 @@ export type Subjects =
     | 'Canvas'
     | 'Publication'
     | 'Admin'
+    | 'Role'
+    | 'Instance'
     | 'all'
 
 // ═══════════════════════════════════════════════════════════════

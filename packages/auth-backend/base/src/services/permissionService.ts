@@ -218,13 +218,11 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
 
 
         try {
-            // Set user context for RLS
-            await runner.query('SELECT set_config($1, $2, true)', ['app.current_user_id', userId])
-
-            // Call PostgreSQL function
+            // Call PostgreSQL function with explicit userId
+            // The function uses COALESCE(p_user_id, auth.uid()) for fallback
             const result: Array<{ has_permission: boolean }> = await runner.query(
-                'SELECT admin.has_permission($1, $2, $3) as has_permission',
-                [module, action, context ? JSON.stringify(context) : '{}']
+                'SELECT admin.has_permission($1::uuid, $2, $3, $4) as has_permission',
+                [userId, module, action, context ? JSON.stringify(context) : '{}']
             )
 
             return result[0]?.has_permission ?? false

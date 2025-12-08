@@ -133,8 +133,8 @@ export default function MenuContent() {
                     )
                 })}
 
-                {/* Admin section with divider - only if user can access admin panel and not in instance context */}
-                {canAccessAdminPanel && !instanceId && (
+                {/* Admin section with divider - only if user can access admin panel and not in any entity context */}
+                {canAccessAdminPanel && !instanceId && !metaverseId && !clusterId && !projectId && !organizationId && !storageId && !campaignId && !unikId && (
                     <>
                         <Divider sx={{ my: 1 }} />
                         {/* Admin menu items */}

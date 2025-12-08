@@ -14,6 +14,8 @@ import { useCampaignName, truncateCampaignName } from '../../hooks/useCampaignNa
 import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
 import { useOrganizationName, truncateOrganizationName } from '../../hooks/useOrganizationName'
 import { useStorageName, truncateStorageName } from '../../hooks/useStorageName'
+import { useInstanceName, truncateInstanceName } from '../../hooks/useInstanceName'
+import { useRoleName, truncateRoleName } from '../../hooks/useRoleName'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),
@@ -64,6 +66,15 @@ export default function NavbarBreadcrumbs() {
     const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = unikIdMatch ? unikIdMatch[1] : null
     const unikName = useUnikName(unikId)
+
+    // Extract instanceId and roleId from admin routes for dynamic name loading
+    const instanceIdMatch = location.pathname.match(/^\/admin\/instance\/([^/]+)/)
+    const instanceId = instanceIdMatch ? instanceIdMatch[1] : null
+    const instanceName = useInstanceName(instanceId)
+
+    const roleIdMatch = location.pathname.match(/^\/admin\/instance\/[^/]+\/roles\/([^/]+)/)
+    const roleId = roleIdMatch ? roleIdMatch[1] : null
+    const roleName = useRoleName(roleId)
 
     // Check admin panel access for admin routes
     // This prevents breadcrumbs from showing "Администрирование" before redirect
@@ -416,14 +427,28 @@ export default function NavbarBreadcrumbs() {
 
             // Instance context routes
             if (segments[1] === 'instance' && segments[2]) {
-                const instanceId = segments[2]
-                items.push({ label: t('instance'), to: `/admin/instance/${instanceId}` })
+                const instanceIdFromUrl = segments[2]
+                // Use dynamic instance name or fallback to static label
+                const instanceLabel = instanceName ? truncateInstanceName(instanceName) : t('instance')
+                items.push({ label: instanceLabel, to: `/admin/instance/${instanceIdFromUrl}` })
 
                 // Sub-pages within instance
                 if (segments[3] === 'board') {
-                    items.push({ label: t('board'), to: `/admin/instance/${instanceId}/board` })
+                    items.push({ label: t('board'), to: `/admin/instance/${instanceIdFromUrl}/board` })
                 } else if (segments[3] === 'access') {
-                    items.push({ label: t('access'), to: `/admin/instance/${instanceId}/access` })
+                    items.push({ label: t('superusers'), to: `/admin/instance/${instanceIdFromUrl}/access` })
+                } else if (segments[3] === 'roles') {
+                    items.push({ label: t('roles'), to: `/admin/instance/${instanceIdFromUrl}/roles` })
+                    // Role detail page
+                    if (segments[4] && segments[4] !== 'new') {
+                        // Use dynamic role name or fallback to static label
+                        const roleLabel = roleName ? truncateRoleName(roleName) : t('role')
+                        items.push({ label: roleLabel, to: `/admin/instance/${instanceIdFromUrl}/roles/${segments[4]}` })
+                        // Users sub-page within role
+                        if (segments[5] === 'users') {
+                            items.push({ label: t('users'), to: location.pathname })
+                        }
+                    }
                 }
             }
             // Legacy routes

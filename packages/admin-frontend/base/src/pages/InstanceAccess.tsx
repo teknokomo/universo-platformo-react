@@ -36,7 +36,7 @@ import type { MemberFormData } from '@universo/template-mui'
 import apiClient from '../api/apiClient'
 import { createAdminApi } from '../api/adminApi'
 import { adminQueryKeys } from '../api/queryKeys'
-import { useIsSuperadmin, useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole } from '../hooks'
+import { useIsSuperadmin, useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole, useAssignableGlobalRoles } from '../hooks'
 import { useInstanceDetails } from '../hooks/useInstanceDetails'
 import type { GlobalUserMember, GlobalAssignableRole, PaginationParams, PaginatedResponse } from '../types'
 import memberActions from './MemberActions'
@@ -89,6 +89,9 @@ const InstanceAccess = () => {
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     const isSuperadmin = useIsSuperadmin()
+
+    // Load roles dynamically for global user assignment
+    const { roleOptions: availableRoles, roleLabels, isLoading: isLoadingRoles, error: rolesError } = useAssignableGlobalRoles()
 
     // Fetch instance details
     const { data: instance, isLoading: instanceLoading, error: instanceError, isError: instanceIsError } = useInstanceDetails(instanceId)
@@ -251,6 +254,12 @@ const InstanceAccess = () => {
             resource: baseContext.resource!,
             resourceKind: 'member',
             t: baseContext.t!,
+            // Pass dynamic roles loaded from API to action handlers
+            meta: {
+                ...baseContext.meta,
+                dynamicRoles: availableRoles,
+                dynamicRoleLabels: roleLabels
+            },
             api: {
                 updateEntity: async (id: string, data: MemberFormData) => {
                     // Validate data
@@ -307,7 +316,7 @@ const InstanceAccess = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, queryClient, revokeMutation, updateMutation]
+        [availableRoles, confirm, enqueueSnackbar, queryClient, revokeMutation, roleLabels, updateMutation]
     )
 
     // Instance loading state
@@ -550,16 +559,13 @@ const InstanceAccess = () => {
                     saveButtonText={tc('actions.save', 'Save')}
                     savingButtonText={tc('actions.saving', 'Saving...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={grantMutation.isPending}
-                    error={inviteDialogError || undefined}
+                    loading={grantMutation.isPending || isLoadingRoles}
+                    error={inviteDialogError || (rolesError ? t('access.rolesLoadError') : undefined)}
                     onClose={handleInviteDialogClose}
                     onSave={handleInviteMember}
                     autoCloseOnSuccess={false}
-                    availableRoles={['superadmin', 'supermoderator']}
-                    roleLabels={{
-                        superadmin: t('roles.superadmin', 'Superadmin'),
-                        supermoderator: t('roles.supermoderator', 'Supermoderator')
-                    }}
+                    availableRoles={availableRoles}
+                    roleLabels={roleLabels}
                 />
 
                 {/* Independent ConfirmDeleteDialog for Remove button in edit dialog */}

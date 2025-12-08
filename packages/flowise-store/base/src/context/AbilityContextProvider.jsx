@@ -46,7 +46,9 @@ const MODULE_TO_SUBJECT = {
     chatflows: 'Chatflow',
     tools: 'Tool',
     assistants: 'Assistant',
-    users: 'User'
+    users: 'User',
+    roles: 'Role',
+    instances: 'Instance'
 }
 
 // Action mapping

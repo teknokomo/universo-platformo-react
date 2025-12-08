@@ -84,20 +84,34 @@ export interface UserPermissionsResponse {
 }
 
 /**
- * CASL-compatible permission rule
+ * Base permission structure (CASL-compatible core)
+ * Used as foundation for both PermissionRule and PermissionInput
  */
-export interface PermissionRule {
-    /** Role that grants this permission */
-    roleName: string
+export interface BasePermission {
     /** Module/subject (e.g., 'metaverses', '*') */
     module: string
     /** Action (e.g., 'read', 'create', '*') */
     action: string
-    /** ABAC conditions (optional) */
+    /** ABAC conditions - MongoDB-style query for attribute-based access control */
     conditions?: Record<string, unknown>
-    /** Allowed fields (optional) */
+    /** Field-level permissions - whitelist of allowed fields */
     fields?: string[]
 }
+
+/**
+ * CASL-compatible permission rule with role binding
+ * Used in runtime for tracing which role granted the permission
+ */
+export interface PermissionRule extends BasePermission {
+    /** Role that grants this permission (for audit/debugging) */
+    roleName: string
+}
+
+/**
+ * Permission input for forms and API payloads (without role binding)
+ * Use this type when creating/updating roles via UI or API
+ */
+export type PermissionInput = BasePermission
 
 /**
  * User with global role assignment (for admin panel)
@@ -144,3 +158,97 @@ export interface UpdateGlobalRoleRequest {
     /** Updated comment */
     comment?: string
 }
+
+// ═══════════════════════════════════════════════════════════════
+// RBAC ROLE MANAGEMENT TYPES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * CRUD permission actions
+ * '*' means all actions (CASL 'manage')
+ */
+export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | '*'
+
+/**
+ * Platform modules that can have permissions assigned
+ * '*' means all modules (CASL 'all')
+ */
+export type PermissionModule =
+    | 'metaverses'
+    | 'clusters'
+    | 'projects'
+    | 'spaces'
+    | 'storages'
+    | 'organizations'
+    | 'campaigns'
+    | 'uniks'
+    | 'sections'
+    | 'entities'
+    | 'canvases'
+    | 'publications'
+    | 'admin'
+    | '*'
+
+/**
+ * All available permission modules (for UI iteration)
+ */
+export const PERMISSION_MODULES: PermissionModule[] = [
+    'metaverses',
+    'clusters',
+    'projects',
+    'spaces',
+    'storages',
+    'organizations',
+    'campaigns',
+    'uniks',
+    'sections',
+    'entities',
+    'canvases',
+    'publications',
+    'admin'
+]
+
+/**
+ * All available permission actions (for UI iteration)
+ */
+export const PERMISSION_ACTIONS: PermissionAction[] = ['create', 'read', 'update', 'delete']
+
+/**
+ * Role with full permission details
+ * Used in role management UI
+ */
+export interface RoleWithPermissions {
+    id: string
+    name: string
+    description?: string
+    displayName: LocalizedString
+    color: string
+    hasGlobalAccess: boolean
+    isSystem: boolean
+    permissions: PermissionInput[]
+    createdAt: string
+    updatedAt: string
+}
+
+/**
+ * Payload for creating a new role
+ */
+export interface CreateRolePayload {
+    /** Unique role identifier (lowercase, alphanumeric, underscores, dashes) */
+    name: string
+    /** Optional description */
+    description?: string
+    /** Localized display names */
+    displayName: LocalizedString
+    /** Hex color for UI display */
+    color: string
+    /** Whether this role grants platform-wide access */
+    hasGlobalAccess: boolean
+    /** Permission rules for this role */
+    permissions: PermissionInput[]
+}
+
+/**
+ * Payload for updating an existing role
+ */
+export type UpdateRolePayload = Partial<CreateRolePayload>

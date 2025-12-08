@@ -216,6 +216,85 @@ if (ability.can('update', 'Metaverse')) { ... }
 
 ---
 
+## Admin Route Guards Pattern (2025-01-17)
+
+**Rule**: Use database-driven CRUD permission checks instead of hardcoded role names in admin route guards.
+
+### Problem
+
+Hardcoded role checks like `roleName !== 'superadmin'` prevent flexible permission assignment and violate the RBAC principle.
+
+**Antipattern** (hardcoded role check):
+```typescript
+// ❌ Hardcoded check - can't assign permissions to other roles
+if (permission === 'manage' && roleName !== 'superadmin') {
+    throw createError(403, 'Access denied: superadmin role required')
+}
+```
+
+### Solution
+
+Use `permissionService.hasPermission()` which queries the database via `admin.has_permission()` function.
+
+**Pattern** (database-driven check):
+```typescript
+// ✅ Database-driven - any role with proper permission can access
+const hasPermission = await permissionService.hasPermission(userId, module, action)
+if (!hasPermission) {
+    throw createError(403, `Access denied: requires ${module}:${action} permission`)
+}
+```
+
+### Usage in Routes
+
+```typescript
+// Guard signature: (module: string, action: CrudAction)
+// CrudAction = 'create' | 'read' | 'update' | 'delete'
+
+router.get('/', ensureGlobalAccess('roles', 'read'), ...)
+router.post('/', ensureGlobalAccess('roles', 'create'), ...)
+router.patch('/:id', ensureGlobalAccess('roles', 'update'), ...)
+router.delete('/:id', ensureGlobalAccess('roles', 'delete'), ...)
+```
+
+### Guard Factory Setup
+
+```typescript
+// In routes/index.ts
+const globalAccessService = createGlobalAccessService({ getDataSource })
+const permissionService = createPermissionService({ getDataSource })
+
+const rolesRouter = createRolesRoutes({
+    globalAccessService,
+    permissionService,
+    getDataSource
+})
+```
+
+### CASL Subjects
+
+Add new subjects to `universo-types/abilities` and `flowise-store/AbilityContextProvider`:
+
+```typescript
+// universo-types: Subjects type
+export type Subjects = 'Metaverse' | 'Cluster' | ... | 'Role' | 'Instance' | 'all'
+
+// flowise-store: MODULE_TO_SUBJECT mapping
+const MODULE_TO_SUBJECT = {
+    roles: 'Role',
+    instances: 'Instance',
+    // ...
+}
+```
+
+### Key Files
+
+- Guard: `@universo/admin-backend/guards/ensureGlobalAccess.ts`
+- Routes: `@universo/admin-backend/routes/*.ts`
+- Types: `@universo/admin-backend` exports `CrudAction`, `EnsureGlobalAccessOptions`
+
+---
+
 ## Scoped-API Pattern for RLS (2025-01-05)
 
 **Rule**: When fetching child entities within a parent context (e.g., entities within a metaverse), use parent-scoped API endpoints to ensure RLS policies work correctly for global admin access.

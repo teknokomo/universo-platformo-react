@@ -1,8 +1,368 @@
 # Active Context
 
-> **Last Updated**: 2025-12-08
+> **Last Updated**: 2025-01-17
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## Recently Completed: Dynamic Role Dropdown for Global Users (2025-01-17) ✅
+
+### Goal
+Replace hardcoded role dropdown `['superadmin', 'supermoderator']` with dynamic roles from database.
+
+### Problem
+User created role "Метаредактор" with `hasGlobalAccess: true`, but it didn't appear in role dropdown when assigning global users.
+
+### Solution Architecture
+1. **Backend**: `GET /api/v1/admin/roles/assignable` → roles with `has_global_access: true`
+2. **Types**: `GlobalAssignableRole` interface (id, name, displayName, color)
+3. **Hook**: `useAssignableGlobalRoles` with React Query caching (5 min staleTime)
+4. **Factory**: `createMemberActions` supports `ctx.meta.dynamicRoles` for runtime injection
+5. **Cache**: Role CRUD invalidates `rolesQueryKeys.assignable()`
+
+### Key Changes
+| Component | Change |
+|-----------|--------|
+| `rolesRoutes.ts` | New `/assignable` endpoint |
+| `useAssignableGlobalRoles.ts` | New hook with `roleOptions`, `roleLabels` |
+| `AdminAccess.tsx` | Uses hook for create dialog + passes to context |
+| `InstanceAccess.tsx` | Same pattern |
+| `MemberActions.tsx` | Removed hardcoded roles |
+| `createMemberActions.tsx` | `ctx.meta.dynamicRoles/dynamicRoleLabels` support |
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Previously Completed: RBAC Refactoring - Database-driven Permissions (2025-01-17) ✅
+
+### Goal
+Replace hardcoded `roleName !== 'superadmin'` check with database-driven CRUD permissions using existing CASL/permissionService infrastructure.
+
+### Root Cause
+403 Forbidden when PATCH `/api/v1/admin/roles/:id` was caused by:
+```typescript
+// OLD: Hardcoded check in ensureGlobalAccess.ts
+if (permission === 'manage' && roleName !== 'superadmin') {
+    throw createError(403, 'Access denied: superadmin role required')
+}
+```
+
+### Solution Applied
+```typescript
+// NEW: Database-driven permission check
+const hasPermission = await permissionService.hasPermission(userId, module, action)
+if (!hasPermission) {
+    throw createError(403, `Access denied: requires ${module}:${action} permission`)
+}
+```
+
+### Key Changes
+1. **CASL Subjects**: Added 'Role' | 'Instance' to universo-types and flowise-store
+2. **ensureGlobalAccess signature**: `(module, action)` instead of `('view'|'manage')`
+3. **Route patterns**: `ensureGlobalAccess('roles', 'update')` instead of `ensureGlobalAccess('manage')`
+4. **Dependency injection**: Routes now receive `permissionService` in config
+
+### Files Modified
+- `packages/universo-types/base/src/abilities/index.ts`
+- `packages/flowise-store/base/src/context/AbilityContextProvider.jsx`
+- `packages/admin-backend/base/src/guards/ensureGlobalAccess.ts`
+- `packages/admin-backend/base/src/routes/{rolesRoutes,instancesRoutes,globalUsersRoutes}.ts`
+- `packages/flowise-core-backend/base/src/routes/index.ts`
+
+### Impact
+- supermoderator with `roles:update` permission can now edit role displayName/description/color
+- Future roles can have granular CRUD permissions per module
+- All permission decisions from database (PostgreSQL `admin.has_permission()` function)
+
+---
+
+## Previously Completed: RoleUsers usePaginated Pattern Alignment (2025-01-17) ✅
+
+### Goal
+Align RoleUsers component with MetaverseList/InstanceList patterns - proper server-side pagination with `usePaginated` hook.
+
+### Issues Fixed (QA Findings)
+1. **Client-side Pagination**: Replaced with server-side `usePaginated<RoleUser, 'email' | 'assigned_at'>`
+2. **`toLocaleDateString()`**: Replaced with `formatDate(date, 'short')` from `@universo/utils`
+3. **Missing PageSize selector**: `rowsPerPageOptions={[10, 20, 50, 100]}` (was `[20]`)
+4. **Search delay**: Changed from `delay: 300` to `delay: 0` for instant search
+5. **Count text position**: Removed redundant count block below pagination
+
+### Backend Pattern (rolesRoutes.ts)
+```typescript
+// Zod schema for query validation
+const RoleUsersQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    offset: z.coerce.number().int().min(0).default(0),
+    search: z.string().optional(),
+    sortBy: z.enum(['email', 'assigned_at']).default('assigned_at'),
+    sortOrder: z.enum(['asc', 'desc']).default('desc')
+})
+
+// Search via EXISTS subquery (avoids cross-schema joins)
+if (search) {
+    qb.andWhere(`EXISTS (SELECT 1 FROM auth.users u WHERE u.id = ur.user_id AND LOWER(u.email) LIKE :search)`)
+}
+
+// Single efficient query
+const [userRoles, total] = await qb.getManyAndCount()
+
+// Pagination headers
+res.setHeader('X-Pagination-Limit', limit.toString())
+res.setHeader('X-Total-Count', total.toString())
+```
+
+### Frontend Pattern (RoleUsers.tsx)
+```typescript
+// usePaginated hook (matches InstanceList)
+const paginationResult = usePaginated<RoleUser, 'email' | 'assigned_at'>({
+    queryKeyFn: (params) => rolesQueryKeys.usersList(roleId || '', params),
+    queryFn: (params) => getRoleUsers(roleId || '', params),
+    initialLimit: 20,
+    sortBy: 'assigned_at',
+    sortOrder: 'desc',
+    enabled: Boolean(roleId)
+})
+
+// Instant search
+const { handleSearchChange } = useDebouncedSearch({
+    onSearchChange: paginationResult.actions.setSearch,
+    delay: 0
+})
+
+// PaginationControls with full options
+<PaginationControls
+    pagination={paginationResult.pagination}
+    actions={paginationResult.actions}
+    isLoading={paginationResult.isLoading}
+    rowsPerPageOptions={[10, 20, 50, 100]}
+    namespace='common'
+/>
+```
+
+### queryKeys Pattern (normalized params)
+```typescript
+usersList: (id: string, params?: PaginationParams) => {
+    const normalized = {
+        limit: params?.limit ?? 20,
+        offset: params?.offset ?? 0,
+        sortBy: params?.sortBy ?? 'assigned_at',
+        sortOrder: params?.sortOrder ?? 'desc',
+        search: params?.search?.trim() || undefined
+    }
+    return [...rolesQueryKeys.users(id), 'list', normalized] as const
+}
+```
+
+### Build Status
+52/52 packages successful ✅
+
+---
+
+## Recently Completed: RoleUsers Page Redesign (2025-01-15) ✅
+
+### Goal
+Complete redesign of RoleUsers page with standard UI pattern and fix breadcrumbs instance name display.
+
+### Issues Fixed
+1. **Breadcrumbs Instance Name**: Fixed useInstanceName hook - was not parsing `{ success: true, data: instance }` response structure correctly (same fix as useRoleName)
+2. **RoleUsers Complete UI Redesign**: Replaced basic table (~200 lines) with full standard UI (~350 lines) matching RolesList pattern
+3. **Dynamic User Status**: Backend now calculates real user status from auth.users table using CASE expression
+
+### Key Changes
+- **useInstanceName.ts**: Added `const data = response?.data || response` before accessing name (same as useRoleName fix)
+- **rolesRoutes.ts**: Added status calculation SQL:
+  ```sql
+  CASE 
+      WHEN u.banned_until IS NOT NULL AND u.banned_until > NOW() THEN 'banned'
+      WHEN u.confirmed_at IS NULL THEN 'pending'
+      WHEN u.last_sign_in_at > NOW() - INTERVAL '30 days' THEN 'active'
+      ELSE 'inactive'
+  END as status
+  ```
+- **RoleUsers.tsx**: Complete rewrite with:
+  - Card/List view toggle (localStorage persisted)
+  - ViewHeader with search
+  - usePaginated hook for pagination
+  - StatusChip component with color-coded status
+  - ItemCard for card view (avatar, name, email, status)
+  - FlowListTable for list view
+  - Full i18n integration
+
+### New i18n Keys Added
+- `roles.users.title`, `description`, `searchPlaceholder`
+- `roles.users.empty.title`, `empty.description`
+- `roles.users.table.user`, `email`, `assignedAt`, `status`
+- `roles.users.status.active`, `inactive`, `pending`, `banned`
+- `roles.users.count`, `loading`, `anonymous`
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Recently Completed: Roles UI Final Polish (2025-01-14) ✅
+
+### Goal
+Final visual and backend fixes for unified Roles UI.
+
+### Issues Fixed
+1. **Small Color Dot**: Added 12px color dot before role name in card view (matching table view style)
+2. **Button Text**: Changed "Добавить роль" → "Добавить" using common i18n key `tc('addNew')`
+3. **Breadcrumbs Dynamic Name**: Fixed useRoleName hook to properly parse API response (handles data wrapper and snake_case field names)
+4. **Backend 500 Error**: Fixed SQL query in rolesRoutes.ts - used `created_at AS assigned_at` and `granted_by AS assigned_by` (actual column names from UserRole entity)
+
+### Key Changes
+- **ItemCard.tsx**: New `colorDotSize` prop (default 35px); small dots get 1px border for visibility
+- **RolesList.tsx**: Cards now show 12px color dot + use common "Добавить" button text
+- **useRoleName.ts**: Fixed to extract data from `{ success: true, data: role }` structure and check both `displayName`/`display_name` variants
+- **rolesRoutes.ts**: Fixed `/:id/users` endpoint SQL query column names
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Previously Completed: Roles UI Additional Refinements (2025-12-07) ✅
+
+### Goal
+Fix 4 additional issues after previous Roles UI refinements.
+
+### Issues Fixed
+1. **Chips Position**: Code was already correct (footerStartContent in ItemCard); user needed browser refresh
+2. **Breadcrumbs Role Name**: Created `useRoleName` hook to show actual role name (e.g., "Суперадминистратор") instead of static "Роль"
+3. **Breadcrumbs Instance Name**: Created `useInstanceName` hook to show actual instance name (e.g., "local") instead of static "Экземпляр"
+4. **Admin Menu Hidden in Entity Contexts**: Fixed MenuContent.tsx to hide "Администрирование" menu when inside any entity context (metaverse, cluster, project, organization, storage, campaign, unik)
+
+### New Files Created
+- `useInstanceName.ts` - Hook with API fetch + cache for instance names
+- `useRoleName.ts` - Hook with API fetch + cache for role names (handles displayName localization)
+
+### Key Changes
+- NavbarBreadcrumbs now shows dynamic names for instance and role (with truncation)
+- Admin menu visibility condition extended: `!instanceId && !metaverseId && !clusterId && !projectId && ...`
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Previously Completed: Roles UI Refinements (2025-01-14) ✅
+
+### Goal
+Fix 4 issues identified during QA testing after Roles UI unification.### Build Status
+52/52 packages successful, 0 lint errors
+
+---
+
+## Previously Completed: Roles UI Unification (2025-12-07) ✅
+
+### Goal
+Refactor RolesList.tsx to use unified list pattern (MetaverseList style) with card/table views, pagination, search, and BaseEntityMenu.
+
+### Strategy
+Copy-then-adapt approach: Used MetaverseList.tsx as canonical reference, adapted for admin-frontend roles context.
+
+### Key Implementation
+- **RoleActions.tsx**: Created using `createEntityActions` + custom `viewUsers` action
+- **RolesList.tsx**: Full unified pattern with:
+  - `usePaginated` hook for pagination/sorting/search
+  - `useDebouncedSearch` for search input
+  - Card/Table view toggle with localStorage persistence
+  - `BaseEntityMenu` with roleActions (edit, viewUsers, delete)
+  - `EntityFormDialog` for create, `ConfirmDeleteDialog` for delete
+  - `PaginationControls` at bottom
+  - Skeleton/Empty states
+
+### New Features
+- Card view: Color indicator, system/global access badges, permissions count
+- Table view: FlowListTable with custom columns
+- Permission filtering: Only superadmins can edit/delete, system roles protected
+- View preference saved to localStorage
+
+### Build Status
+52/52 packages successful, 0 lint errors
+
+---
+
+## Previously Completed: Admin Roles Menu Relocation (2025-12-07) ✅
+
+### Goal
+Move "Roles" (Роли) menu item from main admin menu to Instance context menu.
+
+### Problem
+The Roles menu item was incorrectly placed in the main admin menu (`/admin/roles`).
+It should be accessible from within Instance context (`/admin/instance/:instanceId/roles`).
+
+### Solution
+1. **menuConfigs.ts**: Removed `admin-roles` from `getAdminMenuItems()`, added `instance-roles` to `getInstanceMenuItems(instanceId)`
+2. **MainRoutesMUI.tsx**: Moved roles routes inside `/admin/instance/:instanceId/` children, changed param from `:id` to `:roleId`
+3. **RolesList.tsx, RoleEdit.tsx, RoleUsers.tsx**: Updated to use `instanceId` from params in all navigation
+
+### New URL Structure
+- **Before**: `/admin/roles`, `/admin/roles/:id`, `/admin/roles/:id/users`
+- **After**: `/admin/instance/:instanceId/roles`, `/admin/instance/:instanceId/roles/:roleId`, `/admin/instance/:instanceId/roles/:roleId/users`
+
+### Build Status
+3/3 packages successful, 0 lint errors
+
+---
+
+## Previously Completed: Admin Roles UI - TypeScript Fixes (2025-12-07) ✅
+
+### Goal
+Fix TypeScript errors identified during QA analysis of Admin Roles Management UI.
+
+### Type Architecture
+- `BasePermission`: Core fields (module, action, conditions?, fields?) - CASL-compatible
+- `PermissionRule`: Extends `BasePermission` with required `roleName` - for DB storage
+- `PermissionInput`: Alias for `BasePermission` - for forms and API payloads
+
+### Key Fixes
+1. **PermissionRule type mismatch** - Forms don't have `roleName`, created separate input type
+2. **ViewHeaderMUI prop error** - Used `children` prop instead of non-existent `onAddNew`
+3. **DOM event types** - Added `"lib": ["ES2022", "DOM", "DOM.Iterable"]` to tsconfig
+4. **RoleUsers demo page** - Created placeholder with sample data and info alert
+5. **RoleUsers.tsx displayName fix** - Changed `role.displayNameRu`/`role.displayNameEn` to `role.displayName?.ru`/`role.displayName?.en`
+
+### Build Status
+52/52 packages successful
+
+---
+
+## Previously Completed: Admin Roles Management UI (2025-12-08) ✅
+
+### Goal
+Create UI for managing RBAC roles and permissions with ABAC-ready architecture.
+
+### Implementation
+- **Backend**: `rolesRoutes.ts` with CRUD endpoints, Zod validation, system role protection
+- **Frontend**: `RolesList.tsx`, `RoleEdit.tsx`, `PermissionMatrix.tsx`, `ColorPicker.tsx`
+- **Integration**: Routes in MainRoutesMUI.tsx (/admin/roles), menu item, i18n EN/RU
+
+### Key Components
+- `PermissionMatrix` - matrix for modules × actions with bulk selection
+- `ColorPicker` - simple color picker with preset colors and native input
+- `rolesApi.ts` - API client with snake_case→camelCase transformation
+
+### Routes
+- `/admin/roles` - list all roles
+- `/admin/roles/new` - create new role
+- `/admin/roles/:id` - edit existing role
+
+### API Endpoints
+- GET /api/v1/admin/roles
+- GET /api/v1/admin/roles/:id
+- POST /api/v1/admin/roles
+- PATCH /api/v1/admin/roles/:id
+- DELETE /api/v1/admin/roles/:id
+- GET /api/v1/admin/roles/:id/users
+
+### Build Status
+52/52 packages successful
 
 ---
 

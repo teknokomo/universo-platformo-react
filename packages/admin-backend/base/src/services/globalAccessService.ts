@@ -2,12 +2,7 @@ import { In } from 'typeorm'
 import type { DataSource } from 'typeorm'
 import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
-import type {
-    RoleMetadata,
-    GlobalRoleInfo,
-    GlobalUserMember,
-    LocalizedString
-} from '@universo/types'
+import type { RoleMetadata, GlobalRoleInfo, GlobalUserMember, LocalizedString } from '@universo/types'
 import { isGlobalAdminEnabled } from '@universo/utils'
 import { Role } from '../database/entities/Role'
 import { UserRole } from '../database/entities/UserRole'
@@ -135,9 +130,12 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      */
     async function hasGlobalAccess(userId: string): Promise<boolean> {
         const ds = getDataSource()
-        const result = (await ds.query(`
+        const result = (await ds.query(
+            `
             SELECT admin.has_global_access($1::uuid) as has_access
-        `, [userId])) as { has_access: boolean }[]
+        `,
+            [userId]
+        )) as { has_access: boolean }[]
         return result[0]?.has_access ?? false
     }
 
@@ -148,12 +146,15 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         const ds = getDataSource()
 
         // Get user's global roles with metadata
-        const rows = (await ds.query(`
+        const rows = (await ds.query(
+            `
             SELECT role_name, display_name, color
             FROM admin.get_user_global_roles($1::uuid)
-        `, [userId])) as { role_name: string; display_name: Record<string, string>; color: string }[]
+        `,
+            [userId]
+        )) as { role_name: string; display_name: Record<string, string>; color: string }[]
 
-        const globalRoles: GlobalRoleInfo[] = rows.map(row => ({
+        const globalRoles: GlobalRoleInfo[] = rows.map((row) => ({
             name: row.role_name,
             metadata: {
                 name: row.role_name,
@@ -220,12 +221,15 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         const direction = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
         // Get total count
-        const countResult = (await ds.query(`
+        const countResult = (await ds.query(
+            `
             SELECT COUNT(*) as count
             FROM admin.user_roles ur
             JOIN admin.roles r ON ur.role_id = r.id
             WHERE ${whereClause}
-        `, queryParams)) as { count: string }[]
+        `,
+            queryParams
+        )) as { count: string }[]
         const total = parseInt(countResult[0]?.count ?? '0', 10)
 
         if (total === 0) {
@@ -233,7 +237,8 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         }
 
         // Get paginated results
-        const rows = (await ds.query(`
+        const rows = (await ds.query(
+            `
             SELECT 
                 ur.id,
                 ur.user_id,
@@ -250,14 +255,16 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
             WHERE ${whereClause}
             ORDER BY ${orderBy} ${direction}
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `, [...queryParams, limit, offset])) as (UserRoleRow & RoleRow)[]
+        `,
+            [...queryParams, limit, offset]
+        )) as (UserRoleRow & RoleRow)[]
 
         if (rows.length === 0) {
             return { users: [], total }
         }
 
         // Load user emails and nicknames
-        const userIds = rows.map(r => r.user_id)
+        const userIds = rows.map((r) => r.user_id)
 
         const authUsers = await ds.manager.find(AuthUser, {
             where: { id: In(userIds) }
@@ -267,10 +274,10 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
             where: { user_id: In(userIds) }
         })
 
-        const emailMap = new Map(authUsers.map(u => [u.id, u.email ?? null]))
-        const nicknameMap = new Map(profiles.map(p => [p.user_id, p.nickname ?? null]))
+        const emailMap = new Map(authUsers.map((u) => [u.id, u.email ?? null]))
+        const nicknameMap = new Map(profiles.map((p) => [p.user_id, p.nickname ?? null]))
 
-        const users: GlobalUserMember[] = rows.map(row => ({
+        const users: GlobalUserMember[] = rows.map((row) => ({
             id: row.id,
             userId: row.user_id,
             email: emailMap.get(row.user_id) ?? null,
@@ -295,30 +302,25 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      */
     async function findUserIdByEmail(email: string): Promise<string | null> {
         const ds = getDataSource()
-        const result = await ds.manager
-            .createQueryBuilder(AuthUser, 'user')
-            .where('LOWER(user.email) = LOWER(:email)', { email })
-            .getOne()
+        const result = await ds.manager.createQueryBuilder(AuthUser, 'user').where('LOWER(user.email) = LOWER(:email)', { email }).getOne()
         return result?.id ?? null
     }
 
     /**
      * Grant a global role to a user
      */
-    async function grantRole(
-        userId: string,
-        roleName: string,
-        grantedBy: string,
-        comment?: string
-    ): Promise<GlobalUserMember> {
+    async function grantRole(userId: string, roleName: string, grantedBy: string, comment?: string): Promise<GlobalUserMember> {
         const ds = getDataSource()
 
         // Get role ID
-        const roleResult = (await ds.query(`
+        const roleResult = (await ds.query(
+            `
             SELECT id, display_name, color
             FROM admin.roles
             WHERE name = $1 AND has_global_access = true
-        `, [roleName])) as { id: string; display_name: Record<string, string>; color: string }[]
+        `,
+            [roleName]
+        )) as { id: string; display_name: Record<string, string>; color: string }[]
 
         if (roleResult.length === 0) {
             throw new Error(`Role '${roleName}' not found or does not grant global access`)
@@ -327,37 +329,49 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         const roleId = roleResult[0].id
 
         // Check if user already has this role
-        const existing = (await ds.query(`
+        const existing = (await ds.query(
+            `
             SELECT id FROM admin.user_roles
             WHERE user_id = $1 AND role_id = $2
-        `, [userId, roleId])) as UserRoleRow[]
+        `,
+            [userId, roleId]
+        )) as UserRoleRow[]
 
         let assignmentId: string
 
         if (existing.length > 0) {
             // Update existing assignment
-            await ds.query(`
+            await ds.query(
+                `
                 UPDATE admin.user_roles
                 SET granted_by = $1, comment = $2
                 WHERE user_id = $3 AND role_id = $4
-            `, [grantedBy, comment ?? null, userId, roleId])
+            `,
+                [grantedBy, comment ?? null, userId, roleId]
+            )
             assignmentId = existing[0].id
         } else {
             // Remove any other global roles first (one global role per user)
-            await ds.query(`
+            await ds.query(
+                `
                 DELETE FROM admin.user_roles ur
                 USING admin.roles r
                 WHERE ur.role_id = r.id
                   AND ur.user_id = $1
                   AND r.has_global_access = true
-            `, [userId])
+            `,
+                [userId]
+            )
 
             // Insert new assignment
-            const insertResult = (await ds.query(`
+            const insertResult = (await ds.query(
+                `
                 INSERT INTO admin.user_roles (user_id, role_id, granted_by, comment)
                 VALUES ($1, $2, $3, $4)
                 RETURNING id
-            `, [userId, roleId, grantedBy, comment ?? null])) as { id: string }[]
+            `,
+                [userId, roleId, grantedBy, comment ?? null]
+            )) as { id: string }[]
             assignmentId = insertResult[0].id
         }
 
@@ -393,12 +407,15 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         const ds = getDataSource()
 
         // Get current assignment
-        const current = (await ds.query(`
+        const current = (await ds.query(
+            `
             SELECT ur.*, r.name as role_name
             FROM admin.user_roles ur
             JOIN admin.roles r ON ur.role_id = r.id
             WHERE ur.id = $1
-        `, [assignmentId])) as (UserRoleRow & { role_name: string })[]
+        `,
+            [assignmentId]
+        )) as (UserRoleRow & { role_name: string })[]
 
         if (current.length === 0) {
             return null
@@ -408,30 +425,40 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
 
         if (updates.roleName && updates.roleName !== assignment.role_name) {
             // Get new role ID
-            const newRole = (await ds.query(`
+            const newRole = (await ds.query(
+                `
                 SELECT id FROM admin.roles
                 WHERE name = $1 AND has_global_access = true
-            `, [updates.roleName])) as { id: string }[]
+            `,
+                [updates.roleName]
+            )) as { id: string }[]
 
             if (newRole.length === 0) {
                 throw new Error(`Role '${updates.roleName}' not found or does not grant global access`)
             }
 
-            await ds.query(`
+            await ds.query(
+                `
                 UPDATE admin.user_roles
                 SET role_id = $1, comment = $2
                 WHERE id = $3
-            `, [newRole[0].id, updates.comment ?? assignment.comment, assignmentId])
+            `,
+                [newRole[0].id, updates.comment ?? assignment.comment, assignmentId]
+            )
         } else if (updates.comment !== undefined) {
-            await ds.query(`
+            await ds.query(
+                `
                 UPDATE admin.user_roles
                 SET comment = $1
                 WHERE id = $2
-            `, [updates.comment, assignmentId])
+            `,
+                [updates.comment, assignmentId]
+            )
         }
 
         // Get updated assignment with full info
-        const result = (await ds.query(`
+        const result = (await ds.query(
+            `
             SELECT 
                 ur.*,
                 r.name as role_name,
@@ -441,7 +468,9 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
             FROM admin.user_roles ur
             JOIN admin.roles r ON ur.role_id = r.id
             WHERE ur.id = $1
-        `, [assignmentId])) as (UserRoleRow & RoleRow)[]
+        `,
+            [assignmentId]
+        )) as (UserRoleRow & RoleRow)[]
 
         if (result.length === 0) {
             return null
@@ -474,13 +503,16 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      */
     async function revokeGlobalAccess(userId: string): Promise<boolean> {
         const ds = getDataSource()
-        const result = await ds.query(`
+        const result = await ds.query(
+            `
             DELETE FROM admin.user_roles ur
             USING admin.roles r
             WHERE ur.role_id = r.id
               AND ur.user_id = $1
               AND r.has_global_access = true
-        `, [userId])
+        `,
+            [userId]
+        )
         return (result as unknown as { rowCount: number }).rowCount > 0
     }
 
@@ -561,9 +593,12 @@ export async function hasGlobalAccessByDataSource(ds: DataSource, userId: string
         return false
     }
 
-    const result = (await ds.query(`
+    const result = (await ds.query(
+        `
         SELECT admin.has_global_access($1::uuid) as has_access
-    `, [userId])) as { has_access: boolean }[]
+    `,
+        [userId]
+    )) as { has_access: boolean }[]
     return result[0]?.has_access ?? false
 }
 
@@ -572,12 +607,15 @@ export async function hasGlobalAccessByDataSource(ds: DataSource, userId: string
  * Used by access guards for synthetic membership creation
  */
 export async function getGlobalRoleNameByDataSource(ds: DataSource, userId: string): Promise<string | null> {
-    const result = (await ds.query(`
+    const result = (await ds.query(
+        `
         SELECT r.name as role_name
         FROM admin.user_roles ur
         JOIN admin.roles r ON ur.role_id = r.id
         WHERE ur.user_id = $1 AND r.has_global_access = true
         LIMIT 1
-    `, [userId])) as { role_name: string }[]
+    `,
+        [userId]
+    )) as { role_name: string }[]
     return result[0]?.role_name ?? null
 }

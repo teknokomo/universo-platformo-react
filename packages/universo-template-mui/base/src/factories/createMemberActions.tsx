@@ -202,16 +202,32 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
                     return { default: module.MemberFormDialog }
                 },
                 buildProps: (ctx: MemberActionContext) => {
-                    // Build role labels - either from static config or via translation
-                    const roles = availableRoles || ['admin', 'editor', 'member']
-                    const roleLabels: Record<string, string> = staticRoleLabels
-                        ? { ...staticRoleLabels }
-                        : roles.reduce((acc, role) => {
-                              // Use roleLabelsKey pattern: 'roles:{role}' -> 'roles:admin', 'roles:superadmin', etc.
-                              const key = roleLabelsKey.replace('{role}', role)
-                              acc[role] = ctx.t(key, role)
-                              return acc
-                          }, {} as Record<string, string>)
+                    // Support dynamic roles from context (e.g., loaded from database)
+                    // Priority: ctx.meta?.dynamicRoles > config.availableRoles > default
+                    const dynamicRoles = ctx.meta?.dynamicRoles as string[] | undefined
+                    const dynamicRoleLabels = ctx.meta?.dynamicRoleLabels as Record<string, string> | undefined
+
+                    const roles = dynamicRoles || availableRoles || ['admin', 'editor', 'member']
+
+                    // Build role labels: prefer dynamic labels from context, then static config, then translate
+                    let roleLabels: Record<string, string>
+                    if (dynamicRoleLabels) {
+                        roleLabels = { ...dynamicRoleLabels }
+                    } else if (staticRoleLabels) {
+                        // Filter out undefined values from Partial<Record<MemberRole, string>>
+                        roleLabels = Object.fromEntries(
+                            Object.entries(staticRoleLabels).filter((entry): entry is [string, string] => entry[1] !== undefined)
+                        )
+                    } else {
+                        // Build labels from translations
+                        const labels: Record<string, string> = {}
+                        for (const role of roles) {
+                            const key = roleLabelsKey.replace('{role}', role)
+                            const translated = ctx.t(key)
+                            labels[role] = typeof translated === 'string' ? translated : role
+                        }
+                        roleLabels = labels
+                    }
 
                     return {
                         open: true,
@@ -225,7 +241,7 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
                         saveButtonText: ctx.t('common:actions.save'),
                         savingButtonText: ctx.t('common:actions.saving'),
                         cancelButtonText: ctx.t('common:actions.cancel'),
-                        ...(availableRoles && { availableRoles }),
+                        availableRoles: roles,
                         roleLabels,
                         ...getInitialFormData(ctx.entity),
                         onClose: () => {
