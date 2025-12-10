@@ -5,15 +5,19 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * Creates the complete admin schema with:
  * - instances: Platform instances (Local, remote future)
- * - roles: System and custom roles with metadata (display_name, color, has_global_access)
+ * - roles: System and custom roles with metadata (display_name, color, is_superuser)
  * - role_permissions: Permission assignments with wildcard support
  * - user_roles: User-to-role assignments
  * - PostgreSQL functions for permission checking (CASL integration)
  * - RLS policies for security
  *
  * System roles created:
- * - superadmin: Full platform access (* → *)
- * - supermoderator: Platform-wide moderation (read, update, delete)
+ * - superuser: Full platform access with bypass (* → *), is_superuser = true
+ *
+ * Architecture:
+ * - is_superuser: Grants full bypass of all permission checks (only for superuser role)
+ * - Admin access: Computed from permissions (roles:read, instances:read, or users:read grants admin panel access)
+ * - permissions: Granular CRUD permissions on modules (e.g., metaverses:*, settings:showAllItems)
  *
  * Default instances:
  * - Local: Current installation (pre-seeded)
@@ -55,7 +59,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
                 description TEXT,
                 display_name JSONB DEFAULT '{}',
                 color VARCHAR(7) DEFAULT '#9e9e9e',
-                has_global_access BOOLEAN DEFAULT false,
+                is_superuser BOOLEAN DEFAULT false,
                 is_system BOOLEAN DEFAULT false,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -69,12 +73,12 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             CREATE TABLE IF NOT EXISTS admin.role_permissions (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 role_id UUID NOT NULL REFERENCES admin.roles(id) ON DELETE CASCADE,
-                module VARCHAR(100) NOT NULL,
+                subject VARCHAR(100) NOT NULL,
                 action VARCHAR(20) NOT NULL,
                 conditions JSONB DEFAULT '{}',
                 fields TEXT[] DEFAULT ARRAY[]::TEXT[],
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                UNIQUE(role_id, module, action)
+                UNIQUE(role_id, subject, action)
             )
         `)
 
@@ -105,8 +109,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             ON admin.role_permissions(role_id)
         `)
         await queryRunner.query(`
-            CREATE INDEX IF NOT EXISTS idx_roles_has_global_access 
-            ON admin.roles(has_global_access) WHERE has_global_access = true
+            CREATE INDEX IF NOT EXISTS idx_roles_is_superuser 
+            ON admin.roles(is_superuser) WHERE is_superuser = true
         `)
         // GIN index for efficient JSONB search on display_name
         await queryRunner.query(`
@@ -118,43 +122,27 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // 7. CREATE SYSTEM ROLES WITH METADATA
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
-            INSERT INTO admin.roles (name, description, display_name, color, has_global_access, is_system)
+            INSERT INTO admin.roles (name, description, display_name, color, is_superuser, is_system)
             VALUES
                 (
-                    'superadmin',
-                    'Full platform access - all modules, all actions',
-                    '{"en": "Super Administrator", "ru": "Суперадминистратор"}'::jsonb,
-                    '#ad1457',
-                    true,
-                    true
-                ),
-                (
-                    'supermoderator',
-                    'Platform-wide moderation - read, update, delete all',
-                    '{"en": "Super Moderator", "ru": "Супермодератор"}'::jsonb,
-                    '#e65100',
+                    'superuser',
+                    'Full platform access with permission bypass - root user',
+                    '{"en": "Super User", "ru": "Суперпользователь"}'::jsonb,
+                    '#d32f2f',
                     true,
                     true
                 )
             ON CONFLICT (name) DO UPDATE SET
                 display_name = EXCLUDED.display_name,
                 color = EXCLUDED.color,
-                has_global_access = EXCLUDED.has_global_access
+                is_superuser = EXCLUDED.is_superuser
         `)
 
-        // Superadmin: * → * (everything)
+        // Superuser: * → * (everything, but this is mainly for UI/documentation - bypass is in code)
         await queryRunner.query(`
-            INSERT INTO admin.role_permissions (role_id, module, action)
-            SELECT id, '*', '*' FROM admin.roles WHERE name = 'superadmin'
-            ON CONFLICT (role_id, module, action) DO NOTHING
-        `)
-
-        // Supermoderator: * → read, update, delete (no create)
-        await queryRunner.query(`
-            INSERT INTO admin.role_permissions (role_id, module, action)
-            SELECT id, '*', unnest(ARRAY['read', 'update', 'delete'])
-            FROM admin.roles WHERE name = 'supermoderator'
-            ON CONFLICT (role_id, module, action) DO NOTHING
+            INSERT INTO admin.role_permissions (role_id, subject, action)
+            SELECT id, '*', '*' FROM admin.roles WHERE name = 'superuser'
+            ON CONFLICT (role_id, subject, action) DO NOTHING
         `)
 
         // ═══════════════════════════════════════════════════════════════
@@ -165,7 +153,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.has_permission(
                 p_user_id UUID DEFAULT NULL,
-                p_module TEXT DEFAULT '*',
+                p_subject TEXT DEFAULT '*',
                 p_action TEXT DEFAULT '*',
                 p_context JSONB DEFAULT '{}'
             ) RETURNS BOOLEAN AS $$
@@ -180,7 +168,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
                     FROM admin.user_roles ur
                     JOIN admin.role_permissions rp ON ur.role_id = rp.role_id
                     WHERE ur.user_id = v_user_id
-                      AND (rp.module = '*' OR rp.module = p_module)
+                      AND (rp.subject = '*' OR rp.subject = p_subject)
                       AND (rp.action = '*' OR rp.action = p_action)
                 );
             END;
@@ -196,8 +184,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
                 role_name VARCHAR,
                 display_name JSONB,
                 color VARCHAR,
-                has_global_access BOOLEAN,
-                module VARCHAR,
+                is_superuser BOOLEAN,
+                subject VARCHAR,
                 action VARCHAR,
                 conditions JSONB,
                 fields TEXT[]
@@ -208,8 +196,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
                     r.name,
                     r.display_name,
                     r.color,
-                    r.has_global_access,
-                    rp.module,
+                    r.is_superuser,
+                    rp.subject,
                     rp.action,
                     rp.conditions,
                     rp.fields
@@ -222,11 +210,12 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 10. has_global_access FUNCTION
+        // 10. is_superuser FUNCTION
+        // Checks if user has is_superuser = true role (full bypass)
         // Uses SECURITY DEFINER to bypass RLS when checking user roles
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
-            CREATE OR REPLACE FUNCTION admin.has_global_access(p_user_id UUID DEFAULT NULL)
+            CREATE OR REPLACE FUNCTION admin.is_superuser(p_user_id UUID DEFAULT NULL)
             RETURNS BOOLEAN AS $$
             DECLARE
                 v_user_id UUID;
@@ -239,14 +228,42 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
                     FROM admin.user_roles ur
                     JOIN admin.roles r ON ur.role_id = r.id
                     WHERE ur.user_id = v_user_id
-                      AND r.has_global_access = true
+                      AND r.is_superuser = true
                 );
             END;
             $$ LANGUAGE plpgsql SECURITY DEFINER STABLE
         `)
 
         // ═══════════════════════════════════════════════════════════════
-        // 11. get_user_global_roles FUNCTION
+        // 11. has_admin_permission FUNCTION
+        // Checks if user can access /admin/* panel
+        // True if user has any permission on roles, instances, or users modules (with read or wildcard action)
+        // Uses SECURITY DEFINER to bypass RLS when checking user roles
+        // ═══════════════════════════════════════════════════════════════
+        await queryRunner.query(`
+            CREATE OR REPLACE FUNCTION admin.has_admin_permission(p_user_id UUID DEFAULT NULL)
+            RETURNS BOOLEAN AS $$
+            DECLARE
+                v_user_id UUID;
+            BEGIN
+                v_user_id := COALESCE(p_user_id, auth.uid());
+                IF v_user_id IS NULL THEN RETURN FALSE; END IF;
+                
+                RETURN EXISTS (
+                    SELECT 1 
+                    FROM admin.user_roles ur
+                    JOIN admin.role_permissions rp ON ur.role_id = rp.role_id
+                    WHERE ur.user_id = v_user_id
+                      AND (rp.subject = '*' OR rp.subject IN ('roles', 'instances', 'users'))
+                      AND (rp.action = 'read' OR rp.action = '*')
+                );
+            END;
+            $$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+        `)
+
+        // ═══════════════════════════════════════════════════════════════
+        // 12. get_user_global_roles FUNCTION
+        // Returns all roles for a user (not filtered by admin access)
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.get_user_global_roles(p_user_id UUID)
@@ -263,8 +280,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
                     r.color
                 FROM admin.user_roles ur
                 JOIN admin.roles r ON ur.role_id = r.id
-                WHERE ur.user_id = p_user_id
-                  AND r.has_global_access = true;
+                WHERE ur.user_id = p_user_id;
             END;
             $$ LANGUAGE plpgsql SECURITY DEFINER STABLE
         `)
@@ -281,13 +297,13 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // 13. RLS POLICIES
         // ═══════════════════════════════════════════════════════════════
         // Drop existing policies if they exist (for idempotent migration)
-        await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_roles" ON admin.roles`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_role_permissions" ON admin.role_permissions`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_user_roles" ON admin.user_roles`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_roles" ON admin.roles`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_role_permissions" ON admin.role_permissions`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_user_roles" ON admin.user_roles`)
         await queryRunner.query(`DROP POLICY IF EXISTS "users_read_own_roles" ON admin.user_roles`)
         await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_roles" ON admin.roles`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_global_access" ON admin.instances`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_global_access" ON admin.instances`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_admin_access" ON admin.instances`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_admin_access" ON admin.instances`)
 
         // Allow authenticated users to read roles table (needed for UI to show role names)
         await queryRunner.query(`
@@ -295,18 +311,18 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             FOR SELECT USING (true)
         `)
 
-        // Only users with global access can manage (INSERT, UPDATE, DELETE) roles
+        // Only users with admin access can manage (INSERT, UPDATE, DELETE) roles
         await queryRunner.query(`
-            CREATE POLICY "global_access_manage_roles" ON admin.roles
+            CREATE POLICY "admin_access_manage_roles" ON admin.roles
             FOR ALL USING (
-                admin.has_global_access(auth.uid())
+                admin.has_admin_permission(auth.uid())
             )
         `)
 
         await queryRunner.query(`
-            CREATE POLICY "global_access_manage_role_permissions" ON admin.role_permissions
+            CREATE POLICY "admin_access_manage_role_permissions" ON admin.role_permissions
             FOR ALL USING (
-                admin.has_global_access(auth.uid())
+                admin.has_admin_permission(auth.uid())
             )
         `)
 
@@ -316,27 +332,27 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             FOR SELECT USING (user_id = auth.uid())
         `)
 
-        // Only users with global access can manage (INSERT, UPDATE, DELETE) user_roles
+        // Only users with admin access can manage (INSERT, UPDATE, DELETE) user_roles
         await queryRunner.query(`
-            CREATE POLICY "global_access_manage_user_roles" ON admin.user_roles
+            CREATE POLICY "admin_access_manage_user_roles" ON admin.user_roles
             FOR ALL USING (
-                admin.has_global_access(auth.uid())
+                admin.has_admin_permission(auth.uid())
             )
         `)
 
-        // Users with global access can read instances
+        // Users with admin access can read instances
         await queryRunner.query(`
-            CREATE POLICY "instances_select_global_access" ON admin.instances
+            CREATE POLICY "instances_select_admin_access" ON admin.instances
             FOR SELECT USING (
-                admin.has_global_access(auth.uid())
+                admin.has_admin_permission(auth.uid())
             )
         `)
 
-        // Users with global access can manage instances
+        // Users with admin access can manage instances
         await queryRunner.query(`
-            CREATE POLICY "instances_manage_global_access" ON admin.instances
+            CREATE POLICY "instances_manage_admin_access" ON admin.instances
             FOR ALL USING (
-                admin.has_global_access(auth.uid())
+                admin.has_admin_permission(auth.uid())
             )
         `)
 
@@ -358,17 +374,18 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Drop policies
-        await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_global_access" ON admin.instances`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_global_access" ON admin.instances`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_manage_admin_access" ON admin.instances`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "instances_select_admin_access" ON admin.instances`)
         await queryRunner.query(`DROP POLICY IF EXISTS "users_read_own_roles" ON admin.user_roles`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_user_roles" ON admin.user_roles`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_role_permissions" ON admin.role_permissions`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_user_roles" ON admin.user_roles`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_role_permissions" ON admin.role_permissions`)
         await queryRunner.query(`DROP POLICY IF EXISTS "authenticated_read_roles" ON admin.roles`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "global_access_manage_roles" ON admin.roles`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "admin_access_manage_roles" ON admin.roles`)
 
         // Drop functions
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.get_user_global_roles(UUID)`)
-        await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_global_access(UUID)`)
+        await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_admin_permission(UUID)`)
+        await queryRunner.query(`DROP FUNCTION IF EXISTS admin.is_superuser(UUID)`)
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.get_user_permissions(UUID)`)
         await queryRunner.query(`DROP FUNCTION IF EXISTS admin.has_permission(UUID, TEXT, TEXT, JSONB)`)
 

@@ -16,7 +16,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * - sections_metaverses: Many-to-many junction table
  *
  * IMPORTANT: This migration must run AFTER admin.CreateAdminRBAC (1733400000000)
- * which creates the admin schema and has_global_access() function.
+ * which creates the admin schema and is_superuser() function.
  */
 export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
     name = 'CreateMetaversesSchema1733600000000'
@@ -177,11 +177,11 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
             FOR ALL
             USING (
                 user_id = auth.uid() 
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 user_id = auth.uid()
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 
@@ -194,14 +194,14 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     SELECT 1 FROM metaverses.metaverses_users cu
                     WHERE cu.metaverse_id = metaverses.metaverses.id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 EXISTS (
                     SELECT 1 FROM metaverses.metaverses_users cu
                     WHERE cu.metaverse_id = metaverses.metaverses.id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 
@@ -215,7 +215,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     JOIN metaverses.metaverses_users cu ON dc.metaverse_id = cu.metaverse_id
                     WHERE dc.section_id = metaverses.sections.id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 EXISTS (
@@ -223,7 +223,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     JOIN metaverses.metaverses_users cu ON dc.metaverse_id = cu.metaverse_id
                     WHERE dc.section_id = metaverses.sections.id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 
@@ -237,7 +237,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     JOIN metaverses.metaverses_users cu ON rc.metaverse_id = cu.metaverse_id
                     WHERE rc.entity_id = metaverses.entities.id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 EXISTS (
@@ -245,7 +245,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     JOIN metaverses.metaverses_users cu ON rc.metaverse_id = cu.metaverse_id
                     WHERE rc.entity_id = metaverses.entities.id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 
@@ -259,7 +259,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     JOIN metaverses.metaverses_users cu ON rc.metaverse_id = cu.metaverse_id
                     WHERE rc.entity_id = metaverses.entities_sections.entity_id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 EXISTS (
@@ -267,7 +267,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     JOIN metaverses.metaverses_users cu ON rc.metaverse_id = cu.metaverse_id
                     WHERE rc.entity_id = metaverses.entities_sections.entity_id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 
@@ -280,14 +280,14 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     SELECT 1 FROM metaverses.metaverses_users cu
                     WHERE cu.metaverse_id = metaverses.sections_metaverses.metaverse_id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 EXISTS (
                     SELECT 1 FROM metaverses.metaverses_users cu
                     WHERE cu.metaverse_id = metaverses.sections_metaverses.metaverse_id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 
@@ -300,14 +300,14 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
                     SELECT 1 FROM metaverses.metaverses_users cu
                     WHERE cu.metaverse_id = metaverses.entities_metaverses.metaverse_id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
             WITH CHECK (
                 EXISTS (
                     SELECT 1 FROM metaverses.metaverses_users cu
                     WHERE cu.metaverse_id = metaverses.entities_metaverses.metaverse_id AND cu.user_id = auth.uid()
                 )
-                OR admin.has_global_access(auth.uid())
+                OR admin.is_superuser(auth.uid())
             )
         `)
 

@@ -59,11 +59,7 @@ export interface AdminGuardProps {
  * </AdminGuard>
  * ```
  */
-export const AdminGuard: React.FC<AdminGuardProps> = ({
-    children,
-    authRedirectTo = '/auth',
-    accessDeniedRedirectTo = '/'
-}) => {
+export const AdminGuard: React.FC<AdminGuardProps> = ({ children, authRedirectTo = '/auth', accessDeniedRedirectTo = '/' }) => {
     const { isAuthenticated, loading: authLoading } = useAuth()
     const { canAccessAdminPanel, loading: accessLoading } = useHasGlobalAccess()
     const location = useLocation()

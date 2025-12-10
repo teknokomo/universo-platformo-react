@@ -1,6 +1,6 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import type { BaseMemberEntity } from '@universo/types'
+import type { BaseMemberEntity, DynamicMemberEntity, AnyMemberEntity } from '@universo/types'
 import type { ActionDescriptor, ActionContext } from '../components/menu'
 
 /**
@@ -14,9 +14,13 @@ export interface MemberFormData {
 
 /**
  * Configuration for member management actions (edit, remove)
- * Used across different modules: Metaverses, Uniks, Finances, Projects
+ * Used across different modules: Metaverses, Uniks, Finances, Projects, Admin
+ *
+ * Supports two types of member entities:
+ * - BaseMemberEntity: static roles (owner, admin, editor, member)
+ * - DynamicMemberEntity: dynamic roles loaded from database (roleName field)
  */
-export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
+export interface MemberActionsConfig<TMember extends AnyMemberEntity> {
     /**
      * i18n namespace prefix for translation keys
      * @example 'metaverses' → uses 'metaverses.members.editTitle', 'metaverses.members.confirmRemove'
@@ -25,7 +29,7 @@ export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
 
     /**
      * Entity type name for logging purposes
-     * @example 'metaverse', 'unik', 'project'
+     * @example 'metaverse', 'unik', 'project', 'global-user'
      */
     entityType: string
 
@@ -58,7 +62,8 @@ export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
 
     /**
      * Extract initial form data for edit dialog
-     * @default (member) => ({ email: member.email || '', role: member.role, comment: member.comment || '' })
+     * Must be provided for DynamicMemberEntity (which uses roleName instead of role)
+     * @default For BaseMemberEntity: (member) => ({ email: member.email || '', role: member.role, comment: member.comment || '' })
      */
     getInitialFormData?: (member: TMember) => {
         initialEmail: string
@@ -152,8 +157,22 @@ export function notifyMemberError(t: (key: string, defaultValue?: string) => str
  *   }
  * })
  * ```
+ *
+ * @example Dynamic roles (Admin module with GlobalUserMember)
+ * ```typescript
+ * export default createMemberActions<GlobalUserMember>({
+ *   i18nPrefix: 'admin',
+ *   entityType: 'global-user',
+ *   getMemberId: (member) => member.id,
+ *   getInitialFormData: (member) => ({
+ *     initialEmail: member.email || '',
+ *     initialRole: member.roleName, // Use roleName for dynamic roles
+ *     initialComment: member.comment || ''
+ *   })
+ * })
+ * ```
  */
-export function createMemberActions<TMember extends BaseMemberEntity>(
+export function createMemberActions<TMember extends AnyMemberEntity>(
     config: MemberActionsConfig<TMember>
 ): readonly ActionDescriptor<TMember, MemberFormData>[] {
     const {
@@ -165,9 +184,10 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
         roleLabelsKey = 'roles:{role}',
         getMemberEmail = (member) => member.email || '',
         getMemberId = (member) => member.id,
+        // Default extractor works for BaseMemberEntity; DynamicMemberEntity users must provide custom
         getInitialFormData = (member) => ({
             initialEmail: member.email || '',
-            initialRole: member.role,
+            initialRole: 'role' in member ? (member as BaseMemberEntity).role : (member as DynamicMemberEntity).roleName,
             initialComment: member.comment || ''
         })
     } = config

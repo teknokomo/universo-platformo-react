@@ -129,7 +129,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                 userId,
                 permissionsCount: fullPermissions.permissions.length,
                 globalRolesCount: fullPermissions.globalRoles.length,
-                hasGlobalAccess: fullPermissions.hasGlobalAccess
+                hasAdminAccess: fullPermissions.hasAdminAccess
             })
 
             return res.json(fullPermissions)

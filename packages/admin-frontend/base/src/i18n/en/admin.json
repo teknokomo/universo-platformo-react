@@ -50,6 +50,16 @@
                 "interval": "With permissions",
                 "description": "Users with global access"
             },
+            "superusers": {
+                "title": "Superusers",
+                "interval": "With global roles",
+                "description": "Users with admin access"
+            },
+            "roles": {
+                "title": "Roles",
+                "interval": "System + custom",
+                "description": "Permission roles"
+            },
             "superadmins": {
                 "title": "Superadmins",
                 "interval": "Full access",
@@ -98,6 +108,23 @@
         "selfActionWarning": "Cannot modify your own access",
         "confirmRemove": "Remove global access?",
         "confirmRemoveDescription": "Remove global access for {{email}}?"
+    },
+    "users": {
+        "title": "Users Management",
+        "loading": "Loading...",
+        "instanceNotFound": "Instance not found",
+        "addUser": "Add User",
+        "searchPlaceholder": "Search by email or nickname...",
+        "noUsersFound": "No users found",
+        "tryAdjustFilters": "Try adjusting your filters",
+        "filters": {
+            "role": "Role",
+            "allRoles": "All Roles",
+            "accessType": "Access Type",
+            "allUsers": "All Users",
+            "globalOnly": "Global Access Only",
+            "noGlobal": "No Global Access"
+        }
     },
     "roles": {
         "superadmin": "Superadmin",
@@ -156,8 +183,15 @@
             "displayNameEn": "Name (English)",
             "displayNameRu": "Name (Russian)",
             "description": "Description",
-            "hasGlobalAccess": "Has Global Access",
-            "hasGlobalAccessHint": "Enable to make this role available when assigning superusers. Users with this role can manage platform-wide settings"
+            "isSuperuser": "Superuser Access",
+            "isSuperuserHint": "Full platform access with permission bypass - root user. System roles have this enabled permanently",
+            "canAccessAdmin": "Admin Panel Access",
+            "canAccessAdminHint": "Allow users with this role to access the admin panel and manage platform-wide settings",
+            "adminAccessInfo": "Admin panel access is automatically granted when users have permissions for roles, instances, or users subjects (with read or wildcard action).",
+            "adminAccessInfoShort": "Automatic admin access from permissions"
+        },
+        "section": {
+            "accessSettings": "Access Settings"
         },
         "validation": {
             "nameRequired": "Name is required",
@@ -174,11 +208,11 @@
         "permissions": {
             "selectAll": "Grant all permissions",
             "fullAccess": "Full Access",
-            "module": "Module",
+            "subject": "Subject",
             "toggleColumnHint": "Click to toggle all",
-            "allActionsHint": "All actions for module",
+            "allActionsHint": "All actions for subject",
             "hint": "Check individual cells or use row/column headers for bulk selection. \"*\" means all actions.",
-            "modules": {
+            "subjects": {
                 "metaverses": "Metaverses",
                 "clusters": "Clusters",
                 "projects": "Projects",
@@ -191,7 +225,10 @@
                 "entities": "Entities",
                 "canvases": "Canvases",
                 "publications": "Publications",
-                "admin": "Administration"
+                "admin": "Administration",
+                "roles": "Roles",
+                "instances": "Instances",
+                "users": "Users"
             },
             "actions": {
                 "create": "Create",

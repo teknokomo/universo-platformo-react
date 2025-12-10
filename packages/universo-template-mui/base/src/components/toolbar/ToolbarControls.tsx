@@ -13,7 +13,7 @@ export interface ToolbarControlsProps {
     viewToggleEnabled?: boolean
     viewMode?: ViewMode
     onViewModeChange?: (mode: ViewMode) => void
-    /** Show settings button (only visible for superadmin/supermoderator) */
+    /** Show settings button (only visible for superuser) */
     settingsEnabled?: boolean
     primaryAction?: { label: string; onClick: () => void; disabled?: boolean; startIcon?: React.ReactNode }
     cardViewTitle?: string
@@ -42,12 +42,13 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
 }) => {
     const theme = useTheme()
     const { t } = useTranslation()
-    // hasGlobalAccess = user has superadmin/supermoderator role
-    const { hasGlobalAccess } = useHasGlobalAccess()
+    // isSuperuser = user has is_superuser=true role (full bypass)
+    // hasAnyGlobalRole = user has any global role (metaeditor, etc.)
+    const { isSuperuser, hasAnyGlobalRole } = useHasGlobalAccess()
     const [settingsOpen, setSettingsOpen] = useState(false)
 
-    // Only show settings button if enabled AND user is superuser
-    const showSettingsButton = settingsEnabled && hasGlobalAccess
+    // Show settings button if enabled AND (user is superuser OR has any global role)
+    const showSettingsButton = settingsEnabled && (isSuperuser || hasAnyGlobalRole)
 
     return (
         <>

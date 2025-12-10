@@ -56,7 +56,7 @@ export const rolesQueryKeys = {
     // Roles list with pagination params
     list: (params?: RolesListParams) => [...rolesQueryKeys.all, 'list', params] as const,
 
-    // Roles assignable to global users (has_global_access = true)
+    // Roles assignable to global users (is_superuser = true)
     assignable: () => [...rolesQueryKeys.all, 'assignable'] as const,
 
     // Role detail

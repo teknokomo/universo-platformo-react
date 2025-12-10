@@ -10,18 +10,19 @@
 
 | Release | Date | Codename | Highlights |
 |---------|------|----------|------------|
-| 0.39.0-alpha | 2025-11-26 | Mighty Campaign 🧙🏿 | Campaigns module, package extractions (7 packages), QA fixes |
-| 0.38.0-alpha | 2025-11-22 | Secret Organization 🥷 | Organizations module, Projects management, AR.js Quiz Nodes, Member i18n refactor |
-| 0.37.0-alpha | 2025-11-14 | Smooth Horizons 🌅 | REST API docs refactoring, Uniks metrics update, UnikBoard expansion, Clusters breadcrumbs |
-| 0.36.0-alpha | 2025-11-07 | Revolutionary indicators 📈 | Date formatting migration to dayjs, TypeScript refactor, publish-frontend architecture improvements, Dashboard analytics charts |
-| 0.35.0-alpha | 2025-10-30 | Bold Steps 💃 | i18n refactoring migration, TypeScript type safety, Rate limiting with Redis, RLS integration analysis |
-| 0.34.0-alpha | 2025-10-23 | Black Hole ☕️ | Global monorepo refactoring: restructure packages, implement tsdown, centralize dependencies |
-| 0.33.0-alpha | 2025-10-16 | School Test 💼 | Publication System fixes (429 errors, API modernization), Metaverses module architecture refactoring, Quiz timer feature |
-| 0.32.0-alpha | 2025-10-09 | Straight Path 🛴 | Canvas version metadata editing, Chatflow→Canvas terminology refactoring, Opt-in PostHog telemetry, Metaverses pagination |
-| 0.31.0-alpha | 2025-10-02 | Victory Versions 🏆 | Manual quiz editing workflow, Unik deletion cascade fixes, Space Builder modes, Material-UI template system |
-| 0.30.0-alpha | 2025-09-21 | New Doors 🚪 | TypeScript path aliases standardization, Global publication library management, Analytics hierarchical selectors |
-| 0.29.0-alpha | 2025-09-15 | Cluster Backpack 🎒 | Resources/Entities cluster isolation architecture, i18n docs consistency checker, GitHub Copilot modes |
-| 0.28.0-alpha | 2025-09-07 | Orbital Switch 🥨 | Metaverses dashboard, Universal List Pattern |
+| 0.40.0-alpha | 2025-12-06 | Straight Rows 🎹 | Tools, Credentials, Variables, ApiKey, Assistants, Leads, ChatMessage, DocumentStore, CustomTemplates extraction (9 packages), Canvases migrations consolidation, Admin Instances MVP, RBAC Global Roles |
+| 0.39.0-alpha | 2025-11-26 | Mighty Campaign 🧙🏿 | Campaigns module, Storages module, useMutation refactor (7 packages), QA fixes |
+| 0.38.0-alpha | 2025-11-22 | Secret Organization 🥷 | Organizations module, Projects management system, AR.js Quiz Nodes, Member i18n refactor |
+| 0.37.0-alpha | 2025-11-14 | Smooth Horizons 🌅 | REST API docs refactoring (OpenAPI 3.1), Uniks metrics update, UnikBoard 7 metrics, Clusters breadcrumbs |
+| 0.36.0-alpha | 2025-11-07 | Revolutionary indicators 📈 | Date formatting migration to dayjs, TypeScript refactor, publish-frontend architecture, Dashboard analytics charts |
+| 0.35.0-alpha | 2025-10-30 | Bold Steps 💃 | i18n TypeScript migration, Type safety improvements, Rate limiting with Redis, RLS integration analysis |
+| 0.34.0-alpha | 2025-10-23 | Black Hole ☕️ | Global monorepo refactoring, tsdown build system, dependencies centralization |
+| 0.33.0-alpha | 2025-10-16 | School Test 💼 | Publication System 429 fixes, API modernization, Metaverses refactoring, Quiz timer |
+| 0.32.0-alpha | 2025-10-09 | Straight Path 🛴 | Canvas versioning, Chatflow→Canvas terminology, PostHog telemetry, Metaverses pagination |
+| 0.31.0-alpha | 2025-10-02 | Victory Versions 🏆 | Manual quiz editing, Unik deletion cascade, Space Builder modes, Material-UI template |
+| 0.30.0-alpha | 2025-09-21 | New Doors 🚪 | TypeScript path aliases, Global publication library, Analytics selectors |
+| 0.29.0-alpha | 2025-09-15 | Cluster Backpack 🎒 | Cluster isolation architecture, i18n docs checker, GitHub Copilot modes |
+| 0.28.0-alpha | 2025-09-07 | Orbital Switch �� | Metaverses dashboard, Universal List Pattern |
 | 0.27.0-alpha | 2025-08-31 | Stable Takeoff 🐣 | Language switcher, MMOOMM template, Finance module |
 | 0.26.0-alpha | 2025-08-24 | Slow Colossus 🐌 | MMOOMM modular package, Multiplayer Colyseus server |
 | 0.25.0-alpha | 2025-08-17 | Gentle Memory 😼 | Space Builder MVP, Metaverse module, @universo/types |
@@ -30,1477 +31,310 @@
 
 ## December 2025
 
-### 2025-12-08: Dynamic Role Dropdown for Global Users ✅
+### 2025-12-10: Legacy Code Cleanup ✅
 
-**Goal**: Replace hardcoded role dropdown `['superadmin', 'supermoderator']` with dynamic roles loaded from database (roles with `hasGlobalAccess: true`).
+**Context**: Post-RBAC cleanup - fixed outdated comments and legacy naming conventions.
 
-**Problem**: User created role "Метаредактор" with global access, but it didn't appear in role dropdown when adding users to Global Access or Instance Access.
+**Changes**: Updated 4 files in admin-frontend (`has_global_access = true` → `is_superuser = true` in comments), updated systemPatterns.md (removed deleted SQL function reference), enhanced deprecation warning in `adminConfig.ts`.
 
-**Solution Architecture**:
-1. **Backend**: New endpoint `GET /api/v1/admin/roles/assignable` returns roles with `has_global_access: true`
-2. **Types**: New `GlobalAssignableRole` interface in `@universo/types` for API response
-3. **Frontend Hook**: `useAssignableGlobalRoles` fetches and transforms roles for dropdown
-4. **Dynamic Context**: `createMemberActions` factory now supports `ctx.meta.dynamicRoles` for runtime role injection
-5. **Cache Invalidation**: Role CRUD operations invalidate assignable roles cache
-
-**Technical Implementation**:
-- Zod schema changed from `z.enum(ALL_MEMBER_ROLES)` to `z.string().min(1)` for flexible validation
-- React Query with `staleTime: 5 * 60 * 1000` for caching
-- Localized role names from `displayName` JSON column
-
-**Files Modified**:
-| Package | File | Change |
-|---------|------|--------|
-| admin-backend | `routes/rolesRoutes.ts` | New `/assignable` endpoint |
-| admin-frontend | `api/rolesApi.ts` | `getAssignableRoles()` method |
-| admin-frontend | `api/queryKeys.ts` | `assignable()` query key |
-| admin-frontend | `hooks/useAssignableGlobalRoles.ts` | New hook (created) |
-| admin-frontend | `pages/AdminAccess.tsx` | Uses dynamic roles in dropdown + context |
-| admin-frontend | `pages/InstanceAccess.tsx` | Uses dynamic roles in dropdown + context |
-| admin-frontend | `pages/MemberActions.tsx` | Removed hardcoded roles |
-| admin-frontend | `pages/RoleEdit.tsx` | Cache invalidation |
-| admin-frontend | `pages/RolesList.tsx` | Cache invalidation |
-| universo-template-mui | `factories/createMemberActions.tsx` | `ctx.meta.dynamicRoles` support |
-| universo-types | `validation/member.ts` | `GlobalAssignableRole` interface |
-
-**Build Verification**: 52/52 packages successful
+**Files**: 6 files modified (admin-frontend, universo-utils, memory-bank)
 
 ---
 
-### 2025-12-08: Role Creation UX Fix ✅
+### 2025-12-09: Global Roles Access Implementation ✅
 
-**Goal**: Fix role creation flow - navigate to RoleEdit page instead of using EntityFormDialog.
+**Summary**: Fixed architecture separating `hasAdminAccess` (admin panel) from `hasGlobalSubjectAccess` (view all data). Users with subject-specific permissions (e.g., `metaverses:*`) can now access all items of permitted subjects.
 
-**Root Cause**: 400 Bad Request when creating roles because `EntityFormDialog` only collects `name`/`description`, but backend `CreateRoleSchema` requires `permissions[].min(1)` among other fields.
+**Key Fixes**: (1) Guard bypass - `ensureMetaverseAccess` checks global permissions before membership, (2) Legacy SQL - replaced `admin.has_global_access()` → `admin.is_superuser()`, (3) Sections dropdown context-awareness.
 
-**Solution Applied**:
-- Changed `handleAddNew` in `RolesList.tsx` to navigate to `/admin/instance/${instanceId}/roles/new`
-- Removed `EntityFormDialog` usage (suitable only for simple entities like Campaign, Organization)
-- `RoleEdit` already supports create mode with full form (displayName, color, permissions matrix)
-
-**Files Modified**:
-- `packages/admin-frontend/base/src/pages/RolesList.tsx`
-
-**Build Verification**: 52/52 packages successful
+**Modified**: 13 files (metaverses-backend, metaverses-frontend, auth-backend, flowise-store)
 
 ---
 
-## January 2025
+### 2025-12-08: CASL Standard Compliance ✅
 
-### 2025-01-17: RBAC Refactoring - Database-driven Permission Checks ✅
+**Goal**: Align permission system with CASL/Auth0/OWASP standards by renaming `module` → `subject`.
 
-**Goal**: Replace hardcoded `roleName !== 'superadmin'` check with database-driven CRUD permissions.
+**Changes**: 21 files - database migration (column rename, SQL functions), TypeScript types, backend services, frontend (PermissionMatrix 13 changes), i18n (EN/RU).
 
-**Root Cause**: 403 Forbidden when PATCH `/api/v1/admin/roles/:id` was caused by hardcoded check in `ensureGlobalAccess.ts` that ignored existing CASL/permissionService infrastructure.
+**Critical Bug Fixed**: TypeError in InstanceUsers.tsx - `queryKey` → `queryKeyFn` parameter mismatch.
 
-**Solution Applied**:
-- Refactored `ensureGlobalAccess` to use `permissionService.hasPermission(userId, module, action)`
-- Changed signature from `('view'|'manage')` to `(module: string, action: CrudAction)`
-- Added 'Role' and 'Instance' to CASL Subjects
-- Updated all admin routes to use new module:action pattern
-
-**Files Modified** (8 files):
-- `universo-types/abilities/index.ts`, `flowise-store/AbilityContextProvider.jsx`
-- `admin-backend/guards/ensureGlobalAccess.ts`, `admin-backend/routes/*.ts`
-- `flowise-core-backend/routes/index.ts`
-
-**Impact**:
-- supermoderator role with `roles:update` permission can now edit role displayName/description/color
-- Future roles can have granular CRUD permissions per module
-- All permission decisions from database via PostgreSQL `admin.has_permission()` function
-
-**Build**: 52/52 packages successful
+**Architecture**: `subject` field now used throughout (e.g., `roles:read`, `metaverses:*`).
 
 ---
 
-### 2025-01-17: RoleUsers usePaginated Pattern Alignment ✅
+### 2025-12-07: RBAC Architecture Cleanup ✅
 
-**Goal**: Align RoleUsers with MetaverseList/InstanceList patterns - server-side pagination.
+**Goal**: Remove `canAccessAdmin` flag redundancy - admin access now computed from RBAC permissions.
 
-**Issues Fixed**:
-1. **Client-side → Server-side pagination** with `usePaginated` hook from `@universo/template-mui`
-2. **`toLocaleDateString()` → `formatDate`** from `@universo/utils` (dayjs-based)
-3. **Missing PageSize selector** → `rowsPerPageOptions={[10, 20, 50, 100]}`
-4. **Search delay 300ms → 0** for instant search
-5. **Removed count text** below pagination (redundant with PaginationControls info)
+**Rule**: `IF user has READ permission on ANY of ['roles', 'instances', 'users'] THEN hasAdminAccess = true`
 
-**Backend Pattern Applied**:
-- Zod schema `RoleUsersQuerySchema` for query validation
-- `getManyAndCount()` for single efficient query
-- Search via EXISTS subquery (avoids cross-schema joins)
-- X-Pagination-* headers for response metadata
+**Changes**: 18 files - dropped database column, added SQL function `admin.has_admin_permission()`, updated frontend hooks/UI.
 
-**Frontend Pattern Applied**:
-- `usePaginated<RoleUser, 'email' | 'assigned_at'>` hook
-- `queryKeyFn` with normalized params (matching metaversesQueryKeys)
-- `useDebouncedSearch` with `delay: 0`
-- `PaginationControls` with `paginationResult.pagination/actions`
+---
+
+### 2025-12-07: Roles UI Unification ✅
+
+**Summary**: Refactored RolesList to use unified pattern (MetaverseList style) with card/table views, pagination, search, BaseEntityMenu.
+
+**Implementation**: Created RoleActions with `createEntityActions` factory, added direct exports to rolesApi, implemented full unified pattern with `usePaginated` hook.
+
+**Features**: Card view (color indicator, badges, permissions count), table view (FlowListTable), permission filtering, localStorage persistence.
+
+---
+
+### 2025-12-06: Admin Instances Module MVP ✅
+
+**Summary**: Created Instances management with single pre-seeded "Local" instance, simplified left menu, context menu inside instance.
+
+**Routes**: `/admin` (InstanceList), `/admin/instance/:id` (InstanceBoard), `/admin/instance/:id/access` (InstanceAccess).
+
+**Implementation**: Entity/migration, backend routes, frontend API/hooks/pages, navigation integration, i18n (EN/RU).
+
+---
+
+### 2025-12-05: Dynamic Global Roles System ✅
+
+**Goal**: Replace hardcoded `'superadmin' | 'supermoderator'` with dynamic database-driven roles.
+
+**Changes**: Added `display_name` (JSONB), `color`, `has_global_access` to `admin.roles`, created SQL functions `admin.has_global_access()`, `admin.get_user_global_roles()`, updated API endpoints with `roleMetadata`.
+
+**Frontend**: AbilityContextProvider provides `globalRoles`, `rolesMetadata`, `hasGlobalAccess`; RoleChip accepts `roleMetadata` for dynamic colors.
+
+---
+
+### 2025-12-04: User Settings System ✅
+
+**Goal**: Allow superadmin to toggle "show only my items" vs "show all items".
+
+**Implementation**: Backend (profile-backend with settings JSONB column, GET/PUT endpoints), Frontend (useUserSettings hook, SettingsDialog component), Route updates (showAll query parameter in metaverses, sections, entities).
+
+**Pattern**: `showAll=true` → LEFT JOIN, `showAll=false` → INNER JOIN (membership filter).
 
 **Build**: 52/52 packages ✅
 
 ---
 
-### 2025-01-16: RoleUsers TypeORM Refactoring ✅
-
-**Goal**: Refactor rolesRoutes.ts to use TypeORM Repository pattern instead of raw SQL.
-
-**Issues Fixed**:
-1. **Raw SQL Violation**: Replaced `ds.query()` calls with TypeORM Repository pattern following established organizationsRoutes.ts example
-2. **AuthUser Entity Extended**: Added status-related fields (raw_user_meta_data, confirmed_at, last_sign_in_at, banned_until) and computed getters (fullName, status)
-3. **Frontend Type Alignment**: Updated RoleUsers.tsx to use camelCase fields from rolesApi.ts
-4. **PaginationControls Fix**: Fixed prop names to match PaginationState/PaginationActions interfaces
-
-**Pattern Applied** (from rls-integration-pattern.md):
-```typescript
-// 1. Get UserRoles via TypeORM Repository
-const userRoles = await userRoleRepo.find({ where: { role_id: id } })
-// 2. Extract user IDs
-const userIds = userRoles.map((ur) => ur.user_id)
-// 3. Load AuthUser entities separately
-const authUsers = await authUserRepo.find({ where: { id: In(userIds) } })
-// 4. Map with computed status from AuthUser getter
-const users = userRoles.map((ur) => ({
-    status: authUser?.status ?? 'inactive'
-}))
-```
-
-**Files Modified**:
-- `packages/auth-backend/base/src/database/entities/AuthUser.ts`
-- `packages/admin-backend/base/src/routes/rolesRoutes.ts`
-- `packages/admin-frontend/base/src/api/rolesApi.ts`
-- `packages/admin-frontend/base/src/pages/RoleUsers.tsx`
-
-**Build Status**: 52/52 packages successful ✅
-
----
-
-### 2025-01-15: RoleUsers Page Redesign ✅
-
-**Goal**: Complete redesign of RoleUsers page with standard UI pattern and fix breadcrumbs instance name display.
-
-**Issues Fixed**:
-1. **Breadcrumbs Instance Name**: Fixed useInstanceName hook to parse `{ success: true, data: instance }` API response structure (same fix as useRoleName)
-2. **RoleUsers Complete UI Redesign**: Replaced basic table with full standard UI matching RolesList pattern
-3. **Dynamic User Status**: Backend now returns real user status (active/inactive/pending/banned) calculated from auth.users fields
-
-**Technical Details**:
-- Status SQL calculation: Uses `banned_until`, `confirmed_at`, `last_sign_in_at` fields
-- RoleUsers.tsx: Card/list views, search, pagination, StatusChip component, full i18n
-
-**Files Modified**:
-- `packages/universo-template-mui/base/src/hooks/useInstanceName.ts` (response parsing fix)
-- `packages/admin-frontend/base/i18n/en/admin.json` (roles.users.* i18n section)
-- `packages/admin-frontend/base/i18n/ru/admin.json` (roles.users.* i18n section)
-- `packages/admin-backend/base/src/routes/rolesRoutes.ts` (status calculation SQL)
-- `packages/admin-frontend/base/src/pages/RoleUsers.tsx` (complete UI redesign ~350 lines)
-
-**Build Status**: 52/52 packages successful
-
-### 2025-01-14: Roles UI Refinements ✅
-
-**Goal**: Fix 4 issues identified during QA testing after Roles UI unification.
-
-**Issues Fixed**:
-1. **Card Footer Icons → Chips**: Replaced raw icons with Chip components (matching table view pattern)
-2. **Menu Label Rename**: Changed "Доступ" → "Суперпользователи" for clarity
-3. **Breadcrumbs Missing**: Added roles/role/users segments to NavbarBreadcrumbs
-4. **RoleUsers Demo Data → Real API**: Replaced DEMO_USERS with actual `getRoleUsers` API call
-
-**Files Modified**:
-- `packages/admin-frontend/base/src/pages/RolesList.tsx` (Chips in card footer)
-- `packages/admin-frontend/base/src/pages/RoleUsers.tsx` (real API data)
-- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts` (titleKey: superusers)
-- `packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx` (roles handling)
-- `packages/universo-i18n/base/src/locales/en/views/menu.json` (superusers, users, role keys)
-- `packages/universo-i18n/base/src/locales/ru/views/menu.json` (superusers, users, role keys)
-
-**Build Status**: 52/52 packages successful, 0 lint errors
-
-### 2025-12-07: Roles UI Additional Refinements ✅
-
-**Goal**: Fix 4 additional issues from QA.
-
-**Issues Fixed**:
-1. **Chips Position**: Code was correct; user needed refresh
-2. **Dynamic Breadcrumbs for Role**: Created `useRoleName` hook showing actual role name
-3. **Dynamic Breadcrumbs for Instance**: Created `useInstanceName` hook showing actual instance name
-4. **Admin Menu in Entity Contexts**: Hidden "Администрирование" in metaverse/cluster/project/etc. contexts
-
-**New Files**:
-- `packages/universo-template-mui/base/src/hooks/useInstanceName.ts`
-- `packages/universo-template-mui/base/src/hooks/useRoleName.ts`
-
-**Files Modified**:
-- `packages/universo-template-mui/base/src/hooks/index.ts`
-- `packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
-
-**Build Status**: 52/52 packages successful
-
----
-
-## December 2025
-
-### 2025-12-07: Roles UI Unification ✅
-
-**Goal**: Refactor RolesList.tsx to use unified list pattern (MetaverseList style) with card/table views, pagination, search, and BaseEntityMenu.
-
-**Strategy**: Copy-then-adapt approach — used MetaverseList.tsx as canonical reference, adapted for admin-frontend roles context.
-
-**Implementation Summary**:
-- Created `RoleActions.tsx` using `createEntityActions` factory + custom `viewUsers` action
-- Added direct exports (listRoles, createRole, etc.) to `rolesApi.ts` for `usePaginated` compatibility
-- Replaced `RolesList.tsx` with unified pattern implementation:
-  - `usePaginated` hook with pagination, sorting, search
-  - `useDebouncedSearch` for search input (300ms delay)
-  - Card/Table view toggle (saved to localStorage)
-  - `BaseEntityMenu` with edit/viewUsers/delete actions
-  - `EntityFormDialog` for role creation
-  - `ConfirmDeleteDialog` for deletion with proper i18n
-  - `PaginationControls` with 10/20/50/100 options
-  - Skeleton loading states for both views
-  - Empty/error states with retry action
-
-**New Features**:
-- Card view: Color indicator, system badge, global access badge, permissions count
-- Table view: Full FlowListTable with custom columns (name, displayName, globalAccess, permissions, type)
-- Permission-based filtering: Only superadmins can edit/delete, system roles cannot be deleted
-- View preference persistence via localStorage
-
-**Files Created**:
-- `packages/admin-frontend/base/src/pages/RoleActions.tsx`
-
-**Files Modified**:
-- `packages/admin-frontend/base/src/pages/RolesList.tsx` (replaced)
-- `packages/admin-frontend/base/src/api/rolesApi.ts`
-- `packages/admin-frontend/base/src/i18n/{en,ru}/admin.json`
-
-**Build Status**: 52/52 packages successful, 0 lint errors
-
----
-
-### 2025-12-07: Admin Roles Menu Relocation ✅
-
-**Goal**: Move "Roles" (Роли) menu item from main admin menu to Instance context menu.
-
-**Problem**: The Roles menu item was incorrectly placed in the main admin menu (`/admin/roles`). It should be accessible from within Instance context (`/admin/instance/:instanceId/roles`).
-
-**Implementation Summary**:
-- **menuConfigs.ts**: Removed `admin-roles` from `getAdminMenuItems()`, added `instance-roles` to `getInstanceMenuItems(instanceId)`
-- **MainRoutesMUI.tsx**: Moved roles routes inside `/admin/instance/:instanceId/` children, changed param from `:id` to `:roleId` to avoid conflict with `:instanceId`
-- **RolesList.tsx, RoleEdit.tsx, RoleUsers.tsx**: Updated to use `instanceId` from params in all navigation paths
-
-**New URL Structure**:
-- Before: `/admin/roles`, `/admin/roles/:id`, `/admin/roles/:id/users`
-- After: `/admin/instance/:instanceId/roles`, `/admin/instance/:instanceId/roles/:roleId`, `/admin/instance/:instanceId/roles/:roleId/users`
-
-**Build Status**: 3/3 packages successful, 0 lint errors
-
----
-
-### 2025-12-08: Admin Roles Management UI ✅
-
-**Goal**: Create UI for managing RBAC roles and permissions with ABAC-ready architecture (conditions, fields).
-
-**Implementation Summary**:
-
-**Phase A: Backend API**
-- Added types to `@universo/types/common/admin.ts`: PermissionAction, PermissionModule, PERMISSION_MODULES, PERMISSION_ACTIONS, RoleWithPermissions, CreateRolePayload, UpdateRolePayload
-- Created `admin-backend/routes/rolesRoutes.ts` with factory pattern:
-  - GET /admin/roles - list roles with pagination
-  - GET /admin/roles/:id - get role with permissions
-  - POST /admin/roles - create new role
-  - PATCH /admin/roles/:id - update role (system roles protected)
-  - DELETE /admin/roles/:id - delete role (system roles protected)
-  - GET /admin/roles/:id/users - get users assigned to role
-- Added Zod schemas: CreateRoleSchema, UpdateRoleSchema with PermissionRuleSchema
-- Registered routes in `flowise-core-backend/routes/index.ts`
-
-**Phase B: Frontend Components**
-- Created `rolesApi.ts` - API client with transformRole for snake_case→camelCase
-- Added `rolesQueryKeys` for TanStack Query cache management
-- Created `ColorPicker.tsx` - simple color picker with preset colors and native input
-- Created `PermissionMatrix.tsx` - matrix UI for CRUD permissions per module
-- Created `RolesList.tsx` - roles list page with MUI Table (not FlowListTable per QA)
-- Created `RoleEdit.tsx` - role create/edit form with validation
-
-**Phase C: Integration**
-- Added lazy imports and routes to `MainRoutesMUI.tsx`: /admin/roles, /admin/roles/:id
-- Added menu item "Roles" with IconUserShield to `menuConfigs.ts`
-- Added i18n translations for roles management in EN and RU
-
-**Key Architectural Decisions**:
-- Used existing `admin` namespace for i18n (not new namespace)
-- PermissionMatrix supports wildcard permissions (module='*', action='*')
-- System roles protected from critical changes (name, hasGlobalAccess, permissions)
-- ABAC-ready: conditions and fields stored in RolePermission entity
-
-**Files Created**:
-- `packages/admin-backend/base/src/routes/rolesRoutes.ts`
-- `packages/admin-frontend/base/src/api/rolesApi.ts`
-- `packages/admin-frontend/base/src/components/ColorPicker.tsx`
-- `packages/admin-frontend/base/src/components/PermissionMatrix.tsx`
-- `packages/admin-frontend/base/src/components/index.ts`
-- `packages/admin-frontend/base/src/pages/RolesList.tsx`
-- `packages/admin-frontend/base/src/pages/RoleEdit.tsx`
-
-**Files Modified**:
-- `packages/universo-types/base/src/common/admin.ts` - added permission types
-- `packages/admin-backend/base/src/schemas/index.ts` - added role schemas
-- `packages/admin-backend/base/src/index.ts` - exports
-- `packages/admin-frontend/base/src/api/queryKeys.ts` - added rolesQueryKeys
-- `packages/admin-frontend/base/src/index.ts` - exports
-- `packages/flowise-core-backend/base/src/routes/index.ts` - route registration
-- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - routes
-- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts` - menu
-- `packages/admin-frontend/base/src/i18n/en/admin.json` - EN translations
-- `packages/admin-frontend/base/src/i18n/ru/admin.json` - RU translations
-- `packages/universo-i18n/base/src/locales/en/views/menu.json` - menu translation
-- `packages/universo-i18n/base/src/locales/ru/views/menu.json` - menu translation
-
----
-
-### 2025-12-08: Auth.jsx Migration to auth-frontend Package ✅
-
-**Goal**: Move `Auth.jsx` from `flowise-core-frontend/base/src/views/up-auth/` to `@universo/auth-frontend` package with TypeScript refactoring.
-
-**Problem**: Auth component was tightly coupled to application code, mixing generic auth logic with app-specific integrations (i18n, CASL, UI components).
-
-**Solution**: Applied the established architectural pattern from other packages:
-1. **Generic Component**: Created `AuthPage.tsx` in `@universo/auth-frontend` - a compiled, reusable TypeScript component with props for labels, callbacks, and slots
-2. **Application Wrapper**: Created `Auth.jsx` in `@flowise/template-mui/routes` - a JSX wrapper that integrates i18n (`useTranslation('auth')`), CASL (`refreshAbility`), and UI (`MainCard`)
-3. **Callback Pattern**: Implemented `onLoginSuccess` prop to allow app-specific post-login actions without creating cyclic dependencies
-4. **Error Mapping**: Created `mapSupabaseError()` utility to translate Supabase errors to i18n keys
-
-**Key Architectural Decisions**:
-- `AuthPage` accepts `labels` object instead of directly using i18n hooks → keeps it application-agnostic
-- `slots.Card` pattern allows UI customization without hardcoding MainCard dependency
-- `errorMapper` function prop decouples error translation from component implementation
-
-**Files Created/Modified/Deleted**: See tasks.md for complete list
-
-**Issue Fixed During Implementation**: i18n keys were showing raw (`auth.welcomeBack`) instead of translated text. Root cause: when using `useTranslation('auth')`, the namespace is already set, so keys should be `t('welcomeBack')` not `t('auth.welcomeBack')`. This was fixed along with adding missing `email` translation key.
-
----
-
-### 2025-12-07: SettingsDialog UX Improvement ✅
-
-**Goal**: Fix misleading UX when `GLOBAL_ADMIN_ENABLED=false` - "Show other users' items" toggle appeared active but didn't work.
-
-**Problem**: User reported that with admin privileges disabled, the settings toggle was visually active but had no effect. This was confusing and misleading.
-
-**Solution**:
-1. **Alert Warning**: Added info Alert when `globalAdminEnabled=false` explaining that super user privileges are disabled by system administrator
-2. **Disabled Switch**: Toggle is now disabled when `adminConfig.globalAdminEnabled=false`
-3. **Visual Indication**: Added `opacity: 0.6` styling to the disabled section
-4. **i18n Translations**: Added `globalAdminDisabledWarning` key in EN/RU
-5. **ENV Documentation**: Updated `.env.example` files with combination matrix table
-
-**QA Analysis Results**:
-- Architecture: ✅ Correct separation of concerns
-- Libraries: ✅ Using standard stack (TanStack Query, CASL, MUI)
-- Security: ✅ No unsafe patterns
-- MetaverseGuard placement: ✅ Correctly in `metaverses-frontend` as domain-specific wrapper
-- Auth.jsx error handling: ✅ Already has try/catch for `refreshAbility()` (non-blocking)
-
-**Files Modified**:
-- `universo-template-mui/base/src/components/dialogs/SettingsDialog.tsx` - Alert, disabled switch, opacity
-- `universo-i18n/base/src/locales/en/core/settings.json` - globalAdminDisabledWarning
-- `universo-i18n/base/src/locales/ru/core/settings.json` - globalAdminDisabledWarning
-- `flowise-core-backend/base/.env.example` - combination matrix table
-- `docker/.env.example` - combination matrix table
-
-**Build Validation**: 52/52 packages successful
-
----
-
-### 2025-12-07: Fix Admin Access Logic ✅
-
-**Goal**: Fix incorrect `hasGlobalAccess` logic that caused admin menu to be hidden when `GLOBAL_ADMIN_ENABLED=false`, and sync cache after login.
-
-**Problems Identified**:
-1. `hasGlobalAccess` returned false when `GLOBAL_ADMIN_ENABLED=false` (wrong - should reflect DB role)
-2. Two duplicate hooks (`useGlobalRoleCheck` and `useHasGlobalAccess`) caused race conditions
-3. `AbilityContext` not refreshed after login → admin menu doesn't work until direct URL navigation
-
-**Solution**:
-1. **permissionService.ts**: Decoupled `hasGlobalAccess` from `GLOBAL_ADMIN_ENABLED`
-   - `hasGlobalAccess` now reflects DB fact (user has global role)
-   - `GLOBAL_ADMIN_ENABLED` only affects RLS bypass privileges
-2. **Removed duplicate hook**: Deleted `useGlobalRoleCheck.ts`, unified on `useHasGlobalAccess` from `@flowise/store`
-   - Updated `MenuContent.tsx`, `SettingsDialog.tsx`, `ToolbarControls.tsx`
-3. **Login flow**: Added `await refreshAbility()` call after successful login in `Auth.jsx`
-
-**Files Modified**:
-- `auth-backend/base/src/services/permissionService.ts`
-- `universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
-- `universo-template-mui/base/src/components/dialogs/SettingsDialog.tsx`
-- `universo-template-mui/base/src/components/toolbar/ToolbarControls.tsx`
-- `universo-template-mui/base/src/hooks/index.ts`
-- `universo-template-mui/base/src/index.ts`
-- `flowise-core-frontend/base/src/views/up-auth/Auth.jsx`
-
-**Files Deleted**:
-- `universo-template-mui/base/src/hooks/useGlobalRoleCheck.ts`
-
-**Build Validation**: 52/52 packages successful
-
----
-
-### 2025-12-07: Fix UI Flicker for Metaverse Routes ✅
-
-**Goal**: Prevent breadcrumbs and side menu from flashing when accessing metaverse without permission.
-
-**Problem**: When accessing `/metaverse/:id` as unauthorized user, breadcrumbs "Метавселенные" and side menu with metaverse-specific items appeared briefly before `MetaverseGuard` redirected to home.
-
-**Solution**:
-1. **NavbarBreadcrumbs**: For metaverse routes (`/metaverse/:id`, `/metaverses/:id/...`), return empty breadcrumbs if `metaverseName` is null (still loading or access denied)
-2. **MenuContent**: Added `useMetaverseName` hook to verify resource access. Only show metaverse-specific menu if name is loaded, otherwise fall back to root menu.
-
-**Files Modified**:
-- `universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
-- `universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
-
-**Build Validation**: 52/52 packages successful
-
----
-
-### 2025-12-07: Fix UI Flicker in Route Guards ✅
-
-**Goal**: Prevent breadcrumbs and layout elements from appearing before guard redirects unauthorized users.
-
-**Problem**: When navigating to `/admin` with admin panel disabled or no access, breadcrumbs showed "Администрирование" briefly before redirect. This happened because `MainLayoutMUI` (containing `NavbarBreadcrumbs`) renders BEFORE the `AdminGuard` inside the route's `Outlet`.
-
-**Solution**: Added access check directly in `NavbarBreadcrumbs` component:
-- For admin routes (`/admin/*`), breadcrumbs only render if user has admin panel access
-- While loading access status, returns empty breadcrumbs array
-- If no access, returns empty breadcrumbs array (prevents flicker before redirect)
-
-**Files Modified**:
-- `universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
-  - Added `useHasGlobalAccess` hook import from `@flowise/store`
-  - Added access check before rendering admin breadcrumbs
-  - Returns `[]` if `adminAccessLoading` or `!canAccessAdminPanel`
-
-**Build Validation**: 52/52 packages successful
-
----
-
-## January 2025
-
-### 2025-01-06: Admin Feature Flags Implementation ✅
-
-**Goal**: Implement two independent ENV-based feature flags for admin functionality.
-
-**New Environment Variables**:
-- `ADMIN_PANEL_ENABLED` (default: true) - Controls UI and API access to admin panel
-- `GLOBAL_ADMIN_ENABLED` (default: true) - Controls super user privileges (RLS bypass, see all data)
-
-**Configuration Matrix**:
-| ADMIN_PANEL | GLOBAL_ADMIN | Result |
-|-------------|--------------|--------|
-| true | true | Full admin functionality (default) |
-| false | true | No admin panel, but super users keep privileges elsewhere |
-| true | false | Admin panel visible but no special data access |
-| false | false | Admin functionality completely disabled |
-
-**Files Created**:
-- `universo-utils/base/src/env/adminConfig.ts` - Centralized admin config functions
-
-**Files Modified**:
-- `universo-utils/base/src/env/index.ts` - Re-export adminConfig
-- `universo-utils/base/src/index.ts` - Direct exports for config functions
-- `universo-utils/base/tsdown.config.ts` - Added env/index entry
-- `universo-utils/base/package.json` - Added ./env export path
-- `universo-types/base/src/common/admin.ts` - Added AdminConfig interface, updated UserPermissionsResponse
-- `auth-backend/base/package.json` - Added @universo/utils dependency
-- `auth-backend/base/src/services/permissionService.ts` - Added config to response, check isGlobalAdminEnabled
-- `admin-backend/base/package.json` - Added @universo/utils dependency
-- `admin-backend/base/src/guards/ensureGlobalAccess.ts` - Use isAdminPanelEnabled from centralized module
-- `admin-backend/base/src/index.ts` - Re-export admin config functions
-- `admin-backend/base/src/routes/globalUsersRoutes.ts` - Use isAdminPanelEnabled
-- `admin-backend/base/src/services/globalAccessService.ts` - Check isGlobalAdminEnabled in hasGlobalAccessByDataSource
-- `flowise-store/base/src/context/AbilityContextProvider.jsx` - Added adminConfig state
-- `flowise-store/base/src/context/useHasGlobalAccess.js` - Added canAccessAdminPanel computed property
-- `universo-template-mui/base/src/hooks/useGlobalRoleCheck.ts` - Simplified to use /auth/permissions endpoint
-- `flowise-core-backend/base/.env.example` - Updated with new ENV documentation
-- `docker/.env.example` - Added admin panel section
-
-**Architecture Pattern**: Centralized configuration in @universo/utils avoids circular dependencies between auth-backend and admin-backend. Config is transmitted to frontend via /auth/permissions endpoint.
-
----
-
-### 2025-01-06: Admin Instances UI Polish (QA Round 2) ✅
-
-**Goal**: Fix UI polishing issues in Instances management after second QA review.
-
-**Issues Fixed**:
-
-1. **Delete button in edit dialog**: Was hidden, now shows as disabled
-   - Added `deleteButtonDisabled` prop to `EntityFormDialog` component
-   - Added `deleteButtonDisabledInEdit` config option to `createEntityActions` factory
-   - Pattern: button visible but non-functional for future features
-
-2. **Alert width mismatch**: MVP notice was narrower than other elements
-   - Applied `mx: { xs: -1.5, md: -2 }` negative margin pattern
-   - Consistent with other full-width elements in ViewHeader
-
-3. **Section description removed**: "Управление экземплярами платформы" was redundant
-   - Removed `description` prop from ViewHeader for consistency with Clusters/Metaverses
-
-4. **Duplicate "Локальный" text on Access page**: Instance name appeared twice
-   - Removed Typography with getDisplayName from InstanceAccess.tsx header
-   - Removed unused getDisplayName function
-
-**Files Modified**:
-- `universo-template-mui/.../EntityFormDialog.tsx` - deleteButtonDisabled prop
-- `universo-template-mui/.../createEntityActions.tsx` - deleteButtonDisabledInEdit config
-- `admin-frontend/.../InstanceActions.tsx` - enabled disabled delete button
-- `admin-frontend/.../InstanceList.tsx` - Alert width fix, description removal
-- `admin-frontend/.../InstanceAccess.tsx` - duplicate text removal
-
-**Build Status**: 52/52 packages successful ✅
-
----
-
-### 2025-01-06: Admin Instances Module ✅
-
-**Goal**: Create "Экземпляры (Instances)" management for Admin module following Clusters pattern.
-
-**MVP Scope**:
-- Single pre-seeded "Local" instance (UUID auto-generated by PostgreSQL)
-- Simplified left menu: single "Администрирование" item
-- Context menu inside instance (Board, Access)
-- Create/Delete buttons disabled (future: remote instances)
-
-**Key Changes**:
-
-1. **Backend Entity & Migration**:
-   - Created `Instance.ts` TypeORM entity in `admin-backend`
-   - Added `instances` table to migration with RLS policies
-   - Pre-seeded "Local" instance with `is_local = true`
-   - Renamed migration: `CreateAdminRBAC` → `CreateAdminSchema`
-
-2. **Backend Routes**:
-   - Created `instancesRoutes.ts` with endpoints: GET `/`, GET `/:id`, GET `/stats`, PATCH `/:id`
-   - Uses `ensureGlobalAccess` guard for authorization
-   - Wired routes in `flowise-core-backend`
-
-3. **Frontend API & Hooks**:
-   - Created `instancesApi.ts`, `instancesQueryKeys`, `useInstanceDetails.ts`, `instanceMutations.ts`
-   - Added `Instance`, `InstanceStats`, `InstanceUpdateData` types
-
-4. **Frontend Pages**:
-   - Created `InstanceList.tsx` - Grid of instance cards with Local chip
-   - Created `InstanceBoard.tsx` - Dashboard inside instance with stats
-   - Created `InstanceAccess.tsx` - Global users management within instance context
-
-5. **Navigation**:
-   - Routes: `/admin` → InstanceList, `/admin/instance/:id` → Board, `/admin/instance/:id/access` → Access
-   - Updated `MenuContent.tsx` to show instance context menu when inside instance
-   - Updated `NavbarBreadcrumbs.tsx` for instance route handling
-   - Updated `menuConfigs.ts` with `getInstanceMenuItems()`
-
-6. **i18n**:
-   - Added translations in `admin.json` (EN/RU)
-   - Added translations in `menu.json` (EN/RU): `instance`, `instanceboard`, `board`
-
-**Files Created**:
-- `packages/admin-backend/base/src/database/entities/Instance.ts`
-- `packages/admin-backend/base/src/routes/instancesRoutes.ts`
-- `packages/admin-frontend/base/src/api/instancesApi.ts`
-- `packages/admin-frontend/base/src/hooks/useInstanceDetails.ts`
-- `packages/admin-frontend/base/src/hooks/instanceMutations.ts`
-- `packages/admin-frontend/base/src/pages/InstanceList.tsx`
-- `packages/admin-frontend/base/src/pages/InstanceBoard.tsx`
-- `packages/admin-frontend/base/src/pages/InstanceAccess.tsx`
-
-**Build Status**: 52/52 packages successful ✅
-
----
-
-### 2025-01-05: Frontend Metaverse-Scoped API Fix ✅
-
-**Problem**: Superadmin could see metaverse list but sections/entities were empty when viewing other users' metaverses with "show all items" enabled.
-
-**Root Cause**: 
-- `EntityList.tsx` and `SectionList.tsx` used global `/entities` and `/sections` APIs
-- These APIs apply RLS without metaverse context, so admin bypass couldn't work
-- Components didn't use `metaverseId` from URL params
-
-**Solution**:
-- Modified `EntityList.tsx` to conditionally use `metaversesApi.listMetaverseEntities()` when `metaverseId` is present in URL
-- Modified `SectionList.tsx` to conditionally use `metaversesApi.listMetaverseSections()` when `metaverseId` is present
-- Updated query keys to use `metaversesQueryKeys.entitiesList()` / `sectionsList()` for metaverse-scoped queries
-- Updated cache invalidation to handle both metaverse-scoped and global caches
-
-**Files Changed**:
-- `packages/metaverses-frontend/base/src/api/metaverses.ts` - Added `listMetaverseEntities()`, `listMetaverseSections()` 
-- `packages/metaverses-frontend/base/src/api/queryKeys.ts` - Added `entitiesList()`, `sectionsList()` query keys
-- `packages/metaverses-frontend/base/src/pages/EntityList.tsx` - Use metaverse-scoped API when in metaverse context
-- `packages/metaverses-frontend/base/src/pages/SectionList.tsx` - Use metaverse-scoped API when in metaverse context
-
----
-
-### 2025-01-05: Fix Global Admin RLS Bypass ✅
-
-**Problem**: Superadmin could see metaverses of other users but NOT sections/entities inside them.
-
-**Root Cause**: 
-- `admin.has_global_access()` function used `SECURITY INVOKER` 
-- When called from metaverses RLS policies, it ran with user's RLS context
-- RLS on `admin.user_roles` table called `has_global_access()` → circular dependency
-- Function couldn't read data and always returned `false`
-
-**Solution**:
-- Changed `has_global_access()` and `has_permission()` to `SECURITY DEFINER` (bypasses RLS)
-- Added `users_read_own_roles` SELECT policy for users to read their own role assignments
-- Added `authenticated_read_roles` SELECT policy for all authenticated users
-- Simplified admin management policies to use the SECURITY DEFINER function
-
-**Files Changed**:
-- `packages/admin-backend/base/src/database/migrations/postgres/1733400000000-CreateAdminRBAC.ts`
-
----
-
-### 2025-01-05: Metaverses Migration Consolidation ✅
-
-**Goal**: Consolidate metaverses-backend migrations into a single clean migration file.
-
-**Problem**: 
-- Multiple migration files with timestamp order issues
-- Garbage SQL file `1733312400000-AddGlobalAdminRLSBypass.sql` that TypeORM doesn't auto-load
-- RLS policies added in separate migration required admin schema to exist first
-
-**Solution Implemented**:
-- Deleted garbage SQL file `1733312400000-AddGlobalAdminRLSBypass.sql`
-- Created consolidated `1733600000000-CreateMetaversesSchema.ts` with:
-  - Schema and 7 tables creation
-  - FK constraints with CASCADE delete
-  - Performance indexes
-  - RLS policies with `admin.has_global_access()` bypass from the start
-  - Full-text search indexes
-- Timestamp `1733600000000` ensures migration runs AFTER admin schema (`1733400000000`)
-- Deleted old files: `1730600000000-AddMetaversesSectionsEntities.ts`, `1733500000000-AddGlobalAdminRLSBypass.ts`
-- Updated `index.ts` to export only the new migration
-- Build verified: 52/52 packages
-
----
-
-## December 2025
-
-### 2025-12-05: Admin Packages QA Fixes ✅
-
-**Goal**: Fix issues identified during QA analysis of admin-backend and admin-frontend packages.
-
-**Issues Fixed**:
-
-1. **Debug console.log statements** - Removed 4 debug logs from `ensureGlobalAccess.ts`
-2. **React duplication** - Removed `"react": "catalog:"` from admin-frontend dependencies (kept in peerDependencies only)
-3. **Partial TypeORM refactoring** - Converted simple CRUD methods to TypeORM Repository pattern while keeping SQL functions for RLS
-
-**TypeORM Refactoring Details** (`globalAccessService.ts`):
-- Added imports for `Role` and `UserRole` entities
-- Updated `toRoleMetadata()` to accept `Role | RoleRow`
-- Refactored to TypeORM: `getAllRoles()`, `getGlobalAccessRoles()`, `getRoleByName()`, `revokeAssignment()`
-- Kept as SQL: `hasGlobalAccess()`, `getGlobalAccessInfo()`, `listGlobalUsers()`, `grantRole()`, `updateAssignment()`, `revokeGlobalAccess()`, `getStats()`
-
-**Architecture Decision**: SQL functions must remain for RLS consistency:
-- `admin.has_global_access()` used in RLS policies across 6+ modules
-- Single source of truth for permission logic
-- Called via `hasGlobalAccessByDataSource()` throughout codebase
-
-**Documentation Created**:
-- `packages/admin-backend/base/README.md` (EN)
-- `packages/admin-backend/base/README-RU.md` (RU)
-- `packages/admin-frontend/base/README.md` (EN)
-- `packages/admin-frontend/base/README-RU.md` (RU)
-
-**Files Changed**:
-- `packages/admin-backend/base/src/guards/ensureGlobalAccess.ts` - removed debug logs
-- `packages/admin-backend/base/src/services/globalAccessService.ts` - partial TypeORM refactoring
-- `packages/admin-frontend/base/package.json` - fixed react duplication
-
-**Build**: Full workspace build successful (52/52 packages)
-
----
-
-### 2025-12-06: Dynamic Global Roles Refactoring ✅
-
-**Goal**: Replace hardcoded `'superadmin' | 'supermoderator'` with dynamic database-driven roles.
-
-**Problem**: The original design used a separate `admin.global_users` table with hardcoded role strings. This prevented adding new roles or customizing role appearance without code changes.
-
-**Solution Implemented**:
-
-1. **Database Changes** (`admin-backend`):
-   - New migration `1733500000000-AddRoleMetadata.ts`
-   - Added columns to `admin.roles`: `display_name` (JSONB), `color` (VARCHAR), `has_global_access` (BOOLEAN)
-   - Created PostgreSQL functions: `admin.has_global_access(uuid)`, `admin.get_user_global_roles(uuid)`
-   - Old `admin.global_users` table marked for deprecation
-
-2. **Backend Services**:
-   - New `globalAccessService.ts` replaces `globalUserService.ts`
-   - All guards updated to use `hasGlobalAccessByDataSource()` instead of `getGlobalRoleByDataSource()`
-   - `globalUsersRoutes.ts` now uses `globalAccessService`
-   - `/api/v1/auth/permissions` expanded with `globalRoles` and `rolesMetadata`
-   - `/api/v1/admin/global-users/me` now returns `roleMetadata`
-
-3. **Frontend Updates**:
-   - `AbilityContextProvider.jsx` provides `globalRoles`, `rolesMetadata`, `hasGlobalAccess`
-   - `RoleChip.tsx` accepts optional `roleMetadata` prop for dynamic colors
-   - `admin-frontend` types and hooks updated for new API
-   - New hooks: `useHasGlobalAccess()`, `useGlobalRoleMetadata()`
-
-4. **Deprecation Strategy**:
-   - Old `GlobalUser.ts` entity marked `@deprecated`
-   - Old `globalUserService.ts` marked `@deprecated`
-   - Files retained for backward compatibility during transition
-
-**Files Created**:
-- `packages/admin-backend/base/src/database/migrations/postgres/1733500000000-AddRoleMetadata.ts`
-- `packages/admin-backend/base/src/services/globalAccessService.ts`
-- `packages/flowise-store/base/src/context/useHasGlobalAccess.js`
-
-**Files Modified**:
-- 7 backend guards (metaverses, clusters, organizations, storages, campaigns, projects, uniks)
-- 3 routes (sectionsRoutes, entitiesRoutes, metaversesRoutes)
-- `@universo/types` - new types: `LocalizedString`, `RoleMetadata`, `GlobalRoleInfo`, `GlobalUserMember`
-- `flowise-store` - AbilityContextProvider, index.ts exports
-- `universo-template-mui` - RoleChip.tsx
-- `admin-frontend` - types.ts, adminApi.ts, useGlobalRole.ts, AdminAccess.tsx
-- `admin-backend` - globalUsersRoutes.ts, ensureGlobalAccess.ts, index.ts
-- `flowise-core-backend` - routes/index.ts
-
----
-
-### 2025-12-06: Admin RBAC Migration Consolidation & TypeORM Entities ✅
-
-**Context**: Database recreation on test project caused migration errors (`cannot change return type of existing function`). Decision: consolidate all admin-backend migrations into one and implement proper TypeORM entities.
-
-**Changes Made**:
-
-1. **Migration Consolidation**:
-   - Created single consolidated migration `1733400000000-CreateAdminRBAC.ts`
-   - Deleted 6 old migration files:
-     - `1733250000000-CreateGlobalUsers.ts`
-     - `1733311200000-AddGlobalUserComment.ts`
-     - `1733400000000-CreateRBACSystem.ts`
-     - `1733400000000-CreateRBACSystem.sql`
-     - `1733500000000-AddRoleMetadata.ts`
-     - `SEED_AFTER_RECREATION.sql`
-
-2. **TypeORM Entities Created** (`admin-backend/base/src/database/entities/`):
-   - `Role.ts` - entity for `admin.roles` table with `display_name` (JSONB), `color`, `has_global_access`, `is_system`
-   - `RolePermission.ts` - entity for `admin.role_permissions` with `@ManyToOne` to Role
-   - `UserRole.ts` - entity for `admin.user_roles` with `@ManyToOne` to Role (no relation to auth.users)
-   - `entities/index.ts` - exports `adminEntities` array
-
-3. **Legacy Code Removal**:
-   - Deleted deprecated `GlobalUser.ts` entity
-   - Deleted deprecated `globalUserService.ts` service
-   - Cleaned `ensureGlobalAccess.ts` to only export modern functions
-
-4. **Environment Variable**:
-   - Replaced `SUPER_USERS_MODE` with `GLOBAL_ADMIN_ENABLED` in `.env` and `.env.example`
-   - New function `isGlobalAdminEnabled()` added to `ensureGlobalAccess.ts`
-
-5. **Entity Registration**:
-   - `admin-backend/src/index.ts` now exports `adminEntities`, `Role`, `RolePermission`, `UserRole`
-   - `flowise-core-backend/database/entities/index.ts` imports and spreads `adminEntitiesObject`
-
-**Build Status**: 52/52 packages built successfully
-
----
-
-### 2025-12-04: User Settings System Implemented ✅
-
-**Goal**: Allow superadmin to toggle between "show only my items" vs "show all items" in lists.
-
-**Problem**: After fixing global admin visibility, superadmin ALWAYS saw all metaverses/sections/entities from ALL users - not ideal for daily work.
-
-**Solution Implemented**:
-
-1. **Backend Settings API** (`profile-backend`):
-   - Added `settings` JSONB column to Profile entity/migration
-   - Created `UserSettingsData` type with `admin.showAllItems` setting
-   - Added `GET /profile/settings` and `PUT /profile/settings` endpoints
-   - Deep merge for partial updates
-
-2. **Frontend Components** (`universo-template-mui`):
-   - `useUserSettings.ts` hook - loads/updates settings with in-memory cache
-   - `SettingsDialog.tsx` - modal with "Show all items" toggle
-   - Extended `ToolbarControls` with `settingsEnabled` prop
-   - i18n translations (en/ru) for settings namespace
-
-3. **Backend Route Updates** (`metaverses-backend`):
-   - `metaversesRoutes.ts` - `showAll` query parameter support
-   - `sectionsRoutes.ts` - `showAll` query parameter support
-   - `entitiesRoutes.ts` - `showAll` query parameter support
-   - Logic: `showAll=true` → LEFT JOIN (see all), `showAll=false` → INNER JOIN (membership filter)
-
-4. **Frontend Integration** (`metaverses-frontend`):
-   - `MetaverseList.tsx` now uses `useUserSettings` hook
-   - Settings button appears in toolbar (only for superadmin/supermoderator)
-   - Query key includes `showAll` for proper cache invalidation
-
-**Build Status**: 52/52 packages built successfully
-
-**Files Created/Modified**:
-- `profile-backend/base/src/services/profileService.ts` - getUserSettings, updateUserSettings
-- `profile-backend/base/src/controllers/profileController.ts` - getSettings, updateSettings
-- `profile-backend/base/src/routes/profileRoutes.ts` - settings endpoints
-- `universo-template-mui/base/src/hooks/useUserSettings.ts` - settings hook
-- `universo-template-mui/base/src/components/dialogs/SettingsDialog.tsx` - settings dialog
-- `universo-template-mui/base/src/components/toolbar/ToolbarControls.tsx` - settingsEnabled prop
-- `universo-template-mui/base/locales/{en,ru}/settings.json` - translations
-
----
-
-## June 2025
-
-### 2025-06-14: RBAC + CASL Integration - Phase 1-3 Complete ✅
-
-**Goal**: Implement flexible RBAC with wildcard support and CASL for frontend/backend permission checks.
-
-**Why CASL?**: After researching RBAC vs ABAC approaches:
-- RBAC (Role-Based): Roles like "admin", "editor" with fixed permissions
-- ABAC (Attribute-Based): Permissions based on dynamic attributes (time, location, ownership)
-- **Chosen**: Hybrid approach - RBAC for role management + ABAC-ready conditions in permissions
-
-**Library Selection**:
-- **CASL** (6.7k stars) - Chosen for React isomorphism, TypeScript support, MongoDB-like conditions
-- Casbin (2.8k stars) - Policy files, more complex
-- AccessControl - Abandoned since 2018
-
-**Architecture Created**:
-
-1. **Database Layer** (PostgreSQL):
-   - `admin.roles` - Role definitions (superadmin, admin, moderator, etc.)
-   - `admin.role_permissions` - Module/action permissions with wildcard support (`*`)
-   - `admin.user_roles` - User to role assignments
-   - `admin.has_permission(module, action, context)` - Check permission (RLS-aware)
-   - `admin.get_user_permissions(user_id)` - Get all permissions for CASL
-
-2. **Backend CASL** (`auth-backend`):
-   - `permissionService.ts` - Loads DB permissions, builds CASL ability
-   - `abilityMiddleware.ts` - Express middleware, attaches `req.ability`
-   - `/api/v1/auth/permissions` - Endpoint for frontend to get permissions
-
-3. **Frontend CASL** (`flowise-store`):
-   - `AbilityContext.jsx` - React context for ability
-   - `AbilityContextProvider.jsx` - Loads permissions, builds ability
-   - `useAbility.js` - Hook for imperative checks
-   - `Can.jsx` / `Cannot` - Declarative permission components
-
-4. **Types** (`@universo/types`):
-   - `Actions` = 'create' | 'read' | 'update' | 'delete' | 'manage'
-   - `Subjects` = 'Metaverse' | 'Cluster' | 'Project' | ... | 'all'
-   - `AppAbility` - MongoAbility type for the app
-   - `defineAbilitiesFor(userId, permissions)` - CASL ability builder
-
-**Wildcard Support**:
-- `module='*'` matches ALL modules
-- `action='*'` matches ALL actions (maps to CASL 'manage')
-- Superadmin has `module='*', action='*'` = full access
-
-**Files Created**:
-- `packages/admin-backend/base/src/database/migrations/postgres/1733400000000-CreateRBACSystem.ts`
-- `packages/universo-types/base/src/abilities/index.ts`
-- `packages/auth-backend/base/src/services/permissionService.ts`
-- `packages/auth-backend/base/src/middlewares/abilityMiddleware.ts`
-- `packages/flowise-store/base/src/context/AbilityContext.jsx`
-- `packages/flowise-store/base/src/context/AbilityContextProvider.jsx`
-- `packages/flowise-store/base/src/context/useAbility.js`
-- `packages/flowise-store/base/src/context/Can.jsx`
-
-**Build Status**: ✅ 52/52 packages successful
-
-**Pending**:
-- Run RBAC migration on database
-- Integrate AbilityContextProvider in App.jsx
-- Test with real permissions
-
----
-
-### 2025-06-13: Superadmin Cross-Entity Access ✅
-
-**Issue**: Superadmin could not access Metaverses, Projects, Clusters where they are not a member.
-Error logs showed: `[SECURITY] Permission denied... reason: 'not_member'`
-
-**Root Cause**: `createAccessGuards.ts` in auth-backend only checked membership, not global roles.
-Note: Uniks appeared to work because GET /:id had no access check (design inconsistency).
-
-**Solution**: Extended `createAccessGuards` factory pattern with global role bypass:
-
-1. **New Types in auth-backend** (`types.ts`):
-   - `GlobalRole = 'superadmin' | 'supermoderator' | null`
-   - Added `getGlobalRole?: (ds, userId) => Promise<GlobalRole>` to config
-   - Added `createGlobalAdminMembership?: (userId, entityId, globalRole) => TMembership` to config
-
-2. **Updated `createAccessGuards.ts`**:
-   - In `ensureAccess()`, checks global role BEFORE membership
-   - If superadmin/supermoderator, creates synthetic membership with owner-level permissions
-   - Logs `[ACCESS] Global admin access granted` for audit trail
-
-3. **New Standalone Function in admin-backend**:
-   - `getGlobalRoleByDataSource(ds, userId)` - allows other modules to check global role
-
-4. **Updated All Entity Guards** (7 modules):
-   - metaverses-backend, clusters-backend, projects-backend
-   - storages-backend, organizations-backend, campaigns-backend, uniks-backend
-   - All now pass `getGlobalRole` and `createGlobalAdminMembership` to factory
-
-**Affected Packages**:
-- auth-backend (core factory)
-- admin-backend (new standalone function)
-- metaverses-backend, clusters-backend, projects-backend
-- storages-backend, organizations-backend, campaigns-backend, uniks-backend
-
-**Build**: 52/52 tasks passed
-
----
-
-### 2025-06-13: RLS Global Admin Bypass Migration ⏳
-
-**Issue**: After fixing application-level access, superadmin still cannot see created sections.
-Data appears in database but RLS policies filter it out.
-
-**Root Cause**: RLS policies on metaverses schema check `metaverses_users` membership.
-Superadmin not in this table → RLS blocks SELECT even though application allows access.
-
-**Solution**: Created migration to add `admin.is_global_admin()` check to all RLS policies.
-
-**Created Files**:
-- `packages/metaverses-backend/base/src/database/migrations/postgres/1733312400000-AddGlobalAdminRLSBypass.ts`
-- `packages/metaverses-backend/base/src/database/migrations/postgres/1733312400000-AddGlobalAdminRLSBypass.sql`
-
-**Updated RLS Policies** (7 tables):
-- metaverses, sections, entities, entities_sections
-- sections_metaverses, entities_metaverses, metaverses_users
-
-**Pattern Added** (example):
-```sql
-CREATE OR REPLACE FUNCTION admin.is_global_admin()
-RETURNS boolean AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM admin.global_users
-    WHERE user_id = auth.uid()
-    AND role IN ('superadmin', 'supermoderator')
-  );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- Policy now: (existing_condition) OR admin.is_global_admin()
-```
-
-**Status**: Awaiting manual DB migration. See tasks.md
-
----
-
-### 2025-06-13: Admin Module Refactoring ✅
-
-**Summary**: Refactored admin-frontend and admin-backend to follow unified patterns from clusters module.
-
-**Menu Changes**:
-- Replaced single "Администрирование" menu item with section header + 2 items:
-  - **Админборд** (`/admin`) - Dashboard with global statistics
-  - **Доступ** (`/admin/access`) - Member management with email-based invite
-
-**Backend Changes**:
-- `POST /admin/global-users` now accepts `{ email, role }` instead of `{ user_id, role }`
-- Added `listAllWithDetails()` - JOINs with AuthUser + Profile for email/nickname display
-- Added pagination support (page, limit, search query params)
-- Error codes: 404 (user not found by email), 409 (already has role)
-
-**Frontend Changes**:
-- Created `AdminBoard.tsx` - Dashboard page (based on ClusterBoard pattern)
-- Created `AdminAccess.tsx` - Member management page (based on ClusterMembers pattern)
-- Created `MemberActions.tsx` - Factory pattern for edit/remove actions
-- Created `types.ts` - GlobalUserMember extends BaseMemberEntity
-- Updated `adminApi.ts` - pagination support, grantRoleByEmail, extractPaginationMeta
-- Updated i18n files with complete new structure
-
-**Routes Updates**:
-- `MainRoutesMUI.tsx` - Nested routes with `<Outlet />` for `/admin` parent
-- `menuConfigs.ts` - `getAdminMenuItems()` function replaces single `adminMenuItem`
-- `MenuContent.tsx` - Typography section header + item list for admin section
-
-**i18n Updates**:
-- Added `adminboard` key to `universo-i18n` menu.json (en/ru)
-- Complete rewrite of `admin-frontend` i18n files (en/ru/admin.json)
-
-**Build**: Full `pnpm build` passed (52 tasks successful)
-
-### 2025-06-13: Admin Edit/Delete Bug Fixes ✅
-
-**Issue**: Edit dialog showed empty role list; delete action didn't work.
-
-**Root Causes**:
-1. `createMemberActions.tsx` used `AssignableRole` type (admin|editor|member), but admin module needs global roles (superadmin|supermoderator)
-2. `roleLabels` were not passed to edit dialog, only default labels for entity roles
-3. Delete action called `ctx.api.deleteEntity(ctx.entity.id)` but global users API expects `userId`
-
-**Fixes Applied**:
-1. **Type fix** (`createMemberActions.tsx`): Changed `availableRoles` type from `AssignableRole` to `MemberRole`
-2. **ID extraction** (`createMemberActions.tsx`): Added `getMemberId` config option to extract correct ID for API calls
-3. **Role labels** (`createMemberActions.tsx`): Added `roleLabels` and `roleLabelsKey` config options
-4. **Admin config** (`MemberActions.tsx`): Added `getMemberId: (member) => member.userId` and fixed `entityType` (was `resourceType`)
-
-**Files Modified**:
-- `packages/universo-template-mui/base/src/factories/createMemberActions.tsx`
-- `packages/admin-frontend/base/src/pages/MemberActions.tsx`
-
-**Build**: Full `pnpm build` passed (52 tasks successful)
-
-### 2025-12-04: Admin Comment Field Support ✅
-
-**Issue**: Global users don't have comment field support (unlike clusters).
-
-**Changes**:
-
-**Backend** (`admin-backend`):
-- Added `comment` column to `GlobalUser` entity
-- Created migration `AddGlobalUserComment1733311200000`
-- Updated `GrantRoleSchema` and added `UpdateGlobalUserSchema` with comment support
-- Updated `GlobalUserDetails` interface to include comment
-- Updated `grantRole()` and added `updateGlobalUser()` service methods
-- Updated POST and PATCH routes to handle comment
-
-**Frontend** (`admin-frontend`):
-- Added `comment` to `GlobalUserMember` interface
-- Updated `GrantRolePayload` and `UpdateRolePayload` with comment
-- Added Comment column to table view
-- Updated cards to show comment in description (`[nickname, comment].filter(Boolean).join('\n')`)
-- Updated `MemberActions.tsx` to use actual `member.comment`
-- Updated `handleInviteMember` and `createMemberContext` to pass comment
-
-**Build**: Full `pnpm build` passed (52 tasks successful)
-
----
-
-## December 2025
-
 ### 2025-12-03: Admin Packages (Superadmin/Supermoderator) ✅
 
-**Summary**: Created `admin-frontend` and `admin-backend` packages for global user management.
+**Summary**: Created `@universo/admin-backend` and `@universo/admin-frontend` for global user management.
 
-**New Packages**:
-| Package | Path | Description |
-|---------|------|-------------|
-| `@universo/admin-backend` | `packages/admin-backend/base/` | TypeORM entities, Express routes, guards for global user management |
-| `@universo/admin-frontend` | `packages/admin-frontend/base/` | React pages, TanStack Query hooks, i18n for admin UI |
+**Features**: Global roles (superadmin full CRUD, supermoderator read-only), ENV control (`SUPER_USERS_MODE`), separate `admin` schema with RLS, API endpoints, menu integration.
 
-**Key Features**:
-- **Global Roles**: `superadmin` (full CRUD) and `supermoderator` (read-only)
-- **ENV Control**: `SUPER_USERS_MODE` = `superadmin` | `supermoderator` | `disabled`
-- **Database**: `admin.global_users` table in separate schema with RLS policies
-- **API Endpoints**: `/api/v1/admin/global-users` (GET list, GET /me, POST grant, DELETE revoke)
-- **Menu Integration**: "Администрирование" divider visible only for super users
-
-**Architecture Decisions**:
-- Created local `apiClient` in admin-frontend to avoid cyclic dependency with template-mui
-- Created `useGlobalRoleCheck` hook in template-mui for menu visibility (direct fetch, no package dependency)
-- Used `PageCard` component instead of importing `MainCard` from template-mui
-
-**Files Modified**:
-- `flowise-core-backend/base/src/database/entities/index.ts` - added adminEntities
-- `flowise-core-backend/base/src/database/migrations/postgres/index.ts` - added Phase 7 adminMigrations
-- `flowise-core-backend/base/src/routes/index.ts` - added admin routes
-- `universo-template-mui/base/src/navigation/menuConfigs.ts` - added adminMenuItem
-- `universo-template-mui/base/src/components/dashboard/MenuContent.tsx` - added admin divider/menu
-- `universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - added /admin route
-- `universo-types/base/src/common/admin.ts` - created GlobalRole, SuperUsersMode types
-- `.env.example` - documented SUPER_USERS_MODE
-
-**SQL for Initial Superadmin**:
-```sql
-INSERT INTO admin.global_users (user_id, role, granted_by)
-SELECT id, 'superadmin', id
-FROM auth.users
-WHERE email = '580-39-39@mail.ru';
-```
-
-Build: 52/52 successful (6m5s)
-
----
-
-## January 2025
-
-### 2025-01-22: Flowise Core Packages Naming Refactoring ✅
-
-**Summary**: Major restructuring of core Flowise packages.
-
-**Package Renames**:
-| Old Path | New Path | New Name |
-|----------|----------|----------|
-| `packages/flowise-ui/` | `packages/flowise-core-frontend/base/` | `@flowise/core-frontend` |
-| `packages/flowise-server/` | `packages/flowise-core-backend/base/` | `@flowise/core-backend` |
-| `packages/flowise-components/` | `packages/flowise-components/base/` | (unchanged) |
-| `packages/universo-api-client/` | `packages/universo-api-client/base/` | (unchanged) |
-
-**Key Changes**:
-- Updated `getNodeModulesPackagePath()` in backend
-- Fixed ~50 tsconfig.json files with `types: ["node"]`
-- Fixed vite.config.js path aliases
-
-Build: 50/50 successful (4m26s)
-
----
-
-### 2025-01-20: Spaces Backend Improvements ✅
-
-**Zod Validation Schemas**:
-- Created `spaces-backend/src/schemas/index.ts` (~220 lines)
-- Controller reduced ~30% (750→515 lines)
-- Schemas: CreateSpaceSchema, UpdateSpaceSchema, CreateCanvasSchema, etc.
-- Helpers: `extractUnikId()`, `formatZodError()`, `validateBody()`
-
-**System Status Fields**:
-- Spaces: 9 new columns (versioning + status)
-- Canvases: 4 new columns (status only)
-- Partial indexes for performance
-- RLS policies updated
-
-**Canvas Versions API**:
-- `api.canvasVersions` added to @universo/api-client
-- Methods: list, create, update, activate, remove
-
-**Migration Consolidation**:
-- 7 chat_flow migrations merged into spaces-backend
-- ChatflowType → CanvasType renamed
-
-Build: 50/50 successful
-
----
-
-### 2025-01-19: CustomTemplates Package Extraction ✅
-
-**Packages Created**:
-- `@flowise/customtemplates-backend`: entity, migration, DI service
-- `@flowise/customtemplates-frontend`: Templates pages, i18n
-
-**API Client**: MarketplacesApi with full CRUD
-
-**Naming Migration**: Marketplaces → Templates complete
-
-**QA Cleanup**:
-- Deleted VectorStore duplicates from template-mui
-- Updated imports in spaces-frontend
-- Deleted flowise-ui/views/marketplaces/
-
-Build: 50/50 successful
-
----
-
-## December 2025
-
-### 2025-12-01-02: DocumentStore Full Migration ✅
-
-**Backend (@flowise/docstore-backend)**:
-- 3 entities, 4 DI services, consolidated migration
-- Clean Integration pattern for CRUD delegation
-
-**Frontend (@flowise/docstore-frontend)**:
-- 20 JSX files, merged i18n
-
-**Fixes**:
-- 403 error on Preview & Process
-- i18n interpolation format
-
-Build: 48/48 successful
+**Architecture**: Local apiClient in admin-frontend (avoid cyclic deps), useGlobalRoleCheck hook, PageCard component usage.
 
 ---
 
 ## November 2025
 
-### 2025-11-29: ChatMessage Full Migration ✅
+### 2025-11-26: Campaigns Integration ✅
 
-**Summary**: Completed full migration to @universo/flowise-chatmessage-backend.
+**Summary**: Three-tier architecture implementation (campaigns-backend, campaigns-frontend, @universo/api-client).
 
-**Changes**:
-- Utility wrappers for buildCanvasFlow compatibility
-- Deleted 10 legacy migrations
-- All services/controllers/routes deleted from flowise-server
-
-Build: 38/38 successful
+**Routes**: `/campaign/:campaignId/*` with Board and Access pages, full CRUD operations.
 
 ---
 
-### 2025-11-29: Leads Package Extraction ✅
+### 2025-11-25: Storages Management ✅
 
-**Packages**: @universo/flowise-leads-backend, @universo/flowise-leads-frontend (minimal)
+**Summary**: Three-tier architecture for storage management system.
 
-**Bug Fixes**: ChatMessage.jsx and Analytics.jsx leadsApi undefined
-
-Build: 46/46 successful
+**Implementation**: Zod validation, RLS policies, storage types (personal/organization), member management.
 
 ---
 
-### 2025-11-28-29: Assistants Package Extraction ✅
+### 2025-11-22: Organizations Module ✅
 
-**Backend**: @universo/flowise-assistants-backend with DI pattern
-- Consolidated migration, optional dependencies config
-- Fixed cyclic dependency via peerDependency
+**Summary**: Organizations management with Projects hierarchy, breadcrumbs navigation.
 
-**Frontend**: @universo/flowise-assistants-frontend
-- 8 JSX pages, i18n, side-effect imports
-
-**API Refactoring**: Modern method names, unikId-first pattern
-
-Build: 45/45 successful
+**Features**: OrganizationBoard, OrganizationMembers, organization-project relationship, i18n Member keys refactor.
 
 ---
 
-### 2025-11-28: ApiKey Package Extraction ✅
+### 2025-11-18: Projects Management System ✅
 
-**Backend**: @universo/flowise-apikey-backend
-- Dual storage mode (JSON + DB)
-- UUID for IDs, Zod validation
+**Summary**: Hierarchical project structure with milestones terminology.
 
-**Frontend**: @universo/flowise-apikey-frontend
-- 3 pages, i18n
-
-Build: 44/44 successful
+**Router**: Registered, 23 issues fixed, all pages loading, terminology unified throughout UI.
 
 ---
 
-### 2025-11-28: Variables Package Extraction ✅
+### 2025-11-14: REST API Documentation Refactoring ✅
 
-**Packages**: @universo/flowise-variables-backend, @universo/flowise-variables-frontend
+**Summary**: Modular OpenAPI 3.1 structure with Zod validation.
 
-Build: 43/43 successful
-
----
-
-### 2025-11-27: Credentials Package Extraction ✅
-
-**Backend**: @universo/flowise-credentials-backend
-- Encryption via DI callbacks
-
-**Frontend**: @universo/flowise-credentials-frontend
-
-Build: 42/42 successful
+**Changes**: Workspace → Unik terminology, description fields added, modular schema structure.
 
 ---
 
-### 2025-11-27: Tools Package Extraction ✅
+### 2025-11-13: Uniks Module Expansion ✅
 
-**Backend**: @universo/flowise-tools-backend
-- DI service with telemetry
-- Migration order: Init → Tools → Credentials
+**Summary**: UnikBoard expanded from 3 to 7 metric cards, metrics update (Spaces/Tools counts), Clusters breadcrumbs with useClusterName hook.
 
-**Frontend**: @universo/flowise-tools-frontend
-
-Build: 41/41 successful
+**Refactor**: Switched from chatflows to spaces metrics, createAccessGuards factory pattern.
 
 ---
 
-### 2025-11-25-27: QA Fixes ✅
+## October 2025
 
-**useApi → useMutation**: 7 packages, ~2000 lines mutations.ts created
+### 2025-10-30: Bold Steps 💃 (v0.35.0-alpha) ✅
 
-**Bot Review Fixes**: PR #560, #564, #566
+**Summary**: i18n TypeScript migration, type safety improvements, Rate limiting with Redis, RLS integration analysis.
 
-**AR.js**: Fixed quizState error in Node Connections mode
-
-**useApi Shim**: Fixed flowise-template-mui hooks exports
-
-Build: 40/40+ successful
+**Changes**: 30+ packages migrated to TypeScript i18n, Redis rate limiter implementation, RLS pattern documentation.
 
 ---
 
-### 2025-11-22-24: Documentation & i18n ✅
+### 2025-10-23: Black Hole ☕️ (v0.34.0-alpha) ✅
 
-**Documentation**:
-- Configuration docs: 22 files synced EN→RU
-- Integrations docs: 249 files synced
-- Applications docs: README rewritten, 4 new module pages
+**Summary**: Global monorepo refactoring, tsdown build system implementation, dependencies centralization.
 
-**i18n**:
-- Members keys centralized in common.json
-- Module-specific table keys decentralized
-- Storages architecture fixed
+**Changes**: Package restructuring, dual build (CJS + ESM), workspace dependencies optimization.
 
 ---
 
-### 2025-11-17-18: Projects Integration ✅
+### 2025-10-16: School Test 💼 (v0.33.0-alpha) ✅
 
-- 23 issues fixed
-- Router registered, all pages loading
-- Terminology: "Milestones" (RU) unified throughout UI
+**Summary**: Publication System 429 fixes, API modernization, Metaverses architecture refactoring, Quiz timer feature.
 
----
-
-### 2025-11-13-14: Uniks & Code Quality ✅
-
-**Uniks Refactoring**:
-- UnikBoard: 3→7 metric cards
-- Backend: spacesCount/toolsCount metrics
-
-**Code Quality**:
-- `createAccessGuards` factory in auth-backend
-- Cluster breadcrumbs with useClusterName hook
-- M2M logic fix in ensureSectionAccess
+**Changes**: Rate limiting implementation, REST API updates, Quiz interactive timer.
 
 ---
 
-## October 2025 (Summary)
+### 2025-10-09: Straight Path 🛴 (v0.32.0-alpha) ✅
 
-- **0.35.0-alpha** (2025-10-30): Rate limiting with Redis, i18n TypeScript migration
-- **0.34.0-alpha** (2025-10-23): Global monorepo refactoring, tsdown build system
-- **0.33.0-alpha** (2025-10-16): Publication System 429 fixes, Quiz timer
-- **0.32.0-alpha** (2025-10-09): Canvas versioning, Chatflow→Canvas terminology
-- **0.31.0-alpha** (2025-10-02): Manual quiz editing, Material-UI template system
+**Summary**: Canvas versioning, Chatflow→Canvas terminology refactoring, PostHog telemetry (opt-in), Metaverses pagination.
+
+**Changes**: Canvas metadata editing, terminology alignment, analytics integration.
 
 ---
 
-## September 2025 (Summary)
+### 2025-10-02: Victory Versions 🏆 (v0.31.0-alpha) ✅
 
-- **0.30.0-alpha** (2025-09-21): TypeScript path aliases, Analytics hierarchical selectors
-- **0.29.0-alpha** (2025-09-15): Cluster isolation architecture, Copilot modes
-- **0.28.0-alpha** (2025-09-07): Metaverses dashboard, Universal List Pattern
+**Summary**: Manual quiz editing workflow, Unik deletion cascade fixes, Space Builder modes, Material-UI template system.
 
----
-
-## August 2025 (Summary)
-
-- **0.27.0-alpha** (2025-08-31): Language switcher, MMOOMM template
-- **0.26.0-alpha** (2025-08-24): Multiplayer Colyseus server
-- **0.25.0-alpha** (2025-08-17): Space Builder MVP, @universo/types
+**Changes**: Quiz editing UI, cascading delete fixes, Space Builder view modes.
 
 ---
 
-## July 2025 and Earlier (Archive)
+## September 2025
 
-For detailed historical entries, see Git history:
-- 0.24.0-alpha: Space Builder, UPDL nodes, AR.js wallpaper mode
-- 0.23.0-alpha: Russian docs translation, UPDL conditional params
-- 0.22.0-alpha: Memory Bank rules, MMOOMM laser mining
-- 0.21.0-alpha: Handler refactoring, PlayCanvas stabilization
-- 0.20.0-alpha: UPDL node refactoring, Template-First architecture
-- Pre-alpha (0.10-0.19): Flowise integration, Supabase auth, UPDL basics
+### 2025-09-21: New Doors 🚪 (v0.30.0-alpha) ✅
+
+**Summary**: TypeScript path aliases standardization, Global publication library management, Analytics hierarchical selectors.
+
+**Changes**: `@/*` path aliases, publication CRUD, multi-level analytics filtering.
 
 ---
 
-**Last Updated**: 2025-12-03
+### 2025-09-15: Cluster Backpack 🎒 (v0.29.0-alpha) ✅
 
-**Note**: For current work → tasks.md. For patterns → systemPatterns.md.
+**Summary**: Resources/Entities cluster isolation architecture, i18n docs consistency checker, GitHub Copilot modes.
 
----
-
-## Detailed Entry Archive (Last 3 Months)
-
-### 2025-11-06-12: i18n Systematic Fixes ✅
-
-**Phase 1-5 Completion**:
-- Singleton binding pattern established
-- Colon syntax standardized across all packages
-- Namespace registration via side-effect imports
-- Fixed double namespace bug: `t('canvas:key')` with `useTranslation('canvas')`
-- 30 packages built successfully
-
-**Key Fixes**:
-- react-i18next pinned to 15.5.3 for i18next 23.x compatibility
-- registerNamespace pattern for lazy-loaded routes
-- Feature packages own their translations (docstore, tools, credentials)
+**Changes**: Cluster-level resource isolation, documentation tooling, AI-assisted development modes.
 
 ---
 
-### 2025-11-04-05: Metaverse Module Stabilization ✅
+### 2025-09-07: Orbital Switch 🥨 (v0.28.0-alpha) ✅
 
-**Dashboard Improvements**:
-- 3 stat cards + 2 charts
-- Universal List Pattern applied across all entity lists
-- TanStack Query with proper key factories
+**Summary**: Metaverses dashboard implementation, Universal List Pattern establishment.
 
-**Performance**:
-- N+1 query optimization in member lists
-- React StrictMode production fix (conditional wrapper)
-- COUNT(*) OVER() for efficient pagination
+**Changes**: Metaverse metrics dashboard, reusable list pattern for all entity types.
 
 ---
 
-### Architecture Decisions Log
+## August 2025
 
-**DI Factory Pattern** (November 2025):
-- All new packages use `createXxxService(config)` factory pattern
-- Config includes: dataSource, optional providers, callbacks
-- Enables testing without full app context
-- Applied to: Tools, Credentials, Variables, ApiKey, Assistants, ChatMessage, Leads, DocStore
+### 2025-08-31: Stable Takeoff 🐣 (v0.27.0-alpha) ✅
 
-**Package Extraction Strategy**:
+**Summary**: Language switcher, MMOOMM template, Finance module.
+
+**Changes**: EN/RU language toggle, metaverse template, financial tracking module.
+
+---
+
+### 2025-08-24: Slow Colossus 🐌 (v0.26.0-alpha) ✅
+
+**Summary**: MMOOMM modular package, Multiplayer Colyseus server integration.
+
+**Changes**: Template package extraction, real-time multiplayer server setup.
+
+---
+
+### 2025-08-17: Gentle Memory 😼 (v0.25.0-alpha) ✅
+
+**Summary**: Space Builder MVP, Metaverse module, @universo/types foundation.
+
+**Changes**: Initial Space Builder functionality, Metaverse entity system, shared types package.
+
+---
+
+## July 2025 and Earlier (Condensed Archive)
+
+### Major Milestones (0.20-0.24)
+
+- **0.24.0-alpha**: Space Builder enhancements, UPDL nodes expansion, AR.js wallpaper mode
+- **0.23.0-alpha**: Russian documentation translation, UPDL conditional params
+- **0.22.0-alpha**: Memory Bank rules establishment, MMOOMM laser mining feature
+- **0.21.0-alpha**: Handler refactoring, PlayCanvas stabilization
+- **0.20.0-alpha**: UPDL node refactoring, Template-First architecture
+
+### Foundation Phase (0.10-0.19)
+
+- Flowise integration and customization
+- Supabase authentication system
+- UPDL (Universal Platform Description Language) basics
+- Initial RLS policies and security model
+- Core entity system (Metaverses, Clusters, Projects)
+
+---
+
+## Architecture Decisions & Patterns
+
+### Package Extraction Strategy (November 2025)
+
+**Standard Approach**:
 1. Create backend package with entity, migration, DI service
 2. Create frontend package with pages, i18n
 3. Update flowise-server imports
 4. Delete legacy files
 5. Build and verify
 
-**Migration Consolidation**:
-- Each package has single consolidated migration
-- Idempotent with IF NOT EXISTS clauses
-- No destructive down() migrations in production
-
----
-
-### Package Count Evolution
-
-| Date | Package Count | Notes |
-|------|---------------|-------|
-| 2025-12-03 | 50 | After core package renaming |
-| 2025-12-01 | 48 | After DocumentStore extraction |
-| 2025-11-29 | 46 | After Leads extraction |
-| 2025-11-28 | 44-45 | After Assistants/ApiKey extraction |
-| 2025-11-27 | 41-43 | After Tools/Credentials/Variables |
-| 2025-11-22 | 40 | Before package extraction sprint |
+**DI Factory Pattern**: All new packages use `createXxxService(config)` with dataSource, optional providers, callbacks.
 
 ---
 
 ### Key Technical Decisions
 
-**TypeORM Repository Pattern**:
-- All DB access via `getDataSource().getRepository(Entity)`
-- User context for RLS policies
-- No direct SQL queries in service code
+**TypeORM Repository Pattern**: All DB access via `getDataSource().getRepository(Entity)`, user context for RLS policies, no direct SQL.
 
-**TanStack Query v5**:
-- Query key factories for cache invalidation
-- useQuery for declarative data fetching
-- useMutation for state changes (replaced custom useApi)
+**TanStack Query v5**: Query key factories, useQuery for fetching, useMutation for state changes (replaced custom useApi).
 
-**i18n Architecture**:
-- Core namespaces in @universo/i18n
-- Feature packages ship own translations
-- registerNamespace for runtime registration
+**i18n Architecture**: Core namespaces in @universo/i18n, feature packages own translations, registerNamespace for runtime.
 
----
-
-### Build System Notes
-
-**pnpm Workspace**:
-- Run commands from root only
-- `pnpm --filter <package> build` for single package
-- `pnpm build` for full workspace (required for cross-deps)
-
-**tsdown Build**:
-- Dual output: CJS + ESM
-- Path aliases: `@/*` → `src/*`
-- Type declarations generated
+**Build System**: pnpm workspace (run from root), tsdown dual output (CJS + ESM), path aliases `@/*`.
 
 ---
 
 ### Known Issues & Workarounds
 
-**Template MUI CommonJS Shims** (DEFERRED):
-- flowise-ui ESM/CJS conflict
-- Workaround: Direct imports from source packages
-- Future: Extract to @universo package with dual build
+**Template MUI CommonJS** (DEFERRED): flowise-ui ESM/CJS conflict, workaround via direct source imports.
 
-**useApi Context Loss**:
-- Class methods lose `this` when passed to hooks
-- Solution: Wrap in arrow functions `(...args) => api.method(...args)`
-
-**React StrictMode**:
-- Causes double-mount in React 18
-- Solution: Conditional wrapper (dev only)
+**React StrictMode**: Conditional wrapper (dev only) to avoid double-mount issues.
 
 ---
+
+## Statistics
+
+**Package Evolution**:
+- August 2025: 25 packages
+- November 2025: 46 packages
+- December 2025: 52 packages (current)
+
+**Build Performance**: Full workspace build ~4-6 minutes depending on cache state.
+
+---
+
+**Last Updated**: 2025-12-10
+
+**Note**: For current work → tasks.md. For patterns → systemPatterns.md.

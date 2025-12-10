@@ -368,9 +368,9 @@ export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => 
         icon: IconUserShield
     },
     {
-        id: 'instance-access',
-        titleKey: 'superusers',
-        url: `/admin/instance/${instanceId}/access`,
+        id: 'instance-users',
+        titleKey: 'users',
+        url: `/admin/instance/${instanceId}/users`,
         icon: IconUsersGroup
     }
 ]

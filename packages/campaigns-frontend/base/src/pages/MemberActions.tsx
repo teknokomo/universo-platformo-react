@@ -7,5 +7,5 @@ import type { CampaignMember } from '../types'
  */
 export default createMemberActions<CampaignMember>({
     i18nPrefix: 'campaigns',
-    activityType: 'campaign'
+    entityType: 'campaign'
 })

@@ -2,7 +2,7 @@
 import * as httpErrors from 'http-errors'
 import { CampaignRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { isSuperuserByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { CampaignMember } from '../database/entities/CampaignMember'
 import { EventCampaign } from '../database/entities/EventCampaign'
 import { ActivityEvent } from '../database/entities/ActivityEvent'
@@ -68,7 +68,7 @@ const baseGuards = createAccessGuards<CampaignRole, CampaignMember>({
     extractUserId: (m) => m.user_id,
     extractEntityId: (m) => m.campaign_id,
     // Global admin bypass - users with global access get owner-level access
-    hasGlobalAccess: hasGlobalAccessByDataSource,
+    isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleNameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({

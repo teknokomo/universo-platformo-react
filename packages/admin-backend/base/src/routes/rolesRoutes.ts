@@ -87,7 +87,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
     /**
      * GET /api/v1/admin/roles/assignable
-     * Get roles that can be assigned to global users (has_global_access = true)
+     * Get roles that can be assigned to global users
      * Returns minimal role data for dropdown population
      */
     router.get(
@@ -97,7 +97,6 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const roleRepo = getRoleRepo(req)
 
             const roles = await roleRepo.find({
-                where: { has_global_access: true },
                 select: ['id', 'name', 'display_name', 'color'],
                 order: { name: 'ASC' }
             })
@@ -232,7 +231,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const { name, description, displayName, color, hasGlobalAccess, permissions } = parsed.data
+            const { name, description, displayName, color, isSuperuser, permissions } = parsed.data
 
             // Check for duplicate name
             const existing = await roleRepo.findOne({ where: { name } })
@@ -250,7 +249,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 description,
                 display_name: displayName,
                 color,
-                has_global_access: hasGlobalAccess,
+                is_superuser: isSuperuser,
                 is_system: false // User-created roles are never system roles
             })
 
@@ -261,7 +260,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 const permissionEntities = permissions.map((perm) =>
                     permissionRepo.create({
                         role_id: savedRole.id,
-                        module: perm.module,
+                        subject: perm.subject,
                         action: perm.action,
                         conditions: perm.conditions ?? {},
                         fields: perm.fields ?? []
@@ -319,6 +318,11 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const parsed = UpdateRoleSchema.safeParse(req.body)
 
             if (!parsed.success) {
+                console.error('[UpdateRole] Validation failed:', {
+                    roleId: id,
+                    body: JSON.stringify(req.body, null, 2),
+                    errors: parsed.error.errors
+                })
                 res.status(400).json({
                     success: false,
                     error: 'Invalid request body',
@@ -327,15 +331,15 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const { name, description, displayName, color, hasGlobalAccess, permissions } = parsed.data
+            const { name, description, displayName, color, isSuperuser, permissions } = parsed.data
 
             // Protect system roles from critical changes
             if (role.is_system) {
                 // System roles: only allow updating description, displayName, color
                 const forbiddenFields = []
                 if (name !== undefined && name !== role.name) forbiddenFields.push('name')
-                if (hasGlobalAccess !== undefined && hasGlobalAccess !== role.has_global_access) {
-                    forbiddenFields.push('hasGlobalAccess')
+                if (isSuperuser !== undefined && isSuperuser !== role.is_superuser) {
+                    forbiddenFields.push('isSuperuser')
                 }
                 if (permissions !== undefined) forbiddenFields.push('permissions')
 
@@ -365,7 +369,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             if (description !== undefined) role.description = description
             if (displayName !== undefined) role.display_name = displayName
             if (color !== undefined) role.color = color
-            if (hasGlobalAccess !== undefined) role.has_global_access = hasGlobalAccess
+            if (isSuperuser !== undefined) role.is_superuser = isSuperuser
 
             await roleRepo.save(role)
 
@@ -379,7 +383,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                     const permissionEntities = permissions.map((perm) =>
                         permissionRepo.create({
                             role_id: id,
-                            module: perm.module,
+                            subject: perm.subject,
                             action: perm.action,
                             conditions: perm.conditions ?? {},
                             fields: perm.fields ?? []

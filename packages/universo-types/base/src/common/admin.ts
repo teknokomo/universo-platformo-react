@@ -8,14 +8,21 @@
  */
 
 /**
- * Admin panel and super user configuration
+ * Admin panel and privilege configuration
  * Returned by /auth/permissions endpoint for frontend feature flags
+ * 
+ * Three-tier privilege system:
+ * 1. adminPanelEnabled - Controls UI/API access to /admin/*
+ * 2. globalRolesEnabled - Controls global editor/moderator roles (platform-wide permissions)
+ * 3. superuserEnabled - Controls superuser RLS bypass (see all data, root access)
  */
 export interface AdminConfig {
     /** Whether admin panel UI and API endpoints are accessible */
     adminPanelEnabled: boolean
-    /** Whether super user privileges (RLS bypass, see all data) are active */
-    globalAdminEnabled: boolean
+    /** Whether global roles (editors, moderators) are enabled for platform-wide access */
+    globalRolesEnabled: boolean
+    /** Whether superuser privileges (RLS bypass, see all data) are active */
+    superuserEnabled: boolean
 }
 
 /**
@@ -31,14 +38,14 @@ export interface LocalizedString {
  * Contains display information for UI rendering
  */
 export interface RoleMetadata {
-    /** Unique role identifier (e.g., 'superadmin', 'supermoderator') */
+    /** Unique role identifier (e.g., 'superuser', 'metaeditor') */
     name: string
     /** Localized display names */
     displayName: LocalizedString
-    /** Hex color for UI display (e.g., '#ad1457') */
+    /** Hex color for UI display (e.g., '#d32f2f') */
     color: string
-    /** Whether this role grants platform-wide access */
-    hasGlobalAccess: boolean
+    /** Whether this role grants full permission bypass (only 'superuser' role) */
+    isSuperuser: boolean
 }
 
 /**
@@ -53,19 +60,18 @@ export interface GlobalRoleInfo {
 }
 
 /**
- * @deprecated Use GlobalRoleInfo instead. Kept for backward compatibility during migration.
+ * @deprecated Hardcoded roles removed. Use dynamic roles from database.
  * Global user roles for platform-wide access (hardcoded legacy type)
  */
-export type GlobalRole = 'superadmin' | 'supermoderator'
+export type GlobalRole = 'superuser' | 'superadmin' | 'supermoderator'
 
 /**
  * Super users mode configuration
  * @deprecated Use GLOBAL_ADMIN_ENABLED env variable instead
- * - 'superadmin': Only superadmins have global access
- * - 'supermoderator': Both superadmins and supermoderators have global access
+ * - 'superuser': Only superuser has global access
  * - 'disabled': Super users functionality is disabled
  */
-export type SuperUsersMode = 'superadmin' | 'supermoderator' | 'disabled'
+export type SuperUsersMode = 'superuser' | 'disabled'
 
 /**
  * User permissions response from /auth/permissions endpoint
@@ -75,8 +81,12 @@ export interface UserPermissionsResponse {
     permissions: PermissionRule[]
     /** User's global roles with metadata */
     globalRoles: GlobalRoleInfo[]
-    /** Quick check: does user have any global access role? */
-    hasGlobalAccess: boolean
+    /** Quick check: is user superuser? */
+    isSuperuser: boolean
+    /** Quick check: can user access admin panel? (computed from permissions) */
+    hasAdminAccess: boolean
+    /** Quick check: does user have any global role? (for settings visibility) */
+    hasAnyGlobalRole: boolean
     /** Role metadata map for UI display (keyed by role name) */
     rolesMetadata: Record<string, RoleMetadata>
     /** Admin feature flags configuration */
@@ -88,8 +98,8 @@ export interface UserPermissionsResponse {
  * Used as foundation for both PermissionRule and PermissionInput
  */
 export interface BasePermission {
-    /** Module/subject (e.g., 'metaverses', '*') */
-    module: string
+    /** Subject (e.g., 'metaverses', '*') - CASL standard terminology */
+    subject: string
     /** Action (e.g., 'read', 'create', '*') */
     action: string
     /** ABAC conditions - MongoDB-style query for attribute-based access control */
@@ -115,6 +125,7 @@ export type PermissionInput = BasePermission
 
 /**
  * User with global role assignment (for admin panel)
+ * Extends DynamicMemberEntity pattern for dynamic roles loaded from database
  */
 export interface GlobalUserMember {
     /** Assignment ID (from user_roles table) */
@@ -125,16 +136,16 @@ export interface GlobalUserMember {
     email: string | null
     /** User nickname (from profiles) */
     nickname: string | null
-    /** Role name */
+    /** Role name (dynamic, loaded from database) */
     roleName: string
-    /** Role metadata */
+    /** Role metadata with display info */
     roleMetadata: RoleMetadata
     /** Comment on assignment */
     comment: string | null
     /** Who granted this role */
     grantedBy: string | null
-    /** When assigned */
-    createdAt: Date
+    /** When assigned (ISO string for JSON serialization) */
+    createdAt: string
 }
 
 /**
@@ -170,10 +181,10 @@ export interface UpdateGlobalRoleRequest {
 export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | '*'
 
 /**
- * Platform modules that can have permissions assigned
- * '*' means all modules (CASL 'all')
+ * Platform subjects that can have permissions assigned
+ * '*' means all subjects (CASL 'all')
  */
-export type PermissionModule =
+export type PermissionSubject =
     | 'metaverses'
     | 'clusters'
     | 'projects'
@@ -186,13 +197,15 @@ export type PermissionModule =
     | 'entities'
     | 'canvases'
     | 'publications'
-    | 'admin'
+    | 'roles'
+    | 'instances'
+    | 'users'
     | '*'
 
 /**
- * All available permission modules (for UI iteration)
+ * All available permission subjects (for UI iteration)
  */
-export const PERMISSION_MODULES: PermissionModule[] = [
+export const PERMISSION_SUBJECTS: PermissionSubject[] = [
     'metaverses',
     'clusters',
     'projects',
@@ -205,13 +218,33 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     'entities',
     'canvases',
     'publications',
-    'admin'
+    'roles',
+    'instances',
+    'users'
 ]
+
+/**
+ * Admin-related permission subjects that grant access to admin panel
+ * If user has any permission (read or wildcard) on these subjects, they can access admin panel
+ */
+export const ADMIN_PERMISSION_SUBJECTS: PermissionSubject[] = ['roles', 'instances', 'users']
 
 /**
  * All available permission actions (for UI iteration)
  */
 export const PERMISSION_ACTIONS: PermissionAction[] = ['create', 'read', 'update', 'delete']
+
+/**
+ * Check if user has any admin-related permissions
+ * Admin access is granted when user has read (or wildcard) permission on roles, instances, or users
+ */
+export function hasAdminPermissions(permissions: PermissionInput[]): boolean {
+    return permissions.some(
+        (p) =>
+            (ADMIN_PERMISSION_SUBJECTS.includes(p.subject as PermissionSubject) || p.subject === '*') &&
+            (p.action === 'read' || p.action === '*')
+    )
+}
 
 /**
  * Role with full permission details
@@ -223,7 +256,7 @@ export interface RoleWithPermissions {
     description?: string
     displayName: LocalizedString
     color: string
-    hasGlobalAccess: boolean
+    isSuperuser: boolean
     isSystem: boolean
     permissions: PermissionInput[]
     createdAt: string
@@ -242,8 +275,8 @@ export interface CreateRolePayload {
     displayName: LocalizedString
     /** Hex color for UI display */
     color: string
-    /** Whether this role grants platform-wide access */
-    hasGlobalAccess: boolean
+    /** Whether this role grants superuser access (full permission bypass - root user) */
+    isSuperuser: boolean
     /** Permission rules for this role */
     permissions: PermissionInput[]
 }

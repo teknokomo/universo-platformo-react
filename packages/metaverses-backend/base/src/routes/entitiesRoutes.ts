@@ -3,7 +3,7 @@ import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import type { MetaverseRole } from '@universo/types'
-import { hasGlobalAccessByDataSource } from '@universo/admin-backend'
+import { isSuperuserByDataSource } from '@universo/admin-backend'
 import { Entity } from '../database/entities/Entity'
 import { Section } from '../database/entities/Section'
 import { EntitySection } from '../database/entities/EntitySection'
@@ -135,7 +135,7 @@ export function createEntitiesRouter(
             try {
                 // Check if user has global access
                 const ds = getDataSource()
-                const isGlobalAdmin = await hasGlobalAccessByDataSource(ds, userId)
+                const isGlobalAdmin = await isSuperuserByDataSource(ds, userId)
 
                 // Check showAll query parameter (only applicable for global admins)
                 // If showAll=false (or not set), global admin sees only their own items

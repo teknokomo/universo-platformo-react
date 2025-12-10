@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 /**
  * Schema for granting global role (by email, not UUID)
+ * Role is validated dynamically against database roles in the service layer
  */
 export const GrantRoleSchema = z.object({
     email: z.string().email('Invalid email format'),
-    role: z.enum(['superadmin', 'supermoderator'], {
-        errorMap: () => ({ message: 'Role must be superadmin or supermoderator' })
-    }),
+    role: z.string().min(1, 'Role name is required'),
     comment: z.string().trim().max(500).optional().or(z.literal(''))
 })
 
@@ -15,27 +14,28 @@ export type GrantRoleInput = z.infer<typeof GrantRoleSchema>
 
 /**
  * Schema for updating global user (role and/or comment)
+ * Role is validated dynamically against database roles
  */
 export const UpdateGlobalUserSchema = z.object({
-    role: z
-        .enum(['superadmin', 'supermoderator'], {
-            errorMap: () => ({ message: 'Role must be superadmin or supermoderator' })
-        })
-        .optional(),
+    role: z.string().min(1, 'Role name is required').optional(),
     comment: z.string().trim().max(500).optional().or(z.literal(''))
 })
 
 export type UpdateGlobalUserInput = z.infer<typeof UpdateGlobalUserSchema>
 
 /**
- * Schema for list query parameters
+ * Schema for list query parameters (users list with filters)
  */
 export const ListQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
     sortBy: z.enum(['created', 'email', 'role']).default('created'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
-    search: z.string().optional()
+    search: z.string().optional(),
+    /** Filter by specific role ID (UUID) */
+    roleId: z.string().uuid().optional(),
+    /** Filter by global access status */
+    hasGlobalAccess: z.enum(['true', 'false', 'all']).default('true')
 })
 
 export type ListQueryInput = z.infer<typeof ListQuerySchema>
@@ -59,9 +59,9 @@ export function validateListQuery(query: unknown): ListQueryInput {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Available permission modules
+ * Available permission subjects (CASL standard terminology)
  */
-const PermissionModules = [
+const PermissionSubjects = [
     'metaverses',
     'clusters',
     'projects',
@@ -74,6 +74,9 @@ const PermissionModules = [
     'entities',
     'canvases',
     'publications',
+    'roles',
+    'instances',
+    'users',
     'admin',
     '*'
 ] as const
@@ -87,7 +90,7 @@ const PermissionActions = ['create', 'read', 'update', 'delete', '*'] as const
  * Schema for a single permission rule
  */
 const PermissionRuleSchema = z.object({
-    module: z.enum(PermissionModules),
+    subject: z.enum(PermissionSubjects),
     action: z.enum(PermissionActions),
     conditions: z.record(z.unknown()).optional(),
     fields: z.array(z.string()).optional()
@@ -110,7 +113,7 @@ export const CreateRoleSchema = z.object({
     description: z.string().max(500).optional(),
     displayName: LocalizedStringSchema,
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format'),
-    hasGlobalAccess: z.boolean(),
+    isSuperuser: z.boolean(),
     permissions: z.array(PermissionRuleSchema).min(1, 'At least one permission is required')
 })
 
@@ -132,7 +135,7 @@ export const UpdateRoleSchema = z.object({
         .string()
         .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format')
         .optional(),
-    hasGlobalAccess: z.boolean().optional(),
+    isSuperuser: z.boolean().optional(),
     permissions: z.array(PermissionRuleSchema).min(1, 'At least one permission is required').optional()
 })
 

@@ -237,14 +237,16 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
             const totalUsersResult = await ds.query(`SELECT COUNT(*) as count FROM auth.users`)
             const totalUsers = parseInt(totalUsersResult[0]?.count || '0', 10)
 
-            // Count global access users
+            // Count global access users (users with any role assignment)
             const globalUsersResult = await ds.query(`
                 SELECT COUNT(DISTINCT ur.user_id) as count
                 FROM admin.user_roles ur
-                JOIN admin.roles r ON ur.role_id = r.id
-                WHERE r.has_global_access = true
             `)
             const globalUsers = parseInt(globalUsersResult[0]?.count || '0', 10)
+
+            // Count total roles
+            const totalRolesResult = await ds.query(`SELECT COUNT(*) as count FROM admin.roles`)
+            const totalRoles = parseInt(totalRolesResult[0]?.count || '0', 10)
 
             res.json({
                 success: true,
@@ -253,6 +255,7 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
                     available: true,
                     totalUsers,
                     globalAccessUsers: globalUsers,
+                    totalRoles,
                     instanceName: instance.name,
                     instanceStatus: instance.status
                 }

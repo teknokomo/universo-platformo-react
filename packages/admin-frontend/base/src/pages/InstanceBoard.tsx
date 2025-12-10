@@ -151,14 +151,25 @@ const InstanceBoard = () => {
                         />
                     </Grid>
 
-                    {/* Global Access Users */}
+                    {/* Superusers */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
-                            title={t('board.stats.globalAccess.title', 'Global Access')}
+                            title={t('board.stats.superusers.title', 'Superusers')}
                             value={globalAccessUsers}
-                            interval={t('board.stats.globalAccess.interval', 'With permissions')}
-                            description={t('board.stats.globalAccess.description', 'Users with global access')}
+                            interval={t('board.stats.superusers.interval', 'With global roles')}
+                            description={t('board.stats.superusers.description', 'Users with admin access')}
                             data={globalUsersData}
+                        />
+                    </Grid>
+
+                    {/* Roles */}
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.roles.title', 'Roles')}
+                            value={stats?.totalRoles ?? 0}
+                            interval={t('board.stats.roles.interval', 'System + custom')}
+                            description={t('board.stats.roles.description', 'Permission roles')}
+                            data={Array(30).fill(stats?.totalRoles ?? 0)}
                         />
                     </Grid>
 

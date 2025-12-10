@@ -7,8 +7,10 @@ export { adminEntities, Instance, Role, RolePermission, UserRole } from './datab
 // Services
 export {
     createGlobalAccessService,
-    hasGlobalAccessByDataSource,
+    isSuperuserByDataSource,
+    canAccessAdminByDataSource,
     getGlobalRoleNameByDataSource,
+    hasSubjectPermissionByDataSource,
     type GlobalAccessService,
     type GlobalAccessServiceDeps,
     type ListGlobalUsersParams,

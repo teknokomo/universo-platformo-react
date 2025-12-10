@@ -75,9 +75,15 @@ const EntityList = () => {
     const [selectedSection, setSelectedSection] = useState<Section | null>(null)
 
     // Fetch sections list for dropdown
+    // If metaverseId is present, fetch sections for that specific metaverse
+    // Otherwise, fetch all sections accessible to the user
     const { data: sectionsData, isLoading: sectionsLoading } = useQuery({
-        queryKey: sectionsQueryKeys.list({ limit: 1000, offset: 0 }),
-        queryFn: () => sectionsApi.listSections({ limit: 1000, offset: 0 })
+        queryKey: metaverseId 
+            ? metaversesQueryKeys.sections(metaverseId)
+            : sectionsQueryKeys.list({ limit: 1000, offset: 0 }),
+        queryFn: () => metaverseId
+            ? metaversesApi.listMetaverseSections(metaverseId, { limit: 1000, offset: 0 })
+            : sectionsApi.listSections({ limit: 1000, offset: 0 })
     })
 
     // Use paginated hook for entities list

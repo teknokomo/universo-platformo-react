@@ -22,7 +22,7 @@ export interface UseAssignableGlobalRolesResult {
 }
 
 /**
- * Hook to fetch roles assignable to global users (has_global_access = true)
+ * Hook to fetch roles assignable to global users (is_superuser = true)
  * Provides role options and localized labels for MemberFormDialog
  *
  * @example

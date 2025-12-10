@@ -4,10 +4,11 @@ import { Role } from './Role'
 /**
  * RolePermission entity for RBAC permission assignments
  * Stored in admin.role_permissions table
- * Supports wildcard permissions (module='*', action='*')
+ * Supports wildcard permissions (subject='*', action='*')
+ * Uses CASL standard 'subject' terminology instead of 'module'
  */
 @Entity({ name: 'role_permissions', schema: 'admin' })
-@Unique(['role_id', 'module', 'action'])
+@Unique(['role_id', 'subject', 'action'])
 export class RolePermission {
     @PrimaryGeneratedColumn('uuid')
     id!: string
@@ -16,7 +17,7 @@ export class RolePermission {
     role_id!: string
 
     @Column({ type: 'varchar', length: 100 })
-    module!: string
+    subject!: string
 
     @Column({ type: 'varchar', length: 20 })
     action!: string

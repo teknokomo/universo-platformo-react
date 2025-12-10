@@ -82,7 +82,7 @@ export const PaginationControls = ({
             sx={{
                 display: 'flex',
                 justifyContent: 'flex-end',
-                border: 1,
+                border: '1px solid',
                 borderColor: 'divider',
                 borderRadius: 1,
                 bgcolor: 'background.paper',

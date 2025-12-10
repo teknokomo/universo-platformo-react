@@ -14,6 +14,8 @@ export { default as TemplateNodeCardWrapper } from './cards/NodeCardWrapper'
 export * as TemplateCardSkeletons from './cards/Skeleton'
 
 export { default as ToolbarControls } from './toolbar/ToolbarControls'
+export { FilterToolbar } from './toolbar/FilterToolbar'
+export type { FilterType, FilterOption, FilterConfig, FilterValues, FilterToolbarProps } from './toolbar/FilterToolbar'
 export { default as ViewHeaderMUI } from './headers/ViewHeader'
 export * from './dialogs'
 

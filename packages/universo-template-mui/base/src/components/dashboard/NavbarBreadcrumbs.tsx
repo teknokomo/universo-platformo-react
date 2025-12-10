@@ -435,8 +435,8 @@ export default function NavbarBreadcrumbs() {
                 // Sub-pages within instance
                 if (segments[3] === 'board') {
                     items.push({ label: t('board'), to: `/admin/instance/${instanceIdFromUrl}/board` })
-                } else if (segments[3] === 'access') {
-                    items.push({ label: t('superusers'), to: `/admin/instance/${instanceIdFromUrl}/access` })
+                } else if (segments[3] === 'users') {
+                    items.push({ label: t('users'), to: `/admin/instance/${instanceIdFromUrl}/users` })
                 } else if (segments[3] === 'roles') {
                     items.push({ label: t('roles'), to: `/admin/instance/${instanceIdFromUrl}/roles` })
                     // Role detail page

@@ -24,11 +24,11 @@ export function useGlobalRole() {
 }
 
 /**
- * Check if current user is superadmin
+ * Check if current user is superuser (full platform access)
  */
 export function useIsSuperadmin(): boolean {
     const { data } = useGlobalRole()
-    return data?.role === 'superadmin'
+    return data?.role === 'superuser'
 }
 
 /**

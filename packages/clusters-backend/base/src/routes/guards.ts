@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ClusterRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { isSuperuserByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { ClusterUser } from '../database/entities/ClusterUser'
 import { DomainCluster } from '../database/entities/DomainCluster'
 import { ResourceDomain } from '../database/entities/ResourceDomain'
@@ -68,7 +68,7 @@ const baseGuards = createAccessGuards<ClusterRole, ClusterUser>({
     extractUserId: (m) => m.user_id,
     extractEntityId: (m) => m.cluster_id,
     // Global admin bypass - users with global access get owner-level access
-    hasGlobalAccess: hasGlobalAccessByDataSource,
+    isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleNameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({

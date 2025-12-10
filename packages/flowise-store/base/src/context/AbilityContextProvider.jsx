@@ -76,8 +76,8 @@ const buildAbilityFromPermissions = (permissions) => {
     const rules = []
 
     for (const perm of permissions) {
-        // Map module to subject ('metaverses' -> 'Metaverse', '*' -> 'all')
-        const subject = perm.module === '*' ? 'all' : (MODULE_TO_SUBJECT[perm.module] || perm.module)
+        // Map subject to CASL subject ('metaverses' -> 'Metaverse', '*' -> 'all')
+        const subject = perm.subject === '*' ? 'all' : (MODULE_TO_SUBJECT[perm.subject] || perm.subject)
 
         // Map action ('*' -> 'manage')
         const action = ACTION_MAP[perm.action] || perm.action
@@ -103,7 +103,7 @@ const buildAbilityFromPermissions = (permissions) => {
 
 /**
  * Fetches permissions from API (new format with metadata and config)
- * @returns {Promise<{permissions: Array, globalRoles: Array, hasGlobalAccess: boolean, rolesMetadata: Object, config: Object}>}
+ * @returns {Promise<{permissions: Array, globalRoles: Array, isSuperuser: boolean, hasAdminAccess: boolean, rolesMetadata: Object, config: Object}>}
  */
 const fetchPermissions = async () => {
     try {
@@ -121,9 +121,11 @@ const fetchPermissions = async () => {
                 return {
                     permissions: [],
                     globalRoles: [],
-                    hasGlobalAccess: false,
+                    isSuperuser: false,
+                    hasAdminAccess: false,
+                    hasAnyGlobalRole: false,
                     rolesMetadata: {},
-                    config: { adminPanelEnabled: true, globalAdminEnabled: true }
+                    config: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true }
                 }
             }
             throw new Error(`Failed to fetch permissions: ${response.status}`)
@@ -136,26 +138,32 @@ const fetchPermissions = async () => {
             return {
                 permissions: data.permissions,
                 globalRoles: [],
-                hasGlobalAccess: false,
+                isSuperuser: false,
+                hasAdminAccess: false,
+                hasAnyGlobalRole: false,
                 rolesMetadata: {},
-                config: { adminPanelEnabled: true, globalAdminEnabled: true }
+                config: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true }
             }
         }
         return {
             permissions: data.permissions || [],
             globalRoles: data.globalRoles || [],
-            hasGlobalAccess: data.hasGlobalAccess ?? false,
+            isSuperuser: data.isSuperuser ?? false,
+            hasAdminAccess: data.hasAdminAccess ?? false,
+            hasAnyGlobalRole: data.hasAnyGlobalRole ?? false,
             rolesMetadata: data.rolesMetadata || {},
-            config: data.config || { adminPanelEnabled: true, globalAdminEnabled: true }
+            config: data.config || { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true }
         }
     } catch (error) {
         console.error('[AbilityProvider] Failed to load permissions:', error)
         return {
             permissions: [],
             globalRoles: [],
-            hasGlobalAccess: false,
+            isSuperuser: false,
+            hasAdminAccess: false,
+            hasAnyGlobalRole: false,
             rolesMetadata: {},
-            config: { adminPanelEnabled: true, globalAdminEnabled: true }
+            config: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true }
         }
     }
 }
@@ -166,10 +174,13 @@ const AbilityContextProvider = ({ children }) => {
     const [error, setError] = useState(null)
     // New state for global roles and metadata
     const [globalRoles, setGlobalRoles] = useState([])
-    const [hasGlobalAccess, setHasGlobalAccess] = useState(false)
     const [rolesMetadata, setRolesMetadata] = useState({})
+    // Superuser and admin access flags
+    const [isSuperuser, setIsSuperuser] = useState(false)
+    const [hasAdminAccess, setHasAdminAccess] = useState(false)
+    const [hasAnyGlobalRole, setHasAnyGlobalRole] = useState(false)
     // Admin feature flags configuration
-    const [adminConfig, setAdminConfig] = useState({ adminPanelEnabled: true, globalAdminEnabled: true })
+    const [adminConfig, setAdminConfig] = useState({ adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true })
 
     // Load permissions on mount
     useEffect(() => {
@@ -186,13 +197,17 @@ const AbilityContextProvider = ({ children }) => {
                     const newAbility = buildAbilityFromPermissions(data.permissions)
                     setAbility(newAbility)
                     setGlobalRoles(data.globalRoles)
-                    setHasGlobalAccess(data.hasGlobalAccess)
                     setRolesMetadata(data.rolesMetadata)
+                    setIsSuperuser(data.isSuperuser ?? false)
+                    setHasAdminAccess(data.hasAdminAccess ?? false)
+                    setHasAnyGlobalRole(data.hasAnyGlobalRole ?? false)
                     setAdminConfig(data.config)
                     console.log('[AbilityProvider] Permissions loaded', {
                         rulesCount: newAbility.rules.length,
                         globalRolesCount: data.globalRoles.length,
-                        hasGlobalAccess: data.hasGlobalAccess,
+                        isSuperuser: data.isSuperuser,
+                        hasAdminAccess: data.hasAdminAccess,
+                        hasAnyGlobalRole: data.hasAnyGlobalRole,
                         adminConfig: data.config
                     })
                 }
@@ -222,8 +237,10 @@ const AbilityContextProvider = ({ children }) => {
         const newAbility = buildAbilityFromPermissions(data.permissions)
         setAbility(newAbility)
         setGlobalRoles(data.globalRoles)
-        setHasGlobalAccess(data.hasGlobalAccess)
         setRolesMetadata(data.rolesMetadata)
+        setIsSuperuser(data.isSuperuser ?? false)
+        setHasAdminAccess(data.hasAdminAccess ?? false)
+        setHasAnyGlobalRole(data.hasAnyGlobalRole ?? false)
         setAdminConfig(data.config)
         setLoading(false)
         return newAbility
@@ -233,9 +250,11 @@ const AbilityContextProvider = ({ children }) => {
     const clearAbility = useCallback(() => {
         setAbility(createEmptyAbility())
         setGlobalRoles([])
-        setHasGlobalAccess(false)
         setRolesMetadata({})
-        setAdminConfig({ adminPanelEnabled: true, globalAdminEnabled: true })
+        setIsSuperuser(false)
+        setHasAdminAccess(false)
+        setHasAnyGlobalRole(false)
+        setAdminConfig({ adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true })
     }, [])
 
     // Context value with new fields
@@ -248,12 +267,15 @@ const AbilityContextProvider = ({ children }) => {
             clearAbility,
             // New fields for global roles
             globalRoles,
-            hasGlobalAccess,
             rolesMetadata,
+            // Superuser and admin access flags
+            isSuperuser,
+            hasAdminAccess,
+            hasAnyGlobalRole,
             // Admin feature flags
             adminConfig
         }),
-        [ability, loading, error, refreshAbility, clearAbility, globalRoles, hasGlobalAccess, rolesMetadata, adminConfig]
+        [ability, loading, error, refreshAbility, clearAbility, globalRoles, rolesMetadata, isSuperuser, hasAdminAccess, hasAnyGlobalRole, adminConfig]
     )
 
     return <AbilityContext.Provider value={value}>{children}</AbilityContext.Provider>
