@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import axios, { AxiosError } from 'axios'
+import { AxiosError } from 'axios'
 import { extractAxiosError, isApiError, isHttpStatus } from '../error-handlers'
 
 describe('extractAxiosError', () => {

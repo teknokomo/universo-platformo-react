@@ -16,7 +16,13 @@ import {
     Chip
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { PERMISSION_MODULES, PERMISSION_ACTIONS, type PermissionModule, type PermissionAction, type PermissionInput } from '@universo/types'
+import {
+    PERMISSION_SUBJECTS,
+    PERMISSION_ACTIONS,
+    type PermissionSubject,
+    type PermissionAction,
+    type PermissionInput
+} from '@universo/types'
 
 interface PermissionMatrixProps {
     permissions: PermissionInput[]
@@ -29,31 +35,31 @@ interface PermissionMatrixProps {
 }
 
 /**
- * Helper to check if a permission exists for a module/action
+ * Helper to check if a permission exists for a subject/action
  */
-function hasPermission(permissions: PermissionInput[], module: PermissionModule, action: PermissionAction): boolean {
-    return permissions.some((p) => (p.module === module || p.module === '*') && (p.action === action || p.action === '*'))
+function hasPermission(permissions: PermissionInput[], subject: PermissionSubject, action: PermissionAction): boolean {
+    return permissions.some((p) => (p.subject === subject || p.subject === '*') && (p.action === action || p.action === '*'))
 }
 
 /**
  * Helper to check if all permissions are set (*)
  */
 function hasAllPermissions(permissions: PermissionInput[]): boolean {
-    return permissions.some((p) => p.module === '*' && p.action === '*')
+    return permissions.some((p) => p.subject === '*' && p.action === '*')
 }
 
 /**
- * Helper to check if a module has all actions
+ * Helper to check if a subject has all actions
  */
-function hasAllActionsForModule(permissions: PermissionInput[], module: PermissionModule): boolean {
-    return permissions.some((p) => (p.module === module || p.module === '*') && p.action === '*')
+function hasAllActionsForSubject(permissions: PermissionInput[], subject: PermissionSubject): boolean {
+    return permissions.some((p) => (p.subject === subject || p.subject === '*') && p.action === '*')
 }
 
 /**
- * Helper to check if an action is set for all modules
+ * Helper to check if an action is set for all subjects
  */
-function hasActionForAllModules(permissions: PermissionInput[], action: PermissionAction): boolean {
-    return permissions.some((p) => p.module === '*' && (p.action === action || p.action === '*'))
+function hasActionForAllSubjects(permissions: PermissionInput[], action: PermissionAction): boolean {
+    return permissions.some((p) => p.subject === '*' && (p.action === action || p.action === '*'))
 }
 
 /**
@@ -69,18 +75,18 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
      * Toggle a single permission
      */
     const togglePermission = useCallback(
-        (module: PermissionModule, action: PermissionAction) => {
+        (subject: PermissionSubject, action: PermissionAction) => {
             if (disabled) return
 
-            const exists = permissions.some((p) => p.module === module && p.action === action)
+            const exists = permissions.some((p) => p.subject === subject && p.action === action)
 
             if (exists) {
                 // Remove the permission
-                const newPermissions = permissions.filter((p) => !(p.module === module && p.action === action))
+                const newPermissions = permissions.filter((p) => !(p.subject === subject && p.action === action))
                 onChange(newPermissions)
             } else {
                 // Add the permission
-                const newPermissions = [...permissions.filter((p) => !(p.module === module && p.action === action)), { module, action }]
+                const newPermissions = [...permissions.filter((p) => !(p.subject === subject && p.action === action)), { subject, action }]
                 onChange(newPermissions)
             }
         },
@@ -88,30 +94,30 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
     )
 
     /**
-     * Toggle all actions for a module
+     * Toggle all actions for a subject
      */
-    const toggleModuleAll = useCallback(
-        (module: PermissionModule) => {
+    const toggleSubjectAll = useCallback(
+        (subject: PermissionSubject) => {
             if (disabled) return
 
-            const hasAll = hasAllActionsForModule(permissions, module)
+            const hasAll = hasAllActionsForSubject(permissions, subject)
 
             if (hasAll) {
-                // Remove all permissions for this module
-                const newPermissions = permissions.filter((p) => p.module !== module && !(p.module === '*' && p.action === '*'))
-                // If we had *, we need to add back all other modules
-                if (permissions.some((p) => p.module === '*')) {
-                    PERMISSION_MODULES.filter((m) => m !== module).forEach((m) => {
-                        if (!newPermissions.some((p) => p.module === m && p.action === '*')) {
-                            newPermissions.push({ module: m, action: '*' })
+                // Remove all permissions for this subject
+                const newPermissions = permissions.filter((p) => p.subject !== subject && !(p.subject === '*' && p.action === '*'))
+                // If we had *, we need to add back all other subjects
+                if (permissions.some((p) => p.subject === '*')) {
+                    PERMISSION_SUBJECTS.filter((s) => s !== subject).forEach((s) => {
+                        if (!newPermissions.some((p) => p.subject === s && p.action === '*')) {
+                            newPermissions.push({ subject: s, action: '*' })
                         }
                     })
                 }
                 onChange(newPermissions)
             } else {
-                // Set all actions for this module (using *)
-                const newPermissions = permissions.filter((p) => p.module !== module)
-                newPermissions.push({ module, action: '*' })
+                // Set all actions for this subject (using *)
+                const newPermissions = permissions.filter((p) => p.subject !== subject)
+                newPermissions.push({ subject, action: '*' })
                 onChange(newPermissions)
             }
         },
@@ -119,32 +125,32 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
     )
 
     /**
-     * Toggle an action for all modules
+     * Toggle an action for all subjects
      */
     const toggleActionAll = useCallback(
         (action: PermissionAction) => {
             if (disabled) return
 
-            const hasAll = hasActionForAllModules(permissions, action)
+            const hasAll = hasActionForAllSubjects(permissions, action)
 
             if (hasAll) {
-                // Remove this action for all modules
+                // Remove this action for all subjects
                 const newPermissions = permissions.filter((p) => p.action !== action && p.action !== '*')
-                // If we had action=*, add back other actions for each module
+                // If we had action=*, add back other actions for each subject
                 if (permissions.some((p) => p.action === '*')) {
-                    PERMISSION_MODULES.forEach((m) => {
+                    PERMISSION_SUBJECTS.forEach((s) => {
                         PERMISSION_ACTIONS.filter((a) => a !== action).forEach((a) => {
-                            if (!newPermissions.some((p) => p.module === m && p.action === a)) {
-                                newPermissions.push({ module: m, action: a })
+                            if (!newPermissions.some((p) => p.subject === s && p.action === a)) {
+                                newPermissions.push({ subject: s, action: a })
                             }
                         })
                     })
                 }
                 onChange(newPermissions)
             } else {
-                // Set this action for all modules
+                // Set this action for all subjects
                 const newPermissions = permissions.filter((p) => p.action !== action)
-                newPermissions.push({ module: '*', action })
+                newPermissions.push({ subject: '*', action })
                 onChange(newPermissions)
             }
         },
@@ -160,15 +166,15 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
         if (allSelected) {
             onChange([])
         } else {
-            onChange([{ module: '*', action: '*' }])
+            onChange([{ subject: '*', action: '*' }])
         }
     }, [allSelected, onChange, disabled])
 
     /**
-     * Get label for module
+     * Get label for subject
      */
-    const getModuleLabel = (module: PermissionModule): string => {
-        return t(`roles.permissions.modules.${module}`, { defaultValue: module })
+    const getSubjectLabel = (subject: PermissionSubject): string => {
+        return t(`roles.permissions.subjects.${subject}`, { defaultValue: subject })
     }
 
     /**
@@ -198,7 +204,7 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                 <Table size='small'>
                     <TableHead>
                         <TableRow>
-                            <TableCell sx={{ fontWeight: 'bold', minWidth: 150 }}>{t('roles.permissions.module', 'Module')}</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold', minWidth: 150 }}>{t('roles.permissions.subject', 'Subject')}</TableCell>
                             {PERMISSION_ACTIONS.map((action) => (
                                 <TableCell key={action} align='center' sx={{ fontWeight: 'bold', minWidth: 80 }}>
                                     <Tooltip title={t('roles.permissions.toggleColumnHint', 'Click to toggle all')}>
@@ -217,19 +223,19 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                                 </TableCell>
                             ))}
                             <TableCell align='center' sx={{ fontWeight: 'bold', minWidth: 80 }}>
-                                <Tooltip title={t('roles.permissions.allActionsHint', 'All actions for module')}>
+                                <Tooltip title={t('roles.permissions.allActionsHint', 'All actions for subject')}>
                                     <span>*</span>
                                 </Tooltip>
                             </TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {PERMISSION_MODULES.map((module) => {
-                            const moduleHasAll = hasAllActionsForModule(permissions, module)
+                        {PERMISSION_SUBJECTS.map((subject) => {
+                            const subjectHasAll = hasAllActionsForSubject(permissions, subject)
 
                             return (
                                 <TableRow
-                                    key={module}
+                                    key={subject}
                                     sx={{
                                         '&:hover': {
                                             backgroundColor: 'action.hover'
@@ -237,19 +243,19 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                                     }}
                                 >
                                     <TableCell>
-                                        <Tooltip title={t(`roles.permissions.modules.${module}Desc`, '')}>
-                                            <Typography variant='body2'>{getModuleLabel(module)}</Typography>
+                                        <Tooltip title={t(`roles.permissions.subjects.${subject}Desc`, '')}>
+                                            <Typography variant='body2'>{getSubjectLabel(subject)}</Typography>
                                         </Tooltip>
                                     </TableCell>
                                     {PERMISSION_ACTIONS.map((action) => {
-                                        const checked = allSelected || moduleHasAll || hasPermission(permissions, module, action)
+                                        const checked = allSelected || subjectHasAll || hasPermission(permissions, subject, action)
 
                                         return (
                                             <TableCell key={action} align='center'>
                                                 <Checkbox
                                                     checked={checked}
-                                                    onChange={() => togglePermission(module, action)}
-                                                    disabled={disabled || allSelected || moduleHasAll}
+                                                    onChange={() => togglePermission(subject, action)}
+                                                    disabled={disabled || allSelected || subjectHasAll}
                                                     size='small'
                                                 />
                                             </TableCell>
@@ -257,8 +263,8 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                                     })}
                                     <TableCell align='center'>
                                         <Checkbox
-                                            checked={allSelected || moduleHasAll}
-                                            onChange={() => toggleModuleAll(module)}
+                                            checked={allSelected || subjectHasAll}
+                                            onChange={() => toggleSubjectAll(subject)}
                                             disabled={disabled || allSelected}
                                             size='small'
                                             color='secondary'

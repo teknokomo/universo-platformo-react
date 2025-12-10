@@ -212,7 +212,7 @@ describe('ItemCard', () => {
         it('should render a Link with the correct href when href is provided', () => {
             render(
                 <TestWrapper>
-                    <ItemCard data={mockData} href="/test-path" />
+                    <ItemCard data={mockData} href='/test-path' />
                 </TestWrapper>
             )
 
@@ -236,10 +236,10 @@ describe('ItemCard', () => {
 
             // Menu click handler should be called
             expect(handleMenuClick).toHaveBeenCalledTimes(1)
-            // We can't easily check "navigation didn't happen" without mocking, 
+            // We can't easily check "navigation didn't happen" without mocking,
             // but we can verify the event propagation stopped if we had a spy on the window location or similar.
             // However, the main point of this test in the previous version was to ensure the *router* didn't navigate.
-            // Since we removed the mock, we rely on the fact that the button is ON TOP of the link (z-index) 
+            // Since we removed the mock, we rely on the fact that the button is ON TOP of the link (z-index)
             // and has stopPropagation.
             // In a unit test with JSDOM, z-index doesn't prevent clicks, but stopPropagation does.
             // So if we had a click handler on the link, we could check it wasn't called.
@@ -273,7 +273,7 @@ describe('ItemCard', () => {
             const linkElement = screen.getByText('Test Item').closest('.MuiCard-root')?.querySelector('a')
             expect(linkElement).toBeInTheDocument()
             expect(linkElement).toHaveAttribute('href', '/priority-test')
-            
+
             // onClick passed to CardWrapper is undefined when href is present
             // We can verify this by clicking the card wrapper (if we could click "under" the link)
             // But practically, checking the link exists is enough proof of priority
@@ -307,7 +307,7 @@ describe('ItemCard', () => {
 
             const card = screen.getByText('Test Item').closest('.MuiCard-root')
             expect(card).toBeInTheDocument()
-            
+
             // Ensure no link is rendered
             const linkElement = card?.querySelector('a')
             expect(linkElement).not.toBeInTheDocument()

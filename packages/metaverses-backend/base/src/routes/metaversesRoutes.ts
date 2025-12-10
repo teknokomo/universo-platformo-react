@@ -3,7 +3,11 @@ import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
-import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { 
+    isSuperuserByDataSource, 
+    getGlobalRoleNameByDataSource, 
+    hasSubjectPermissionByDataSource 
+} from '@universo/admin-backend'
 import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { Entity } from '../database/entities/Entity'
@@ -166,16 +170,20 @@ export function createMetaversesRoutes(
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             try {
-                // Check if user has global access
+                // Check if user has global access to metaverses
                 const ds = getDataSource()
-                const isGlobalAdmin = await hasGlobalAccessByDataSource(ds, userId)
-                // Get global role name for accessType if user is global admin
-                const globalRoleName = isGlobalAdmin ? await getGlobalRoleNameByDataSource(ds, userId) : null
+                const isSuperuser = await isSuperuserByDataSource(ds, userId)
+                const hasMetaversesGlobalAccess = await hasSubjectPermissionByDataSource(ds, userId, 'metaverses')
+                
+                // Get global role name for accessType if user has global access
+                const globalRoleName = (isSuperuser || hasMetaversesGlobalAccess) 
+                    ? await getGlobalRoleNameByDataSource(ds, userId) 
+                    : null
 
-                // Check showAll query parameter (only applicable for global admins)
-                // If showAll=false (or not set), global admin sees only their own items
+                // Check showAll query parameter (applicable for superusers or users with metaverses:* permission)
+                // If showAll=false (or not set), user sees only their own items
                 const showAllParam = req.query.showAll
-                const showAll = isGlobalAdmin && showAllParam === 'true'
+                const showAll = (isSuperuser || hasMetaversesGlobalAccess) && showAllParam === 'true'
 
                 // Validate and parse query parameters with Zod
                 const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
@@ -194,7 +202,7 @@ export function createMetaversesRoutes(
                 const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
                 // Aggregate counts per metaverse
-                // Global admins can see all metaverses
+                // Superusers can see all metaverses
                 const { metaverseRepo } = repos(req)
                 const qb = metaverseRepo
                     .createQueryBuilder('m')
@@ -648,7 +656,7 @@ export function createMetaversesRoutes(
 
             // Check global access
             const ds = getDataSource()
-            const isGlobalAdmin = await hasGlobalAccessByDataSource(ds, userId)
+            const isGlobalAdmin = await isSuperuserByDataSource(ds, userId)
             console.log(`[DEBUG] isGlobalAdmin: ${isGlobalAdmin}`)
 
             await ensureMetaverseAccess(ds, userId, metaverseId)
@@ -661,7 +669,7 @@ export function createMetaversesRoutes(
                 const rlsCheck = await manager.query(`
                     SELECT 
                         auth.uid() as current_uid,
-                        admin.has_global_access(auth.uid()) as has_global_access,
+                        admin.is_superuser(auth.uid()) as is_superuser,
                         (SELECT COUNT(*) FROM metaverses.entities_metaverses WHERE metaverse_id = $1) as total_links
                 `, [metaverseId])
                 console.log(`[DEBUG] RLS context check:`, rlsCheck)

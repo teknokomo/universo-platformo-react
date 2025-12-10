@@ -31,7 +31,7 @@ const getDefaultFormState = () => ({
     displayNameEn: '',
     displayNameRu: '',
     color: '#9e9e9e',
-    hasGlobalAccess: false,
+    isSuperuser: false,
     permissions: [] as PermissionInput[]
 })
 
@@ -81,7 +81,7 @@ const RoleEdit = () => {
                 displayNameEn: role.displayName['en'] || '',
                 displayNameRu: role.displayName['ru'] || '',
                 color: role.color,
-                hasGlobalAccess: role.hasGlobalAccess,
+                isSuperuser: role.isSuperuser,
                 permissions: role.permissions
             })
         }
@@ -92,8 +92,10 @@ const RoleEdit = () => {
         mutationFn: (payload: CreateRolePayload) => rolesApi.createRole(payload),
         onSuccess: (createdRole) => {
             queryClient.invalidateQueries({ queryKey: rolesQueryKeys.all })
-            // Invalidate assignable roles cache in case a new global role was created
+            // Invalidate assignable roles cache
             queryClient.invalidateQueries({ queryKey: rolesQueryKeys.assignable() })
+            // Invalidate the new role's detail query so it loads after navigation
+            queryClient.invalidateQueries({ queryKey: rolesQueryKeys.detail(createdRole.id) })
             enqueueSnackbar(t('roles.createSuccess', 'Role created successfully'), {
                 variant: 'success'
             })
@@ -109,10 +111,12 @@ const RoleEdit = () => {
     // Update mutation
     const updateMutation = useMutation({
         mutationFn: ({ id, payload }: { id: string; payload: UpdateRolePayload }) => rolesApi.updateRole(id, payload),
-        onSuccess: () => {
+        onSuccess: (updatedRole) => {
             queryClient.invalidateQueries({ queryKey: rolesQueryKeys.all })
-            // Invalidate assignable roles cache in case hasGlobalAccess changed
+            // Invalidate assignable roles cache in case canAccessAdmin changed
             queryClient.invalidateQueries({ queryKey: rolesQueryKeys.assignable() })
+            // Invalidate this role's detail query to refetch fresh data
+            queryClient.invalidateQueries({ queryKey: rolesQueryKeys.detail(updatedRole.id) })
             enqueueSnackbar(t('roles.updateSuccess', 'Role updated successfully'), {
                 variant: 'success'
             })
@@ -154,13 +158,10 @@ const RoleEdit = () => {
         setIsDirty(true)
     }, [])
 
-    const handleSwitchChange = useCallback(
-        (field: 'hasGlobalAccess') => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
-            setFormState((prev) => ({ ...prev, [field]: checked }))
-            setIsDirty(true)
-        },
-        []
-    )
+    const handleSwitchChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
+        setFormState((prev) => ({ ...prev, isSuperuser: checked }))
+        setIsDirty(true)
+    }, [])
 
     // Validation
     const validate = useCallback((): boolean => {
@@ -213,7 +214,7 @@ const RoleEdit = () => {
         }
 
         // For system roles, only send allowed fields (description, displayName, color)
-        // Do NOT send name, hasGlobalAccess, or permissions
+        // Do NOT send name, isSuperuser, or permissions
         const payload = isSystemRole
             ? {
                   description: formState.description || undefined,
@@ -225,7 +226,7 @@ const RoleEdit = () => {
                   description: formState.description || undefined,
                   displayName,
                   color: formState.color,
-                  hasGlobalAccess: formState.hasGlobalAccess,
+                  isSuperuser: formState.isSuperuser,
                   permissions: formState.permissions
               }
 
@@ -377,23 +378,32 @@ const RoleEdit = () => {
                     <FormControlLabel
                         control={
                             <Switch
-                                checked={formState.hasGlobalAccess}
-                                onChange={handleSwitchChange('hasGlobalAccess')}
+                                checked={isSystemRole ? true : formState.isSuperuser}
+                                onChange={handleSwitchChange}
                                 disabled={isSaving || isSystemRole}
                             />
                         }
                         label={
                             <Box>
-                                <Typography variant='body1'>{t('roles.field.hasGlobalAccess', 'Has Global Access')}</Typography>
+                                <Typography variant='body1'>{t('roles.field.isSuperuser', 'Superuser Access')}</Typography>
                                 <Typography variant='caption' color='text.secondary'>
                                     {t(
-                                        'roles.field.hasGlobalAccessHint',
-                                        'Users with this role can access the admin panel and manage platform-wide settings'
+                                        'roles.field.isSuperuserHint',
+                                        'Full platform access with permission bypass - root user. System roles have this enabled permanently'
                                     )}
                                 </Typography>
                             </Box>
                         }
                     />
+
+                    <Alert severity='info' sx={{ mt: 2 }}>
+                        <Typography variant='body2'>
+                            {t(
+                                'roles.field.adminAccessInfo',
+                                'Admin panel access is automatically granted when users have permissions for roles, instances, or users subjects (with read or wildcard action).'
+                            )}
+                        </Typography>
+                    </Alert>
 
                     <Divider />
 

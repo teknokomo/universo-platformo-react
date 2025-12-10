@@ -72,7 +72,7 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
             // Get full global access info with metadata
             const globalInfo = await globalAccessService.getGlobalAccessInfo(userId)
 
-            if (!globalInfo || !globalInfo.hasGlobalAccess) {
+            if (!globalInfo || !globalInfo.canAccessAdmin) {
                 return res.json({
                     success: true,
                     data: { role: null, hasGlobalAccess: false, roleMetadata: null }
@@ -86,7 +86,7 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
                 success: true,
                 data: {
                     role: primaryRole?.name ?? null,
-                    hasGlobalAccess: globalInfo.hasGlobalAccess,
+                    hasGlobalAccess: globalInfo.canAccessAdmin,
                     roleMetadata: primaryRole?.metadata ?? null
                 }
             })
@@ -134,11 +134,11 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
                 })
             }
 
-            // Check if already has access
-            if (await globalAccessService.hasGlobalAccess(targetUserId)) {
+            // Check if already has admin access
+            if (await globalAccessService.canAccessAdmin(targetUserId)) {
                 return res.status(409).json({
                     success: false,
-                    error: 'User already has global access',
+                    error: 'User already has admin access',
                     code: 'GLOBAL_USER_EXISTS'
                 })
             }

@@ -27,6 +27,7 @@ export {
     TableViewOnly,
     ToolsTable,
     ToolbarControls,
+    FilterToolbar,
     ViewHeaderMUI,
     TemplateMainCard,
     EmptyListState,
@@ -50,7 +51,12 @@ export type {
     TooltipWithParserProps,
     TableColumn,
     FlowListTableData,
-    FlowListTableProps
+    FlowListTableProps,
+    FilterType,
+    FilterOption,
+    FilterConfig,
+    FilterValues,
+    FilterToolbarProps
 } from './components'
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'

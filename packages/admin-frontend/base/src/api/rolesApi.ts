@@ -11,7 +11,8 @@ export interface RoleListItem {
     description?: string
     displayName: Record<string, string>
     color: string
-    hasGlobalAccess: boolean
+    isSuperuser: boolean
+    canAccessAdmin: boolean
     isSystem: boolean
     createdAt: string
     updatedAt: string
@@ -93,12 +94,13 @@ function transformRole(apiRole: Record<string, unknown>): RoleListItem {
         description: apiRole.description as string | undefined,
         displayName: apiRole.display_name as Record<string, string>,
         color: apiRole.color as string,
-        hasGlobalAccess: apiRole.has_global_access as boolean,
+        isSuperuser: apiRole.is_superuser as boolean,
+        canAccessAdmin: apiRole.can_access_admin as boolean,
         isSystem: apiRole.is_system as boolean,
         createdAt: apiRole.created_at as string,
         updatedAt: apiRole.updated_at as string,
         permissions: ((apiRole.permissions as Record<string, unknown>[] | undefined) || []).map((p) => ({
-            module: p.module as string,
+            subject: p.subject as string,
             action: p.action as string,
             conditions: p.conditions as Record<string, unknown> | undefined,
             fields: p.fields as string[] | undefined
@@ -201,7 +203,7 @@ export function createRolesApi(client: AxiosInstance) {
         },
 
         /**
-         * Get roles assignable to global users (has_global_access = true)
+         * Get roles assignable to global users (is_superuser = true)
          * Used for populating role dropdowns in global access management
          */
         getAssignableRoles: async (): Promise<GlobalAssignableRole[]> => {

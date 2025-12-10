@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ProjectRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { isSuperuserByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
 import { ProjectUser } from '../database/entities/ProjectUser'
 import { MilestoneProject } from '../database/entities/MilestoneProject'
 import { TaskMilestone } from '../database/entities/TaskMilestone'
@@ -68,7 +68,7 @@ const baseGuards = createAccessGuards<ProjectRole, ProjectUser>({
     extractUserId: (m) => m.user_id,
     extractEntityId: (m) => m.project_id,
     // Global admin bypass - users with global access get owner-level access
-    hasGlobalAccess: hasGlobalAccessByDataSource,
+    isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleNameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({

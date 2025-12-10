@@ -27,13 +27,13 @@ const createError = (httpErrors as any).default || httpErrors
  *   extractRole: (m) => m.role || 'member',
  *   extractUserId: (m) => m.user_id,
  *   extractEntityId: (m) => m.metaverse_id,
- *   // Enable global admin bypass (new API)
- *   hasGlobalAccess: async (ds, userId) => hasGlobalAccessByDataSource(ds, userId),
+ *   // Enable superuser bypass (new API)
+ *   isSuperuser: async (ds, userId) => isSuperuserByDataSource(ds, userId),
  *   getGlobalRoleName: async (ds, userId) => getGlobalRoleNameByDataSource(ds, userId),
  *   createGlobalAdminMembership: (userId, entityId, globalRole) => ({
  *     user_id: userId,
  *     metaverse_id: entityId,
- *     role: 'owner' // Global admins get owner-level access
+ *     role: 'owner' // Superusers get owner-level access
  *   })
  * })
  * ```
@@ -46,7 +46,7 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
         extractRole,
         extractUserId,
         extractEntityId,
-        hasGlobalAccess: hasGlobalAccessFn,
+        isSuperuser: isSuperuserFn,
         getGlobalRoleName,
         getGlobalRole, // deprecated, for backward compatibility
         createGlobalAdminMembership
@@ -89,13 +89,13 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
             throw createError(401, 'Authentication required')
         }
 
-        // Check global access (new API with hasGlobalAccess function)
-        if (hasGlobalAccessFn && createGlobalAdminMembership) {
-            const hasAccess = await hasGlobalAccessFn(ds, userId)
-            if (hasAccess) {
+        // Check superuser access (new API with isSuperuser function)
+        if (isSuperuserFn && createGlobalAdminMembership) {
+            const isSuper = await isSuperuserFn(ds, userId)
+            if (isSuper) {
                 // Get role name for logging (optional)
-                const roleName = getGlobalRoleName ? await getGlobalRoleName(ds, userId) : 'global_admin'
-                console.info('[ACCESS] Global admin access granted', {
+                const roleName = getGlobalRoleName ? await getGlobalRoleName(ds, userId) : 'superuser'
+                console.info('[ACCESS] Superuser access granted - bypassing permissions', {
                     timestamp: new Date().toISOString(),
                     userId,
                     entityId,

@@ -2,10 +2,10 @@ import { createMemberActions } from '@universo/template-mui'
 import type { ProjectMember } from '../types'
 
 /**
- * Member management actions for Projects (edit, remove)
+ * Member management actions for projects (edit, remove)
  * Uses createMemberActions factory for code reusability across modules
  */
 export default createMemberActions<ProjectMember>({
     i18nPrefix: 'projects',
-    TaskType: 'Project'
+    entityType: 'project'
 })

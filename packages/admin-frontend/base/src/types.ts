@@ -1,7 +1,7 @@
-import type { GlobalRole, RoleMetadata, LocalizedString } from '@universo/types'
-import type { BaseMemberEntity } from '@universo/types'
+import type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember } from '@universo/types'
 
-export type { GlobalRole, RoleMetadata, LocalizedString }
+// Re-export types from @universo/types for convenience
+export type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember }
 
 /**
  * Instance status type
@@ -32,6 +32,7 @@ export interface InstanceStats {
     message?: string
     totalUsers?: number
     globalAccessUsers?: number
+    totalRoles?: number
     instanceName?: string
     instanceStatus?: InstanceStatus
 }
@@ -48,27 +49,9 @@ export interface UpdateInstancePayload {
 }
 
 /**
- * Global user assignable roles (both are assignable, unlike entity roles where owner is not assignable)
- * Now dynamically loaded from database
+ * Global user assignable roles (dynamic, loaded from database)
  */
 export type GlobalAssignableRole = string
-
-/**
- * Global user member interface for frontend display
- * Compatible with BaseMemberEntity for createMemberActions factory
- */
-export interface GlobalUserMember extends BaseMemberEntity {
-    id: string
-    userId: string
-    email: string | null
-    nickname: string | null
-    role: string
-    roleName: string
-    roleMetadata?: RoleMetadata
-    comment?: string | null
-    grantedBy?: string | null
-    createdAt: string
-}
 
 /**
  * Stats response from admin API

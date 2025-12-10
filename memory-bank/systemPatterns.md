@@ -1,102 +1,18 @@
 # System Patterns
 
-> **Note**: Reusable architectural patterns and best practices. For completed work, see progress.md. For current tasks, see tasks.md.
-
----
-
-## Route Protection Guards Pattern (2025-12-06)
-
-**Location**: `@universo/template-mui/components/routing/`
-
-**Rule**: Protected routes must redirect unauthorized users to home, not show error pages.
-
-### Guard Components
-
-| Guard | Purpose | Checks | Redirect |
-|-------|---------|--------|----------|
-| `AuthGuard` | Authentication only | `isAuthenticated` | → `/auth` |
-| `AdminGuard` | Admin panel access | `isAuthenticated` + `canAccessAdminPanel` | → `/` |
-| `ResourceGuard` | Resource ownership | `isAuthenticated` + API 403/404 | → `/` |
-
-### AdminGuard Usage
-```tsx
-// Wrap entire admin section - children don't need AuthGuard
-<Route path="admin" element={<AdminGuard><Outlet /></AdminGuard>}>
-  <Route index element={<InstanceList />} />
-  <Route path="instance/:id" element={<InstanceBoard />} />
-</Route>
-```
-
-### ResourceGuard Usage (Generic)
-```tsx
-<ResourceGuard
-  resourceType="metaverse"
-  resourceIdParam="metaverseId"
-  fetchResource={(id) => getMetaverse(id).then(r => r.data)}
-  queryKeyFn={metaversesQueryKeys.detail}
->
-  <Outlet />
-</ResourceGuard>
-```
-
-### Specialized Guards (Recommended)
-Create module-specific guards that wrap ResourceGuard:
-- `MetaverseGuard` in `@universo/metaverses-frontend/components/`
-- Future: `ProjectGuard`, `ClusterGuard`, etc.
-
-```tsx
-// MetaverseGuard.tsx
-export const MetaverseGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ResourceGuard
-    resourceType="metaverse"
-    resourceIdParam="metaverseId"
-    fetchResource={(id) => getMetaverse(id).then(r => r.data)}
-    queryKeyFn={metaversesQueryKeys.detail}
-  >
-    {children}
-  </ResourceGuard>
-)
-```
-
-### Key Benefits
-1. **Security**: No information disclosure about protected resources
-2. **UX**: Clean redirect instead of error-filled pages
-3. **Performance**: ResourceGuard caches data via TanStack Query
-4. **Reusability**: Same pattern for all resource types
+> **Note**: Reusable architectural patterns and best practices. For completed work → progress.md. For current tasks → tasks.md.
 
 ---
 
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
-**Rule**: Source-only packages (no dist/) must use peerDependencies, NOT dependencies.
+**Rule**: Source-only packages (no dist/) MUST use peerDependencies, NOT dependencies.
 
-**Required**:
-- `package.json`: peerDependencies for all external imports
-- Parent app: dependencies for actual installation
-- Example: `@flowise/template-mui` (source-only) → `@flowise/core-frontend` (installs deps)
+**Required**: `peerDependencies` in package.json for all external imports; parent app has actual `dependencies`.
 
-**Detection**:
-```bash
-# Find source-only packages with wrong deps
-find packages/*/base -name "package.json" -exec grep -L '"main":' {} \; | xargs grep '"dependencies":'
-```
+**Detection**: `find packages/*/base -name "package.json" -exec grep -L '"main":' {} \; | xargs grep '"dependencies":'`
 
-**Symptoms**:
-- Vite error: "Cannot find module '@mui/material'"
-- PNPM workspace resolution errors
-- Missing node_modules in source-only packages
-
-**Fix**:
-```json
-{
-  "peerDependencies": {
-    "react": "catalog:react",
-    "@mui/material": "catalog:mui"
-  }
-}
-```
-
-**Why**: Source code is imported directly by Vite. Parent app resolves all dependencies via workspace graph.
+**Why**: Source code imported directly by Vite; parent app resolves dependencies via workspace graph.
 
 ---
 
@@ -104,712 +20,322 @@ find packages/*/base -name "package.json" -exec grep -L '"main":' {} \; | xargs 
 
 **Location**: `memory-bank/rls-integration-pattern.md`
 
-**Rule**: All database access MUST go through TypeORM Repository pattern with user context.
+**Rule**: All database access via TypeORM Repository pattern with user context for RLS policies.
 
 **Required**:
-- `getDataSource()` for database connection
-- `getRepository(Entity)` for CRUD operations
-- User ID in request context for RLS policies
+- `getDataSource()` for connection
+- `getRepository(Entity)` for CRUD
+- User ID in request context
 
-**Detection**:
-```bash
-# Find direct Supabase client usage (antipattern)
-grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules
-```
+**Detection**: `grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules` (antipattern)
 
-**Pattern**: See full documentation in `rls-integration-pattern.md`
+**Full documentation**: See `rls-integration-pattern.md`
 
 ---
 
 ## i18n Architecture (CRITICAL)
 
-**Rule**: Core namespaces live in `@universo/i18n`. Feature packages (docstore, tools, credentials, etc.) ship and register their own translations via `registerNamespace`.
+**Rule**: Core namespaces in `@universo/i18n`; feature packages ship own translations via `registerNamespace`.
 
 **Required**:
-- Shared namespaces stay under `@universo/i18n` (core + generic views/dialogs)
-- Feature packages expose `register<Feature>I18n()` helpers (see `@flowise/docstore-frontend/i18n`)
-- Apps must import feature packages before rendering related routes: `import '@flowise/docstore-frontend/i18n'`
-- `getInstance()` to access i18n singleton
-- `registerNamespace(name, { en, ru })` for setup
+- Feature packages expose `register<Feature>I18n()` (see `@flowise/docstore-frontend/i18n`)
+- Apps import feature packages before rendering: `import '@flowise/docstore-frontend/i18n'`
+- `getInstance()` for singleton, `registerNamespace(name, { en, ru })` for setup
 - `useTranslation('[namespace]')` in components
 
-**Detection**:
-```bash
-# Find direct i18next.use() calls (antipattern)
-grep -r "i18next.use" packages/*/src --exclude-dir=node_modules
-```
+**Detection**: `grep -r "i18next.use" packages/*/src` (antipattern)
 
-**Example**: See `@flowise/docstore-frontend/i18n` for reference implementation.
-
-**Why**: Single source of truth, prevents duplicate registrations, easier testing.
+**Why**: Single source of truth, prevents duplicates, easier testing.
 
 ---
 
-## RBAC + CASL Authorization Pattern (2025-06-14)
+## RBAC + CASL Authorization Pattern (CRITICAL)
 
-**Rule**: Use hybrid RBAC (database) + CASL (application) for flexible, isomorphic permission checks.
+**Rule**: Hybrid RBAC (database) + CASL (application) for flexible, isomorphic permission checks.
 
-### Architecture Layers
+**Architecture**:
+1. **Database**: `admin.roles`, `admin.role_permissions`, `admin.user_roles`, SQL functions
+2. **Backend**: `createAbilityMiddleware()`, `req.ability.can('delete', 'Metaverse')`
+3. **Frontend**: `AbilityContextProvider`, `<Can I="create" a="Project">`, `useAbility()`
 
-1. **Database Layer (PostgreSQL)**:
-   - `admin.roles` - Role definitions
-   - `admin.role_permissions` - Module/action permissions with wildcard support
-   - `admin.user_roles` - User to role assignments
-   - `admin.has_permission()` - SQL function for RLS policies
-   - `admin.get_user_permissions()` - Returns all permissions for CASL
+**Wildcards**: `module='*'` + `action='*'` → CASL `subject='all'` + `action='manage'`
 
-2. **Backend Layer (Express)**:
-   - `@universo/auth-backend` exports `createAbilityMiddleware()`
-   - Attaches `req.ability` to Express request
-   - Use `requireAbility(req).can('delete', 'Metaverse')` for checks
-
-3. **Frontend Layer (React)**:
-   - `@flowise/store` exports `AbilityContextProvider`, `useAbility`, `Can`
-   - Wrap app with `<AbilityContextProvider>` to load permissions
-   - Use `<Can I="create" a="Project">` for declarative checks
-
-### Wildcard Support
-
-```sql
--- Superadmin has full access
-INSERT INTO admin.role_permissions (role_id, module, action)
-VALUES ('role-id', '*', '*');
-
--- CASL maps: module='*' → subject='all', action='*' → action='manage'
-```
-
-### Usage Examples
-
-**Backend (Express Route)**:
-```typescript
-import { requireAbility, ForbiddenError } from '@universo/auth-backend'
-
-router.delete('/:id', async (req, res) => {
-  const ability = requireAbility(req)
-  if (ability.cannot('delete', 'Metaverse')) {
-    throw new ForbiddenError('Cannot delete metaverse')
-  }
-  // proceed with deletion
-})
-```
-
-**Frontend (React Component)**:
-```jsx
-import { Can, useAbility } from '@flowise/store'
-
-// Declarative
-<Can I="create" a="Project">
-  <CreateButton />
-</Can>
-
-// Imperative
-const { ability } = useAbility()
-if (ability.can('update', 'Metaverse')) { ... }
-```
-
-### Key Files
-
+**Key Files**:
 - Types: `@universo/types/abilities`
 - Backend: `@universo/auth-backend` (permissionService, abilityMiddleware)
 - Frontend: `@flowise/store` (AbilityContextProvider, Can, useAbility)
-- Migration: `admin-backend/migrations/1733400000000-CreateRBACSystem.ts`
+- Migration: `admin-backend/migrations/1733400000000-CreateAdminSchema.ts`
 
 ---
 
-## Admin Route Guards Pattern (2025-01-17)
+## Admin Route Guards Pattern
 
-**Rule**: Use database-driven CRUD permission checks instead of hardcoded role names in admin route guards.
+**Rule**: Database-driven CRUD permission checks instead of hardcoded role names.
 
-### Problem
+**Antipattern**: `if (roleName !== 'superadmin') throw 403` ❌
 
-Hardcoded role checks like `roleName !== 'superadmin'` prevent flexible permission assignment and violate the RBAC principle.
+**Pattern**: `const hasPermission = await permissionService.hasPermission(userId, module, action)` ✅
 
-**Antipattern** (hardcoded role check):
-```typescript
-// ❌ Hardcoded check - can't assign permissions to other roles
-if (permission === 'manage' && roleName !== 'superadmin') {
-    throw createError(403, 'Access denied: superadmin role required')
-}
-```
-
-### Solution
-
-Use `permissionService.hasPermission()` which queries the database via `admin.has_permission()` function.
-
-**Pattern** (database-driven check):
-```typescript
-// ✅ Database-driven - any role with proper permission can access
-const hasPermission = await permissionService.hasPermission(userId, module, action)
-if (!hasPermission) {
-    throw createError(403, `Access denied: requires ${module}:${action} permission`)
-}
-```
-
-### Usage in Routes
-
-```typescript
-// Guard signature: (module: string, action: CrudAction)
-// CrudAction = 'create' | 'read' | 'update' | 'delete'
-
-router.get('/', ensureGlobalAccess('roles', 'read'), ...)
-router.post('/', ensureGlobalAccess('roles', 'create'), ...)
-router.patch('/:id', ensureGlobalAccess('roles', 'update'), ...)
-router.delete('/:id', ensureGlobalAccess('roles', 'delete'), ...)
-```
-
-### Guard Factory Setup
-
-```typescript
-// In routes/index.ts
-const globalAccessService = createGlobalAccessService({ getDataSource })
-const permissionService = createPermissionService({ getDataSource })
-
-const rolesRouter = createRolesRoutes({
-    globalAccessService,
-    permissionService,
-    getDataSource
-})
-```
-
-### CASL Subjects
-
-Add new subjects to `universo-types/abilities` and `flowise-store/AbilityContextProvider`:
-
-```typescript
-// universo-types: Subjects type
-export type Subjects = 'Metaverse' | 'Cluster' | ... | 'Role' | 'Instance' | 'all'
-
-// flowise-store: MODULE_TO_SUBJECT mapping
-const MODULE_TO_SUBJECT = {
-    roles: 'Role',
-    instances: 'Instance',
-    // ...
-}
-```
-
-### Key Files
-
-- Guard: `@universo/admin-backend/guards/ensureGlobalAccess.ts`
-- Routes: `@universo/admin-backend/routes/*.ts`
-- Types: `@universo/admin-backend` exports `CrudAction`, `EnsureGlobalAccessOptions`
+**Usage**: `router.delete('/:id', ensureGlobalAccess('roles', 'delete'), ...)`
 
 ---
 
-## Scoped-API Pattern for RLS (2025-01-05)
+## Scoped-API Pattern for RLS
 
-**Rule**: When fetching child entities within a parent context (e.g., entities within a metaverse), use parent-scoped API endpoints to ensure RLS policies work correctly for global admin access.
+**Rule**: Use parent-scoped endpoints for child entities (e.g., `/metaverse/:id/entities` not `/entities`) to ensure RLS works with global permissions.
 
-### Problem
+**Frontend**: Conditionally use scoped API when parent ID in params.
 
-Global admins (superadmin/supermoderator) need to view child entities of any parent, even those owned by other users. RLS policies use `admin.has_global_access()` to bypass ownership checks, but this only works when the query includes the parent context.
-
-**Antipattern** (doesn't work for global admins):
-```typescript
-// ❌ Global /entities endpoint - RLS can't determine parent context
-const { data } = useQuery({
-  queryKey: ['entities'],
-  queryFn: () => api.get('/entities')  // No metaverse context!
-})
-```
-
-**Correct Pattern** (works for all users including global admins):
-```typescript
-// ✅ Parent-scoped endpoint - RLS knows the metaverse context
-const { metaverseId } = useParams()
-const { data } = useQuery({
-  queryKey: ['metaverses', metaverseId, 'entities'],
-  queryFn: () => api.get(`/metaverses/${metaverseId}/entities`)
-})
-```
-
-### Implementation Checklist
-
-When implementing a new parent-child relationship with RLS:
-
-1. **Backend**: Ensure parent-scoped endpoints exist:
-   ```
-   GET /parents/:parentId/children     ← Use this
-   GET /children                       ← Avoid for nested views
-   ```
-
-2. **Frontend API Layer**: Add paginated scoped functions:
-   ```typescript
-   // api/parents.ts
-   export const listParentChildren = async (
-     parentId: string,
-     params?: PaginationParams
-   ): Promise<PaginatedResponse<Child>> => {
-     const response = await apiClient.get(`/parents/${parentId}/children`, { params })
-     return { items: response.data, pagination: extractPaginationMeta(response) }
-   }
-   ```
-
-3. **Query Keys**: Add parent-scoped query keys:
-   ```typescript
-   // api/queryKeys.ts
-   export const parentsQueryKeys = {
-     children: (parentId: string) => [...parentsQueryKeys.detail(parentId), 'children'] as const,
-     childrenList: (parentId: string, params?: PaginationParams) => 
-       [...parentsQueryKeys.children(parentId), 'list', normalizedParams] as const,
-   }
-   ```
-
-4. **List Component**: Conditionally use scoped API when parent ID present:
-   ```typescript
-   const { parentId } = useParams<{ parentId?: string }>()
-   
-   const paginationResult = usePaginated({
-     queryKeyFn: parentId 
-       ? (params) => parentsQueryKeys.childrenList(parentId, params)
-       : childrenQueryKeys.list,
-     queryFn: parentId
-       ? (params) => parentsApi.listParentChildren(parentId, params)
-       : childrenApi.listChildren,
-     enabled: true
-   })
-   ```
-
-5. **Cache Invalidation**: Invalidate both scoped and global caches:
-   ```typescript
-   // On create/update/delete
-   if (parentId) {
-     await queryClient.invalidateQueries({
-       queryKey: parentsQueryKeys.children(parentId)
-     })
-   }
-   await queryClient.invalidateQueries({
-     queryKey: childrenQueryKeys.lists()
-   })
-   ```
-
-### Example Implementation
-
-Reference: `metaverses-frontend` module
-- `api/metaverses.ts`: `listMetaverseEntities()`, `listMetaverseSections()`
-- `api/queryKeys.ts`: `metaversesQueryKeys.entitiesList()`, `sectionsList()`
-- `pages/EntityList.tsx`: Conditional API usage with `useParams()`
-- `pages/SectionList.tsx`: Same pattern
-
-### Affected Modules (May Need Similar Treatment)
-
-| Module | Parent → Children | Status |
-|--------|-------------------|--------|
-| Metaverses → Sections | ✅ Implemented |
-| Metaverses → Entities | ✅ Implemented |
-| Organizations → Departments | ⚠️ Not yet scoped |
-| Projects → Milestones | ⚠️ Not yet scoped |
-| Clusters → Domains | ⚠️ Not yet scoped |
-
-**Note**: Apply this pattern to other modules when RLS is enabled for them.
+**Backend**: Pass parent context to RLS policies.
 
 ---
 
 ## Testing Environment Pattern (CRITICAL)
 
-**Rule**: Use happy-dom for 4-9x faster tests vs jsdom.
+**Rule**: Tests use Vitest, no Jest. UI tests use Testing Library, E2E uses Playwright.
 
 **Required**:
-- `vitest.config.ts`: `environment: 'happy-dom'`
-- Mock rehype/remark to prevent jsdom fallback:
-  ```typescript
-  vi.mock('rehype-mathjax', () => ({ default: () => () => {} }))
-  ```
-
-**Performance**:
-- jsdom: 2-5s initialization
-- happy-dom: 566ms initialization
-
-**Detection**:
-```bash
-# Find packages still using jsdom
-grep -r "jsdom" packages/*/vitest.config.ts
-```
-
-**Why**: Native browser APIs, no canvas.node dependency, faster CI/CD.
+- `vitest.config.ts` per package
+- `@testing-library/react` for UI
+- `playwright.config.ts` for E2E
 
 ---
 
 ## Service Factory + NodeProvider Pattern (CRITICAL)
 
-**Rule**: Abstract runtime dependencies (nodesPool, getRunningExpressApp) behind interfaces for testability.
+**Rule**: Backend services use factory functions with `{ getDataSource, ...providers }` config.
 
-**Problem**: Direct access to `getRunningExpressApp().nodesPool` creates tight coupling, making unit testing impossible.
-
-**Solution**: Create interfaces that abstract runtime access, inject via factory function.
-
-**Required**:
+**Pattern**:
 ```typescript
-// 1. Define interfaces in DI config (e.g., @flowise/docstore-backend/di/config.ts)
-interface INodeProvider {
-  getComponentNodes(): Map<string, INodeMetadata>
-  getNode(name: string): INodeMetadata | undefined
-  getNodesByCategory(category: string): INodeMetadata[]
-  createNodeInstance(name: string): Promise<INode>
-}
-
-interface DocstoreServiceDependencies {
-  dataSource: DataSource
-  nodeProvider: INodeProvider  // New provider
-}
-
-// 2. Create provider implementation (e.g., flowise-core-backend/base/src/providers/nodeProvider.ts)
-export function createNodeProvider(): INodeProvider {
-  return {
-    getComponentNodes: () => getRunningExpressApp().nodesPool.componentNodes,
-    getNode: (name) => convertNodeToMetadata(nodesPool.get(name)),
-    // ...
-  }
-}
-
-// 3. Create service factory (e.g., flowise-core-backend/base/src/services/docstore-integration/index.ts)
-let serviceInstance: IDocumentStoreService | null = null
-
-export function createDocstoreServiceDependencies(): DocstoreServiceDependencies {
-  return {
-    dataSource: getDataSource(),
-    nodeProvider: createNodeProvider(),
-  }
-}
-
-export function getDocumentStoreService(): IDocumentStoreService {
-  if (!serviceInstance) {
-    serviceInstance = createDocumentStoreService(createDocstoreServiceDependencies())
-  }
-  return serviceInstance
-}
-
-// 4. Use in routes/services
-const store = await getDocumentStoreService().createDocumentStore(data)
+export const createXxxService = (config: {
+  getDataSource: GetDataSourceFn
+  telemetryProvider?: ITelemetryProvider
+}) => ({ method1, method2 })
 ```
 
-**Benefits**:
-- Unit tests can mock `nodeProvider` with static data
-- Service logic is testable without running Express app
-- Clear separation of concerns
-
-**Detection**:
-```bash
-# Find direct nodesPool access outside providers (antipattern)
-grep -r "nodesPool" packages/flowise-core-backend/base/src/services --exclude-dir=providers
-```
-
-**Why**: Enables TDD, cleaner architecture, easier refactoring.
+**Why**: Testability without full app context, flexible provider injection.
 
 ---
 
 ## Universal List Pattern (CRITICAL)
 
-**Rule**: Reusable list component with backend pagination, search, sorting.
+**Rule**: All entity lists use unified pattern: `usePaginated` + `useDebouncedSearch` + `PaginationControls` + card/table toggle.
 
-**Required**:
-- Backend: Zod pagination schema + TypeORM repository
-- Frontend: TanStack Query + usePaginated hook
-- Generic types: `<TItem, TFormData>`
+**Required Components**:
+- `ViewHeader` with search/filters
+- `ItemCard` for card view
+- `FlowListTable` for table view
+- `PaginationControls` at bottom
+- `localStorage` for view persistence
 
-**Components**:
-- `SectionList` (sections CRUD)
-- `EntityList` (entities CRUD)
-- `MetaverseMembers` (member management)
-
-**Pattern**:
-```typescript
-// Backend
-export const paginationSchema = z.object({
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(10),
-  search: z.string().optional(),
-  sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).default('desc')
-})
-
-// Frontend
-const { data, isLoading } = usePaginated<TItem>({
-  queryKey: ['items', filters],
-  queryFn: ({ pageParam }) => fetchItems(pageParam),
-  initialPageParam: { page: 1, limit: 10 }
-})
-```
-
-**Detection**:
-```bash
-# Find lists not using pattern
-grep -r "useState.*page" packages/*/src --exclude="*List.tsx"
-```
-
-**Why**: DRY, consistent UX, type-safe, easy to test.
+**Key Files**:
+- Hook: `@universo/template-mui/hooks/usePaginated.ts`
+- Components: `@universo/template-mui/components/lists/`
 
 ---
 
 ## React StrictMode Pattern (CRITICAL)
 
-**Rule**: StrictMode ONLY in development (causes double-mount in React 18).
+**Rule**: StrictMode ONLY in development (conditional wrapper).
 
-**Required**:
-```typescript
-const isProduction = import.meta.env.MODE === 'production'
-
-root.render(
-  isProduction ? (
-    <App />
-  ) : (
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  )
-)
+**Pattern**:
+```tsx
+const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragment
+<StrictModeWrapper><App /></StrictModeWrapper>
 ```
 
-**Detection**:
-```bash
-# Find unconditional StrictMode
-grep -r "StrictMode" packages/*/src/main.tsx | grep -v "isProduction"
-```
-
-**Symptoms**:
-- RouterContext loss after login
-- useEffect fires twice
-- QueryClient initializes twice
-
-**Why**: StrictMode double-mount breaks singleton patterns (Router, QueryClient) in production.
+**Why**: Prevents double-mount issues in production, keeps dev benefits.
 
 ---
 
 ## TypeORM Repository Pattern (CRITICAL)
 
-**Rule**: All database operations via `getRepository(Entity)`, not direct SQL.
+**Rule**: All database operations via `getDataSource().getRepository(Entity)`.
 
 **Required**:
-- `getDataSource()` from `packages/flowise-core-backend/base/src/DataSource.ts`
-- Repository methods: `find()`, `findOne()`, `save()`, `delete()`
-- User context for RLS policies
+- User context for RLS
+- No raw SQL in services
+- Cross-schema JOINs via separate queries + map
 
-**Pattern**:
-```typescript
-import { getDataSource } from '@flowise/core-backend/DataSource'
-import { Profile } from '../database/entities'
+**Antipattern**: `ds.query("SELECT ...")` ❌
 
-const profileRepo = getDataSource().getRepository(Profile)
-const profile = await profileRepo.findOne({ where: { user_id: userId } })
-```
-
-**Testing**:
-```typescript
-// In tests, cleanup after each test
-afterEach(async () => {
-  await getDataSource().destroy()
-})
-```
-
-**Detection**:
-```bash
-# Find direct SQL queries (antipattern)
-grep -r "query\(" packages/*/src --exclude-dir=migrations
-```
-
-**Why**: Type safety, automatic RLS, easier mocking, migration compatibility.
+**Pattern**: `const repo = ds.getRepository(Metaverse); await repo.find({ where: { id } })` ✅
 
 ---
 
 ## TanStack Query v5 Patterns (CRITICAL)
 
-**Rule**: Declarative `useQuery()` in components, imperative `fetchQuery()` in event handlers.
+**Rule**: Query key factories for cache invalidation; `useQuery` for fetching; `useMutation` for state changes.
 
-**Required**:
-- Global QueryClient in App.tsx
-- Query key factories for cache invalidation
-- Infinite queries for pagination
-
-**Pattern**:
+**Query Keys**:
 ```typescript
-// 1. Global QueryClient
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 min
-      retry: 1
-    }
-  }
-})
-
-// 2. Query Keys Factory
-export const metaverseKeys = {
+export const metaversesQueryKeys = {
   all: ['metaverses'] as const,
-  lists: () => [...metaverseKeys.all, 'list'] as const,
-  list: (filters: string) => [...metaverseKeys.lists(), { filters }] as const,
-  details: () => [...metaverseKeys.all, 'detail'] as const,
-  detail: (id: string) => [...metaverseKeys.details(), id] as const
+  lists: () => [...metaversesQueryKeys.all, 'list'] as const,
+  list: (params) => [...metaversesQueryKeys.lists(), params] as const,
+  details: () => [...metaversesQueryKeys.all, 'detail'] as const,
+  detail: (id) => [...metaversesQueryKeys.details(), id] as const,
 }
+```
 
-// 3. Declarative useQuery (auto-fetch on mount)
-const { data, isLoading } = useQuery({
-  queryKey: metaverseKeys.detail(id),
-  queryFn: () => fetchMetaverse(id)
+**Mutations**:
+```typescript
+const createMutation = useMutation({
+  mutationFn: metaversesApi.createMetaverse,
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: metaversesQueryKeys.lists() })
 })
-
-// 4. Imperative fetchQuery (manual trigger)
-const handleClick = async () => {
-  const data = await queryClient.fetchQuery({
-    queryKey: metaverseKeys.detail(id),
-    queryFn: () => fetchMetaverse(id)
-  })
-}
 ```
 
-**Detection**:
-```bash
-# Find queries without key factories
-grep -r "useQuery" packages/*/src | grep -v "queryKey:"
-```
-
-**Why**: Centralized cache management, predictable invalidation, better performance.
+**Why**: Declarative data fetching, automatic background updates, built-in loading/error states.
 
 ---
 
 ## Factory Functions for Actions Pattern (CRITICAL)
 
-**Rule**: Use factory functions to generate reusable action descriptors for CRUD and member management operations.
-
-**Required**:
-- Factory in `@universo/template-mui/factories/`
-- Generic types for entity and form data
-- Configuration object pattern (not multiple parameters)
-- i18n key patterns with optional overrides
-
-**Factories Available**:
-
-### 1. `createEntityActions<TEntity, TFormData>` 
-For entities with name/description fields (Metaverses, Sections, Entities).
+**Rule**: Use `createEntityActions` factory + `createMemberActions` factory for consistent action definitions.
 
 **Pattern**:
 ```typescript
-import { createEntityActions } from '@universo/template-mui'
+const metaverseActions = createEntityActions({
+  entityType: 'metaverse',
+  showEdit: true,
+  showDelete: (can) => can('delete', 'Metaverse'),
+  navigate: (action, id) => `/metaverse/${id}/${action}`
+})
 
-export default createEntityActions<Metaverse, MetaverseData>({
-  i18nPrefix: 'metaverses',
-  getInitialFormData: (entity) => ({ 
-    initialName: entity.name, 
-    initialDescription: entity.description 
-  })
+const memberActions = createMemberActions({
+  entityType: 'metaverse',
+  availableRoles: ['owner', 'admin', 'editor', 'member'],
+  getMemberId: (member) => member.user_id
 })
 ```
 
-**Result**: Edit/Delete actions using `EntityFormDialog` (name/description fields).
+**Key Files**:
+- `@universo/template-mui/factories/createEntityActions.tsx`
+- `@universo/template-mui/factories/createMemberActions.tsx`
 
-### 2. `createMemberActions<TMember extends BaseMemberEntity>` (NEW)
-For member management with email/role/comment fields (Metaverses, Uniks, Finances, Projects).
+---
+
+## Route Protection Guards Pattern
+
+**Rule**: Protected routes redirect unauthorized users; no error pages revealing resource structure.
+
+**Guards**:
+| Guard | Checks | Redirect |
+|-------|--------|----------|
+| `AuthGuard` | Authentication | → `/auth` |
+| `AdminGuard` | Admin panel access | → `/` |
+| `ResourceGuard` | Resource ownership (API 403/404) | → `/` |
+
+**Usage**:
+```tsx
+<Route path="admin" element={<AdminGuard><Outlet /></AdminGuard>}>
+  <Route index element={<InstanceList />} />
+</Route>
+```
+
+**Specialized Guards**: Create module-specific wrappers (e.g., `MetaverseGuard` wraps `ResourceGuard`).
+
+---
+
+## Rate Limiting Pattern
+
+**Rule**: Redis-based rate limiting for all public API endpoints.
+
+**Pattern**: Middleware applies limits based on IP/user; returns 429 Too Many Requests.
+
+**Config**: `RATE_LIMIT_ENABLED`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`.
+
+---
+
+## Pagination Pattern
+
+**Backend**:
+- Zod schema: `limit` (default 20, max 100), `offset` (default 0), `sortBy`, `sortOrder`
+- Response headers: `X-Pagination-Limit`, `X-Total-Count`
+- Single query with `getManyAndCount()`
+
+**Frontend**:
+- `usePaginated<T, SortFields>` hook
+- `PaginationControls` component
+- `rowsPerPageOptions={[10, 20, 50, 100]}`
+
+---
+
+## Error Handling Pattern
+
+**Backend**:
+- Centralized error handler middleware
+- Custom error classes: `ValidationError`, `NotFoundError`, `ForbiddenError`
+- Consistent error response: `{ error: { message, code, details } }`
+
+**Frontend**:
+- Error boundaries for critical sections
+- Toast notifications for user-facing errors
+- Sentry integration for monitoring
+
+---
+
+## Env Configuration Pattern
+
+**Rule**: Use `@universo/utils/env` for centralized env config; type-safe access functions.
 
 **Pattern**:
 ```typescript
-import { createMemberActions } from '@universo/template-mui'
-import type { MetaverseMember } from '../types'
-
-export default createMemberActions<MetaverseMember>({
-  i18nPrefix: 'metaverses',
-  entityType: 'metaverse'
-})
+// universo-utils/env/adminConfig.ts
+export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'false'
+export const isGlobalRolesEnabled = () => process.env.GLOBAL_ROLES_ENABLED !== 'false'
 ```
 
-**Result**: Edit/Remove actions using `MemberFormDialog` (email/role/comment fields).
-
-**Benefits**:
-- ✅ Eliminates code duplication (130 lines → 11 lines, -91%)
-- ✅ Consistent error handling via `notifyError`/`notifyMemberError`
-- ✅ Type-safe with TypeScript generics
-- ✅ Reusable across multiple modules
-- ✅ Centralized i18n key patterns
-
-**Configuration Options**:
-```typescript
-interface MemberActionsConfig<TMember> {
-  i18nPrefix: string        // Module namespace (e.g. 'metaverses', 'uniks')
-  entityType: string         // For logging (e.g. 'metaverse', 'unik')
-  i18nKeys?: {               // Optional translation key overrides
-    editTitle?: string
-    confirmRemove?: string
-    // ... 8 more keys
-  }
-  getMemberEmail?: (member: TMember) => string
-  getInitialFormData?: (member: TMember) => { 
-    initialEmail: string
-    initialRole: string
-    initialComment: string 
-  }
-}
-```
-
-**Translation Key Patterns**:
-- Default: `members.editTitle`, `members.confirmRemove` (relative to i18nPrefix namespace)
-- Example: `i18nPrefix='metaverses'` → key `members.editTitle` resolves to `metaverses:members.editTitle`
-- Fallback: `@universo/i18n/core/access.json` for common keys (future)
-- Override: Via `i18nKeys` configuration
-
-**Required Types**:
-```typescript
-import type { BaseMemberEntity } from '@universo/types'
-
-interface YourMember extends BaseMemberEntity {
-  id: string
-  email: string | null
-  role: string
-  comment?: string
-  // ... module-specific fields
-}
-```
-
-**Detection**:
-```bash
-# Find Actions files not using factories (antipattern)
-find packages/*/src/pages -name "*Actions.tsx" -exec grep -L "createEntityActions\|createMemberActions" {} \;
-```
-
-**Why**: DRY principle, consistent UX, type safety, easier testing, faster feature development.
-
-**Code Reduction Example** (Metaverses package):
-- Before: 130 lines × 4 Actions files = 520 lines
-- After: 11 lines × 4 Actions files = 44 lines
-- **Savings: 476 lines (-92%)**
+**Why**: Single source of truth, avoids string literals, enables mocking for tests.
 
 ---
 
-## Secondary Patterns (Condensed)
+## Migration Pattern
 
-### UPDL Node System
-- 7 core nodes: Camera, Light, Model, Sound, Video, UI, Logic
-- Visual programming for 3D scenes
-- Details: See projectbrief.md
+**Rule**: Single consolidated migration per package; idempotent with `IF NOT EXISTS`; no destructive `down()`.
 
-### Template Package Architecture
-- Shared package: `@flowise/template-mui` (source-only, peerDeps)
-- Template registry: Dynamic template loading
-- UPDLProcessor: Scene graph execution
-
-### Data Isolation (Metaverses)
-- Three-tier: Metaverse → Section → Entity
-- Junction tables: `entities_metaverses`, `sections_metaverses`
-- Cluster-scoped API: `/api/v1/metaverses/:id/sections`
-
-### React Hooks Antipattern
-- ❌ NO: `useEffect()` for data fetching
-- ✅ YES: TanStack Query `useQuery()`
-- Reason: Prevents race conditions, double-fetch, stale data
-
-### Event-Driven Data Loading
-- Pattern: Listen to server events, invalidate queries
-- Used in: Chat messages, real-time updates
-- Example: `queryClient.invalidateQueries(messageKeys.all)`
-
-### TypeScript Migration
-- Dual build: CJS + ESM via tsdown
-- Path aliases: `@/*` → `src/*`
-- Type exports: `export type { ... }`
-
-### Universal Role System
-- Centralized types: `@universo/types/common/roles.ts`
-- Hierarchy: `owner > admin > editor > member > guest`
-- Utilities: `hasRequiredRole()`, `canManageRole()`
+**Pattern**:
+- Filename: `<timestamp>-<DescriptiveName>.ts`
+- Idempotent: `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`
+- RLS policies included in same migration
+- Seed data in separate `SEED_*.sql` file
 
 ---
 
-**Note**: For full code examples, see Git history or specific package READMEs. This file focuses on rules and detection patterns.
+## Build System Patterns
+
+**tsdown**: Dual output (CJS + ESM), path aliases `@/*`, type declarations.
+
+**pnpm workspace**: Run from root, `--filter <package>` for single package, full `pnpm build` required for cross-deps.
+
+**Performance**: `turbo` for caching, parallel builds where possible.
+
+---
+
+## Naming Conventions
+
+**Files**: `PascalCase` for components, `camelCase` for hooks/utils, `kebab-case` for folders/files.
+
+**Database**: `snake_case` for tables/columns, `PascalCase` for TypeORM entities.
+
+**i18n**: Dot notation (`auth.login.button`), namespace prefixes.
+
+---
+
+## Known Antipatterns to Avoid
+
+❌ Direct Supabase client usage (violates RLS pattern)
+❌ Hardcoded role checks (use database permissions)
+❌ `dependencies` in source-only packages (use `peerDependencies`)
+❌ Raw SQL in services (use TypeORM Repository)
+❌ `i18next.use()` in packages (use `registerNamespace`)
+❌ StrictMode in production builds
+❌ Client-side pagination for large datasets
+❌ Duplicate state management (prefer TanStack Query cache)
+
+---
+
+**Last Updated**: 2025-12-10
+
+**Note**: For full RLS pattern documentation → `rls-integration-pattern.md`. For implementation history → progress.md.

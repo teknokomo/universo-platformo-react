@@ -30,11 +30,12 @@ export interface EnsureGlobalAccessOptions {
 }
 
 /**
- * Middleware factory for global access control
+ * Middleware factory for admin panel access control
  *
  * Uses ADMIN_PANEL_ENABLED environment variable to enable/disable admin panel.
- * When enabled, users with has_global_access=true roles can access admin features.
+ * When enabled, users with can_access_admin=true roles can access admin panel.
  * Permission checking is based on role permissions in database using CRUD model.
+ * Users with is_superuser=true bypass all permission checks.
  */
 export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
     const { globalAccessService, permissionService } = options
@@ -61,13 +62,20 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
                     throw createError(401, 'Authentication required')
                 }
 
-                // Use service to check global access first
-                console.log('[ensureGlobalAccess] Checking global access...')
-                const hasAccess = await globalAccessService.hasGlobalAccess(userId)
-                console.log('[ensureGlobalAccess] hasGlobalAccess result:', hasAccess)
+                // Check if user can access admin panel
+                console.log('[ensureGlobalAccess] Checking admin panel access...')
+                const canAccess = await globalAccessService.canAccessAdmin(userId)
+                console.log('[ensureGlobalAccess] canAccessAdmin result:', canAccess)
 
-                if (!hasAccess) {
-                    throw createError(403, 'Access denied: not a global user')
+                if (!canAccess) {
+                    throw createError(403, 'Access denied: not an admin user')
+                }
+
+                // Check if user is superuser (bypasses permission checks)
+                const isSuper = await globalAccessService.isSuperuser(userId)
+                if (isSuper) {
+                    console.log('[ensureGlobalAccess] Superuser detected - bypassing permission check')
+                    return next()
                 }
 
                 // Check specific permission using database-driven RBAC

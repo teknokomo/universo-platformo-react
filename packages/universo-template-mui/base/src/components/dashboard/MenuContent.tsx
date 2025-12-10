@@ -5,7 +5,6 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Divider from '@mui/material/Divider'
-import Typography from '@mui/material/Typography'
 // import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 // import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 // import HelpRoundedIcon from '@mui/icons-material/HelpRounded';
@@ -14,7 +13,18 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useHasGlobalAccess } from '@flowise/store'
 import { useMetaverseName } from '../../hooks/useMetaverseName'
-import { rootMenuItems, getAdminMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems, getProjectMenuItems, getOrganizationMenuItems, getStorageMenuItems, getCampaignMenuItems, getInstanceMenuItems } from '../../navigation/menuConfigs'
+import {
+    rootMenuItems,
+    getAdminMenuItems,
+    getMetaverseMenuItems,
+    getUnikMenuItems,
+    getClusterMenuItems,
+    getProjectMenuItems,
+    getOrganizationMenuItems,
+    getStorageMenuItems,
+    getCampaignMenuItems,
+    getInstanceMenuItems
+} from '../../navigation/menuConfigs'
 
 // const secondaryListItems = [
 //   { text: 'Settings', icon: <SettingsRoundedIcon /> },
@@ -93,6 +103,28 @@ export default function MenuContent() {
             sample_uniks: t('uniks'),
             sample_metaverses: t('metaverses')
         })
+        // eslint-disable-next-line no-console
+        console.log('[MenuContent] Admin access check', {
+            canAccessAdminPanel,
+            instanceId,
+            metaverseId,
+            clusterId,
+            projectId,
+            organizationId,
+            storageId,
+            campaignId,
+            unikId,
+            willShowAdmin:
+                canAccessAdminPanel &&
+                !instanceId &&
+                !metaverseId &&
+                !clusterId &&
+                !projectId &&
+                !organizationId &&
+                !storageId &&
+                !campaignId &&
+                !unikId
+        })
     } catch (e) {
         // noop
     }
@@ -134,28 +166,36 @@ export default function MenuContent() {
                 })}
 
                 {/* Admin section with divider - only if user can access admin panel and not in any entity context */}
-                {canAccessAdminPanel && !instanceId && !metaverseId && !clusterId && !projectId && !organizationId && !storageId && !campaignId && !unikId && (
-                    <>
-                        <Divider sx={{ my: 1 }} />
-                        {/* Admin menu items */}
-                        {getAdminMenuItems().map((item) => {
-                            const Icon = item.icon
-                            // Intentionally using startsWith('/admin') to keep admin menu highlighted
-                            // for all admin sub-routes (instances, roles, etc.)
-                            const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
-                            return (
-                                <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                                    <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
-                                        <ListItemIcon>
-                                            <Icon size={20} stroke={1.5} />
-                                        </ListItemIcon>
-                                        <ListItemText primary={t(item.titleKey)} />
-                                    </ListItemButton>
-                                </ListItem>
-                            )
-                        })}
-                    </>
-                )}
+                {canAccessAdminPanel &&
+                    !instanceId &&
+                    !metaverseId &&
+                    !clusterId &&
+                    !projectId &&
+                    !organizationId &&
+                    !storageId &&
+                    !campaignId &&
+                    !unikId && (
+                        <>
+                            <Divider sx={{ my: 1 }} />
+                            {/* Admin menu items */}
+                            {getAdminMenuItems().map((item) => {
+                                const Icon = item.icon
+                                // Intentionally using startsWith('/admin') to keep admin menu highlighted
+                                // for all admin sub-routes (instances, roles, etc.)
+                                const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
+                                return (
+                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                            <ListItemIcon>
+                                                <Icon size={20} stroke={1.5} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={t(item.titleKey)} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                )
+                            })}
+                        </>
+                    )}
             </List>
             {/* TODO: restore settings/about/feedback once backed by real data */}
             {/*

@@ -19,6 +19,13 @@ export interface UpdateRolePayload {
 }
 
 /**
+ * Extended params for listing global users with filters
+ */
+export interface ListGlobalUsersParams extends PaginationParams {
+    roleId?: string
+}
+
+/**
  * Response from /me endpoint with role metadata
  */
 export interface MyRoleResponse {
@@ -57,16 +64,17 @@ export function createAdminApi(client: AxiosInstance) {
         },
 
         /**
-         * List all global users with pagination
+         * List all global users with pagination and filters
          */
-        listGlobalUsers: async (params?: PaginationParams): Promise<PaginatedResponse<GlobalUserMember>> => {
+        listGlobalUsers: async (params?: ListGlobalUsersParams): Promise<PaginatedResponse<GlobalUserMember>> => {
             const response = await client.get<{ data: GlobalUserMember[] }>(BASE_PATH, {
                 params: {
                     limit: params?.limit,
                     offset: params?.offset,
                     sortBy: params?.sortBy,
                     sortOrder: params?.sortOrder,
-                    search: params?.search
+                    search: params?.search,
+                    roleId: params?.roleId
                 }
             })
 

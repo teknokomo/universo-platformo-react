@@ -95,14 +95,7 @@ function getDisplayName(
     return t(roleName)
 }
 
-export const RoleChip: React.FC<RoleChipProps> = ({
-    role,
-    accessType,
-    roleMetadata,
-    size = 'small',
-    variant = 'filled',
-    className
-}) => {
+export const RoleChip: React.FC<RoleChipProps> = ({ role, accessType, roleMetadata, size = 'small', variant = 'filled', className }) => {
     const { t, i18n: i18nInstance } = useTranslation('roles', { i18n })
     const currentLanguage = i18nInstance.language?.split('-')[0] || 'en'
 
@@ -111,14 +104,10 @@ export const RoleChip: React.FC<RoleChipProps> = ({
     const displayRole = accessType && accessType !== 'member' ? accessType : role
 
     // Get styles: prefer metadata if provided, else use static map
-    const styles = roleMetadata
-        ? stylesFromMetadata(roleMetadata)
-        : ROLE_STYLE_MAP[displayRole] || FALLBACK_STYLE
+    const styles = roleMetadata ? stylesFromMetadata(roleMetadata) : ROLE_STYLE_MAP[displayRole] || FALLBACK_STYLE
 
     // Get label: prefer metadata displayName if provided
-    const label = roleMetadata
-        ? getDisplayName(roleMetadata.displayName, displayRole, t, currentLanguage)
-        : t(displayRole)
+    const label = roleMetadata ? getDisplayName(roleMetadata.displayName, displayRole, t, currentLanguage) : t(displayRole)
 
     return (
         <Chip
@@ -140,4 +129,3 @@ export const RoleChip: React.FC<RoleChipProps> = ({
         />
     )
 }
-

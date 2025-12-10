@@ -2,14 +2,21 @@
 // Centralized configuration for admin panel and super user privileges
 
 /**
- * Admin panel and super user configuration interface
+ * Admin panel and privilege configuration interface
  * Used by both backend and frontend to control feature availability
+ *
+ * Three-tier privilege system:
+ * 1. ADMIN_PANEL_ENABLED - Controls UI/API access to /admin/*
+ * 2. GLOBAL_ROLES_ENABLED - Controls global editor/moderator roles (platform-wide permissions)
+ * 3. SUPERUSER_ENABLED - Controls superuser RLS bypass (see all data, root access)
  */
 export interface AdminConfig {
     /** Whether admin panel UI and API endpoints are accessible */
     adminPanelEnabled: boolean
-    /** Whether super user privileges (RLS bypass, see all data) are active */
-    globalAdminEnabled: boolean
+    /** Whether global roles (editors, moderators) are enabled for platform-wide access */
+    globalRolesEnabled: boolean
+    /** Whether superuser privileges (RLS bypass, see all data) are active */
+    superuserEnabled: boolean
 }
 
 /**
@@ -35,13 +42,38 @@ export const isAdminPanelEnabled = (): boolean => {
 }
 
 /**
- * Get GLOBAL_ADMIN_ENABLED environment variable
- * Controls super user privileges (RLS bypass, ability to see all users' data)
- * @returns true if global admin privileges are enabled (default: true)
+ * Get GLOBAL_ROLES_ENABLED environment variable
+ * Controls global roles (editors, moderators) with platform-wide permissions
+ * These roles can access resources across all users but WITHOUT RLS bypass
+ * @returns true if global roles are enabled (default: true)
+ */
+export const isGlobalRolesEnabled = (): boolean => {
+    const value = typeof process !== 'undefined' ? process.env.GLOBAL_ROLES_ENABLED : undefined
+    return parseEnvBoolean(value, true)
+}
+
+/**
+ * Get SUPERUSER_ENABLED environment variable
+ * Controls superuser privileges (RLS bypass, ability to see ALL users' data)
+ * This is the highest privilege level - use with caution
+ * @returns true if superuser privileges are enabled (default: true)
+ */
+export const isSuperuserEnabled = (): boolean => {
+    const value = typeof process !== 'undefined' ? process.env.SUPERUSER_ENABLED : undefined
+    return parseEnvBoolean(value, true)
+}
+
+/**
+ * @deprecated This function is provided for backward compatibility only.
+ * Use isGlobalRolesEnabled() for global editor/moderator roles,
+ * or isSuperuserEnabled() for superuser privileges.
+ * This legacy function returns true if EITHER is enabled.
+ * Will be removed in a future version.
  */
 export const isGlobalAdminEnabled = (): boolean => {
-    const value = typeof process !== 'undefined' ? process.env.GLOBAL_ADMIN_ENABLED : undefined
-    return parseEnvBoolean(value, true)
+    console.warn('isGlobalAdminEnabled() is deprecated. ' + 'Use isGlobalRolesEnabled() or isSuperuserEnabled() instead.')
+    // Backwards compatibility: true if EITHER global roles OR superuser is enabled
+    return isGlobalRolesEnabled() || isSuperuserEnabled()
 }
 
 /**
@@ -50,5 +82,6 @@ export const isGlobalAdminEnabled = (): boolean => {
  */
 export const getAdminConfig = (): AdminConfig => ({
     adminPanelEnabled: isAdminPanelEnabled(),
-    globalAdminEnabled: isGlobalAdminEnabled()
+    globalRolesEnabled: isGlobalRolesEnabled(),
+    superuserEnabled: isSuperuserEnabled()
 })

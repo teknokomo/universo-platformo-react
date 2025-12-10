@@ -66,7 +66,7 @@ export type AppAbility = MongoAbility<[Actions, Subjects | ForcedSubject<Subject
 /** Permission record from admin.get_user_permissions() */
 export interface DbPermission {
     role_name?: string
-    module: string
+    subject: string
     action: string
     conditions: Record<string, unknown>
     fields?: string[]
@@ -127,7 +127,7 @@ export function defineAbilitiesFor(
     const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     for (const perm of permissions) {
-        const subject = MODULE_TO_SUBJECT[perm.module] || (perm.module as Subjects)
+        const subject = MODULE_TO_SUBJECT[perm.subject] || (perm.subject as Subjects)
         const action = ACTION_MAP[perm.action] || (perm.action as Actions)
 
         // Check if there are ABAC conditions

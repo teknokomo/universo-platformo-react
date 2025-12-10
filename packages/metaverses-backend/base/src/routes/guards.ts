@@ -2,7 +2,11 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { MetaverseRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { hasGlobalAccessByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { 
+    isSuperuserByDataSource, 
+    getGlobalRoleNameByDataSource,
+    hasSubjectPermissionByDataSource 
+} from '@universo/admin-backend'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { EntitySection } from '../database/entities/EntitySection'
@@ -52,6 +56,9 @@ export type RolePermission = keyof (typeof ROLE_PERMISSIONS)['owner']
 export interface MetaverseMembershipContext {
     membership: MetaverseUser
     metaverseId: string
+    entityId?: string
+    isSynthetic?: boolean
+    globalRole?: string | null
 }
 
 // Create base guards using generic factory from auth-backend
@@ -68,7 +75,7 @@ const baseGuards = createAccessGuards<MetaverseRole, MetaverseUser>({
     extractUserId: (m) => m.user_id,
     extractEntityId: (m) => m.metaverse_id,
     // Global admin bypass - users with global access get owner-level access
-    hasGlobalAccess: hasGlobalAccessByDataSource,
+    isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleNameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({
@@ -95,6 +102,29 @@ export async function ensureMetaverseAccess(
     metaverseId: string,
     permission?: RolePermission
 ): Promise<MetaverseMembershipContext> {
+    // First check if user has global metaverses permission (e.g., metaeditor role)
+    const hasGlobalMetaversesAccess = await hasSubjectPermissionByDataSource(ds, userId, 'metaverses')
+    
+    if (hasGlobalMetaversesAccess) {
+        // User has global access - create synthetic membership with owner role
+        const globalRoleName = await getGlobalRoleNameByDataSource(ds, userId)
+        const syntheticMembership: MetaverseUser = {
+            user_id: userId,
+            metaverse_id: metaverseId,
+            role: 'owner', // Global role users get owner-level access
+            created_at: new Date()
+        } as MetaverseUser
+        
+        return {
+            membership: syntheticMembership,
+            entityId: metaverseId,
+            metaverseId,
+            isSynthetic: true,
+            globalRole: globalRoleName
+        }
+    }
+    
+    // Otherwise use standard membership check
     const baseContext = await ensureAccess(ds, userId, metaverseId, permission)
     return { ...baseContext, metaverseId: baseContext.entityId }
 }

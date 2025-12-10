@@ -25,24 +25,24 @@ export interface AccessGuardsConfig<TRole extends string, TMembership> {
     /** Extract entity ID from membership */
     extractEntityId: (membership: TMembership) => string
     /**
-     * Optional function to check if user has global access
-     * If true, user gets access without membership check
+     * Optional function to check if user is superuser (bypasses all permissions)
+     * If true, user gets access without membership check and full permissions
      */
-    hasGlobalAccess?: (ds: DataSource, userId: string) => Promise<boolean>
+    isSuperuser?: (ds: DataSource, userId: string) => Promise<boolean>
     /**
      * Optional function to get global role name (for logging/display)
-     * Only called if hasGlobalAccess returns true
+     * Only called if isSuperuser returns true
      */
     getGlobalRoleName?: (ds: DataSource, userId: string) => Promise<string | null>
     /**
-     * @deprecated Use hasGlobalAccess instead
+     * @deprecated Use isSuperuser instead
      * Optional function to check global role (superadmin/supermoderator)
      * If user has a global role, they get access without membership check
      */
     getGlobalRole?: (ds: DataSource, userId: string) => Promise<GlobalRole>
     /**
-     * Factory to create synthetic membership for global admins
-     * Required if hasGlobalAccess or getGlobalRole is provided
+     * Factory to create synthetic membership for superusers
+     * Required if isSuperuser or getGlobalRole is provided
      */
     createGlobalAdminMembership?: (userId: string, entityId: string, globalRole: GlobalRole | string) => TMembership
 }

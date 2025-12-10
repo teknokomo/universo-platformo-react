@@ -1,7 +1,7 @@
 /**
- * Hook to check if current user has global access
+ * Hook to check if current user has admin access or is superuser
  *
- * Uses AbilityContext to get hasGlobalAccess flag without additional API calls.
+ * Uses AbilityContext to get access flags without additional API calls.
  * Also provides admin feature flags for checking panel/privilege availability.
  *
  * @example
@@ -9,13 +9,13 @@
  * import { useHasGlobalAccess } from '@flowise/store'
  *
  * function MyComponent() {
- *   const { hasGlobalAccess, canAccessAdminPanel, loading, globalRoles } = useHasGlobalAccess()
+ *   const { isSuperuser, canAccessAdmin, canAccessAdminPanel, loading, globalRoles } = useHasGlobalAccess()
  *
  *   if (loading) return <Spinner />
  *
  *   // Only show admin link if panel is enabled AND user has access
  *   if (canAccessAdminPanel) {
- *     return <AdminDashboard roles={globalRoles} />
+ *     return <AdminDashboard roles={globalRoles} isSuperuser={isSuperuser} />
  *   }
  *
  *   return <UserDashboard />
@@ -26,13 +26,15 @@ import { useContext, useMemo } from 'react'
 import AbilityContext from './AbilityContext'
 
 /**
- * Hook to access global access information from AbilityContext
+ * Hook to access admin/superuser information from AbilityContext
  * @returns {{
- *   hasGlobalAccess: boolean,
+ *   isSuperuser: boolean,
+ *   hasAdminAccess: boolean,
+ *   hasAnyGlobalRole: boolean,
  *   globalRoles: Array<{name: string, metadata: Object}>,
- *   rolesMetadata: Object<string, {name: string, displayName: Object, color: string, hasGlobalAccess: boolean}>,
+ *   rolesMetadata: Object<string, {name: string, displayName: Object, color: string, isSuperuser: boolean}>,
  *   loading: boolean,
- *   adminConfig: {adminPanelEnabled: boolean, globalAdminEnabled: boolean},
+ *   adminConfig: {adminPanelEnabled: boolean, globalRolesEnabled: boolean, superuserEnabled: boolean},
  *   canAccessAdminPanel: boolean
  * }}
  */
@@ -43,25 +45,40 @@ export function useHasGlobalAccess() {
         if (!context) {
             console.warn('[useHasGlobalAccess] Must be used within AbilityContextProvider')
             return {
-                hasGlobalAccess: false,
+                isSuperuser: false,
+                hasAdminAccess: false,
+                hasAnyGlobalRole: false,
                 globalRoles: [],
                 rolesMetadata: {},
                 loading: false,
-                adminConfig: { adminPanelEnabled: true, globalAdminEnabled: true },
+                adminConfig: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true },
                 canAccessAdminPanel: false
             }
         }
 
-        const hasGlobalAccess = context.hasGlobalAccess ?? false
-        const adminConfig = context.adminConfig ?? { adminPanelEnabled: true, globalAdminEnabled: true }
+        const isSuperuser = context.isSuperuser ?? false
+        const hasAdminAccess = context.hasAdminAccess ?? false
+        const hasAnyGlobalRole = context.hasAnyGlobalRole ?? false
+        const adminConfig = context.adminConfig ?? { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true }
 
         // User can access admin panel only if:
         // 1. Admin panel is enabled (ADMIN_PANEL_ENABLED=true)
-        // 2. User has global access role
-        const canAccessAdminPanel = adminConfig.adminPanelEnabled && hasGlobalAccess
+        // 2. User has admin-related permissions (roles:read, instances:read, or users:read)
+        const canAccessAdminPanel = adminConfig.adminPanelEnabled && hasAdminAccess
+
+        console.log('[useHasGlobalAccess] Computed values', {
+            isSuperuser,
+            hasAdminAccess,
+            hasAnyGlobalRole,
+            adminConfig,
+            canAccessAdminPanel,
+            contextLoading: context.loading
+        })
 
         return {
-            hasGlobalAccess,
+            isSuperuser,
+            hasAdminAccess,
+            hasAnyGlobalRole,
             globalRoles: context.globalRoles ?? [],
             rolesMetadata: context.rolesMetadata ?? {},
             loading: context.loading ?? false,

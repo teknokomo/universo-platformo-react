@@ -26,14 +26,15 @@ export interface SettingsDialogProps {
  * SettingsDialog - User settings dialog
  *
  * Shows user-configurable settings stored in profile.
- * For superadmin/supermoderator, shows additional admin settings.
+ * For superuser, shows additional admin settings.
  */
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
     const { t } = useTranslation('settings')
     const { settings, updateSettings, loading, error } = useUserSettings()
-    // hasGlobalAccess = user has superadmin/supermoderator role (shows admin settings section)
-    // adminConfig.globalAdminEnabled = server-side flag that enables super user privileges
-    const { hasGlobalAccess, adminConfig } = useHasGlobalAccess()
+    // isSuperuser = user has is_superuser=true role (full RLS bypass)
+    // hasAnyGlobalRole = user has any global role (metaeditor, etc.)
+    // adminConfig.globalRolesEnabled = server-side flag that enables global roles functionality
+    const { isSuperuser, hasAnyGlobalRole, adminConfig } = useHasGlobalAccess()
 
     // Local state for form
     const [localSettings, setLocalSettings] = useState<UserSettingsData>({})
@@ -96,19 +97,19 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                             </Alert>
                         )}
 
-                        {/* Admin Settings - only for superadmin/supermoderator */}
-                        {hasGlobalAccess && (
+                        {/* Admin Settings - for superuser or users with global roles */}
+                        {(isSuperuser || hasAnyGlobalRole) && (
                             <>
                                 <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>
                                     {t('dialog.adminSection', 'Admin Settings')}
                                 </Typography>
 
-                                {/* Show warning when global admin privileges are disabled */}
-                                {!adminConfig.globalAdminEnabled && (
+                                {/* Show warning when global roles functionality is disabled */}
+                                {!adminConfig.globalRolesEnabled && (
                                     <Alert severity='warning' sx={{ mb: 2 }}>
                                         {t(
-                                            'dialog.globalAdminDisabledWarning',
-                                            'Super user privileges are disabled by the system administrator. These settings are inactive.'
+                                            'dialog.globalRolesDisabledWarning',
+                                            'Global roles functionality is disabled by the system administrator. These settings are inactive.'
                                         )}
                                     </Alert>
                                 )}
@@ -118,14 +119,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                                         <Switch
                                             checked={localSettings.admin?.showAllItems ?? false}
                                             onChange={handleShowAllItemsChange}
-                                            disabled={saving || !adminConfig.globalAdminEnabled}
+                                            disabled={saving || !adminConfig.globalRolesEnabled}
                                         />
                                     }
                                     label={t('dialog.showAllItems.label', "Show other users' items")}
                                     sx={{
                                         ml: 0,
                                         mb: 2,
-                                        opacity: adminConfig.globalAdminEnabled ? 1 : 0.6
+                                        opacity: adminConfig.globalRolesEnabled ? 1 : 0.6
                                     }}
                                 />
 

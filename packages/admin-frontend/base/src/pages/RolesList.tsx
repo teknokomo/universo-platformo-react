@@ -121,10 +121,14 @@ const RolesList = () => {
     // Helper: Count permissions
     const countPermissions = useCallback(
         (role: RoleListItem): string => {
+            // Superuser has infinite permissions
+            if (role.isSuperuser) {
+                return '∞' // infinity symbol
+            }
             if (!role.permissions || role.permissions.length === 0) {
                 return t('roles.noPermissions')
             }
-            const hasFullAccess = role.permissions.some((p) => p.module === '*' && p.action === '*')
+            const hasFullAccess = role.permissions.some((p) => p.subject === '*' && p.action === '*')
             if (hasFullAccess) {
                 return t('roles.fullAccess')
             }
@@ -189,14 +193,16 @@ const RolesList = () => {
             {
                 id: 'globalAccess',
                 label: t('roles.table.globalAccess'),
-                width: '12%',
+                width: '15%',
                 align: 'center' as const,
-                render: (role: RoleListItem) =>
-                    role.hasGlobalAccess ? (
-                        <Chip size='small' label={t('roles.globalAccessYes')} color='warning' variant='outlined' />
-                    ) : (
-                        <Chip size='small' label={t('roles.globalAccessNo')} variant='outlined' />
-                    )
+                render: (role: RoleListItem) => (
+                    <Box display='flex' gap={0.5} justifyContent='center'>
+                        {role.isSuperuser && (
+                            <Chip size='small' label={t('roles.isSuperuser', 'Superuser')} color='error' variant='outlined' />
+                        )}
+                        {!role.isSuperuser && <Chip size='small' label={t('roles.normalRole', 'Normal')} variant='outlined' />}
+                    </Box>
+                )
             },
             {
                 id: 'permissions',
@@ -409,11 +415,11 @@ const RolesList = () => {
                                                         ) : (
                                                             <Chip size='small' label={t('roles.customRole')} variant='outlined' />
                                                         )}
-                                                        {role.hasGlobalAccess && (
+                                                        {role.isSuperuser && (
                                                             <Chip
                                                                 size='small'
-                                                                label={t('roles.globalAccessYes')}
-                                                                color='warning'
+                                                                label={t('roles.isSuperuser', 'Superuser')}
+                                                                color='error'
                                                                 variant='outlined'
                                                             />
                                                         )}

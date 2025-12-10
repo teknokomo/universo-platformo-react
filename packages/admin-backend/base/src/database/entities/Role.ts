@@ -6,6 +6,11 @@ import { UserRole } from './UserRole'
 /**
  * Role entity for RBAC system
  * Stored in admin.roles table
+ *
+ * Fields:
+ * - is_superuser: Full bypass of all permission checks (only for 'superuser' role)
+ * - is_system: System role that cannot be deleted
+ * - Admin access is computed from permissions (roles:read, instances:read, or users:read)
  */
 @Entity({ name: 'roles', schema: 'admin' })
 export class Role {
@@ -24,8 +29,8 @@ export class Role {
     @Column({ type: 'varchar', length: 7, default: '#9e9e9e' })
     color!: string
 
-    @Column({ type: 'boolean', name: 'has_global_access', default: false })
-    has_global_access!: boolean
+    @Column({ type: 'boolean', name: 'is_superuser', default: false })
+    is_superuser!: boolean
 
     @Column({ type: 'boolean', name: 'is_system', default: false })
     is_system!: boolean

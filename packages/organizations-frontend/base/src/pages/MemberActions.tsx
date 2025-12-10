@@ -7,5 +7,5 @@ import type { OrganizationMember } from '../types'
  */
 export default createMemberActions<OrganizationMember>({
     i18nPrefix: 'organizations',
-    positionType: 'organization'
+    entityType: 'organization'
 })

@@ -68,7 +68,9 @@ const VectorStoreQuery = Loadable(lazy(() => import('@flowise/docstore-frontend/
 // Assistants pages - moved to @flowise/assistants-frontend
 const Assistants = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/Assistants')))
 const CustomAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/custom/CustomAssistantLayout')))
-const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/custom/CustomAssistantConfigurePreview')))
+const CustomAssistantConfigurePreview = Loadable(
+    lazy(() => import('@flowise/assistants-frontend/pages/custom/CustomAssistantConfigurePreview'))
+)
 const OpenAIAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/openai/OpenAIAssistantLayout')))
 // @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frontend
 const Analytics = Loadable(lazy(() => import('@universo/analytics-frontend/pages/Analytics')))
@@ -161,6 +163,8 @@ const InstanceList = Loadable(lazy(() => import('@universo/admin-frontend/pages/
 const InstanceBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const InstanceAccess = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceAccess')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const InstanceUsers = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceUsers')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const RolesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/RolesList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
@@ -859,8 +863,8 @@ const MainRoutesMUI = {
                             ]
                         },
                         {
-                            path: 'access',
-                            element: <InstanceAccess />
+                            path: 'users',
+                            element: <InstanceUsers />
                         }
                     ]
                 },

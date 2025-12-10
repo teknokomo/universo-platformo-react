@@ -26,7 +26,7 @@ describe('formatDate', () => {
         // Restore original globalThis state
         if (typeof globalThis !== 'undefined') {
             if (originalI18n) {
-                (globalThis as any).__universo_i18n__instance = originalI18n
+                ;(globalThis as any).__universo_i18n__instance = originalI18n
             } else {
                 delete (globalThis as any).__universo_i18n__instance
             }
@@ -134,8 +134,8 @@ describe('formatDate', () => {
 
         it('should respect globalThis i18n instance', () => {
             // Mock Russian i18n instance
-            (globalThis as any).__universo_i18n__instance = { language: 'ru' }
-            
+            ;(globalThis as any).__universo_i18n__instance = { language: 'ru' }
+
             const result = formatDate('2025-10-31', 'full')
             expect(result).toBeTruthy()
             expect(result).toMatch(/окт/i)
@@ -143,8 +143,8 @@ describe('formatDate', () => {
 
         it('should override globalThis i18n with explicit langOverride', () => {
             // Set global to Russian
-            (globalThis as any).__universo_i18n__instance = { language: 'ru' }
-            
+            ;(globalThis as any).__universo_i18n__instance = { language: 'ru' }
+
             // But override with English
             const result = formatDate('2025-10-31', 'full', 'en')
             expect(result).toBeTruthy()
