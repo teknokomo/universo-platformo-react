@@ -6,6 +6,13 @@
 
 ## 🔥 ACTIVE TASKS
 
+### PR #600 Bot Recommendations (QA Fixes)
+
+- [x] Fix .eslintrc.js: no-unused-vars 'warn' → 'off' (avoid conflict with unused-imports)
+- [x] Fix activeContext.md: remove duplicate header block
+- [x] Fix progress.md: replace "Etap" → "Stage" for English consistency
+- [x] Fix rolesRoutes.ts: replace 3x uuidRegex with uuid.isValidUuid() from @universo/utils
+
 ### Memory Bank Maintenance
 
 - [x] Fixed TypeScript ESLint compatibility warning (upgraded to v8.x)

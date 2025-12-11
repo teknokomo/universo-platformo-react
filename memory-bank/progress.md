@@ -87,11 +87,11 @@
 **Context**: Migrated entire project from UUID v4 to UUID v7 for better database indexing performance (30-50% faster).
 
 **Changes**:
-1. **Infrastructure** (Etap 0): Created `@universo/utils/uuid` module with `generateUuidV7()`, `isValidUuid()`, `extractTimestampFromUuidV7()` functions. Updated TypeORM 0.3.6 → 0.3.28 (removed override). Added `uuidv7: ^1.1.0` to catalog.
-2. **Database Function** (Etap 2): Added PostgreSQL `uuid_generate_v7()` function in first migration (`1733400000000-CreateAdminSchema.ts`).
-3. **Migrations** (Etap 3): Updated 75 migration files - replaced `uuid_generate_v4()` and `gen_random_uuid()` → `public.uuid_generate_v7()`.
-4. **Backend Services** (Etap 4): Updated 24 backend files - replaced `randomUUID()` from crypto and `{ v4 as uuidv4 } from 'uuid'` with `uuid.generateUuidV7()` from `@universo/utils`.
-5. **Frontend** (Etap 5): Updated 7 frontend files - replaced `{ v4 as uuidv4 } from 'uuid'` with `{ uuidv7 } from 'uuidv7'`. Added UUID validation helper in `LoaderConfigPreviewChunks.jsx`.
+1. **Infrastructure** (Stage 0): Created `@universo/utils/uuid` module with `generateUuidV7()`, `isValidUuid()`, `extractTimestampFromUuidV7()` functions. Updated TypeORM 0.3.6 → 0.3.28 (removed override). Added `uuidv7: ^1.1.0` to catalog.
+2. **Database Function** (Stage 2): Added PostgreSQL `uuid_generate_v7()` function in first migration (`1733400000000-CreateAdminSchema.ts`).
+3. **Migrations** (Stage 3): Updated 75 migration files - replaced `uuid_generate_v4()` and `gen_random_uuid()` → `public.uuid_generate_v7()`.
+4. **Backend Services** (Stage 4): Updated 24 backend files - replaced `randomUUID()` from crypto and `{ v4 as uuidv4 } from 'uuid'` with `uuid.generateUuidV7()` from `@universo/utils`.
+5. **Frontend** (Stage 5): Updated 7 frontend files - replaced `{ v4 as uuidv4 } from 'uuid'` with `{ uuidv7 } from 'uuidv7'`. Added UUID validation helper in `LoaderConfigPreviewChunks.jsx`.
 
 **Technical Details**:
 - UUID v7 format: 48-bit timestamp + 12-bit version/variant + 62-bit random
