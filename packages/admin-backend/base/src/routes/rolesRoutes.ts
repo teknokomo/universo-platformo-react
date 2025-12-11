@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
+import { uuid } from '@universo/utils'
 import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
@@ -181,8 +182,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const { id } = req.params
 
             // Validate UUID format (prevent 'new' or other non-UUID values from reaching DB)
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-            if (!uuidRegex.test(id)) {
+            if (!uuid.isValidUuid(id)) {
                 res.status(400).json({
                     success: false,
                     error: 'Invalid role ID format. Must be a valid UUID.'
@@ -290,8 +290,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const { id } = req.params
 
             // Validate UUID format
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-            if (!uuidRegex.test(id)) {
+            if (!uuid.isValidUuid(id)) {
                 res.status(400).json({
                     success: false,
                     error: 'Invalid role ID format. Must be a valid UUID.'
@@ -414,8 +413,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const { id } = req.params
 
             // Validate UUID format
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-            if (!uuidRegex.test(id)) {
+            if (!uuid.isValidUuid(id)) {
                 res.status(400).json({
                     success: false,
                     error: 'Invalid role ID format. Must be a valid UUID.'

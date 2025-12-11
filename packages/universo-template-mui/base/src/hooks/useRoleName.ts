@@ -1,19 +1,26 @@
 import { useState, useEffect } from 'react'
+import i18n from '@universo/i18n'
 
-// Simple in-memory cache for role names to avoid duplicate API calls
+// Language-aware cache for role names to avoid duplicate API calls
+// Cache key format: `${roleId}:${lang}` to support multilingual display
 const roleCache = new Map<string, string>()
 
 /**
  * Hook to fetch and cache role name by ID for breadcrumb display.
- * Uses simple in-memory cache to minimize API calls.
+ * Uses language-aware in-memory cache to minimize API calls.
+ * Automatically updates when application language changes.
  *
  * @param roleId - The role ID to fetch name for
  * @returns The role display name or null if not loaded
  */
 export function useRoleName(roleId: string | null): string | null {
+    // Get current language from i18n (not browser language)
+    const currentLang = i18n.language.split('-')[0] || 'en'
+
     const [name, setName] = useState<string | null>(() => {
         if (!roleId) return null
-        return roleCache.get(roleId) || null
+        const cacheKey = `${roleId}:${currentLang}`
+        return roleCache.get(cacheKey) || null
     })
 
     useEffect(() => {
@@ -28,8 +35,9 @@ export function useRoleName(roleId: string | null): string | null {
             return
         }
 
-        // Check cache first
-        const cached = roleCache.get(roleId)
+        // Check cache first with language-specific key
+        const cacheKey = `${roleId}:${currentLang}`
+        const cached = roleCache.get(cacheKey)
         if (cached) {
             setName(cached)
             return
@@ -57,19 +65,18 @@ export function useRoleName(roleId: string | null): string | null {
                 // Check both camelCase and snake_case variants
                 const displayNameObj = data?.displayName || data?.display_name
                 if (displayNameObj && typeof displayNameObj === 'object') {
-                    // Try to get current locale or fallback to 'en' then 'ru'
-                    const lang = navigator.language?.split('-')[0] || 'en'
-                    displayName = displayNameObj[lang] || displayNameObj['en'] || displayNameObj['ru'] || data?.name
+                    // Use current application language from i18n
+                    displayName = displayNameObj[currentLang] || displayNameObj['en'] || displayNameObj['ru'] || data?.name
                 }
                 if (displayName) {
-                    roleCache.set(roleId, displayName)
+                    roleCache.set(cacheKey, displayName)
                     setName(displayName)
                 }
             })
             .catch((error) => {
                 console.error('Failed to fetch role name:', error)
             })
-    }, [roleId])
+    }, [roleId, currentLang])
 
     return name
 }

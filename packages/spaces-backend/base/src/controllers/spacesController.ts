@@ -405,7 +405,10 @@ export class SpacesController {
             }
             console.error('[SpacesController] Error updating canvas version:', error)
             const status = error instanceof Error ? 400 : 500
-            res.status(status).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
+            res.status(status).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
         }
     }
 
@@ -433,7 +436,10 @@ export class SpacesController {
         } catch (error) {
             console.error('[SpacesController] Error activating canvas version:', error)
             const status = error instanceof Error ? 400 : 500
-            res.status(status).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
+            res.status(status).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
         }
     }
 
@@ -461,7 +467,10 @@ export class SpacesController {
         } catch (error) {
             console.error('[SpacesController] Error deleting canvas version:', error)
             const status = error instanceof Error ? 400 : 500
-            res.status(status).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' } as ApiResponse)
+            res.status(status).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
         }
     }
 

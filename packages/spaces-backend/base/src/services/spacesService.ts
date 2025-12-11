@@ -1,5 +1,5 @@
 import { Repository, DataSource, EntityManager } from 'typeorm'
-import { randomUUID } from 'crypto'
+import { uuid } from '@universo/utils'
 import { Space } from '../database/entities/Space'
 import { Canvas } from '../database/entities/Canvas'
 import { SpaceCanvas } from '../database/entities/SpaceCanvas'
@@ -254,13 +254,13 @@ export class SpacesService {
                 console.log('[SpacesService.createSpace] Space saved to DB', { savedSpaceId: savedSpace.id, name: savedSpace.name })
 
                 // Create default canvas
-                const versionGroupId = randomUUID()
+                const versionGroupId = uuid.generateUuidV7()
                 console.log('[SpacesService.createSpace] Creating canvas entity', { normalizedCanvasName, versionGroupId })
                 const canvas = canvasRepo.create({
                     name: normalizedCanvasName,
                     flowData: canvasFlowData,
                     versionGroupId,
-                    versionUuid: randomUUID(),
+                    versionUuid: uuid.generateUuidV7(),
                     versionLabel: 'v1',
                     versionIndex: 1,
                     isActive: true
@@ -444,12 +444,12 @@ export class SpacesService {
             const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
 
             // Create canvas
-            const versionGroupId = randomUUID()
+            const versionGroupId = uuid.generateUuidV7()
             const canvas = canvasRepo.create({
                 name: data.name || 'New Canvas',
                 flowData: data.flowData || '{}',
                 versionGroupId,
-                versionUuid: randomUUID(),
+                versionUuid: uuid.generateUuidV7(),
                 versionLabel: 'v1',
                 versionIndex: 1,
                 isActive: true
@@ -626,7 +626,7 @@ export class SpacesService {
             const newCanvas = canvasRepo.create({
                 ...baseCanvasRest,
                 versionGroupId: baseCanvas.versionGroupId,
-                versionUuid: randomUUID(),
+                versionUuid: uuid.generateUuidV7(),
                 versionLabel: trimmedLabel && trimmedLabel.length > 0 ? trimmedLabel : `v${nextIndex}`,
                 versionDescription: trimmedDescription || undefined,
                 versionIndex: nextIndex,

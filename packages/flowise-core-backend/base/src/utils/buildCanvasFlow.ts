@@ -1,7 +1,7 @@
 import { Request } from 'express'
 import * as path from 'path'
 import { DataSource } from 'typeorm'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { omit } from 'lodash'
 import {
     IFileUpload,
@@ -381,7 +381,7 @@ export const executeFlow = async ({
     const nodes = parsedFlowData.nodes
     const edges = parsedFlowData.edges
 
-    const apiMessageId = uuidv4()
+    const apiMessageId = uuid.generateUuidV7()
 
     /*** Get session ID ***/
     const memoryNode = findMemoryNode(nodes, edges)
@@ -833,7 +833,7 @@ export const utilBuildCanvasFlow = async (req: Request, isInternal: boolean = fa
     const httpProtocol = req.get('x-forwarded-proto') || req.protocol
     const baseURL = `${httpProtocol}://${req.get('host')}`
     const incomingInput: IncomingInput = req.body || {} // Ensure incomingInput is never undefined
-    const chatId = incomingInput.chatId ?? incomingInput.overrideConfig?.sessionId ?? uuidv4()
+    const chatId = incomingInput.chatId ?? incomingInput.overrideConfig?.sessionId ?? uuid.generateUuidV7()
     const files = (req.files as Express.Multer.File[]) || []
     const abortControllerId = `${canvasRecord.id}_${chatId}`
 

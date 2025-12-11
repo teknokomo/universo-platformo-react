@@ -31,7 +31,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
         // ===== 2) Core tables =====
         await queryRunner.query(`
             CREATE TABLE metaverses.metaverses (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -41,7 +41,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE metaverses.sections (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -51,7 +51,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE metaverses.entities (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -62,7 +62,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
         // ===== 3) User-metaverse relationship table =====
         await queryRunner.query(`
             CREATE TABLE metaverses.metaverses_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 metaverse_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
@@ -76,7 +76,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
         // ===== 4) Junction tables for many-to-many relationships =====
         await queryRunner.query(`
             CREATE TABLE metaverses.entities_sections (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 entity_id UUID NOT NULL,
                 section_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -86,7 +86,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE metaverses.entities_metaverses (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 entity_id UUID NOT NULL,
                 metaverse_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 1,
@@ -97,7 +97,7 @@ export class CreateMetaversesSchema1733600000000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE metaverses.sections_metaverses (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 section_id UUID NOT NULL,
                 metaverse_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),

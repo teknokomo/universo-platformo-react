@@ -6,7 +6,7 @@ import rehypeMathjax from 'rehype-mathjax'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 import { EventStreamContentType, fetchEventSource } from '@microsoft/fetch-event-source'
 import { useTranslation } from '@universo/i18n'
 import { useAuth, getStoredCsrfToken } from '@universo/auth-frontend'
@@ -269,7 +269,7 @@ export const ChatMessage = ({
     const [isChatFlowAvailableForSpeech, setIsChatFlowAvailableForSpeech] = useState(false)
     const [sourceDialogOpen, setSourceDialogOpen] = useState(false)
     const [sourceDialogProps, setSourceDialogProps] = useState({})
-    const [chatId, setChatId] = useState(uuidv4())
+    const [chatId, setChatId] = useState(uuidv7())
     const [isMessageStopping, setIsMessageStopping] = useState(false)
     const [uploadedFiles, setUploadedFiles] = useState([])
     const [imageUploadAllowedTypes, setImageUploadAllowedTypes] = useState('')

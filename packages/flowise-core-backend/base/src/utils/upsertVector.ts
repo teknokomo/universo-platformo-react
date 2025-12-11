@@ -27,7 +27,7 @@ import { UpsertHistory } from '@flowise/docstore-backend'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
 import { getErrorMessage } from '../errors/utils'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../Interface.Metrics'
 import { Variable } from '@flowise/variables-backend'
 import { OMIT_QUEUE_JOB_DATA } from './constants'
@@ -54,7 +54,7 @@ export const executeUpsert = async ({
     const chatHistory: IMessage[] = []
     const isUpsert = true
     const canvasId = canvasRecord.id
-    const apiMessageId = uuidv4()
+    const apiMessageId = uuid.generateUuidV7()
 
     if (files?.length) {
         overrideConfig = { ...incomingInput }
@@ -231,7 +231,7 @@ export const upsertVector = async (req: Request, isInternal: boolean = false) =>
         const httpProtocol = req.get('x-forwarded-proto') || req.protocol
         const baseURL = `${httpProtocol}://${req.get('host')}`
         const incomingInput: IncomingInput = req.body
-        const chatId = incomingInput.chatId ?? incomingInput.overrideConfig?.sessionId ?? uuidv4()
+        const chatId = incomingInput.chatId ?? incomingInput.overrideConfig?.sessionId ?? uuid.generateUuidV7()
         const files = (req.files as Express.Multer.File[]) || []
 
         if (!isInternal) {

@@ -20,7 +20,7 @@ export class AddTools1693891895164 implements MigrationInterface {
             // Create tool table (unik_id will be added by AddUniksAndLinked migration)
             await queryRunner.query(`
                 CREATE TABLE IF NOT EXISTS "public"."tool" (
-                    "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     "name" varchar NOT NULL,
                     "description" text NOT NULL,
                     "color" varchar NOT NULL,

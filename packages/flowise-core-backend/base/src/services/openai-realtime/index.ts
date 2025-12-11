@@ -14,7 +14,7 @@ import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { IDepthQueue, IReactFlowNode } from '../../Interface'
 import { ICommonObject, INodeData } from 'flowise-components'
 import { convertToOpenAIFunction } from '@langchain/core/utils/function_calling'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { Variable } from '@flowise/variables-backend'
 import canvasService from '../spacesCanvas'
 
@@ -33,8 +33,8 @@ const buildAndInitTool = async (canvasId: string, _chatId?: string, _apiMessageI
         throw error
     }
 
-    const chatId = _chatId || uuidv4()
-    const apiMessageId = _apiMessageId || uuidv4()
+    const chatId = _chatId || uuid.generateUuidV7()
+    const apiMessageId = _apiMessageId || uuid.generateUuidV7()
     const flowData = JSON.parse(canvas.flowData)
     const nodes = flowData.nodes
     const edges = flowData.edges

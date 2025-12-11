@@ -28,15 +28,15 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
         console.log('[AddSpacesAndCanvases] Creating spaces table...')
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "public"."spaces" (
-                "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 "name" varchar NOT NULL,
                 "description" text,
                 "visibility" varchar NOT NULL DEFAULT 'private',
                 "unik_id" uuid NOT NULL,
 
                 -- Versioning fields
-                "version_group_id" uuid NOT NULL DEFAULT gen_random_uuid(),
-                "version_uuid" uuid NOT NULL DEFAULT gen_random_uuid(),
+                "version_group_id" uuid NOT NULL DEFAULT public.uuid_generate_v7(),
+                "version_uuid" uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "version_label" varchar NOT NULL DEFAULT 'v1',
                 "version_description" text,
                 "version_index" integer NOT NULL DEFAULT 1,
@@ -60,7 +60,7 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
         console.log('[AddSpacesAndCanvases] Creating canvases table...')
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "public"."canvases" (
-                "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 "name" varchar NOT NULL DEFAULT 'Canvas 1',
                 "flowData" text NOT NULL,
 
@@ -77,8 +77,8 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
                 "type" varchar,
 
                 -- Versioning fields
-                "version_group_id" uuid NOT NULL DEFAULT gen_random_uuid(),
-                "version_uuid" uuid NOT NULL DEFAULT gen_random_uuid(),
+                "version_group_id" uuid NOT NULL DEFAULT public.uuid_generate_v7(),
+                "version_uuid" uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "version_label" varchar NOT NULL DEFAULT 'v1',
                 "version_description" text,
                 "version_index" integer NOT NULL DEFAULT 1,
@@ -102,7 +102,7 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
         console.log('[AddSpacesAndCanvases] Creating spaces_canvases junction table...')
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "public"."spaces_canvases" (
-                "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 "space_id" uuid NOT NULL,
                 "canvas_id" uuid NOT NULL,
                 "version_group_id" uuid NOT NULL,
@@ -160,7 +160,7 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
             UPDATE "public"."spaces"
             SET
                 version_group_id = COALESCE(version_group_id, id),
-                version_uuid = COALESCE(version_uuid, gen_random_uuid()),
+                version_uuid = COALESCE(version_uuid, public.uuid_generate_v7()),
                 version_label = COALESCE(NULLIF(version_label, ''), 'v1'),
                 version_index = COALESCE(version_index, 1),
                 is_active = COALESCE(is_active, true),
@@ -173,7 +173,7 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
             UPDATE "public"."canvases"
             SET
                 version_group_id = COALESCE(version_group_id, id),
-                version_uuid = COALESCE(version_uuid, gen_random_uuid()),
+                version_uuid = COALESCE(version_uuid, public.uuid_generate_v7()),
                 version_label = COALESCE(NULLIF(version_label, ''), 'v1'),
                 version_index = COALESCE(version_index, 1),
                 is_active = COALESCE(is_active, true),
@@ -242,9 +242,9 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
         console.log('[AddSpacesAndCanvases] Enforcing constraints...')
 
         // Spaces constraints
-        await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_group_id" SET DEFAULT gen_random_uuid()`)
+        await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_group_id" SET DEFAULT public.uuid_generate_v7()`)
         await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_group_id" SET NOT NULL`)
-        await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_uuid" SET DEFAULT gen_random_uuid()`)
+        await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_uuid" SET DEFAULT public.uuid_generate_v7()`)
         await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_uuid" SET NOT NULL`)
         await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_label" SET DEFAULT 'v1'`)
         await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "version_label" SET NOT NULL`)
@@ -258,9 +258,9 @@ export class AddSpacesAndCanvases1743000000000 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "public"."spaces" ALTER COLUMN "is_deleted" SET NOT NULL`)
 
         // Canvases constraints
-        await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_group_id" SET DEFAULT gen_random_uuid()`)
+        await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_group_id" SET DEFAULT public.uuid_generate_v7()`)
         await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_group_id" SET NOT NULL`)
-        await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_uuid" SET DEFAULT gen_random_uuid()`)
+        await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_uuid" SET DEFAULT public.uuid_generate_v7()`)
         await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_uuid" SET NOT NULL`)
         await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_label" SET DEFAULT 'v1'`)
         await queryRunner.query(`ALTER TABLE "public"."canvases" ALTER COLUMN "version_label" SET NOT NULL`)

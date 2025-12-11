@@ -34,7 +34,7 @@ import {
     IOverrideConfig,
     IExecutePreviewLoader
 } from '../../Interface'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { databaseEntities, saveUpsertFlowData } from '../../utils'
 import logger from '../../utils/logger'
 import nodesService from '../nodes'
@@ -445,7 +445,7 @@ const _saveFileToStorage = async (fileBase64: string, entity: DocumentStore) => 
     }
     await addSingleFileToStorage(mime, bf, filename, DOCUMENT_STORE_BASE_FOLDER, entity.id)
     return {
-        id: uuidv4(),
+        id: uuid.generateUuidV7(),
         name: filename,
         mimePrefix: mime,
         size: bf.length,
@@ -476,7 +476,7 @@ const _splitIntoChunks = async (appDataSource: DataSource, componentNodes: IComp
             inputs: { ...data.loaderConfig, textSplitter: splitterInstance },
             outputs: { output: 'document' }
         }
-        const tempCanvasId = uuidv4()
+        const tempCanvasId = uuid.generateUuidV7()
         const options: ICommonObject = {
             canvasId: tempCanvasId,
             appDataSource,
@@ -622,7 +622,7 @@ const saveProcessingLoader = async (appDataSource: DataSource, data: IDocumentSt
             )
         }
         const existingLoaders = JSON.parse(entity.loaders)
-        const newDocLoaderId = data.id ?? uuidv4()
+        const newDocLoaderId = data.id ?? uuid.generateUuidV7()
         const found = existingLoaders.find((ldr: IDocumentStoreLoader) => ldr.id === newDocLoaderId)
         if (found) {
             const foundIndex = existingLoaders.findIndex((ldr: IDocumentStoreLoader) => ldr.id === newDocLoaderId)
@@ -849,7 +849,7 @@ const _saveChunksToStorage = async (
                 const docChunk: DocumentStoreFileChunk = {
                     docId: newLoaderId,
                     storeId: data.storeId || '',
-                    id: uuidv4(),
+                    id: uuid.generateUuidV7(),
                     chunkNo: index + 1,
                     pageContent: chunk.pageContent,
                     metadata: JSON.stringify(chunk.metadata)
@@ -1188,7 +1188,7 @@ const queryVectorStore = async (data: ICommonObject) => {
         if (!entity) {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Document store ${data.storeId} not found`)
         }
-        const tempCanvasId = uuidv4()
+        const tempCanvasId = uuid.generateUuidV7()
         const options: ICommonObject = {
             canvasId: tempCanvasId,
             appDataSource: appServer.AppDataSource,
@@ -1235,7 +1235,7 @@ const queryVectorStore = async (data: ICommonObject) => {
             return {
                 pageContent: result.pageContent,
                 metadata: result.metadata,
-                id: uuidv4()
+                id: uuid.generateUuidV7()
             }
         })
         // query our document store chunk with the storeId and pageContent
@@ -1250,7 +1250,7 @@ const queryVectorStore = async (data: ICommonObject) => {
             } else {
                 // this should not happen, only possible if the vector store has more content
                 // than our document store
-                doc.id = uuidv4()
+                doc.id = uuid.generateUuidV7()
                 doc.chunkNo = -1
             }
         }

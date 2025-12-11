@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import { cloneDeep } from 'lodash'
-import { v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 
@@ -89,7 +89,7 @@ const VectorStoreConfigure = () => {
     const [upsertDetailsDialogProps, setUpsertDetailsDialogProps] = useState({})
 
     const onEmbeddingsSelected = (component) => {
-        const nodeData = cloneDeep(initNode(component, uuidv4()))
+        const nodeData = cloneDeep(initNode(component, uuidv7()))
         if (!showEmbeddingsListDialog && documentStore.embeddingConfig) {
             nodeData.inputs = documentStore.embeddingConfig.config
             nodeData.credential = documentStore.embeddingConfig.config.credential
@@ -108,7 +108,7 @@ const VectorStoreConfigure = () => {
     }
 
     const onVectorStoreSelected = (component) => {
-        const nodeData = cloneDeep(initNode(component, uuidv4()))
+        const nodeData = cloneDeep(initNode(component, uuidv7()))
         if (!nodeData.inputAnchors.find((anchor) => anchor.name === 'recordManager')) {
             setRecordManagerUnavailable(true)
             setSelectedRecordManagerProvider({})
@@ -133,7 +133,7 @@ const VectorStoreConfigure = () => {
     }
 
     const onRecordManagerSelected = (component) => {
-        const nodeData = cloneDeep(initNode(component, uuidv4()))
+        const nodeData = cloneDeep(initNode(component, uuidv7()))
         if (!showRecordManagerListDialog && documentStore.recordManagerConfig) {
             nodeData.inputs = documentStore.recordManagerConfig.config
             nodeData.credential = documentStore.recordManagerConfig.config.credential

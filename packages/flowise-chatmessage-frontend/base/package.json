@@ -48,7 +48,7 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^3.0.1",
     "remark-math": "^5.1.1",
-    "uuid": "^9.0.1"
+    "uuidv7": "catalog:"
   },
   "devDependencies": {
     "rimraf": "^5.0.5",

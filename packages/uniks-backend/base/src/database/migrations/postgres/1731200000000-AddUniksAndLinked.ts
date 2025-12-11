@@ -13,7 +13,7 @@ export class AddUniksAndLinked1731200000000 implements MigrationInterface {
         // 2) Create core table: uniks
         await queryRunner.query(`
             CREATE TABLE uniks.uniks (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 is_active BOOLEAN NOT NULL DEFAULT true,
@@ -25,7 +25,7 @@ export class AddUniksAndLinked1731200000000 implements MigrationInterface {
         // 3) Create user-unik relationship table
         await queryRunner.query(`
             CREATE TABLE uniks.uniks_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 unik_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',

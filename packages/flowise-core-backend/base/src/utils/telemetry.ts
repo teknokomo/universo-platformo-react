@@ -1,5 +1,5 @@
 import { PostHog } from 'posthog-node'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { getAppVersion } from '.'
 
 export class Telemetry {
@@ -13,7 +13,7 @@ export class Telemetry {
 
         if (!disabled && apiKey) {
             this.postHog = new PostHog(apiKey)
-            this.anonymousId = uuidv4()
+            this.anonymousId = uuid.generateUuidV7()
         }
     }
 
@@ -42,7 +42,7 @@ export class Telemetry {
         const distinctId =
             typeof orgId === 'string' && orgId.trim().length > 0
                 ? orgId
-                : this.anonymousId || (this.anonymousId = uuidv4())
+                : this.anonymousId || (this.anonymousId = uuid.generateUuidV7())
 
         this.postHog.capture({
             event,

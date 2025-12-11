@@ -27,16 +27,18 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // ═══════════════════════════════════════════════════════════════
-        // 1. CREATE ADMIN SCHEMA
+        // 0. CREATE ADMIN SCHEMA
         // ═══════════════════════════════════════════════════════════════
+        // Note: UUID v7 function (public.uuid_generate_v7) is created by
+        // infrastructure migration 1500000000000-InitializeUuidV7Function
         await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS admin`)
 
         // ═══════════════════════════════════════════════════════════════
-        // 2. INSTANCES TABLE (platform instances)
+        // 1. INSTANCES TABLE (platform instances)
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.instances (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(100) NOT NULL UNIQUE,
                 display_name JSONB DEFAULT '{}',
                 description TEXT,
@@ -54,7 +56,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.roles (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(50) NOT NULL UNIQUE,
                 description TEXT,
                 display_name JSONB DEFAULT '{}',
@@ -71,7 +73,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.role_permissions (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 role_id UUID NOT NULL REFERENCES admin.roles(id) ON DELETE CASCADE,
                 subject VARCHAR(100) NOT NULL,
                 action VARCHAR(20) NOT NULL,
@@ -87,7 +89,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.user_roles (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
                 role_id UUID NOT NULL REFERENCES admin.roles(id) ON DELETE CASCADE,
                 granted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -396,6 +398,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE IF EXISTS admin.instances CASCADE`)
 
         // Drop schema
+        // Note: UUID v7 function (public.uuid_generate_v7) is managed by
+        // infrastructure migration 1500000000000-InitializeUuidV7Function
         await queryRunner.query(`DROP SCHEMA IF EXISTS admin CASCADE`)
     }
 }

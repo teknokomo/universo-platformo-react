@@ -1,7 +1,7 @@
 // Universo Platformo | Chat bot streaming controller
 import { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import predictionsServices from '../../services/predictions'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
@@ -42,7 +42,7 @@ export class ChatStreamingController {
                 )
             }
 
-            const sessionid = req.params.sessionid || uuidv4()
+            const sessionid = req.params.sessionid || uuid.generateUuidV7()
             logger.info(`Streaming request for chat bot (canvas: ${canvasId}, session: ${sessionid})`)
 
             // Universo Platformo | Check that the canvas exists and supports streaming

@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes'
 import { In, QueryRunner } from 'typeorm'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { Assistant } from '@flowise/assistants-backend'
 import { ChatMessage, ChatMessageFeedback } from '@flowise/chatmessage-backend'
 import { CustomTemplate } from '@flowise/customtemplates-backend'
@@ -177,7 +177,7 @@ async function replaceDuplicateIdsForCanvasFlow(
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -198,7 +198,7 @@ async function replaceDuplicateIdsForAssistant(queryRunner: QueryRunner, origina
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -245,7 +245,7 @@ async function replaceDuplicateIdsForChatMessage(queryRunner: QueryRunner, origi
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -320,7 +320,7 @@ async function replaceDuplicateIdsForChatMessageFeedback(
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -341,7 +341,7 @@ async function replaceDuplicateIdsForCustomTemplate(queryRunner: QueryRunner, or
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -362,7 +362,7 @@ async function replaceDuplicateIdsForDocumentStore(queryRunner: QueryRunner, ori
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -387,7 +387,7 @@ async function replaceDuplicateIdsForDocumentStoreFileChunk(
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -408,7 +408,7 @@ async function replaceDuplicateIdsForTool(queryRunner: QueryRunner, originalData
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData
@@ -429,7 +429,7 @@ async function replaceDuplicateIdsForVariable(queryRunner: QueryRunner, original
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
-            const newId = uuidv4()
+            const newId = uuid.generateUuidV7()
             originalData = JSON.parse(JSON.stringify(originalData).replaceAll(oldId, newId))
         }
         return originalData

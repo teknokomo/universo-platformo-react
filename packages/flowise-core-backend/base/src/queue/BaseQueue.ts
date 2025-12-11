@@ -1,5 +1,5 @@
 import { Queue, Worker, Job, QueueEvents, RedisOptions, KeepJobs } from 'bullmq'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import logger from '../utils/logger'
 
 const QUEUE_REDIS_EVENT_STREAM_MAX_LEN = process.env.QUEUE_REDIS_EVENT_STREAM_MAX_LEN
@@ -35,7 +35,7 @@ export abstract class BaseQueue {
     }
 
     public async addJob(jobData: any): Promise<Job> {
-        const jobId = jobData.id || uuidv4()
+        const jobId = jobData.id || uuid.generateUuidV7()
         
         let removeOnFail: number | boolean | KeepJobs | undefined = true
         let removeOnComplete: number | boolean | KeepJobs | undefined = undefined

@@ -41,7 +41,8 @@ import {
     IFileUpload,
     getS3Config
 } from 'flowise-components'
-import { randomBytes, randomUUID } from 'crypto'
+import { randomBytes } from 'crypto'
+import { uuid } from '@universo/utils'
 import { AES, enc } from 'crypto-js'
 import multer from 'multer'
 import multerS3 from 'multer-s3'
@@ -1754,7 +1755,7 @@ export const getMulterStorage = () => {
                     cb: (error: Error | null, key?: string) => void
                 ) {
                     const extension = path.extname(file.originalname)
-                    cb(null, `${randomUUID()}${extension}`)
+                    cb(null, `${uuid.generateUuidV7()}${extension}`)
                 }
             })
         })
@@ -1773,7 +1774,7 @@ export const getMulterStorage = () => {
                     cb: (error: Error | null, filename: string) => void
                 ) => {
                     const extension = path.extname(file.originalname)
-                    cb(null, `${randomUUID()}${extension}`)
+                    cb(null, `${uuid.generateUuidV7()}${extension}`)
                 }
             })
         })
