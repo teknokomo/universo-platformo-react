@@ -13,7 +13,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
         // Core tables in campaigns schema
         await queryRunner.query(`
             CREATE TABLE campaigns.campaigns (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
 
         await queryRunner.query(`
             CREATE TABLE campaigns.events (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -33,7 +33,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
 
         await queryRunner.query(`
             CREATE TABLE campaigns.activities (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -44,7 +44,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
         // 2) User-campaign relationship table (campaign-centric naming)
         await queryRunner.query(`
             CREATE TABLE campaigns.campaigns_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 campaign_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
@@ -58,7 +58,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
         // 3) Junction tables for many-to-many relationships
         await queryRunner.query(`
             CREATE TABLE campaigns.activities_events (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 activity_id UUID NOT NULL,
                 event_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -68,7 +68,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
 
         await queryRunner.query(`
             CREATE TABLE campaigns.activities_campaigns (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 activity_id UUID NOT NULL,
                 campaign_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 1,
@@ -79,7 +79,7 @@ export class AddCampaignsEventsActivities1762992429849 implements MigrationInter
 
         await queryRunner.query(`
             CREATE TABLE campaigns.events_campaigns (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 event_id UUID NOT NULL,
                 campaign_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),

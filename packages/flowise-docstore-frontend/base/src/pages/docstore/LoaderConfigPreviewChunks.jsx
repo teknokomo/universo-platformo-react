@@ -1,10 +1,13 @@
 import { cloneDeep } from 'lodash'
 import { useEffect, useState } from 'react'
-import { validate as uuidValidate, v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import ReactJson from 'flowise-react-json-view'
 import { useTranslation } from '@universo/i18n'
+
+// UUID validation helper
+const isValidUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-7][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'
@@ -267,7 +270,7 @@ const LoaderConfigPreviewChunks = () => {
     }
 
     useEffect(() => {
-        if (uuidValidate(docLoaderNodeName)) {
+        if (isValidUuid(docLoaderNodeName)) {
             // this is a document store edit config
             getSpecificDocumentStoreApi.request(unikId, storeId)
         } else {
@@ -279,7 +282,7 @@ const LoaderConfigPreviewChunks = () => {
 
     useEffect(() => {
         if (getNodeDetailsApi.data) {
-            const nodeData = cloneDeep(initNode(getNodeDetailsApi.data, uuidv4()))
+            const nodeData = cloneDeep(initNode(getNodeDetailsApi.data, uuidv7()))
             // If this is a document store edit config, set the existing input values
             if (existingLoaderFromDocStoreTable && existingLoaderFromDocStoreTable.loaderConfig) {
                 nodeData.inputs = existingLoaderFromDocStoreTable.loaderConfig
@@ -302,7 +305,7 @@ const LoaderConfigPreviewChunks = () => {
             // Set available text splitter nodes
             const nodes = []
             for (const node of getNodesByCategoryApi.data) {
-                nodes.push(cloneDeep(initNode(node, uuidv4())))
+                nodes.push(cloneDeep(initNode(node, uuidv7())))
             }
             setTextSplitterNodes(nodes)
 

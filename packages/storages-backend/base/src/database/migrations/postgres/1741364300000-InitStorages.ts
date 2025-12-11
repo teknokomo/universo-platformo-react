@@ -13,7 +13,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
         // Core tables in storages schema
         await queryRunner.query(`
             CREATE TABLE storages.storages (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE storages.containers (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -33,7 +33,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE storages.slots (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -44,7 +44,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
         // 2) User-storage relationship table (storage-centric naming)
         await queryRunner.query(`
             CREATE TABLE storages.storages_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 storage_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
@@ -58,7 +58,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
         // 3) Junction tables for many-to-many relationships
         await queryRunner.query(`
             CREATE TABLE storages.slots_containers (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 slot_id UUID NOT NULL,
                 container_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -68,7 +68,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE storages.slots_storages (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 slot_id UUID NOT NULL,
                 storage_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 1,
@@ -79,7 +79,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE storages.containers_storages (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 container_id UUID NOT NULL,
                 storage_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),

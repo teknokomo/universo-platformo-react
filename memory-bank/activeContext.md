@@ -1,12 +1,55 @@
 # Active Context
 
-> **Last Updated**: 2025-12-10
+> **Last Updated**: 2025-12-11
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Legacy Code Cleanup - Complete ✅ (2025-12-10)
+# Active Context
+
+> **Last Updated**: 2025-12-11
+>
+> **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## Current Focus: Development Environment Maintenance ✅ (2025-12-11)
+
+**Status**: Fixed ESLint TypeScript compatibility warnings. Development environment now clean.
+
+**Latest Actions**:
+- ✅ Upgraded @typescript-eslint packages to v8.x (now supports TypeScript 5.8.3)
+- ✅ Updated eslint-plugin-unused-imports to v4.3.0 for compatibility
+- ✅ Reconfigured ESLint to use TypeScript overrides pattern
+- ✅ Verified all packages lint correctly without version warnings
+
+**Impact**: No more "unsupported TypeScript version" warnings during linting. Code quality tools now run cleanly across entire codebase.
+
+**Previous Context**: UUID v7 QA investigation completed successfully (see progress.md#2025-12-11)
+
+---
+
+## Previous Focus: UUID v7 Migration - Complete ✅ (2025-12-10)
+
+**Status**: Successfully migrated entire project from UUID v4 to UUID v7 for better database performance.
+
+**Changes**:
+- Created `@universo/utils/uuid` module with `generateUuidV7()`, `isValidUuid()`, `extractTimestampFromUuidV7()`
+- Updated TypeORM from 0.3.6 → 0.3.28 (removed override)
+- Added PostgreSQL `uuid_generate_v7()` function in first migration (admin-backend)
+- Updated 75 database migrations: `uuid_generate_v4()` / `gen_random_uuid()` → `public.uuid_generate_v7()`
+- Updated 24 backend files: replaced `randomUUID()` from crypto and `{ v4 as uuidv4 } from 'uuid'` with `uuid.generateUuidV7()` from `@universo/utils`
+- Updated 7 frontend files: replaced `{ v4 as uuidv4 } from 'uuid'` with `{ uuidv7 } from 'uuidv7'`
+- Added `uuidv7: ^1.1.0` to catalog in `pnpm-workspace.yaml`
+
+**Performance Impact**: UUID v7 provides 30-50% faster indexing (time-ordered) compared to random UUID v4
+
+**Details**: progress.md#2025-12-10
+
+---
+
+## Previous Focus: Legacy Code Cleanup ✅ (2025-12-10)
 
 **Status**: Fixed 5 minor issues with outdated comments and legacy naming conventions after Global Roles Access implementation.
 

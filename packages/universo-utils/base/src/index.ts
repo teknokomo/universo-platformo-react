@@ -8,6 +8,7 @@ export * as math from './math'
 export * as updl from './updl'
 export * as publish from './publish'
 export * as env from './env'
+export * as uuid from './uuid'
 
 // Rate limiting utilities (server-side only)
 // Note: Import from '@universo/utils/rate-limiting' for direct access

@@ -5,14 +5,18 @@
  * Migrations are grouped by domain and executed in sequence.
  *
  * Order rationale:
- * 0. Admin (creates admin schema and has_permission function used by RLS in other modules)
- * 1. Foundation tables (no FK dependencies): chat_message, tools, credentials, etc.
- * 2. Uniks (creates uniks schema, adds unik_id to Flowise tables)
- * 3. Profile, Metaverses, Clusters, etc. (depend on uniks)
- * 4. Spaces & Canvases (depend on uniks, create canvases table)
- * 5. CustomTemplates (may reference canvases)
- * 6. Publish (depends on spaces and canvases - has FK constraints)
+ * 0. Infrastructure (creates database-wide functions like uuid_generate_v7)
+ * 1. Admin (creates admin schema and has_permission function used by RLS in other modules)
+ * 2. Foundation tables (no FK dependencies): chat_message, tools, credentials, etc.
+ * 3. Uniks (creates uniks schema, adds unik_id to Flowise tables)
+ * 4. Profile, Metaverses, Clusters, etc. (depend on uniks)
+ * 5. Spaces & Canvases (depend on uniks, create canvases table)
+ * 6. CustomTemplates (may reference canvases)
+ * 7. Publish (depends on spaces and canvases - has FK constraints)
  */
+
+// Infrastructure migrations
+import { infrastructureMigrations } from '@universo/core-backend'
 
 // Feature package migrations
 import { chatMessageMigrations } from '@flowise/chatmessage-backend'
@@ -40,13 +44,19 @@ import { publishMigrations } from '@universo/publish-backend'
 
 export const postgresMigrations = [
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 0: Admin (MUST BE FIRST - creates admin.has_permission function)
+    // PHASE 0: Infrastructure (MUST BE FIRST - creates database-wide functions)
+    // Creates uuid_generate_v7() function required by all tables with UUID v7 primary keys
+    // ═══════════════════════════════════════════════════════════════════════
+    ...infrastructureMigrations,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 1: Admin (creates admin schema and has_permission function)
     // Other modules' RLS policies depend on this function
     // ═══════════════════════════════════════════════════════════════════════
     ...adminMigrations,
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 1: Foundation tables (no FK dependencies)
+    // PHASE 2: Foundation tables (no FK dependencies)
     // ═══════════════════════════════════════════════════════════════════════
     ...chatMessageMigrations, // Creates chat_message, chat_message_feedback
     ...toolsMigrations, // Creates tool table

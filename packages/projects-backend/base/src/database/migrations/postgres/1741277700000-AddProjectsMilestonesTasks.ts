@@ -13,7 +13,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
         // Core tables in projects schema
         await queryRunner.query(`
             CREATE TABLE projects.projects (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
 
         await queryRunner.query(`
             CREATE TABLE projects.milestones (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -33,7 +33,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
 
         await queryRunner.query(`
             CREATE TABLE projects.tasks (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -44,7 +44,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
         // 2) User-project relationship table (project-centric naming, snake_case)
         await queryRunner.query(`
             CREATE TABLE projects.projects_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 project_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
@@ -58,7 +58,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
         // 3) Junction tables for many-to-many relationships (snake_case)
         await queryRunner.query(`
             CREATE TABLE projects.tasks_milestones (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 task_id UUID NOT NULL,
                 milestone_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -68,7 +68,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
 
         await queryRunner.query(`
             CREATE TABLE projects.tasks_projects (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 task_id UUID NOT NULL,
                 project_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 1,
@@ -79,7 +79,7 @@ export class AddProjectsMilestonesTasks1741277700000 implements MigrationInterfa
 
         await queryRunner.query(`
             CREATE TABLE projects.milestones_projects (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 milestone_id UUID NOT NULL,
                 project_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, Router } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import { validate as validateUuid } from 'uuid'
+import { uuid } from '@universo/utils'
 import { type IApikeyService, ApikeyServiceError } from '../services/apikeyService'
 
 /**
@@ -24,7 +24,7 @@ function validateUnikId(req: Request, res: Response, next: NextFunction): void {
         })
         return
     }
-    if (!validateUuid(unikId)) {
+    if (!uuid.isValidUuid(unikId)) {
         res.status(StatusCodes.BAD_REQUEST).json({
             error: 'Invalid unikId format'
         })

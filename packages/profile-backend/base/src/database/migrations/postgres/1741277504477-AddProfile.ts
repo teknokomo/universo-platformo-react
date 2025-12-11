@@ -7,7 +7,7 @@ export class AddProfile1741277504477 implements MigrationInterface {
         // 1. Create profiles table with settings JSONB column
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "profiles" (
-                "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+                "id" uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "user_id" uuid NOT NULL UNIQUE,
                 "nickname" character varying(50) NOT NULL UNIQUE,
                 "first_name" character varying(100),

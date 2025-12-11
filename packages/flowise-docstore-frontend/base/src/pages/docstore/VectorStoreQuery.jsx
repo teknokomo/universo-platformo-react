@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '@universo/i18n'
 import ReactJson from 'flowise-react-json-view'
 import { cloneDeep } from 'lodash'
-import { v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 
 // material-ui
 import { Box, Card, Grid, Stack, Typography, OutlinedInput, IconButton, Button } from '@mui/material'
@@ -212,7 +212,7 @@ const VectorStoreQuery = () => {
     }, [getVectorStoreNodeDetailsApi.data])
 
     const fetchVectorStoreDetails = (component) => {
-        const nodeData = cloneDeep(initNode(component, uuidv4()))
+        const nodeData = cloneDeep(initNode(component, uuidv7()))
         if (documentStore.vectorStoreConfig) {
             nodeData.inputs = documentStore.vectorStoreConfig.config
             nodeData.credential = documentStore.vectorStoreConfig.config.credential

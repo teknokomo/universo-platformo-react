@@ -27,7 +27,7 @@ export class AddChatMessage1693891895163 implements MigrationInterface {
         // Create chat_message table with all columns (uuid types from the start)
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS chat_message (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "role" varchar NOT NULL,
                 "canvas_id" uuid NOT NULL,
                 "content" text NOT NULL,
@@ -58,7 +58,7 @@ export class AddChatMessage1693891895163 implements MigrationInterface {
         // Create chat_message_feedback table with uuid messageId
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS chat_message_feedback (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "canvas_id" uuid NOT NULL,
                 "chatId" varchar NOT NULL,
                 "messageId" uuid NOT NULL,

@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes'
 import { DataSource } from 'typeorm'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { z } from 'zod'
 import { Lead } from '../database/entities/Lead'
 import type { ILead, CreateLeadBody } from '../Interface'
@@ -55,7 +55,7 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
     const createLead = async (body: CreateLeadBody): Promise<ILead> => {
         try {
             const validatedData = createLeadSchema.parse(body)
-            const chatId = validatedData.chatId ?? uuidv4()
+            const chatId = validatedData.chatId ?? uuid.generateUuidV7()
 
             const dataSource = getDataSource()
             const repo = dataSource.getRepository(Lead)

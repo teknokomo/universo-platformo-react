@@ -16,7 +16,7 @@ import { omit, cloneDeep, flatten, uniq } from 'lodash'
 import { StateGraph, END, START } from '@langchain/langgraph'
 import { Document } from '@langchain/core/documents'
 import { StatusCodes } from 'http-status-codes'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { StructuredTool } from '@langchain/core/tools'
 import { BaseMessage, HumanMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages'
 import { IComponentNodes, IDepthQueue, IReactFlowNode, IReactFlowEdge, IMessage, IncomingInput, IFlowConfig } from '../Interface'
@@ -338,7 +338,7 @@ export const buildAgentGraph = async ({
                                 rejectButtonText = node.data.inputs?.rejectButtonText || 'No'
                             }
                             finalAction = {
-                                id: uuidv4(),
+                                id: uuid.generateUuidV7(),
                                 mapping: {
                                     approve: approveButtonText,
                                     reject: rejectButtonText,

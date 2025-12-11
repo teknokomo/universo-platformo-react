@@ -1,0 +1,43 @@
+{
+    "name": "@universo/core-backend",
+    "version": "0.1.0",
+    "description": "Core database infrastructure and migrations for Universo Platformo",
+    "private": true,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsc",
+        "build:watch": "tsc --watch",
+        "dev": "tsc --watch",
+        "lint": "eslint --ext .ts src/",
+        "clean": "rimraf dist"
+    },
+    "license": "Omsk Open License",
+    "keywords": [
+        "universo",
+        "platformo",
+        "infrastructure",
+        "database",
+        "migrations",
+        "typescript"
+    ],
+    "peerDependencies": {
+        "typeorm": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "typeorm": "catalog:",
+        "typescript": "catalog:"
+    }
+}

@@ -76,7 +76,10 @@ catalog:
     async-mutex: ^0.5.0
     
     # ORM - TypeORM for database operations
-    typeorm: ^0.3.20
+    typeorm: ^0.3.28
+    
+    # UUID utilities
+    uuidv7: ^1.1.0
     
     # HTTP error handling
     http-errors: ^2.0.0

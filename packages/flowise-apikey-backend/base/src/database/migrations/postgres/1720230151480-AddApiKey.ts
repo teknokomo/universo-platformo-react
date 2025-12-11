@@ -17,7 +17,7 @@ export class AddApiKey1720230151480 implements MigrationInterface {
 
         await queryRunner.query(
             `CREATE TABLE IF NOT EXISTS apikey (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "apiKey" varchar NOT NULL,
                 "apiSecret" varchar NOT NULL,
                 "keyName" varchar NOT NULL,

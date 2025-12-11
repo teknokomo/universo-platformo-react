@@ -1,5 +1,5 @@
 import { Logger } from 'winston'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { Client } from 'langsmith'
 import CallbackHandler from 'langfuse-langchain'
 import lunary from 'lunary'
@@ -72,7 +72,7 @@ function getArizeTracer(options: ArizeTracerOptions): Tracer | undefined {
             lcInstrumentation.manuallyInstrument(CallbackManagerModule)
             tracerProvider.register()
         }
-        return tracerProvider.getTracer(`arize-tracer-${uuidv4().toString()}`)
+        return tracerProvider.getTracer(`arize-tracer-${uuid.generateUuidV7().toString()}`)
     } catch (err) {
         if (process.env.DEBUG === 'true') console.error(`Error setting up Arize tracer: ${err.message}`)
         return undefined
@@ -113,7 +113,7 @@ function getPhoenixTracer(options: PhoenixTracerOptions): Tracer | undefined {
             lcInstrumentation.manuallyInstrument(CallbackManagerModule)
             tracerProvider.register()
         }
-        return tracerProvider.getTracer(`phoenix-tracer-${uuidv4().toString()}`)
+        return tracerProvider.getTracer(`phoenix-tracer-${uuid.generateUuidV7().toString()}`)
     } catch (err) {
         if (process.env.DEBUG === 'true') console.error(`Error setting up Phoenix tracer: ${err.message}`)
         return undefined
@@ -157,7 +157,7 @@ function getOpikTracer(options: OpikTracerOptions): Tracer | undefined {
             lcInstrumentation.manuallyInstrument(CallbackManagerModule)
             tracerProvider.register()
         }
-        return tracerProvider.getTracer(`opik-tracer-${uuidv4().toString()}`)
+        return tracerProvider.getTracer(`opik-tracer-${uuid.generateUuidV7().toString()}`)
     } catch (err) {
         if (process.env.DEBUG === 'true') console.error(`Error setting up Opik tracer: ${err.message}`)
         return undefined
@@ -854,7 +854,7 @@ export class AnalyticHandler {
             const monitor = this.handlers['lunary'].client
 
             if (monitor) {
-                const runId = uuidv4()
+                const runId = uuid.generateUuidV7()
                 await monitor.trackEvent('chain', 'start', {
                     runId,
                     name,
@@ -1205,7 +1205,7 @@ export class AnalyticHandler {
             const chainEventId: string = this.handlers['lunary'].chainEvent[parentIds['lunary'].chainEvent]
 
             if (monitor && chainEventId) {
-                const runId = uuidv4()
+                const runId = uuid.generateUuidV7()
                 await monitor.trackEvent('llm', 'start', {
                     runId,
                     parentRunId: chainEventId,
@@ -1481,7 +1481,7 @@ export class AnalyticHandler {
             const chainEventId: string = this.handlers['lunary'].chainEvent[parentIds['lunary'].chainEvent]
 
             if (monitor && chainEventId) {
-                const runId = uuidv4()
+                const runId = uuid.generateUuidV7()
                 await monitor.trackEvent('tool', 'start', {
                     runId,
                     parentRunId: chainEventId,

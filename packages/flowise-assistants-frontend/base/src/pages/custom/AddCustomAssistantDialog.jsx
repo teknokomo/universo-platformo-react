@@ -9,7 +9,7 @@ import {
     enqueueSnackbar as enqueueSnackbarAction,
     closeSnackbar as closeSnackbarAction
 } from '@flowise/store'
-import { v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 
 // Material
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Box, Typography, OutlinedInput } from '@mui/material'
@@ -53,7 +53,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
                 details: JSON.stringify({
                     name: customAssistantName
                 }),
-                credential: uuidv4(),
+                credential: uuidv7(),
                 type: 'CUSTOM'
             }
             const createResp = await api.assistants.create(dialogProps.unikId, obj)

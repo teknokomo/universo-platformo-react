@@ -18,7 +18,7 @@ export class AddDocumentStore1711637331047 implements MigrationInterface {
         // 1. Create document_store table with ALL columns
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS document_store (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "name" varchar NOT NULL,
                 "description" varchar,
                 "loaders" text,
@@ -36,7 +36,7 @@ export class AddDocumentStore1711637331047 implements MigrationInterface {
         // 2. Create document_store_file_chunk table
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS document_store_file_chunk (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "docId" uuid NOT NULL,
                 "chunkNo" integer NOT NULL,
                 "storeId" uuid NOT NULL,
@@ -59,7 +59,7 @@ export class AddDocumentStore1711637331047 implements MigrationInterface {
         // 4. Create upsert_history table
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS upsert_history (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
+                id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
                 "canvas_id" uuid NOT NULL,
                 "result" text NOT NULL,
                 "flowData" text NOT NULL,

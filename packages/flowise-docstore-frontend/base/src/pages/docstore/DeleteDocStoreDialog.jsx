@@ -25,7 +25,7 @@ import {
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { TableViewOnly } from '@flowise/template-mui'
-import { v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 
 // const
 import { baseURL } from '@flowise/template-mui'
@@ -73,7 +73,7 @@ const DeleteDocStoreDialog = ({ show, dialogProps, onCancel, onDelete }) => {
 
     useEffect(() => {
         if (getSpecificNodeApi.data) {
-            const nodeData = cloneDeep(initNode(getSpecificNodeApi.data, uuidv4()))
+            const nodeData = cloneDeep(initNode(getSpecificNodeApi.data, uuidv7()))
 
             let config = 'vectorStoreConfig'
             if (nodeData.category === 'Record Manager') config = 'recordManagerConfig'

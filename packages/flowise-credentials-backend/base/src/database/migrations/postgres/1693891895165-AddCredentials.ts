@@ -21,7 +21,7 @@ export class AddCredentials1693891895165 implements MigrationInterface {
             // (unik_id will be added by AddUniksAndLinked migration)
             await queryRunner.query(`
                 CREATE TABLE IF NOT EXISTS "public"."credential" (
-                    "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     "name" varchar NOT NULL,
                     "credentialName" varchar NOT NULL,
                     "encryptedData" text NOT NULL,

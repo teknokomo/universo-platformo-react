@@ -47,7 +47,7 @@ type RoleData = {
  * Displays all RBAC roles with card/table view, pagination, and search
  */
 const RolesList = () => {
-    const { t, i18n } = useTranslation(['admin', 'roles', 'flowList'])
+    const { t, i18n } = useTranslation('admin')
     const { t: tc } = useCommonTranslations()
     const navigate = useNavigate()
     const { instanceId } = useParams<{ instanceId: string }>()

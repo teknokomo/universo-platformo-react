@@ -39,7 +39,7 @@
         "react-markdown": "^9.0.3",
         "react-redux": "^9.2.0",
         "react-router-dom": "^6.28.0",
-        "uuid": "^11.0.3"
+        "uuidv7": "catalog:"
     },
     "peerDependencies": {
         "@universo/api-client": "workspace:*"

@@ -211,6 +211,70 @@ if (!userId) return
 -   CASCADE delete relationships for data integrity
 -   UNIQUE constraints on junction tables to prevent duplicates
 
+### UUID v7 Architecture
+
+**Time-Ordered UUID System** - Project-wide UUID v7 for better database indexing performance
+
+**Migration Status**: ✅ Complete (2025-12-10) - All 75 migrations + 31 service files updated
+
+**Key Implementation Details:**
+
+-   **TypeORM Version**: 0.3.28 (upgraded from 0.3.6)
+-   **Infrastructure Migration**: PostgreSQL `public.uuid_generate_v7()` function in dedicated migration (MUST execute first)
+    - File: `packages/flowise-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts`
+    - Timestamp: `1500000000000` (July 14, 2017) - Earliest migration to ensure execution before all table creation
+    - Registered: First entry in `postgresMigrations` array (PHASE 0: Infrastructure)
+    - Implementation: Custom PL/pgSQL function following RFC 9562 specification for PostgreSQL 17.4 (Supabase)
+    - **Why separate?**: TypeORM sorts migrations by class name timestamp, not array order. Function MUST exist before any table with `DEFAULT public.uuid_generate_v7()` is created.
+-   **Backend Module**: `@universo/utils/uuid` with `generateUuidV7()`, `isValidUuid()`, `extractTimestampFromUuidV7()`
+-   **Frontend Package**: `uuidv7@^1.1.0` (npm package for browser bundles)
+-   **Migration Pattern**: All DEFAULT clauses use `public.uuid_generate_v7()` instead of `uuid_generate_v4()` or `gen_random_uuid()`
+-   **Service Pattern**: Backend services use `uuid.generateUuidV7()` from `@universo/utils`
+-   **Performance**: 30-50% faster indexing due to time-ordered nature (better B-tree locality)
+-   **UUID v7 Format**: 48-bit Unix timestamp (ms) + 12-bit version/variant + 62-bit random
+-   **Compatibility**: Standard RFC 9562 UUID v7 format (backwards compatible with v4 parsing)
+-   **PostgreSQL Support**: Native `gen_uuidv7()` available in PostgreSQL 18+, custom function required for 17.4
+
+**Example Usage:**
+```typescript
+// Backend (TypeORM migration)
+CREATE TABLE spaces (
+  id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+  ...
+)
+
+// Backend (service)
+import { uuid } from '@universo/utils'
+const newId = uuid.generateUuidV7()
+
+// Frontend
+import { uuidv7 } from 'uuidv7'
+const newId = uuidv7()
+```
+
+**Critical Files:**
+- Infrastructure migration: `packages/flowise-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts` (PHASE 0)
+- Migration registry: `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts` (infrastructure migration first)
+- Backend module: `packages/universo-utils/base/src/uuid/index.ts`
+- Migration count: 75 files across 25 packages (all using uuid_generate_v7)
+- Service count: 24 backend + 7 frontend files
+
+**References:**
+- RFC 9562 (May 2024): UUID Version 7 specification
+- PostgreSQL 18+ docs: Native `gen_uuidv7()` function
+- AWS Best Practices: Time-ordered UUIDs for RDS performance
+
+**TypeORM Compatibility (QA Verified 2025-12-11):**
+- **Entity Decorator Pattern**: `@PrimaryGeneratedColumn('uuid')` is fully compatible with `uuid_generate_v7()`
+- **How It Works**: TypeORM does NOT generate UUIDs client-side. When `repository.save(entity)` is called without an id:
+  1. TypeORM executes `INSERT INTO table (...) VALUES (...) RETURNING *`
+  2. PostgreSQL generates UUID using the column's DEFAULT clause (`uuid_generate_v7()`)
+  3. TypeORM receives the generated UUID v7 from the RETURNING clause
+- **Schema Synchronization**: DataSource configured with `synchronize: false` to prevent TypeORM from overwriting DEFAULT clauses
+- **Migration Safety**: TypeORM's `uuidGenerator` getter (returns `uuid_generate_v4()` or `gen_random_uuid()`) is used only for DDL operations (CREATE/ALTER TABLE). Our raw SQL migrations override this with `public.uuid_generate_v7()`.
+- **Auto-Migration Warning**: If using `typeorm migration:generate`, manually edit generated migrations to replace `uuid_generate_v4()` with `public.uuid_generate_v7()`
+- **Database Verification**: All 75+ tables confirmed to have `DEFAULT uuid_generate_v7()` in PostgreSQL schema (verified via `information_schema.columns`)
+
 ### Data Isolation Architecture
 
 **Cluster-Based Isolation** - Complete data separation between organizational units

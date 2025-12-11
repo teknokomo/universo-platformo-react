@@ -7,7 +7,7 @@
 
 import { Repository } from 'typeorm'
 import { StatusCodes } from 'http-status-codes'
-import { v4 as uuidv4 } from 'uuid'
+import { uuid } from '@universo/utils'
 import { DocumentStore } from '../database/entities/DocumentStore'
 import { DocumentStoreFileChunk } from '../database/entities/DocumentStoreFileChunk'
 import { DocumentStoreStatus, IDocumentStoreLoader, IDocumentStoreLoaderForPreview, addLoaderSource } from '../Interface'
@@ -94,7 +94,7 @@ export function createLoaderService(deps: DocstoreServiceDependencies): ILoaderS
                 }
 
                 const existingLoaders: IDocumentStoreLoader[] = JSON.parse(entity.loaders || '[]')
-                const newDocLoaderId = data.id ?? uuidv4()
+                const newDocLoaderId = data.id ?? uuid.generateUuidV7()
                 const found = existingLoaders.find((ldr) => ldr.id === newDocLoaderId)
 
                 if (found) {

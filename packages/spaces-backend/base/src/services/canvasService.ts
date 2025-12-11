@@ -1,7 +1,6 @@
 import { DataSource, EntityTarget, QueryRunner, Repository, SelectQueryBuilder } from 'typeorm'
 import { StatusCodes } from 'http-status-codes'
-import { validate as validateUuid } from 'uuid'
-import { randomUUID } from 'crypto'
+import { uuid } from '@universo/utils'
 import { Canvas } from '../database/entities/Canvas'
 import { Space } from '../database/entities/Space'
 import { SpaceCanvas } from '../database/entities/SpaceCanvas'
@@ -318,10 +317,10 @@ export class CanvasService {
 
     private ensureVersioningFields(canvas: Partial<Canvas>): void {
         if (!canvas.versionGroupId) {
-            canvas.versionGroupId = randomUUID()
+            canvas.versionGroupId = uuid.generateUuidV7()
         }
         if (!canvas.versionUuid) {
-            canvas.versionUuid = randomUUID()
+            canvas.versionUuid = uuid.generateUuidV7()
         }
         if (!canvas.versionLabel) {
             canvas.versionLabel = 'v1'
@@ -603,7 +602,7 @@ export class CanvasService {
         try {
             const space = await this.resolveSpace(scope, queryRunner)
             for (const data of newCanvass) {
-                if (data.id && !validateUuid(data.id)) {
+                if (data.id && !uuid.isValidUuid(data.id)) {
                     throw this.createError(StatusCodes.PRECONDITION_FAILED, 'Error: importCanvases - invalid id!')
                 }
             }

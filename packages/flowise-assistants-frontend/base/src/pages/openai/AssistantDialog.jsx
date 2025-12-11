@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from '@universo/i18n'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
-import { v4 as uuidv4 } from 'uuid'
+import { uuidv7 } from 'uuidv7'
 
 import {
     Chip,
@@ -142,7 +142,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
     const [openAIAssistantId, setOpenAIAssistantId] = useState('')
     const [assistantName, setAssistantName] = useState('')
     const [assistantDesc, setAssistantDesc] = useState('')
-    const [assistantIcon, setAssistantIcon] = useState(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv4()}`)
+    const [assistantIcon, setAssistantIcon] = useState(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv7()}`)
     const [assistantModel, setAssistantModel] = useState('')
     const [assistantCredential, setAssistantCredential] = useState('')
     const [assistantInstructions, setAssistantInstructions] = useState('')
@@ -274,7 +274,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
         ) {
             // When assistant dialog is to add new assistant from existing
             setAssistantId('')
-            setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv4()}`)
+            setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv7()}`)
             setAssistantCredential(dialogProps.credential)
 
             getOpenAIAssistantApi.request(unikId, dialogProps.selectedOpenAIAssistantId, dialogProps.credential)
@@ -282,7 +282,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
         } else if (dialogProps.type === 'ADD' && !dialogProps.selectedOpenAIAssistantId) {
             // When assistant dialog is to add a blank new assistant
             setAssistantId('')
-            setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv4()}`)
+            setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv7()}`)
             setAssistantCredential('')
 
             setOpenAIAssistantId('')
@@ -300,7 +300,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
         return () => {
             setAssistantId('')
-            setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv4()}`)
+            setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv7()}`)
             setAssistantCredential('')
 
             setOpenAIAssistantId('')
@@ -821,7 +821,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                             type='string'
                             size='small'
                             fullWidth
-                            placeholder={`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv4()}`}
+                            placeholder={`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv7()}`}
                             value={assistantIcon}
                             name='assistantIcon'
                             onChange={(e) => setAssistantIcon(e.target.value)}

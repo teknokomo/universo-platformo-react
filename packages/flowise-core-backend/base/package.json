@@ -93,6 +93,7 @@
         "@universo/projects-backend": "workspace:*",
         "@universo/publish-backend": "workspace:*",
         "@universo/admin-backend": "workspace:*",
+        "@universo/core-backend": "workspace:*",
         "@universo/space-builder-backend": "workspace:*",
         "@universo/spaces-backend": "workspace:*",
         "@universo/uniks-backend": "workspace:*",
@@ -138,7 +139,6 @@
         "sanitize-html": "^2.11.0",
         "sqlite3": "^5.1.6",
         "typeorm": "catalog:",
-        "uuid": "^9.0.1",
         "winston": "^3.9.0"
     },
     "devDependencies": {

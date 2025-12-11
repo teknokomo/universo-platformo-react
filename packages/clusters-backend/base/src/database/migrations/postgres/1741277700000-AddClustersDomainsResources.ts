@@ -13,7 +13,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
         // Core tables in clusters schema
         await queryRunner.query(`
             CREATE TABLE clusters.clusters (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
 
         await queryRunner.query(`
             CREATE TABLE clusters.domains (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -33,7 +33,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
 
         await queryRunner.query(`
             CREATE TABLE clusters.resources (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -44,7 +44,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
         // 2) User-cluster relationship table (cluster-centric naming)
         await queryRunner.query(`
             CREATE TABLE clusters.clusters_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 cluster_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
@@ -58,7 +58,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
         // 3) Junction tables for many-to-many relationships
         await queryRunner.query(`
             CREATE TABLE clusters.resources_domains (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 resource_id UUID NOT NULL,
                 domain_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -68,7 +68,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
 
         await queryRunner.query(`
             CREATE TABLE clusters.resources_clusters (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 resource_id UUID NOT NULL,
                 cluster_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 1,
@@ -79,7 +79,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
 
         await queryRunner.query(`
             CREATE TABLE clusters.domains_clusters (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 domain_id UUID NOT NULL,
                 cluster_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),

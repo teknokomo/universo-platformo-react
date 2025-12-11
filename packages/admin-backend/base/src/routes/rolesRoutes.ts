@@ -181,7 +181,8 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const { id } = req.params
 
             // Validate UUID format (prevent 'new' or other non-UUID values from reaching DB)
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            // Supports UUID v1-v7 (including time-ordered UUID v7 used in this project)
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-7][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             if (!uuidRegex.test(id)) {
                 res.status(400).json({
                     success: false,
@@ -290,7 +291,8 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const { id } = req.params
 
             // Validate UUID format
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            // Supports UUID v1-v7 (including time-ordered UUID v7 used in this project)
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-7][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             if (!uuidRegex.test(id)) {
                 res.status(400).json({
                     success: false,
@@ -414,7 +416,8 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const { id } = req.params
 
             // Validate UUID format
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            // Supports UUID v1-v7 (including time-ordered UUID v7 used in this project)
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-7][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             if (!uuidRegex.test(id)) {
                 res.status(400).json({
                     success: false,

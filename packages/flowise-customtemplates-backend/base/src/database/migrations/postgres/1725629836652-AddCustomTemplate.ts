@@ -19,7 +19,7 @@ export class AddCustomTemplate1725629836652 implements MigrationInterface {
         if (!tableExists) {
             await queryRunner.query(`
                 CREATE TABLE IF NOT EXISTS "public"."custom_template" (
-                    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     "name" varchar NOT NULL,
                     "flowData" text NOT NULL,
                     "description" text,

@@ -21,7 +21,7 @@ export class AddVariables1702200925471 implements MigrationInterface {
             // (unik_id will be added by AddUniksAndLinked migration)
             await queryRunner.query(`
                 CREATE TABLE IF NOT EXISTS "public"."variable" (
-                    "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    "id" uuid PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     "name" varchar NOT NULL,
                     "value" text,
                     "type" text DEFAULT 'static',

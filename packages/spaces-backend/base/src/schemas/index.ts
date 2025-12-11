@@ -6,11 +6,7 @@ import { z } from 'zod'
 
 const uuidSchema = z.string().uuid('Invalid UUID format')
 
-const trimmedString = (maxLength: number) =>
-    z
-        .string()
-        .trim()
-        .max(maxLength, `Must be ${maxLength} characters or less`)
+const trimmedString = (maxLength: number) => z.string().trim().max(maxLength, `Must be ${maxLength} characters or less`)
 
 const optionalTrimmedString = (maxLength: number) =>
     z

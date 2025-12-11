@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes'
 import { DataSource, QueryRunner, In } from 'typeorm'
-import { validate as validateUuid } from 'uuid'
+import { uuid } from '@universo/utils'
 import { z } from 'zod'
 import { Tool } from '../database/entities/Tool'
 import type { Unik } from '@universo/uniks-backend'
@@ -244,7 +244,7 @@ export function createToolsService(config: ToolsServiceConfig): IToolsService {
         try {
             // Validate all UUIDs
             for (const data of newTools) {
-                if (data.id && !validateUuid(data.id)) {
+                if (data.id && !uuid.isValidUuid(data.id)) {
                     throw new ToolsServiceError(StatusCodes.PRECONDITION_FAILED, 'Error: importTools - invalid id!')
                 }
             }

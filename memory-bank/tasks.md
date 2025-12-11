@@ -8,6 +8,7 @@
 
 ### Memory Bank Maintenance
 
+- [x] Fixed TypeScript ESLint compatibility warning (upgraded to v8.x)
 - [ ] Review and update Memory Bank files monthly
 - [ ] Archive old progress entries (>6 months) when files exceed limits
 - [ ] Update version table in progress.md when new releases published

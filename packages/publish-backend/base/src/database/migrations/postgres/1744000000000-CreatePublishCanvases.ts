@@ -9,7 +9,7 @@ export class CreatePublishCanvases1744000000000 implements MigrationInterface {
 
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS uniks.publish_canvases (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 unik_id UUID NOT NULL,
                 space_id UUID NULL,
                 technology VARCHAR(64) NOT NULL,

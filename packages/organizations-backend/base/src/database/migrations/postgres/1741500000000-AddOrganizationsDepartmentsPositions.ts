@@ -13,7 +13,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
         // 2) Core tables
         await queryRunner.query(`
             CREATE TABLE organizations.organizations (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
 
         await queryRunner.query(`
             CREATE TABLE organizations.departments (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -33,7 +33,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
 
         await queryRunner.query(`
             CREATE TABLE organizations.positions (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
                 metadata JSONB,
@@ -45,7 +45,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
         // 3) User-organization relationship table
         await queryRunner.query(`
             CREATE TABLE organizations.organizations_users (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 organization_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
@@ -59,7 +59,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
         // 4) Junction tables for many-to-many relationships
         await queryRunner.query(`
             CREATE TABLE organizations.positions_departments (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 position_id UUID NOT NULL,
                 department_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -69,7 +69,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
 
         await queryRunner.query(`
             CREATE TABLE organizations.positions_organizations (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 position_id UUID NOT NULL,
                 organization_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 1,
@@ -80,7 +80,7 @@ export class AddOrganizationsDepartmentsPositions1741500000000 implements Migrat
 
         await queryRunner.query(`
             CREATE TABLE organizations.departments_organizations (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 department_id UUID NOT NULL,
                 organization_id UUID NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
