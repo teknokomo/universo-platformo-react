@@ -4,6 +4,7 @@ import { resolveVlcContent } from '@universo/utils'
 import { getRole } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
 import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 import type { RoleListItem } from '../api/rolesApi'
 
 interface UseRoleDetailsOptions {
@@ -33,7 +34,8 @@ interface UseRoleDetailsResult {
  */
 export function useRoleDetails(roleId: string | null, options?: UseRoleDetailsOptions): UseRoleDetailsResult {
     const { i18n } = useTranslation()
-    const locale = (i18n.language?.split('-')[0] || 'en') as SupportedLocale
+    const langCode = i18n.language?.split('-')[0] || 'en'
+    const locale: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
 
     const query = useQuery({
         queryKey: rolesQueryKeys.detail(roleId ?? ''),

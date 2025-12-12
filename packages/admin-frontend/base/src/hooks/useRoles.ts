@@ -5,6 +5,7 @@ import { listRoles, getAssignableRoles } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
 import type { RoleListItem } from '../api/rolesApi'
 import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 import { resolveVlcContent } from '@universo/utils'
 
 /**
@@ -67,7 +68,8 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     const { filter = 'all', includeSystem = true } = options
 
     const { i18n } = useTranslation()
-    const currentLang = i18n.language.split('-')[0] // 'ru-RU' -> 'ru'
+    const langCode = i18n.language.split('-')[0] // 'ru-RU' -> 'ru'
+    const currentLang: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
 
     // Use different query based on filter mode
     const queryKey = filter === 'assignable' ? rolesQueryKeys.assignable() : rolesQueryKeys.list({ limit: 100, includeSystem })
@@ -95,7 +97,7 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     const roleLabelsById = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.id] = resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
+            labels[role.id] = resolveVlcContent(role.name, currentLang, role.codename)
         }
         return labels
     }, [roles, currentLang])
@@ -104,7 +106,7 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     const roleLabels = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.codename] = resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
+            labels[role.codename] = resolveVlcContent(role.name, currentLang, role.codename)
         }
         return labels
     }, [roles, currentLang])

@@ -5,6 +5,7 @@ import apiClient from '../api/apiClient'
 import { createInstancesApi, type InstancesListParams } from '../api/instancesApi'
 import { instancesQueryKeys } from '../api/queryKeys'
 import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 
 // Singleton instance of instancesApi
 const instancesApi = createInstancesApi(apiClient)
@@ -47,7 +48,8 @@ export function useInstanceStats(instanceId: string | undefined) {
  */
 export function useInstanceName(instanceId: string | null): string | null {
     const { i18n } = useTranslation()
-    const locale = (i18n.language?.split('-')[0] || 'en') as SupportedLocale
+    const langCode = i18n.language?.split('-')[0] || 'en'
+    const locale: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
 
     const query = useQuery({
         queryKey: instancesQueryKeys.detail(instanceId ?? ''),

@@ -41,6 +41,18 @@ export type VlcSchemaVersion = '1'
 export type SupportedLocale = 'en' | 'ru'
 
 /**
+ * Array of supported locales for runtime validation
+ */
+export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['en', 'ru'] as const
+
+/**
+ * Type guard to check if a string is a valid SupportedLocale
+ */
+export function isSupportedLocale(lang: string): lang is SupportedLocale {
+    return SUPPORTED_LOCALES.includes(lang as SupportedLocale)
+}
+
+/**
  * Metadata for a single locale entry
  */
 export interface VlcLocaleEntry<T = string> {

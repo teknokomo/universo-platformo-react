@@ -8,6 +8,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { PermissionInput, CreateRolePayload, UpdateRolePayload, VersionedLocalizedContent, SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 import { createVlc, resolveVlcContent } from '@universo/utils'
 
 // Project imports
@@ -32,14 +33,17 @@ const rolesApi = createRolesApi(apiClient)
 /**
  * Default empty form state with initial locale
  */
-const getDefaultFormState = (currentLocale: string) => ({
-    codename: '',
-    description: createVlc(currentLocale as 'en' | 'ru', ''),
-    name: createVlc(currentLocale as 'en' | 'ru', ''),
-    color: '#9e9e9e',
-    isSuperuser: false,
-    permissions: [] as PermissionInput[]
-})
+const getDefaultFormState = (currentLocale: string) => {
+    const locale = isSupportedLocale(currentLocale) ? currentLocale : 'en'
+    return {
+        codename: '',
+        description: createVlc(locale, ''),
+        name: createVlc(locale, ''),
+        color: '#9e9e9e',
+        isSuperuser: false,
+        permissions: [] as PermissionInput[]
+    }
+}
 
 /**
  * Role Edit/Create Page
@@ -88,16 +92,17 @@ const RoleEdit = () => {
                 codename: role.codename,
                 description: role.description
                     ? typeof role.description === 'string'
-                        ? createVlc(currentLocale as 'en' | 'ru', role.description)
+                        ? createVlc('en', role.description) // Use 'en' for legacy string migration
                         : role.description
-                    : createVlc(currentLocale as 'en' | 'ru', ''),
+                    : createVlc('en', ''),
                 name: role.name,
                 color: role.color,
                 isSuperuser: role.isSuperuser,
                 permissions: role.permissions
             })
         }
-    }, [role, isNew, currentLocale])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [role, isNew])
 
     // Create mutation
     const createMutation = useMutation({
@@ -314,7 +319,7 @@ const RoleEdit = () => {
                     description={
                         isNew
                             ? t('roles.createDescription', 'Define a new role with permissions')
-                            : t('roles.editDescription', { name: role ? resolveVlcContent(role.name, currentLocale as SupportedLocale, role.codename) : '' })
+                            : t('roles.editDescription', { name: role ? resolveVlcContent(role.name, isSupportedLocale(currentLocale) ? currentLocale : 'en', role.codename) : '' })
                     }
                     search={false}
                 />

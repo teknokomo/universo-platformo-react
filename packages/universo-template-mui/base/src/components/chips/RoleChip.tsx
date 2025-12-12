@@ -3,6 +3,7 @@ import { Chip } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import type { BaseRole, GlobalRole, RoleMetadata, VersionedLocalizedContent } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 import { resolveVlcContent } from '@universo/utils'
 
 // Access type indicates how user obtained access to the entity
@@ -92,8 +93,9 @@ function getRoleName(
         return t(roleCodename)
     }
 
-    // Use safe VLC resolution
-    const resolved = resolveVlcContent(nameVlc, currentLanguage as any, '')
+    // Use type guard for safe locale validation
+    const locale = isSupportedLocale(currentLanguage) ? currentLanguage : 'en'
+    const resolved = resolveVlcContent(nameVlc, locale, '')
     if (resolved) return resolved
 
     // Fall back to translation

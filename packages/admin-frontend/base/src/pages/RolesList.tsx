@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { resolveVlcContent } from '@universo/utils'
 import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 
@@ -69,7 +70,8 @@ const RolesList = () => {
     }>({ open: false, role: null })
 
     // Get current language for display names
-    const currentLang = i18n.language.split('-')[0] || 'en'
+    const langCode = i18n.language.split('-')[0] || 'en'
+    const currentLang: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
 
     // Pagination hook
     const paginationResult = usePaginated<RoleListItem, 'codename' | 'created'>({
@@ -115,7 +117,7 @@ const RolesList = () => {
     // Helper: Get localized role name from VLC
     const getRoleName = useCallback(
         (role: RoleListItem): string => {
-            return resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
+            return resolveVlcContent(role.name, currentLang, role.codename)
         },
         [currentLang]
     )
@@ -123,7 +125,7 @@ const RolesList = () => {
     // Helper: Get localized description from VLC
     const getRoleDescription = useCallback(
         (role: RoleListItem): string => {
-            return resolveVlcContent(role.description, currentLang as SupportedLocale, '')
+            return resolveVlcContent(role.description, currentLang, '')
         },
         [currentLang]
     )

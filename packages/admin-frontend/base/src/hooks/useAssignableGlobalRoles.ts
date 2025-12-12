@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getAssignableRoles } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
 import type { GlobalAssignableRole, SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 import { resolveVlcContent } from '@universo/utils'
 
 /**
@@ -33,7 +34,8 @@ export interface UseAssignableGlobalRolesResult {
  */
 export function useAssignableGlobalRoles(): UseAssignableGlobalRolesResult {
     const { i18n } = useTranslation()
-    const currentLang = i18n.language.split('-')[0] // 'ru-RU' -> 'ru'
+    const langCode = i18n.language.split('-')[0] // 'ru-RU' -> 'ru'
+    const currentLang: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
 
     const {
         data: roles = [],
@@ -55,7 +57,7 @@ export function useAssignableGlobalRoles(): UseAssignableGlobalRolesResult {
         const labels: Record<string, string> = {}
         for (const role of roles) {
             // Use safe VLC resolution with fallback to codename
-            labels[role.codename] = resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
+            labels[role.codename] = resolveVlcContent(role.name, currentLang, role.codename)
         }
         return labels
     }, [roles, currentLang])

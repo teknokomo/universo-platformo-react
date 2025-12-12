@@ -12,6 +12,7 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import { resolveVlcContent } from '@universo/utils'
 import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 
 // project imports
 import {
@@ -83,14 +84,16 @@ const LocalChip = ({ isLocal, t }: { isLocal: boolean; t: TranslateFn }) =>
  * Get instance name for display (resolves VLC to string)
  */
 const getInstanceName = (instance: Instance, locale: string): string => {
-    return resolveVlcContent(instance.name, locale as SupportedLocale, instance.codename)
+    const safeLocale = isSupportedLocale(locale) ? locale : 'en'
+    return resolveVlcContent(instance.name, safeLocale, instance.codename)
 }
 
 /**
  * Get instance description for display (resolves VLC to string)
  */
 const getInstanceDescription = (instance: Instance, locale: string): string => {
-    return resolveVlcContent(instance.description, locale as SupportedLocale, '')
+    const safeLocale = isSupportedLocale(locale) ? locale : 'en'
+    return resolveVlcContent(instance.description, safeLocale, '')
 }
 
 /**

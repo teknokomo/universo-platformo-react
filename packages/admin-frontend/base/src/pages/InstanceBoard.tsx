@@ -6,6 +6,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
 import { resolveVlcContent } from '@universo/utils'
 import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 
 // Project imports
 import {
@@ -26,7 +27,8 @@ import type { Instance } from '../types'
  * Uses VLC resolution with safe fallback
  */
 const getInstanceName = (instance: Instance, lang: string): string => {
-    return resolveVlcContent(instance.name, lang as SupportedLocale, instance.codename)
+    const locale = isSupportedLocale(lang) ? lang : 'en'
+    return resolveVlcContent(instance.name, locale, instance.codename)
 }
 
 /**
@@ -109,7 +111,7 @@ const InstanceBoard = () => {
                 <ViewHeader
                     title={getInstanceName(instance, i18n.language)}
                     description={
-                        resolveVlcContent(instance.description, i18n.language as SupportedLocale, '') ||
+                        resolveVlcContent(instance.description, isSupportedLocale(i18n.language) ? i18n.language : 'en', '') ||
                         t('board.description', 'Instance administration and statistics')
                     }
                     search={false}
