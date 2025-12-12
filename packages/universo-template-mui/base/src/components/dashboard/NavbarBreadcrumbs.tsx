@@ -7,15 +7,23 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useHasGlobalAccess } from '@flowise/store'
-import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetaverseName'
-import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
-import { useProjectName, truncateProjectName } from '../../hooks/useProjectName'
-import { useCampaignName, truncateCampaignName } from '../../hooks/useCampaignName'
-import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
-import { useOrganizationName, truncateOrganizationName } from '../../hooks/useOrganizationName'
-import { useStorageName, truncateStorageName } from '../../hooks/useStorageName'
-import { useInstanceName, truncateInstanceName } from '../../hooks/useInstanceName'
-import { useRoleName, truncateRoleName } from '../../hooks/useRoleName'
+import {
+    useMetaverseName,
+    truncateMetaverseName,
+    useClusterName,
+    truncateClusterName,
+    useProjectName,
+    truncateProjectName,
+    useCampaignName,
+    truncateCampaignName,
+    useUnikName,
+    truncateUnikName,
+    useOrganizationName,
+    truncateOrganizationName,
+    useStorageName,
+    truncateStorageName
+} from '../../hooks'
+import { useInstanceName, truncateInstanceName, useRoleName, truncateRoleName } from '@universo/admin-frontend'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),

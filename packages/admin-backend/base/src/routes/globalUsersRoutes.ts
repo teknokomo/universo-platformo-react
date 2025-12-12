@@ -85,7 +85,7 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
             res.json({
                 success: true,
                 data: {
-                    role: primaryRole?.name ?? null,
+                    role: primaryRole?.codename ?? null,
                     hasGlobalAccess: globalInfo.canAccessAdmin,
                     roleMetadata: primaryRole?.metadata ?? null
                 }
@@ -176,10 +176,10 @@ export function createGlobalUsersRoutes({ globalAccessService, permissionService
                 })
             }
 
-            // Transform payload to new API: role -> roleName
-            const updates: { roleName?: string; comment?: string } = {}
+            // Transform payload to new API: role -> roleCodename
+            const updates: { roleCodename?: string; comment?: string } = {}
             if (parsed.data.role) {
-                updates.roleName = parsed.data.role
+                updates.roleCodename = parsed.data.role
             }
             if (parsed.data.comment !== undefined) {
                 updates.comment = parsed.data.comment

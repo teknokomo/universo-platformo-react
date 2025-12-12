@@ -6,6 +6,8 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
+import { resolveVlcContent } from '@universo/utils'
+import type { SupportedLocale } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 
@@ -70,11 +72,11 @@ const RolesList = () => {
     const currentLang = i18n.language.split('-')[0] || 'en'
 
     // Pagination hook
-    const paginationResult = usePaginated<RoleListItem, 'name' | 'created'>({
+    const paginationResult = usePaginated<RoleListItem, 'codename' | 'created'>({
         queryKeyFn: (params) => rolesQueryKeys.list(params),
         queryFn: rolesApi.listRoles,
         initialLimit: 20,
-        sortBy: 'name',
+        sortBy: 'codename',
         sortOrder: 'asc'
     })
 
@@ -110,10 +112,18 @@ const RolesList = () => {
         }
     })
 
-    // Helper: Get localized display name
-    const getDisplayName = useCallback(
+    // Helper: Get localized role name from VLC
+    const getRoleName = useCallback(
         (role: RoleListItem): string => {
-            return role.displayName?.[currentLang] || role.displayName?.['en'] || role.name
+            return resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
+        },
+        [currentLang]
+    )
+
+    // Helper: Get localized description from VLC
+    const getRoleDescription = useCallback(
+        (role: RoleListItem): string => {
+            return resolveVlcContent(role.description, currentLang as SupportedLocale, '')
         },
         [currentLang]
     )
@@ -177,7 +187,7 @@ const RolesList = () => {
                                     '&:hover': { textDecoration: 'underline', color: 'primary.main' }
                                 }}
                             >
-                                {role.name}
+                                {getRoleName(role)}
                             </Typography>
                         </Link>
                     </Box>
@@ -188,7 +198,7 @@ const RolesList = () => {
                 label: t('roles.table.displayName'),
                 width: '20%',
                 align: 'left' as const,
-                render: (role: RoleListItem) => <Typography variant='body2'>{getDisplayName(role)}</Typography>
+                render: (role: RoleListItem) => <Typography variant='body2'>{getRoleName(role)}</Typography>
             },
             {
                 id: 'globalAccess',
@@ -236,7 +246,7 @@ const RolesList = () => {
                     )
             }
         ],
-        [t, tc, instanceId, getDisplayName, countPermissions]
+        [t, tc, instanceId, getRoleName, countPermissions]
     )
 
     // Context creator for BaseEntityMenu
@@ -393,8 +403,8 @@ const RolesList = () => {
                                             <ItemCard
                                                 key={role.id}
                                                 data={{
-                                                    name: getDisplayName(role),
-                                                    description: role.description,
+                                                    name: getRoleName(role),
+                                                    description: getRoleDescription(role),
                                                     color: role.color
                                                 }}
                                                 colorDotSize={12}
@@ -509,7 +519,7 @@ const RolesList = () => {
             <ConfirmDeleteDialog
                 open={deleteDialogState.open}
                 title={t('roles.confirmDelete')}
-                description={t('roles.confirmDeleteDescription', { name: deleteDialogState.role?.name || '' })}
+                description={t('roles.confirmDeleteDescription', { name: deleteDialogState.role ? getRoleName(deleteDialogState.role) : '' })}
                 confirmButtonText={tc('actions.delete')}
                 deletingButtonText={tc('actions.deleting')}
                 cancelButtonText={tc('actions.cancel')}

@@ -87,12 +87,12 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
                     throw createError(403, `Access denied: requires ${module}:${action} permission`)
                 }
 
-                // Get role name for request context
-                const roleName = await globalAccessService.getGlobalRoleName(userId)
-                console.log('[ensureGlobalAccess] ✅ Access granted', { roleName, module, action })
+                // Get role codename for request context
+                const roleCodename = await globalAccessService.getGlobalRoleCodename(userId)
+                console.log('[ensureGlobalAccess] ✅ Access granted', { roleCodename, module, action })
 
                 // Attach role info to request
-                ;(req as RequestWithGlobalRole).globalRole = roleName ?? undefined
+                ;(req as RequestWithGlobalRole).globalRole = roleCodename ?? undefined
                 ;(req as RequestWithGlobalRole).hasGlobalAccess = true
                 next()
             } catch (error) {

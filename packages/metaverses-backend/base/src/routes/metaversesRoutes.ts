@@ -5,7 +5,7 @@ import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { 
     isSuperuserByDataSource, 
-    getGlobalRoleNameByDataSource, 
+    getGlobalRoleCodenameByDataSource, 
     hasSubjectPermissionByDataSource 
 } from '@universo/admin-backend'
 import { Metaverse } from '../database/entities/Metaverse'
@@ -177,7 +177,7 @@ export function createMetaversesRoutes(
                 
                 // Get global role name for accessType if user has global access
                 const globalRoleName = (isSuperuser || hasMetaversesGlobalAccess) 
-                    ? await getGlobalRoleNameByDataSource(ds, userId) 
+                    ? await getGlobalRoleCodenameByDataSource(ds, userId) 
                     : null
 
                 // Check showAll query parameter (applicable for superusers or users with metaverses:* permission)

@@ -7,9 +7,10 @@ export {
     globalRoleQueryKey
 } from './useGlobalRole'
 export { useGrantGlobalRole, useUpdateGlobalRole, useRevokeGlobalRole, adminQueryKeys } from './mutations'
-export { useInstanceDetails, useInstancesList, useInstanceStats } from './useInstanceDetails'
+export { useInstanceDetails, useInstancesList, useInstanceStats, useInstanceName, truncateInstanceName } from './useInstanceDetails'
 export { useUpdateInstance } from './instanceMutations'
 export { instancesQueryKeys, rolesQueryKeys } from '../api/queryKeys'
+export { useRoleDetails, useRoleName, truncateRoleName } from './useRoleDetails'
 
 // Unified roles hook (replaces useAssignableGlobalRoles and useAllRoles)
 export { useRoles } from './useRoles'

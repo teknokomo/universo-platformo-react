@@ -3,7 +3,8 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAssignableRoles } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
-import type { GlobalAssignableRole } from '@universo/types'
+import type { GlobalAssignableRole, SupportedLocale } from '@universo/types'
+import { resolveVlcContent } from '@universo/utils'
 
 /**
  * Result type for useAssignableGlobalRoles hook
@@ -47,14 +48,14 @@ export function useAssignableGlobalRoles(): UseAssignableGlobalRolesResult {
     })
 
     // Extract role names for form values
-    const roleOptions = useMemo(() => roles.map((r) => r.name), [roles])
+    const roleOptions = useMemo(() => roles.map((r) => r.codename), [roles])
 
     // Build localized labels map
     const roleLabels = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            // Use current language display name, fallback to English, then role name
-            labels[role.name] = role.displayName?.[currentLang] || role.displayName?.en || role.name
+            // Use safe VLC resolution with fallback to codename
+            labels[role.codename] = resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
         }
         return labels
     }, [roles, currentLang])

@@ -34,8 +34,17 @@ export {
     useInstanceDetails,
     useInstancesList,
     useInstanceStats,
-    useUpdateInstance
+    useUpdateInstance,
+    useInstanceName,
+    truncateInstanceName,
+    useRoleDetails,
+    useRoleName,
+    truncateRoleName,
+    useRoles,
+    useAssignableGlobalRoles,
+    useAllRoles
 } from './hooks'
+export type { UseRolesOptions, UseRolesResult, UseAssignableGlobalRolesResult, UseAllRolesResult } from './hooks'
 
 // Components
 export { ColorPicker, PermissionMatrix } from './components'

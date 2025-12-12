@@ -12,7 +12,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useHasGlobalAccess } from '@flowise/store'
-import { useMetaverseName } from '../../hooks/useMetaverseName'
+import { useMetaverseName } from '../../hooks'
 import {
     rootMenuItems,
     getAdminMenuItems,

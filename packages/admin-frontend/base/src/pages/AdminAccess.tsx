@@ -225,7 +225,7 @@ const AdminAccess = () => {
             width: '15%',
             align: 'center',
             render: (row: GlobalUserMember) => {
-                return <RoleChip role={row.roleName || row.role} roleMetadata={row.roleMetadata} />
+                return <RoleChip role={row.roleCodename || row.role} roleMetadata={row.roleMetadata} />
             }
         },
         {
@@ -406,7 +406,7 @@ const AdminAccess = () => {
                                                 onClick={undefined}
                                                 footerEndContent={
                                                     <RoleChip
-                                                        role={member.roleName || member.role}
+                                                        role={member.roleCodename || member.role}
                                                         roleMetadata={member.roleMetadata}
                                                         size='small'
                                                     />

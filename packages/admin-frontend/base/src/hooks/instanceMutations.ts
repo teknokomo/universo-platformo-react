@@ -3,6 +3,7 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import * as instancesApi from '../api/instancesApi'
 import { instancesQueryKeys } from '../api/queryKeys'
+import type { UpdateInstancePayload } from '../types'
 
 // ============================================================================
 // Types
@@ -10,7 +11,7 @@ import { instancesQueryKeys } from '../api/queryKeys'
 
 interface UpdateInstanceParams {
     id: string
-    data: { name: string; description?: string }
+    data: UpdateInstancePayload
 }
 
 // ============================================================================

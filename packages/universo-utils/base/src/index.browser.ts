@@ -8,6 +8,7 @@ export * as math from './math'
 export * as updl from './updl'
 export * as publish from './publish'
 export * as env from './env'
+export * as vlc from './vlc'
 export { UPDLProcessor } from './updl/UPDLProcessor'
 export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env'
 
@@ -17,6 +18,9 @@ export { formatDate, formatRange } from './ui-utils/formatDate'
 // API error handling utilities
 export * as api from './api/error-handlers'
 export * from './api/error-handlers'
+
+// VLC (Versioned Localized Content) utilities
+export { createVlc, updateVlcLocale, resolveVlcContent, getVlcLocales, isVlc } from './vlc'
 
 // Explicit imports to avoid pulling in Node "net" dependency when bundling for the browser.
 import { createTimeSyncEstimator } from './net/timeSync'

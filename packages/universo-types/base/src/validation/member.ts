@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { VersionedLocalizedContent } from '../common/admin.js'
 
 /**
  * Zod schema for email validation
@@ -41,8 +42,8 @@ export const roleSchema = z.string().min(1, 'Please select a role')
  */
 export interface GlobalAssignableRole {
     id: string
-    name: string
-    displayName: Record<string, string>
+    codename: string
+    name: VersionedLocalizedContent<string>
     color: string | null
 }
 

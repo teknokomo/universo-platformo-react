@@ -1,4 +1,4 @@
-import type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember } from '@universo/types'
+import type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
 
 // Re-export types from @universo/types for convenience
 export type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember }
@@ -13,9 +13,9 @@ export type InstanceStatus = 'active' | 'inactive' | 'maintenance'
  */
 export interface Instance {
     id: string
-    name: string
-    display_name: LocalizedString
-    description?: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
     url?: string
     status: InstanceStatus
     is_local: boolean
@@ -41,9 +41,9 @@ export interface InstanceStats {
  * Instance update payload
  */
 export interface UpdateInstancePayload {
-    name?: string
-    display_name?: LocalizedString
-    description?: string | null
+    codename?: string
+    name?: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string> | null
     url?: string | null
     status?: InstanceStatus
 }

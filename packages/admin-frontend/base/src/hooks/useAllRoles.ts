@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { listRoles } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
 import type { RoleListItem } from '../api/rolesApi'
+import type { SupportedLocale } from '@universo/types'
+import { resolveVlcContent } from '@universo/utils'
 
 /**
  * Result type for useAllRoles hook
@@ -50,23 +52,23 @@ export function useAllRoles(): UseAllRolesResult {
     // Extract role IDs for filter values
     const roleIds = useMemo(() => roles.map((r) => r.id), [roles])
 
-    // Extract role names for display
-    const roleOptions = useMemo(() => roles.map((r) => r.name), [roles])
+    // Extract role codenames for display
+    const roleOptions = useMemo(() => roles.map((r) => r.codename), [roles])
 
     // Build localized labels map by ID
     const roleLabelsById = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.id] = role.displayName?.[currentLang] || role.displayName?.en || role.name
+            labels[role.id] = resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
         }
         return labels
     }, [roles, currentLang])
 
-    // Build localized labels map by name
+    // Build localized labels map by codename
     const roleLabels = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.name] = role.displayName?.[currentLang] || role.displayName?.en || role.name
+            labels[role.codename] = resolveVlcContent(role.name, currentLang as SupportedLocale, role.codename)
         }
         return labels
     }, [roles, currentLang])

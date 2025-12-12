@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
-import type { LocalizedString } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo/types'
 
 /**
  * Instance entity for platform instances
@@ -14,13 +14,13 @@ export class Instance {
     id!: string
 
     @Column({ type: 'varchar', length: 100, unique: true })
-    name!: string
+    codename!: string
 
-    @Column({ type: 'jsonb', name: 'display_name', default: {} })
-    display_name!: LocalizedString
+    @Column({ type: 'jsonb', name: 'name', default: {} })
+    name!: VersionedLocalizedContent<string>
 
-    @Column({ type: 'text', nullable: true })
-    description?: string
+    @Column({ type: 'jsonb', nullable: true })
+    description?: VersionedLocalizedContent<string>
 
     @Column({ type: 'varchar', length: 255, nullable: true })
     url?: string

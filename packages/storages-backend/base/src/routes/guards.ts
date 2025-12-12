@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { StorageRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { isSuperuserByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource } from '@universo/admin-backend'
 import { StorageUser } from '../database/entities/StorageUser'
 import { ContainerStorage } from '../database/entities/ContainerStorage'
 import { SlotContainer } from '../database/entities/SlotContainer'
@@ -69,7 +69,7 @@ const baseGuards = createAccessGuards<StorageRole, StorageUser>({
     extractEntityId: (m) => m.storage_id,
     // Global admin bypass - users with global access get owner-level access
     isSuperuser: isSuperuserByDataSource,
-    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    getGlobalRoleName: getGlobalRoleCodenameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({
             user_id: userId,

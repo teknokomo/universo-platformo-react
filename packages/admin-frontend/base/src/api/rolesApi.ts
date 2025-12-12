@@ -1,15 +1,21 @@
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import type { PaginatedResponse } from '../types'
-import type { CreateRolePayload, UpdateRolePayload, PermissionInput, GlobalAssignableRole } from '@universo/types'
+import type {
+    CreateRolePayload,
+    UpdateRolePayload,
+    PermissionInput,
+    GlobalAssignableRole,
+    VersionedLocalizedContent
+} from '@universo/types'
 
 /**
  * Role from API (camelCase version for frontend)
  */
 export interface RoleListItem {
     id: string
-    name: string
-    description?: string
-    displayName: Record<string, string>
+    codename: string
+    description?: VersionedLocalizedContent<string>
+    name: VersionedLocalizedContent<string>
     color: string
     isSuperuser: boolean
     canAccessAdmin: boolean
@@ -66,7 +72,7 @@ export interface RolesListParams {
     limit?: number
     offset?: number
     search?: string
-    sortBy?: 'name' | 'created' | 'has_global_access'
+    sortBy?: 'codename' | 'created' | 'has_global_access'
     sortOrder?: 'asc' | 'desc'
     includeSystem?: boolean
 }
@@ -90,9 +96,9 @@ function extractPaginationMeta(response: AxiosResponse): PaginatedResponse<unkno
 function transformRole(apiRole: Record<string, unknown>): RoleListItem {
     return {
         id: apiRole.id as string,
-        name: apiRole.name as string,
-        description: apiRole.description as string | undefined,
-        displayName: apiRole.display_name as Record<string, string>,
+        codename: apiRole.codename as string,
+        description: apiRole.description as VersionedLocalizedContent<string> | undefined,
+        name: apiRole.name as VersionedLocalizedContent<string>,
         color: apiRole.color as string,
         isSuperuser: apiRole.is_superuser as boolean,
         canAccessAdmin: apiRole.can_access_admin as boolean,
@@ -176,7 +182,7 @@ export function createRolesApi(client: AxiosInstance) {
          * Get users assigned to a role with pagination
          */
         getRoleUsers: async (id: string, params?: RoleUsersParams): Promise<PaginatedResponse<RoleUser>> => {
-            const response = await client.get<{ data: { roleId: string; roleName: string; users: ApiRoleUser[] } }>(
+            const response = await client.get<{ data: { roleId: string; roleCodename: string; users: ApiRoleUser[] } }>(
                 `${BASE_PATH}/${id}/users`,
                 {
                     params: {

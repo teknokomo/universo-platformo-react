@@ -142,7 +142,7 @@
         },
         "table": {
             "name": "Name",
-            "displayName": "Display Name",
+            "displayName": "Name",
             "globalAccess": "Global Access",
             "permissions": "Permissions",
             "type": "Type"
@@ -178,7 +178,7 @@
         },
         "field": {
             "name": "Unique Identifier",
-            "nameHint": "Lowercase alphanumeric with underscores/dashes (e.g. meta_editor)",
+            "nameHint": "Lowercase alphanumeric with underscores/dashes (e.g. new_role)",
             "color": "Color",
             "displayNameEn": "Name (English)",
             "displayNameRu": "Name (Russian)",

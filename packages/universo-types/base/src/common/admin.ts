@@ -10,7 +10,7 @@
 /**
  * Admin panel and privilege configuration
  * Returned by /auth/permissions endpoint for frontend feature flags
- * 
+ *
  * Three-tier privilege system:
  * 1. adminPanelEnabled - Controls UI/API access to /admin/*
  * 2. globalRolesEnabled - Controls global editor/moderator roles (platform-wide permissions)
@@ -25,7 +25,62 @@ export interface AdminConfig {
     superuserEnabled: boolean
 }
 
+// ============================================================
+// Versioned Localized Content (VLC) Types
+// ============================================================
+
 /**
+ * VLC Schema version for forward compatibility
+ */
+export type VlcSchemaVersion = '1'
+
+/**
+ * Supported locale codes (BCP47-like, simplified to 2-letter for MVP)
+ * Can be extended to full BCP47 (e.g., 'ru-RU') in future
+ */
+export type SupportedLocale = 'en' | 'ru'
+
+/**
+ * Metadata for a single locale entry
+ */
+export interface VlcLocaleEntry<T = string> {
+    /** The actual content - string by default, but can be any JSON */
+    content: T
+    /** Version number for this locale (increments on each update) */
+    version: number
+    /** Whether this version is active/published */
+    isActive: boolean
+    /** ISO 8601 timestamp when this locale was first created */
+    createdAt: string
+    /** ISO 8601 timestamp when this locale was last updated */
+    updatedAt: string
+}
+
+/**
+ * Versioned Localized Content - structured i18n storage format
+ *
+ * @example
+ * {
+ *   "_schema": "vlc/1",
+ *   "_primary": "en",
+ *   "locales": {
+ *     "en": { "content": "Admin", "version": 1, "isActive": true, "createdAt": "...", "updatedAt": "..." },
+ *     "ru": { "content": "Админ", "version": 2, "isActive": true, "createdAt": "...", "updatedAt": "..." }
+ *   }
+ * }
+ */
+export interface VersionedLocalizedContent<T = string> {
+    /** Schema version marker for forward compatibility */
+    _schema: VlcSchemaVersion
+    /** Primary/fallback locale code */
+    _primary: SupportedLocale
+    /** Map of locale codes to their entries */
+    locales: Partial<Record<SupportedLocale, VlcLocaleEntry<T>>>
+}
+
+/**
+ * @deprecated Use VersionedLocalizedContent instead
+ * Kept for migration reference only
  * Localized display name for a role
  * Keys are ISO 639-1 language codes (e.g., 'en', 'ru')
  */
@@ -39,9 +94,9 @@ export interface LocalizedString {
  */
 export interface RoleMetadata {
     /** Unique role identifier (e.g., 'superuser', 'metaeditor') */
-    name: string
-    /** Localized display names */
-    displayName: LocalizedString
+    codename: string
+    /** Localized name in VLC format */
+    name: VersionedLocalizedContent<string>
     /** Hex color for UI display (e.g., '#d32f2f') */
     color: string
     /** Whether this role grants full permission bypass (only 'superuser' role) */
@@ -53,8 +108,8 @@ export interface RoleMetadata {
  * Returned by /auth/permissions endpoint
  */
 export interface GlobalRoleInfo {
-    /** Role name (e.g., 'superadmin') */
-    name: string
+    /** Role codename (e.g., 'superadmin') */
+    codename: string
     /** Role metadata for display */
     metadata: RoleMetadata
 }
@@ -87,7 +142,7 @@ export interface UserPermissionsResponse {
     hasAdminAccess: boolean
     /** Quick check: does user have any global role? (for settings visibility) */
     hasAnyGlobalRole: boolean
-    /** Role metadata map for UI display (keyed by role name) */
+    /** Role metadata map for UI display (keyed by role codename) */
     rolesMetadata: Record<string, RoleMetadata>
     /** Admin feature flags configuration */
     config: AdminConfig
@@ -114,7 +169,7 @@ export interface BasePermission {
  */
 export interface PermissionRule extends BasePermission {
     /** Role that grants this permission (for audit/debugging) */
-    roleName: string
+    roleCodename: string
 }
 
 /**
@@ -136,8 +191,8 @@ export interface GlobalUserMember {
     email: string | null
     /** User nickname (from profiles) */
     nickname: string | null
-    /** Role name (dynamic, loaded from database) */
-    roleName: string
+    /** Role codename (dynamic, loaded from database) */
+    roleCodename: string
     /** Role metadata with display info */
     roleMetadata: RoleMetadata
     /** Comment on assignment */
@@ -154,8 +209,8 @@ export interface GlobalUserMember {
 export interface GrantGlobalRoleRequest {
     /** Target user ID or email */
     userIdOrEmail: string
-    /** Role name to grant */
-    roleName: string
+    /** Role codename to grant */
+    roleCodename: string
     /** Optional comment */
     comment?: string
 }
@@ -164,8 +219,8 @@ export interface GrantGlobalRoleRequest {
  * Request to update a global role assignment
  */
 export interface UpdateGlobalRoleRequest {
-    /** New role name */
-    roleName?: string
+    /** New role codename */
+    roleCodename?: string
     /** Updated comment */
     comment?: string
 }
@@ -252,9 +307,9 @@ export function hasAdminPermissions(permissions: PermissionInput[]): boolean {
  */
 export interface RoleWithPermissions {
     id: string
-    name: string
-    description?: string
-    displayName: LocalizedString
+    codename: string
+    description?: VersionedLocalizedContent<string>
+    name: VersionedLocalizedContent<string>
     color: string
     isSuperuser: boolean
     isSystem: boolean
@@ -268,11 +323,11 @@ export interface RoleWithPermissions {
  */
 export interface CreateRolePayload {
     /** Unique role identifier (lowercase, alphanumeric, underscores, dashes) */
-    name: string
-    /** Optional description */
-    description?: string
-    /** Localized display names */
-    displayName: LocalizedString
+    codename: string
+    /** Optional description in VLC format for multi-language support */
+    description?: VersionedLocalizedContent<string>
+    /** Localized name in VLC format */
+    name: VersionedLocalizedContent<string>
     /** Hex color for UI display */
     color: string
     /** Whether this role grants superuser access (full permission bypass - root user) */

@@ -4,6 +4,8 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
+import { resolveVlcContent } from '@universo/utils'
+import type { SupportedLocale } from '@universo/types'
 
 // Project imports
 import {
@@ -21,12 +23,10 @@ import type { Instance } from '../types'
 
 /**
  * Get localized display name for instance
+ * Uses VLC resolution with safe fallback
  */
-const getDisplayName = (instance: Instance, lang: string): string => {
-    if (instance.display_name && typeof instance.display_name === 'object') {
-        return instance.display_name[lang] || instance.display_name['en'] || instance.name
-    }
-    return instance.name
+const getInstanceName = (instance: Instance, lang: string): string => {
+    return resolveVlcContent(instance.name, lang as SupportedLocale, instance.codename)
 }
 
 /**
@@ -107,8 +107,11 @@ const InstanceBoard = () => {
             {/* ViewHeader with horizontal padding */}
             <Box sx={{ px: { xs: 1.5, md: 2 } }}>
                 <ViewHeader
-                    title={getDisplayName(instance, i18n.language)}
-                    description={instance.description || t('board.description', 'Instance administration and statistics')}
+                    title={getInstanceName(instance, i18n.language)}
+                    description={
+                        resolveVlcContent(instance.description, i18n.language as SupportedLocale, '') ||
+                        t('board.description', 'Instance administration and statistics')
+                    }
                     search={false}
                 />
                 <Stack direction='row' spacing={1} sx={{ mx: { xs: -1.5, md: -2 }, mt: 1 }}>
