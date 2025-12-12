@@ -10,6 +10,9 @@ import type { TFunction } from 'i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
+import { resolveVlcContent } from '@universo/utils'
+import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
 
 // project imports
 import {
@@ -78,6 +81,22 @@ const LocalChip = ({ isLocal, t }: { isLocal: boolean; t: TranslateFn }) =>
     )
 
 /**
+ * Get instance name for display (resolves VLC to string)
+ */
+const getInstanceName = (instance: Instance, locale: string): string => {
+    const safeLocale = isSupportedLocale(locale) ? locale : 'en'
+    return resolveVlcContent(instance.name, safeLocale, instance.codename)
+}
+
+/**
+ * Get instance description for display (resolves VLC to string)
+ */
+const getInstanceDescription = (instance: Instance, locale: string): string => {
+    const safeLocale = isSupportedLocale(locale) ? locale : 'en'
+    return resolveVlcContent(instance.description, safeLocale, '')
+}
+
+/**
  * Instance List Page
  *
  * Displays list of platform instances with standard card/table view.
@@ -92,11 +111,11 @@ const InstanceList = () => {
     const [view, setView] = useState(localStorage.getItem('adminInstanceDisplayStyle') || 'card')
 
     // Use paginated hook for instances list
-    const paginationResult = usePaginated<Instance, 'name' | 'created' | 'status'>({
+    const paginationResult = usePaginated<Instance, 'codename' | 'created' | 'status'>({
         queryKeyFn: instancesQueryKeys.list,
         queryFn: instancesApi.listInstances,
         initialLimit: 20,
-        sortBy: 'name',
+        sortBy: 'codename',
         sortOrder: 'asc'
     })
 
@@ -138,48 +157,54 @@ const InstanceList = () => {
                 label: tc('table.name', 'Name'),
                 width: '25%',
                 align: 'left',
-                render: (row: Instance) => (
-                    <Link to={`/admin/instance/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Stack direction='row' alignItems='center' spacing={1}>
-                            {row.is_local ? (
-                                <DnsRoundedIcon color='primary' fontSize='small' />
-                            ) : (
-                                <CloudOffRoundedIcon color='disabled' fontSize='small' />
-                            )}
-                            <Typography
-                                sx={{
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    wordBreak: 'break-word',
-                                    overflowWrap: 'break-word',
-                                    '&:hover': {
-                                        textDecoration: 'underline',
-                                        color: 'primary.main'
-                                    }
-                                }}
-                            >
-                                {row.name || '—'}
-                            </Typography>
-                        </Stack>
-                    </Link>
-                )
+                render: (row: Instance) => {
+                    const displayName = getInstanceName(row, i18n.language)
+                    return (
+                        <Link to={`/admin/instance/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Stack direction='row' alignItems='center' spacing={1}>
+                                {row.is_local ? (
+                                    <DnsRoundedIcon color='primary' fontSize='small' />
+                                ) : (
+                                    <CloudOffRoundedIcon color='disabled' fontSize='small' />
+                                )}
+                                <Typography
+                                    sx={{
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                        wordBreak: 'break-word',
+                                        overflowWrap: 'break-word',
+                                        '&:hover': {
+                                            textDecoration: 'underline',
+                                            color: 'primary.main'
+                                        }
+                                    }}
+                                >
+                                    {displayName || '—'}
+                                </Typography>
+                            </Stack>
+                        </Link>
+                    )
+                }
             },
             {
                 id: 'description',
                 label: tc('table.description', 'Description'),
-                width: '30%',
+                width: '45%',
                 align: 'left',
-                render: (row: Instance) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word'
-                        }}
-                    >
-                        {row.description || '—'}
-                    </Typography>
-                )
+                render: (row: Instance) => {
+                    const displayDescription = getInstanceDescription(row, i18n.language)
+                    return (
+                        <Typography
+                            sx={{
+                                fontSize: 13,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word'
+                            }}
+                        >
+                            {displayDescription || '—'}
+                        </Typography>
+                    )
+                }
             },
             {
                 id: 'status',
@@ -196,7 +221,7 @@ const InstanceList = () => {
                 render: (row: Instance) => <LocalChip isLocal={row.is_local} t={t} />
             }
         ],
-        [t, tc]
+        [t, tc, i18n.language]
     )
 
     // Create context for BaseEntityMenu
@@ -327,53 +352,62 @@ const InstanceList = () => {
                                         alignContent: 'start'
                                     }}
                                 >
-                                    {instances.map((instance: Instance) => (
-                                        <ItemCard
-                                            key={instance.id}
-                                            data={instance}
-                                            images={images[instance.id] || []}
-                                            href={`/admin/instance/${instance.id}`}
-                                            footerStartContent={
-                                                <Stack direction='row' spacing={0.5} alignItems='center'>
-                                                    {instance.is_local ? (
-                                                        <DnsRoundedIcon color='primary' fontSize='small' />
-                                                    ) : (
-                                                        <CloudOffRoundedIcon color='disabled' fontSize='small' />
-                                                    )}
-                                                    <LocalChip isLocal={instance.is_local} t={t} />
-                                                </Stack>
-                                            }
-                                            footerEndContent={<StatusChip status={instance.status} t={t} />}
-                                            headerAction={
-                                                instanceActions.length > 0 ? (
-                                                    <Box onClick={(e) => e.stopPropagation()}>
-                                                        <BaseEntityMenu<Instance, InstanceData>
-                                                            entity={instance}
-                                                            entityKind='instance'
-                                                            descriptors={instanceActions}
-                                                            namespace='admin'
-                                                            i18nInstance={i18n}
-                                                            createContext={createInstanceContext}
-                                                            renderTrigger={(props: TriggerProps) => (
-                                                                <IconButton
-                                                                    size='small'
-                                                                    sx={{
-                                                                        color: 'text.secondary',
-                                                                        width: 28,
-                                                                        height: 28,
-                                                                        p: 0.25
-                                                                    }}
-                                                                    {...props}
-                                                                >
-                                                                    <MoreVertRoundedIcon fontSize='small' />
-                                                                </IconButton>
-                                                            )}
-                                                        />
-                                                    </Box>
-                                                ) : null
-                                            }
-                                        />
-                                    ))}
+                                    {instances.map((instance: Instance) => {
+                                        const displayName = getInstanceName(instance, i18n.language)
+                                        const displayDescription = getInstanceDescription(instance, i18n.language)
+                                        
+                                        return (
+                                            <ItemCard
+                                                key={instance.id}
+                                                data={{
+                                                    ...instance,
+                                                    name: displayName,
+                                                    description: displayDescription
+                                                }}
+                                                images={images[instance.id] || []}
+                                                href={`/admin/instance/${instance.id}`}
+                                                footerStartContent={
+                                                    <Stack direction='row' spacing={0.5} alignItems='center'>
+                                                        {instance.is_local ? (
+                                                            <DnsRoundedIcon color='primary' fontSize='small' />
+                                                        ) : (
+                                                            <CloudOffRoundedIcon color='disabled' fontSize='small' />
+                                                        )}
+                                                        <LocalChip isLocal={instance.is_local} t={t} />
+                                                    </Stack>
+                                                }
+                                                footerEndContent={<StatusChip status={instance.status} t={t} />}
+                                                headerAction={
+                                                    instanceActions.length > 0 ? (
+                                                        <Box onClick={(e) => e.stopPropagation()}>
+                                                            <BaseEntityMenu<Instance, InstanceData>
+                                                                entity={instance}
+                                                                entityKind='instance'
+                                                                descriptors={instanceActions}
+                                                                namespace='admin'
+                                                                i18nInstance={i18n}
+                                                                createContext={createInstanceContext}
+                                                                renderTrigger={(props: TriggerProps) => (
+                                                                    <IconButton
+                                                                        size='small'
+                                                                        sx={{
+                                                                            color: 'text.secondary',
+                                                                            width: 28,
+                                                                            height: 28,
+                                                                            p: 0.25
+                                                                        }}
+                                                                        {...props}
+                                                                    >
+                                                                        <MoreVertRoundedIcon fontSize='small' />
+                                                                    </IconButton>
+                                                                )}
+                                                            />
+                                                        </Box>
+                                                    ) : null
+                                                }
+                                            />
+                                        )
+                                    })}
                                 </Box>
                             ) : (
                                 <Box sx={{ mx: { xs: -1.5, md: -2 } }}>

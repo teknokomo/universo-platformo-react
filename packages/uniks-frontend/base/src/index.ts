@@ -6,5 +6,5 @@ export { default as UnikList } from './pages/UnikList'
 export { default as UnikBoard } from './pages/UnikBoard'
 export { default as UnikMember } from './pages/UnikMember'
 
-export { default as unikDashboard } from './menu-items/unikDashboard'
+export { default as uniksDashboard } from './menu-items/unikDashboard'
 export { uniksTranslations } from './i18n'

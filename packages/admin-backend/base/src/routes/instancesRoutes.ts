@@ -1,10 +1,12 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
+import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Instance } from '../database/entities/Instance'
 import { z } from 'zod'
+import { VlcStringSchema } from '../schemas'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -18,9 +20,9 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
  * Validation schemas for instances API
  */
 const UpdateInstanceSchema = z.object({
-    name: z.string().min(1).max(100).optional(),
-    display_name: z.record(z.string()).optional(),
-    description: z.string().max(1000).optional().nullable(),
+    codename: z.string().min(1).max(100).optional(),
+    name: VlcStringSchema.optional(),
+    description: VlcStringSchema.optional().nullable(),
     url: z.string().url().max(255).optional().nullable(),
     status: z.enum(['active', 'inactive', 'maintenance']).optional()
 })
@@ -29,7 +31,7 @@ const ListQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
     search: z.string().optional(),
-    sortBy: z.enum(['name', 'created', 'status']).default('created'),
+    sortBy: z.enum(['codename', 'created', 'status']).default('created'),
     sortOrder: z.enum(['asc', 'desc']).default('desc')
 })
 
@@ -87,15 +89,15 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
                 const searchLower = search.toLowerCase()
                 qb.andWhere(
                     `(
-                        LOWER(i.name) LIKE :search OR
-                        i.display_name::text ILIKE :search
+                        LOWER(i.codename) LIKE :search OR
+                        i.name::text ILIKE :search
                     )`,
                     { search: `%${searchLower}%` }
                 )
             }
 
             // Sorting
-            const sortColumn = sortBy === 'created' ? 'i.created_at' : sortBy === 'status' ? 'i.status' : 'i.name'
+            const sortColumn = sortBy === 'created' ? 'i.created_at' : sortBy === 'status' ? 'i.status' : 'i.codename'
             qb.orderBy(sortColumn, sortOrder.toUpperCase() as 'ASC' | 'DESC')
 
             const total = await qb.getCount()
@@ -181,9 +183,13 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
             }
 
             // Update only provided fields
-            if (updateData.name !== undefined) instance.name = updateData.name
-            if (updateData.display_name !== undefined) instance.display_name = updateData.display_name
-            if (updateData.description !== undefined) instance.description = updateData.description ?? undefined
+            if (updateData.codename !== undefined) instance.codename = updateData.codename
+            if (updateData.name !== undefined) {
+                instance.name = updateData.name as VersionedLocalizedContent<string>
+            }
+            if (updateData.description !== undefined) {
+                instance.description = updateData.description as VersionedLocalizedContent<string> | undefined
+            }
             if (updateData.url !== undefined) instance.url = updateData.url ?? undefined
             if (updateData.status !== undefined) instance.status = updateData.status
 

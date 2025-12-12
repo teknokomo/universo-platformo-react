@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { UnikRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
-import { isSuperuserByDataSource, getGlobalRoleNameByDataSource } from '@universo/admin-backend'
+import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource } from '@universo/admin-backend'
 import { UnikUser } from '../database/entities/UnikUser'
 
 // Handle both ESM and CJS imports
@@ -66,7 +66,7 @@ const baseGuards = createAccessGuards<UnikRole, UnikUser>({
     extractEntityId: (m) => m.unik_id,
     // Global admin bypass - users with global access get owner-level access
     isSuperuser: isSuperuserByDataSource,
-    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    getGlobalRoleName: getGlobalRoleCodenameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({
             user_id: userId,

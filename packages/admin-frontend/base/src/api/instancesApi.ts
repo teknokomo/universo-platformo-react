@@ -8,7 +8,7 @@ import apiClient from './apiClient'
 export interface InstancesListParams {
     limit?: number
     offset?: number
-    sortBy?: 'name' | 'created' | 'status'
+    sortBy?: 'codename' | 'created' | 'status'
     sortOrder?: 'asc' | 'desc'
     search?: string
 }

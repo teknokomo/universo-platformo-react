@@ -7,10 +7,18 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { PermissionInput, CreateRolePayload, UpdateRolePayload } from '@universo/types'
+import type { PermissionInput, CreateRolePayload, UpdateRolePayload, VersionedLocalizedContent, SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
+import { createVlc, resolveVlcContent } from '@universo/utils'
 
 // Project imports
-import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG } from '@universo/template-mui'
+import {
+    TemplateMainCard as MainCard,
+    ViewHeaderMUI as ViewHeader,
+    EmptyListState,
+    APIEmptySVG,
+    LocalizedFieldEditor
+} from '@universo/template-mui'
 
 import apiClient from '../api/apiClient'
 import { createRolesApi } from '../api/rolesApi'
@@ -23,17 +31,19 @@ import { PermissionMatrix } from '../components/PermissionMatrix'
 const rolesApi = createRolesApi(apiClient)
 
 /**
- * Default empty form state
+ * Default empty form state with initial locale
  */
-const getDefaultFormState = () => ({
-    name: '',
-    description: '',
-    displayNameEn: '',
-    displayNameRu: '',
-    color: '#9e9e9e',
-    isSuperuser: false,
-    permissions: [] as PermissionInput[]
-})
+const getDefaultFormState = (currentLocale: string) => {
+    const locale = isSupportedLocale(currentLocale) ? currentLocale : 'en'
+    return {
+        codename: '',
+        description: createVlc(locale, ''),
+        name: createVlc(locale, ''),
+        color: '#9e9e9e',
+        isSuperuser: false,
+        permissions: [] as PermissionInput[]
+    }
+}
 
 /**
  * Role Edit/Create Page
@@ -43,14 +53,17 @@ const RoleEdit = () => {
     const { roleId, instanceId } = useParams<{ roleId: string; instanceId: string }>()
     const isNew = roleId === 'new'
     const navigate = useNavigate()
-    const { t } = useTranslation('admin')
+    const { t, i18n } = useTranslation('admin')
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const isSuperadmin = useIsSuperadmin()
 
+    // Get current locale (en or ru)
+    const currentLocale = i18n.language.split('-')[0] || 'en'
+
     // Form state
-    const [formState, setFormState] = useState(getDefaultFormState())
+    const [formState, setFormState] = useState(getDefaultFormState(currentLocale))
     const [isDirty, setIsDirty] = useState(false)
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
@@ -76,15 +89,19 @@ const RoleEdit = () => {
     useEffect(() => {
         if (role && !isNew) {
             setFormState({
+                codename: role.codename,
+                description: role.description
+                    ? typeof role.description === 'string'
+                        ? createVlc('en', role.description) // Use 'en' for legacy string migration
+                        : role.description
+                    : createVlc('en', ''),
                 name: role.name,
-                description: role.description || '',
-                displayNameEn: role.displayName['en'] || '',
-                displayNameRu: role.displayName['ru'] || '',
                 color: role.color,
                 isSuperuser: role.isSuperuser,
                 permissions: role.permissions
             })
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [role, isNew])
 
     // Create mutation
@@ -153,6 +170,17 @@ const RoleEdit = () => {
         setIsDirty(true)
     }, [])
 
+    const handleNameChange = useCallback((name: VersionedLocalizedContent<string> | null) => {
+        setFormState((prev) => ({ ...prev, name }))
+        setIsDirty(true)
+        // Clear validation error for name
+        setValidationErrors((prev) => {
+            const next = { ...prev }
+            delete next.name
+            return next
+        })
+    }, [])
+
     const handlePermissionsChange = useCallback((permissions: PermissionInput[]) => {
         setFormState((prev) => ({ ...prev, permissions }))
         setIsDirty(true)
@@ -167,14 +195,23 @@ const RoleEdit = () => {
     const validate = useCallback((): boolean => {
         const errors: Record<string, string> = {}
 
-        if (!formState.name.trim()) {
-            errors.name = t('roles.validation.nameRequired', 'Name is required')
-        } else if (!/^[a-z0-9_-]+$/.test(formState.name)) {
-            errors.name = t('roles.validation.nameFormat', 'Name must be lowercase alphanumeric with underscores or dashes')
+        if (!formState.codename.trim()) {
+            errors.codename = t('roles.validation.codenameRequired', 'Unique identifier is required')
+        } else if (!/^[a-z0-9_-]+$/.test(formState.codename)) {
+            errors.codename = t(
+                'roles.validation.codenameFormat',
+                'Unique identifier must be lowercase alphanumeric with underscores or dashes'
+            )
         }
 
-        if (!formState.displayNameEn.trim()) {
-            errors.displayNameEn = t('roles.validation.displayNameRequired', 'English display name is required')
+        if (!formState.name) {
+            errors.name = t('roles.validation.nameRequired', 'Name is required')
+        } else {
+            const primaryLocale = formState.name._primary
+            const primaryEntry = formState.name.locales[primaryLocale]
+            if (!primaryEntry || !primaryEntry.content.trim()) {
+                errors.name = t('roles.validation.primaryNameRequired', 'Primary language name is required')
+            }
         }
 
         if (!formState.color || !/^#[0-9A-Fa-f]{6}$/.test(formState.color)) {
@@ -196,8 +233,14 @@ const RoleEdit = () => {
         // For system roles, only validate editable fields
         if (isSystemRole) {
             const errors: Record<string, string> = {}
-            if (!formState.displayNameEn.trim()) {
-                errors.displayNameEn = t('roles.validation.displayNameRequired', 'English display name is required')
+            if (!formState.name) {
+                errors.name = t('roles.validation.nameRequired', 'Name is required')
+            } else {
+                const primaryLocale = formState.name._primary
+                const primaryEntry = formState.name.locales[primaryLocale]
+                if (!primaryEntry || !primaryEntry.content.trim()) {
+                    errors.name = t('roles.validation.primaryNameRequired', 'Primary language name is required')
+                }
             }
             if (!formState.color || !/^#[0-9A-Fa-f]{6}$/.test(formState.color)) {
                 errors.color = t('roles.validation.colorFormat', 'Invalid color format')
@@ -206,25 +249,18 @@ const RoleEdit = () => {
             if (Object.keys(errors).length > 0) return
         }
 
-        const displayName: Record<string, string> = {
-            en: formState.displayNameEn
-        }
-        if (formState.displayNameRu.trim()) {
-            displayName.ru = formState.displayNameRu
-        }
-
-        // For system roles, only send allowed fields (description, displayName, color)
+        // For system roles, only send allowed fields (description, name, color)
         // Do NOT send name, isSuperuser, or permissions
         const payload = isSystemRole
             ? {
                   description: formState.description || undefined,
-                  displayName,
+                  name: formState.name,
                   color: formState.color
               }
             : {
-                  name: formState.name,
+                  codename: formState.codename,
                   description: formState.description || undefined,
-                  displayName,
+                  name: formState.name,
                   color: formState.color,
                   isSuperuser: formState.isSuperuser,
                   permissions: formState.permissions
@@ -283,7 +319,7 @@ const RoleEdit = () => {
                     description={
                         isNew
                             ? t('roles.createDescription', 'Define a new role with permissions')
-                            : t('roles.editDescription', { name: role?.name })
+                            : t('roles.editDescription', { name: role ? resolveVlcContent(role.name, isSupportedLocale(currentLocale) ? currentLocale : 'en', role.codename) : '' })
                     }
                     search={false}
                 />
@@ -315,15 +351,17 @@ const RoleEdit = () => {
                         <Grid item xs={12} md={6}>
                             <TextField
                                 fullWidth
-                                label={t('roles.field.name', 'Role Name')}
-                                value={formState.name}
-                                onChange={handleChange('name')}
+                                label={t('roles.field.name', 'Unique Identifier') + ' *'}
+                                value={formState.codename}
+                                onChange={handleChange('codename')}
                                 disabled={isSaving || isSystemRole}
-                                error={!!validationErrors.name}
+                                error={!!validationErrors.codename}
                                 helperText={
-                                    validationErrors.name || t('roles.field.nameHint', 'Lowercase alphanumeric with underscores/dashes')
+                                    validationErrors.codename ||
+                                    t('roles.field.nameHint', 'Lowercase alphanumeric with underscores/dashes (e.g., new_role)')
                                 }
                                 required
+                                placeholder='new_role'
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>
@@ -336,36 +374,27 @@ const RoleEdit = () => {
                                 helperText={validationErrors.color}
                             />
                         </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label={t('roles.field.displayNameEn', 'Display Name (English)')}
-                                value={formState.displayNameEn}
-                                onChange={handleChange('displayNameEn')}
+                        <Grid item xs={12}>
+                            <LocalizedFieldEditor
+                                value={formState.name}
+                                onChange={handleNameChange}
+                                label={t('roles.field.name', 'Name')}
                                 disabled={isSaving}
-                                error={!!validationErrors.displayNameEn}
-                                helperText={validationErrors.displayNameEn}
-                                required
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label={t('roles.field.displayNameRu', 'Display Name (Russian)')}
-                                value={formState.displayNameRu}
-                                onChange={handleChange('displayNameRu')}
-                                disabled={isSaving}
+                                error={!!validationErrors.name}
+                                helperText={validationErrors.name}
                             />
                         </Grid>
                         <Grid item xs={12}>
-                            <TextField
-                                fullWidth
+                            <LocalizedFieldEditor
+                                value={formState.description}
+                                onChange={(value) => {
+                                    setFormState((prev) => ({ ...prev, description: value }))
+                                    setIsDirty(true)
+                                }}
+                                label={t('roles.field.description', 'Description')}
+                                disabled={isSaving}
                                 multiline
                                 rows={2}
-                                label={t('roles.field.description', 'Description')}
-                                value={formState.description}
-                                onChange={handleChange('description')}
-                                disabled={isSaving}
                             />
                         </Grid>
                     </Grid>

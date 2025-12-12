@@ -21,8 +21,8 @@ export default createMemberActions<GlobalUserMember>({
     getMemberId: (member) => member.id,
     getInitialFormData: (member) => ({
         initialEmail: member.email || '',
-        // Backend returns roleName, not role
-        initialRole: member.roleName,
+        // Backend returns roleCodename for dynamic roles
+        initialRole: member.roleCodename,
         initialComment: member.comment || ''
     })
 })

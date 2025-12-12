@@ -4,7 +4,7 @@ import { MetaverseRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
 import { 
     isSuperuserByDataSource, 
-    getGlobalRoleNameByDataSource,
+    getGlobalRoleCodenameByDataSource,
     hasSubjectPermissionByDataSource 
 } from '@universo/admin-backend'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
@@ -76,7 +76,7 @@ const baseGuards = createAccessGuards<MetaverseRole, MetaverseUser>({
     extractEntityId: (m) => m.metaverse_id,
     // Global admin bypass - users with global access get owner-level access
     isSuperuser: isSuperuserByDataSource,
-    getGlobalRoleName: getGlobalRoleNameByDataSource,
+    getGlobalRoleName: getGlobalRoleCodenameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
         ({
             user_id: userId,
@@ -107,7 +107,7 @@ export async function ensureMetaverseAccess(
     
     if (hasGlobalMetaversesAccess) {
         // User has global access - create synthetic membership with owner role
-        const globalRoleName = await getGlobalRoleNameByDataSource(ds, userId)
+        const globalRoleName = await getGlobalRoleCodenameByDataSource(ds, userId)
         const syntheticMembership: MetaverseUser = {
             user_id: userId,
             metaverse_id: metaverseId,

@@ -29,7 +29,7 @@ const createError = (httpErrors as any).default || httpErrors
  *   extractEntityId: (m) => m.metaverse_id,
  *   // Enable superuser bypass (new API)
  *   isSuperuser: async (ds, userId) => isSuperuserByDataSource(ds, userId),
- *   getGlobalRoleName: async (ds, userId) => getGlobalRoleNameByDataSource(ds, userId),
+ *   getGlobalRoleName: async (ds, userId) => getGlobalRoleCodenameByDataSource(ds, userId),
  *   createGlobalAdminMembership: (userId, entityId, globalRole) => ({
  *     user_id: userId,
  *     metaverse_id: entityId,

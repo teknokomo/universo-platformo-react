@@ -1,6 +1,8 @@
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { createEntityActions } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
+import { resolveVlcContent } from '@universo/utils'
 
 import type { RoleListItem } from '../api/rolesApi'
 
@@ -24,16 +26,31 @@ interface RoleActionContext {
 }
 
 /**
- * Base CRUD actions for roles (edit, delete) using standard factory
+ * Base CRUD actions for roles (only delete) using standard factory
  */
 const baseActions = createEntityActions<RoleListItem, RoleData>({
     i18nPrefix: 'roles',
-    getEntityName: (role) => role.displayName?.['en'] || role.name,
+    getEntityName: (role) => resolveVlcContent(role.name, 'en', role.codename),
     getInitialFormData: (entity) => ({
-        initialName: entity.name,
-        initialDescription: entity.description || ''
+        initialName: resolveVlcContent(entity.name, 'en', entity.codename),
+        initialDescription: resolveVlcContent(entity.description, 'en', '')
     })
 })
+
+/**
+ * Custom edit action: Navigate to full edit page instead of showing dialog
+ */
+const editRoleAction: ActionDescriptor<RoleListItem, RoleData> = {
+    id: 'edit',
+    labelKey: 'common:actions.edit',
+    icon: <EditRoundedIcon />,
+    order: 10,
+    onSelect: (ctx: RoleActionContext) => {
+        if (ctx.meta?.navigate && ctx.meta?.instanceId) {
+            ctx.meta.navigate(`/admin/instance/${ctx.meta.instanceId}/roles/${ctx.entity.id}`)
+        }
+    }
+}
 
 /**
  * Additional action: View users assigned to this role
@@ -55,7 +72,7 @@ const viewUsersAction: ActionDescriptor<RoleListItem, RoleData> = {
  * Order: edit (10), viewUsers (20), delete (100)
  */
 const roleActions: readonly ActionDescriptor<RoleListItem, RoleData>[] = [
-    baseActions[0], // edit (order: 10)
+    editRoleAction, // edit (order: 10) - navigate to edit page
     viewUsersAction, // viewUsers (order: 20)
     baseActions[1] // delete (order: 100)
 ]

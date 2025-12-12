@@ -61,6 +61,9 @@ export type {
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'
 
+// Forms
+export { LocalizedFieldEditor } from './components/forms/LocalizedFieldEditor'
+
 // Chips
 export { RoleChip } from './components/chips'
 export type { RoleChipProps } from './components/chips'

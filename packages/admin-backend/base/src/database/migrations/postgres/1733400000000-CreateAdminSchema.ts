@@ -39,9 +39,9 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.instances (
                 id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
-                name VARCHAR(100) NOT NULL UNIQUE,
-                display_name JSONB DEFAULT '{}',
-                description TEXT,
+                codename VARCHAR(100) NOT NULL UNIQUE,
+                name JSONB DEFAULT '{}',
+                description JSONB,
                 url VARCHAR(255),
                 status VARCHAR(20) NOT NULL DEFAULT 'active',
                 is_local BOOLEAN NOT NULL DEFAULT false,
@@ -57,9 +57,9 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS admin.roles (
                 id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
-                name VARCHAR(50) NOT NULL UNIQUE,
-                description TEXT,
-                display_name JSONB DEFAULT '{}',
+                codename VARCHAR(50) NOT NULL UNIQUE,
+                name JSONB DEFAULT '{}',
+                description JSONB,
                 color VARCHAR(7) DEFAULT '#9e9e9e',
                 is_superuser BOOLEAN DEFAULT false,
                 is_system BOOLEAN DEFAULT false,
@@ -114,28 +114,66 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             CREATE INDEX IF NOT EXISTS idx_roles_is_superuser 
             ON admin.roles(is_superuser) WHERE is_superuser = true
         `)
-        // GIN index for efficient JSONB search on display_name
+        // GIN index for efficient JSONB search on name
         await queryRunner.query(`
-            CREATE INDEX IF NOT EXISTS idx_instances_display_name_gin 
-            ON admin.instances USING GIN (display_name)
+            CREATE INDEX IF NOT EXISTS idx_instances_name_gin 
+            ON admin.instances USING GIN (name)
         `)
 
         // ═══════════════════════════════════════════════════════════════
         // 7. CREATE SYSTEM ROLES WITH METADATA
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
-            INSERT INTO admin.roles (name, description, display_name, color, is_superuser, is_system)
+            INSERT INTO admin.roles (codename, description, name, color, is_superuser, is_system)
             VALUES
                 (
                     'superuser',
-                    'Full platform access with permission bypass - root user',
-                    '{"en": "Super User", "ru": "Суперпользователь"}'::jsonb,
+                    '{
+                        "_schema": "1",
+                        "_primary": "en",
+                        "locales": {
+                            "en": {
+                                "content": "Full platform access with permission bypass - root user",
+                                "version": 1,
+                                "isActive": true,
+                                "createdAt": "2024-12-06T00:00:00.000Z",
+                                "updatedAt": "2024-12-06T00:00:00.000Z"
+                            },
+                            "ru": {
+                                "content": "Полный доступ к платформе с обходом прав — root-пользователь",
+                                "version": 1,
+                                "isActive": true,
+                                "createdAt": "2024-12-06T00:00:00.000Z",
+                                "updatedAt": "2024-12-06T00:00:00.000Z"
+                            }
+                        }
+                    }'::jsonb,
+                    '{
+                        "_schema": "1",
+                        "_primary": "en",
+                        "locales": {
+                            "en": {
+                                "content": "Super User",
+                                "version": 1,
+                                "isActive": true,
+                                "createdAt": "2024-12-06T00:00:00.000Z",
+                                "updatedAt": "2024-12-06T00:00:00.000Z"
+                            },
+                            "ru": {
+                                "content": "Суперпользователь",
+                                "version": 1,
+                                "isActive": true,
+                                "createdAt": "2024-12-06T00:00:00.000Z",
+                                "updatedAt": "2024-12-06T00:00:00.000Z"
+                            }
+                        }
+                    }'::jsonb,
                     '#d32f2f',
                     true,
                     true
                 )
-            ON CONFLICT (name) DO UPDATE SET
-                display_name = EXCLUDED.display_name,
+            ON CONFLICT (codename) DO UPDATE SET
+                name = EXCLUDED.name,
                 color = EXCLUDED.color,
                 is_superuser = EXCLUDED.is_superuser
         `)
@@ -143,7 +181,7 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // Superuser: * → * (everything, but this is mainly for UI/documentation - bypass is in code)
         await queryRunner.query(`
             INSERT INTO admin.role_permissions (role_id, subject, action)
-            SELECT id, '*', '*' FROM admin.roles WHERE name = 'superuser'
+            SELECT id, '*', '*' FROM admin.roles WHERE codename = 'superuser'
             ON CONFLICT (role_id, subject, action) DO NOTHING
         `)
 
@@ -183,8 +221,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.get_user_permissions(p_user_id UUID)
             RETURNS TABLE (
-                role_name VARCHAR,
-                display_name JSONB,
+                role_codename VARCHAR,
+                name JSONB,
                 color VARCHAR,
                 is_superuser BOOLEAN,
                 subject VARCHAR,
@@ -195,8 +233,8 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
             BEGIN
                 RETURN QUERY
                 SELECT 
+                    r.codename,
                     r.name,
-                    r.display_name,
                     r.color,
                     r.is_superuser,
                     rp.subject,
@@ -270,15 +308,15 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE OR REPLACE FUNCTION admin.get_user_global_roles(p_user_id UUID)
             RETURNS TABLE (
-                role_name VARCHAR,
-                display_name JSONB,
+                role_codename VARCHAR,
+                name JSONB,
                 color VARCHAR
             ) AS $$
             BEGIN
                 RETURN QUERY
                 SELECT 
+                    r.codename,
                     r.name,
-                    r.display_name,
                     r.color
                 FROM admin.user_roles ur
                 JOIN admin.roles r ON ur.role_id = r.id
@@ -362,15 +400,53 @@ export class CreateAdminSchema1733400000000 implements MigrationInterface {
         // 14. SEED LOCAL INSTANCE
         // ═══════════════════════════════════════════════════════════════
         await queryRunner.query(`
-            INSERT INTO admin.instances (name, display_name, description, status, is_local)
+            INSERT INTO admin.instances (codename, name, description, status, is_local)
             VALUES (
                 'local',
-                '{"en": "Local", "ru": "Локальный"}'::jsonb,
-                'Current local installation',
+                '{
+                    "_schema": "1",
+                    "_primary": "en",
+                    "locales": {
+                        "en": {
+                            "content": "Local",
+                            "version": 1,
+                            "isActive": true,
+                            "createdAt": "2024-12-06T00:00:00.000Z",
+                            "updatedAt": "2024-12-06T00:00:00.000Z"
+                        },
+                        "ru": {
+                            "content": "Локальный",
+                            "version": 1,
+                            "isActive": true,
+                            "createdAt": "2024-12-06T00:00:00.000Z",
+                            "updatedAt": "2024-12-06T00:00:00.000Z"
+                        }
+                    }
+                }'::jsonb,
+                '{
+                    "_schema": "1",
+                    "_primary": "en",
+                    "locales": {
+                        "en": {
+                            "content": "Current local installation",
+                            "version": 1,
+                            "isActive": true,
+                            "createdAt": "2024-12-06T00:00:00.000Z",
+                            "updatedAt": "2024-12-06T00:00:00.000Z"
+                        },
+                        "ru": {
+                            "content": "Текущая локальная установка",
+                            "version": 1,
+                            "isActive": true,
+                            "createdAt": "2024-12-06T00:00:00.000Z",
+                            "updatedAt": "2024-12-06T00:00:00.000Z"
+                        }
+                    }
+                }'::jsonb,
                 'active',
                 true
             )
-            ON CONFLICT (name) DO NOTHING
+            ON CONFLICT (codename) DO NOTHING
         `)
     }
 

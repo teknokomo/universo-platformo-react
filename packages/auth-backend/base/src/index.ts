@@ -15,11 +15,7 @@ export { createAccessGuards } from './guards'
 export type { AccessGuardsConfig, MembershipContext, RolePermission } from './guards'
 
 // CASL Permission service and middleware
-export {
-    createPermissionService,
-    initPermissionService,
-    getPermissionService
-} from './services/permissionService'
+export { createPermissionService, initPermissionService, getPermissionService } from './services/permissionService'
 export type { IPermissionService, PermissionServiceOptions, FullPermissionsResponse } from './services/permissionService'
 
 export {

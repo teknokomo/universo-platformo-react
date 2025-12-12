@@ -1,4 +1,11 @@
 import { z } from 'zod'
+import { 
+    VlcStringSchema,
+    VlcStringOptionalSchema
+} from '@universo/types'
+
+// Re-export VLC schemas for use in routes
+export { VlcStringSchema, VlcStringOptionalSchema }
 
 /**
  * Schema for granting global role (by email, not UUID)
@@ -97,21 +104,16 @@ const PermissionRuleSchema = z.object({
 })
 
 /**
- * Schema for localized string (display names)
- */
-const LocalizedStringSchema = z.record(z.string())
-
-/**
  * Schema for creating a new role
  */
 export const CreateRoleSchema = z.object({
-    name: z
+    codename: z
         .string()
-        .min(2, 'Name must be at least 2 characters')
-        .max(50, 'Name must be at most 50 characters')
-        .regex(/^[a-z0-9_-]+$/, 'Name must be lowercase alphanumeric with underscores/dashes'),
-    description: z.string().max(500).optional(),
-    displayName: LocalizedStringSchema,
+        .min(2, 'Codename must be at least 2 characters')
+        .max(50, 'Codename must be at most 50 characters')
+        .regex(/^[a-z0-9_-]+$/, 'Codename must be lowercase alphanumeric with underscores/dashes'),
+    description: VlcStringOptionalSchema,
+    name: VlcStringSchema,
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format'),
     isSuperuser: z.boolean(),
     permissions: z.array(PermissionRuleSchema).min(1, 'At least one permission is required')
@@ -123,14 +125,14 @@ export type CreateRoleInput = z.infer<typeof CreateRoleSchema>
  * Schema for updating an existing role
  */
 export const UpdateRoleSchema = z.object({
-    name: z
+    codename: z
         .string()
-        .min(2, 'Name must be at least 2 characters')
-        .max(50, 'Name must be at most 50 characters')
-        .regex(/^[a-z0-9_-]+$/, 'Name must be lowercase alphanumeric with underscores/dashes')
+        .min(2, 'Codename must be at least 2 characters')
+        .max(50, 'Codename must be at most 50 characters')
+        .regex(/^[a-z0-9_-]+$/, 'Codename must be lowercase alphanumeric with underscores/dashes')
         .optional(),
-    description: z.string().max(500).optional().nullable(),
-    displayName: LocalizedStringSchema.optional(),
+    description: VlcStringOptionalSchema,
+    name: VlcStringSchema.optional(),
     color: z
         .string()
         .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format')

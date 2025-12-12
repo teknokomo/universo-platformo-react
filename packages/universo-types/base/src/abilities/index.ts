@@ -15,12 +15,7 @@
  * ```
  */
 
-import {
-    AbilityBuilder,
-    createMongoAbility,
-    MongoAbility,
-    ForcedSubject
-} from '@casl/ability'
+import { AbilityBuilder, createMongoAbility, MongoAbility, ForcedSubject } from '@casl/ability'
 
 // ═══════════════════════════════════════════════════════════════
 // ACTION TYPES
@@ -120,10 +115,7 @@ const ACTION_MAP: Record<string, Actions> = {
  * ability.can('update', 'Metaverse') // Check permission
  * ```
  */
-export function defineAbilitiesFor(
-    userId: string,
-    permissions: DbPermission[]
-): AppAbility {
+export function defineAbilitiesFor(userId: string, permissions: DbPermission[]): AppAbility {
     const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     for (const perm of permissions) {
@@ -131,14 +123,10 @@ export function defineAbilitiesFor(
         const action = ACTION_MAP[perm.action] || (perm.action as Actions)
 
         // Check if there are ABAC conditions
-        const hasConditions =
-            perm.conditions && Object.keys(perm.conditions).length > 0
+        const hasConditions = perm.conditions && Object.keys(perm.conditions).length > 0
 
         // Check if there are field restrictions
-        const hasFields =
-            perm.fields &&
-            perm.fields.length > 0 &&
-            perm.fields[0] !== '*'
+        const hasFields = perm.fields && perm.fields.length > 0 && perm.fields[0] !== '*'
 
         if (hasConditions && hasFields) {
             // Both conditions and fields

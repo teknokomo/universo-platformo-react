@@ -5,7 +5,15 @@
  * Also provides global role information with metadata for frontend display.
  */
 import type { DataSource, QueryRunner } from 'typeorm'
-import type { AppAbility, DbPermission, RoleMetadata, GlobalRoleInfo, PermissionRule, LocalizedString, AdminConfig } from '@universo/types'
+import type {
+    AppAbility,
+    DbPermission,
+    RoleMetadata,
+    GlobalRoleInfo,
+    PermissionRule,
+    VersionedLocalizedContent,
+    AdminConfig
+} from '@universo/types'
 import { defineAbilitiesFor } from '@universo/types'
 import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled } from '@universo/utils'
 
@@ -13,8 +21,8 @@ import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserE
  * Raw permission row from database (with metadata)
  */
 interface RawPermissionWithMetadata {
-    role_name: string
-    display_name: Record<string, string> | null
+    role_codename: string
+    name: VersionedLocalizedContent<string> | null
     color: string | null
     is_superuser: boolean
     subject: string
@@ -37,7 +45,7 @@ export interface FullPermissionsResponse {
     hasAdminAccess: boolean
     /** Does user have any global role? (for settings visibility) */
     hasAnyGlobalRole: boolean
-    /** Role metadata map for UI display (keyed by role name) */
+    /** Role metadata map for UI display (keyed by role codename) */
     rolesMetadata: Record<string, RoleMetadata>
     /** Admin feature flags configuration */
     config: AdminConfig
@@ -82,17 +90,14 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
     /**
      * Get user permissions from database with full metadata
      */
-    async function getPermissionsWithMetadata(
-        userId: string,
-        queryRunner?: QueryRunner
-    ): Promise<RawPermissionWithMetadata[]> {
+    async function getPermissionsWithMetadata(userId: string, queryRunner?: QueryRunner): Promise<RawPermissionWithMetadata[]> {
         const runner = queryRunner ?? getDataSource().createQueryRunner()
         const shouldRelease = !queryRunner
 
         try {
             // Call updated PostgreSQL function that returns permissions with role metadata
             const result: RawPermissionWithMetadata[] = await runner.query(
-                `SELECT role_name, display_name, color, is_superuser, subject, action, conditions, fields 
+                `SELECT role_codename, name, color, is_superuser, subject, action, conditions, fields 
                  FROM admin.get_user_permissions($1)`,
                 [userId]
             )
@@ -126,7 +131,7 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
 
         // Build permissions list
         const permissions: PermissionRule[] = rawPerms.map((row) => ({
-            roleName: row.role_name,
+            roleCodename: row.role_codename,
             subject: row.subject,
             action: row.action,
             conditions: row.conditions ?? undefined,
@@ -138,10 +143,28 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
         const globalRolesSet = new Set<string>()
 
         for (const row of rawPerms) {
-            if (!rolesMetadata[row.role_name]) {
-                rolesMetadata[row.role_name] = {
-                    name: row.role_name,
-                    displayName: (row.display_name || {}) as LocalizedString,
+            if (!rolesMetadata[row.role_codename]) {
+                // Ensure valid VLC structure
+                const name: VersionedLocalizedContent<string> =
+                    row.name && typeof row.name === 'object' && '_schema' in row.name
+                        ? row.name
+                        : {
+                              _schema: '1',
+                              _primary: 'en',
+                              locales: {
+                                  en: {
+                                      content: row.role_codename,
+                                      version: 1,
+                                      isActive: true,
+                                      createdAt: new Date().toISOString(),
+                                      updatedAt: new Date().toISOString()
+                                  }
+                              }
+                          }
+
+                rolesMetadata[row.role_codename] = {
+                    codename: row.role_codename,
+                    name,
                     color: row.color || '#9e9e9e',
                     isSuperuser: row.is_superuser
                 }
@@ -151,20 +174,18 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
         // Compute admin access from permissions (roles:read, instances:read, users:read, or wildcard)
         const ADMIN_PERMISSION_SUBJECTS = ['roles', 'instances', 'users']
         const hasAdminAccess = permissions.some(
-            (p) =>
-                (ADMIN_PERMISSION_SUBJECTS.includes(p.subject) || p.subject === '*') &&
-                (p.action === 'read' || p.action === '*')
+            (p) => (ADMIN_PERMISSION_SUBJECTS.includes(p.subject) || p.subject === '*') && (p.action === 'read' || p.action === '*')
         )
 
         // Build global roles list (all roles assigned to the user)
         // This represents all roles that grant any permissions, not just admin access
         for (const role of Object.values(rolesMetadata)) {
-            globalRolesSet.add(role.name)
+            globalRolesSet.add(role.codename)
         }
 
-        const globalRoles: GlobalRoleInfo[] = Array.from(globalRolesSet).map((name) => ({
-            name,
-            metadata: rolesMetadata[name]
+        const globalRoles: GlobalRoleInfo[] = Array.from(globalRolesSet).map((codename) => ({
+            codename,
+            metadata: rolesMetadata[codename]
         }))
 
         // Check if user is superuser
@@ -212,10 +233,7 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
             const runner = queryRunner ?? getDataSource().createQueryRunner()
             const shouldRelease = !queryRunner
             try {
-                const result: Array<{ is_super: boolean }> = await runner.query(
-                    'SELECT admin.is_superuser($1) as is_super',
-                    [userId]
-                )
+                const result: Array<{ is_super: boolean }> = await runner.query('SELECT admin.is_superuser($1) as is_super', [userId])
                 return result[0]?.is_super ?? false
             } finally {
                 if (shouldRelease && !runner.isReleased) {
@@ -228,10 +246,9 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
         const shouldRelease = !queryRunner
 
         try {
-            const result: Array<{ can_access: boolean }> = await runner.query(
-                'SELECT admin.has_admin_permission($1) as can_access',
-                [userId]
-            )
+            const result: Array<{ can_access: boolean }> = await runner.query('SELECT admin.has_admin_permission($1) as can_access', [
+                userId
+            ])
             return result[0]?.can_access ?? false
         } finally {
             if (shouldRelease && !runner.isReleased) {
@@ -253,7 +270,6 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
     ): Promise<boolean> {
         const runner = queryRunner ?? getDataSource().createQueryRunner()
         const shouldRelease = !queryRunner
-
 
         try {
             // Call PostgreSQL function with explicit userId

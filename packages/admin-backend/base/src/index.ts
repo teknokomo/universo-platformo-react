@@ -9,7 +9,7 @@ export {
     createGlobalAccessService,
     isSuperuserByDataSource,
     canAccessAdminByDataSource,
-    getGlobalRoleNameByDataSource,
+    getGlobalRoleCodenameByDataSource,
     hasSubjectPermissionByDataSource,
     type GlobalAccessService,
     type GlobalAccessServiceDeps,

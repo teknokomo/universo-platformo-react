@@ -2,7 +2,9 @@ import React from 'react'
 import { Chip } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
-import type { BaseRole, GlobalRole, RoleMetadata, LocalizedString } from '@universo/types'
+import type { BaseRole, GlobalRole, RoleMetadata, VersionedLocalizedContent } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
+import { resolveVlcContent } from '@universo/utils'
 
 // Access type indicates how user obtained access to the entity
 // 'member' = direct membership, other strings = global role name
@@ -79,20 +81,25 @@ function stylesFromMetadata(metadata: RoleMetadata): { bgcolor: string; color: s
 
 /**
  * Get display name from metadata based on current language
+ * Uses VLC resolution with safe fallback
  */
-function getDisplayName(
-    displayName: LocalizedString | undefined,
-    roleName: string,
+function getRoleName(
+    nameVlc: VersionedLocalizedContent<string> | undefined,
+    roleCodename: string,
     t: (key: string) => string,
     currentLanguage: string
 ): string {
-    if (displayName) {
-        // Try current language, then English, then first available
-        const name = displayName[currentLanguage] || displayName['en'] || Object.values(displayName)[0]
-        if (name) return name
+    if (!nameVlc) {
+        return t(roleCodename)
     }
+
+    // Use type guard for safe locale validation
+    const locale = isSupportedLocale(currentLanguage) ? currentLanguage : 'en'
+    const resolved = resolveVlcContent(nameVlc, locale, '')
+    if (resolved) return resolved
+
     // Fall back to translation
-    return t(roleName)
+    return t(roleCodename)
 }
 
 export const RoleChip: React.FC<RoleChipProps> = ({ role, accessType, roleMetadata, size = 'small', variant = 'filled', className }) => {
@@ -106,8 +113,10 @@ export const RoleChip: React.FC<RoleChipProps> = ({ role, accessType, roleMetada
     // Get styles: prefer metadata if provided, else use static map
     const styles = roleMetadata ? stylesFromMetadata(roleMetadata) : ROLE_STYLE_MAP[displayRole] || FALLBACK_STYLE
 
-    // Get label: prefer metadata displayName if provided
-    const label = roleMetadata ? getDisplayName(roleMetadata.displayName, displayRole, t, currentLanguage) : t(displayRole)
+    // Get label: prefer metadata name if provided
+    // Use roleMetadata.codename if available, else fall back to displayRole
+    const roleCodename = roleMetadata?.codename || displayRole
+    const label = roleMetadata ? getRoleName(roleMetadata.name, roleCodename, t, currentLanguage) : t(displayRole)
 
     return (
         <Chip

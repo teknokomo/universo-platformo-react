@@ -133,7 +133,7 @@ const InstanceUsers = () => {
             placeholder: t('users.filters.allRoles', 'All Roles'),
             options: allRoles.map((role) => ({
                 value: role.id,
-                label: roleLabelsById[role.id] || role.name
+                label: roleLabelsById[role.id] || role.codename
             }))
         })
 
@@ -306,7 +306,7 @@ const InstanceUsers = () => {
             width: '15%',
             align: 'center',
             render: (row: GlobalUserMember) => {
-                return <RoleChip role={row.roleName} roleMetadata={row.roleMetadata} />
+                return <RoleChip role={row.roleCodename} roleMetadata={row.roleMetadata} />
             }
         },
         {

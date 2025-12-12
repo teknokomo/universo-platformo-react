@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm'
 import { uuid } from '@universo/utils'
 import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
+import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Role } from '../database/entities/Role'
@@ -26,7 +27,7 @@ const ListQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
     search: z.string().optional(),
-    sortBy: z.enum(['name', 'created', 'has_global_access']).default('name'),
+    sortBy: z.enum(['codename', 'created', 'has_global_access']).default('codename'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
     includeSystem: z.coerce.boolean().default(true)
 })
@@ -98,14 +99,14 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const roleRepo = getRoleRepo(req)
 
             const roles = await roleRepo.find({
-                select: ['id', 'name', 'display_name', 'color'],
-                order: { name: 'ASC' }
+                select: ['id', 'codename', 'name', 'color'],
+                order: { codename: 'ASC' }
             })
 
             const data = roles.map((role) => ({
                 id: role.id,
-                name: role.name,
-                displayName: role.display_name ?? {},
+                codename: role.codename,
+                name: role.name ?? {},
                 color: role.color
             }))
 
@@ -145,16 +146,16 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 const searchLower = search.toLowerCase()
                 qb.andWhere(
                     `(
-                        LOWER(r.name) LIKE :search OR
-                        r.display_name::text ILIKE :search OR
-                        LOWER(r.description) LIKE :search
+                        LOWER(r.codename) LIKE :search OR
+                        r.name::text ILIKE :search OR
+                        r.description::text ILIKE :search
                     )`,
                     { search: `%${searchLower}%` }
                 )
             }
 
             // Sorting
-            const sortColumn = sortBy === 'created' ? 'r.created_at' : sortBy === 'has_global_access' ? 'r.has_global_access' : 'r.name'
+            const sortColumn = sortBy === 'created' ? 'r.created_at' : sortBy === 'has_global_access' ? 'r.has_global_access' : 'r.codename'
             qb.orderBy(sortColumn, sortOrder.toUpperCase() as 'ASC' | 'DESC')
 
             const total = await qb.getCount()
@@ -231,23 +232,23 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const { name, description, displayName, color, isSuperuser, permissions } = parsed.data
+            const { codename, description, name, color, isSuperuser, permissions } = parsed.data
 
-            // Check for duplicate name
-            const existing = await roleRepo.findOne({ where: { name } })
+            // Check for duplicate codename
+            const existing = await roleRepo.findOne({ where: { codename } })
             if (existing) {
                 res.status(409).json({
                     success: false,
-                    error: `Role with name "${name}" already exists`
+                    error: `Role with codename "${codename}" already exists`
                 })
                 return
             }
 
             // Create role
             const role = roleRepo.create({
-                name,
+                codename,
                 description,
-                display_name: displayName,
+                name: name,
                 color,
                 is_superuser: isSuperuser,
                 is_system: false // User-created roles are never system roles
@@ -330,13 +331,13 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const { name, description, displayName, color, isSuperuser, permissions } = parsed.data
+            const { codename, description, name, color, isSuperuser, permissions } = parsed.data
 
             // Protect system roles from critical changes
             if (role.is_system) {
-                // System roles: only allow updating description, displayName, color
+                // System roles: only allow updating description, name, color
                 const forbiddenFields = []
-                if (name !== undefined && name !== role.name) forbiddenFields.push('name')
+                if (codename !== undefined && codename !== role.codename) forbiddenFields.push('codename')
                 if (isSuperuser !== undefined && isSuperuser !== role.is_superuser) {
                     forbiddenFields.push('isSuperuser')
                 }
@@ -345,28 +346,32 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 if (forbiddenFields.length > 0) {
                     res.status(403).json({
                         success: false,
-                        error: `Cannot modify ${forbiddenFields.join(', ')} of system role "${role.name}"`
+                        error: `Cannot modify ${forbiddenFields.join(', ')} of system role "${role.codename}"`
                     })
                     return
                 }
             }
 
-            // Check for duplicate name (if changing)
-            if (name !== undefined && name !== role.name) {
-                const existing = await roleRepo.findOne({ where: { name } })
+            // Check for duplicate codename (if changing)
+            if (codename !== undefined && codename !== role.codename) {
+                const existing = await roleRepo.findOne({ where: { codename } })
                 if (existing) {
                     res.status(409).json({
                         success: false,
-                        error: `Role with name "${name}" already exists`
+                        error: `Role with codename "${codename}" already exists`
                     })
                     return
                 }
-                role.name = name
+                role.codename = codename
             }
 
             // Update allowed fields
-            if (description !== undefined) role.description = description
-            if (displayName !== undefined) role.display_name = displayName
+            if (description !== undefined) {
+                role.description = description as VersionedLocalizedContent<string> | undefined
+            }
+            if (name !== undefined) {
+                role.name = name as VersionedLocalizedContent<string>
+            }
             if (color !== undefined) role.color = color
             if (isSuperuser !== undefined) role.is_superuser = isSuperuser
 
@@ -437,7 +442,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             if (role.is_system) {
                 res.status(403).json({
                     success: false,
-                    error: `Cannot delete system role "${role.name}"`
+                    error: `Cannot delete system role "${role.codename}"`
                 })
                 return
             }
@@ -449,7 +454,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             if (assignedUsers > 0) {
                 res.status(409).json({
                     success: false,
-                    error: `Cannot delete role "${role.name}" because it is assigned to ${assignedUsers} user(s). Remove assignments first.`
+                    error: `Cannot delete role "${role.codename}" because it is assigned to ${assignedUsers} user(s). Remove assignments first.`
                 })
                 return
             }
@@ -459,7 +464,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             res.json({
                 success: true,
-                message: `Role "${role.name}" deleted successfully`
+                message: `Role "${role.codename}" deleted successfully`
             })
         })
     )
@@ -554,7 +559,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 success: true,
                 data: {
                     roleId: id,
-                    roleName: role.name,
+                    roleCodename: role.codename,
                     users
                 }
             })

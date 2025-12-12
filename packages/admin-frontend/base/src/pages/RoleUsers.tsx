@@ -98,9 +98,9 @@ const RoleUsers = () => {
         if (!role) return ''
         const displayNameObj = role.displayName
         if (displayNameObj) {
-            return displayNameObj[currentLang] || displayNameObj['en'] || displayNameObj['ru'] || role.name
+            return displayNameObj[currentLang] || displayNameObj['en'] || displayNameObj['ru'] || role.codename
         }
-        return role.name
+        return role.codename
     }, [role, currentLang])
 
     // View change handler

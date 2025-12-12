@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { listRoles, getAssignableRoles } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
 import type { RoleListItem } from '../api/rolesApi'
+import type { SupportedLocale } from '@universo/types'
+import { isSupportedLocale } from '@universo/types'
+import { resolveVlcContent } from '@universo/utils'
 
 /**
  * Options for useRoles hook
@@ -65,7 +68,8 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     const { filter = 'all', includeSystem = true } = options
 
     const { i18n } = useTranslation()
-    const currentLang = i18n.language.split('-')[0] // 'ru-RU' -> 'ru'
+    const langCode = i18n.language.split('-')[0] // 'ru-RU' -> 'ru'
+    const currentLang: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
 
     // Use different query based on filter mode
     const queryKey = filter === 'assignable' ? rolesQueryKeys.assignable() : rolesQueryKeys.list({ limit: 100, includeSystem })
@@ -87,22 +91,22 @@ export function useRoles(options: UseRolesOptions = {}): UseRolesResult {
     const roleIds = useMemo(() => roles.map((r) => r.id), [roles])
 
     // Extract role names for form values
-    const roleOptions = useMemo(() => roles.map((r) => r.name), [roles])
+    const roleOptions = useMemo(() => roles.map((r) => r.codename), [roles])
 
     // Build localized labels map by ID
     const roleLabelsById = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.id] = role.displayName?.[currentLang] || role.displayName?.en || role.name
+            labels[role.id] = resolveVlcContent(role.name, currentLang, role.codename)
         }
         return labels
     }, [roles, currentLang])
 
-    // Build localized labels map by name
+    // Build localized labels map by codename
     const roleLabels = useMemo(() => {
         const labels: Record<string, string> = {}
         for (const role of roles) {
-            labels[role.name] = role.displayName?.[currentLang] || role.displayName?.en || role.name
+            labels[role.codename] = resolveVlcContent(role.name, currentLang, role.codename)
         }
         return labels
     }, [roles, currentLang])

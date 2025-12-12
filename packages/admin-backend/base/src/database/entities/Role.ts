@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm'
-import type { LocalizedString } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { RolePermission } from './RolePermission'
 import { UserRole } from './UserRole'
 
@@ -18,13 +18,13 @@ export class Role {
     id!: string
 
     @Column({ type: 'varchar', length: 50, unique: true })
-    name!: string
+    codename!: string
 
-    @Column({ type: 'text', nullable: true })
-    description?: string
+    @Column({ type: 'jsonb', nullable: true })
+    description?: VersionedLocalizedContent<string>
 
-    @Column({ type: 'jsonb', name: 'display_name', default: {} })
-    display_name!: LocalizedString
+    @Column({ type: 'jsonb', name: 'name', default: {} })
+    name!: VersionedLocalizedContent<string>
 
     @Column({ type: 'varchar', length: 7, default: '#9e9e9e' })
     color!: string
