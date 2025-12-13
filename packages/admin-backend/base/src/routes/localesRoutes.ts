@@ -94,13 +94,22 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
                 query.sortBy === 'code' ? 'locale.code' : query.sortBy === 'created_at' ? 'locale.created_at' : 'locale.sort_order'
             qb.orderBy(sortColumn, query.sortOrder.toUpperCase() as 'ASC' | 'DESC')
 
-            const locales = await qb.getMany()
+            // Apply optional pagination
+            if (query.limit !== undefined) {
+                qb.take(query.limit)
+            }
+            if (query.offset !== undefined) {
+                qb.skip(query.offset)
+            }
+
+            // Get total count for pagination info
+            const [locales, total] = await qb.getManyAndCount()
 
             res.json({
                 success: true,
                 data: {
                     items: locales.map(transformLocale),
-                    total: locales.length
+                    total
                 }
             })
         })
@@ -245,41 +254,52 @@ export function createLocalesRoutes(config: LocalesRoutesConfig): Router {
                 return
             }
 
-            // Prevent disabling if it's the only enabled locale (check outside transaction)
-            if (data.isEnabledContent === false) {
-                const enabledCount = await repo.count({ where: { isEnabledContent: true } })
-                if (enabledCount <= 1 && locale.isEnabledContent) {
+            // Use transaction to atomically handle default flags, updates, and business rules
+            let saved
+            try {
+                saved = await ds.transaction(async (manager) => {
+                    const txRepo = manager.getRepository(Locale)
+
+                    // Prevent disabling if it's the only enabled content locale (inside transaction for atomicity)
+                    if (
+                        data.isEnabledContent === false &&
+                        locale.isEnabledContent // only if currently enabled
+                    ) {
+                        const enabledCount = await txRepo.count({ where: { isEnabledContent: true } })
+                        if (enabledCount <= 1) {
+                            throw new Error('LAST_ENABLED_LOCALE')
+                        }
+                    }
+
+                    // Clear existing defaults if setting new one
+                    if (data.isDefaultContent === true && !locale.isDefaultContent) {
+                        await txRepo.update({}, { isDefaultContent: false })
+                    }
+                    if (data.isDefaultUi === true && !locale.isDefaultUi) {
+                        await txRepo.update({}, { isDefaultUi: false })
+                    }
+
+                    // Apply updates
+                    if (data.name !== undefined) locale.name = data.name
+                    if (data.nativeName !== undefined) locale.nativeName = data.nativeName
+                    if (data.isEnabledContent !== undefined) locale.isEnabledContent = data.isEnabledContent
+                    if (data.isEnabledUi !== undefined) locale.isEnabledUi = data.isEnabledUi
+                    if (data.isDefaultContent !== undefined) locale.isDefaultContent = data.isDefaultContent
+                    if (data.isDefaultUi !== undefined) locale.isDefaultUi = data.isDefaultUi
+                    if (data.sortOrder !== undefined) locale.sortOrder = data.sortOrder
+
+                    return await txRepo.save(locale)
+                })
+            } catch (err) {
+                if (err instanceof Error && err.message === 'LAST_ENABLED_LOCALE') {
                     res.status(400).json({
                         success: false,
                         error: 'Cannot disable the only enabled content locale'
                     })
                     return
                 }
+                throw err // Re-throw unexpected errors
             }
-
-            // Use transaction to atomically handle default flags and updates
-            const saved = await ds.transaction(async (manager) => {
-                const txRepo = manager.getRepository(Locale)
-
-                // Clear existing defaults if setting new one
-                if (data.isDefaultContent === true && !locale.isDefaultContent) {
-                    await txRepo.update({}, { isDefaultContent: false })
-                }
-                if (data.isDefaultUi === true && !locale.isDefaultUi) {
-                    await txRepo.update({}, { isDefaultUi: false })
-                }
-
-                // Apply updates
-                if (data.name !== undefined) locale.name = data.name
-                if (data.nativeName !== undefined) locale.nativeName = data.nativeName
-                if (data.isEnabledContent !== undefined) locale.isEnabledContent = data.isEnabledContent
-                if (data.isEnabledUi !== undefined) locale.isEnabledUi = data.isEnabledUi
-                if (data.isDefaultContent !== undefined) locale.isDefaultContent = data.isDefaultContent
-                if (data.isDefaultUi !== undefined) locale.isDefaultUi = data.isDefaultUi
-                if (data.sortOrder !== undefined) locale.sortOrder = data.sortOrder
-
-                return await txRepo.save(locale)
-            })
 
             res.json({
                 success: true,

@@ -159,7 +159,7 @@ export const LocaleCodeSchema = z
 export const CreateLocaleSchema = z.object({
     code: LocaleCodeSchema,
     name: LocalizedStringSchema,
-    nativeName: z.string().max(100, 'Native name must be at most 100 characters').optional(),
+    nativeName: z.string().min(1, 'Native name is required').max(100, 'Native name must be at most 100 characters'),
     isEnabledContent: z.boolean().default(true),
     isEnabledUi: z.boolean().default(false),
     isDefaultContent: z.boolean().default(false),
@@ -190,7 +190,10 @@ export type UpdateLocaleInput = z.infer<typeof UpdateLocaleSchema>
 export const LocalesListQuerySchema = z.object({
     includeDisabled: z.coerce.boolean().default(false),
     sortBy: z.enum(['code', 'sort_order', 'created_at']).default('sort_order'),
-    sortOrder: z.enum(['asc', 'desc']).default('asc')
+    sortOrder: z.enum(['asc', 'desc']).default('asc'),
+    // Optional pagination (locales list is typically small)
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+    offset: z.coerce.number().int().min(0).optional()
 })
 
 export type LocalesListQuery = z.infer<typeof LocalesListQuerySchema>

@@ -8,6 +8,7 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resolveLocalizedContent } from '@universo/utils'
+import { isValidLocaleCode } from '@universo/types'
 import { useSnackbar } from 'notistack'
 
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, FlowListTable, useConfirm } from '@universo/template-mui'
@@ -32,10 +33,9 @@ const LocalesList = () => {
     const queryClient = useQueryClient()
     const { confirm } = useConfirm()
 
-    // Get current locale safely
+    // Get current locale safely using shared utility
     const langCode = i18n.language?.split('-')[0] || 'en'
-    // Basic locale code validation (2-letter ISO 639-1)
-    const currentLang = /^[a-z]{2}$/.test(langCode) ? langCode : 'en'
+    const currentLang = isValidLocaleCode(langCode) ? langCode : 'en'
 
     // Dialog state
     const [dialogOpen, setDialogOpen] = useState(false)
