@@ -1,6 +1,7 @@
 import type { PaginationParams } from '../types'
 import type { InstancesListParams } from './instancesApi'
 import type { RolesListParams } from './rolesApi'
+import type { LocalesListParams } from './localesApi'
 
 /**
  * Query keys for admin module
@@ -76,4 +77,21 @@ export const rolesQueryKeys = {
         }
         return [...rolesQueryKeys.users(id), 'list', normalized] as const
     }
+}
+
+/**
+ * Query keys for locales module
+ */
+export const localesQueryKeys = {
+    // Root key for all locales queries
+    all: ['locales'] as const,
+
+    // All lists (for cache invalidation)
+    lists: () => [...localesQueryKeys.all, 'list'] as const,
+
+    // Locales list with params
+    list: (params?: LocalesListParams) => [...localesQueryKeys.all, 'list', params] as const,
+
+    // Locale detail
+    detail: (id: string) => [...localesQueryKeys.all, 'detail', id] as const
 }

@@ -171,6 +171,8 @@ const RolesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/Rol
 const RoleEdit = Loadable(lazy(() => import('@universo/admin-frontend/pages/RoleEdit')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const RoleUsers = Loadable(lazy(() => import('@universo/admin-frontend/pages/RoleUsers')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const LocalesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/LocalesList')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
@@ -865,6 +867,11 @@ const MainRoutesMUI = {
                         {
                             path: 'users',
                             element: <InstanceUsers />
+                        },
+                        // Locales management (VLC content localization settings)
+                        {
+                            path: 'locales',
+                            element: <LocalesList />
                         }
                     ]
                 },

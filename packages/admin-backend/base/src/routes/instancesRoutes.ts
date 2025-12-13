@@ -6,7 +6,7 @@ import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Instance } from '../database/entities/Instance'
 import { z } from 'zod'
-import { VlcStringSchema } from '../schemas'
+import { LocalizedStringSchema } from '../schemas'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -21,8 +21,8 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
  */
 const UpdateInstanceSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
-    name: VlcStringSchema.optional(),
-    description: VlcStringSchema.optional().nullable(),
+    name: LocalizedStringSchema.optional(),
+    description: LocalizedStringSchema.optional().nullable(),
     url: z.string().url().max(255).optional().nullable(),
     status: z.enum(['active', 'inactive', 'maintenance']).optional()
 })

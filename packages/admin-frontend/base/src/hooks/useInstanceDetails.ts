@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { resolveVlcContent } from '@universo/utils'
+import { resolveLocalizedContent } from '@universo/utils'
 import apiClient from '../api/apiClient'
 import { createInstancesApi, type InstancesListParams } from '../api/instancesApi'
 import { instancesQueryKeys } from '../api/queryKeys'
-import type { SupportedLocale } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
+import type { LocaleCode } from '@universo/types'
+import { isValidLocaleCode } from '@universo/types'
 
 // Singleton instance of instancesApi
 const instancesApi = createInstancesApi(apiClient)
@@ -49,14 +49,14 @@ export function useInstanceStats(instanceId: string | undefined) {
 export function useInstanceName(instanceId: string | null): string | null {
     const { i18n } = useTranslation()
     const langCode = i18n.language?.split('-')[0] || 'en'
-    const locale: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
+    const locale: LocaleCode = isValidLocaleCode(langCode) ? langCode : 'en'
 
     const query = useQuery({
         queryKey: instancesQueryKeys.detail(instanceId ?? ''),
         queryFn: () => instancesApi.getInstance(instanceId!),
         enabled: Boolean(instanceId),
         staleTime: 5 * 60 * 1000,
-        select: (data) => resolveVlcContent(data.name, locale, data.codename)
+        select: (data) => resolveLocalizedContent(data.name, locale, data.codename)
     })
 
     return query.isLoading ? null : query.data ?? null
@@ -65,7 +65,7 @@ export function useInstanceName(instanceId: string | null): string | null {
 /**
  * Truncate instance name for breadcrumb display
  */
-export function truncateInstanceName(name: string, maxLength: number = 25): string {
+export function truncateInstanceName(name: string, maxLength = 25): string {
     if (name.length <= maxLength) return name
     return name.substring(0, maxLength - 3) + '...'
 }

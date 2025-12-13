@@ -1,9 +1,13 @@
-import type { VersionedLocalizedContent, VlcLocaleEntry, SupportedLocale } from '@universo/types'
+import type { VersionedLocalizedContent, LocalizedContentEntry, LocaleCode } from '@universo/types'
+import { DEFAULT_LOCALE } from '@universo/types'
 
 /**
- * Create a new VLC object with initial content
+ * Create a new localized content object with initial content
  */
-export function createVlc<T = string>(primaryLocale: SupportedLocale, initialContent: T): VersionedLocalizedContent<T> {
+export function createLocalizedContent<T = string>(
+    primaryLocale: LocaleCode = DEFAULT_LOCALE,
+    initialContent: T
+): VersionedLocalizedContent<T> {
     const now = new Date().toISOString()
     return {
         _schema: '1',
@@ -21,26 +25,26 @@ export function createVlc<T = string>(primaryLocale: SupportedLocale, initialCon
 }
 
 /**
- * Add or update a locale in VLC
- * Returns a new VLC object (immutable)
+ * Add or update a locale in localized content
+ * Returns a new object (immutable)
  */
-export function updateVlcLocale<T = string>(
-    vlc: VersionedLocalizedContent<T>,
-    locale: SupportedLocale,
-    content: T
+export function updateLocalizedContentLocale<T = string>(
+    content: VersionedLocalizedContent<T>,
+    locale: LocaleCode,
+    newContent: T
 ): VersionedLocalizedContent<T> {
     const now = new Date().toISOString()
-    const existing = vlc.locales[locale]
+    const existing = content.locales[locale]
 
-    const entry: VlcLocaleEntry<T> = existing
+    const entry: LocalizedContentEntry<T> = existing
         ? {
               ...existing,
-              content,
+              content: newContent,
               version: existing.version + 1,
               updatedAt: now
           }
         : {
-              content,
+              content: newContent,
               version: 1,
               isActive: true,
               createdAt: now,
@@ -48,64 +52,64 @@ export function updateVlcLocale<T = string>(
           }
 
     return {
-        ...vlc,
+        ...content,
         locales: {
-            ...vlc.locales,
+            ...content.locales,
             [locale]: entry
         }
     }
 }
 
 /**
- * Resolve content from VLC for a given locale with fallback chain
+ * Resolve content from localized content for a given locale with fallback chain
  *
- * @param vlc - The VLC object
+ * @param content - The localized content object
  * @param locale - Requested locale
  * @param fallback - Fallback value if nothing found (guarantees return type)
  * @returns Resolved content (guaranteed when fallback provided)
  */
-export function resolveVlcContent<T = string>(
-    vlc: VersionedLocalizedContent<T> | null | undefined,
-    locale: SupportedLocale,
+export function resolveLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined,
+    locale: LocaleCode,
     fallback: T
 ): T
 
 /**
- * Resolve content from VLC for a given locale with fallback chain
+ * Resolve content from localized content for a given locale with fallback chain
  *
- * @param vlc - The VLC object
+ * @param content - The localized content object
  * @param locale - Requested locale
  * @returns Resolved content or undefined
  */
-export function resolveVlcContent<T = string>(
-    vlc: VersionedLocalizedContent<T> | null | undefined,
-    locale: SupportedLocale
+export function resolveLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined,
+    locale: LocaleCode
 ): T | undefined
 
 // Implementation
-export function resolveVlcContent<T = string>(
-    vlc: VersionedLocalizedContent<T> | null | undefined,
-    locale: SupportedLocale,
+export function resolveLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined,
+    locale: LocaleCode,
     fallback?: T
 ): T | undefined {
-    if (!vlc || !vlc.locales) {
+    if (!content || !content.locales) {
         return fallback
     }
 
     // 1. Try requested locale
-    const requested = vlc.locales[locale]
+    const requested = content.locales[locale]
     if (requested?.isActive && requested.content !== undefined) {
         return requested.content
     }
 
     // 2. Try primary locale
-    const primary = vlc.locales[vlc._primary]
+    const primary = content.locales[content._primary]
     if (primary?.isActive && primary.content !== undefined) {
         return primary.content
     }
 
     // 3. Try any active locale
-    for (const entry of Object.values(vlc.locales)) {
+    for (const entry of Object.values(content.locales)) {
         if (entry?.isActive && entry.content !== undefined) {
             return entry.content
         }
@@ -115,16 +119,16 @@ export function resolveVlcContent<T = string>(
 }
 
 /**
- * Get list of available locales in VLC
+ * Get list of available locales in localized content
  */
-export function getVlcLocales<T = string>(vlc: VersionedLocalizedContent<T> | null | undefined): SupportedLocale[] {
-    if (!vlc?.locales) return []
-    return Object.keys(vlc.locales).filter((k) => vlc.locales[k as SupportedLocale]?.isActive) as SupportedLocale[]
+export function getLocalizedContentLocales<T = string>(content: VersionedLocalizedContent<T> | null | undefined): LocaleCode[] {
+    if (!content?.locales) return []
+    return Object.keys(content.locales).filter((k) => content.locales[k]?.isActive)
 }
 
 /**
- * Type guard to check if object is VLC format
+ * Type guard to check if object is localized content format
  */
-export function isVlc(obj: unknown): obj is VersionedLocalizedContent<unknown> {
+export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedContent<unknown> {
     return typeof obj === 'object' && obj !== null && '_schema' in obj && (obj as Record<string, unknown>)._schema === '1'
 }

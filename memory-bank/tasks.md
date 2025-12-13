@@ -6,6 +6,10 @@
 
 ## 🔥 ACTIVE TASKS
 
+### Admin Roles UI i18n Fix
+
+- [x] Fix Role delete dialog showing i18n keys (confirmDelete/confirmDeleteDescription)
+
 ### PR #600 Bot Recommendations (QA Fixes)
 
 - [x] Fix .eslintrc.js: no-unused-vars 'warn' → 'off' (avoid conflict with unused-imports)
@@ -103,6 +107,8 @@
 **For detailed completion history, see progress.md**
 
 ### December 2025
+- ✅ VLC→LocalizedContent rename refactoring (2025-12-15) - Renamed VLC terminology to Localized Content across types, utils, API
+- ✅ Dynamic Locales System (2025-12-14) - Database-driven locale management for VLC
 - ✅ Legacy code cleanup (2025-12-10)
 - ✅ Global roles access implementation (2025-12-09)
 - ✅ CASL standard compliance refactoring (2025-12-08)
@@ -160,6 +166,6 @@
 
 ---
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-13
 
 **Note**: For implementation details → progress.md. For patterns → systemPatterns.md.

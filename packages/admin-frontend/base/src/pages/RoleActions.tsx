@@ -2,7 +2,7 @@ import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { createEntityActions } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
-import { resolveVlcContent } from '@universo/utils'
+import { resolveLocalizedContent } from '@universo/utils'
 
 import type { RoleListItem } from '../api/rolesApi'
 
@@ -29,11 +29,17 @@ interface RoleActionContext {
  * Base CRUD actions for roles (only delete) using standard factory
  */
 const baseActions = createEntityActions<RoleListItem, RoleData>({
-    i18nPrefix: 'roles',
-    getEntityName: (role) => resolveVlcContent(role.name, 'en', role.codename),
+    // Use 'admin' namespace; role strings live under admin.roles.*
+    i18nPrefix: 'admin',
+    i18nKeys: {
+        editTitle: 'roles.editTitle',
+        confirmDelete: 'roles.confirmDelete',
+        confirmDeleteDescription: 'roles.confirmDeleteDescription'
+    },
+    getEntityName: (role) => resolveLocalizedContent(role.name, 'en', role.codename),
     getInitialFormData: (entity) => ({
-        initialName: resolveVlcContent(entity.name, 'en', entity.codename),
-        initialDescription: resolveVlcContent(entity.description, 'en', '')
+        initialName: resolveLocalizedContent(entity.name, 'en', entity.codename),
+        initialDescription: resolveLocalizedContent(entity.description, 'en', '')
     })
 })
 

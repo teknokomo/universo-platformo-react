@@ -695,12 +695,7 @@ export async function getGlobalRoleCodenameByDataSource(ds: DataSource, userId: 
  * @param action Action to check (default: 'read')
  * @returns true if user has permission, false otherwise
  */
-export async function hasSubjectPermissionByDataSource(
-    ds: DataSource,
-    userId: string,
-    subject: string,
-    action: string = 'read'
-): Promise<boolean> {
+export async function hasSubjectPermissionByDataSource(ds: DataSource, userId: string, subject: string, action = 'read'): Promise<boolean> {
     // If global roles are disabled, no one has subject-based global access
     if (!isGlobalRolesEnabled()) {
         return false

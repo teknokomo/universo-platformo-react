@@ -53,6 +53,160 @@
 
 ## December 2025
 
+### 2025-12-13: Admin Roles Delete Dialog i18n Fix ✅
+
+**Context**: Role deletion confirmation dialog showed raw i18n keys (`confirmDelete`, `confirmDeleteDescription`) instead of translated strings.
+
+**Root Cause**: Role action descriptors used `createEntityActions()` defaults (`confirmDelete*`) while `admin-frontend` translations are nested under `admin.roles.*`.
+
+**Fix**:
+- Updated `admin-frontend` role actions to override `i18nKeys` to `roles.confirmDelete` and `roles.confirmDeleteDescription`.
+
+**Result**:
+- ✅ Role delete dialog now renders proper localized text.
+
+### 2025-12-13: VLC → Localized Content Rename Refactoring ✅
+
+**Context**: Comprehensive terminology refactoring to replace "VLC" (Versioned Localized Content) abbreviation with clearer "Localized Content" naming across types, utilities, database, API, and UI.
+
+**Why**: "VLC" was an internal abbreviation that was not intuitive for developers. "Localized Content" better describes the purpose - managing multilingual content for entities.
+
+**Technical Implementation**:
+
+1. **Type System Updates** (`universo-types`):
+   - `VlcSchemaVersion` → `LocalizedContentSchemaVersion`
+   - `VlcLocaleEntry<T>` → `LocalizedContentEntry<T>`
+   - Removed legacy aliases; new names only
+
+2. **Utility Functions** (`universo-utils`):
+   - `createVlc()` → `createLocalizedContent()`
+   - `updateVlcLocale()` → `updateLocalizedContentLocale()`
+   - `resolveVlcContent()` → `resolveLocalizedContent()`
+   - `getVlcLocales()` → `getLocalizedContentLocales()`
+   - `isVlc()` → `isLocalizedContent()`
+   - Removed legacy aliases; new names only
+   - Updated both `index.ts` and `index.browser.ts` exports
+
+3. **Database Layer** (`admin-backend`):
+   - Migration: Renamed columns `is_enabled_vlc` → `is_enabled_content`, `is_default_vlc` → `is_default_content`
+   - Entity: Properties `isEnabledVlc` → `isEnabledContent`, `isDefaultVlc` → `isDefaultContent`
+
+4. **Backend API**:
+   - Public endpoint: `/api/v1/locales/vlc` → `/api/v1/locales/content`
+   - Admin routes: All VLC references updated to "content" terminology
+   - Zod schemas updated to use `isEnabledContent`, `isDefaultContent`
+
+5. **Frontend Implementation** (`admin-frontend`):
+   - `LocalesList.tsx`: Handlers renamed (`handleToggleContent`, `handleSetDefaultContent`)
+   - `LocaleDialog.tsx`: Field order changed (nativeName first), nativeName now required, name optional
+   - Query keys: `['locales', 'vlc', 'public']` → `['locales', 'content', 'public']`
+   - API interface: `LocaleData.isEnabledVlc` → `isEnabledContent`
+
+6. **i18n Updates**:
+   - Menu: "Locales" → "Languages" (en), "Локали" → "Языки" (ru)
+   - Admin columns: Shortened to "Content"/"UI" (en), "Контент"/"Интерфейс" (ru)
+   - All locale-related translations updated
+
+7. **Template Components** (`universo-template-mui`):
+   - `LocalizedFieldEditor.tsx`: Uses new function names, fetches from `/content` endpoint
+   - `RoleChip.tsx`: Import updated to `resolveLocalizedContent`
+
+**Files Modified** (16 files):
+- `universo-types/base/src/common/admin.ts`
+- `universo-types/base/src/validation/vlc.ts`
+- `universo-utils/base/src/vlc/index.ts`
+- `universo-utils/base/src/index.ts`
+- `universo-utils/base/src/index.browser.ts`
+- `admin-backend/.../migrations/1734100000000-CreateLocalesTable.ts`
+- `admin-backend/.../entities/Locale.ts`
+- `admin-backend/.../routes/publicLocalesRoutes.ts`
+- `admin-backend/.../routes/localesRoutes.ts`
+- `admin-backend/.../schemas/index.ts`
+- `admin-frontend/.../pages/LocalesList.tsx`
+- `admin-frontend/.../components/LocaleDialog.tsx`
+- `admin-frontend/.../api/localesApi.ts`
+- `admin-frontend/.../i18n/en/admin.json`
+- `admin-frontend/.../i18n/ru/admin.json`
+- `universo-i18n/.../menu.json` (en + ru)
+- `universo-template-mui/.../LocalizedFieldEditor.tsx`
+- `universo-template-mui/.../RoleChip.tsx`
+
+**Backward Compatibility**:
+- ❌ No backward compatibility: deprecated aliases were removed as requested
+- ✅ All internal usages updated to new names
+
+**UI/UX Improvements** (user requested):
+- ✅ "Native Name" field moved above "Name" field in locale dialog
+- ✅ "Native Name" now required (for creating locales)
+- ✅ "Name" now optional
+- ✅ Column headers shortened from verbose text to concise "Content"/"UI"
+- ✅ Menu terminology changed from "Locales" to "Languages"
+
+---
+
+### 2025-12-14: Dynamic Locales System ✅
+
+**Context**: Implemented admin "Locales/Localizations" section for dynamic locale management, replacing hardcoded `en`/`ru` values in VLC (Versioned Localized Content) system.
+
+**Technical Implementation**:
+
+1. **Database Layer**:
+   - Created `admin.locales` table with UUID v7, sortable codes
+   - Fields: `id`, `code`, `name` (VLC), `nativeName`, `isEnabledVlc`, `isEnabledUi`, `isDefaultVlc`, `isDefaultUi`, `isSystem`, `sortOrder`
+   - Partial unique indexes for enforcing single default locale per type
+   - Seed data: `en` (English) and `ru` (Russian) as system locales
+
+2. **Backend API**:
+   - Admin CRUD: `GET/POST/PUT/PATCH/DELETE /api/v1/admin/locales` (auth required via `ensureGlobalAccess`)
+   - Public API: `GET /api/v1/locales/vlc` and `/api/v1/locales/ui` (no auth, 5-min cache)
+   - Zod schemas for validation: `CreateLocaleSchema`, `UpdateLocaleSchema`, `LocalesListQuerySchema`
+
+3. **Type System Updates**:
+   - Changed `SupportedLocale = 'en' | 'ru'` → `LocaleCode = string` (runtime validation)
+   - Added `isValidLocaleCode()` utility function
+   - Kept deprecated `SupportedLocale` alias for backward compatibility
+   - Updated `VersionedLocalizedContent.locales` from `Partial<Record<...>>` to `Record<LocaleCode, ...>`
+   - Updated VLC Zod schemas (`LocaleCodeSchema` now uses `z.string().min(2).max(10)`)
+
+4. **Frontend Implementation**:
+   - `LocalesList` page with DataGrid, toggle switches, search, pagination
+   - `LocaleDialog` component for create/edit with VLC name editor
+   - Updated `LocalizedFieldEditor` to fetch locales from API with fallback support
+   - Route: `/admin/instance/:instanceId/locales`
+   - Full i18n support (en/ru translations)
+
+**Files Created** (9 files):
+- `packages/admin-backend/base/src/database/migrations/postgres/1734100000000-CreateLocalesTable.ts`
+- `packages/admin-backend/base/src/database/entities/Locale.ts`
+- `packages/admin-backend/base/src/routes/localesRoutes.ts`
+- `packages/admin-backend/base/src/routes/publicLocalesRoutes.ts`
+- `packages/admin-frontend/base/src/api/localesApi.ts`
+- `packages/admin-frontend/base/src/pages/LocalesList.tsx`
+- `packages/admin-frontend/base/src/components/LocaleDialog.tsx`
+
+**Files Modified** (14 files):
+- Backend: entities/index.ts, migrations/postgres/index.ts, routes/index.ts, schemas/index.ts
+- Core: flowise-core-backend routes/index.ts
+- Types: universo-types admin.ts, vlc.ts
+- Utils: universo-utils vlc/index.ts
+- Frontend: queryKeys.ts, components/index.ts, MainRoutesMUI.tsx
+- i18n: admin.json (en + ru)
+- Template: LocalizedFieldEditor.tsx
+
+**Architecture Decisions**:
+- VLC locales separate from UI i18n (UI still requires file-based translations)
+- System locales (en, ru) cannot be deleted, ensuring data integrity
+- Public API without auth for LocalizedFieldEditor access in any context
+- Backward compatibility maintained via deprecated type aliases
+
+**Impact**:
+- ✅ Admins can now add new VLC locales via UI (e.g., de, fr, es)
+- ✅ LocalizedFieldEditor automatically shows all enabled VLC locales
+- ✅ Type safety maintained with runtime validation
+- ✅ Existing code using `SupportedLocale` continues to work
+
+---
+
 ### 2025-12-11: UUID v7 QA Verification ✅
 
 **Context**: Deep investigation and QA verification of UUID v7 implementation to ensure TypeORM compatibility and data integrity.

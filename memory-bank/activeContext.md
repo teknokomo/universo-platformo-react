@@ -1,12 +1,69 @@
 # Active Context
 
-> **Last Updated**: 2025-12-11
+> **Last Updated**: 2025-12-13
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Development Environment Maintenance ✅ (2025-12-11)
+## Current Focus: Admin Roles Delete Dialog i18n ✅ (2025-12-13)
+
+**Status**: Fixed role deletion dialog showing raw i18n keys.
+
+**Change**:
+- Updated admin role menu actions to use `admin` namespace keys under `roles.*`.
+
+**Impact**:
+- Role delete confirmation now renders translated text instead of `confirmDelete` / `confirmDeleteDescription`.
+
+---
+
+## Previous Focus: VLC → Localized Content Rename ✅
+
+**Status**: Completed comprehensive terminology refactoring from "VLC" to "Localized Content".
+
+**Summary**:
+- Renamed all VLC types to LocalizedContent (no deprecated aliases)
+- Renamed all VLC utility functions (createVlc → createLocalizedContent, etc.)
+- Updated database columns: `is_enabled_vlc` → `is_enabled_content`, `is_default_vlc` → `is_default_content`
+- Changed API endpoint: `/api/v1/locales/vlc` → `/api/v1/locales/content`
+- Updated admin UI terminology: "Locales" → "Languages" (en: "Languages", ru: "Языки")
+- UI/UX improvements: nativeName field first and required, column headers shortened
+
+**Key Technical Decisions**:
+- Removed legacy aliases and deprecated exports; use new names only
+- Both index.ts and index.browser.ts updated in universo-utils
+
+**Files Modified**: 18 files across universo-types, universo-utils, admin-backend, admin-frontend, universo-i18n, universo-template-mui
+
+**Details**: See progress.md#2025-12-15
+
+---
+
+## Previous Focus: Dynamic Locales System ✅ (2025-12-14)
+
+**Status**: Implemented admin "Locales" management for VLC (Versioned Localized Content).
+
+**Summary**:
+- Admin UI at `/admin/instance/:instanceId/locales` for managing available locales
+- Database-driven instead of hardcoded `en`/`ru`
+- Public API `/api/v1/locales/content` for LocalizedFieldEditor (no auth, cached)
+- Type system changed: `SupportedLocale` now string alias with runtime validation
+- Full i18n support (en/ru translations for all new UI)
+
+**Key Technical Decisions**:
+- Content locales separate from UI i18n (UI still requires file-based translations)
+- System locales (en, ru) protected from deletion
+- Backward compatibility via deprecated type aliases
+
+**Files Created**: 9 new files (entity, migration, routes, API, pages, components)
+**Files Modified**: 14 files (types, utils, routes, i18n, frontend routing)
+
+**Details**: See progress.md#2025-12-14
+
+---
+
+## Previous Focus: Development Environment Maintenance ✅ (2025-12-11)
 
 **Status**: Fixed ESLint TypeScript compatibility warnings. Development environment now clean.
 

@@ -9,7 +9,7 @@ export * as updl from './updl'
 export * as publish from './publish'
 export * as env from './env'
 export * as uuid from './uuid'
-export * as vlc from './vlc'
+export * as localizedContent from './vlc'
 
 // Rate limiting utilities (server-side only)
 // Note: Import from '@universo/utils/rate-limiting' for direct access
@@ -49,5 +49,11 @@ export { formatDate, formatRange } from './ui-utils/formatDate'
 // API error handling utilities
 export * from './api/error-handlers'
 
-// VLC (Versioned Localized Content) utilities
-export { createVlc, updateVlcLocale, resolveVlcContent, getVlcLocales, isVlc } from './vlc'
+// Localized Content utilities
+export {
+    createLocalizedContent,
+    updateLocalizedContentLocale,
+    resolveLocalizedContent,
+    getLocalizedContentLocales,
+    isLocalizedContent
+} from './vlc'

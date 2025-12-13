@@ -17,8 +17,18 @@ export default defineConfig({
         '@emotion/styled',
         '@tabler/icons-react',
         '@tanstack/react-query',
+        '@universo/template-mui',
+        '@universo/types',
+        '@universo/utils',
+        '@flowise/template-mui',
         'axios',
         'i18next',
-        'react-i18next'
+        'react-i18next',
+        'notistack',
+        /\.svg$/,
+        /\.png$/,
+        /\.jpg$/,
+        /\.jpeg$/,
+        /\.gif$/
     ]
 })

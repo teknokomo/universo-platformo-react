@@ -6,9 +6,9 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
-import { resolveVlcContent } from '@universo/utils'
-import type { SupportedLocale } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
+import { resolveLocalizedContent } from '@universo/utils'
+import type { LocaleCode } from '@universo/types'
+import { isValidLocaleCode } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 
@@ -71,7 +71,7 @@ const RolesList = () => {
 
     // Get current language for display names
     const langCode = i18n.language.split('-')[0] || 'en'
-    const currentLang: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
+    const currentLang: LocaleCode = isValidLocaleCode(langCode) ? langCode : 'en'
 
     // Pagination hook
     const paginationResult = usePaginated<RoleListItem, 'codename' | 'created'>({
@@ -117,7 +117,7 @@ const RolesList = () => {
     // Helper: Get localized role name from VLC
     const getRoleName = useCallback(
         (role: RoleListItem): string => {
-            return resolveVlcContent(role.name, currentLang, role.codename)
+            return resolveLocalizedContent(role.name, currentLang, role.codename)
         },
         [currentLang]
     )
@@ -125,7 +125,7 @@ const RolesList = () => {
     // Helper: Get localized description from VLC
     const getRoleDescription = useCallback(
         (role: RoleListItem): string => {
-            return resolveVlcContent(role.description, currentLang, '')
+            return resolveLocalizedContent(role.description, currentLang, '')
         },
         [currentLang]
     )
@@ -520,11 +520,14 @@ const RolesList = () => {
             {/* Confirm Delete Dialog */}
             <ConfirmDeleteDialog
                 open={deleteDialogState.open}
-                title={t('roles.confirmDelete')}
-                description={t('roles.confirmDeleteDescription', { name: deleteDialogState.role ? getRoleName(deleteDialogState.role) : '' })}
-                confirmButtonText={tc('actions.delete')}
-                deletingButtonText={tc('actions.deleting')}
-                cancelButtonText={tc('actions.cancel')}
+                title={t('roles.confirmDelete', 'Delete role?')}
+                description={t('roles.confirmDeleteDescription', {
+                    name: deleteDialogState.role ? getRoleName(deleteDialogState.role) : '',
+                    defaultValue: 'Are you sure you want to delete role "{{name}}"?'
+                })}
+                confirmButtonText={tc('actions.delete', 'Delete')}
+                deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
                 onCancel={() => setDeleteDialogState({ open: false, role: null })}
                 onConfirm={async () => {
                     if (deleteDialogState.role) {

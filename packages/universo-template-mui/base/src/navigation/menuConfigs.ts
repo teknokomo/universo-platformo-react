@@ -21,7 +21,8 @@ import {
     IconLayoutDashboard,
     IconShield,
     IconUsersGroup,
-    IconUserShield
+    IconUserShield,
+    IconLanguage
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -372,6 +373,12 @@ export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => 
         titleKey: 'users',
         url: `/admin/instance/${instanceId}/users`,
         icon: IconUsersGroup
+    },
+    {
+        id: 'instance-locales',
+        titleKey: 'locales',
+        url: `/admin/instance/${instanceId}/locales`,
+        icon: IconLanguage
     }
 ]
 

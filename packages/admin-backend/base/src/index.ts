@@ -2,7 +2,7 @@
 export { adminMigrations } from './database/migrations/postgres'
 
 // Entities
-export { adminEntities, Instance, Role, RolePermission, UserRole } from './database/entities'
+export { adminEntities, Instance, Locale, Role, RolePermission, UserRole } from './database/entities'
 
 // Services
 export {
@@ -32,6 +32,8 @@ export { isAdminPanelEnabled, isGlobalAdminEnabled, getAdminConfig, type AdminCo
 export { createGlobalUsersRoutes, type GlobalUsersRoutesConfig } from './routes'
 export { createInstancesRoutes, type InstancesRoutesConfig } from './routes'
 export { createRolesRoutes, type RolesRoutesConfig } from './routes/rolesRoutes'
+export { createLocalesRoutes, type LocalesRoutesConfig } from './routes'
+export { createPublicLocalesRoutes, type PublicLocalesRoutesConfig } from './routes'
 
 // Schemas
 export {
