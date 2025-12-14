@@ -201,4 +201,4 @@ class DynamicMetadataRetriever<V extends VectorStore> extends VectorStoreRetriev
     }
 }
 
-export { ExtractMetadataRetriever_Retrievers as nodeClass };
+export { ExtractMetadataRetriever_Retrievers as nodeClass }

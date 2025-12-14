@@ -67,4 +67,4 @@ class CharacterTextSplitter_TextSplitters implements INode {
     }
 }
 
-export { CharacterTextSplitter_TextSplitters as nodeClass };
+export { CharacterTextSplitter_TextSplitters as nodeClass }

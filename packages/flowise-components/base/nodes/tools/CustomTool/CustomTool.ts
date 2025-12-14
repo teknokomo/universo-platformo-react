@@ -139,4 +139,4 @@ class CustomTool_Tools implements INode {
     }
 }
 
-export { CustomTool_Tools as nodeClass };
+export { CustomTool_Tools as nodeClass }

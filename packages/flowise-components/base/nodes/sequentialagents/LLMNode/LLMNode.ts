@@ -722,4 +722,4 @@ const getReturnOutput = async (nodeData: INodeData, input: string, options: ICom
     }
 }
 
-export { LLMNode_SeqAgents as nodeClass };
+export { LLMNode_SeqAgents as nodeClass }

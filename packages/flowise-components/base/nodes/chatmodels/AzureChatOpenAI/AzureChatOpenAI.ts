@@ -304,4 +304,4 @@ class AzureChatOpenAI_ChatModels implements INode {
     }
 }
 
-export { AzureChatOpenAI_ChatModels as nodeClass };
+export { AzureChatOpenAI_ChatModels as nodeClass }

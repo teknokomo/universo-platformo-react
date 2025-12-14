@@ -97,4 +97,4 @@ class StructuredOutputParser implements INode {
     }
 }
 
-export { StructuredOutputParser as nodeClass };
+export { StructuredOutputParser as nodeClass }

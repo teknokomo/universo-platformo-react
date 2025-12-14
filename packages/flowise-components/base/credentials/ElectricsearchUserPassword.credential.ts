@@ -33,4 +33,4 @@ class ElasticSearchUserPassword implements INodeCredential {
     }
 }
 
-export { ElasticSearchUserPassword as credClass };
+export { ElasticSearchUserPassword as credClass }

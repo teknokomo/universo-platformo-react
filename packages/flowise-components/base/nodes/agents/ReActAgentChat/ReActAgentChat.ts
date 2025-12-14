@@ -160,4 +160,4 @@ class ReActAgentChat_Agents implements INode {
     }
 }
 
-export { ReActAgentChat_Agents as nodeClass };
+export { ReActAgentChat_Agents as nodeClass }

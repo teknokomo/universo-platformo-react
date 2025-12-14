@@ -307,4 +307,4 @@ class Weaviate_VectorStores implements INode {
     }
 }
 
-export { Weaviate_VectorStores as nodeClass };
+export { Weaviate_VectorStores as nodeClass }

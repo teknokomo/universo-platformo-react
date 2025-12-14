@@ -249,4 +249,4 @@ const processInBatches = async (
     return result
 }
 
-export { AWSBedrockEmbedding_Embeddings as nodeClass };
+export { AWSBedrockEmbedding_Embeddings as nodeClass }

@@ -348,7 +348,7 @@ export class CustomChainHandler extends BaseCallbackHandler {
     skipK = 0 // Skip streaming for first K numbers of handleLLMStart
     returnSourceDocuments = false
     cachedResponse = true
-    chatId: string = ''
+    chatId = ''
     sseStreamer: IServerSideEventStreamer | undefined
 
     constructor(sseStreamer: IServerSideEventStreamer | undefined, chatId: string, skipK?: number, returnSourceDocuments?: boolean) {
@@ -694,7 +694,7 @@ export class AnalyticHandler {
     private nodeData: INodeData
     private options: ICommonObject
     private handlers: ICommonObject = {}
-    private initialized: boolean = false
+    private initialized = false
     private analyticsConfig: string | undefined
     private chatId: string
     private createdAt: number
@@ -728,7 +728,7 @@ export class AnalyticHandler {
     }
 
     // Keep this as backup for orphaned instances
-    static cleanup(maxAge: number = 3600000): void {
+    static cleanup(maxAge = 3600000): void {
         const now = Date.now()
         for (const [chatId, instance] of AnalyticHandler.instances) {
             if (now - instance.createdAt > maxAge) {

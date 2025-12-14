@@ -372,7 +372,7 @@ class ToolNode<T extends IStateWithMessages | BaseMessage[] | MessagesState> ext
         nodeData: INodeData,
         inputQuery: string,
         options: ICommonObject,
-        name: string = 'tools',
+        name = 'tools',
         tags: string[] = [],
         metadata: ICommonObject = {}
     ) {
@@ -585,4 +585,4 @@ const getReturnOutput = async (
     }
 }
 
-export { ToolNode_SeqAgents as nodeClass };
+export { ToolNode_SeqAgents as nodeClass }

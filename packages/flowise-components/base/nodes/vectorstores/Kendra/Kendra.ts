@@ -291,4 +291,4 @@ class Kendra_VectorStores implements INode {
     }
 }
 
-export { Kendra_VectorStores as nodeClass };
+export { Kendra_VectorStores as nodeClass }

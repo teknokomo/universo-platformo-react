@@ -93,7 +93,6 @@ class GoogleGenerativeAIEmbedding_Embeddings implements INode {
         }
     }
 
-    // eslint-disable-next-line unused-imports/no-unused-vars
     async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<any> {
         const modelName = nodeData.inputs?.modelName as string
         const credentialData = await getCredentialData(nodeData.credential ?? '', options)
@@ -133,4 +132,4 @@ class GoogleGenerativeAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { GoogleGenerativeAIEmbedding_Embeddings as nodeClass };
+export { GoogleGenerativeAIEmbedding_Embeddings as nodeClass }

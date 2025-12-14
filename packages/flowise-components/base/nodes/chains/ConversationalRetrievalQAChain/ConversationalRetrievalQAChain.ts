@@ -472,4 +472,4 @@ class BufferMemory extends FlowiseMemory implements MemoryMethods {
     }
 }
 
-export { ConversationalRetrievalQAChain_Chains as nodeClass };
+export { ConversationalRetrievalQAChain_Chains as nodeClass }

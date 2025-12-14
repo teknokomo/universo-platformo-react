@@ -206,4 +206,4 @@ class MongoDBAtlas_VectorStores implements INode {
     }
 }
 
-export { MongoDBAtlas_VectorStores as nodeClass };
+export { MongoDBAtlas_VectorStores as nodeClass }

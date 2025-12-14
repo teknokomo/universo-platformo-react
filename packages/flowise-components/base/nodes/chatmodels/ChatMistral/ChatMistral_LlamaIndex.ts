@@ -97,4 +97,4 @@ class ChatMistral_LlamaIndex_ChatModels implements INode {
     }
 }
 
-export { ChatMistral_LlamaIndex_ChatModels as nodeClass };
+export { ChatMistral_LlamaIndex_ChatModels as nodeClass }

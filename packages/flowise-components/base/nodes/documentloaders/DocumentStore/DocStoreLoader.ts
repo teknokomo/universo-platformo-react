@@ -102,4 +102,4 @@ class DocStore_DocumentLoaders implements INode {
     }
 }
 
-export { DocStore_DocumentLoaders as nodeClass };
+export { DocStore_DocumentLoaders as nodeClass }

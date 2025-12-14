@@ -20,4 +20,4 @@ class AgentflowApi implements INodeCredential {
     }
 }
 
-export { AgentflowApi as credClass };
+export { AgentflowApi as credClass }

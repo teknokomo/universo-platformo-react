@@ -30,4 +30,4 @@ class Phoenix_Analytic implements INode {
     }
 }
 
-export { Phoenix_Analytic as nodeClass };
+export { Phoenix_Analytic as nodeClass }

@@ -104,4 +104,4 @@ class IBMWatsonx_Embeddings implements INode {
     }
 }
 
-export { IBMWatsonx_Embeddings as nodeClass };
+export { IBMWatsonx_Embeddings as nodeClass }

@@ -143,4 +143,4 @@ class AWSSNS_Tools implements INode {
     }
 }
 
-export { AWSSNS_Tools as nodeClass };
+export { AWSSNS_Tools as nodeClass }

@@ -107,4 +107,4 @@ class GoogleVertexAI_LLMs implements INode {
     }
 }
 
-export { GoogleVertexAI_LLMs as nodeClass };
+export { GoogleVertexAI_LLMs as nodeClass }

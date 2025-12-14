@@ -111,4 +111,4 @@ class MySQLAgentMemory_Memory implements INode {
     }
 }
 
-export { MySQLAgentMemory_Memory as nodeClass };
+export { MySQLAgentMemory_Memory as nodeClass }

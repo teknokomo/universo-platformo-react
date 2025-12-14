@@ -250,4 +250,4 @@ class GoogleDocs_Tools implements INode {
     }
 }
 
-export { GoogleDocs_Tools as nodeClass };
+export { GoogleDocs_Tools as nodeClass }

@@ -32,4 +32,4 @@ class SimpleResponseBuilder_LlamaIndex implements INode {
     }
 }
 
-export { SimpleResponseBuilder_LlamaIndex as nodeClass };
+export { SimpleResponseBuilder_LlamaIndex as nodeClass }

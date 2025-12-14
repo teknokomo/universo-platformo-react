@@ -141,4 +141,4 @@ class SimpleChatEngine_LlamaIndex implements INode {
     }
 }
 
-export { SimpleChatEngine_LlamaIndex as nodeClass };
+export { SimpleChatEngine_LlamaIndex as nodeClass }

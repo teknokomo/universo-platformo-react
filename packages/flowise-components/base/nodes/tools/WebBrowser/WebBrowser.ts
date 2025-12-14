@@ -46,4 +46,4 @@ class WebBrowser_Tools implements INode {
     }
 }
 
-export { WebBrowser_Tools as nodeClass };
+export { WebBrowser_Tools as nodeClass }

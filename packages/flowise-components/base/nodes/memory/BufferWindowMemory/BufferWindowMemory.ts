@@ -163,4 +163,4 @@ class BufferWindowMemoryExtended extends FlowiseWindowMemory implements MemoryMe
     }
 }
 
-export { BufferWindowMemory_Memory as nodeClass };
+export { BufferWindowMemory_Memory as nodeClass }

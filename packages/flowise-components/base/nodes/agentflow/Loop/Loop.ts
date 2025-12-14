@@ -151,4 +151,4 @@ class Loop_Agentflow implements INode {
     }
 }
 
-export { Loop_Agentflow as nodeClass };
+export { Loop_Agentflow as nodeClass }

@@ -126,4 +126,4 @@ class JinaRerankRetriever_Retrievers implements INode {
     }
 }
 
-export { JinaRerankRetriever_Retrievers as nodeClass };
+export { JinaRerankRetriever_Retrievers as nodeClass }

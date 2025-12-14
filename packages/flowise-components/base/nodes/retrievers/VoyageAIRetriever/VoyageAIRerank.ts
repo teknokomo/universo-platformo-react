@@ -6,7 +6,7 @@ import { BaseDocumentCompressor } from 'langchain/retrievers/document_compressor
 export class VoyageAIRerank extends BaseDocumentCompressor {
     private voyageAIAPIKey: any
     private readonly VOYAGEAI_RERANK_API_URL = 'https://api.voyageai.com/v1/rerank'
-    private model: string = 'rerank-lite-1'
+    private model = 'rerank-lite-1'
     private readonly k: number
 
     constructor(voyageAIAPIKey: string, model: string, k: number) {

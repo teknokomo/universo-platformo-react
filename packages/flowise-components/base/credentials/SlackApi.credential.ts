@@ -29,4 +29,4 @@ class SlackApi implements INodeCredential {
     }
 }
 
-export { SlackApi as credClass };
+export { SlackApi as credClass }

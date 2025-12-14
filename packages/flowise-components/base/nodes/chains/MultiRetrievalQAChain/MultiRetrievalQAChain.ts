@@ -119,4 +119,4 @@ class MultiRetrievalQAChain_Chains implements INode {
     }
 }
 
-export { MultiRetrievalQAChain_Chains as nodeClass };
+export { MultiRetrievalQAChain_Chains as nodeClass }

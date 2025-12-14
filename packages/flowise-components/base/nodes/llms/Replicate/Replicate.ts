@@ -133,4 +133,4 @@ class Replicate_LLMs implements INode {
     }
 }
 
-export { Replicate_LLMs as nodeClass };
+export { Replicate_LLMs as nodeClass }

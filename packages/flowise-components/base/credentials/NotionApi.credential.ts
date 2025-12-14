@@ -23,4 +23,4 @@ class NotionApi implements INodeCredential {
     }
 }
 
-export { NotionApi as credClass };
+export { NotionApi as credClass }

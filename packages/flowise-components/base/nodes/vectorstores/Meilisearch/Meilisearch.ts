@@ -119,7 +119,7 @@ class MeilisearchRetriever_node implements INode {
             const indexUid = nodeData.inputs?.indexUid as string
             const deleteIndex = nodeData.inputs?.deleteIndex as boolean
             const embeddings = nodeData.inputs?.embeddings as Embeddings
-            let embeddingDimension: number = 384
+            let embeddingDimension = 384
             const client = new Meilisearch({
                 host: host,
                 apiKey: meilisearchAdminApiKey
@@ -146,7 +146,7 @@ class MeilisearchRetriever_node implements INode {
                     finalDocs.push(documentForIndexing)
                 }
             }
-            let taskUid_created: number = 0
+            let taskUid_created = 0
 
             if (deleteIndex) {
                 try {
@@ -269,4 +269,4 @@ class MeilisearchRetriever_node implements INode {
         return hybridsearchretriever
     }
 }
-export { MeilisearchRetriever_node as nodeClass };
+export { MeilisearchRetriever_node as nodeClass }

@@ -274,4 +274,4 @@ const prepareChain = async (nodeData: INodeData, options: ICommonObject, session
     return conversationChain
 }
 
-export { ConversationChain_Chains as nodeClass };
+export { ConversationChain_Chains as nodeClass }

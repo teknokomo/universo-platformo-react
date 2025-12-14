@@ -435,4 +435,4 @@ class MySQLRecordManager implements RecordManagerInterface {
     }
 }
 
-export { MySQLRecordManager_RecordManager as nodeClass };
+export { MySQLRecordManager_RecordManager as nodeClass }

@@ -170,4 +170,4 @@ class ChatOpenAICustom_ChatModels implements INode {
     }
 }
 
-export { ChatOpenAICustom_ChatModels as nodeClass };
+export { ChatOpenAICustom_ChatModels as nodeClass }

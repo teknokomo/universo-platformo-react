@@ -1198,4 +1198,4 @@ const formatToOpenAIAssistantTool = (tool: any): OpenAI.Beta.FunctionTool => {
     return functionTool
 }
 
-export { OpenAIAssistant_Agents as nodeClass };
+export { OpenAIAssistant_Agents as nodeClass }

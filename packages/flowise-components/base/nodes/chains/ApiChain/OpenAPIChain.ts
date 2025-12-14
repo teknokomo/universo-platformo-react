@@ -135,4 +135,4 @@ const initChain = async (nodeData: INodeData, options: ICommonObject) => {
     })
 }
 
-export { OpenApiChain_Chains as nodeClass };
+export { OpenApiChain_Chains as nodeClass }

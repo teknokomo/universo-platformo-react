@@ -660,4 +660,4 @@ class GoogleDrive_Tools implements INode {
     }
 }
 
-export { GoogleDrive_Tools as nodeClass };
+export { GoogleDrive_Tools as nodeClass }

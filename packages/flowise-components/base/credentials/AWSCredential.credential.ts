@@ -44,4 +44,4 @@ class AWSApi implements INodeCredential {
     }
 }
 
-export { AWSApi as credClass };
+export { AWSApi as credClass }

@@ -137,4 +137,4 @@ class VoyageAIRerankRetriever_Retrievers implements INode {
     }
 }
 
-export { VoyageAIRerankRetriever_Retrievers as nodeClass };
+export { VoyageAIRerankRetriever_Retrievers as nodeClass }

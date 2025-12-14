@@ -67,4 +67,4 @@ class SetVariable_Utilities implements INode {
     }
 }
 
-export { SetVariable_Utilities as nodeClass };
+export { SetVariable_Utilities as nodeClass }

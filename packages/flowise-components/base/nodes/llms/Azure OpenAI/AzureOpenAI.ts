@@ -170,4 +170,4 @@ class AzureOpenAI_LLMs implements INode {
     }
 }
 
-export { AzureOpenAI_LLMs as nodeClass };
+export { AzureOpenAI_LLMs as nodeClass }

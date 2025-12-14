@@ -63,7 +63,7 @@ abstract class BaseTeamsTool extends DynamicStructuredTool {
         this.defaultParams = args.defaultParams || {}
     }
 
-    protected async makeTeamsRequest(endpoint: string, method: string = 'GET', body?: any) {
+    protected async makeTeamsRequest(endpoint: string, method = 'GET', body?: any) {
         return await makeGraphRequest(endpoint, method as any, body, this.accessToken)
     }
 

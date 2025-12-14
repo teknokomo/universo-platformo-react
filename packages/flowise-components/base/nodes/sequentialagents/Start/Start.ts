@@ -80,4 +80,4 @@ class Start_SeqAgents implements INode {
     }
 }
 
-export { Start_SeqAgents as nodeClass };
+export { Start_SeqAgents as nodeClass }

@@ -28,4 +28,4 @@ class MilvusCredential implements INodeCredential {
     }
 }
 
-export { MilvusCredential as credClass };
+export { MilvusCredential as credClass }

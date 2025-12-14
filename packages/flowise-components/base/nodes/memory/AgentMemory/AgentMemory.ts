@@ -198,4 +198,4 @@ class AgentMemory_Memory implements INode {
     }
 }
 
-export { AgentMemory_Memory as nodeClass };
+export { AgentMemory_Memory as nodeClass }

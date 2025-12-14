@@ -39,4 +39,4 @@ class BraveSearchAPI_Tools implements INode {
     }
 }
 
-export { BraveSearchAPI_Tools as nodeClass };
+export { BraveSearchAPI_Tools as nodeClass }

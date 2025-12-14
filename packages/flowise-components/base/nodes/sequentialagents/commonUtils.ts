@@ -335,9 +335,9 @@ export class RunnableCallable<I = unknown, O = unknown> extends Runnable<I, O> {
 
     config?: RunnableConfig
 
-    trace: boolean = true
+    trace = true
 
-    recurse: boolean = true
+    recurse = true
 
     constructor(fields: RunnableCallableArgs) {
         super()

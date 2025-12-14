@@ -156,4 +156,4 @@ function replaceMetadata(template: string, metadata: Record<string, any>): strin
     })
 }
 
-export { CustomRetriever_Retrievers as nodeClass };
+export { CustomRetriever_Retrievers as nodeClass }

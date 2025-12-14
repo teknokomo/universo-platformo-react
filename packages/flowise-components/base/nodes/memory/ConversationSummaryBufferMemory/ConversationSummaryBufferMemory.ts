@@ -203,4 +203,4 @@ class ConversationSummaryBufferMemoryExtended extends FlowiseSummaryBufferMemory
     }
 }
 
-export { ConversationSummaryBufferMemory_Memory as nodeClass };
+export { ConversationSummaryBufferMemory_Memory as nodeClass }

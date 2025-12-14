@@ -25,7 +25,7 @@ class WebScraperRecursiveTool extends Tool {
     private visitedUrls: Set<string>
     private scrapedPagesCount: number
 
-    constructor(maxDepth: number = 1, maxPages: number | null = 10, timeoutMs: number = 60000, useSitemap: boolean = false) {
+    constructor(maxDepth = 1, maxPages: number | null = 10, timeoutMs = 60000, useSitemap = false) {
         super()
 
         this.maxDepth = Math.max(1, maxDepth)
@@ -431,4 +431,4 @@ class WebScraperRecursive_Tools implements INode {
     }
 }
 
-export { WebScraperRecursive_Tools as nodeClass };
+export { WebScraperRecursive_Tools as nodeClass }

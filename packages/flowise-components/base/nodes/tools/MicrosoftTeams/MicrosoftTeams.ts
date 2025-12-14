@@ -1009,4 +1009,4 @@ class MicrosoftTeams_Tools implements INode {
     }
 }
 
-export { MicrosoftTeams_Tools as nodeClass };
+export { MicrosoftTeams_Tools as nodeClass }

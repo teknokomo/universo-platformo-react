@@ -491,4 +491,4 @@ class MilvusUpsert extends Milvus {
     }
 }
 
-export { Milvus_VectorStores as nodeClass };
+export { Milvus_VectorStores as nodeClass }

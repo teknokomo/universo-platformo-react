@@ -25,4 +25,4 @@ class TeradataTD2Credential implements INodeCredential {
     }
 }
 
-export { TeradataTD2Credential as credClass };
+export { TeradataTD2Credential as credClass }

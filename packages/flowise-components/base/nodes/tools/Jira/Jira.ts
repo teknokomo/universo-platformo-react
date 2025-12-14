@@ -446,4 +446,4 @@ class Jira_Tools implements INode {
     }
 }
 
-export { Jira_Tools as nodeClass };
+export { Jira_Tools as nodeClass }

@@ -233,4 +233,4 @@ class Start_Agentflow implements INode {
     }
 }
 
-export { Start_Agentflow as nodeClass };
+export { Start_Agentflow as nodeClass }

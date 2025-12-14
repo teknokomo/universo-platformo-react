@@ -87,4 +87,4 @@ class OpenAIEmbedding_LlamaIndex_Embeddings implements INode {
     }
 }
 
-export { OpenAIEmbedding_LlamaIndex_Embeddings as nodeClass };
+export { OpenAIEmbedding_LlamaIndex_Embeddings as nodeClass }

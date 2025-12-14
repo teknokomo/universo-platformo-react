@@ -337,4 +337,4 @@ class SearxngSearch extends Tool {
     }
 }
 
-export { Searxng_Tools as nodeClass };
+export { Searxng_Tools as nodeClass }

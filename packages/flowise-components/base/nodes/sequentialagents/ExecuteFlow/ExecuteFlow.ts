@@ -318,4 +318,4 @@ class ExecuteFlow_SeqAgents implements INode {
     }
 }
 
-export { ExecuteFlow_SeqAgents as nodeClass };
+export { ExecuteFlow_SeqAgents as nodeClass }

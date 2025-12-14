@@ -297,4 +297,4 @@ const runPrediction = async (
     }
 }
 
-export { LLMChain_Chains as nodeClass };
+export { LLMChain_Chains as nodeClass }

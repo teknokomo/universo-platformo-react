@@ -108,4 +108,4 @@ class PostgreSQL_MCP implements INode {
     }
 }
 
-export { PostgreSQL_MCP as nodeClass };
+export { PostgreSQL_MCP as nodeClass }

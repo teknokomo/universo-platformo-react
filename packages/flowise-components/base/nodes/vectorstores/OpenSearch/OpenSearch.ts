@@ -154,4 +154,4 @@ const getOpenSearchClient = (url: string, user?: string, password?: string): Cli
     })
 }
 
-export { OpenSearch_VectorStores as nodeClass };
+export { OpenSearch_VectorStores as nodeClass }

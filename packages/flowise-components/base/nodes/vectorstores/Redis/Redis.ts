@@ -361,4 +361,4 @@ const similaritySearchVectorWithScore = async (
     return result
 }
 
-export { Redis_VectorStores as nodeClass };
+export { Redis_VectorStores as nodeClass }

@@ -383,4 +383,4 @@ class VectaraChain_Chains implements INode {
     }
 }
 
-export { VectaraChain_Chains as nodeClass };
+export { VectaraChain_Chains as nodeClass }

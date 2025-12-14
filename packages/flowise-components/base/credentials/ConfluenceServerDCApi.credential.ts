@@ -24,4 +24,4 @@ class ConfluenceServerDCApi implements INodeCredential {
     }
 }
 
-export { ConfluenceServerDCApi as credClass };
+export { ConfluenceServerDCApi as credClass }

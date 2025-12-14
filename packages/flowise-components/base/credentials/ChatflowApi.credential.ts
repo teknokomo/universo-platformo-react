@@ -20,4 +20,4 @@ class ChatflowApi implements INodeCredential {
     }
 }
 
-export { ChatflowApi as credClass };
+export { ChatflowApi as credClass }

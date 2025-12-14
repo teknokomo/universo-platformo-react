@@ -48,4 +48,4 @@ class CSVListOutputParser implements INode {
     }
 }
 
-export { CSVListOutputParser as nodeClass };
+export { CSVListOutputParser as nodeClass }

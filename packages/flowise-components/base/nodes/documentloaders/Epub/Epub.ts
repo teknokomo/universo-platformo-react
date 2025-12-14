@@ -200,4 +200,4 @@ class Epub_DocumentLoaders implements INode {
     }
 }
 
-export { Epub_DocumentLoaders as nodeClass };
+export { Epub_DocumentLoaders as nodeClass }

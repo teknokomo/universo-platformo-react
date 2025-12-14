@@ -20,7 +20,7 @@ class JSONPathExtractorTool extends StructuredTool {
     private readonly path: string
     private readonly returnNullOnError: boolean
 
-    constructor(path: string, returnNullOnError: boolean = false) {
+    constructor(path: string, returnNullOnError = false) {
         super()
         this.path = path
         this.returnNullOnError = returnNullOnError
@@ -122,4 +122,4 @@ class JSONPathExtractor_Tools implements INode {
     }
 }
 
-export { JSONPathExtractor_Tools as nodeClass };
+export { JSONPathExtractor_Tools as nodeClass }

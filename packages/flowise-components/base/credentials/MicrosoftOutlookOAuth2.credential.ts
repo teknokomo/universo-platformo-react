@@ -63,4 +63,4 @@ class MsoftOutlookOAuth2 implements INodeCredential {
     }
 }
 
-export { MsoftOutlookOAuth2 as credClass };
+export { MsoftOutlookOAuth2 as credClass }

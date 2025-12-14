@@ -31,4 +31,4 @@ class CouchbaseApi implements INodeCredential {
     }
 }
 
-export { CouchbaseApi as credClass };
+export { CouchbaseApi as credClass }

@@ -401,4 +401,4 @@ CREATE INDEX IF NOT EXISTS group_id_index ON "${tableName}" (group_id);`)
     }
 }
 
-export { SQLiteRecordManager_RecordManager as nodeClass };
+export { SQLiteRecordManager_RecordManager as nodeClass }

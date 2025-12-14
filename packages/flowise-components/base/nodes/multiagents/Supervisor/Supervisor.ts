@@ -749,4 +749,4 @@ class RouteTool extends StructuredTool {
     }
 }
 
-export { Supervisor_MultiAgents as nodeClass };
+export { Supervisor_MultiAgents as nodeClass }

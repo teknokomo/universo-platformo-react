@@ -1792,7 +1792,7 @@ class Agent_Agentflow implements INode {
         messages: BaseMessageLike[],
         chatId: string,
         abortController: AbortController,
-        isStructuredOutput: boolean = false
+        isStructuredOutput = false
     ): Promise<AIMessageChunk> {
         let response = new AIMessageChunk('')
 
@@ -1864,10 +1864,10 @@ class Agent_Agentflow implements INode {
         usedTools: IUsedTool[],
         sourceDocuments: Array<any>,
         artifacts: any[],
-        additionalTokens: number = 0,
-        isWaitingForHumanInput: boolean = false,
+        additionalTokens = 0,
+        isWaitingForHumanInput = false,
         fileAnnotations: any[] = [],
-        isStructuredOutput: boolean = false
+        isStructuredOutput = false
     ): any {
         const output: any = {
             content: finalResponse,
@@ -2635,4 +2635,4 @@ class Agent_Agentflow implements INode {
     }
 }
 
-export { Agent_Agentflow as nodeClass };
+export { Agent_Agentflow as nodeClass }

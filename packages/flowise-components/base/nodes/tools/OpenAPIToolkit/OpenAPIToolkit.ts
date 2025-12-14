@@ -563,4 +563,4 @@ const getTools = (
     return tools
 }
 
-export { OpenAPIToolkit_Tools as nodeClass };
+export { OpenAPIToolkit_Tools as nodeClass }

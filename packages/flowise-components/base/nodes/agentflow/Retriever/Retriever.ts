@@ -218,4 +218,4 @@ class Retriever_Agentflow implements INode {
     }
 }
 
-export { Retriever_Agentflow as nodeClass };
+export { Retriever_Agentflow as nodeClass }

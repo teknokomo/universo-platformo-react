@@ -88,4 +88,4 @@ class TokenTextSplitter_TextSplitters implements INode {
     }
 }
 
-export { TokenTextSplitter_TextSplitters as nodeClass };
+export { TokenTextSplitter_TextSplitters as nodeClass }

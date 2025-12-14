@@ -271,4 +271,4 @@ class Pinecone_VectorStores implements INode {
     }
 }
 
-export { Pinecone_VectorStores as nodeClass };
+export { Pinecone_VectorStores as nodeClass }

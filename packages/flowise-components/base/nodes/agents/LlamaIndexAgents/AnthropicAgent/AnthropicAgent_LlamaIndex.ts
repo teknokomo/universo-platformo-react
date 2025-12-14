@@ -142,4 +142,4 @@ class AnthropicAgent_LlamaIndex_Agents implements INode {
     }
 }
 
-export { AnthropicAgent_LlamaIndex_Agents as nodeClass };
+export { AnthropicAgent_LlamaIndex_Agents as nodeClass }

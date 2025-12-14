@@ -121,4 +121,4 @@ class ChatXAI_ChatModels implements INode {
     }
 }
 
-export { ChatXAI_ChatModels as nodeClass };
+export { ChatXAI_ChatModels as nodeClass }

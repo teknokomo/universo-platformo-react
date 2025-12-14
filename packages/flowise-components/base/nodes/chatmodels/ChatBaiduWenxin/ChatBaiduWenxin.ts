@@ -85,4 +85,4 @@ class ChatBaiduWenxin_ChatModels implements INode {
     }
 }
 
-export { ChatBaiduWenxin_ChatModels as nodeClass };
+export { ChatBaiduWenxin_ChatModels as nodeClass }

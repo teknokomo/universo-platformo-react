@@ -202,4 +202,4 @@ class ZepMemoryExtended extends ZepMemory implements MemoryMethods {
     }
 }
 
-export { ZepMemory_Memory as nodeClass };
+export { ZepMemory_Memory as nodeClass }

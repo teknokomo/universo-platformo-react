@@ -128,4 +128,4 @@ class InMemoryEmbeddingCacheExtended<T = any> extends BaseStore<string, T> {
     }
 }
 
-export { InMemoryEmbeddingCache as nodeClass };
+export { InMemoryEmbeddingCache as nodeClass }

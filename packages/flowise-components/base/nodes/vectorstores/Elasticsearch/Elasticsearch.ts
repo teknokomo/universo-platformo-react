@@ -338,4 +338,4 @@ const prepareClientArgs = (
     }
 }
 
-export { Elasticsearch_VectorStores as nodeClass };
+export { Elasticsearch_VectorStores as nodeClass }

@@ -95,4 +95,4 @@ class MistralEmbedding_Embeddings implements INode {
     }
 }
 
-export { MistralEmbedding_Embeddings as nodeClass };
+export { MistralEmbedding_Embeddings as nodeClass }

@@ -310,4 +310,4 @@ const constructScratchPad = async (steps: AgentStep[]): Promise<BaseMessage[]> =
     return thoughts
 }
 
-export { ConversationalAgent_Agents as nodeClass };
+export { ConversationalAgent_Agents as nodeClass }

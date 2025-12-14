@@ -91,4 +91,4 @@ class ChatCohere_ChatModels implements INode {
     }
 }
 
-export { ChatCohere_ChatModels as nodeClass };
+export { ChatCohere_ChatModels as nodeClass }

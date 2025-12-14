@@ -379,7 +379,7 @@ export function convertMessageContentToParts(message: BaseMessage, isMultimodalM
 export function convertBaseMessagesToContent(
     messages: BaseMessage[],
     isMultimodalModel: boolean,
-    convertSystemMessageToHumanContent: boolean = false
+    convertSystemMessageToHumanContent = false
 ) {
     return messages.reduce<{
         content: Content[]

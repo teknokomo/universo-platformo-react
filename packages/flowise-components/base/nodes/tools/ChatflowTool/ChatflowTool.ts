@@ -389,4 +389,4 @@ try {
     }
 }
 
-export { ChatflowTool_Tools as nodeClass };
+export { ChatflowTool_Tools as nodeClass }

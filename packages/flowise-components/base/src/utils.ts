@@ -1790,7 +1790,7 @@ export const parseJsonBody = (body: string): any => {
  * @returns The parsed value
  * @throws Error if parsing fails after attempting type conversions
  */
-export async function parseWithTypeConversion<T extends z.ZodTypeAny>(schema: T, arg: unknown, maxDepth: number = 10): Promise<z.infer<T>> {
+export async function parseWithTypeConversion<T extends z.ZodTypeAny>(schema: T, arg: unknown, maxDepth = 10): Promise<z.infer<T>> {
     // Safety check: prevent infinite recursion
     if (maxDepth <= 0) {
         throw new Error('Maximum recursion depth reached in parseWithTypeConversion')

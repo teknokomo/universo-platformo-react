@@ -377,4 +377,4 @@ class HTTP_Agentflow implements INode {
     }
 }
 
-export { HTTP_Agentflow as nodeClass };
+export { HTTP_Agentflow as nodeClass }

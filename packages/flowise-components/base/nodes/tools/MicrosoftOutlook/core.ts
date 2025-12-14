@@ -133,14 +133,14 @@ const ForwardMessageSchema = z.object({
 })
 
 class BaseOutlookTool extends DynamicStructuredTool {
-    protected accessToken: string = ''
+    protected accessToken = ''
 
     constructor(args: any) {
         super(args)
         this.accessToken = args.accessToken ?? ''
     }
 
-    async makeGraphRequest(url: string, method: string = 'GET', body?: any, params?: any): Promise<string> {
+    async makeGraphRequest(url: string, method = 'GET', body?: any, params?: any): Promise<string> {
         const headers = {
             Authorization: `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',

@@ -218,4 +218,4 @@ class ChatOllama_LlamaIndex_ChatModels implements INode {
     }
 }
 
-export { ChatOllama_LlamaIndex_ChatModels as nodeClass };
+export { ChatOllama_LlamaIndex_ChatModels as nodeClass }

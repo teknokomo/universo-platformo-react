@@ -191,4 +191,4 @@ class TavilyAPI_Tools implements INode {
     }
 }
 
-export { TavilyAPI_Tools as nodeClass };
+export { TavilyAPI_Tools as nodeClass }

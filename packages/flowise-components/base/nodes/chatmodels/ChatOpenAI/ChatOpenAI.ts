@@ -342,4 +342,4 @@ class ChatOpenAI_ChatModels implements INode {
     }
 }
 
-export { ChatOpenAI_ChatModels as nodeClass };
+export { ChatOpenAI_ChatModels as nodeClass }

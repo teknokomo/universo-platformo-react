@@ -111,4 +111,4 @@ class Github_MCP implements INode {
     }
 }
 
-export { Github_MCP as nodeClass };
+export { Github_MCP as nodeClass }

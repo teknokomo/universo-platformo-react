@@ -255,4 +255,4 @@ class GraphCypherQA_Chain implements INode {
     }
 }
 
-export { GraphCypherQA_Chain as nodeClass };
+export { GraphCypherQA_Chain as nodeClass }

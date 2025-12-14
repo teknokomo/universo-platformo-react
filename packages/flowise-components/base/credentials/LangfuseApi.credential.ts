@@ -36,4 +36,4 @@ class LangfuseApi implements INodeCredential {
     }
 }
 
-export { LangfuseApi as credClass };
+export { LangfuseApi as credClass }

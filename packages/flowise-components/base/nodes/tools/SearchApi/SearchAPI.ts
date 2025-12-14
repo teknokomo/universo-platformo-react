@@ -39,4 +39,4 @@ class SearchAPI_Tools implements INode {
     }
 }
 
-export { SearchAPI_Tools as nodeClass };
+export { SearchAPI_Tools as nodeClass }

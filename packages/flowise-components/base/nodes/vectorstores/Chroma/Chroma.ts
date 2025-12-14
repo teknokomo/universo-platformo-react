@@ -259,4 +259,4 @@ const _buildChromaConfig = (
     return obj
 }
 
-export { Chroma_VectorStores as nodeClass };
+export { Chroma_VectorStores as nodeClass }

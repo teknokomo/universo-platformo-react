@@ -388,4 +388,4 @@ class Mem0MemoryExtended extends BaseMem0Memory implements MemoryMethods {
     }
 }
 
-export { Mem0_Memory as nodeClass };
+export { Mem0_Memory as nodeClass }

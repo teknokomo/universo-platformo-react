@@ -20,4 +20,4 @@ class LocalAIApi implements INodeCredential {
     }
 }
 
-export { LocalAIApi as credClass };
+export { LocalAIApi as credClass }

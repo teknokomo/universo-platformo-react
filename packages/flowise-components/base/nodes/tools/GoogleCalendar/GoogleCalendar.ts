@@ -634,4 +634,4 @@ class GoogleCalendar_Tools implements INode {
     }
 }
 
-export { GoogleCalendar_Tools as nodeClass };
+export { GoogleCalendar_Tools as nodeClass }

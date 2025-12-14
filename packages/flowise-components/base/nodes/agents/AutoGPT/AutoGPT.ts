@@ -223,4 +223,4 @@ const rephraseString = async (sentence: string, model: BaseChatModel) => {
     return res?.text
 }
 
-export { AutoGPT_Agents as nodeClass };
+export { AutoGPT_Agents as nodeClass }

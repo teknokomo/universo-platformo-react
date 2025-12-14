@@ -152,4 +152,4 @@ class RequestsPost_Tools implements INode {
     }
 }
 
-export { RequestsPost_Tools as nodeClass };
+export { RequestsPost_Tools as nodeClass }

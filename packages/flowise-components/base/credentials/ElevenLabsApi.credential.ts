@@ -23,4 +23,4 @@ class ElevenLabsApi implements INodeCredential {
     }
 }
 
-export { ElevenLabsApi as credClass };
+export { ElevenLabsApi as credClass }

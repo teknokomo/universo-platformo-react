@@ -105,7 +105,7 @@ class Json_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, separated by comma. Use * to omit all metadata keys except the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
@@ -324,7 +324,7 @@ class JSONLoader extends TextLoader {
         filePathOrBlob: string | Blob,
         pointers: string | string[] = [],
         metadataMapping: Record<string, string> = {},
-        separateByObject: boolean = false
+        separateByObject = false
     ) {
         super(filePathOrBlob)
         this.pointers = Array.isArray(pointers) ? pointers : [pointers]
@@ -402,7 +402,7 @@ class JSONLoader extends TextLoader {
     /**
      * Formats a JSON object as readable key-value pairs
      */
-    private formatObjectAsKeyValue(obj: any, prefix: string = ''): string {
+    private formatObjectAsKeyValue(obj: any, prefix = ''): string {
         const lines: string[] = []
 
         for (const [key, value] of Object.entries(obj)) {
@@ -492,4 +492,4 @@ class JSONLoader extends TextLoader {
     }
 }
 
-export { Json_DocumentLoaders as nodeClass };
+export { Json_DocumentLoaders as nodeClass }

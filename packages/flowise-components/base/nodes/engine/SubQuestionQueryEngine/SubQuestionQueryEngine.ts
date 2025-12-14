@@ -207,4 +207,4 @@ const prepareEngine = (nodeData: INodeData) => {
     return queryEngine
 }
 
-export { SubQuestionQueryEngine_LlamaIndex as nodeClass };
+export { SubQuestionQueryEngine_LlamaIndex as nodeClass }

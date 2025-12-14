@@ -138,4 +138,4 @@ class RequestsGet_Tools implements INode {
     }
 }
 
-export { RequestsGet_Tools as nodeClass };
+export { RequestsGet_Tools as nodeClass }

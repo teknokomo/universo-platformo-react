@@ -285,4 +285,4 @@ const prepareAgent = async (
     return executor
 }
 
-export { XMLAgent_Agents as nodeClass };
+export { XMLAgent_Agents as nodeClass }

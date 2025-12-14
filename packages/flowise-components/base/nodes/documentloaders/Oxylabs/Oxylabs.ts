@@ -333,4 +333,4 @@ class Oxylabs_DocumentLoaders implements INode {
     }
 }
 
-export { Oxylabs_DocumentLoaders as nodeClass };
+export { Oxylabs_DocumentLoaders as nodeClass }

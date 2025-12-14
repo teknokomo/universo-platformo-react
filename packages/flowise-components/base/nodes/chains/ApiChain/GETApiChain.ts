@@ -137,4 +137,4 @@ const getAPIChain = async (documents: string, llm: BaseLanguageModel, headers: s
     return chain
 }
 
-export { GETApiChain_Chains as nodeClass };
+export { GETApiChain_Chains as nodeClass }

@@ -89,4 +89,4 @@ class BabyAGI_Agents implements INode {
     }
 }
 
-export { BabyAGI_Agents as nodeClass };
+export { BabyAGI_Agents as nodeClass }

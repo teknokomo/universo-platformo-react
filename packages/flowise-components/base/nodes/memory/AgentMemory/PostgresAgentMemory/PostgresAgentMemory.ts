@@ -110,4 +110,4 @@ class PostgresAgentMemory_Memory implements INode {
     }
 }
 
-export { PostgresAgentMemory_Memory as nodeClass };
+export { PostgresAgentMemory_Memory as nodeClass }

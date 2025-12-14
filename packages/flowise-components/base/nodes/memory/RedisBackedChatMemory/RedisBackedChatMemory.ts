@@ -207,4 +207,4 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     }
 }
 
-export { RedisBackedChatMemory_Memory as nodeClass };
+export { RedisBackedChatMemory_Memory as nodeClass }

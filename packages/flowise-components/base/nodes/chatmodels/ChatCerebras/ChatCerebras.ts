@@ -171,4 +171,4 @@ class ChatCerebras_ChatModels implements INode {
     }
 }
 
-export { ChatCerebras_ChatModels as nodeClass };
+export { ChatCerebras_ChatModels as nodeClass }

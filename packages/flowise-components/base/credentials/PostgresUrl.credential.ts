@@ -22,4 +22,4 @@ class PostgresUrl implements INodeCredential {
     }
 }
 
-export { PostgresUrl as credClass };
+export { PostgresUrl as credClass }

@@ -216,4 +216,4 @@ class ChatOpenRouter_ChatModels implements INode {
     }
 }
 
-export { ChatOpenRouter_ChatModels as nodeClass };
+export { ChatOpenRouter_ChatModels as nodeClass }

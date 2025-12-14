@@ -152,4 +152,4 @@ class RequestsPut_Tools implements INode {
     }
 }
 
-export { RequestsPut_Tools as nodeClass };
+export { RequestsPut_Tools as nodeClass }

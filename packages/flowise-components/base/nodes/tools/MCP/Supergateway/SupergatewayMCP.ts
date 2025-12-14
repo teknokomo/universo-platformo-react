@@ -123,4 +123,4 @@ class Supergateway_MCP implements INode {
     }
 }
 
-export { Supergateway_MCP as nodeClass };
+export { Supergateway_MCP as nodeClass }

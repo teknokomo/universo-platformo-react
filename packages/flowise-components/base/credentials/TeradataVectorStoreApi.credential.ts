@@ -44,4 +44,4 @@ class TeradataVectorStoreApiCredentials implements INodeCredential {
     }
 }
 
-export { TeradataVectorStoreApiCredentials as credClass };
+export { TeradataVectorStoreApiCredentials as credClass }

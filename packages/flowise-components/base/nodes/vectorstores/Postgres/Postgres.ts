@@ -367,4 +367,4 @@ class Postgres_VectorStores implements INode {
     }
 }
 
-export { Postgres_VectorStores as nodeClass };
+export { Postgres_VectorStores as nodeClass }

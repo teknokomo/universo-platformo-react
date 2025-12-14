@@ -301,4 +301,4 @@ const getFileName = (fileBase64: string) => {
     }
 }
 
-export { Vectara_VectorStores as nodeClass };
+export { Vectara_VectorStores as nodeClass }

@@ -234,4 +234,4 @@ class ChatPerplexity_ChatModels implements INode {
     }
 }
 
-export { ChatPerplexity_ChatModels as nodeClass };
+export { ChatPerplexity_ChatModels as nodeClass }

@@ -20,4 +20,4 @@ class CometApi implements INodeCredential {
     }
 }
 
-export { CometApi as credClass };
+export { CometApi as credClass }

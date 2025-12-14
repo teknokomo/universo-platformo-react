@@ -20,4 +20,4 @@ class HTTPBearerTokenCredential implements INodeCredential {
     }
 }
 
-export { HTTPBearerTokenCredential as credClass };
+export { HTTPBearerTokenCredential as credClass }

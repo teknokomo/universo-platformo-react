@@ -61,7 +61,7 @@ class DynamoDBStoreTool extends StructuredTool {
     private readonly tableName: string
     private readonly keyPrefix: string
 
-    constructor(dynamoClient: DynamoDBClient, tableName: string, keyPrefix: string = '') {
+    constructor(dynamoClient: DynamoDBClient, tableName: string, keyPrefix = '') {
         super()
         this.dynamoClient = dynamoClient
         this.tableName = tableName
@@ -116,7 +116,7 @@ class DynamoDBRetrieveTool extends StructuredTool {
     private readonly tableName: string
     private readonly keyPrefix: string
 
-    constructor(dynamoClient: DynamoDBClient, tableName: string, keyPrefix: string = '') {
+    constructor(dynamoClient: DynamoDBClient, tableName: string, keyPrefix = '') {
         super()
         this.dynamoClient = dynamoClient
         this.tableName = tableName
@@ -372,4 +372,4 @@ class AWSDynamoDBKVStorage_Tools implements INode {
     }
 }
 
-export { AWSDynamoDBKVStorage_Tools as nodeClass };
+export { AWSDynamoDBKVStorage_Tools as nodeClass }

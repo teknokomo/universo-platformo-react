@@ -21,4 +21,4 @@ class BraveSearchApi implements INodeCredential {
     }
 }
 
-export { BraveSearchApi as credClass };
+export { BraveSearchApi as credClass }

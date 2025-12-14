@@ -22,4 +22,4 @@ class TavilyApi implements INodeCredential {
     }
 }
 
-export { TavilyApi as credClass };
+export { TavilyApi as credClass }

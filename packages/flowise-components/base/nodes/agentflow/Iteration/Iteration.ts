@@ -72,4 +72,4 @@ class Iteration_Agentflow implements INode {
     }
 }
 
-export { Iteration_Agentflow as nodeClass };
+export { Iteration_Agentflow as nodeClass }

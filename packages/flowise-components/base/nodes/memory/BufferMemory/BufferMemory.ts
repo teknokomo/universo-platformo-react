@@ -147,4 +147,4 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     }
 }
 
-export { BufferMemory_Memory as nodeClass };
+export { BufferMemory_Memory as nodeClass }

@@ -170,4 +170,4 @@ class ChatNvdiaNIM_ChatModels implements INode {
     }
 }
 
-export { ChatNvdiaNIM_ChatModels as nodeClass };
+export { ChatNvdiaNIM_ChatModels as nodeClass }

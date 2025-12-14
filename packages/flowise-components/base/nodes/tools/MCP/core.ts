@@ -116,9 +116,7 @@ export class MCPToolkit extends BaseToolkit {
         if (errors.length !== 0) {
             console.error('MCP Tools failed to be resolved', errors)
         }
-        const successes = res
-            .filter((r): r is PromiseFulfilledResult<Tool<any>> => r.status === 'fulfilled')
-            .map((r) => r.value)
+        const successes = res.filter((r): r is PromiseFulfilledResult<Tool<any>> => r.status === 'fulfilled').map((r) => r.value)
         return successes
     }
 }

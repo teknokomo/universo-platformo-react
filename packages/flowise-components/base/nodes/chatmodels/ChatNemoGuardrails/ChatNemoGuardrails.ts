@@ -118,4 +118,4 @@ class ChatNemoGuardrailsChatModel implements INode {
     }
 }
 
-export { ChatNemoGuardrailsChatModel as nodeClass };
+export { ChatNemoGuardrailsChatModel as nodeClass }

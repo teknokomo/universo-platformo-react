@@ -258,4 +258,4 @@ const getSQLDBChain = async (
     return chain
 }
 
-export { SqlDatabaseChain_Chains as nodeClass };
+export { SqlDatabaseChain_Chains as nodeClass }

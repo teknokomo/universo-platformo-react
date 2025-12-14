@@ -220,4 +220,4 @@ class Retriever_Tools implements INode {
     }
 }
 
-export { Retriever_Tools as nodeClass };
+export { Retriever_Tools as nodeClass }

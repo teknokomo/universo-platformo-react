@@ -88,7 +88,7 @@ const CreateTableSchema = z.object({
 })
 
 class BaseGoogleDocsTool extends DynamicStructuredTool {
-    protected accessToken: string = ''
+    protected accessToken = ''
 
     constructor(args: any) {
         super(args)

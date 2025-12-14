@@ -68,4 +68,4 @@ class Sambanova_LLMs implements INode {
     }
 }
 
-export { Sambanova_LLMs as nodeClass };
+export { Sambanova_LLMs as nodeClass }

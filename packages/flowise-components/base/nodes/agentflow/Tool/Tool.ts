@@ -353,4 +353,4 @@ class Tool_Agentflow implements INode {
     }
 }
 
-export { Tool_Agentflow as nodeClass };
+export { Tool_Agentflow as nodeClass }

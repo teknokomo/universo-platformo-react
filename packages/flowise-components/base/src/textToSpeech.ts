@@ -126,8 +126,8 @@ const processStreamWithRateLimit = async (
     onEnd: () => void,
     resolve: () => void,
     reject: (error: any) => void,
-    targetChunkSize: number = 640,
-    rateLimitMs: number = 20,
+    targetChunkSize = 640,
+    rateLimitMs = 20,
     abortController: AbortController,
     onStreamDestroy?: () => void
 ) => {

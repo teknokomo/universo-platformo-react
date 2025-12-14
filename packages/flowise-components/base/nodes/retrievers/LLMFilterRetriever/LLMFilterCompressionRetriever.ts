@@ -98,4 +98,4 @@ class LLMFilterCompressionRetriever_Retrievers implements INode {
     }
 }
 
-export { LLMFilterCompressionRetriever_Retrievers as nodeClass };
+export { LLMFilterCompressionRetriever_Retrievers as nodeClass }

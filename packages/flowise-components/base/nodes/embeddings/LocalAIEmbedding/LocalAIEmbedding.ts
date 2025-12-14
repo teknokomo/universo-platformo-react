@@ -68,4 +68,4 @@ class LocalAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { LocalAIEmbedding_Embeddings as nodeClass };
+export { LocalAIEmbedding_Embeddings as nodeClass }

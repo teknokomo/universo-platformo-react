@@ -117,7 +117,7 @@ const BatchClearValuesSchema = z.object({
 })
 
 class BaseGoogleSheetsTool extends DynamicStructuredTool {
-    protected accessToken: string = ''
+    protected accessToken = ''
 
     constructor(args: any) {
         super(args)

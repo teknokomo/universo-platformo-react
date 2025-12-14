@@ -72,4 +72,4 @@ class HtmlToMarkdownTextSplitter extends MarkdownTextSplitter implements Markdow
         })
     }
 }
-export { HtmlToMarkdownTextSplitter_TextSplitters as nodeClass };
+export { HtmlToMarkdownTextSplitter_TextSplitters as nodeClass }

@@ -110,4 +110,4 @@ class GoogleVertexAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { GoogleVertexAIEmbedding_Embeddings as nodeClass };
+export { GoogleVertexAIEmbedding_Embeddings as nodeClass }

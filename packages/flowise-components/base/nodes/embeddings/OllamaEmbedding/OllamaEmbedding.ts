@@ -95,4 +95,4 @@ class OllamaEmbedding_Embeddings implements INode {
     }
 }
 
-export { OllamaEmbedding_Embeddings as nodeClass };
+export { OllamaEmbedding_Embeddings as nodeClass }

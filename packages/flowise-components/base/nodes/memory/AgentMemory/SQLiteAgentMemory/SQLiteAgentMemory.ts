@@ -86,4 +86,4 @@ class SQLiteAgentMemory_Memory implements INode {
     }
 }
 
-export { SQLiteAgentMemory_Memory as nodeClass };
+export { SQLiteAgentMemory_Memory as nodeClass }

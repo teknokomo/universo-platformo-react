@@ -53,4 +53,4 @@ class OpenAIModeration implements INode {
     }
 }
 
-export { OpenAIModeration as nodeClass };
+export { OpenAIModeration as nodeClass }

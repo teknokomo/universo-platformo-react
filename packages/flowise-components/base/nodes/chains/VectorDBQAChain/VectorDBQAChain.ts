@@ -100,4 +100,4 @@ class VectorDBQAChain_Chains implements INode {
     }
 }
 
-export { VectorDBQAChain_Chains as nodeClass };
+export { VectorDBQAChain_Chains as nodeClass }

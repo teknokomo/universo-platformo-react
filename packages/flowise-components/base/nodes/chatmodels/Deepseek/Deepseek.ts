@@ -193,4 +193,4 @@ class Deepseek_ChatModels implements INode {
     }
 }
 
-export { Deepseek_ChatModels as nodeClass };
+export { Deepseek_ChatModels as nodeClass }

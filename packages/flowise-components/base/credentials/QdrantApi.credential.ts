@@ -21,4 +21,4 @@ class QdrantApi implements INodeCredential {
     }
 }
 
-export { QdrantApi as credClass };
+export { QdrantApi as credClass }

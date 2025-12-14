@@ -138,4 +138,4 @@ class RequestsDelete_Tools implements INode {
     }
 }
 
-export { RequestsDelete_Tools as nodeClass };
+export { RequestsDelete_Tools as nodeClass }

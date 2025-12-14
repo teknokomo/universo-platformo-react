@@ -39,4 +39,4 @@ class Serper_Tools implements INode {
     }
 }
 
-export { Serper_Tools as nodeClass };
+export { Serper_Tools as nodeClass }

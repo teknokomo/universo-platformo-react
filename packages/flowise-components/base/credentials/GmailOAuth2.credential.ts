@@ -60,4 +60,4 @@ class GmailOAuth2 implements INodeCredential {
     }
 }
 
-export { GmailOAuth2 as credClass };
+export { GmailOAuth2 as credClass }

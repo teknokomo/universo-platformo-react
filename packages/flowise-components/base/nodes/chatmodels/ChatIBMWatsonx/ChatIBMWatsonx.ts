@@ -181,4 +181,4 @@ class ChatIBMWatsonx_ChatModels implements INode {
     }
 }
 
-export { ChatIBMWatsonx_ChatModels as nodeClass };
+export { ChatIBMWatsonx_ChatModels as nodeClass }

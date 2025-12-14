@@ -27,4 +27,4 @@ class OxylabsApiCredential implements INodeCredential {
     }
 }
 
-export { OxylabsApiCredential as credClass };
+export { OxylabsApiCredential as credClass }

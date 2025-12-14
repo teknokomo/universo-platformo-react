@@ -20,4 +20,4 @@ class TogetherAIApi implements INodeCredential {
     }
 }
 
-export { TogetherAIApi as credClass };
+export { TogetherAIApi as credClass }

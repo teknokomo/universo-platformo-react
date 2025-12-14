@@ -21,4 +21,4 @@ class WeaviateApi implements INodeCredential {
     }
 }
 
-export { WeaviateApi as credClass };
+export { WeaviateApi as credClass }

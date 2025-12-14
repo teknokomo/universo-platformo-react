@@ -21,4 +21,4 @@ class SupabaseApi implements INodeCredential {
     }
 }
 
-export { SupabaseApi as credClass };
+export { SupabaseApi as credClass }

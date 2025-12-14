@@ -64,4 +64,4 @@ class DirectReply_Agentflow implements INode {
     }
 }
 
-export { DirectReply_Agentflow as nodeClass };
+export { DirectReply_Agentflow as nodeClass }

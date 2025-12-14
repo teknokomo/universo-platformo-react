@@ -1,6 +1,6 @@
 # S3 File Loader
 
-DS File Loarder integration for Flowise
+DS File Loader integration for Flowise
 
 ## 🌱 Env Variables
 

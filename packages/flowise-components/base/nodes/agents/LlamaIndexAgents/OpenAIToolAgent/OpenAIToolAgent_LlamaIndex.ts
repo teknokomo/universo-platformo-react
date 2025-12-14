@@ -182,4 +182,4 @@ class OpenAIFunctionAgent_LlamaIndex_Agents implements INode {
     }
 }
 
-export { OpenAIFunctionAgent_LlamaIndex_Agents as nodeClass };
+export { OpenAIFunctionAgent_LlamaIndex_Agents as nodeClass }

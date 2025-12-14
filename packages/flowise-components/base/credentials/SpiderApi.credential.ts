@@ -22,4 +22,4 @@ class SpiderApiCredential implements INodeCredential {
     }
 }
 
-export { SpiderApiCredential as credClass };
+export { SpiderApiCredential as credClass }

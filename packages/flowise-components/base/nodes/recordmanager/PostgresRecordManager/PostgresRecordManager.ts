@@ -445,4 +445,4 @@ class PostgresRecordManager implements RecordManagerInterface {
     }
 }
 
-export { PostgresRecordManager_RecordManager as nodeClass };
+export { PostgresRecordManager_RecordManager as nodeClass }

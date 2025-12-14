@@ -516,4 +516,4 @@ class Qdrant_VectorStores implements INode {
     }
 }
 
-export { Qdrant_VectorStores as nodeClass };
+export { Qdrant_VectorStores as nodeClass }

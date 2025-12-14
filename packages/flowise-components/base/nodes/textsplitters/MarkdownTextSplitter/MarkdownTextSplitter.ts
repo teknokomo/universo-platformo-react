@@ -171,4 +171,4 @@ class MarkdownTextSplitter_TextSplitters implements INode {
     }
 }
 
-export { MarkdownTextSplitter_TextSplitters as nodeClass };
+export { MarkdownTextSplitter_TextSplitters as nodeClass }

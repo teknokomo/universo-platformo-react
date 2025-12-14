@@ -25,4 +25,4 @@ class HttpBasicAuthCredential implements INodeCredential {
     }
 }
 
-export { HttpBasicAuthCredential as credClass };
+export { HttpBasicAuthCredential as credClass }

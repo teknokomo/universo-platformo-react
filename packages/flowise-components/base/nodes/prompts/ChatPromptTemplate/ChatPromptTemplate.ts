@@ -163,4 +163,4 @@ class ChatPromptTemplate_Prompts implements INode {
     }
 }
 
-export { ChatPromptTemplate_Prompts as nodeClass };
+export { ChatPromptTemplate_Prompts as nodeClass }

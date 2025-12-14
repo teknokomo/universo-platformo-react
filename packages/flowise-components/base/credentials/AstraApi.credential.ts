@@ -26,4 +26,4 @@ class AstraDBApi implements INodeCredential {
     }
 }
 
-export { AstraDBApi as credClass };
+export { AstraDBApi as credClass }

@@ -111,4 +111,4 @@ class MultiPromptChain_Chains implements INode {
     }
 }
 
-export { MultiPromptChain_Chains as nodeClass };
+export { MultiPromptChain_Chains as nodeClass }

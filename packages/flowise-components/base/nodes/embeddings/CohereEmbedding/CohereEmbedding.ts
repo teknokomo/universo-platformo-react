@@ -98,4 +98,4 @@ class CohereEmbedding_Embeddings implements INode {
     }
 }
 
-export { CohereEmbedding_Embeddings as nodeClass };
+export { CohereEmbedding_Embeddings as nodeClass }

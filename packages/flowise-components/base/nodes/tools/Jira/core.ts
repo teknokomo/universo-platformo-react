@@ -132,9 +132,9 @@ const DeleteUserSchema = z.object({
 })
 
 class BaseJiraTool extends DynamicStructuredTool {
-    protected username: string = ''
-    protected accessToken: string = ''
-    protected jiraHost: string = ''
+    protected username = ''
+    protected accessToken = ''
+    protected jiraHost = ''
 
     constructor(args: any) {
         super(args)

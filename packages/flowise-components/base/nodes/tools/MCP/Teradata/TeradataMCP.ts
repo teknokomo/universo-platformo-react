@@ -144,4 +144,4 @@ class Teradata_MCP implements INode {
     }
 }
 
-export { Teradata_MCP as nodeClass };
+export { Teradata_MCP as nodeClass }

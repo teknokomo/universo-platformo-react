@@ -236,4 +236,4 @@ class Upstash_VectorStores implements INode {
     }
 }
 
-export { Upstash_VectorStores as nodeClass };
+export { Upstash_VectorStores as nodeClass }

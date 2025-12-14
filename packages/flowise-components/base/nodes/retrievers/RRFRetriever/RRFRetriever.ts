@@ -134,4 +134,4 @@ class RRFRetriever_Retrievers implements INode {
     }
 }
 
-export { RRFRetriever_Retrievers as nodeClass };
+export { RRFRetriever_Retrievers as nodeClass }

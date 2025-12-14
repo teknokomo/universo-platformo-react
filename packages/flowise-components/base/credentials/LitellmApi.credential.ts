@@ -20,4 +20,4 @@ class LitellmApi implements INodeCredential {
     }
 }
 
-export { LitellmApi as credClass };
+export { LitellmApi as credClass }

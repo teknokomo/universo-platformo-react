@@ -31,4 +31,4 @@ class VectaraAPI implements INodeCredential {
     }
 }
 
-export { VectaraAPI as credClass };
+export { VectaraAPI as credClass }

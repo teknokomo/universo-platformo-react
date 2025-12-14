@@ -55,4 +55,4 @@ class GoogleCalendarOAuth2 implements INodeCredential {
     }
 }
 
-export { GoogleCalendarOAuth2 as credClass };
+export { GoogleCalendarOAuth2 as credClass }

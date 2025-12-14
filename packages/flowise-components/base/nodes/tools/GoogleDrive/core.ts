@@ -116,7 +116,7 @@ const ShareFileSchema = z.object({
 })
 
 class BaseGoogleDriveTool extends DynamicStructuredTool {
-    protected accessToken: string = ''
+    protected accessToken = ''
 
     constructor(args: any) {
         super(args)

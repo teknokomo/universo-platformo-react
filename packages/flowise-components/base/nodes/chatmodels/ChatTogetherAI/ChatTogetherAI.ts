@@ -84,4 +84,4 @@ class ChatTogetherAI_ChatModels implements INode {
     }
 }
 
-export { ChatTogetherAI_ChatModels as nodeClass };
+export { ChatTogetherAI_ChatModels as nodeClass }

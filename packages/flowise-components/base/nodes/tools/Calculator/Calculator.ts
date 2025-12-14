@@ -28,4 +28,4 @@ class Calculator_Tools implements INode {
     }
 }
 
-export { Calculator_Tools as nodeClass };
+export { Calculator_Tools as nodeClass }

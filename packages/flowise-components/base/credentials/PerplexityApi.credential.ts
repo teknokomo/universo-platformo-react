@@ -24,4 +24,4 @@ class PerplexityApi implements INodeCredential {
     }
 }
 
-export { PerplexityApi as credClass };
+export { PerplexityApi as credClass }

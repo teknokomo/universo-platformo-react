@@ -89,7 +89,6 @@ export class ChatFireworks extends ChatOpenAICompletions<ChatFireworksCallOption
         return result
     }
 
-    // eslint-disable-next-line
     async completionWithRetry(
         request: OpenAIClient.Chat.ChatCompletionCreateParamsStreaming,
         options?: OpenAICoreRequestOptions

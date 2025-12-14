@@ -28,4 +28,4 @@ class ElectricsearchAPI implements INodeCredential {
     }
 }
 
-export { ElectricsearchAPI as credClass };
+export { ElectricsearchAPI as credClass }

@@ -24,4 +24,4 @@ class FigmaApi implements INodeCredential {
     }
 }
 
-export { FigmaApi as credClass };
+export { FigmaApi as credClass }

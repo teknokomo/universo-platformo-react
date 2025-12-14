@@ -291,4 +291,4 @@ class GoogleGenerativeAI_ChatModels implements INode {
     }
 }
 
-export { GoogleGenerativeAI_ChatModels as nodeClass };
+export { GoogleGenerativeAI_ChatModels as nodeClass }

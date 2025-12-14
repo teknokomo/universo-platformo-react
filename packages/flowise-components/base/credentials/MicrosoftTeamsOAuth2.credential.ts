@@ -84,4 +84,4 @@ class MsoftTeamsOAuth2 implements INodeCredential {
     }
 }
 
-export { MsoftTeamsOAuth2 as credClass };
+export { MsoftTeamsOAuth2 as credClass }

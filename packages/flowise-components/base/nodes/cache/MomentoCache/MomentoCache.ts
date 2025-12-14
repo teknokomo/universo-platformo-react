@@ -55,4 +55,4 @@ class MomentoCache implements INode {
     }
 }
 
-export { MomentoCache as nodeClass };
+export { MomentoCache as nodeClass }

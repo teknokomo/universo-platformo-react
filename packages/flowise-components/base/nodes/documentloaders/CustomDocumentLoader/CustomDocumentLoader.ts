@@ -145,4 +145,4 @@ class CustomDocumentLoader_DocumentLoaders implements INode {
     }
 }
 
-export { CustomDocumentLoader_DocumentLoaders as nodeClass };
+export { CustomDocumentLoader_DocumentLoaders as nodeClass }

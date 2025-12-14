@@ -165,7 +165,7 @@ export class TypeORMDriver extends VectorStoreDriver {
         tableName: string,
         postgresConnectionOptions: ICommonObject,
         filter?: any,
-        distanceOperator: string = '<=>'
+        distanceOperator = '<=>'
     ) => {
         const embeddingString = `[${query.join(',')}]`
         let chatflowOr = ''

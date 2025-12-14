@@ -84,4 +84,4 @@ class ChatFireworks_ChatModels implements INode {
     }
 }
 
-export { ChatFireworks_ChatModels as nodeClass };
+export { ChatFireworks_ChatModels as nodeClass }

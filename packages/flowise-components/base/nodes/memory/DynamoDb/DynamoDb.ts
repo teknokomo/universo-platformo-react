@@ -309,4 +309,4 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     }
 }
 
-export { DynamoDb_Memory as nodeClass };
+export { DynamoDb_Memory as nodeClass }

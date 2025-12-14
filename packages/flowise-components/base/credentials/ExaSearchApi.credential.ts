@@ -23,4 +23,4 @@ class ExaSearchApi implements INodeCredential {
     }
 }
 
-export { ExaSearchApi as credClass };
+export { ExaSearchApi as credClass }

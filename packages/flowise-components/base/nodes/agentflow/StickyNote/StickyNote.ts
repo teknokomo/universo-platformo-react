@@ -39,4 +39,4 @@ class StickyNote_Agentflow implements INode {
     }
 }
 
-export { StickyNote_Agentflow as nodeClass };
+export { StickyNote_Agentflow as nodeClass }

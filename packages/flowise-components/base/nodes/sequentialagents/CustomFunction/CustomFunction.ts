@@ -229,4 +229,4 @@ class CustomFunction_SeqAgents implements INode {
     }
 }
 
-export { CustomFunction_SeqAgents as nodeClass };
+export { CustomFunction_SeqAgents as nodeClass }

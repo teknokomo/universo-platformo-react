@@ -223,4 +223,4 @@ json.dumps(my_dict)`
     }
 }
 
-export { CSV_Agents as nodeClass };
+export { CSV_Agents as nodeClass }

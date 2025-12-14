@@ -181,4 +181,4 @@ class AWSChatBedrock_ChatModels implements INode {
     }
 }
 
-export { AWSChatBedrock_ChatModels as nodeClass };
+export { AWSChatBedrock_ChatModels as nodeClass }

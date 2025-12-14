@@ -20,4 +20,4 @@ class SambanovaApi implements INodeCredential {
     }
 }
 
-export { SambanovaApi as credClass };
+export { SambanovaApi as credClass }

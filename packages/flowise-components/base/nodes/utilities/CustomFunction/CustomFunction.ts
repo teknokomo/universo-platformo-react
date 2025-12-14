@@ -153,4 +153,4 @@ class CustomFunction_Utilities implements INode {
     }
 }
 
-export { CustomFunction_Utilities as nodeClass };
+export { CustomFunction_Utilities as nodeClass }

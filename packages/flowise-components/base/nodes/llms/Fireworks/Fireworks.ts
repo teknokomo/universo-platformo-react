@@ -65,4 +65,4 @@ class Fireworks_LLMs implements INode {
     }
 }
 
-export { Fireworks_LLMs as nodeClass };
+export { Fireworks_LLMs as nodeClass }

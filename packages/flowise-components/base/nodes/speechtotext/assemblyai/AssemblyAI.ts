@@ -30,4 +30,4 @@ class AssemblyAI_SpeechToText implements INode {
     }
 }
 
-export { AssemblyAI_SpeechToText as nodeClass };
+export { AssemblyAI_SpeechToText as nodeClass }

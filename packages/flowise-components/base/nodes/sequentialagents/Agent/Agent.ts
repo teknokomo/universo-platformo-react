@@ -973,7 +973,7 @@ class ToolNode<T extends BaseMessage[] | MessagesState> extends RunnableCallable
         nodeData: INodeData,
         inputQuery: string,
         options: ICommonObject,
-        name: string = 'tools',
+        name = 'tools',
         tags: string[] = [],
         metadata: ICommonObject = {}
     ) {
@@ -1087,4 +1087,4 @@ class ToolNode<T extends BaseMessage[] | MessagesState> extends RunnableCallable
     }
 }
 
-export { Agent_SeqAgents as nodeClass };
+export { Agent_SeqAgents as nodeClass }

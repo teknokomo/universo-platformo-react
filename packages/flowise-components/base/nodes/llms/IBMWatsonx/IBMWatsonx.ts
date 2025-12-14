@@ -228,4 +228,4 @@ class IBMWatsonx_LLMs implements INode {
     }
 }
 
-export { IBMWatsonx_LLMs as nodeClass };
+export { IBMWatsonx_LLMs as nodeClass }

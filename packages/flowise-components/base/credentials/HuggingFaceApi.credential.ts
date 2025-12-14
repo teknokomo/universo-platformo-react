@@ -20,4 +20,4 @@ class HuggingFaceApi implements INodeCredential {
     }
 }
 
-export { HuggingFaceApi as credClass };
+export { HuggingFaceApi as credClass }

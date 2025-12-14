@@ -20,4 +20,4 @@ class FireworksApi implements INodeCredential {
     }
 }
 
-export { FireworksApi as credClass };
+export { FireworksApi as credClass }

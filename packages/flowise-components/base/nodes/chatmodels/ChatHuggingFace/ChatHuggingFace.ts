@@ -157,4 +157,4 @@ class ChatHuggingFace_ChatModels implements INode {
     }
 }
 
-export { ChatHuggingFace_ChatModels as nodeClass };
+export { ChatHuggingFace_ChatModels as nodeClass }

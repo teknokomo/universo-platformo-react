@@ -137,4 +137,4 @@ class AWSBedrock_LLMs implements INode {
     }
 }
 
-export { AWSBedrock_LLMs as nodeClass };
+export { AWSBedrock_LLMs as nodeClass }

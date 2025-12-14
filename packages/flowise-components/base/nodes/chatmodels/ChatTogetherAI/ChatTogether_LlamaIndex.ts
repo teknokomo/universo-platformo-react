@@ -68,4 +68,4 @@ class ChatTogetherAI_LlamaIndex_ChatModels implements INode {
     }
 }
 
-export { ChatTogetherAI_LlamaIndex_ChatModels as nodeClass };
+export { ChatTogetherAI_LlamaIndex_ChatModels as nodeClass }

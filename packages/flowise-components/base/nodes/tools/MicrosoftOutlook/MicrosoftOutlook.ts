@@ -819,4 +819,4 @@ class MicrosoftOutlook_Tools implements INode {
     }
 }
 
-export { MicrosoftOutlook_Tools as nodeClass };
+export { MicrosoftOutlook_Tools as nodeClass }

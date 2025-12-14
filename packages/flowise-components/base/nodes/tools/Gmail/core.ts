@@ -62,14 +62,14 @@ const CreateLabelSchema = z.object({
 })
 
 class BaseGmailTool extends DynamicStructuredTool {
-    protected accessToken: string = ''
+    protected accessToken = ''
 
     constructor(args: any) {
         super(args)
         this.accessToken = args.accessToken ?? ''
     }
 
-    async makeGmailRequest(url: string, method: string = 'GET', body?: any, params?: any): Promise<string> {
+    async makeGmailRequest(url: string, method = 'GET', body?: any, params?: any): Promise<string> {
         const headers = {
             Authorization: `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',

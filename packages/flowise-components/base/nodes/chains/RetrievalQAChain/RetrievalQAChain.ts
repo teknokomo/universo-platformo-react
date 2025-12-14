@@ -96,4 +96,4 @@ class RetrievalQAChain_Chains implements INode {
     }
 }
 
-export { RetrievalQAChain_Chains as nodeClass };
+export { RetrievalQAChain_Chains as nodeClass }

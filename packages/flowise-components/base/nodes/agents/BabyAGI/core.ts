@@ -111,7 +111,6 @@ async function prioritizeTasks(
 
     for (const taskString of newTasks) {
         if (!taskString.trim()) {
-            // eslint-disable-next-line no-continue
             continue
         }
         const taskParts = taskString.trim().split('. ', 2)
@@ -242,7 +241,7 @@ export class BabyAGI {
                 )
                 newTasks.forEach((newTask) => {
                     this.taskIdCounter += 1
-                    // eslint-disable-next-line no-param-reassign
+
                     newTask.task_id = this.taskIdCounter
                     this.addTask(newTask)
                 })

@@ -185,4 +185,4 @@ class Astra_VectorStores implements INode {
     }
 }
 
-export { Astra_VectorStores as nodeClass };
+export { Astra_VectorStores as nodeClass }

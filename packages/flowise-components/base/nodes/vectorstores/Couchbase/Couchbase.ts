@@ -228,4 +228,4 @@ class Couchbase_VectorStores implements INode {
     }
 }
 
-export { Couchbase_VectorStores as nodeClass };
+export { Couchbase_VectorStores as nodeClass }

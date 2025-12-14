@@ -29,4 +29,4 @@ class FireCrawlApiCredential implements INodeCredential {
     }
 }
 
-export { FireCrawlApiCredential as credClass };
+export { FireCrawlApiCredential as credClass }

@@ -271,4 +271,4 @@ class HumanInput_Agentflow implements INode {
     }
 }
 
-export { HumanInput_Agentflow as nodeClass };
+export { HumanInput_Agentflow as nodeClass }

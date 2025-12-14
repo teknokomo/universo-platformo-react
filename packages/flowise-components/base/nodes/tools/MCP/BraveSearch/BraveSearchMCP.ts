@@ -105,4 +105,4 @@ class BraveSearch_MCP implements INode {
     }
 }
 
-export { BraveSearch_MCP as nodeClass };
+export { BraveSearch_MCP as nodeClass }

@@ -173,4 +173,4 @@ class ChatCometAPI_ChatModels implements INode {
     }
 }
 
-export { ChatCometAPI_ChatModels as nodeClass };
+export { ChatCometAPI_ChatModels as nodeClass }

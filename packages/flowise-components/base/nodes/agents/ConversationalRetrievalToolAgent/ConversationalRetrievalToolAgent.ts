@@ -201,7 +201,7 @@ class ConversationalRetrievalToolAgent_Agents implements INode {
         let output = res?.output as string
 
         // Claude 3 Opus tends to spit out <thinking>..</thinking> as well, discard that in final output
-        const regexPattern: RegExp = /<thinking>[\s\S]*?<\/thinking>/
+        const regexPattern = /<thinking>[\s\S]*?<\/thinking>/
         const matches: RegExpMatchArray | null = output.match(regexPattern)
         if (matches) {
             for (const match of matches) {
@@ -373,4 +373,4 @@ const prepareAgent = async (
     return executor
 }
 
-export { ConversationalRetrievalToolAgent_Agents as nodeClass };
+export { ConversationalRetrievalToolAgent_Agents as nodeClass }

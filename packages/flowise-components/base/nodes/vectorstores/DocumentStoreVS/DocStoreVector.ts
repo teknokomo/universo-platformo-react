@@ -170,4 +170,4 @@ const _createVectorStoreObject = async (componentNodes: ICommonObject, data: ICo
     return vStoreNodeInstance
 }
 
-export { DocStore_VectorStores as nodeClass };
+export { DocStore_VectorStores as nodeClass }

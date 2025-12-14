@@ -179,4 +179,4 @@ class ConversationSummaryMemoryExtended extends FlowiseSummaryMemory implements 
     }
 }
 
-export { ConversationSummaryMemory_Memory as nodeClass };
+export { ConversationSummaryMemory_Memory as nodeClass }

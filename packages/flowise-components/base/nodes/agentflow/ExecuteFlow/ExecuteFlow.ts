@@ -293,4 +293,4 @@ class ExecuteFlow_Agentflow implements INode {
     }
 }
 
-export { ExecuteFlow_Agentflow as nodeClass };
+export { ExecuteFlow_Agentflow as nodeClass }

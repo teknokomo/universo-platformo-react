@@ -20,4 +20,4 @@ class CohereApi implements INodeCredential {
     }
 }
 
-export { CohereApi as credClass };
+export { CohereApi as credClass }

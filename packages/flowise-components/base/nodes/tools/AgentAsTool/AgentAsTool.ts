@@ -381,4 +381,4 @@ try {
     }
 }
 
-export { AgentAsTool_Tools as nodeClass };
+export { AgentAsTool_Tools as nodeClass }

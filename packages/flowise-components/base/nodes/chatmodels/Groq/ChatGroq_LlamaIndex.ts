@@ -85,4 +85,4 @@ class ChatGroq_LlamaIndex_ChatModels implements INode {
     }
 }
 
-export { ChatGroq_LlamaIndex_ChatModels as nodeClass };
+export { ChatGroq_LlamaIndex_ChatModels as nodeClass }

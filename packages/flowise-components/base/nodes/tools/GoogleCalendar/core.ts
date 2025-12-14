@@ -130,7 +130,7 @@ const QueryFreebusySchema = z.object({
 })
 
 class BaseGoogleCalendarTool extends DynamicStructuredTool {
-    protected accessToken: string = ''
+    protected accessToken = ''
 
     constructor(args: any) {
         super(args)

@@ -169,4 +169,4 @@ class ContextChatEngine_LlamaIndex implements INode {
     }
 }
 
-export { ContextChatEngine_LlamaIndex as nodeClass };
+export { ContextChatEngine_LlamaIndex as nodeClass }

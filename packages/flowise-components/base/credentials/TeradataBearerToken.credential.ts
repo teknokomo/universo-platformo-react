@@ -23,4 +23,4 @@ class TeradataBearerTokenCredential implements INodeCredential {
     }
 }
 
-export { TeradataBearerTokenCredential as credClass };
+export { TeradataBearerTokenCredential as credClass }

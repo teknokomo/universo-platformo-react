@@ -328,4 +328,4 @@ const runCondition = async (nodeData: INodeData, input: string, options: ICommon
     }
 }
 
-export { Condition_SeqAgents as nodeClass };
+export { Condition_SeqAgents as nodeClass }

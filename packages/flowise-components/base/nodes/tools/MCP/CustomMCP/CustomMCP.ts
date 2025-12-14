@@ -277,4 +277,4 @@ function convertToValidJSONString(inputString: string) {
     }
 }
 
-export { Custom_MCP as nodeClass };
+export { Custom_MCP as nodeClass }

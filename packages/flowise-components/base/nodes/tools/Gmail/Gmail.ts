@@ -627,4 +627,4 @@ class Gmail_Tools implements INode {
     }
 }
 
-export { Gmail_Tools as nodeClass };
+export { Gmail_Tools as nodeClass }

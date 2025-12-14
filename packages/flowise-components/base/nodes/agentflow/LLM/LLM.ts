@@ -946,4 +946,4 @@ class LLM_Agentflow implements INode {
     }
 }
 
-export { LLM_Agentflow as nodeClass };
+export { LLM_Agentflow as nodeClass }

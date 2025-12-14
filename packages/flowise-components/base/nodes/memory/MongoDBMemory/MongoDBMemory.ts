@@ -204,4 +204,4 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     }
 }
 
-export { MongoDB_Memory as nodeClass };
+export { MongoDB_Memory as nodeClass }

@@ -611,4 +611,4 @@ class ConditionAgent_Agentflow implements INode {
     }
 }
 
-export { ConditionAgent_Agentflow as nodeClass };
+export { ConditionAgent_Agentflow as nodeClass }

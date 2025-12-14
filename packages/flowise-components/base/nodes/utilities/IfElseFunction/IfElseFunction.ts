@@ -145,4 +145,4 @@ class IfElseFunction_Utilities implements INode {
     }
 }
 
-export { IfElseFunction_Utilities as nodeClass };
+export { IfElseFunction_Utilities as nodeClass }

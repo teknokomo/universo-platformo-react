@@ -83,4 +83,4 @@ class AdvancedStructuredOutputParser implements INode {
     }
 }
 
-export { AdvancedStructuredOutputParser as nodeClass };
+export { AdvancedStructuredOutputParser as nodeClass }

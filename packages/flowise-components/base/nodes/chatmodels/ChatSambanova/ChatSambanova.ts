@@ -64,7 +64,7 @@ class ChatSambanova_ChatModels implements INode {
                 name: 'basepath',
                 type: 'string',
                 optional: true,
-                default: 'htps://api.sambanova.ai/v1',
+                default: 'https://api.sambanova.ai/v1',
                 additionalParams: true
             },
             {
@@ -120,4 +120,4 @@ class ChatSambanova_ChatModels implements INode {
     }
 }
 
-export { ChatSambanova_ChatModels as nodeClass };
+export { ChatSambanova_ChatModels as nodeClass }

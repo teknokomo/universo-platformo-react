@@ -314,4 +314,4 @@ const transformObjectPropertyToFunction = (obj: ICommonObject) => {
     return transformedObject
 }
 
-export { Worker_MultiAgents as nodeClass };
+export { Worker_MultiAgents as nodeClass }

@@ -208,8 +208,8 @@ class FirecrawlApp {
     async crawlUrl(
         url: string,
         params: Params | null = null,
-        waitUntilDone: boolean = true,
-        pollInterval: number = 2,
+        waitUntilDone = true,
+        pollInterval = 2,
         idempotencyKey?: string
     ): Promise<CrawlResponse | CrawlStatusResponse> {
         const headers = this.prepareHeaders(idempotencyKey)
@@ -315,11 +315,7 @@ class FirecrawlApp {
         return { success: false, id: '', url: '' }
     }
 
-    async extract(
-        request: ExtractRequest,
-        waitUntilDone: boolean = true,
-        pollInterval: number = 2
-    ): Promise<ExtractResponse | ExtractStatusResponse> {
+    async extract(request: ExtractRequest, waitUntilDone = true, pollInterval = 2): Promise<ExtractResponse | ExtractStatusResponse> {
         const headers = this.prepareHeaders()
 
         // Create a clean payload with only valid parameters
@@ -1039,7 +1035,7 @@ class FireCrawl_DocumentLoaders implements INode {
     }
 }
 
-export { FireCrawl_DocumentLoaders as nodeClass };
+export { FireCrawl_DocumentLoaders as nodeClass }
 
 // FOR TESTING PURPOSES
 // export { FireCrawl_DocumentLoaders }

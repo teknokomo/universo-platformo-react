@@ -59,4 +59,4 @@ class GoogleDocsOAuth2 implements INodeCredential {
     }
 }
 
-export { GoogleDocsOAuth2 as credClass };
+export { GoogleDocsOAuth2 as credClass }

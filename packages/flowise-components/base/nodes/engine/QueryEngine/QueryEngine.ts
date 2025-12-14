@@ -157,4 +157,4 @@ const prepareEngine = (nodeData: INodeData) => {
     return queryEngine
 }
 
-export { QueryEngine_LlamaIndex as nodeClass };
+export { QueryEngine_LlamaIndex as nodeClass }

@@ -223,4 +223,4 @@ class State_SeqAgents implements INode {
     }
 }
 
-export { State_SeqAgents as nodeClass };
+export { State_SeqAgents as nodeClass }

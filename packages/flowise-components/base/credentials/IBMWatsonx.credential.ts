@@ -66,4 +66,4 @@ class IBMWatsonxCredential implements INodeCredential {
     }
 }
 
-export { IBMWatsonxCredential as credClass };
+export { IBMWatsonxCredential as credClass }

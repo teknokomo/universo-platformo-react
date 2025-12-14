@@ -171,4 +171,4 @@ class ChatAnthropic_ChatModels implements INode {
     }
 }
 
-export { ChatAnthropic_ChatModels as nodeClass };
+export { ChatAnthropic_ChatModels as nodeClass }

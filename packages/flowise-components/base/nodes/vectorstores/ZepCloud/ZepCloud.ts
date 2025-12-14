@@ -158,4 +158,4 @@ class ZepExistingVS extends ZepVectorStore {
     }
 }
 
-export { Zep_CloudVectorStores as nodeClass };
+export { Zep_CloudVectorStores as nodeClass }

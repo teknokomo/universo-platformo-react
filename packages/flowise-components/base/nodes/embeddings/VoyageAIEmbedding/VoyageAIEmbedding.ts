@@ -67,4 +67,4 @@ class VoyageAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { VoyageAIEmbedding_Embeddings as nodeClass };
+export { VoyageAIEmbedding_Embeddings as nodeClass }

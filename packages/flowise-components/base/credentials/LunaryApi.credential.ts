@@ -30,4 +30,4 @@ class LunaryApi implements INodeCredential {
     }
 }
 
-export { LunaryApi as credClass };
+export { LunaryApi as credClass }

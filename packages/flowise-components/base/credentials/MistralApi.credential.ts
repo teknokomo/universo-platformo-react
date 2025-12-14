@@ -22,4 +22,4 @@ class MistralAICredential implements INodeCredential {
     }
 }
 
-export { MistralAICredential as credClass };
+export { MistralAICredential as credClass }

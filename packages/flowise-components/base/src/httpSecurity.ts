@@ -60,7 +60,7 @@ export async function checkDenyList(url: string): Promise<void> {
  * @returns Promise<AxiosResponse>
  * @throws Error if any URL in the redirect chain is denied
  */
-export async function secureAxiosRequest(config: AxiosRequestConfig, maxRedirects: number = 5): Promise<AxiosResponse> {
+export async function secureAxiosRequest(config: AxiosRequestConfig, maxRedirects = 5): Promise<AxiosResponse> {
     let currentUrl = config.url
     let redirectCount = 0
     let currentConfig = { ...config, maxRedirects: 0 } // Disable automatic redirects
@@ -166,7 +166,7 @@ export async function secureAxiosRequest(config: AxiosRequestConfig, maxRedirect
  * @returns Promise<Response>
  * @throws Error if any URL in the redirect chain is denied
  */
-export async function secureFetch(url: string, init?: RequestInit, maxRedirects: number = 5): Promise<Response> {
+export async function secureFetch(url: string, init?: RequestInit, maxRedirects = 5): Promise<Response> {
     let currentUrl = url
     let redirectCount = 0
     let currentInit = { ...init, redirect: 'manual' as const } // Disable automatic redirects

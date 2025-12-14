@@ -47,4 +47,4 @@ class UpstashRedisCache implements INode {
     }
 }
 
-export { UpstashRedisCache as nodeClass };
+export { UpstashRedisCache as nodeClass }

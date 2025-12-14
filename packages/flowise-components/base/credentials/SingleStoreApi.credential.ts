@@ -28,4 +28,4 @@ class SingleStoreApi implements INodeCredential {
     }
 }
 
-export { SingleStoreApi as credClass };
+export { SingleStoreApi as credClass }

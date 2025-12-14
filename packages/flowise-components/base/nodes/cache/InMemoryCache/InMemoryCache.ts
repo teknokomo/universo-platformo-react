@@ -62,4 +62,4 @@ class InMemoryCacheExtended extends BaseCache {
     }
 }
 
-export { InMemoryCache as nodeClass };
+export { InMemoryCache as nodeClass }

@@ -227,4 +227,4 @@ class GoogleVertexAI_ChatModels implements INode {
     }
 }
 
-export { GoogleVertexAI_ChatModels as nodeClass };
+export { GoogleVertexAI_ChatModels as nodeClass }

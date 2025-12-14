@@ -69,4 +69,4 @@ class CustomListOutputParser implements INode {
     }
 }
 
-export { CustomListOutputParser as nodeClass };
+export { CustomListOutputParser as nodeClass }

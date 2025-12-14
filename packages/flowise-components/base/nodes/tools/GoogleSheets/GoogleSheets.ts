@@ -365,4 +365,4 @@ class GoogleSheets_Tools implements INode {
     }
 }
 
-export { GoogleSheets_Tools as nodeClass };
+export { GoogleSheets_Tools as nodeClass }

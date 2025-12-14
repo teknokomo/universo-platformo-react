@@ -103,4 +103,4 @@ class Groq_ChatModels implements INode {
     }
 }
 
-export { Groq_ChatModels as nodeClass };
+export { Groq_ChatModels as nodeClass }

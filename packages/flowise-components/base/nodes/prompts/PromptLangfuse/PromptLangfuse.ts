@@ -94,4 +94,4 @@ class PromptLangfuse_Prompts implements INode {
     }
 }
 
-export { PromptLangfuse_Prompts as nodeClass };
+export { PromptLangfuse_Prompts as nodeClass }

@@ -25,4 +25,4 @@ class HTTPApiKeyCredential implements INodeCredential {
     }
 }
 
-export { HTTPApiKeyCredential as credClass };
+export { HTTPApiKeyCredential as credClass }

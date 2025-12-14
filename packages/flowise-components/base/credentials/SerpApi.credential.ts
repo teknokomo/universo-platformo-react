@@ -21,4 +21,4 @@ class SerpApi implements INodeCredential {
     }
 }
 
-export { SerpApi as credClass };
+export { SerpApi as credClass }

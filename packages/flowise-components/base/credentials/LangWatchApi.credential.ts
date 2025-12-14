@@ -30,4 +30,4 @@ class LangWatchApi implements INodeCredential {
     }
 }
 
-export { LangWatchApi as credClass };
+export { LangWatchApi as credClass }

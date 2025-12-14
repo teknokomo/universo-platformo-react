@@ -30,4 +30,4 @@ class Lunary_Analytic implements INode {
     }
 }
 
-export { Lunary_Analytic as nodeClass };
+export { Lunary_Analytic as nodeClass }

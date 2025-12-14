@@ -244,4 +244,4 @@ export function createDocumentStoreFromByteStore(store: BaseStore<string, Uint8A
     })
 }
 
-export { RedisEmbeddingsCache as nodeClass };
+export { RedisEmbeddingsCache as nodeClass }

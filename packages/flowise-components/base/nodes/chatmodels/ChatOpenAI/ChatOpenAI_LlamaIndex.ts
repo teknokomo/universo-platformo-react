@@ -122,4 +122,4 @@ class ChatOpenAI_LlamaIndex_LLMs implements INode {
     }
 }
 
-export { ChatOpenAI_LlamaIndex_LLMs as nodeClass };
+export { ChatOpenAI_LlamaIndex_LLMs as nodeClass }

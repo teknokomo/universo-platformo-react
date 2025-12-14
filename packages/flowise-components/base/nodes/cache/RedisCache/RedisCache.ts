@@ -164,4 +164,4 @@ const serializeGeneration = (generation: Generation) => {
     return serializedValue
 }
 
-export { RedisCache as nodeClass };
+export { RedisCache as nodeClass }

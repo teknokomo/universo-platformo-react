@@ -130,4 +130,4 @@ class CodeTextSplitter_TextSplitters implements INode {
         return splitter
     }
 }
-export { CodeTextSplitter_TextSplitters as nodeClass };
+export { CodeTextSplitter_TextSplitters as nodeClass }

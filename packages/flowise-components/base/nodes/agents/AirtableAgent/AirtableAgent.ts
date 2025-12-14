@@ -261,4 +261,4 @@ const loadLimit = async (limit: number, baseId: string, tableId: string, accessT
     return data.records.map((page) => page.fields)
 }
 
-export { Airtable_Agents as nodeClass };
+export { Airtable_Agents as nodeClass }

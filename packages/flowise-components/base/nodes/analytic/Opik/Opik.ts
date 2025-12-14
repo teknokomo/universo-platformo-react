@@ -30,4 +30,4 @@ class Opik_Analytic implements INode {
     }
 }
 
-export { Opik_Analytic as nodeClass };
+export { Opik_Analytic as nodeClass }

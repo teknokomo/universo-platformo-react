@@ -25,4 +25,4 @@ class BaiduQianfanApi implements INodeCredential {
     }
 }
 
-export { BaiduQianfanApi as credClass };
+export { BaiduQianfanApi as credClass }

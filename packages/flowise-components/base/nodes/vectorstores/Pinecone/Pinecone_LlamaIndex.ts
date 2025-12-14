@@ -218,7 +218,7 @@ type PineconeParams = {
 } & IEmbedModel
 
 class PineconeVectorStore extends VectorStoreBase implements VectorStoreNoEmbedModel {
-    storesText: boolean = true
+    storesText = true
     db?: Pinecone
     indexName: string
     apiKey: string
@@ -389,4 +389,4 @@ const cleanupMetadata = (nodeMetadata: ICommonObject) => {
     return metadata
 }
 
-export { PineconeLlamaIndex_VectorStores as nodeClass };
+export { PineconeLlamaIndex_VectorStores as nodeClass }

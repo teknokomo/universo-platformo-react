@@ -223,7 +223,7 @@ class ToolAgent_Agents implements INode {
 
         // Claude 3 Opus tends to spit out <thinking>..</thinking> as well, discard that in final output
         // https://docs.anthropic.com/en/docs/build-with-claude/tool-use#chain-of-thought
-        const regexPattern: RegExp = /<thinking>[\s\S]*?<\/thinking>/
+        const regexPattern = /<thinking>[\s\S]*?<\/thinking>/
         const matches: RegExpMatchArray | null = output.match(regexPattern)
         if (matches) {
             for (const match of matches) {
@@ -377,4 +377,4 @@ const prepareAgent = async (
     return executor
 }
 
-export { ToolAgent_Agents as nodeClass };
+export { ToolAgent_Agents as nodeClass }

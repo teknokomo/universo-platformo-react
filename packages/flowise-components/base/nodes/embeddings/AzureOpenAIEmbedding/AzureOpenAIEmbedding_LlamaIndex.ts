@@ -74,4 +74,4 @@ class AzureOpenAIEmbedding_LlamaIndex_Embeddings implements INode {
     }
 }
 
-export { AzureOpenAIEmbedding_LlamaIndex_Embeddings as nodeClass };
+export { AzureOpenAIEmbedding_LlamaIndex_Embeddings as nodeClass }

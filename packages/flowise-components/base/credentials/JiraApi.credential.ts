@@ -30,4 +30,4 @@ class JiraApi implements INodeCredential {
     }
 }
 
-export { JiraApi as credClass };
+export { JiraApi as credClass }

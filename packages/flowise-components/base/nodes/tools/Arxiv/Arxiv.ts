@@ -141,4 +141,4 @@ class Arxiv_Tools implements INode {
     }
 }
 
-export { Arxiv_Tools as nodeClass };
+export { Arxiv_Tools as nodeClass }

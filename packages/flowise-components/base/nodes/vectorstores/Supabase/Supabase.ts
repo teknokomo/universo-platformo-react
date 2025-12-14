@@ -299,4 +299,4 @@ class SupabaseUpsertVectorStore extends SupabaseVectorStore {
     }
 }
 
-export { Supabase_VectorStores as nodeClass };
+export { Supabase_VectorStores as nodeClass }

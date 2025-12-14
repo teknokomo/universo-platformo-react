@@ -216,4 +216,4 @@ class CustomFunction_Agentflow implements INode {
     }
 }
 
-export { CustomFunction_Agentflow as nodeClass };
+export { CustomFunction_Agentflow as nodeClass }
