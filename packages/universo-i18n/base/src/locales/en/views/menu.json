@@ -46,6 +46,7 @@
         "role": "Role",
         "administration": "Administration",
         "roles": "Roles",
+        "locales": "Languages",
         "adminboard": "Admin Board",
         "instance": "Instance",
         "instanceboard": "Instance Board",

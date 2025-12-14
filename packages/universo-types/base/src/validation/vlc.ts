@@ -1,20 +1,24 @@
 import { z } from 'zod'
-import type { VlcSchemaVersion, SupportedLocale } from '../common/admin'
+import type { LocalizedContentSchemaVersion } from '../common/admin'
 
 // ============================================================
-// VLC (Versioned Localized Content) Validation Schemas
+// Localized Content Validation Schemas
 // ============================================================
 
 /**
- * Supported locale codes
- * Matches SupportedLocale type from common/admin.ts
+ * Locale code validation (dynamic, BCP47-like format)
+ * Format: 2-letter ISO 639-1 code, optionally with region (e.g., 'en', 'ru', 'en-US')
  */
-export const SupportedLocaleSchema = z.enum(['en', 'ru'])
+export const LocaleCodeSchema = z
+    .string()
+    .min(2, 'Locale code must be at least 2 characters')
+    .max(10, 'Locale code must be at most 10 characters')
+    .regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'Invalid locale code format')
 
 /**
- * VLC locale entry metadata
+ * Localized content entry metadata schema
  */
-export const VlcLocaleEntrySchema = z.object({
+export const LocalizedContentEntrySchema = z.object({
     content: z.unknown(),
     version: z.number().int().positive(),
     isActive: z.boolean(),
@@ -23,38 +27,50 @@ export const VlcLocaleEntrySchema = z.object({
 })
 
 /**
- * Generic VLC schema for any content type
- * Use VlcStringSchema for string-only VLC (display names)
+ * Generic localized content schema for any content type
+ * Use LocalizedStringSchema for string-only content (display names)
  */
 export const VersionedLocalizedContentSchema = z.object({
-    _schema: z.literal('1' satisfies VlcSchemaVersion),
-    _primary: SupportedLocaleSchema,
-    locales: z
-        .record(SupportedLocaleSchema, VlcLocaleEntrySchema)
-        .refine((locales) => Object.keys(locales).length > 0, {
-            message: 'At least one locale is required'
-        })
+    _schema: z.literal('1' satisfies LocalizedContentSchemaVersion),
+    _primary: LocaleCodeSchema,
+    locales: z.record(LocaleCodeSchema, LocalizedContentEntrySchema).refine((locales) => Object.keys(locales).length > 0, {
+        message: 'At least one locale is required'
+    })
 })
 
 /**
- * VLC schema for string content (display names, descriptions)
+ * Localized content schema for string content (display names, descriptions)
  * Validates that content is a non-empty string
  */
-export const VlcStringSchema = VersionedLocalizedContentSchema.extend({
+export const LocalizedStringSchema = VersionedLocalizedContentSchema.extend({
     locales: z.record(
-        SupportedLocaleSchema,
-        VlcLocaleEntrySchema.extend({
+        LocaleCodeSchema,
+        LocalizedContentEntrySchema.extend({
             content: z.string().min(1, 'Content cannot be empty')
         })
     )
 })
 
 /**
- * Optional VLC string schema (allows null/undefined)
+ * Localized content schema for optional string content (e.g., descriptions)
+ * Allows empty strings in content - useful for optional fields where user may start editing
  */
-export const VlcStringOptionalSchema = VlcStringSchema.nullable().optional()
+export const LocalizedStringAllowEmptySchema = VersionedLocalizedContentSchema.extend({
+    locales: z.record(
+        LocaleCodeSchema,
+        LocalizedContentEntrySchema.extend({
+            content: z.string() // Allow empty strings
+        })
+    )
+})
+
+/**
+ * Optional localized string schema (allows null/undefined or empty content)
+ * Use for optional fields like descriptions where content may be empty
+ */
+export const LocalizedStringOptionalSchema = LocalizedStringAllowEmptySchema.nullable().optional()
 
 // Type exports for runtime validation results
-export type ValidatedVlcLocaleEntry = z.infer<typeof VlcLocaleEntrySchema>
-export type ValidatedVlcContent = z.infer<typeof VersionedLocalizedContentSchema>
-export type ValidatedVlcString = z.infer<typeof VlcStringSchema>
+export type ValidatedLocalizedContentEntry = z.infer<typeof LocalizedContentEntrySchema>
+export type ValidatedLocalizedContent = z.infer<typeof VersionedLocalizedContentSchema>
+export type ValidatedLocalizedString = z.infer<typeof LocalizedStringSchema>

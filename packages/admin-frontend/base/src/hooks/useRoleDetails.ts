@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { resolveVlcContent } from '@universo/utils'
+import { resolveLocalizedContent } from '@universo/utils'
 import { getRole } from '../api/rolesApi'
 import { rolesQueryKeys } from '../api/queryKeys'
-import type { SupportedLocale } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
+import type { LocaleCode } from '@universo/types'
+import { isValidLocaleCode } from '@universo/types'
 import type { RoleListItem } from '../api/rolesApi'
 
 interface UseRoleDetailsOptions {
@@ -35,7 +35,7 @@ interface UseRoleDetailsResult {
 export function useRoleDetails(roleId: string | null, options?: UseRoleDetailsOptions): UseRoleDetailsResult {
     const { i18n } = useTranslation()
     const langCode = i18n.language?.split('-')[0] || 'en'
-    const locale: SupportedLocale = isSupportedLocale(langCode) ? langCode : 'en'
+    const locale: LocaleCode = isValidLocaleCode(langCode) ? langCode : 'en'
 
     const query = useQuery({
         queryKey: rolesQueryKeys.detail(roleId ?? ''),
@@ -48,8 +48,8 @@ export function useRoleDetails(roleId: string | null, options?: UseRoleDetailsOp
 
     return {
         role,
-        name: role ? resolveVlcContent(role.name, locale, role.codename) : undefined,
-        description: role?.description ? resolveVlcContent(role.description, locale) : undefined,
+        name: role ? resolveLocalizedContent(role.name, locale, role.codename) : undefined,
+        description: role?.description ? resolveLocalizedContent(role.description, locale) : undefined,
         isLoading: query.isLoading,
         error: query.error
     }
@@ -67,7 +67,7 @@ export function useRoleName(roleId: string | null): string | null {
 /**
  * Truncate role name for breadcrumb display
  */
-export function truncateRoleName(name: string, maxLength: number = 25): string {
+export function truncateRoleName(name: string, maxLength = 25): string {
     if (name.length <= maxLength) return name
     return name.substring(0, maxLength - 3) + '...'
 }

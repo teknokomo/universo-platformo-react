@@ -4,9 +4,8 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
-import { resolveVlcContent } from '@universo/utils'
-import type { SupportedLocale } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
+import { resolveLocalizedContent } from '@universo/utils'
+import { isValidLocaleCode } from '@universo/types'
 
 // Project imports
 import {
@@ -27,8 +26,8 @@ import type { Instance } from '../types'
  * Uses VLC resolution with safe fallback
  */
 const getInstanceName = (instance: Instance, lang: string): string => {
-    const locale = isSupportedLocale(lang) ? lang : 'en'
-    return resolveVlcContent(instance.name, locale, instance.codename)
+    const locale = isValidLocaleCode(lang) ? lang : 'en'
+    return resolveLocalizedContent(instance.name, locale, instance.codename)
 }
 
 /**
@@ -111,7 +110,7 @@ const InstanceBoard = () => {
                 <ViewHeader
                     title={getInstanceName(instance, i18n.language)}
                     description={
-                        resolveVlcContent(instance.description, isSupportedLocale(i18n.language) ? i18n.language : 'en', '') ||
+                        resolveLocalizedContent(instance.description, isValidLocaleCode(i18n.language) ? i18n.language : 'en', '') ||
                         t('board.description', 'Instance administration and statistics')
                     }
                     search={false}

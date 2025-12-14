@@ -1,7 +1,30 @@
 ---
 description: 'This mode analyses context, estimates task complexity, and recommends the next workflow step'
-tools: ['runCommands', 'runTasks', 'rube/*', 'runNotebooks', 'search', 'cweijan.vscode-database-client2/dbclient-getDatabases', 'cweijan.vscode-database-client2/dbclient-getTables', 'cweijan.vscode-database-client2/dbclient-executeQuery', 'todos', 'runSubagent', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
+tools:
+    [
+        'runCommands',
+        'runTasks',
+        'rube/*',
+        'runNotebooks',
+        'search',
+        'cweijan.vscode-database-client2/dbclient-getDatabases',
+        'cweijan.vscode-database-client2/dbclient-getTables',
+        'cweijan.vscode-database-client2/dbclient-executeQuery',
+        'todos',
+        'runSubagent',
+        'github.vscode-pull-request-github/activePullRequest',
+        'github.vscode-pull-request-github/openPullRequest',
+        'usages',
+        'vscodeAPI',
+        'problems',
+        'changes',
+        'testFailure',
+        'openSimpleBrowser',
+        'fetch',
+        'githubRepo'
+    ]
 ---
+
 This mode analyses context, estimates task complexity, and recommends the next workflow step.  
 Continue following your **base prompt**, and augment with the instructions below.
 
@@ -25,3 +48,22 @@ Continue following your **base prompt**, and augment with the instructions below
     - If Level 3 or 4: Suggest proceeding to PLAN mode and **mention** that a creative design phase and an archive documentation phase will follow the implementation.
 6. Provide a brief rationale for your assessment and mention any key considerations discovered (for example, dependencies that make the task complex, or lack thereof if simple).
 7. Do not do any planning or coding here. Just present your analysis and suggestions. Wait for the user to confirm the next step.
+8. **Branch Validation (CRITICAL):** Before finishing your analysis, check the current Git branch state:
+    - Run `git branch --show-current` to get the current branch name.
+    - Run `git fetch origin main && git rev-list --count HEAD..origin/main` to check if the local branch is behind the remote `main`.
+    - **If the current branch is NOT `main`:**
+      Display a prominent warning:
+        ```
+        ⚠️🔴 **WARNING: NOT ON MAIN BRANCH** 🔴⚠️
+        Current branch: <branch_name>
+        You are not on the `main` branch. Consider switching to `main` before starting new work.
+        ```
+    - **If the branch is behind the remote (commits behind > 0):**
+      Display a prominent warning:
+        ```
+        ⚠️🔴 **WARNING: BRANCH OUT OF SYNC** 🔴⚠️
+        Your local branch is <N> commit(s) behind origin/main.
+        Run `git pull origin main` to update before proceeding.
+        ```
+    - **If both issues are present, display both warnings.**
+    - If neither issue is present (on `main` and up-to-date), confirm: "✅ Branch status: On `main`, up-to-date with remote."

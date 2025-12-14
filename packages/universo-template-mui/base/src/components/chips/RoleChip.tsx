@@ -3,8 +3,8 @@ import { Chip } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import type { BaseRole, GlobalRole, RoleMetadata, VersionedLocalizedContent } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
-import { resolveVlcContent } from '@universo/utils'
+import { isValidLocaleCode } from '@universo/types'
+import { resolveLocalizedContent } from '@universo/utils'
 
 // Access type indicates how user obtained access to the entity
 // 'member' = direct membership, other strings = global role name
@@ -94,8 +94,8 @@ function getRoleName(
     }
 
     // Use type guard for safe locale validation
-    const locale = isSupportedLocale(currentLanguage) ? currentLanguage : 'en'
-    const resolved = resolveVlcContent(nameVlc, locale, '')
+    const locale = isValidLocaleCode(currentLanguage) ? currentLanguage : 'en'
+    const resolved = resolveLocalizedContent(nameVlc, locale, '')
     if (resolved) return resolved
 
     // Fall back to translation

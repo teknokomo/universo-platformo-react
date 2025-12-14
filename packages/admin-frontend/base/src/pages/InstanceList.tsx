@@ -10,9 +10,8 @@ import type { TFunction } from 'i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
-import { resolveVlcContent } from '@universo/utils'
-import type { SupportedLocale } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
+import { resolveLocalizedContent } from '@universo/utils'
+import { isValidLocaleCode } from '@universo/types'
 
 // project imports
 import {
@@ -84,16 +83,16 @@ const LocalChip = ({ isLocal, t }: { isLocal: boolean; t: TranslateFn }) =>
  * Get instance name for display (resolves VLC to string)
  */
 const getInstanceName = (instance: Instance, locale: string): string => {
-    const safeLocale = isSupportedLocale(locale) ? locale : 'en'
-    return resolveVlcContent(instance.name, safeLocale, instance.codename)
+    const safeLocale = isValidLocaleCode(locale) ? locale : 'en'
+    return resolveLocalizedContent(instance.name, safeLocale, instance.codename)
 }
 
 /**
  * Get instance description for display (resolves VLC to string)
  */
 const getInstanceDescription = (instance: Instance, locale: string): string => {
-    const safeLocale = isSupportedLocale(locale) ? locale : 'en'
-    return resolveVlcContent(instance.description, safeLocale, '')
+    const safeLocale = isValidLocaleCode(locale) ? locale : 'en'
+    return resolveLocalizedContent(instance.description, safeLocale, '')
 }
 
 /**
@@ -355,7 +354,7 @@ const InstanceList = () => {
                                     {instances.map((instance: Instance) => {
                                         const displayName = getInstanceName(instance, i18n.language)
                                         const displayDescription = getInstanceDescription(instance, i18n.language)
-                                        
+
                                         return (
                                             <ItemCard
                                                 key={instance.id}

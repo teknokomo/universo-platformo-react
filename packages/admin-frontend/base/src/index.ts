@@ -7,7 +7,7 @@ export type {
     PaginationParams,
     PaginatedResponse,
     RoleMetadata,
-    LocalizedString,
+    VersionedLocalizedContent,
     Instance,
     InstanceStatus,
     InstanceStats,

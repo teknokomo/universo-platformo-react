@@ -1,14 +1,28 @@
-import React, { useState, useCallback } from 'react'
-import { Box, TextField, IconButton, Menu, MenuItem, Chip, Stack, Typography } from '@mui/material'
+import React, { useState, useCallback, useMemo } from 'react'
+import { Box, TextField, IconButton, Menu, MenuItem, Chip, Stack, Typography, CircularProgress } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
-import type { VersionedLocalizedContent, SupportedLocale } from '@universo/types'
-import { updateVlcLocale, getVlcLocales, createVlc } from '@universo/utils'
+import { useQuery } from '@tanstack/react-query'
+import type { VersionedLocalizedContent, LocaleCode } from '@universo/types'
+import { updateLocalizedContentLocale, getLocalizedContentLocales, createLocalizedContent } from '@universo/utils'
 
-const AVAILABLE_LOCALES: Array<{ code: SupportedLocale; label: string }> = [
-    { code: 'en', label: 'English' },
-    { code: 'ru', label: 'Русский' }
+/**
+ * Query key for public content locales
+ */
+const CONTENT_LOCALES_QUERY_KEY = ['locales', 'content', 'public']
+
+/**
+ * Fallback locales when API is unavailable
+ */
+const FALLBACK_LOCALES = [
+    { code: 'en', label: 'English', isDefault: true },
+    { code: 'ru', label: 'Русский', isDefault: false }
 ]
+
+interface ContentLocalesResponse {
+    locales: Array<{ code: string; label: string; isDefault: boolean }>
+    defaultLocale: string
+}
 
 interface LocalizedFieldEditorProps {
     value: VersionedLocalizedContent<string> | null
@@ -16,11 +30,17 @@ interface LocalizedFieldEditorProps {
     label?: string
     required?: boolean
     disabled?: boolean
-    error?: string
+    error?: string | null
     multiline?: boolean
     rows?: number
 }
 
+/**
+ * Editor component for localized content fields
+ *
+ * Loads available locales from public API endpoint /api/v1/locales/content
+ * Falls back to hardcoded en/ru locales if API is unavailable
+ */
 export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
     value,
     onChange,
@@ -33,28 +53,55 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
 }) => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
-    const activeLocales = value ? getVlcLocales(value) : []
-    const availableToAdd = AVAILABLE_LOCALES.filter((l) => !activeLocales.includes(l.code))
+    // Fetch available locales from public API
+    const {
+        data: localesData,
+        isLoading: localesLoading,
+        isError: localesError
+    } = useQuery<ContentLocalesResponse>({
+        queryKey: CONTENT_LOCALES_QUERY_KEY,
+        queryFn: async () => {
+            const response = await fetch('/api/v1/locales/content')
+            if (!response.ok) {
+                throw new Error('Failed to fetch locales')
+            }
+            return response.json()
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes cache
+        gcTime: 30 * 60 * 1000, // 30 minutes garbage collection
+        retry: 1 // Only retry once on failure
+    })
+
+    // Use API data or fallback
+    const availableLocales = useMemo(() => {
+        if (localesData?.locales && localesData.locales.length > 0) {
+            return localesData.locales
+        }
+        return FALLBACK_LOCALES
+    }, [localesData])
+
+    const activeLocales = value ? getLocalizedContentLocales(value) : []
+    const availableToAdd = availableLocales.filter((l) => !activeLocales.includes(l.code))
 
     const handleAddLocale = useCallback(
-        (locale: SupportedLocale) => {
+        (locale: LocaleCode) => {
             setAnchorEl(null)
-            const updated = value ? updateVlcLocale(value, locale, '') : createVlc(locale, '')
+            const updated = value ? updateLocalizedContentLocale(value, locale, '') : createLocalizedContent(locale, '')
             onChange(updated)
         },
         [value, onChange]
     )
 
     const handleContentChange = useCallback(
-        (locale: SupportedLocale, content: string) => {
+        (locale: LocaleCode, content: string) => {
             if (!value) return
-            onChange(updateVlcLocale(value, locale, content))
+            onChange(updateLocalizedContentLocale(value, locale, content))
         },
         [value, onChange]
     )
 
     const handleRemoveLocale = useCallback(
-        (locale: SupportedLocale) => {
+        (locale: LocaleCode) => {
             if (!value || locale === value._primary) return
             const newLocales = { ...value.locales }
             delete newLocales[locale]
@@ -62,6 +109,26 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
         },
         [value, onChange]
     )
+
+    // Get label for a locale code
+    const getLocaleLabel = useCallback(
+        (code: string) => {
+            return availableLocales.find((l) => l.code === code)?.label || code.toUpperCase()
+        },
+        [availableLocales]
+    )
+
+    // Show loading indicator while fetching locales
+    if (localesLoading) {
+        return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant='body2' color='text.secondary'>
+                    Loading languages...
+                </Typography>
+            </Box>
+        )
+    }
 
     return (
         <Box>
@@ -81,6 +148,11 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
                         </Menu>
                     </>
                 )}
+                {localesError && (
+                    <Typography variant='caption' color='warning.main'>
+                        (Using fallback languages)
+                    </Typography>
+                )}
             </Stack>
 
             <Stack spacing={2}>
@@ -89,7 +161,7 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
                     const isPrimary = value?._primary === locale
                     return (
                         <Box key={locale} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                            <Chip label={locale.toUpperCase()} size='small' color={isPrimary ? 'primary' : 'default'} sx={{ mt: 1 }} />
+                            <Chip label={getLocaleLabel(locale)} size='small' color={isPrimary ? 'primary' : 'default'} sx={{ mt: 1 }} />
                             <TextField
                                 fullWidth
                                 size='small'

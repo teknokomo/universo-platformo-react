@@ -177,8 +177,9 @@
             "permissions": "Permissions"
         },
         "field": {
-            "name": "Unique Identifier",
-            "nameHint": "Lowercase alphanumeric with underscores/dashes (e.g. new_role)",
+            "codename": "Unique Identifier",
+            "codenameHint": "Lowercase alphanumeric with underscores/dashes (e.g. new_role)",
+            "name": "Name",
             "color": "Color",
             "displayNameEn": "Name (English)",
             "displayNameRu": "Name (Russian)",
@@ -268,6 +269,44 @@
             }
         }
     },
+    "locales": {
+        "title": "Languages",
+        "description": "Manage available languages for content localization",
+        "loading": "Loading languages...",
+        "errorLoading": "Failed to load languages",
+        "addNew": "Add Language",
+        "searchPlaceholder": "Search languages...",
+        "empty": "No languages configured",
+        "code": "Code",
+        "name": "Name",
+        "nativeName": "Native Name",
+        "nativeNameHelp": "Name in the language itself (e.g., \"Русский\" for Russian)",
+        "sortOrder": "Sort Order",
+        "sortOrderHelp": "Display order in language lists (lower = first)",
+        "enabledContent": "Content",
+        "enabledUi": "UI",
+        "codeHelp": "ISO 639-1 code (e.g., en, ru, de, fr)",
+        "codeReadonly": "Language code cannot be changed",
+        "initializeName": "Initialize Name",
+        "uiNote": "UI translations require JSON files in the codebase. This setting is informational only.",
+        "uiRequiresFiles": "UI translations require JSON files in the codebase",
+        "setDefaultContent": "Set as default for content",
+        "createTitle": "Add Language",
+        "editTitle": "Edit Language",
+        "deleteConfirmTitle": "Delete Language?",
+        "deleteConfirmDescription": "Are you sure you want to delete language \"{{code}}\"? This action cannot be undone.",
+        "createSuccess": "Language created successfully",
+        "createError": "Failed to create language",
+        "updateSuccess": "Language updated successfully",
+        "updateError": "Failed to update language",
+        "deleteSuccess": "Language deleted successfully",
+        "deleteError": "Failed to delete language",
+        "validation": {
+            "codeRequired": "Language code is required",
+            "codeInvalid": "Invalid language code format (e.g., en, ru, en-US)",
+            "nativeNameRequired": "Native name is required"
+        }
+    },
     "members": {
         "editTitle": "Edit Global User",
         "emailLabel": "Email",
@@ -276,7 +315,17 @@
         "confirmRemoveDescription": "This will remove global access for {{email}}"
     },
     "common": {
-        "back": "Back"
+        "back": "Back",
+        "cancel": "Cancel",
+        "save": "Save",
+        "create": "Create",
+        "edit": "Edit",
+        "delete": "Delete",
+        "system": "System",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "yes": "Yes",
+        "no": "No"
     },
     "menu": {
         "administration": "Administration"

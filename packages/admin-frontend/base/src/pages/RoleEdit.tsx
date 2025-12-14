@@ -7,9 +7,9 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { PermissionInput, CreateRolePayload, UpdateRolePayload, VersionedLocalizedContent, SupportedLocale } from '@universo/types'
-import { isSupportedLocale } from '@universo/types'
-import { createVlc, resolveVlcContent } from '@universo/utils'
+import type { PermissionInput, CreateRolePayload, UpdateRolePayload, VersionedLocalizedContent } from '@universo/types'
+import { isValidLocaleCode } from '@universo/types'
+import { createLocalizedContent, resolveLocalizedContent } from '@universo/utils'
 
 // Project imports
 import {
@@ -34,14 +34,48 @@ const rolesApi = createRolesApi(apiClient)
  * Default empty form state with initial locale
  */
 const getDefaultFormState = (currentLocale: string) => {
-    const locale = isSupportedLocale(currentLocale) ? currentLocale : 'en'
+    const locale = isValidLocaleCode(currentLocale) ? currentLocale : 'en'
     return {
         codename: '',
-        description: createVlc(locale, ''),
-        name: createVlc(locale, ''),
+        description: createLocalizedContent(locale, ''),
+        name: createLocalizedContent(locale, ''),
         color: '#9e9e9e',
         isSuperuser: false,
         permissions: [] as PermissionInput[]
+    }
+}
+
+/**
+ * Filter out locales with empty content from VersionedLocalizedContent
+ * Returns null if all locales are empty (for optional fields)
+ * Returns object with only non-empty locales (preserving _primary if it has content)
+ */
+const filterEmptyLocales = <T extends string>(
+    vlc: VersionedLocalizedContent<T> | null | undefined
+): VersionedLocalizedContent<T> | null => {
+    if (!vlc) return null
+
+    const filteredLocales: Record<string, (typeof vlc.locales)[string]> = {}
+
+    for (const [localeCode, entry] of Object.entries(vlc.locales)) {
+        // Keep only locales with non-empty content
+        if (entry && entry.content && String(entry.content).trim() !== '') {
+            filteredLocales[localeCode] = entry
+        }
+    }
+
+    // If no locales have content, return null (for optional fields)
+    if (Object.keys(filteredLocales).length === 0) {
+        return null
+    }
+
+    // Determine new primary: keep original if it has content, otherwise pick first available
+    const newPrimary = filteredLocales[vlc._primary] !== undefined ? vlc._primary : (Object.keys(filteredLocales)[0] as string)
+
+    return {
+        _schema: vlc._schema,
+        _primary: newPrimary,
+        locales: filteredLocales as typeof vlc.locales
     }
 }
 
@@ -92,9 +126,9 @@ const RoleEdit = () => {
                 codename: role.codename,
                 description: role.description
                     ? typeof role.description === 'string'
-                        ? createVlc('en', role.description) // Use 'en' for legacy string migration
+                        ? createLocalizedContent('en', role.description) // Use 'en' for legacy string migration
                         : role.description
-                    : createVlc('en', ''),
+                    : createLocalizedContent('en', ''),
                 name: role.name,
                 color: role.color,
                 isSuperuser: role.isSuperuser,
@@ -236,10 +270,12 @@ const RoleEdit = () => {
             if (!formState.name) {
                 errors.name = t('roles.validation.nameRequired', 'Name is required')
             } else {
-                const primaryLocale = formState.name._primary
-                const primaryEntry = formState.name.locales[primaryLocale]
-                if (!primaryEntry || !primaryEntry.content.trim()) {
-                    errors.name = t('roles.validation.primaryNameRequired', 'Primary language name is required')
+                // Check if at least one locale has non-empty content
+                const hasAnyContent = Object.values(formState.name.locales).some(
+                    (entry) => entry && entry.content && String(entry.content).trim() !== ''
+                )
+                if (!hasAnyContent) {
+                    errors.name = t('roles.validation.primaryNameRequired', 'At least one language name is required')
                 }
             }
             if (!formState.color || !/^#[0-9A-Fa-f]{6}$/.test(formState.color)) {
@@ -249,18 +285,22 @@ const RoleEdit = () => {
             if (Object.keys(errors).length > 0) return
         }
 
+        // Filter out empty locales before sending to backend
+        const filteredName = filterEmptyLocales(formState.name)
+        const filteredDescription = filterEmptyLocales(formState.description)
+
         // For system roles, only send allowed fields (description, name, color)
         // Do NOT send name, isSuperuser, or permissions
         const payload = isSystemRole
             ? {
-                  description: formState.description || undefined,
-                  name: formState.name,
+                  description: filteredDescription || undefined,
+                  name: filteredName,
                   color: formState.color
               }
             : {
                   codename: formState.codename,
-                  description: formState.description || undefined,
-                  name: formState.name,
+                  description: filteredDescription || undefined,
+                  name: filteredName,
                   color: formState.color,
                   isSuperuser: formState.isSuperuser,
                   permissions: formState.permissions
@@ -319,7 +359,15 @@ const RoleEdit = () => {
                     description={
                         isNew
                             ? t('roles.createDescription', 'Define a new role with permissions')
-                            : t('roles.editDescription', { name: role ? resolveVlcContent(role.name, isSupportedLocale(currentLocale) ? currentLocale : 'en', role.codename) : '' })
+                            : t('roles.editDescription', {
+                                  name: role
+                                      ? resolveLocalizedContent(
+                                            role.name,
+                                            isValidLocaleCode(currentLocale) ? currentLocale : 'en',
+                                            role.codename
+                                        )
+                                      : ''
+                              })
                     }
                     search={false}
                 />
@@ -351,14 +399,14 @@ const RoleEdit = () => {
                         <Grid item xs={12} md={6}>
                             <TextField
                                 fullWidth
-                                label={t('roles.field.name', 'Unique Identifier') + ' *'}
+                                label={t('roles.field.codename', 'Unique Identifier') + ' *'}
                                 value={formState.codename}
                                 onChange={handleChange('codename')}
                                 disabled={isSaving || isSystemRole}
                                 error={!!validationErrors.codename}
                                 helperText={
                                     validationErrors.codename ||
-                                    t('roles.field.nameHint', 'Lowercase alphanumeric with underscores/dashes (e.g., new_role)')
+                                    t('roles.field.codenameHint', 'Lowercase alphanumeric with underscores/dashes (e.g., new_role)')
                                 }
                                 required
                                 placeholder='new_role'

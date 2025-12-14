@@ -1,7 +1,7 @@
-import type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
+import type { GlobalRole, RoleMetadata, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
 
 // Re-export types from @universo/types for convenience
-export type { GlobalRole, RoleMetadata, LocalizedString, GlobalUserMember }
+export type { GlobalRole, RoleMetadata, GlobalUserMember, VersionedLocalizedContent }
 
 /**
  * Instance status type

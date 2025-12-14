@@ -26,36 +26,40 @@ export interface AdminConfig {
 }
 
 // ============================================================
-// Versioned Localized Content (VLC) Types
+// Versioned Localized Content Types
 // ============================================================
 
 /**
- * VLC Schema version for forward compatibility
+ * Localized Content Schema version for forward compatibility
  */
-export type VlcSchemaVersion = '1'
+export type LocalizedContentSchemaVersion = '1'
 
 /**
- * Supported locale codes (BCP47-like, simplified to 2-letter for MVP)
- * Can be extended to full BCP47 (e.g., 'ru-RU') in future
+ * Locale code type (dynamic, validated at runtime via API)
+ * Format: 2-letter ISO 639-1 code, optionally with region (e.g., 'en', 'ru', 'en-US')
+ *
+ * Note: Available locales are now managed dynamically in admin.locales table.
+ * Use the public API /api/v1/locales/content to get available locales.
  */
-export type SupportedLocale = 'en' | 'ru'
+export type LocaleCode = string
 
 /**
- * Array of supported locales for runtime validation
+ * Default fallback locale when requested locale is not available
  */
-export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['en', 'ru'] as const
+export const DEFAULT_LOCALE: LocaleCode = 'en'
 
 /**
- * Type guard to check if a string is a valid SupportedLocale
+ * Validate locale code format (basic BCP47-like validation)
+ * Does NOT check if locale is enabled in database - use API for that
  */
-export function isSupportedLocale(lang: string): lang is SupportedLocale {
-    return SUPPORTED_LOCALES.includes(lang as SupportedLocale)
+export function isValidLocaleCode(code: string): code is LocaleCode {
+    return /^[a-z]{2}(-[A-Z]{2})?$/.test(code)
 }
 
 /**
- * Metadata for a single locale entry
+ * Metadata for a single locale entry in localized content
  */
-export interface VlcLocaleEntry<T = string> {
+export interface LocalizedContentEntry<T = string> {
     /** The actual content - string by default, but can be any JSON */
     content: T
     /** Version number for this locale (increments on each update) */
@@ -73,7 +77,7 @@ export interface VlcLocaleEntry<T = string> {
  *
  * @example
  * {
- *   "_schema": "vlc/1",
+ *   "_schema": "1",
  *   "_primary": "en",
  *   "locales": {
  *     "en": { "content": "Admin", "version": 1, "isActive": true, "createdAt": "...", "updatedAt": "..." },
@@ -83,21 +87,11 @@ export interface VlcLocaleEntry<T = string> {
  */
 export interface VersionedLocalizedContent<T = string> {
     /** Schema version marker for forward compatibility */
-    _schema: VlcSchemaVersion
+    _schema: LocalizedContentSchemaVersion
     /** Primary/fallback locale code */
-    _primary: SupportedLocale
+    _primary: LocaleCode
     /** Map of locale codes to their entries */
-    locales: Partial<Record<SupportedLocale, VlcLocaleEntry<T>>>
-}
-
-/**
- * @deprecated Use VersionedLocalizedContent instead
- * Kept for migration reference only
- * Localized display name for a role
- * Keys are ISO 639-1 language codes (e.g., 'en', 'ru')
- */
-export interface LocalizedString {
-    [locale: string]: string
+    locales: Record<LocaleCode, LocalizedContentEntry<T>>
 }
 
 /**
