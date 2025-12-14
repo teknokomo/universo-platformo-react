@@ -16,7 +16,7 @@ import { FetchResponse, Index, Pinecone, ScoredPineconeRecord } from '@pinecone-
 import { flatten } from 'lodash'
 import { Document as LCDocument } from 'langchain/document'
 import { ICommonObject, INode, INodeData, INodeOutputsValue, INodeParams, IndexingResult } from '../../../src/Interface'
-import { flattenObject, getCredentialData, getCredentialParam } from '../../../src/utils'
+import { flattenObject, getCredentialData, getCredentialParam, parseJsonBody } from '../../../src/utils'
 
 class PineconeLlamaIndex_VectorStores implements INode {
     label: string
@@ -176,7 +176,7 @@ class PineconeLlamaIndex_VectorStores implements INode {
 
         let metadatafilter = {}
         if (pineconeMetadataFilter) {
-            metadatafilter = typeof pineconeMetadataFilter === 'object' ? pineconeMetadataFilter : JSON.parse(pineconeMetadataFilter)
+            metadatafilter = typeof pineconeMetadataFilter === 'object' ? pineconeMetadataFilter : parseJsonBody(pineconeMetadataFilter)
             obj.queryFilter = metadatafilter
         }
 
@@ -218,7 +218,7 @@ type PineconeParams = {
 } & IEmbedModel
 
 class PineconeVectorStore extends VectorStoreBase implements VectorStoreNoEmbedModel {
-    storesText: boolean = true
+    storesText = true
     db?: Pinecone
     indexName: string
     apiKey: string
@@ -389,4 +389,4 @@ const cleanupMetadata = (nodeMetadata: ICommonObject) => {
     return metadata
 }
 
-export { PineconeLlamaIndex_VectorStores as nodeClass };
+export { PineconeLlamaIndex_VectorStores as nodeClass }

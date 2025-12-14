@@ -131,4 +131,4 @@ class EmbeddingsFilterRetriever_Retrievers implements INode {
     }
 }
 
-export { EmbeddingsFilterRetriever_Retrievers as nodeClass };
+export { EmbeddingsFilterRetriever_Retrievers as nodeClass }

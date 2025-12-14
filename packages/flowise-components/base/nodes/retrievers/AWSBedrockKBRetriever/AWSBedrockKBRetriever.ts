@@ -138,4 +138,4 @@ class AWSBedrockKBRetriever_Retrievers implements INode {
     }
 }
 
-export { AWSBedrockKBRetriever_Retrievers as nodeClass };
+export { AWSBedrockKBRetriever_Retrievers as nodeClass }

@@ -1,14 +1,6 @@
-import { NodeVM } from '@flowiseai/nodevm'
 import { DataSource } from 'typeorm'
-import {
-    availableDependencies,
-    defaultAllowBuiltInDep,
-    getCredentialData,
-    getCredentialParam,
-    getVars,
-    prepareSandboxVars,
-    safeGet
-} from '../../../src/utils'
+import { getCredentialData, getCredentialParam, getVars, executeJavaScriptCode, createCodeExecutionSandbox } from '../../../src/utils'
+import { isValidUUID, isValidURL } from '../../../src/validator'
 import {
     ICommonObject,
     IDatabaseEntity,
@@ -41,13 +33,13 @@ class ExecuteFlow_SeqAgents implements INode {
         this.type = 'ExecuteFlow'
         this.icon = 'executeflow.svg'
         this.category = 'Sequential Agents'
-        this.description = `Execute canvas/agentflow and return final response`
+        this.description = `Execute chatflow/agentflow and return final response`
         this.baseClasses = [this.type]
         this.credential = {
             label: 'Connect Credential',
             name: 'credential',
             type: 'credential',
-            credentialNames: ['canvasApi'],
+            credentialNames: ['chatflowApi'],
             optional: true
         }
         this.inputs = [
@@ -142,13 +134,13 @@ class ExecuteFlow_SeqAgents implements INode {
                 return returnData
             }
 
-            const canvases = await appDataSource.getRepository(databaseEntities['Canvas']).find()
+            const searchOptions = options.searchOptions || {}
+            const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).findBy(searchOptions)
 
-            for (let i = 0; i < canvases.length; i += 1) {
-                const canvas = canvases[i] as any
+            for (let i = 0; i < chatflows.length; i += 1) {
                 const data = {
-                    label: safeGet(canvas, 'name', 'Unknown Flow'),
-                    name: safeGet(canvas, 'id', '')
+                    label: chatflows[i].name,
+                    name: chatflows[i].id
                 } as INodeOptionsValue
                 returnData.push(data)
             }
@@ -178,20 +170,30 @@ class ExecuteFlow_SeqAgents implements INode {
         const baseURL = (nodeData.inputs?.baseURL as string) || (options.baseURL as string)
         const returnValueAs = nodeData.inputs?.returnValueAs as string
 
-        const credentialData = await getCredentialData(nodeData.credential ?? '', options)
-        const canvasApiKey = getCredentialParam('canvasApiKey', credentialData, nodeData)
+        // Validate selectedFlowId is a valid UUID
+        if (!selectedFlowId || !isValidUUID(selectedFlowId)) {
+            throw new Error('Invalid flow ID: must be a valid UUID')
+        }
 
-        if (selectedFlowId === options.canvasId) throw new Error('Cannot call the same agentflow!')
+        // Validate baseURL is a valid URL
+        if (!baseURL || !isValidURL(baseURL)) {
+            throw new Error('Invalid base URL: must be a valid URL')
+        }
+
+        const credentialData = await getCredentialData(nodeData.credential ?? '', options)
+        const chatflowApiKey = getCredentialParam('chatflowApiKey', credentialData, nodeData)
+
+        if (selectedFlowId === options.chatflowid) throw new Error('Cannot call the same agentflow!')
 
         let headers = {}
-        if (canvasApiKey) headers = { Authorization: `Bearer ${canvasApiKey}` }
+        if (chatflowApiKey) headers = { Authorization: `Bearer ${chatflowApiKey}` }
 
-        const canvasId = options.canvasId
+        const chatflowId = options.chatflowid
         const sessionId = options.sessionId
         const chatId = options.chatId
 
         const executeFunc = async (state: ISeqAgentsState) => {
-            const variables = await getVars(appDataSource, databaseEntities, nodeData)
+            const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
 
             let flowInput = ''
             if (seqExecuteFlowInput === 'userQuestion') {
@@ -199,8 +201,7 @@ class ExecuteFlow_SeqAgents implements INode {
             } else if (seqExecuteFlowInput && seqExecuteFlowInput.startsWith('{{') && seqExecuteFlowInput.endsWith('}}')) {
                 const nodeId = seqExecuteFlowInput.replace('{{', '').replace('}}', '').replace('$', '').trim()
                 const messageOutputs = ((state.messages as unknown as BaseMessage[]) ?? []).filter(
-                    (message) =>
-                        safeGet(message, 'additional_kwargs', null) && safeGet(message.additional_kwargs, 'nodeId', null) === nodeId
+                    (message) => message.additional_kwargs && message.additional_kwargs?.nodeId === nodeId
                 )
                 const messageOutput = messageOutputs[messageOutputs.length - 1]
 
@@ -210,7 +211,7 @@ class ExecuteFlow_SeqAgents implements INode {
             }
 
             const flow = {
-                canvasId,
+                chatflowId,
                 sessionId,
                 chatId,
                 input: flowInput,
@@ -226,7 +227,7 @@ class ExecuteFlow_SeqAgents implements INode {
                 }
             }
 
-            const options = {
+            const callOptions = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -235,18 +236,13 @@ class ExecuteFlow_SeqAgents implements INode {
                 body: JSON.stringify(body)
             }
 
-            let sandbox: ICommonObject = {
-                $input: flowInput,
-                $callOptions: options,
-                $callBody: body,
-                util: undefined,
-                Symbol: undefined,
-                child_process: undefined,
-                fs: undefined,
-                process: undefined
+            // Create additional sandbox variables
+            const additionalSandbox: ICommonObject = {
+                $callOptions: callOptions,
+                $callBody: body
             }
-            sandbox['$vars'] = prepareSandboxVars(variables)
-            sandbox['$flow'] = flow
+
+            const sandbox = createCodeExecutionSandbox(flowInput, variables, flow, additionalSandbox)
 
             const code = `
     const fetch = require('node-fetch');
@@ -266,27 +262,10 @@ class ExecuteFlow_SeqAgents implements INode {
     }
 `
 
-            const builtinDeps = process.env.TOOL_FUNCTION_BUILTIN_DEP
-                ? defaultAllowBuiltInDep.concat(process.env.TOOL_FUNCTION_BUILTIN_DEP.split(','))
-                : defaultAllowBuiltInDep
-            const externalDeps = process.env.TOOL_FUNCTION_EXTERNAL_DEP ? process.env.TOOL_FUNCTION_EXTERNAL_DEP.split(',') : []
-            const deps = availableDependencies.concat(externalDeps)
-
-            const nodeVMOptions = {
-                console: 'inherit',
-                sandbox,
-                require: {
-                    external: { modules: deps },
-                    builtin: builtinDeps
-                },
-                eval: false,
-                wasm: false,
-                timeout: 10000
-            } as any
-
-            const vm = new NodeVM(nodeVMOptions)
             try {
-                let response = await vm.run(`module.exports = async function() {${code}}()`, __dirname)
+                let response = await executeJavaScriptCode(code, sandbox, {
+                    useSandbox: false
+                })
 
                 if (typeof response === 'object') {
                     response = JSON.stringify(response)
@@ -339,4 +318,4 @@ class ExecuteFlow_SeqAgents implements INode {
     }
 }
 
-export { ExecuteFlow_SeqAgents as nodeClass };
+export { ExecuteFlow_SeqAgents as nodeClass }

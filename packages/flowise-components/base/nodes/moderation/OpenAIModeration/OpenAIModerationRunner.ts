@@ -3,7 +3,7 @@ import { OpenAIModerationChain } from 'langchain/chains'
 
 export class OpenAIModerationRunner implements Moderation {
     private openAIApiKey = ''
-    private moderationErrorMessage: string = "Text was found that violates OpenAI's content policy."
+    private moderationErrorMessage = "Text was found that violates OpenAI's content policy."
 
     constructor(openAIApiKey: string) {
         this.openAIApiKey = openAIApiKey

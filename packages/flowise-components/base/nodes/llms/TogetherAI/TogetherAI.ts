@@ -154,4 +154,4 @@ class TogetherAI_LLMs implements INode {
     }
 }
 
-export { TogetherAI_LLMs as nodeClass };
+export { TogetherAI_LLMs as nodeClass }

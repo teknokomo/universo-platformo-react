@@ -143,4 +143,4 @@ class SimpleStoreUpsert_LlamaIndex_VectorStores implements INode {
     }
 }
 
-export { SimpleStoreUpsert_LlamaIndex_VectorStores as nodeClass };
+export { SimpleStoreUpsert_LlamaIndex_VectorStores as nodeClass }

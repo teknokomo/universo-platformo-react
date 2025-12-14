@@ -60,4 +60,4 @@ class QueryEngine_Tools implements INode {
     }
 }
 
-export { QueryEngine_Tools as nodeClass };
+export { QueryEngine_Tools as nodeClass }

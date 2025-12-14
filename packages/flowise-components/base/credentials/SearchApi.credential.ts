@@ -23,4 +23,4 @@ class SearchApi implements INodeCredential {
     }
 }
 
-export { SearchApi as credClass };
+export { SearchApi as credClass }

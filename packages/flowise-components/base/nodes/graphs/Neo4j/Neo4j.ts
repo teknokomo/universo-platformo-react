@@ -77,4 +77,4 @@ class Neo4j_Graphs implements INode {
     }
 }
 
-export { Neo4j_Graphs as nodeClass };
+export { Neo4j_Graphs as nodeClass }

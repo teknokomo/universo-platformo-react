@@ -27,17 +27,17 @@ class InMemoryCache implements INode {
     }
 
     async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<any> {
-        const memoryMap = (await options.cachePool.getLLMCache(options.canvasId)) ?? new Map()
+        const memoryMap = (await options.cachePool.getLLMCache(options.chatflowid)) ?? new Map()
         const inMemCache = new InMemoryCacheExtended(memoryMap)
 
         inMemCache.lookup = async (prompt: string, llmKey: string): Promise<any | null> => {
-            const memory = (await options.cachePool.getLLMCache(options.canvasId)) ?? inMemCache.cache
+            const memory = (await options.cachePool.getLLMCache(options.chatflowid)) ?? inMemCache.cache
             return Promise.resolve(memory.get(getCacheKey(prompt, llmKey)) ?? null)
         }
 
         inMemCache.update = async (prompt: string, llmKey: string, value: any): Promise<void> => {
             inMemCache.cache.set(getCacheKey(prompt, llmKey), value)
-            await options.cachePool.addLLMCache(options.canvasId, inMemCache.cache)
+            await options.cachePool.addLLMCache(options.chatflowid, inMemCache.cache)
         }
         return inMemCache
     }
@@ -62,4 +62,4 @@ class InMemoryCacheExtended extends BaseCache {
     }
 }
 
-export { InMemoryCache as nodeClass };
+export { InMemoryCache as nodeClass }

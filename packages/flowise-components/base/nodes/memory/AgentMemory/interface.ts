@@ -8,7 +8,8 @@ export type SaverOptions = {
     threadId: string
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    canvasId: string
+    chatflowid: string
+    orgId: string
 }
 
 export interface CheckpointTuple {

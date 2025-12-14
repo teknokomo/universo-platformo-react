@@ -45,11 +45,11 @@ export const AsyncDropdown = ({
     const [options, setOptions] = useState([])
     const [loading, setLoading] = useState(false)
     const [hasLoaded, setHasLoaded] = useState(false) // Track if options have been loaded
-    
+
     // Use ref to track nodeData without causing re-renders
     const nodeDataRef = useRef(nodeData)
     nodeDataRef.current = nodeData
-    
+
     const findMatchingOptions = (options = [], value) => {
         if (multiple) {
             let values = []
@@ -107,7 +107,7 @@ export const AsyncDropdown = ({
     useEffect(() => {
         // Only load once per component mount
         if (hasLoaded) return
-        
+
         let isMounted = true
         const loadOptions = async () => {
             setLoading(true)

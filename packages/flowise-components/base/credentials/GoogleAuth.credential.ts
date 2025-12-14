@@ -52,4 +52,4 @@ class GoogleVertexAuth implements INodeCredential {
     }
 }
 
-export { GoogleVertexAuth as credClass };
+export { GoogleVertexAuth as credClass }

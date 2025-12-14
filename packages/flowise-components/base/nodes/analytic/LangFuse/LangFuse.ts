@@ -30,4 +30,4 @@ class LangFuse_Analytic implements INode {
     }
 }
 
-export { LangFuse_Analytic as nodeClass };
+export { LangFuse_Analytic as nodeClass }

@@ -41,4 +41,4 @@ class WolframAlpha_Tools implements INode {
     }
 }
 
-export { WolframAlpha_Tools as nodeClass };
+export { WolframAlpha_Tools as nodeClass }

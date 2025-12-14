@@ -88,23 +88,24 @@ export class PGVectorDriver extends VectorStoreDriver {
             }
 
             const whereClauseRegex = /WHERE ([^\n]+)/
-            let canvasFilterClause = ''
+            let chatflowOr = ''
 
-            // Ensure we only fetch documents associated with the current canvas when metadata contains FLOWISE_CHATID
+            // Match chatflow uploaded file and keep filtering on other files:
             // https://github.com/FlowiseAI/Flowise/pull/3367#discussion_r1804229295
             if (chatId) {
                 parameters.push({ [FLOWISE_CHATID]: chatId })
-                canvasFilterClause = `OR metadata @> $${parameters.length}`
+
+                chatflowOr = `OR metadata @> $${parameters.length}`
             }
 
             if (queryString.match(whereClauseRegex)) {
-                queryString = queryString.replace(whereClauseRegex, `WHERE (($1) AND NOT (metadata ? '${FLOWISE_CHATID}')) ${canvasFilterClause}`)
+                queryString = queryString.replace(whereClauseRegex, `WHERE (($1) AND NOT (metadata ? '${FLOWISE_CHATID}')) ${chatflowOr}`)
             } else {
                 const orderByClauseRegex = /ORDER BY (.*)/
                 // Insert WHERE clause before ORDER BY
                 queryString = queryString.replace(
                     orderByClauseRegex,
-                    `WHERE (metadata @> '{}' AND NOT (metadata ? '${FLOWISE_CHATID}')) ${canvasFilterClause}
+                    `WHERE (metadata @> '{}' AND NOT (metadata ? '${FLOWISE_CHATID}')) ${chatflowOr}
                 ORDER BY $1
                 `
                 )

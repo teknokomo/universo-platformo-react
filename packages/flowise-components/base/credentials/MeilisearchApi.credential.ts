@@ -29,4 +29,4 @@ class MeilisearchApi implements INodeCredential {
     }
 }
 
-export { MeilisearchApi as credClass };
+export { MeilisearchApi as credClass }

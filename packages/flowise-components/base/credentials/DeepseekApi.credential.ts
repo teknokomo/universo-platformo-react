@@ -20,4 +20,4 @@ class DeepseekApi implements INodeCredential {
     }
 }
 
-export { DeepseekApi as credClass };
+export { DeepseekApi as credClass }

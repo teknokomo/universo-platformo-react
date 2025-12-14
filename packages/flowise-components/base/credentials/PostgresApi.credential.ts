@@ -28,4 +28,4 @@ class PostgresApi implements INodeCredential {
     }
 }
 
-export { PostgresApi as credClass };
+export { PostgresApi as credClass }

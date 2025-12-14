@@ -4,8 +4,7 @@ import {
     getCredentialParam,
     handleDocumentLoaderDocuments,
     handleDocumentLoaderMetadata,
-    handleDocumentLoaderOutput,
-    bufferToUint8Array
+    handleDocumentLoaderOutput
 } from '../../../src/utils'
 import { S3Client, GetObjectCommand, S3ClientConfig, ListObjectsV2Command, ListObjectsV2Output } from '@aws-sdk/client-s3'
 import { getRegions, MODEL_TYPE } from '../../../src/modelLoader'
@@ -20,9 +19,9 @@ import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { DocxLoader } from '@langchain/community/document_loaders/fs/docx'
 import { TextLoader } from 'langchain/document_loaders/fs/text'
 import { TextSplitter } from 'langchain/text_splitter'
-
 import { CSVLoader } from '../Csv/CsvLoader'
-
+import { LoadOfSheet } from '../MicrosoftExcel/ExcelLoader'
+import { PowerpointLoader } from '../MicrosoftPowerpoint/PowerpointLoader'
 class S3_DocumentLoaders implements INode {
     label: string
     name: string
@@ -119,7 +118,7 @@ class S3_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, separated by comma. Use * to omit all metadata keys except the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
@@ -217,7 +216,7 @@ class S3_DocumentLoaders implements INode {
 
                             if (response.Body instanceof Readable) {
                                 response.Body.on('data', (chunk: Buffer) => chunks.push(chunk))
-                                response.Body.on('end', () => resolve(Buffer.concat(chunks.map(bufferToUint8Array))))
+                                response.Body.on('end', () => resolve(Buffer.concat(chunks)))
                                 response.Body.on('error', reject)
                             } else {
                                 reject(new Error('Response body is not a readable stream.'))
@@ -228,7 +227,7 @@ class S3_DocumentLoaders implements INode {
                         fsDefault.mkdirSync(path.dirname(filePath), { recursive: true })
 
                         // write the file to the directory
-                        fsDefault.writeFileSync(filePath, bufferToUint8Array(objectData))
+                        fsDefault.writeFileSync(filePath, objectData)
                     } catch (e: any) {
                         throw new Error(`Failed to download file ${key} from S3 bucket ${bucketName}: ${e.message}`)
                     }
@@ -241,7 +240,13 @@ class S3_DocumentLoaders implements INode {
                     '.json': (path) => new JSONLoader(path),
                     '.txt': (path) => new TextLoader(path),
                     '.csv': (path) => new CSVLoader(path),
+                    '.xls': (path) => new LoadOfSheet(path),
+                    '.xlsx': (path) => new LoadOfSheet(path),
+                    '.xlsm': (path) => new LoadOfSheet(path),
+                    '.xlsb': (path) => new LoadOfSheet(path),
                     '.docx': (path) => new DocxLoader(path),
+                    '.ppt': (path) => new PowerpointLoader(path),
+                    '.pptx': (path) => new PowerpointLoader(path),
                     '.pdf': (path) =>
                         new PDFLoader(path, {
                             splitPages: pdfUsage !== 'perFile',
@@ -299,4 +304,4 @@ class S3_DocumentLoaders implements INode {
         }
     }
 }
-export { S3_DocumentLoaders as nodeClass };
+export { S3_DocumentLoaders as nodeClass }

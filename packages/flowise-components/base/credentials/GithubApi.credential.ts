@@ -24,4 +24,4 @@ class GithubApi implements INodeCredential {
     }
 }
 
-export { GithubApi as credClass };
+export { GithubApi as credClass }

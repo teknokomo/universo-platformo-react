@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": false,
+    "noEmitOnError": true
+  },
+  "include": ["src"],
+  "exclude": [
+    "gulpfile.ts",
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.js",
+    "**/*.spec.ts",
+    "**/*.spec.js"
+  ]
+}

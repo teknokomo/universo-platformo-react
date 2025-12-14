@@ -59,7 +59,7 @@ class Csv_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, separated by comma. Use * to omit all metadata keys except the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
@@ -85,7 +85,7 @@ class Csv_DocumentLoaders implements INode {
         const csvFileBase64 = nodeData.inputs?.csvFile as string
 
         let files: string[] = []
-        let fromStorage: boolean = true
+        let fromStorage = true
 
         if (csvFileBase64.startsWith('FILE-STORAGE::')) {
             const fileName = csvFileBase64.replace('FILE-STORAGE::', '')
@@ -107,9 +107,9 @@ class Csv_DocumentLoaders implements INode {
         return { files, fromStorage }
     }
 
-    async getFileData(file: string, { canvasId }: { canvasId: string }, fromStorage?: boolean) {
+    async getFileData(file: string, { orgId, chatflowid }: { orgId: string; chatflowid: string }, fromStorage?: boolean) {
         if (fromStorage) {
-            return getFileFromStorage(file, canvasId)
+            return getFileFromStorage(file, orgId, chatflowid)
         } else {
             const splitDataURI = file.split(',')
             splitDataURI.pop()
@@ -126,15 +126,16 @@ class Csv_DocumentLoaders implements INode {
 
         let docs: IDocument[] = []
 
-        const canvasId = options.canvasId
+        const orgId = options.orgId
+        const chatflowid = options.chatflowid
 
         const { files, fromStorage } = this.getFiles(nodeData)
 
         for (const file of files) {
             if (!file) continue
 
-            const fileData = await this.getFileData(file, { canvasId }, fromStorage)
-            const blob = new Blob([new Uint8Array(fileData)])
+            const fileData = await this.getFileData(file, { orgId, chatflowid }, fromStorage)
+            const blob = new Blob([fileData])
             const loader = new CSVLoader(blob, columnName.trim().length === 0 ? undefined : columnName.trim())
 
             // use spread instead of push, because it raises RangeError: Maximum call stack size exceeded when too many docs
@@ -147,4 +148,4 @@ class Csv_DocumentLoaders implements INode {
     }
 }
 
-export { Csv_DocumentLoaders as nodeClass };
+export { Csv_DocumentLoaders as nodeClass }

@@ -6,8 +6,6 @@ import { ICommonObject, INode, INodeData, INodeOutputsValue, INodeParams, Indexi
 import { getBaseClasses, getCredentialData } from '../../../src/utils'
 import { addMMRInputParams, resolveVectorStoreOrRetriever } from '../VectorStoreUtils'
 
-// ExtendedAstraLibArgs removed - keyspace is now part of AstraLibArgs in @langchain/community@0.3.57
-
 class Astra_VectorStores implements INode {
     label: string
     name: string
@@ -122,11 +120,9 @@ class Astra_VectorStores implements INode {
                 endpoint: credentialData?.dbEndPoint
             }
 
-            const keyspace = astraNamespace ?? 'default_keyspace'
-            // Fixed for @langchain/community@0.3.57: use keyspace instead of namespace
-            const astraConfig: AstraLibArgs = {
+            const astraConfig = {
                 ...clientConfig,
-                keyspace: keyspace,
+                namespace: astraNamespace ?? 'default_keyspace',
                 collection: astraCollection ?? credentialData.collectionName ?? 'flowise_test',
                 collectionOptions: {
                     vector: {
@@ -134,7 +130,7 @@ class Astra_VectorStores implements INode {
                         metric: similarityMetric ?? 'cosine'
                     }
                 }
-            }
+            } as unknown as AstraLibArgs
 
             const flattenDocs = docs && docs.length ? flatten(docs) : []
             const finalDocs = []
@@ -171,11 +167,9 @@ class Astra_VectorStores implements INode {
             endpoint: credentialData?.dbEndPoint
         }
 
-        const keyspace = astraNamespace ?? 'default_keyspace'
-        // Fixed for @langchain/community@0.3.57: use keyspace instead of namespace
-        const astraConfig: AstraLibArgs = {
+        const astraConfig = {
             ...clientConfig,
-            keyspace: keyspace,
+            namespace: astraNamespace ?? 'default_keyspace',
             collection: astraCollection ?? credentialData.collectionName ?? 'flowise_test',
             collectionOptions: {
                 vector: {
@@ -183,7 +177,7 @@ class Astra_VectorStores implements INode {
                     metric: similarityMetric ?? 'cosine'
                 }
             }
-        }
+        } as unknown as AstraLibArgs
 
         const vectorStore = await AstraDBVectorStore.fromExistingIndex(embeddings, astraConfig)
 
@@ -191,4 +185,4 @@ class Astra_VectorStores implements INode {
     }
 }
 
-export { Astra_VectorStores as nodeClass };
+export { Astra_VectorStores as nodeClass }

@@ -235,4 +235,4 @@ class ExaSearch_Tools implements INode {
     }
 }
 
-export { ExaSearch_Tools as nodeClass };
+export { ExaSearch_Tools as nodeClass }

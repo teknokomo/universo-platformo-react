@@ -23,4 +23,4 @@ class GoogleMakerSuite implements INodeCredential {
     }
 }
 
-export { GoogleMakerSuite as credClass };
+export { GoogleMakerSuite as credClass }

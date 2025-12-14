@@ -20,4 +20,4 @@ class OpenAIApi implements INodeCredential {
     }
 }
 
-export { OpenAIApi as credClass };
+export { OpenAIApi as credClass }

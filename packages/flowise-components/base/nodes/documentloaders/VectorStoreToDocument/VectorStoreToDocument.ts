@@ -102,4 +102,4 @@ class VectorStoreToDocument_DocumentLoaders implements INode {
     }
 }
 
-export { VectorStoreToDocument_DocumentLoaders as nodeClass };
+export { VectorStoreToDocument_DocumentLoaders as nodeClass }

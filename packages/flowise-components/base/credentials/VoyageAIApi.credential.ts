@@ -29,4 +29,4 @@ class VoyageAIApi implements INodeCredential {
     }
 }
 
-export { VoyageAIApi as credClass };
+export { VoyageAIApi as credClass }

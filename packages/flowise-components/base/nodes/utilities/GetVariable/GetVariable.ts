@@ -51,4 +51,4 @@ class GetVariable_Utilities implements INode {
     }
 }
 
-export { GetVariable_Utilities as nodeClass };
+export { GetVariable_Utilities as nodeClass }

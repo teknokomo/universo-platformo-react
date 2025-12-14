@@ -85,4 +85,4 @@ class JinaAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { JinaAIEmbedding_Embeddings as nodeClass };
+export { JinaAIEmbedding_Embeddings as nodeClass }

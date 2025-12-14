@@ -30,4 +30,4 @@ class Arize_Analytic implements INode {
     }
 }
 
-export { Arize_Analytic as nodeClass };
+export { Arize_Analytic as nodeClass }

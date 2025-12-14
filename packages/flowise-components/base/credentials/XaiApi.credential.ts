@@ -21,4 +21,4 @@ class XaiApi implements INodeCredential {
     }
 }
 
-export { XaiApi as credClass };
+export { XaiApi as credClass }

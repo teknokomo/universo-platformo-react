@@ -136,7 +136,8 @@ class ChatCerebras_ChatModels implements INode {
 
         const obj: ChatOpenAIFields = {
             temperature: parseFloat(temperature),
-            modelName,
+            model: modelName,
+            apiKey: cerebrasAIApiKey,
             openAIApiKey: cerebrasAIApiKey,
             streaming: streaming ?? true
         }
@@ -170,4 +171,4 @@ class ChatCerebras_ChatModels implements INode {
     }
 }
 
-export { ChatCerebras_ChatModels as nodeClass };
+export { ChatCerebras_ChatModels as nodeClass }

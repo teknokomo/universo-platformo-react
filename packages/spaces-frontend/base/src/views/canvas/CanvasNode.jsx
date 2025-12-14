@@ -9,7 +9,7 @@ import Tooltip from '@mui/material/Tooltip'
 
 import NodeCardWrapper from '@flowise/template-mui/ui-components/cards/NodeCardWrapper'
 import NodeTooltip from '@flowise/template-mui/ui-components/tooltip/NodeTooltip'
-import { NodeInputHandler } from '@flowise/template-mui'
+import { NodeInputHandler, AGENTFLOW_ICONS } from '@flowise/template-mui'
 import NodeOutputHandler from './NodeOutputHandler'
 import AdditionalParamsDialog from '@flowise/template-mui/ui-components/dialog/AdditionalParamsDialog'
 import NodeInfoDialog from '@flowise/template-mui/ui-components/dialog/NodeInfoDialog'
@@ -20,6 +20,21 @@ const baseURL = getApiBaseURL()
 import { IconTrash, IconCopy, IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react'
 import { flowContext } from '@flowise/store'
 import LlamaindexPNG from '../../assets/images/llamaindex.png'
+
+const renderNodeIcon = (nodeData) => {
+  const agentflowEntry = nodeData?.color && !nodeData?.icon ? AGENTFLOW_ICONS.find((item) => item.name === nodeData.name) : null
+  if (agentflowEntry) {
+    const IconComponent = agentflowEntry.icon
+    return <IconComponent size={38} color={agentflowEntry.color} style={{ padding: 5 }} />
+  }
+  return (
+    <img
+      style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }}
+      src={`${baseURL}/api/v1/node-icon/${nodeData.name}`}
+      alt='Notification'
+    />
+  )
+}
 
 const CanvasNode = ({ data }) => {
   const theme = useTheme()
@@ -122,10 +137,13 @@ const CanvasNode = ({ data }) => {
                     ...theme.typography.largeAvatar,
                     borderRadius: '50%',
                     backgroundColor: 'white',
-                    cursor: 'grab'
+                    cursor: 'grab',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
-                  <img style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }} src={`${baseURL}/api/v1/node-icon/${data.name}`} alt='Notification' />
+                  {renderNodeIcon(data)}
                 </div>
               </Box>
               <Box>

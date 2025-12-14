@@ -26,4 +26,4 @@ class UpstashVectorApi implements INodeCredential {
     }
 }
 
-export { UpstashVectorApi as credClass };
+export { UpstashVectorApi as credClass }

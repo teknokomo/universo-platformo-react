@@ -97,4 +97,4 @@ class ChatAnthropic_LlamaIndex_ChatModels implements INode {
     }
 }
 
-export { ChatAnthropic_LlamaIndex_ChatModels as nodeClass };
+export { ChatAnthropic_LlamaIndex_ChatModels as nodeClass }

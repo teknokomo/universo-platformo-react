@@ -33,4 +33,4 @@ class MomentoCacheApi implements INodeCredential {
     }
 }
 
-export { MomentoCacheApi as credClass };
+export { MomentoCacheApi as credClass }

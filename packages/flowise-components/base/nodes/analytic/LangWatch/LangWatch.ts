@@ -30,4 +30,4 @@ class LangWatch_Analytic implements INode {
     }
 }
 
-export { LangWatch_Analytic as nodeClass };
+export { LangWatch_Analytic as nodeClass }

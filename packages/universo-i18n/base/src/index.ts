@@ -10,6 +10,7 @@ export { useCommonTranslations, useHeaderTranslations, useSpacesTranslations } f
 
 // Re-export react-i18next hook directly (no wrapper needed)
 export { useTranslation } from 'react-i18next'
+export { Trans } from 'react-i18next'
 
 // Default export: initialized singleton instance
 export default getInstance()

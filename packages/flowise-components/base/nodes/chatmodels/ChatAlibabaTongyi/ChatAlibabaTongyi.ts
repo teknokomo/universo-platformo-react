@@ -84,4 +84,4 @@ class ChatAlibabaTongyi_ChatModels implements INode {
     }
 }
 
-export { ChatAlibabaTongyi_ChatModels as nodeClass };
+export { ChatAlibabaTongyi_ChatModels as nodeClass }

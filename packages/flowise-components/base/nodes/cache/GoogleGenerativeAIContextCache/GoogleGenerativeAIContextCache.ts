@@ -50,4 +50,4 @@ class GoogleGenerativeAIContextCache implements INode {
     }
 }
 
-export { GoogleGenerativeAIContextCache as nodeClass };
+export { GoogleGenerativeAIContextCache as nodeClass }

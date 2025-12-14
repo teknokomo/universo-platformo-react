@@ -21,4 +21,4 @@ class PineconeApi implements INodeCredential {
     }
 }
 
-export { PineconeApi as credClass };
+export { PineconeApi as credClass }

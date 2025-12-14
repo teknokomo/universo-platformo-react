@@ -75,7 +75,7 @@ class Pdf_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, separated by comma. Use * to omit all metadata keys except the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
@@ -122,12 +122,13 @@ class Pdf_DocumentLoaders implements INode {
             } else {
                 files = [fileName]
             }
-            const canvasId = options.canvasId
+            const orgId = options.orgId
+            const chatflowid = options.chatflowid
 
             for (const file of files) {
                 if (!file) continue
-                const fileData = await getFileFromStorage(file, canvasId)
-                const bf = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData)
+                const fileData = await getFileFromStorage(file, orgId, chatflowid)
+                const bf = Buffer.from(fileData)
                 await this.extractDocs(usage, bf, legacyBuild, textSplitter, docs)
             }
         } else {
@@ -191,7 +192,7 @@ class Pdf_DocumentLoaders implements INode {
 
     private async extractDocs(usage: string, bf: Buffer, legacyBuild: boolean, textSplitter: TextSplitter, docs: IDocument[]) {
         if (usage === 'perFile') {
-            const loader = new PDFLoader(new Blob([new Uint8Array(bf)]), {
+            const loader = new PDFLoader(new Blob([bf]), {
                 splitPages: false,
                 pdfjs: () =>
                     // @ts-ignore
@@ -205,7 +206,7 @@ class Pdf_DocumentLoaders implements INode {
                 docs.push(...(await loader.load()))
             }
         } else {
-            const loader = new PDFLoader(new Blob([new Uint8Array(bf)]), {
+            const loader = new PDFLoader(new Blob([bf]), {
                 pdfjs: () =>
                     // @ts-ignore
                     legacyBuild ? import('pdfjs-dist/legacy/build/pdf.js') : import('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js')
@@ -221,4 +222,4 @@ class Pdf_DocumentLoaders implements INode {
     }
 }
 
-export { Pdf_DocumentLoaders as nodeClass };
+export { Pdf_DocumentLoaders as nodeClass }

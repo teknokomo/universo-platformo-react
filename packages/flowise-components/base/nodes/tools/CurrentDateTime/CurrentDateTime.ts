@@ -71,4 +71,4 @@ class CurrentDateTime_Tools implements INode {
     }
 }
 
-export { CurrentDateTime_Tools as nodeClass };
+export { CurrentDateTime_Tools as nodeClass }

@@ -237,4 +237,4 @@ class Ollama_LLMs implements INode {
     }
 }
 
-export { Ollama_LLMs as nodeClass };
+export { Ollama_LLMs as nodeClass }

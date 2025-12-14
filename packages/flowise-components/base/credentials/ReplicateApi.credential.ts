@@ -20,4 +20,4 @@ class ReplicateApi implements INodeCredential {
     }
 }
 
-export { ReplicateApi as credClass };
+export { ReplicateApi as credClass }

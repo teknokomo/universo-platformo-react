@@ -28,4 +28,4 @@ class GoogleSearchApi implements INodeCredential {
     }
 }
 
-export { GoogleSearchApi as credClass };
+export { GoogleSearchApi as credClass }

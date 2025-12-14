@@ -144,4 +144,4 @@ class CohereRerankRetriever_Retrievers implements INode {
     }
 }
 
-export { CohereRerankRetriever_Retrievers as nodeClass };
+export { CohereRerankRetriever_Retrievers as nodeClass }

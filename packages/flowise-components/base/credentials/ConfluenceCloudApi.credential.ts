@@ -30,4 +30,4 @@ class ConfluenceCloudApi implements INodeCredential {
     }
 }
 
-export { ConfluenceCloudApi as credClass };
+export { ConfluenceCloudApi as credClass }

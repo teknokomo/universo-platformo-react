@@ -144,4 +144,4 @@ class AzureChatOpenAI_LlamaIndex_ChatModels implements INode {
     }
 }
 
-export { AzureChatOpenAI_LlamaIndex_ChatModels as nodeClass };
+export { AzureChatOpenAI_LlamaIndex_ChatModels as nodeClass }

@@ -36,4 +36,4 @@ class OpikApi implements INodeCredential {
     }
 }
 
-export { OpikApi as credClass };
+export { OpikApi as credClass }

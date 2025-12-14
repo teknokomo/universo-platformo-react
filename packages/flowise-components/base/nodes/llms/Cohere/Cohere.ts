@@ -90,4 +90,4 @@ class Cohere_LLMs implements INode {
     }
 }
 
-export { Cohere_LLMs as nodeClass };
+export { Cohere_LLMs as nodeClass }

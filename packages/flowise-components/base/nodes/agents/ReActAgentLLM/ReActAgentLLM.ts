@@ -97,7 +97,7 @@ class ReActAgentLLM_Agents implements INode {
         const executor = new AgentExecutor({
             agent,
             tools,
-            verbose: process.env.DEBUG === 'true',
+            verbose: process.env.DEBUG === 'true' ? true : false,
             maxIterations: maxIterations ? parseFloat(maxIterations) : undefined
         })
 
@@ -109,4 +109,4 @@ class ReActAgentLLM_Agents implements INode {
     }
 }
 
-export { ReActAgentLLM_Agents as nodeClass };
+export { ReActAgentLLM_Agents as nodeClass }

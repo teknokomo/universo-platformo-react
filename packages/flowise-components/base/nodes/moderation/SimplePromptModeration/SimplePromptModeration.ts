@@ -60,4 +60,4 @@ class SimplePromptModeration implements INode {
     }
 }
 
-export { SimplePromptModeration as nodeClass };
+export { SimplePromptModeration as nodeClass }

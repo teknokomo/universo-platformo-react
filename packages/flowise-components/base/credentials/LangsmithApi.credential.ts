@@ -30,4 +30,4 @@ class LangsmithApi implements INodeCredential {
     }
 }
 
-export { LangsmithApi as credClass };
+export { LangsmithApi as credClass }

@@ -72,4 +72,4 @@ Answer:`,
     }
 }
 
-export { Refine_LlamaIndex as nodeClass };
+export { Refine_LlamaIndex as nodeClass }

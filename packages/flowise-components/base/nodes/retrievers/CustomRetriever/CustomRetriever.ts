@@ -120,7 +120,7 @@ class CustomRetriever<V extends VectorStore> extends VectorStoreRetriever<V> {
     topK = 4
 
     constructor(input: RetrieverInput<V>) {
-        super(input)
+        super(input as any)
         this.topK = input.topK ?? this.topK
         this.resultFormat = input.resultFormat ?? this.resultFormat
     }
@@ -156,4 +156,4 @@ function replaceMetadata(template: string, metadata: Record<string, any>): strin
     })
 }
 
-export { CustomRetriever_Retrievers as nodeClass };
+export { CustomRetriever_Retrievers as nodeClass }

@@ -233,7 +233,7 @@ async function createAgent(
             sessionId: flowObj?.sessionId,
             chatId: flowObj?.chatId,
             input: flowObj?.input,
-            verbose: process.env.DEBUG === 'true',
+            verbose: process.env.DEBUG === 'true' ? true : false,
             maxIterations: maxIterations ? parseFloat(maxIterations) : undefined
         })
         return executor
@@ -314,4 +314,4 @@ const transformObjectPropertyToFunction = (obj: ICommonObject) => {
     return transformedObject
 }
 
-export { Worker_MultiAgents as nodeClass };
+export { Worker_MultiAgents as nodeClass }

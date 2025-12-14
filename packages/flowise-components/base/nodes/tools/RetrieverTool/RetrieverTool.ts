@@ -3,27 +3,30 @@ import { CallbackManager, CallbackManagerForToolRun, Callbacks, parseCallbackCon
 import { BaseDynamicToolInput, DynamicTool, StructuredTool, ToolInputParsingException } from '@langchain/core/tools'
 import { BaseRetriever } from '@langchain/core/retrievers'
 import { ICommonObject, INode, INodeData, INodeParams } from '../../../src/Interface'
-import { FLOW_CONTEXT_REFERENCE, getBaseClasses, resolveFlowObjValue } from '../../../src/utils'
+import { getBaseClasses, resolveFlowObjValue, parseWithTypeConversion } from '../../../src/utils'
 import { SOURCE_DOCUMENTS_PREFIX } from '../../../src/agents'
 import { RunnableConfig } from '@langchain/core/runnables'
 import { VectorStoreRetriever } from '@langchain/core/vectorstores'
 
 const howToUse = `Add additional filters to vector store. You can also filter with flow config, including the current "state":
-${FLOW_CONTEXT_REFERENCE}
+- \`$flow.sessionId\`
+- \`$flow.chatId\`
+- \`$flow.chatflowId\`
+- \`$flow.input\`
+- \`$flow.state\`
 `
 
-// NOTE: Keep Zod usage runtime-only for schema parsing to avoid cross-version type conflicts.
-// Using broad types here prevents TS from trying to unify Zod types coming from different copies.
 type ZodObjectAny = z.ZodObject<any, any, any, any>
 type IFlowConfig = { sessionId?: string; chatId?: string; input?: string; state?: ICommonObject }
-interface DynamicStructuredToolInput<T extends z.ZodTypeAny = z.ZodTypeAny> extends BaseDynamicToolInput {
-    // Keep runtime contract; relax type to avoid Zod generics explosion
-    func?: (input: any, runManager?: CallbackManagerForToolRun, flowConfig?: IFlowConfig) => Promise<string>
+interface DynamicStructuredToolInput<T extends z.ZodObject<any, any, any, any> = z.ZodObject<any, any, any, any>>
+    extends BaseDynamicToolInput {
+    func?: (input: z.infer<T>, runManager?: CallbackManagerForToolRun, flowConfig?: IFlowConfig) => Promise<string>
     schema: T
 }
 
-// Important: do NOT bind StructuredTool generics to Zod types from this module to avoid cross-package type conflicts
-class DynamicStructuredTool<T extends z.ZodTypeAny = z.ZodTypeAny> extends StructuredTool<any> {
+class DynamicStructuredTool<T extends z.ZodObject<any, any, any, any> = z.ZodObject<any, any, any, any>> extends StructuredTool<
+    T extends ZodObjectAny ? T : ZodObjectAny
+> {
     static lc_name() {
         return 'DynamicStructuredTool'
     }
@@ -34,7 +37,7 @@ class DynamicStructuredTool<T extends z.ZodTypeAny = z.ZodTypeAny> extends Struc
 
     func: DynamicStructuredToolInput['func']
 
-    // schema is used at runtime only
+    // @ts-ignore
     schema: T
 
     private flowObj: any
@@ -55,8 +58,7 @@ class DynamicStructuredTool<T extends z.ZodTypeAny = z.ZodTypeAny> extends Struc
         }
         let parsed
         try {
-            // Cast to any to avoid Zod type mismatches between different installed copies
-            parsed = await (this.schema as any).parseAsync(arg)
+            parsed = await parseWithTypeConversion(this.schema, arg)
         } catch (e) {
             throw new ToolInputParsingException(`Received tool input did not match expected schema`, JSON.stringify(arg))
         }
@@ -171,7 +173,8 @@ class Retriever_Tools implements INode {
                 hint: {
                     label: 'What can you filter?',
                     value: howToUse
-                }
+                },
+                acceptVariable: true
             }
         ]
     }
@@ -188,7 +191,7 @@ class Retriever_Tools implements INode {
             description
         }
 
-        const flow = { canvasId: options.canvasId }
+        const flow = { chatflowId: options.chatflowid }
 
         const func = async ({ input }: { input: string }, _?: CallbackManagerForToolRun, flowConfig?: IFlowConfig) => {
             if (retrieverToolMetadataFilter) {
@@ -217,4 +220,4 @@ class Retriever_Tools implements INode {
     }
 }
 
-export { Retriever_Tools as nodeClass };
+export { Retriever_Tools as nodeClass }

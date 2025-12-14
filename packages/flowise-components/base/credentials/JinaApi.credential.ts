@@ -22,4 +22,4 @@ class JinaAICredential implements INodeCredential {
     }
 }
 
-export { JinaAICredential as credClass };
+export { JinaAICredential as credClass }

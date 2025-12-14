@@ -191,4 +191,4 @@ class OpenAI_LLMs implements INode {
     }
 }
 
-export { OpenAI_LLMs as nodeClass };
+export { OpenAI_LLMs as nodeClass }

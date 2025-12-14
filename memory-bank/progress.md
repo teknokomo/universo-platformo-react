@@ -29,6 +29,128 @@
 
 ---
 
+## 📅 2025-12-14
+
+### AgentFlow Icons - spaces-frontend Complete Implementation ✅
+
+**Context:** Previous session added `AGENTFLOW_ICONS` to `flowise-template-mui`, but runtime still showed 500 errors on canvas. The `spaces-frontend` package (unified canvas for Universo) wasn't patched yet.
+
+**Root Cause:**
+- `spaces-frontend` has its own views: `AddNodes.jsx`, `CanvasNode.jsx`, `agentflows/index.jsx`, etc.
+- These views were still requesting `/api/v1/node-icon/*Agentflow` for AgentFlow nodes
+- AgentFlow nodes identified by upstream rule: `node.color && !node.icon` (have color but no icon property)
+- `AGENTFLOW_ICONS` is an **array** (not object), requiring `.find()` lookup
+
+**Technical Fix - Frontend:**
+
+1. **AddNodes.jsx** (canvas node palette):
+   - Added `renderNodeIcon(node)` helper
+   - Uses `AGENTFLOW_ICONS.find((item) => item.name === node.name)` for lookup
+   - Returns `<IconComponent size={30} color={color} />` for AgentFlow nodes
+   - Returns `<img src="/api/v1/node-icon/...">` for standard nodes
+
+2. **CanvasNode.jsx** (node rendering on canvas):
+   - Same `renderNodeIcon(data)` pattern
+   - Icon size 30px for AgentFlow, matches upstream
+
+3. **agentflows/index.jsx** (list/grid preview):
+   - Refactored `buildImageMap()` to return `{images, icons}` object
+   - Added `[icons, setIcons]` state
+   - Passes `icons` prop to ItemCard and FlowListTable
+
+4. **canvases/index.jsx** (standard canvas list):
+   - Same pattern as agentflows
+
+5. **spaces/index.jsx** (spaces list with canvas previews):
+   - `buildImagePreviewMap()` returns `{images, icons}`
+   - Same state and prop passing pattern
+
+6. **NodeInfoDialog.jsx** (flowise-template-mui):
+   - Added conditional Tabler icon rendering for AgentFlow nodes
+
+**Technical Fix - Backend:**
+
+7. **routes/index.ts** (global error handler):
+   - Now checks `(err as any).statusCode` before defaulting to 500
+   - AgentFlow icon 404s now properly return 404 (not masked as 500)
+
+**Files Modified (this session):**
+- `packages/spaces-frontend/base/src/views/canvas/AddNodes.jsx`
+- `packages/spaces-frontend/base/src/views/canvas/CanvasNode.jsx`
+- `packages/spaces-frontend/base/src/views/agentflows/index.jsx`
+- `packages/spaces-frontend/base/src/views/canvases/index.jsx`
+- `packages/spaces-frontend/base/src/views/spaces/index.jsx`
+- `packages/flowise-template-mui/base/src/ui-components/dialog/NodeInfoDialog.jsx`
+- `packages/flowise-core-backend/base/src/routes/index.ts`
+
+**Key Pattern (upstream-aligned):**
+```javascript
+import { AGENTFLOW_ICONS } from '@universo/template-mui'
+
+const renderNodeIcon = (node) => {
+    const agentflowEntry = node?.color && !node?.icon
+        ? AGENTFLOW_ICONS.find((item) => item.name === node.name)
+        : null
+    
+    if (agentflowEntry) {
+        const IconComponent = agentflowEntry.icon
+        return <IconComponent size={30} color={agentflowEntry.color} />
+    }
+    return <img src={`/api/v1/node-icon/${node.name}`} ... />
+}
+```
+
+**Build Result:** ✅ All 54 tasks successful (~5m23s)
+
+---
+
+### AgentFlow Icons Fix for Flowise 3.0.12 ✅
+
+**Context:** After Flowise 3.0.12 upgrade, AgentFlow section appeared in menu but all node icons returned 500 Internal Server Error from `/api/v1/node-icon/{nodeName}`.
+
+**Root Cause Analysis:**
+- Original Flowise components have `this.icon = 'filename.svg'` property pointing to actual SVG files
+- AgentFlow nodes (Agent, LLM, Condition, etc.) do NOT have icon files - they never set `this.icon`
+- API correctly throws 404 "icon not found" for AgentFlow nodes since there are no files
+- Original Flowise UI uses `AGENTFLOW_ICONS` constant with @tabler/icons-react React components
+- Our codebase was missing this constant and tried to load all icons via API
+
+**Technical Fix:**
+1. Added `AGENTFLOW_ICONS` constant to `flowise-template-mui/constants.ts` with 15 icon definitions:
+   - conditionAgentflow, startAgentflow, llmAgentflow, agentAgentflow, humanInputAgentflow
+   - loopAgentflow, directReplyAgentflow, customFunctionAgentflow, toolAgentflow
+   - retrieverAgentflow, conditionAgentAgentflow, stickyNoteAgentflow, httpAgentflow
+   - iterationAgentflow, executeFlowAgentflow
+
+2. Updated `agentflows/index.jsx`:
+   - Import `AGENTFLOW_ICONS` from template-mui
+   - Refactored `buildImageMap()` to return `{images, icons}` object
+   - Check node names against AGENTFLOW_ICONS before making API calls
+   - Added `icons` state and pass to ItemCard/FlowListTable
+
+3. Updated `ItemCard.jsx`:
+   - Added `icons` prop support
+   - Combined images and icons arrays for rendering
+   - Render React icon components inline vs img tags for URL images
+
+4. Updated `FlowListTable.jsx`:
+   - Added `icons` prop support  
+   - Same combined rendering approach as ItemCard
+
+5. Upgraded `@tabler/icons-react` from ^2.32.0 to ^3.30.0 in flowise-template-mui to match Flowise 3.0.12
+
+**Files Modified:**
+- `packages/flowise-template-mui/base/src/constants.ts`
+- `packages/flowise-template-mui/base/src/index.ts`
+- `packages/flowise-template-mui/base/package.json`
+- `packages/flowise-template-mui/base/src/ui-components/cards/ItemCard.jsx`
+- `packages/flowise-template-mui/base/src/ui-components/table/FlowListTable.jsx`
+- `packages/flowise-core-frontend/base/src/views/agentflows/index.jsx`
+
+**Build Result:** ✅ All 54 tasks successful
+
+---
+
 ## 📅 2025-12-11
 
 ### ESLint Configuration Upgrade ✅

@@ -22,4 +22,4 @@ class OpenRouterAPIAuth implements INodeCredential {
     }
 }
 
-export { OpenRouterAPIAuth as credClass };
+export { OpenRouterAPIAuth as credClass }

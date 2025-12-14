@@ -6,7 +6,9 @@ export default defineConfig({
   },
   format: ['esm', 'cjs'],
   platform: 'browser',
-  dts: true,
+  // DTS disabled: rolldown-plugin-dts has issues with JSON re-exports
+  // This package only exports i18n registration, no TypeScript types needed
+  dts: false,
   exports: false,
   external: [
     'react',

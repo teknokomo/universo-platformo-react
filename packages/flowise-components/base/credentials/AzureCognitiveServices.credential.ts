@@ -36,4 +36,4 @@ class AzureCognitiveServices implements INodeCredential {
     }
 }
 
-export { AzureCognitiveServices as credClass };
+export { AzureCognitiveServices as credClass }

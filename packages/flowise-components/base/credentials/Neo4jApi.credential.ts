@@ -36,4 +36,4 @@ class Neo4jApi implements INodeCredential {
     }
 }
 
-export { Neo4jApi as credClass };
+export { Neo4jApi as credClass }

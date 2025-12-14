@@ -13,8 +13,9 @@ const streamUploadedFile = async (req: Request, res: Response, next: NextFunctio
         const canvasId = req.query.canvasId as string
         const chatId = req.query.chatId as string
         const fileName = req.query.fileName as string
+        const orgId = (req.query.orgId as string) || ''
         res.setHeader('Content-Disposition', contentDisposition(fileName))
-        const fileStream = await streamStorageFile(canvasId, chatId, fileName)
+        const fileStream = await streamStorageFile(canvasId, chatId, fileName, orgId)
 
         if (!fileStream) throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: streamStorageFile`)
 

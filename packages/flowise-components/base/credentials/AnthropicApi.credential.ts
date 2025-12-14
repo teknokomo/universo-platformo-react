@@ -20,4 +20,4 @@ class AnthropicApi implements INodeCredential {
     }
 }
 
-export { AnthropicApi as credClass };
+export { AnthropicApi as credClass }

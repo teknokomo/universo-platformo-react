@@ -23,4 +23,4 @@ class ZepMemoryApi implements INodeCredential {
     }
 }
 
-export { ZepMemoryApi as credClass };
+export { ZepMemoryApi as credClass }

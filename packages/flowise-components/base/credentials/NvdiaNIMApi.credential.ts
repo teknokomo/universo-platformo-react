@@ -21,4 +21,4 @@ class NvidiaNIMApi implements INodeCredential {
     }
 }
 
-export { NvidiaNIMApi as credClass };
+export { NvidiaNIMApi as credClass }

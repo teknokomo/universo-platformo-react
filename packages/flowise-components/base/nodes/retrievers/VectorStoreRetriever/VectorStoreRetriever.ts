@@ -60,4 +60,4 @@ class VectorStoreRetriever_Retrievers implements INode {
     }
 }
 
-export { VectorStoreRetriever_Retrievers as nodeClass };
+export { VectorStoreRetriever_Retrievers as nodeClass }

@@ -20,4 +20,4 @@ class E2BApi implements INodeCredential {
     }
 }
 
-export { E2BApi as credClass };
+export { E2BApi as credClass }

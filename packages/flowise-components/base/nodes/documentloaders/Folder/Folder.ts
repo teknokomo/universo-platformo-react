@@ -7,7 +7,10 @@ import { JSONLinesLoader, JSONLoader } from 'langchain/document_loaders/fs/json'
 import { CSVLoader } from '@langchain/community/document_loaders/fs/csv'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { DocxLoader } from '@langchain/community/document_loaders/fs/docx'
+import { LoadOfSheet } from '../MicrosoftExcel/ExcelLoader'
+import { PowerpointLoader } from '../MicrosoftPowerpoint/PowerpointLoader'
 import { handleEscapeCharacters } from '../../../src/utils'
+import { isPathTraversal } from '../../../src/validator'
 
 class Folder_DocumentLoaders implements INode {
     label: string
@@ -91,7 +94,7 @@ class Folder_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, separated by comma. Use * to omit all metadata keys except the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
@@ -123,6 +126,14 @@ class Folder_DocumentLoaders implements INode {
         const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys as string
         const output = nodeData.outputs?.output as string
 
+        if (!folderPath) {
+            throw new Error('Folder path is required')
+        }
+
+        if (isPathTraversal(folderPath)) {
+            throw new Error('Invalid folder path: Path traversal detected. Please provide a safe folder path.')
+        }
+
         let omitMetadataKeys: string[] = []
         if (_omitMetadataKeys) {
             omitMetadataKeys = _omitMetadataKeys.split(',').map((key) => key.trim())
@@ -135,10 +146,14 @@ class Folder_DocumentLoaders implements INode {
                 '.jsonl': (blob) => new JSONLinesLoader(blob, '/' + pointerName.trim()),
                 '.txt': (path) => new TextLoader(path),
                 '.csv': (path) => new CSVLoader(path),
-                '.xls': (path) => new CSVLoader(path),
-                '.xlsx': (path) => new CSVLoader(path),
+                '.xls': (path) => new LoadOfSheet(path),
+                '.xlsx': (path) => new LoadOfSheet(path),
+                '.xlsm': (path) => new LoadOfSheet(path),
+                '.xlsb': (path) => new LoadOfSheet(path),
                 '.doc': (path) => new DocxLoader(path),
                 '.docx': (path) => new DocxLoader(path),
+                '.ppt': (path) => new PowerpointLoader(path),
+                '.pptx': (path) => new PowerpointLoader(path),
                 '.pdf': (path) =>
                     pdfUsage === 'perFile'
                         ? // @ts-ignore
@@ -235,4 +250,4 @@ class Folder_DocumentLoaders implements INode {
     }
 }
 
-export { Folder_DocumentLoaders as nodeClass };
+export { Folder_DocumentLoaders as nodeClass }

@@ -23,4 +23,4 @@ class GoogleGenerativeAICredential implements INodeCredential {
     }
 }
 
-export { GoogleGenerativeAICredential as credClass };
+export { GoogleGenerativeAICredential as credClass }

@@ -270,4 +270,4 @@ class ChatOllama_ChatModels implements INode {
     }
 }
 
-export { ChatOllama_ChatModels as nodeClass };
+export { ChatOllama_ChatModels as nodeClass }

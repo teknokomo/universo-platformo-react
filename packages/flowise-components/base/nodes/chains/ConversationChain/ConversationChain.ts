@@ -132,7 +132,7 @@ class ConversationChain_Chains implements INode {
             }
         }
 
-        const loggerHandler = new ConsoleCallbackHandler(options.logger)
+        const loggerHandler = new ConsoleCallbackHandler(options.logger, options?.orgId)
         const additionalCallback = await additionalCallbacks(nodeData, options)
 
         let res = ''
@@ -274,4 +274,4 @@ const prepareChain = async (nodeData: INodeData, options: ICommonObject, session
     return conversationChain
 }
 
-export { ConversationChain_Chains as nodeClass };
+export { ConversationChain_Chains as nodeClass }

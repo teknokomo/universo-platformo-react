@@ -22,4 +22,4 @@ class CerebrasAPIAuth implements INodeCredential {
     }
 }
 
-export { CerebrasAPIAuth as credClass };
+export { CerebrasAPIAuth as credClass }

@@ -20,4 +20,4 @@ class GroqApi implements INodeCredential {
     }
 }
 
-export { GroqApi as credClass };
+export { GroqApi as credClass }

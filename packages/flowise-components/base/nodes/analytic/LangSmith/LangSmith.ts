@@ -30,4 +30,4 @@ class LangSmith_Analytic implements INode {
     }
 }
 
-export { LangSmith_Analytic as nodeClass };
+export { LangSmith_Analytic as nodeClass }

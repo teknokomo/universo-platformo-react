@@ -24,4 +24,4 @@ class StripeApi implements INodeCredential {
     }
 }
 
-export { StripeApi as credClass };
+export { StripeApi as credClass }

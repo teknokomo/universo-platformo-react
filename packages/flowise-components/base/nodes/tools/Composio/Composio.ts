@@ -232,4 +232,4 @@ class Composio_Tools implements INode {
     }
 }
 
-export { Composio_Tools as nodeClass };
+export { Composio_Tools as nodeClass }

@@ -28,4 +28,4 @@ class UpstashRedisApi implements INodeCredential {
     }
 }
 
-export { UpstashRedisApi as credClass };
+export { UpstashRedisApi as credClass }

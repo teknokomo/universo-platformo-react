@@ -150,4 +150,4 @@ class ChatMistral_ChatModels implements INode {
     }
 }
 
-export { ChatMistral_ChatModels as nodeClass };
+export { ChatMistral_ChatModels as nodeClass }

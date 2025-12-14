@@ -95,4 +95,4 @@ class SequentialThinking_MCP implements INode {
     }
 }
 
-export { SequentialThinking_MCP as nodeClass };
+export { SequentialThinking_MCP as nodeClass }

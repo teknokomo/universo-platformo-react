@@ -46,7 +46,7 @@ export const containsBase64File = (canvas: CanvasFlowResult) => {
     return found
 }
 
-export const updateFlowDataWithFilePaths = async (canvasId: string, flowData: string) => {
+export const updateFlowDataWithFilePaths = async (canvasId: string, flowData: string, orgId: string = '') => {
     try {
         const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
         const re = new RegExp('^data.*;base64', 'i')
@@ -75,14 +75,16 @@ export const updateFlowDataWithFilePaths = async (canvasId: string, flowData: st
                             for (let j = 0; j < files.length; j++) {
                                 const file = files[j]
                                 if (re.test(file)) {
-                                    node.data.inputs[key] = await addBase64FilesToStorage(file, canvasId, fileNames)
+                                    const result = await addBase64FilesToStorage(file, canvasId, fileNames, orgId)
+                                    node.data.inputs[key] = result.path
                                 }
                             }
                         } catch (e) {
                             continue
                         }
                     } else if (re.test(input)) {
-                        node.data.inputs[key] = await addBase64FilesToStorage(input, canvasId, fileNames)
+                        const result = await addBase64FilesToStorage(input, canvasId, fileNames, orgId)
+                        node.data.inputs[key] = result.path
                     }
                 }
             }

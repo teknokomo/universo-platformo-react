@@ -93,7 +93,7 @@
     }
   },
   "optionalDependencies": {
-    "@tabler/icons-react": "^2.32.0"
+    "@tabler/icons-react": "^3.30.0"
   },
   "bundledDependencies": [],
   "devDependencies": {

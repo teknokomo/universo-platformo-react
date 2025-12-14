@@ -40,4 +40,4 @@ class GoogleCustomSearchAPI_Tools implements INode {
     }
 }
 
-export { GoogleCustomSearchAPI_Tools as nodeClass };
+export { GoogleCustomSearchAPI_Tools as nodeClass }

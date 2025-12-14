@@ -24,4 +24,4 @@ class AirtableApi implements INodeCredential {
     }
 }
 
-export { AirtableApi as credClass };
+export { AirtableApi as credClass }

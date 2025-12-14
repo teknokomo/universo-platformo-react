@@ -44,4 +44,4 @@ class AzureOpenAIApi implements INodeCredential {
     }
 }
 
-export { AzureOpenAIApi as credClass };
+export { AzureOpenAIApi as credClass }

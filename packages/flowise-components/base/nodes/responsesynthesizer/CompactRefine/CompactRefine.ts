@@ -72,4 +72,4 @@ Answer:`,
     }
 }
 
-export { CompactRefine_LlamaIndex as nodeClass };
+export { CompactRefine_LlamaIndex as nodeClass }

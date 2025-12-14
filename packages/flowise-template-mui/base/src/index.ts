@@ -1,6 +1,6 @@
 // Constants
 import './i18n'
-export { gridSpacing, baseURL, maxScroll, REDACTED_CREDENTIAL_VALUE } from './constants'
+export { gridSpacing, baseURL, maxScroll, REDACTED_CREDENTIAL_VALUE, AGENTFLOW_ICONS } from './constants'
 
 // Button ui-components
 export { default as AnimateButton } from './ui-components/button/AnimateButton'

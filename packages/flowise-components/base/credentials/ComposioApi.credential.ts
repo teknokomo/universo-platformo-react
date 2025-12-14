@@ -20,4 +20,4 @@ class ComposioApi implements INodeCredential {
     }
 }
 
-export { ComposioApi as credClass };
+export { ComposioApi as credClass }

@@ -36,4 +36,4 @@ class ArizeApi implements INodeCredential {
     }
 }
 
-export { ArizeApi as credClass };
+export { ArizeApi as credClass }

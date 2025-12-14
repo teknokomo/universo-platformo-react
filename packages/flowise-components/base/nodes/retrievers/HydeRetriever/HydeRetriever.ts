@@ -190,4 +190,4 @@ Passage:`
     }
 }
 
-export { HydeRetriever_Retrievers as nodeClass };
+export { HydeRetriever_Retrievers as nodeClass }

@@ -79,7 +79,7 @@ class MeilisearchRetriever_node implements INode {
                 label: 'Semantic Ratio',
                 name: 'semanticRatio',
                 type: 'number',
-                description: 'percentage of sematic reasoning in meilisearch hybrid search, default is 0.75',
+                description: 'percentage of semantic reasoning in meilisearch hybrid search, default is 0.75',
                 additionalParams: true,
                 optional: true
             },
@@ -89,7 +89,8 @@ class MeilisearchRetriever_node implements INode {
                 type: 'string',
                 description: 'search filter to apply on searchable attributes',
                 additionalParams: true,
-                optional: true
+                optional: true,
+                acceptVariable: true
             }
         ]
         this.outputs = [
@@ -118,7 +119,7 @@ class MeilisearchRetriever_node implements INode {
             const indexUid = nodeData.inputs?.indexUid as string
             const deleteIndex = nodeData.inputs?.deleteIndex as boolean
             const embeddings = nodeData.inputs?.embeddings as Embeddings
-            let embeddingDimension: number = 384
+            let embeddingDimension = 384
             const client = new Meilisearch({
                 host: host,
                 apiKey: meilisearchAdminApiKey
@@ -145,7 +146,7 @@ class MeilisearchRetriever_node implements INode {
                     finalDocs.push(documentForIndexing)
                 }
             }
-            let taskUid_created: number = 0
+            let taskUid_created = 0
 
             if (deleteIndex) {
                 try {
@@ -161,7 +162,7 @@ class MeilisearchRetriever_node implements INode {
                     }
                 } catch (error) {
                     console.error(error)
-                    console.warn('Error occured when deleting your index, if it did not exist, we will create one for you... ')
+                    console.warn('Error occurred when deleting your index, if it did not exist, we will create one for you... ')
                 }
             }
 
@@ -268,4 +269,4 @@ class MeilisearchRetriever_node implements INode {
         return hybridsearchretriever
     }
 }
-export { MeilisearchRetriever_node as nodeClass };
+export { MeilisearchRetriever_node as nodeClass }

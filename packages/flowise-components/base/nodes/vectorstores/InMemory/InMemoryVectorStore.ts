@@ -113,4 +113,4 @@ class InMemoryVectorStore_VectorStores implements INode {
     }
 }
 
-export { InMemoryVectorStore_VectorStores as nodeClass };
+export { InMemoryVectorStore_VectorStores as nodeClass }

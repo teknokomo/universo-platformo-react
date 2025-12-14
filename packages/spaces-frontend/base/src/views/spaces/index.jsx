@@ -8,7 +8,7 @@ import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/mate
 import { useTheme } from '@mui/material/styles'
 
 // project imports
-import { MainCard, ItemCard, ConfirmDialog, StyledButton, FlowListTable } from '@flowise/template-mui'
+import { MainCard, ItemCard, ConfirmDialog, StyledButton, FlowListTable, AGENTFLOW_ICONS } from '@flowise/template-mui'
 import { gridSpacing } from '@flowise/template-mui'
 import { WorkflowEmptySVG } from '@flowise/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@flowise/template-mui'
@@ -31,14 +31,16 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 
 const buildImagePreviewMap = (spaces = []) => {
   const imageMap = {}
+  const iconMap = {}
 
-  if (!Array.isArray(spaces)) return imageMap
+  if (!Array.isArray(spaces)) return { images: imageMap, icons: iconMap }
 
   spaces.forEach((space) => {
     const spaceId = space?.id
     if (!spaceId) return
 
     imageMap[spaceId] = []
+    iconMap[spaceId] = []
     const firstCanvas = space?.canvases?.[0]
     if (!firstCanvas?.flowData) return
 
@@ -48,9 +50,28 @@ const buildImagePreviewMap = (spaces = []) => {
       nodes.forEach((node) => {
         const name = node?.data?.name
         if (!name) return
-        const src = `${baseURL}/api/v1/node-icon/${name}`
-        if (!imageMap[spaceId].includes(src)) {
-          imageMap[spaceId].push(src)
+        // Skip sticky notes
+        if (name === 'stickyNote' || name === 'stickyNoteAgentflow') return
+
+        // Check if this is an AgentFlow node
+        const agentflowEntry = node?.data?.color && !node?.data?.icon
+          ? AGENTFLOW_ICONS.find((item) => item.name === name)
+          : null
+
+        if (agentflowEntry) {
+          const exists = iconMap[spaceId].some((ic) => ic.name === name)
+          if (!exists) {
+            iconMap[spaceId].push({
+              name,
+              icon: agentflowEntry.icon,
+              color: agentflowEntry.color
+            })
+          }
+        } else {
+          const src = `${baseURL}/api/v1/node-icon/${name}`
+          if (!imageMap[spaceId].some((img) => (typeof img === 'string' ? img : img.imageSrc) === src)) {
+            imageMap[spaceId].push({ imageSrc: src, label: name })
+          }
         }
       })
     } catch {
@@ -58,7 +79,7 @@ const buildImagePreviewMap = (spaces = []) => {
     }
   })
 
-  return imageMap
+  return { images: imageMap, icons: iconMap }
 }
 
 const filterFlowsFactory = (search) => {
@@ -84,6 +105,7 @@ const Spaces = () => {
   const [search, setSearch] = useState('')
   const [error, setError] = useState(null)
   const [images, setImages] = useState({})
+  const [icons, setIcons] = useState({})
 
   const { handleAuthError } = useAuthError()
   const { data: spacesList = [], isLoading, isFetching, error: queryError, refetch } = useSpacesQuery(unikId)
@@ -111,7 +133,9 @@ const Spaces = () => {
   }, [queryError, handleAuthError])
 
   useEffect(() => {
-    setImages(buildImagePreviewMap(spacesList))
+    const { images: newImages, icons: newIcons } = buildImagePreviewMap(spacesList)
+    setImages(newImages)
+    setIcons(newIcons)
   }, [spacesList])
 
   const handleChangeView = (_event, nextView) => {
@@ -194,7 +218,7 @@ const Spaces = () => {
               ) : (
                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                   {spacesList.filter(filterFlows).map((data) => (
-                    <ItemCard key={data.id ?? data.name} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
+                    <ItemCard key={data.id ?? data.name} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} icons={icons[data.id]} />
                   ))}
                 </Box>
               )}
@@ -203,6 +227,7 @@ const Spaces = () => {
             <FlowListTable
               data={spacesList}
               images={images}
+              icons={icons}
               isLoading={loading}
               filterFunction={filterFlows}
               updateFlowsApi={tableRefreshAdapter}

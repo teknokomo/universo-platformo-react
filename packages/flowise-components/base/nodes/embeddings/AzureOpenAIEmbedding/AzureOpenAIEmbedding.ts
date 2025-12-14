@@ -107,4 +107,4 @@ class AzureOpenAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { AzureOpenAIEmbedding_Embeddings as nodeClass };
+export { AzureOpenAIEmbedding_Embeddings as nodeClass }

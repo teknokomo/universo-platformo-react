@@ -63,4 +63,4 @@ class PromptRetriever_Retrievers implements INode {
     }
 }
 
-export { PromptRetriever_Retrievers as nodeClass };
+export { PromptRetriever_Retrievers as nodeClass }

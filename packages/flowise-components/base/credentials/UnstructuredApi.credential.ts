@@ -23,4 +23,4 @@ class UnstructuredApi implements INodeCredential {
     }
 }
 
-export { UnstructuredApi as credClass };
+export { UnstructuredApi as credClass }

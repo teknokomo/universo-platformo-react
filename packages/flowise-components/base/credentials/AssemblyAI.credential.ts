@@ -20,4 +20,4 @@ class AssemblyAIApi implements INodeCredential {
     }
 }
 
-export { AssemblyAIApi as credClass };
+export { AssemblyAIApi as credClass }

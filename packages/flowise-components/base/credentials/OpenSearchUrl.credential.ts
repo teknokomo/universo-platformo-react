@@ -35,4 +35,4 @@ class OpenSearchUrl implements INodeCredential {
     }
 }
 
-export { OpenSearchUrl as credClass };
+export { OpenSearchUrl as credClass }

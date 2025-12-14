@@ -55,4 +55,4 @@ class End_SeqAgents implements INode {
     }
 }
 
-export { End_SeqAgents as nodeClass };
+export { End_SeqAgents as nodeClass }

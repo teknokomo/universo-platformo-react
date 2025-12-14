@@ -31,4 +31,4 @@ class ChromaApi implements INodeCredential {
     }
 }
 
-export { ChromaApi as credClass };
+export { ChromaApi as credClass }

@@ -30,4 +30,4 @@ class PhoenixApi implements INodeCredential {
     }
 }
 
-export { PhoenixApi as credClass };
+export { PhoenixApi as credClass }

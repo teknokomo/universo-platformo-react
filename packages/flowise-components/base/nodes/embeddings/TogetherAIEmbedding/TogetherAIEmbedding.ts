@@ -63,4 +63,4 @@ class TogetherAIEmbedding_Embeddings implements INode {
     }
 }
 
-export { TogetherAIEmbedding_Embeddings as nodeClass };
+export { TogetherAIEmbedding_Embeddings as nodeClass }

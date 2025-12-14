@@ -115,4 +115,4 @@ class FewShotPromptTemplate_Prompts implements INode {
     }
 }
 
-export { FewShotPromptTemplate_Prompts as nodeClass };
+export { FewShotPromptTemplate_Prompts as nodeClass }

@@ -75,4 +75,4 @@ class RecursiveCharacterTextSplitter_TextSplitters implements INode {
     }
 }
 
-export { RecursiveCharacterTextSplitter_TextSplitters as nodeClass };
+export { RecursiveCharacterTextSplitter_TextSplitters as nodeClass }

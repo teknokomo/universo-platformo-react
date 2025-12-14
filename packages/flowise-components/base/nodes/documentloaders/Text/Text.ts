@@ -53,7 +53,7 @@ class Text_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, separated by comma. Use * to omit all metadata keys except the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
@@ -98,12 +98,13 @@ class Text_DocumentLoaders implements INode {
             } else {
                 files = [fileName]
             }
-            const canvasId = options.canvasId
+            const orgId = options.orgId
+            const chatflowid = options.chatflowid
 
             for (const file of files) {
                 if (!file) continue
-                const fileData = await getFileFromStorage(file, canvasId)
-                const blob = new Blob([new Uint8Array(fileData)])
+                const fileData = await getFileFromStorage(file, orgId, chatflowid)
+                const blob = new Blob([fileData])
                 const loader = new TextLoader(blob)
 
                 if (textSplitter) {
@@ -126,7 +127,7 @@ class Text_DocumentLoaders implements INode {
                 const splitDataURI = file.split(',')
                 splitDataURI.pop()
                 const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
-                const blob = new Blob([new Uint8Array(bf)])
+                const blob = new Blob([bf])
                 const loader = new TextLoader(blob)
 
                 if (textSplitter) {
@@ -183,4 +184,4 @@ class Text_DocumentLoaders implements INode {
     }
 }
 
-export { Text_DocumentLoaders as nodeClass };
+export { Text_DocumentLoaders as nodeClass }

@@ -162,4 +162,4 @@ class BraveSearchAPI_DocumentLoaders implements INode {
     }
 }
 
-export { BraveSearchAPI_DocumentLoaders as nodeClass };
+export { BraveSearchAPI_DocumentLoaders as nodeClass }

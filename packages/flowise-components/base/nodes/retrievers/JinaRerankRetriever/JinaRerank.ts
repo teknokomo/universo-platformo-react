@@ -6,7 +6,7 @@ import { BaseDocumentCompressor } from 'langchain/retrievers/document_compressor
 export class JinaRerank extends BaseDocumentCompressor {
     private jinaAPIKey: string
     private readonly JINA_RERANK_API_URL = 'https://api.jina.ai/v1/rerank'
-    private model: string = 'jina-reranker-v2-base-multilingual'
+    private model = 'jina-reranker-v2-base-multilingual'
     private readonly topN: number
 
     constructor(jinaAPIKey: string, model: string, topN: number) {

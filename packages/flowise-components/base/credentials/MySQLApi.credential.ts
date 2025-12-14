@@ -28,4 +28,4 @@ class MySQLApi implements INodeCredential {
     }
 }
 
-export { MySQLApi as credClass };
+export { MySQLApi as credClass }

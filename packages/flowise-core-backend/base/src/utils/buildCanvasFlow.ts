@@ -333,7 +333,8 @@ export const executeFlow = async ({
             const fileBuffer = await getFileFromUpload(file.path ?? file.key)
             // Address file name with special characters: https://github.com/expressjs/multer/issues/1104
             file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
-            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId)
+            const storageResult = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId)
+            const storagePath = storageResult.path
 
             const fileInputFieldFromMimeType = mapMimeTypeToInputField(file.mimetype)
 
@@ -524,14 +525,16 @@ export const executeFlow = async ({
 
             if (agentflow.followUpPrompts) {
                 const followUpPromptsConfig = JSON.parse(agentflow.followUpPrompts)
-            const generatedFollowUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
-                chatId,
-                canvasId: agentflow.id,
-                appDataSource,
-                databaseEntities
-            })
-                if (generatedFollowUpPrompts?.questions) {
-                    apiMessage.followUpPrompts = JSON.stringify(generatedFollowUpPrompts.questions)
+                const generatedFollowUpPrompts = (await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
+                    chatId,
+                    canvasId: agentflow.id,
+                    appDataSource,
+                    databaseEntities
+                })) as unknown
+
+                const questions = (generatedFollowUpPrompts as any)?.questions
+                if (Array.isArray(questions)) {
+                    apiMessage.followUpPrompts = JSON.stringify(questions)
                 }
             }
             const chatMessage = await utilAddChatMessage(apiMessage, appDataSource)
@@ -715,14 +718,16 @@ export const executeFlow = async ({
         if (result?.artifacts) apiMessage.artifacts = JSON.stringify(result.artifacts)
         if (canvasRecord.followUpPrompts) {
             const followUpPromptsConfig = JSON.parse(canvasRecord.followUpPrompts)
-            const followUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
+            const followUpPrompts = (await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
                 chatId,
                 canvasId,
                 appDataSource,
                 databaseEntities
-            })
-            if (followUpPrompts?.questions) {
-                apiMessage.followUpPrompts = JSON.stringify(followUpPrompts.questions)
+            })) as unknown
+
+            const questions = (followUpPrompts as any)?.questions
+            if (Array.isArray(questions)) {
+                apiMessage.followUpPrompts = JSON.stringify(questions)
             }
         }
 

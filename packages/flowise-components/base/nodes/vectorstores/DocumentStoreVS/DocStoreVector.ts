@@ -1,15 +1,5 @@
-import {
-    ICommonObject,
-    IDatabaseEntity,
-    INode,
-    INodeData,
-    INodeOptionsValue,
-    INodeOutputsValue,
-    INodeParams,
-    IDocumentStoreData
-} from '../../../src/Interface'
+import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeOutputsValue, INodeParams } from '../../../src/Interface'
 import { DataSource } from 'typeorm'
-import { safeGet, safeJSONParse } from '../../../src/utils'
 
 class DocStore_VectorStores implements INode {
     label: string
@@ -66,14 +56,14 @@ class DocStore_VectorStores implements INode {
                 return returnData
             }
 
-            const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).find()
+            const searchOptions = options.searchOptions || {}
+            const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).findBy(searchOptions)
             for (const store of stores) {
-                const storeData = store as IDocumentStoreData
-                if (safeGet(storeData, 'status', '') === 'UPSERTED') {
+                if (store.status === 'UPSERTED') {
                     const obj = {
-                        name: safeGet(storeData, 'id', ''),
-                        label: safeGet(storeData, 'name', 'Unknown Store'),
-                        description: safeGet(storeData, 'description', '')
+                        name: store.id,
+                        label: store.name,
+                        description: store.description
                     }
                     returnData.push(obj)
                 }
@@ -88,9 +78,7 @@ class DocStore_VectorStores implements INode {
         const databaseEntities = options.databaseEntities as IDatabaseEntity
         const output = nodeData.outputs?.output as string
 
-        const entity = (await appDataSource
-            .getRepository(databaseEntities['DocumentStore'])
-            .findOneBy({ id: selectedStore })) as IDocumentStoreData | null
+        const entity = await appDataSource.getRepository(databaseEntities['DocumentStore']).findOneBy({ id: selectedStore })
         if (!entity) {
             return { error: 'Store not found' }
         }
@@ -98,22 +86,20 @@ class DocStore_VectorStores implements INode {
         data.output = output
 
         // Prepare Embeddings Instance
-        const embeddingConfigStr = safeGet(entity, 'embeddingConfig', '{}')
-        const embeddingConfig = safeJSONParse(embeddingConfigStr, {})
-        data.embeddingName = safeGet(embeddingConfig, 'name', '')
-        data.embeddingConfig = safeGet(embeddingConfig, 'config', {})
+        const embeddingConfig = JSON.parse(entity.embeddingConfig)
+        data.embeddingName = embeddingConfig.name
+        data.embeddingConfig = embeddingConfig.config
         let embeddingObj = await _createEmbeddingsObject(options.componentNodes, data, options)
         if (!embeddingObj) {
             return { error: 'Failed to create EmbeddingObj' }
         }
 
         // Prepare Vector Store Instance
-        const vsConfigStr = safeGet(entity, 'vectorStoreConfig', '{}')
-        const vsConfig = safeJSONParse(vsConfigStr, {})
-        data.vectorStoreName = safeGet(vsConfig, 'name', '')
-        data.vectorStoreConfig = safeGet(vsConfig, 'config', {})
+        const vsConfig = JSON.parse(entity.vectorStoreConfig)
+        data.vectorStoreName = vsConfig.name
+        data.vectorStoreConfig = vsConfig.config
         if (data.inputs) {
-            data.vectorStoreConfig = { ...safeGet(vsConfig, 'config', {}), ...data.inputs }
+            data.vectorStoreConfig = { ...vsConfig.config, ...data.inputs }
         }
 
         // Prepare Vector Store Node Data
@@ -184,4 +170,4 @@ const _createVectorStoreObject = async (componentNodes: ICommonObject, data: ICo
     return vStoreNodeInstance
 }
 
-export { DocStore_VectorStores as nodeClass };
+export { DocStore_VectorStores as nodeClass }

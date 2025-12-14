@@ -143,4 +143,4 @@ const similaritySearchVectorWithScore = async (query: number[], k: number, vecto
     })
 }
 
-export { Faiss_VectorStores as nodeClass };
+export { Faiss_VectorStores as nodeClass }

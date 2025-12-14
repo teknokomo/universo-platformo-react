@@ -22,4 +22,4 @@ class MongoDBUrlApi implements INodeCredential {
     }
 }
 
-export { MongoDBUrlApi as credClass };
+export { MongoDBUrlApi as credClass }

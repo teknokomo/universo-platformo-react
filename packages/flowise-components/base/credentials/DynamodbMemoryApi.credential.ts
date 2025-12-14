@@ -26,4 +26,4 @@ class DynamodbMemoryApi implements INodeCredential {
     }
 }
 
-export { DynamodbMemoryApi as credClass };
+export { DynamodbMemoryApi as credClass }

@@ -194,6 +194,127 @@ export class RedisEventPublisher implements IServerSideEventStreamer {
         }
     }
 
+    // New methods for Flowise 3.0.12
+    streamCalledToolsEvent(chatId: string, data: any): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'calledTools',
+                    data
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming calledTools event:', error)
+        }
+    }
+
+    streamAgentFlowExecutedDataEvent(chatId: string, data: any): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'agentFlowExecutedData',
+                    data
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming agentFlowExecutedData event:', error)
+        }
+    }
+
+    streamAgentFlowEvent(chatId: string, data: any): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'agentFlow',
+                    data
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming agentFlow event:', error)
+        }
+    }
+
+    streamNextAgentFlowEvent(chatId: string, data: any): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'nextAgentFlow',
+                    data
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming nextAgentFlow event:', error)
+        }
+    }
+
+    streamUsageMetadataEvent(chatId: string, data: any): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'usageMetadata',
+                    data
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming usageMetadata event:', error)
+        }
+    }
+
+    streamTTSStartEvent(chatId: string, chatMessageId: string, format: string): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'ttsStart',
+                    data: { chatMessageId, format }
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming ttsStart event:', error)
+        }
+    }
+
+    streamTTSDataEvent(chatId: string, chatMessageId: string, audioChunk: string): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'ttsData',
+                    data: { chatMessageId, audioChunk }
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming ttsData event:', error)
+        }
+    }
+
+    streamTTSEndEvent(chatId: string, chatMessageId: string): void {
+        try {
+            this.redisPublisher.publish(
+                chatId,
+                JSON.stringify({
+                    chatId,
+                    eventType: 'ttsEnd',
+                    data: { chatMessageId }
+                })
+            )
+        } catch (error) {
+            console.error('Error streaming ttsEnd event:', error)
+        }
+    }
+
     streamAbortEvent(chatId: string): void {
         try {
             this.redisPublisher.publish(

@@ -39,4 +39,4 @@ class SerpAPI_Tools implements INode {
     }
 }
 
-export { SerpAPI_Tools as nodeClass };
+export { SerpAPI_Tools as nodeClass }

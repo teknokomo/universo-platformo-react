@@ -22,4 +22,4 @@ class WolframAlphaApp implements INodeCredential {
     }
 }
 
-export { WolframAlphaApp as credClass };
+export { WolframAlphaApp as credClass }

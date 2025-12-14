@@ -134,4 +134,4 @@ class HuggingFaceInference_LLMs implements INode {
     }
 }
 
-export { HuggingFaceInference_LLMs as nodeClass };
+export { HuggingFaceInference_LLMs as nodeClass }

@@ -43,11 +43,11 @@ class InMemoryEmbeddingCache implements INode {
     async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<any> {
         const namespace = nodeData.inputs?.namespace as string
         const underlyingEmbeddings = nodeData.inputs?.embeddings as Embeddings
-        const memoryMap = (await options.cachePool.getEmbeddingCache(options.canvasId)) ?? {}
+        const memoryMap = (await options.cachePool.getEmbeddingCache(options.chatflowid)) ?? {}
         const inMemCache = new InMemoryEmbeddingCacheExtended(memoryMap)
 
         inMemCache.mget = async (keys: string[]) => {
-            const memory = (await options.cachePool.getEmbeddingCache(options.canvasId)) ?? inMemCache.store
+            const memory = (await options.cachePool.getEmbeddingCache(options.chatflowid)) ?? inMemCache.store
             return keys.map((key) => memory[key])
         }
 
@@ -55,14 +55,14 @@ class InMemoryEmbeddingCache implements INode {
             for (const [key, value] of keyValuePairs) {
                 inMemCache.store[key] = value
             }
-            await options.cachePool.addEmbeddingCache(options.canvasId, inMemCache.store)
+            await options.cachePool.addEmbeddingCache(options.chatflowid, inMemCache.store)
         }
 
         inMemCache.mdelete = async (keys: string[]): Promise<void> => {
             for (const key of keys) {
                 delete inMemCache.store[key]
             }
-            await options.cachePool.addEmbeddingCache(options.canvasId, inMemCache.store)
+            await options.cachePool.addEmbeddingCache(options.chatflowid, inMemCache.store)
         }
 
         return CacheBackedEmbeddings.fromBytesStore(underlyingEmbeddings, inMemCache, {
@@ -128,4 +128,4 @@ class InMemoryEmbeddingCacheExtended<T = any> extends BaseStore<string, T> {
     }
 }
 
-export { InMemoryEmbeddingCache as nodeClass };
+export { InMemoryEmbeddingCache as nodeClass }

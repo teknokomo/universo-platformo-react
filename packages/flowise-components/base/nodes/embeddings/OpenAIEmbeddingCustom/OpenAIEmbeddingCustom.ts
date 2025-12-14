@@ -124,4 +124,4 @@ class OpenAIEmbeddingCustom_Embeddings implements INode {
     }
 }
 
-export { OpenAIEmbeddingCustom_Embeddings as nodeClass };
+export { OpenAIEmbeddingCustom_Embeddings as nodeClass }

@@ -47,7 +47,7 @@ export interface IQueueManager {
 export interface ChatMessagesServiceConfig {
     getDataSource: () => DataSource
     logger?: ILogger
-    removeFilesFromStorage?: (...paths: string[]) => Promise<void>
+    removeFilesFromStorage?: (...paths: string[]) => Promise<{ totalSize: number }>
     getAbortController?: () => IAbortController
     getQueueManager?: () => IQueueManager
     isQueueMode?: () => boolean

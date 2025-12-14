@@ -39,4 +39,4 @@ class StickyNote implements INode {
     }
 }
 
-export { StickyNote as nodeClass };
+export { StickyNote as nodeClass }

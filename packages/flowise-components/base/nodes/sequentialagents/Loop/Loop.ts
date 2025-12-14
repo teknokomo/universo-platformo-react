@@ -67,4 +67,4 @@ class Loop_SeqAgents implements INode {
     }
 }
 
-export { Loop_SeqAgents as nodeClass };
+export { Loop_SeqAgents as nodeClass }

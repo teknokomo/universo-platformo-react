@@ -20,4 +20,4 @@ class AlibabaApi implements INodeCredential {
     }
 }
 
-export { AlibabaApi as credClass };
+export { AlibabaApi as credClass }

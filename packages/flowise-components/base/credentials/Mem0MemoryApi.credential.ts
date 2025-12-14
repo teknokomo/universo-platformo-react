@@ -24,4 +24,4 @@ class Mem0MemoryApi implements INodeCredential {
     }
 }
 
-export { Mem0MemoryApi as credClass };
+export { Mem0MemoryApi as credClass }

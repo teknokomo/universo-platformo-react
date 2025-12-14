@@ -194,4 +194,4 @@ class SingleStore_VectorStores implements INode {
     }
 }
 
-export { SingleStore_VectorStores as nodeClass };
+export { SingleStore_VectorStores as nodeClass }

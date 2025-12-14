@@ -53,4 +53,4 @@ Answer:`,
     }
 }
 
-export { TreeSummarize_LlamaIndex as nodeClass };
+export { TreeSummarize_LlamaIndex as nodeClass }

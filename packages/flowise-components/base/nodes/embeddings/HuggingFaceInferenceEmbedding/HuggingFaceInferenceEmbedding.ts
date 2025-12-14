@@ -68,4 +68,4 @@ class HuggingFaceInferenceEmbedding_Embeddings implements INode {
     }
 }
 
-export { HuggingFaceInferenceEmbedding_Embeddings as nodeClass };
+export { HuggingFaceInferenceEmbedding_Embeddings as nodeClass }

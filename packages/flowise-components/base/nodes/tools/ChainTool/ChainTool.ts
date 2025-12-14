@@ -72,4 +72,4 @@ class ChainTool_Tools implements INode {
     }
 }
 
-export { ChainTool_Tools as nodeClass };
+export { ChainTool_Tools as nodeClass }

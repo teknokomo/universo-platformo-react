@@ -28,7 +28,10 @@ catalog:
     react-router-dom: ^6.28.0
     
     # Build tools and bundlers
-    tsdown: ^0.15.7
+    # PINNED: tsdown 0.15.7 - newer versions use rolldown 1.0.0-beta.45 which generates
+    # broken CJS code with __esm() wrappers that fail on circular dependencies
+    # See: flowise-components circular deps (storageUtils <-> utils)
+    tsdown: 0.15.7
     vite: ^5.4.19
     '@vitejs/plugin-react': ^4.3.4
     vitest: ^2.1.8

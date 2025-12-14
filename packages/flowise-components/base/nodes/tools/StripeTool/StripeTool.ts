@@ -268,4 +268,4 @@ class StripeTool_Tools implements INode {
     }
 }
 
-export { StripeTool_Tools as nodeClass };
+export { StripeTool_Tools as nodeClass }

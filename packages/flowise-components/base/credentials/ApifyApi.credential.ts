@@ -23,4 +23,4 @@ class ApifyApiCredential implements INodeCredential {
     }
 }
 
-export { ApifyApiCredential as credClass };
+export { ApifyApiCredential as credClass }

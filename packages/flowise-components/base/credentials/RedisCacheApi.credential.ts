@@ -45,4 +45,4 @@ class RedisCacheApi implements INodeCredential {
     }
 }
 
-export { RedisCacheApi as credClass };
+export { RedisCacheApi as credClass }

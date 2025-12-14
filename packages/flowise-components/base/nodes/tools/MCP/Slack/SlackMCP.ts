@@ -113,4 +113,4 @@ class Slack_MCP implements INode {
     }
 }
 
-export { Slack_MCP as nodeClass };
+export { Slack_MCP as nodeClass }

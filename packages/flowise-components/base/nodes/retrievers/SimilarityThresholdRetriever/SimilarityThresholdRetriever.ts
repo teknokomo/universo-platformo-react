@@ -118,4 +118,4 @@ class SimilarityThresholdRetriever_Retrievers implements INode {
     }
 }
 
-export { SimilarityThresholdRetriever_Retrievers as nodeClass };
+export { SimilarityThresholdRetriever_Retrievers as nodeClass }

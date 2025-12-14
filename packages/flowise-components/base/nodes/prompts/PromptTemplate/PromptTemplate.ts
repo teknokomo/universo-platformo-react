@@ -71,4 +71,4 @@ class PromptTemplate_Prompts implements INode {
     }
 }
 
-export { PromptTemplate_Prompts as nodeClass };
+export { PromptTemplate_Prompts as nodeClass }

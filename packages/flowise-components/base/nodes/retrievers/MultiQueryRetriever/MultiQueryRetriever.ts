@@ -80,4 +80,4 @@ class MultiQueryRetriever_Retrievers implements INode {
     }
 }
 
-export { MultiQueryRetriever_Retrievers as nodeClass };
+export { MultiQueryRetriever_Retrievers as nodeClass }
