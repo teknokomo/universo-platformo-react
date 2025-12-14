@@ -1,8 +1,9 @@
-import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeParams, IToolData } from '../../../src/Interface'
-import { convertSchemaToZod, getBaseClasses, getVars, safeGet, hasProperty } from '../../../src/utils'
+import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeParams } from '../../../src/Interface'
+import { convertSchemaToZod, getBaseClasses, getVars } from '../../../src/utils'
 import { DynamicStructuredTool } from './core'
 import { z } from 'zod'
 import { DataSource } from 'typeorm'
+import { SecureZodSchemaParser } from '../../../src/secureZodParser'
 
 class CustomTool_Tools implements INode {
     label: string
@@ -22,7 +23,7 @@ class CustomTool_Tools implements INode {
         this.type = 'CustomTool'
         this.icon = 'customtool.svg'
         this.category = 'Tools'
-        this.description = `Use custom tool you've created in Flowise within a canvas`
+        this.description = `Use custom tool you've created in Flowise within chatflow`
         this.inputs = [
             {
                 label: 'Select Tool',
@@ -77,14 +78,14 @@ class CustomTool_Tools implements INode {
                 return returnData
             }
 
-            const tools = await appDataSource.getRepository(databaseEntities['Tool']).find()
+            const searchOptions = options.searchOptions || {}
+            const tools = await appDataSource.getRepository(databaseEntities['Tool']).findBy(searchOptions)
 
             for (let i = 0; i < tools.length; i += 1) {
-                const tool = tools[i] as IToolData
                 const data = {
-                    label: safeGet(tool, 'name', 'Unknown Tool'),
-                    name: safeGet(tool, 'id', ''),
-                    description: safeGet(tool, 'description', '')
+                    label: tools[i].name,
+                    name: tools[i].id,
+                    description: tools[i].description
                 } as INodeOptionsValue
                 returnData.push(data)
             }
@@ -92,7 +93,7 @@ class CustomTool_Tools implements INode {
         }
     }
 
-    async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<DynamicStructuredTool> {
+    async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<any> {
         const selectedToolId = nodeData.inputs?.selectedTool as string
         const customToolFunc = nodeData.inputs?.customToolFunc as string
         const customToolName = nodeData.inputs?.customToolName as string
@@ -104,43 +105,36 @@ class CustomTool_Tools implements INode {
         const databaseEntities = options.databaseEntities as IDatabaseEntity
 
         try {
-            const tool = (await appDataSource.getRepository(databaseEntities['Tool']).findOneBy({
+            const tool = await appDataSource.getRepository(databaseEntities['Tool']).findOneBy({
                 id: selectedToolId
-            })) as IToolData | null
+            })
 
             if (!tool) throw new Error(`Tool ${selectedToolId} not found`)
-
             const obj = {
-                name: safeGet(tool, 'name', 'Unknown Tool'),
-                description: safeGet(tool, 'description', ''),
-                schema: z.object(convertSchemaToZod(safeGet(tool, 'schema', {}))),
-                code: safeGet(tool, 'func', '')
+                name: tool.name,
+                description: tool.description,
+                schema: z.object(convertSchemaToZod(tool.schema)),
+                code: tool.func
             }
-
             if (customToolFunc) obj.code = customToolFunc
             if (customToolName) obj.name = customToolName
             if (customToolDesc) obj.description = customToolDesc
             if (customToolSchema) {
-                try {
-                    const zodSchemaFunction = new Function('z', `return ${customToolSchema}`)
-                    obj.schema = zodSchemaFunction(z)
-                } catch (error) {
-                    console.warn('Invalid custom tool schema, using default:', error)
-                }
+                obj.schema = SecureZodSchemaParser.parseZodSchema(customToolSchema) as z.ZodObject<ICommonObject, 'strip', z.ZodTypeAny>
             }
 
-            const variables = await getVars(appDataSource, databaseEntities, nodeData)
+            const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
 
-            const flow = { canvasId: options.canvasId }
+            const flow = { chatflowId: options.chatflowid }
 
-            const dynamicStructuredTool = new DynamicStructuredTool(obj)
+            let dynamicStructuredTool = new DynamicStructuredTool(obj)
             dynamicStructuredTool.setVariables(variables)
             dynamicStructuredTool.setFlowObject(flow)
             dynamicStructuredTool.returnDirect = customToolReturnDirect
 
             return dynamicStructuredTool
         } catch (e) {
-            throw new Error(e instanceof Error ? e.message : 'Unknown error in CustomTool initialization')
+            throw new Error(e)
         }
     }
 }

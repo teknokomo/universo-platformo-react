@@ -55,6 +55,7 @@ const getLocalStorageKeyName = (name, isAgentCanvas) => {
 export const FlowListTable = ({
     data,
     images,
+    icons,
     isLoading,
     filterFunction,
     updateFlowsApi,
@@ -252,7 +253,7 @@ export const FlowListTable = ({
                                                     </div>
                                                 </StyledTableCell>
                                                 <StyledTableCell key='2'>
-                                                    {images[row.id] && (
+                                                    {((images && images[row.id]?.length > 0) || (icons && icons[row.id]?.length > 0)) && (
                                                         <Box
                                                             sx={{
                                                                 display: 'flex',
@@ -261,33 +262,60 @@ export const FlowListTable = ({
                                                                 gap: 1
                                                             }}
                                                         >
-                                                            {images[row.id]
-                                                                .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
-                                                                .map((img) => (
-                                                                    <Box
-                                                                        key={img}
-                                                                        sx={{
-                                                                            width: 30,
-                                                                            height: 30,
-                                                                            borderRadius: '50%',
-                                                                            backgroundColor: customization.isDarkMode
-                                                                                ? theme.palette.common.white
-                                                                                : theme.palette.grey[300] + 75
-                                                                        }}
-                                                                    >
-                                                                        <img
-                                                                            style={{
-                                                                                width: '100%',
-                                                                                height: '100%',
-                                                                                padding: 5,
-                                                                                objectFit: 'contain'
+                                                            {[
+                                                                ...(images?.[row.id] || []).map((img) => ({
+                                                                    type: 'image',
+                                                                    src: typeof img === 'string' ? img : img.imageSrc,
+                                                                    label: typeof img === 'string' ? '' : img.label
+                                                                })),
+                                                                ...(icons?.[row.id] || []).map((ic) => ({
+                                                                    type: 'icon',
+                                                                    icon: ic.icon,
+                                                                    color: ic.color,
+                                                                    label: ic.name
+                                                                }))
+                                                            ]
+                                                                .slice(0, 5)
+                                                                .map((item, index) =>
+                                                                    item.type === 'image' ? (
+                                                                        <Box
+                                                                            key={item.src || index}
+                                                                            sx={{
+                                                                                width: 30,
+                                                                                height: 30,
+                                                                                borderRadius: '50%',
+                                                                                backgroundColor: customization.isDarkMode
+                                                                                    ? theme.palette.common.white
+                                                                                    : theme.palette.grey[300] + 75
                                                                             }}
-                                                                            alt=''
-                                                                            src={img}
-                                                                        />
-                                                                    </Box>
-                                                                ))}
-                                                            {images[row.id].length > 5 && (
+                                                                        >
+                                                                            <img
+                                                                                style={{
+                                                                                    width: '100%',
+                                                                                    height: '100%',
+                                                                                    padding: 5,
+                                                                                    objectFit: 'contain'
+                                                                                }}
+                                                                                alt=''
+                                                                                src={item.src}
+                                                                            />
+                                                                        </Box>
+                                                                    ) : (
+                                                                        <div
+                                                                            key={item.label || index}
+                                                                            style={{
+                                                                                width: 30,
+                                                                                height: 30,
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center'
+                                                                            }}
+                                                                        >
+                                                                            <item.icon size={25} color={item.color} />
+                                                                        </div>
+                                                                    )
+                                                                )}
+                                                            {(images?.[row.id]?.length || 0) + (icons?.[row.id]?.length || 0) > 5 && (
                                                                 <Typography
                                                                     sx={{
                                                                         alignItems: 'center',
@@ -296,7 +324,12 @@ export const FlowListTable = ({
                                                                         fontWeight: 200
                                                                     }}
                                                                 >
-                                                                    {t('table.more', { count: images[row.id].length - 5 })}
+                                                                    {t('table.more', {
+                                                                        count:
+                                                                            (images?.[row.id]?.length || 0) +
+                                                                            (icons?.[row.id]?.length || 0) -
+                                                                            5
+                                                                    })}
                                                                 </Typography>
                                                             )}
                                                         </Box>
@@ -338,6 +371,7 @@ export const FlowListTable = ({
 FlowListTable.propTypes = {
     data: PropTypes.array,
     images: PropTypes.object,
+    icons: PropTypes.object,
     isLoading: PropTypes.bool,
     filterFunction: PropTypes.func,
     updateFlowsApi: PropTypes.object,

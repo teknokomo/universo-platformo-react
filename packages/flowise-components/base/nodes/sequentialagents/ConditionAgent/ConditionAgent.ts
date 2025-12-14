@@ -17,24 +17,22 @@ import {
     ISeqAgentsState
 } from '../../../src/Interface'
 import {
-    FLOW_CONTEXT_REFERENCE,
     getInputVariables,
     getVars,
     handleEscapeCharacters,
     prepareSandboxVars,
-    transformBracesWithColon
+    transformBracesWithColon,
+    executeJavaScriptCode,
+    createCodeExecutionSandbox
 } from '../../../src/utils'
 import {
-    ExtractTool,
     checkCondition,
     convertStructuredSchemaToZod,
     customGet,
-    getVM,
     transformObjectPropertyToFunction,
     filterConversationHistory,
     restructureMessages
 } from '../commonUtils'
-import { ChatGoogleGenerativeAI } from '../../chatmodels/ChatGoogleGenerativeAI/FlowiseChatGoogleGenerativeAI'
 
 interface IConditionGridItem {
     variable: string
@@ -120,7 +118,11 @@ const howToUseCode = `
     \`\`\`
 
 4. You can get default flow config, including the current "state":
-${FLOW_CONTEXT_REFERENCE}
+    - \`$flow.sessionId\`
+    - \`$flow.chatId\`
+    - \`$flow.chatflowId\`
+    - \`$flow.input\`
+    - \`$flow.state\`
 
 5. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -488,20 +490,8 @@ const runCondition = async (
         try {
             const structuredOutput = z.object(convertStructuredSchemaToZod(conditionAgentStructuredOutput))
 
-            if (llm instanceof ChatGoogleGenerativeAI) {
-                const tool = new ExtractTool({
-                    schema: structuredOutput
-                })
-                // @ts-ignore
-                const modelWithTool = llm.bind({
-                    tools: [tool],
-                    signal: abortControllerSignal ? abortControllerSignal.signal : undefined
-                })
-                model = modelWithTool
-            } else {
-                // @ts-ignore
-                model = llm.withStructuredOutput(structuredOutput)
-            }
+            // @ts-ignore
+            model = llm.withStructuredOutput(structuredOutput)
         } catch (exception) {
             console.error('Invalid JSON in Condition Agent Structured Output: ' + exception)
             model = llm
@@ -543,10 +533,10 @@ const runCondition = async (
         result = { ...jsonResult, additional_kwargs: { nodeId: nodeData.id } }
     }
 
-    const variables = await getVars(appDataSource, databaseEntities, nodeData)
+    const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
 
     const flow = {
-        canvasId: options.canvasId,
+        chatflowId: options.chatflowid,
         sessionId: options.sessionId,
         chatId: options.chatId,
         input,
@@ -556,9 +546,11 @@ const runCondition = async (
     }
 
     if (selectedTab === 'conditionFunction' && conditionFunction) {
-        const vm = await getVM(appDataSource, databaseEntities, nodeData, flow)
+        const sandbox = createCodeExecutionSandbox(input, variables, flow)
+
         try {
-            const response = await vm.run(`module.exports = async function() {${conditionFunction}}()`, __dirname)
+            const response = await executeJavaScriptCode(conditionFunction, sandbox)
+
             if (typeof response !== 'string') throw new Error('Condition function must return a string')
             return response
         } catch (e) {

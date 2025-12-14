@@ -107,9 +107,9 @@ class Csv_DocumentLoaders implements INode {
         return { files, fromStorage }
     }
 
-    async getFileData(file: string, { canvasId }: { canvasId: string }, fromStorage?: boolean) {
+    async getFileData(file: string, { orgId, chatflowid }: { orgId: string; chatflowid: string }, fromStorage?: boolean) {
         if (fromStorage) {
-            return getFileFromStorage(file, canvasId)
+            return getFileFromStorage(file, orgId, chatflowid)
         } else {
             const splitDataURI = file.split(',')
             splitDataURI.pop()
@@ -126,15 +126,16 @@ class Csv_DocumentLoaders implements INode {
 
         let docs: IDocument[] = []
 
-        const canvasId = options.canvasId
+        const orgId = options.orgId
+        const chatflowid = options.chatflowid
 
         const { files, fromStorage } = this.getFiles(nodeData)
 
         for (const file of files) {
             if (!file) continue
 
-            const fileData = await this.getFileData(file, { canvasId }, fromStorage)
-            const blob = new Blob([new Uint8Array(fileData)])
+            const fileData = await this.getFileData(file, { orgId, chatflowid }, fromStorage)
+            const blob = new Blob([fileData])
             const loader = new CSVLoader(blob, columnName.trim().length === 0 ? undefined : columnName.trim())
 
             // use spread instead of push, because it raises RangeError: Maximum call stack size exceeded when too many docs

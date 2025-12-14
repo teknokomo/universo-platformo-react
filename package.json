@@ -76,6 +76,7 @@
             "sqlite3"
         ],
         "overrides": {
+            "rolldown": "1.0.0-beta.43",
             "axios": "1.13.2",
             "body-parser": "2.0.2",
             "braces": "3.0.3",
@@ -97,12 +98,11 @@
             "mysql2": "3.11.3",
             "sqlite3": "5.1.6",
             "@google/generative-ai": "0.24.1",
-            "@langchain/openai": "0.4.4",
-            "@langchain/anthropic": "0.3.14",
+            "@langchain/openai": "0.6.3",
+            "@langchain/anthropic": "0.3.33",
             "@aws-sdk/client-bedrock-runtime": "3.422.0",
             "cohere-ai": "7.10.0",
-            "@types/node": "20.12.12",
-            "typescript": "5.8.3"
+            "@types/node": "20.12.12"
         }
     },
     "engines": {
@@ -112,9 +112,9 @@
     "resolutions": {
         "@google/generative-ai": "^0.24.0",
         "@grpc/grpc-js": "^1.10.10",
-        "@langchain/core": "0.3.37",
+        "@langchain/core": "0.3.61",
         "@qdrant/openapi-typescript-fetch": "1.2.6",
-        "openai": "4.82.0",
+        "openai": "4.96.0",
         "protobufjs": "7.4.0"
     },
     "eslintIgnore": [

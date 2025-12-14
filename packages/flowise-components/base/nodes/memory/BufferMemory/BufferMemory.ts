@@ -8,7 +8,7 @@ import {
     INodeParams,
     MemoryMethods
 } from '../../../src/Interface'
-import { getBaseClasses, mapChatMessageToBaseMessage, safeGet } from '../../../src/utils'
+import { getBaseClasses, mapChatMessageToBaseMessage } from '../../../src/utils'
 import { BufferMemory, BufferMemoryInput } from 'langchain/memory'
 import { BaseMessage } from '@langchain/core/messages'
 import { DataSource } from 'typeorm'
@@ -60,7 +60,8 @@ class BufferMemory_Memory implements INode {
 
         const appDataSource = options.appDataSource as DataSource
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const canvasId = options.canvasId as string
+        const chatflowid = options.chatflowid as string
+        const orgId = options.orgId as string
 
         return new BufferMemoryExtended({
             returnMessages: true,
@@ -68,7 +69,8 @@ class BufferMemory_Memory implements INode {
             sessionId,
             appDataSource,
             databaseEntities,
-            canvasId
+            chatflowid,
+            orgId
         })
     }
 }
@@ -77,13 +79,15 @@ interface BufferMemoryExtendedInput {
     sessionId: string
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    canvasId: string
+    chatflowid: string
+    orgId: string
 }
 
 class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    canvasId: string
+    chatflowid: string
+    orgId: string
     sessionId = ''
 
     constructor(fields: BufferMemoryInput & BufferMemoryExtendedInput) {
@@ -91,7 +95,8 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         this.sessionId = fields.sessionId
         this.appDataSource = fields.appDataSource
         this.databaseEntities = fields.databaseEntities
-        this.canvasId = fields.canvasId
+        this.chatflowid = fields.chatflowid
+        this.orgId = fields.orgId
     }
 
     async getChatMessages(
@@ -105,7 +110,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         const chatMessage = await this.appDataSource.getRepository(this.databaseEntities['ChatMessage']).find({
             where: {
                 sessionId: id,
-                canvasId: this.canvasId
+                chatflowid: this.chatflowid
             },
             order: {
                 createdDate: 'ASC'
@@ -117,14 +122,14 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         }
 
         if (returnBaseMessages) {
-            return await mapChatMessageToBaseMessage(chatMessage)
+            return await mapChatMessageToBaseMessage(chatMessage, this.orgId)
         }
 
         let returnIMessages: IMessage[] = []
         for (const m of chatMessage) {
             returnIMessages.push({
-                message: safeGet(m, 'content', '') as string,
-                type: safeGet(m, 'role', 'user')
+                message: m.content as string,
+                type: m.role
             })
         }
 

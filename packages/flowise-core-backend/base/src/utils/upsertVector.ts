@@ -63,7 +63,8 @@ export const executeUpsert = async ({
             const fileBuffer = await getFileFromUpload(file.path ?? file.key)
             // Address file name with special characters: https://github.com/expressjs/multer/issues/1104
             file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
-            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId)
+            const storageResult = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId)
+            const storagePath = storageResult.path
 
             const fileInputFieldFromMimeType = mapMimeTypeToInputField(file.mimetype)
 

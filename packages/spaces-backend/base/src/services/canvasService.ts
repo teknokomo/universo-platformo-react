@@ -20,10 +20,10 @@ export interface CanvasServiceMetricsConfig {
 
 export interface CanvasServiceDependencies {
     errorFactory: (status: number, message: string) => Error
-    removeFolderFromStorage: (canvasId: string) => Promise<void>
+    removeFolderFromStorage: (...paths: string[]) => Promise<{ totalSize: number }>
     updateDocumentStoreUsage: (canvasId: string, usage: string | undefined, unikId: string) => Promise<void>
     containsBase64File: (payload: { flowData: string }) => boolean
-    updateFlowDataWithFilePaths: (canvasId: string, flowData: string) => Promise<string>
+    updateFlowDataWithFilePaths: (canvasId: string, flowData: string, orgId?: string) => Promise<string>
     constructGraphs: (nodes: any[], edges: any[]) => { graph: any; nodeDependencies: Record<string, number> }
     getEndingNodes: (nodeDependencies: Record<string, number>, graph: any, nodes: any[]) => any[]
     isFlowValidForStream: (nodes: any[], nodeData: any) => boolean

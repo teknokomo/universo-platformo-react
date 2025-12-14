@@ -1,13 +1,5 @@
-import { NodeVM } from '@flowiseai/nodevm'
 import { DataSource } from 'typeorm'
-import {
-    FLOW_CONTEXT_REFERENCE,
-    availableDependencies,
-    defaultAllowBuiltInDep,
-    getVars,
-    handleEscapeCharacters,
-    prepareSandboxVars
-} from '../../../src/utils'
+import { getVars, handleEscapeCharacters, executeJavaScriptCode, createCodeExecutionSandbox } from '../../../src/utils'
 import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeParams, ISeqAgentNode, ISeqAgentsState } from '../../../src/Interface'
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { customGet } from '../commonUtils'
@@ -16,7 +8,11 @@ const howToUseCode = `
 1. Must return a string value at the end of function.
 
 2. You can get default flow config, including the current "state":
-${FLOW_CONTEXT_REFERENCE}
+    - \`$flow.sessionId\`
+    - \`$flow.chatId\`
+    - \`$flow.chatflowId\`
+    - \`$flow.input\`
+    - \`$flow.state\`
 
 3. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -105,9 +101,9 @@ class CustomFunction_SeqAgents implements INode {
         if (!sequentialNodes || !sequentialNodes.length) throw new Error('Custom function must have a predecessor!')
 
         const executeFunc = async (state: ISeqAgentsState) => {
-            const variables = await getVars(appDataSource, databaseEntities, nodeData)
+            const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
             const flow = {
-                canvasId: options.canvasId,
+                chatflowId: options.chatflowid,
                 sessionId: options.sessionId,
                 chatId: options.chatId,
                 input,
@@ -157,44 +153,20 @@ class CustomFunction_SeqAgents implements INode {
                 }
             }
 
-            let sandbox: any = {
-                $input: input,
-                util: undefined,
-                Symbol: undefined,
-                child_process: undefined,
-                fs: undefined,
-                process: undefined
-            }
-            sandbox['$vars'] = prepareSandboxVars(variables)
-            sandbox['$flow'] = flow
+            // Create additional sandbox variables
+            const additionalSandbox: ICommonObject = {}
 
+            // Add input variables to sandbox
             if (Object.keys(inputVars).length) {
                 for (const item in inputVars) {
-                    sandbox[`$${item}`] = inputVars[item]
+                    additionalSandbox[`$${item}`] = inputVars[item]
                 }
             }
 
-            const builtinDeps = process.env.TOOL_FUNCTION_BUILTIN_DEP
-                ? defaultAllowBuiltInDep.concat(process.env.TOOL_FUNCTION_BUILTIN_DEP.split(','))
-                : defaultAllowBuiltInDep
-            const externalDeps = process.env.TOOL_FUNCTION_EXTERNAL_DEP ? process.env.TOOL_FUNCTION_EXTERNAL_DEP.split(',') : []
-            const deps = availableDependencies.concat(externalDeps)
+            const sandbox = createCodeExecutionSandbox(input, variables, flow, additionalSandbox)
 
-            const nodeVMOptions = {
-                console: 'inherit',
-                sandbox,
-                require: {
-                    external: { modules: deps },
-                    builtin: builtinDeps
-                },
-                eval: false,
-                wasm: false,
-                timeout: 10000
-            } as any
-
-            const vm = new NodeVM(nodeVMOptions)
             try {
-                const response = await vm.run(`module.exports = async function() {${javascriptFunction}}()`, __dirname)
+                const response = await executeJavaScriptCode(javascriptFunction, sandbox)
 
                 if (returnValueAs === 'stateObj') {
                     if (typeof response !== 'object') {

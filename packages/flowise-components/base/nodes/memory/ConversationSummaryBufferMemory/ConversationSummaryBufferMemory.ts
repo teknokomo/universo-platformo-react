@@ -77,7 +77,8 @@ class ConversationSummaryBufferMemory_Memory implements INode {
 
         const appDataSource = options.appDataSource as DataSource
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const canvasId = options.canvasId as string
+        const chatflowid = options.chatflowid as string
+        const orgId = options.orgId as string
 
         const obj: ConversationSummaryBufferMemoryInput & BufferMemoryExtendedInput = {
             llm: model,
@@ -87,7 +88,8 @@ class ConversationSummaryBufferMemory_Memory implements INode {
             returnMessages: true,
             appDataSource,
             databaseEntities,
-            canvasId
+            chatflowid,
+            orgId
         }
 
         return new ConversationSummaryBufferMemoryExtended(obj)
@@ -98,13 +100,15 @@ interface BufferMemoryExtendedInput {
     sessionId: string
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    canvasId: string
+    chatflowid: string
+    orgId: string
 }
 
 class ConversationSummaryBufferMemoryExtended extends FlowiseSummaryBufferMemory implements MemoryMethods {
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    canvasId: string
+    chatflowid: string
+    orgId: string
     sessionId = ''
 
     constructor(fields: ConversationSummaryBufferMemoryInput & BufferMemoryExtendedInput) {
@@ -112,7 +116,8 @@ class ConversationSummaryBufferMemoryExtended extends FlowiseSummaryBufferMemory
         this.sessionId = fields.sessionId
         this.appDataSource = fields.appDataSource
         this.databaseEntities = fields.databaseEntities
-        this.canvasId = fields.canvasId
+        this.chatflowid = fields.chatflowid
+        this.orgId = fields.orgId
     }
 
     async getChatMessages(
@@ -126,7 +131,7 @@ class ConversationSummaryBufferMemoryExtended extends FlowiseSummaryBufferMemory
         let chatMessage = await this.appDataSource.getRepository(this.databaseEntities['ChatMessage']).find({
             where: {
                 sessionId: id,
-                canvasId: this.canvasId
+                chatflowid: this.chatflowid
             },
             order: {
                 createdDate: 'ASC'
@@ -137,7 +142,7 @@ class ConversationSummaryBufferMemoryExtended extends FlowiseSummaryBufferMemory
             chatMessage.unshift(...prependMessages)
         }
 
-        let baseMessages = await mapChatMessageToBaseMessage(chatMessage)
+        let baseMessages = await mapChatMessageToBaseMessage(chatMessage, this.orgId)
 
         // Prune baseMessages if it exceeds max token limit
         if (this.movingSummaryBuffer) {

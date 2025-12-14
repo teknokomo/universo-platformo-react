@@ -582,24 +582,31 @@ router.use(chatMessagesErrorHandler)
 router.use(feedbackErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
-router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error('[API Error Handler]', {
-        error: err.message,
-        stack: err.stack,
-        path: req.path,
-        method: req.method,
-        timestamp: new Date().toISOString()
-    })
+router.use((err: Error & { statusCode?: number }, req: Request, res: Response, next: NextFunction) => {
+    // Determine HTTP status code - respect statusCode from custom errors (e.g., InternalFlowiseError)
+    const statusCode = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
+
+    // Only log non-404 errors at error level to reduce noise
+    if (statusCode !== 404) {
+        console.error('[API Error Handler]', {
+            error: err.message,
+            stack: err.stack,
+            path: req.path,
+            method: req.method,
+            statusCode,
+            timestamp: new Date().toISOString()
+        })
+    }
 
     // If headers already sent, delegate to default Express error handler
     if (res.headersSent) {
         return next(err)
     }
 
-    // Send error response
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred',
+    // Send error response with correct status code
+    res.status(statusCode).json({
+        error: statusCode === 404 ? 'Not Found' : 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : (statusCode === 404 ? 'Resource not found' : 'An error occurred'),
         path: req.path
     })
 })

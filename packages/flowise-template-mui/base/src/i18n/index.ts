@@ -9,23 +9,23 @@ import ruMain from './locales/ru/main.json'
 console.log('[flowise-template-mui] Registering i18n namespaces')
 
 registerNamespace('template-dialog', {
-  en: enMain.dialog,
-  ru: ruMain.dialog
+    en: enMain.dialog,
+    ru: ruMain.dialog
 })
 
 registerNamespace('speechToText', {
-  en: enMain.speechToText,
-  ru: ruMain.speechToText
+    en: enMain.speechToText,
+    ru: ruMain.speechToText
 })
 
 registerNamespace('speechToTextDialog', {
-  en: enMain.speechToTextDialog,
-  ru: ruMain.speechToTextDialog
+    en: enMain.speechToTextDialog,
+    ru: ruMain.speechToTextDialog
 })
 
 export const speechToTextNamespaces = {
-  en: enMain,
-  ru: ruMain
+    en: enMain,
+    ru: ruMain
 }
 
 export default speechToTextNamespaces

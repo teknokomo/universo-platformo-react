@@ -24,8 +24,9 @@ export interface CreateCanvasDto {
  * - CHATFLOW: Standard chat flow canvas
  * - MULTIAGENT: Multi-agent workflow canvas
  * - ASSISTANT: OpenAI Assistant-based canvas
+ * - AGENTFLOW: Agent flow v2 canvas (Flowise 3.0+)
  */
-export type CanvasType = 'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'
+export type CanvasType = 'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT' | 'AGENTFLOW'
 
 export interface UpdateCanvasDto {
     name?: string

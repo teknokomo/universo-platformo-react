@@ -9,7 +9,7 @@ import { useTheme } from '@mui/material/styles'
 // project imports
 import MainCard from '@flowise/template-mui/ui-components/cards/MainCard'
 import ItemCard from '@flowise/template-mui/ui-components/cards/ItemCard'
-import { gridSpacing } from '@flowise/template-mui'
+import { gridSpacing, AGENTFLOW_ICONS } from '@flowise/template-mui'
 import AgentsEmptySVG from '../../assets/images/agents_empty.svg'
 import ConfirmDialog from '@flowise/template-mui/ui-components/dialog/ConfirmDialog'
 import { FlowListTable } from '@flowise/template-mui/ui-components/table/FlowListTable'
@@ -51,17 +51,42 @@ const extractCanvases = (payload) => {
 
 const buildImageMap = (items) => {
     const images = {}
+    const icons = {}
     items.forEach((canvas) => {
         if (!canvas?.id) return
         images[canvas.id] = []
+        icons[canvas.id] = []
         if (!canvas.flowData) return
         try {
             const flowData = typeof canvas.flowData === 'string' ? JSON.parse(canvas.flowData) : canvas.flowData
             const nodes = flowData?.nodes || []
             nodes.forEach((node) => {
-                const imageSrc = `${baseURL}/api/v1/node-icon/${node?.data?.name}`
-                if (imageSrc && !images[canvas.id].includes(imageSrc)) {
-                    images[canvas.id].push(imageSrc)
+                const nodeName = node?.data?.name
+                if (!nodeName) return
+                // Skip sticky notes
+                if (nodeName === 'stickyNote' || nodeName === 'stickyNoteAgentflow') return
+
+                // Check if this is an AgentFlow node (has color but no icon file)
+                const agentflowEntry = node?.data?.color && !node?.data?.icon
+                    ? AGENTFLOW_ICONS.find((item) => item.name === nodeName)
+                    : null
+
+                if (agentflowEntry) {
+                    // Use Tabler icon for AgentFlow nodes
+                    const exists = icons[canvas.id].some((ic) => ic.name === nodeName)
+                    if (!exists) {
+                        icons[canvas.id].push({
+                            name: nodeName,
+                            icon: agentflowEntry.icon,
+                            color: agentflowEntry.color
+                        })
+                    }
+                } else {
+                    // Regular node - use API image
+                    const imageSrc = `${baseURL}/api/v1/node-icon/${nodeName}`
+                    if (!images[canvas.id].some((img) => (typeof img === 'string' ? img : img.imageSrc) === imageSrc)) {
+                        images[canvas.id].push({ imageSrc, label: nodeName })
+                    }
                 }
             })
         } catch (error) {
@@ -69,7 +94,7 @@ const buildImageMap = (items) => {
             console.warn('[Agentflows] Failed to parse flowData for canvas preview', { canvasId: canvas.id, error })
         }
     })
-    return images
+    return { images, icons }
 }
 
 // ==============================|| MULTI-AGENT CANVASES LIST ||============================== //
@@ -84,6 +109,7 @@ const Agentflows = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
+    const [icons, setIcons] = useState({})
     const [search, setSearch] = useState('')
     const [spaces, setSpaces] = useState([])
     const [canvases, setCanvases] = useState([])
@@ -164,7 +190,9 @@ const Agentflows = () => {
     const refreshCanvases = useCallback(async () => {
         const aggregated = await loadAgentCanvases(spaces)
         setCanvases(aggregated)
-        setImages(buildImageMap(aggregated))
+        const { images: newImages, icons: newIcons } = buildImageMap(aggregated)
+        setImages(newImages)
+        setIcons(newIcons)
         setError(null)
         return aggregated
     }, [loadAgentCanvases, spaces])
@@ -175,6 +203,7 @@ const Agentflows = () => {
             if (!spaces || spaces.length === 0) {
                 setCanvases([])
                 setImages({})
+                setIcons({})
                 setError(null)
                 return
             }
@@ -183,7 +212,9 @@ const Agentflows = () => {
                 const aggregated = await loadAgentCanvases(spaces)
                 if (!cancelled) {
                     setCanvases(aggregated)
-                    setImages(buildImageMap(aggregated))
+                    const { images: newImages, icons: newIcons } = buildImageMap(aggregated)
+                    setImages(newImages)
+                    setIcons(newIcons)
                     setError(null)
                 }
             } catch (err) {
@@ -293,7 +324,7 @@ const Agentflows = () => {
                             ) : (
                                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                     {canvases.filter(filterFlows).map((data) => (
-                                        <ItemCard key={data.id} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
+                                        <ItemCard key={data.id} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} icons={icons[data.id]} />
                                     ))}
                                 </Box>
                             )}
@@ -303,6 +334,7 @@ const Agentflows = () => {
                             isAgentCanvas={true}
                             data={canvases}
                             images={images}
+                            icons={icons}
                             isLoading={isLoading}
                             filterFunction={filterFlows}
                             updateFlowsApi={tableRefreshAdapter}

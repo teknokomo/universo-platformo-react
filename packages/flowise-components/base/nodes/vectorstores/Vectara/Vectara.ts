@@ -65,7 +65,8 @@ class Vectara_VectorStores implements INode {
                     'Filter to apply to Vectara metadata. Refer to the <a target="_blank" href="https://docs.flowiseai.com/vector-stores/vectara">documentation</a> on how to use Vectara filters with Flowise.',
                 type: 'string',
                 additionalParams: true,
-                optional: true
+                optional: true,
+                acceptVariable: true
             },
             {
                 label: 'Sentences Before',
@@ -191,12 +192,13 @@ class Vectara_VectorStores implements INode {
                 } else {
                     files = [fileName]
                 }
-                const canvasId = options.canvasId
+                const orgId = options.orgId
+                const chatflowid = options.chatflowid
 
                 for (const file of files) {
                     if (!file) continue
-                    const fileData = await getFileFromStorage(file, canvasId)
-                    const blob = new Blob([new Uint8Array(fileData)])
+                    const fileData = await getFileFromStorage(file, orgId, chatflowid)
+                    const blob = new Blob([fileData])
                     vectaraFiles.push({ blob: blob, fileName: getFileName(file) })
                 }
             } else {
@@ -211,7 +213,7 @@ class Vectara_VectorStores implements INode {
                     const splitDataURI = file.split(',')
                     splitDataURI.pop()
                     const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
-                    const blob = new Blob([new Uint8Array(bf)])
+                    const blob = new Blob([bf])
                     vectaraFiles.push({ blob: blob, fileName: getFileName(file) })
                 }
             }

@@ -12,6 +12,9 @@ import { IconBook2 } from '@tabler/icons-react'
 // Store
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG, baseURL } from '@flowise/store'
 
+// Constants
+import { AGENTFLOW_ICONS } from '../../constants'
+
 // API
 import { api } from '@universo/api-client'
 import useApi from '../../hooks/hooks/useApi'
@@ -59,20 +62,34 @@ const NodeInfoDialog = ({ show, dialogProps, onCancel }) => {
                                 height: 50,
                                 marginRight: 10,
                                 borderRadius: '50%',
-                                backgroundColor: 'white'
+                                backgroundColor: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                         >
-                            <img
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    padding: 7,
-                                    borderRadius: '50%',
-                                    objectFit: 'contain'
-                                }}
-                                alt={dialogProps.data.name}
-                                src={`${baseURL}/api/v1/node-icon/${dialogProps.data.name}`}
-                            />
+                            {(() => {
+                                const nodeData = dialogProps.data
+                                const agentflowEntry =
+                                    nodeData?.color && !nodeData?.icon ? AGENTFLOW_ICONS.find((item) => item.name === nodeData.name) : null
+                                if (agentflowEntry) {
+                                    const IconComponent = agentflowEntry.icon
+                                    return <IconComponent size={38} color={agentflowEntry.color} />
+                                }
+                                return (
+                                    <img
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            padding: 7,
+                                            borderRadius: '50%',
+                                            objectFit: 'contain'
+                                        }}
+                                        alt={nodeData.name}
+                                        src={`${baseURL}/api/v1/node-icon/${nodeData.name}`}
+                                    />
+                                )
+                            })()}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', marginLeft: 10 }}>
                             {dialogProps.data.label}

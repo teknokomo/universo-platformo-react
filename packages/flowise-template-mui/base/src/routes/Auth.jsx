@@ -6,7 +6,7 @@
  * - CASL permissions refresh via @flowise/store
  * - MainCard styling via @flowise/template-mui
  */
-import React, { useCallback, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { AuthPage, mapSupabaseError } from '@universo/auth-frontend'
 import { MainCard } from '@flowise/template-mui'
 import { useTranslation } from '@universo/i18n'

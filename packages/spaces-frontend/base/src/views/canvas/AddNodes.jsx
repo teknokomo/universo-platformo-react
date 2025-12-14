@@ -36,6 +36,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar'
 import MainCard from '@flowise/template-mui/ui-components/cards/MainCard'
 import Transitions from '@flowise/template-mui/ui-components/extended/Transitions'
 import { StyledFab } from '@flowise/template-mui/ui-components/button/StyledFab'
+import { AGENTFLOW_ICONS } from '@flowise/template-mui'
 
 // icons
 import { IconPlus, IconSearch, IconMinus, IconX } from '@tabler/icons-react'
@@ -94,6 +95,40 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
         if (curr) {
             curr.scrollTop = 0
         }
+    }
+
+    const renderNodeIcon = (node) => {
+        const agentflowEntry = node?.color && !node?.icon ? AGENTFLOW_ICONS.find((item) => item.name === node.name) : null
+        if (agentflowEntry) {
+            const IconComponent = agentflowEntry.icon
+            return (
+                <div
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        padding: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}
+                >
+                    <IconComponent size={30} color={agentflowEntry.color} />
+                </div>
+            )
+        }
+
+        return (
+            <img
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    padding: 10,
+                    objectFit: 'contain'
+                }}
+                alt={node?.name}
+                src={`${baseURL}/api/v1/node-icon/${node.name}`}
+            />
+        )
     }
 
     const handleTabChange = (event, newValue) => {
@@ -522,16 +557,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
                                                                                             backgroundColor: 'white'
                                                                                         }}
                                                                                     >
-                                                                                        <img
-                                                                                            style={{
-                                                                                                width: '100%',
-                                                                                                height: '100%',
-                                                                                                padding: 10,
-                                                                                                objectFit: 'contain'
-                                                                                            }}
-                                                                                            alt={node.name}
-                                                                                            src={`${baseURL}/api/v1/node-icon/${node.name}`}
-                                                                                        />
+                                                                                        {renderNodeIcon(node)}
                                                                                     </div>
                                                                                 </ListItemAvatar>
                                                                                 <ListItemText

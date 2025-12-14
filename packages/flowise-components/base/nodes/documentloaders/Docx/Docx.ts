@@ -96,12 +96,13 @@ class Docx_DocumentLoaders implements INode {
             } else {
                 files = [fileName]
             }
-            const canvasId = options.canvasId
+            const orgId = options.orgId
+            const chatflowid = options.chatflowid
 
             for (const file of files) {
                 if (!file) continue
-                const fileData = await getFileFromStorage(file, canvasId)
-                const blob = new Blob([new Uint8Array(fileData)])
+                const fileData = await getFileFromStorage(file, orgId, chatflowid)
+                const blob = new Blob([fileData])
                 const loader = new DocxLoader(blob)
 
                 if (textSplitter) {
@@ -124,7 +125,7 @@ class Docx_DocumentLoaders implements INode {
                 const splitDataURI = file.split(',')
                 splitDataURI.pop()
                 const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
-                const blob = new Blob([new Uint8Array(bf)])
+                const blob = new Blob([bf])
                 const loader = new DocxLoader(blob)
 
                 if (textSplitter) {

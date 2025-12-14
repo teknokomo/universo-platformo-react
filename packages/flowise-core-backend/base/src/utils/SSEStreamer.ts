@@ -150,6 +150,95 @@ export class SSEStreamer implements IServerSideEventStreamer {
         }
     }
 
+    // New methods for Flowise 3.0.12
+    streamCalledToolsEvent(chatId: string, data: any): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'calledTools',
+                data: data
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamAgentFlowExecutedDataEvent(chatId: string, data: any): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'agentFlowExecutedData',
+                data: data
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamAgentFlowEvent(chatId: string, data: any): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'agentFlow',
+                data: data
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamNextAgentFlowEvent(chatId: string, data: any): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'nextAgentFlow',
+                data: data
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamUsageMetadataEvent(chatId: string, data: any): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'usageMetadata',
+                data: data
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamTTSStartEvent(chatId: string, chatMessageId: string, format: string): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'ttsStart',
+                data: { chatMessageId, format }
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamTTSDataEvent(chatId: string, chatMessageId: string, audioChunk: string): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'ttsData',
+                data: { chatMessageId, audioChunk }
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
+    streamTTSEndEvent(chatId: string, chatMessageId: string): void {
+        const client = this.clients[chatId]
+        if (client) {
+            const clientResponse = {
+                event: 'ttsEnd',
+                data: { chatMessageId }
+            }
+            client.response.write('message:\ndata:' + JSON.stringify(clientResponse) + '\n\n')
+        }
+    }
+
     streamAbortEvent(chatId: string): void {
         const client = this.clients[chatId]
         if (client) {

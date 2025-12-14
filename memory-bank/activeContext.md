@@ -1,24 +1,69 @@
 # Active Context
 
-> **Last Updated**: 2025-12-13
+> **Last Updated**: 2025-12-14
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Admin Roles Delete Dialog i18n ✅ (2025-12-13)
+## Current Focus: Flowise 3.0.12 Full Package Replacement 🔄 (2025-12-14)
 
-**Status**: Fixed role deletion dialog showing raw i18n keys.
+**Status**: Full workspace builds successfully (54 tasks). AgentFlow icons implemented in spaces-frontend. Ready for runtime testing.
 
-**Change**:
-- Updated admin role menu actions to use `admin` namespace keys under `roles.*`.
+**Branch**: `feature/flowise-3.0.12-full-replacement`
 
-**Impact**:
-- Role delete confirmation now renders translated text instead of `confirmDelete` / `confirmDeleteDescription`.
+**Key Changes**:
+1. **Package Replacement**:
+   - Backed up old package as `flowise-components-2.2.8-backup`
+   - Copied full Flowise 3.0.12 components package (820 files, 8.6MB)
+
+2. **Build System Adaptation (Upstream-aligned)**:
+   - Switched `flowise-components` build to upstream approach: `tsc` + `gulp` (instead of rolldown/tsdown)
+   - Removed/avoided CJS lazy-init patterns (`__esm`) that were causing runtime failures on clean rebuilds
+
+3. **API Changes Handled**:
+   - `IServerSideEventStreamer`: Added 8 new methods (AgentFlow + TTS streaming)
+   - Storage functions now return `{ path: string; totalSize: number }` instead of `string`
+   - `addBase64FilesToStorage`: Added `orgId` parameter (4th arg)
+   - `streamStorageFile`: Added `orgId` parameter (4th arg)
+   - `removeFolderFromStorage` / `removeFilesFromStorage`: Now return `{ totalSize: number }`
+   
+4. **New Features in 3.0.12**:
+   - AgentFlow nodes (`nodes/agentflow/`)
+   - AGENTFLOW canvas type added to CanvasType enum
+   - TTS streaming events (text-to-speech)
+   - Enhanced evaluation system
+
+5. **AgentFlow Icons Fix** (2025-12-14):
+   - **Root cause**: AgentFlow nodes don't have icon files - they use built-in @tabler/icons-react v3.x components
+   - **Selection rule** (upstream-aligned): `node.color && !node.icon` → render Tabler icon; otherwise → `/api/v1/node-icon/...`
+   - **AGENTFLOW_ICONS constant**: Array with 15 entries `{name, icon: TablerComponent, color}` in `flowise-template-mui/constants.ts`
+   - **spaces-frontend patches** (2025-12-14):
+     - `AddNodes.jsx`: Added `renderNodeIcon()` helper using `AGENTFLOW_ICONS.find()`
+     - `CanvasNode.jsx`: Same `renderNodeIcon()` pattern for node rendering on canvas
+     - `agentflows/index.jsx`: `buildImageMap()` returns `{images, icons}`; component manages both states
+     - `canvases/index.jsx`: Same pattern applied
+     - `spaces/index.jsx`: Same pattern for `buildImagePreviewMap()`
+     - `NodeInfoDialog.jsx`: Conditional Tabler icon rendering for AgentFlow nodes
+   - **Backend fix**: Global error handler in `routes/index.ts` now respects `err.statusCode` (no longer masks 404 as 500)
+   - Upgraded `@tabler/icons-react` from ^2.32.0 to ^3.30.0 to match Flowise 3.0.12
+
+**Files Modified** (this session):
+- `packages/spaces-frontend/base/src/views/canvas/AddNodes.jsx`
+- `packages/spaces-frontend/base/src/views/canvas/CanvasNode.jsx`
+- `packages/spaces-frontend/base/src/views/agentflows/index.jsx`
+- `packages/spaces-frontend/base/src/views/canvases/index.jsx`
+- `packages/spaces-frontend/base/src/views/spaces/index.jsx`
+- `packages/flowise-template-mui/base/src/ui-components/dialog/NodeInfoDialog.jsx`
+- `packages/flowise-core-backend/base/src/routes/index.ts`
+
+**Current Blockers / Next Steps**:
+- Runtime testing (`pnpm start`) to verify AgentFlow icons display correctly
+- After verification: commit changes to branch
 
 ---
 
-## Previous Focus: VLC → Localized Content Rename ✅
+## Previous Focus: Admin Roles Delete Dialog i18n ✅ (2025-12-13)
 
 **Status**: Completed comprehensive terminology refactoring from "VLC" to "Localized Content".
 

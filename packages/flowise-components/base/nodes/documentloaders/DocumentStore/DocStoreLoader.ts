@@ -1,16 +1,7 @@
-import {
-    ICommonObject,
-    IDatabaseEntity,
-    INode,
-    INodeData,
-    INodeOptionsValue,
-    INodeOutputsValue,
-    INodeParams,
-    IDocumentStoreData
-} from '../../../src/Interface'
+import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeOutputsValue, INodeParams } from '../../../src/Interface'
 import { DataSource } from 'typeorm'
 import { Document } from '@langchain/core/documents'
-import { handleEscapeCharacters, safeGet, safeJSONParse } from '../../../src'
+import { handleEscapeCharacters } from '../../../src'
 
 class DocStore_DocumentLoaders implements INode {
     label: string
@@ -69,14 +60,14 @@ class DocStore_DocumentLoaders implements INode {
                 return returnData
             }
 
-            const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).find()
+            const searchOptions = options.searchOptions || {}
+            const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).findBy(searchOptions)
             for (const store of stores) {
-                const storeData = store as IDocumentStoreData
-                if (safeGet(storeData, 'status', '') === 'SYNC') {
+                if (store.status === 'SYNC') {
                     const obj = {
-                        name: safeGet(storeData, 'id', ''),
-                        label: safeGet(storeData, 'name', 'Unknown Store'),
-                        description: safeGet(storeData, 'description', '')
+                        name: store.id,
+                        label: store.name,
+                        description: store.description
                     }
                     returnData.push(obj)
                 }
@@ -96,11 +87,7 @@ class DocStore_DocumentLoaders implements INode {
 
         const finalDocs = []
         for (const chunk of chunks) {
-            const chunkData = chunk as any
-            const pageContent = safeGet(chunkData, 'pageContent', '')
-            const metadataStr = safeGet(chunkData, 'metadata', '{}')
-            const metadata = safeJSONParse(metadataStr, {})
-            finalDocs.push(new Document({ pageContent, metadata }))
+            finalDocs.push(new Document({ pageContent: chunk.pageContent, metadata: JSON.parse(chunk.metadata) }))
         }
 
         if (output === 'document') {

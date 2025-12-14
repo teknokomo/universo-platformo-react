@@ -8,6 +8,7 @@ import { Moderation } from '../nodes/moderation/Moderation'
 
 export type NodeParamsType =
     | 'asyncOptions'
+    | 'asyncMultiOptions'
     | 'options'
     | 'multiOptions'
     | 'datagrid'
@@ -57,12 +58,13 @@ export interface INodeOptionsValue {
     label: string
     name: string
     description?: string
+    imageSrc?: string
 }
 
 export interface INodeOutputsValue {
     label: string
     name: string
-    baseClasses: string[]
+    baseClasses?: string[]
     description?: string
     hidden?: boolean
     isAnchor?: boolean
@@ -83,10 +85,12 @@ export interface INodeParams {
     rows?: number
     list?: boolean
     acceptVariable?: boolean
+    acceptNodeOutputAsVariable?: boolean
     placeholder?: string
     fileType?: string
     additionalParams?: boolean
     loadMethod?: string
+    loadConfig?: boolean
     hidden?: boolean
     hideCodeExecute?: boolean
     codeExample?: string
@@ -96,6 +100,11 @@ export interface INodeParams {
     refresh?: boolean
     freeSolo?: boolean
     loadPreviousNodes?: boolean
+    array?: Array<INodeParams>
+    show?: INodeDisplay
+    hide?: INodeDisplay
+    generateDocStoreDescription?: boolean
+    generateInstruction?: boolean
 }
 
 export interface INodeExecutionData {
@@ -103,7 +112,7 @@ export interface INodeExecutionData {
 }
 
 export interface INodeDisplay {
-    [key: string]: string[] | string
+    [key: string]: string[] | string | boolean | number | ICommonObject
 }
 
 export interface INodeProperties {
@@ -120,11 +129,16 @@ export interface INodeProperties {
     badge?: string
     deprecateMessage?: string
     hideOutput?: boolean
+    hideInput?: boolean
     author?: string
     documentation?: string
+    color?: string
+    hint?: string
+    warning?: string
 }
 
 export interface INode extends INodeProperties {
+    credential?: INodeParams
     inputs?: INodeParams[]
     output?: INodeOutputsValue[]
     loadMethods?: {
@@ -401,10 +415,13 @@ export interface IVisionChatModal {
     revertToOriginalModel(): void
     setMultiModalOption(multiModalOption: IMultiModalOption): void
 }
+
 export interface IStateWithMessages extends ICommonObject {
     messages: BaseMessage[]
     [key: string]: any
 }
+
+export * from './Interface.Evaluation'
 
 export interface IServerSideEventStreamer {
     streamStartEvent(chatId: string, data: any): void
@@ -412,14 +429,22 @@ export interface IServerSideEventStreamer {
     streamCustomEvent(chatId: string, eventType: string, data: any): void
     streamSourceDocumentsEvent(chatId: string, data: any): void
     streamUsedToolsEvent(chatId: string, data: any): void
+    streamCalledToolsEvent(chatId: string, data: any): void
     streamFileAnnotationsEvent(chatId: string, data: any): void
     streamToolEvent(chatId: string, data: any): void
     streamAgentReasoningEvent(chatId: string, data: any): void
+    streamAgentFlowExecutedDataEvent(chatId: string, data: any): void
+    streamAgentFlowEvent(chatId: string, data: any): void
     streamNextAgentEvent(chatId: string, data: any): void
+    streamNextAgentFlowEvent(chatId: string, data: any): void
     streamActionEvent(chatId: string, data: any): void
     streamArtifactsEvent(chatId: string, data: any): void
     streamAbortEvent(chatId: string): void
     streamEndEvent(chatId: string): void
+    streamUsageMetadataEvent(chatId: string, data: any): void
+    streamTTSStartEvent(chatId: string, chatMessageId: string, format: string): void
+    streamTTSDataEvent(chatId: string, chatMessageId: string, audioChunk: string): void
+    streamTTSEndEvent(chatId: string, chatMessageId: string): void
 }
 
 export enum FollowUpPromptProvider {
@@ -447,66 +472,16 @@ export type FollowUpPromptConfig = {
     selectedProvider: FollowUpPromptProvider
 } & FollowUpPromptProviderConfig
 
-/**
- * Additional interfaces for type safety
- */
-
-export interface IAssistantDetails {
-    name: string
-    instructions: string
-    model?: string
-    tools?: Array<{ type: string }>
-    id?: string
-    created_at?: number
-    metadata?: ICommonObject
+export interface ICondition {
+    type: string
+    value1: CommonType
+    operation: string
+    value2: CommonType
+    isFulfilled?: boolean
 }
 
-export interface IToolData {
-    name: string
-    description: string
-    schema?: ICommonObject
-    func?: Function
-}
-
-export interface ICredentialData {
-    apiKey?: string
-    secretKey?: string
-    accessToken?: string
-    [key: string]: any
-}
-
-export interface ISessionData {
-    sessionId: string
-    userId?: string
-    canvasId?: string
-    [key: string]: any
-}
-
-export interface IUploadResponse {
-    id: string
-    filename: string
-    object: string
-    bytes: number
-    created_at: number
-    purpose: string
-}
-
-export interface IDocumentStoreData {
-    id: string
-    name: string
-    description?: string
-    status: string
-    whereUsed?: Array<{ id: string; name: string }>
-    storeLoaders?: Array<{ id: string; name: string }>
-}
-
-export interface IMessageContent {
-    content: string
-    role: string
-    name?: string
-    function_call?: ICommonObject
-}
-
-export interface IParsedJSON {
-    [key: string]: any
+export interface IHumanInput {
+    type: 'proceed' | 'reject'
+    startNodeId: string
+    feedback?: string
 }

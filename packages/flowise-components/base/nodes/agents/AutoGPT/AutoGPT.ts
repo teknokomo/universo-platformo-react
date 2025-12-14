@@ -9,7 +9,6 @@ import { LLMChain } from 'langchain/chains'
 import { INode, INodeData, INodeParams } from '../../../src/Interface'
 import { checkInputs, Moderation } from '../../moderation/Moderation'
 import { formatResponse } from '../../outputparsers/OutputParserHelpers'
-import { safeGet } from '../../../src/utils'
 
 type ObjectTool = StructuredTool
 const FINISH_NAME = 'finish'
@@ -24,6 +23,7 @@ class AutoGPT_Agents implements INode {
     category: string
     baseClasses: string[]
     inputs: INodeParams[]
+    badge: string
 
     constructor() {
         this.label = 'AutoGPT'
@@ -31,6 +31,7 @@ class AutoGPT_Agents implements INode {
         this.version = 2.0
         this.type = 'AutoGPT'
         this.category = 'Agents'
+        this.badge = 'DEPRECATING'
         this.icon = 'autogpt.svg'
         this.description = 'Autonomous agent with chain of thoughts for self-guided task completion'
         this.baseClasses = ['AutoGPT']
@@ -145,25 +146,20 @@ class AutoGPT_Agents implements INode {
                     executor.fullMessageHistory.push(new AIMessage(assistantReply))
 
                     const action = await executor.outputParser.parse(assistantReply)
-                    const tools = executor.tools.reduce<Record<string, any>>((acc, tool) => {
-                        const toolName = safeGet(tool, 'name', 'unknown_tool')
-                        acc[toolName] = tool
-                        return acc
-                    }, {})
-
+                    const tools = executor.tools.reduce((acc, tool) => ({ ...acc, [tool.name]: tool }), {} as { [key: string]: ObjectTool })
                     if (action.name === FINISH_NAME) {
                         return action.args.response
                     }
                     let result: string
                     if (action.name in tools) {
-                        const tool = tools[action.name] as ObjectTool
+                        const tool = tools[action.name]
                         let observation
                         try {
                             observation = await tool.call(action.args)
                         } catch (e) {
                             observation = `Error in args: ${e}`
                         }
-                        result = `Command ${safeGet(tool, 'name', 'unknown')} returned: ${observation}`
+                        result = `Command ${tool.name} returned: ${observation}`
                     } else if (action.name === 'ERROR') {
                         result = `Error: ${action.args}. `
                     } else {

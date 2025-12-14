@@ -26,7 +26,7 @@ import useApi from '@flowise/template-mui/hooks/useApi'
 import { useAuthError } from '@universo/auth-frontend'
 
 // const
-import { baseURL } from '@flowise/template-mui'
+import { baseURL, AGENTFLOW_ICONS } from '@flowise/template-mui'
 
 // icons
 import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
@@ -51,17 +51,37 @@ const extractCanvases = (payload) => {
 
 const buildImageMap = (items) => {
     const images = {}
+    const icons = {}
     items.forEach((canvas) => {
         if (!canvas?.id) return
         images[canvas.id] = []
+        icons[canvas.id] = []
         if (!canvas.flowData) return
         try {
             const flowData = typeof canvas.flowData === 'string' ? JSON.parse(canvas.flowData) : canvas.flowData
             const nodes = flowData?.nodes || []
             nodes.forEach((node) => {
-                const imageSrc = `${baseURL}/api/v1/node-icon/${node?.data?.name}`
-                if (imageSrc && !images[canvas.id].includes(imageSrc)) {
-                    images[canvas.id].push(imageSrc)
+                const nodeName = node?.data?.name
+                if (!nodeName) return
+                // Skip sticky notes
+                if (nodeName === 'stickyNote' || nodeName === 'stickyNoteAgentflow') return
+                
+                // Check if this is an agentflow node with a built-in icon
+                const foundIcon = AGENTFLOW_ICONS.find((icon) => icon.name === nodeName)
+                if (foundIcon) {
+                    // Check if icon is not already added (avoid duplicates)
+                    if (!icons[canvas.id].some((ic) => ic.name === foundIcon.name)) {
+                        icons[canvas.id].push(foundIcon)
+                    }
+                } else {
+                    // Use API for regular nodes
+                    const imageSrc = `${baseURL}/api/v1/node-icon/${nodeName}`
+                    if (!images[canvas.id].some((img) => img.imageSrc === imageSrc)) {
+                        images[canvas.id].push({
+                            imageSrc,
+                            label: node?.data?.label || nodeName
+                        })
+                    }
                 }
             })
         } catch (error) {
@@ -69,7 +89,7 @@ const buildImageMap = (items) => {
             console.warn('[Agentflows] Failed to parse flowData for canvas preview', { canvasId: canvas.id, error })
         }
     })
-    return images
+    return { images, icons }
 }
 
 // ==============================|| MULTI-AGENT CANVASES LIST ||============================== //
@@ -84,6 +104,7 @@ const Agentflows = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
+    const [icons, setIcons] = useState({})
     const [search, setSearch] = useState('')
     const [spaces, setSpaces] = useState([])
     const [canvases, setCanvases] = useState([])
@@ -164,7 +185,9 @@ const Agentflows = () => {
     const refreshCanvases = useCallback(async () => {
         const aggregated = await loadAgentCanvases(spaces)
         setCanvases(aggregated)
-        setImages(buildImageMap(aggregated))
+        const { images: newImages, icons: newIcons } = buildImageMap(aggregated)
+        setImages(newImages)
+        setIcons(newIcons)
         setError(null)
         return aggregated
     }, [loadAgentCanvases, spaces])
@@ -175,6 +198,7 @@ const Agentflows = () => {
             if (!spaces || spaces.length === 0) {
                 setCanvases([])
                 setImages({})
+                setIcons({})
                 setError(null)
                 return
             }
@@ -183,7 +207,9 @@ const Agentflows = () => {
                 const aggregated = await loadAgentCanvases(spaces)
                 if (!cancelled) {
                     setCanvases(aggregated)
-                    setImages(buildImageMap(aggregated))
+                    const { images: newImages, icons: newIcons } = buildImageMap(aggregated)
+                    setImages(newImages)
+                    setIcons(newIcons)
                     setError(null)
                 }
             } catch (err) {
@@ -293,7 +319,7 @@ const Agentflows = () => {
                             ) : (
                                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                     {canvases.filter(filterFlows).map((data) => (
-                                        <ItemCard key={data.id} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
+                                        <ItemCard key={data.id} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} icons={icons[data.id]} />
                                     ))}
                                 </Box>
                             )}
@@ -303,6 +329,7 @@ const Agentflows = () => {
                             isAgentCanvas={true}
                             data={canvases}
                             images={images}
+                            icons={icons}
                             isLoading={isLoading}
                             filterFunction={filterFlows}
                             updateFlowsApi={tableRefreshAdapter}

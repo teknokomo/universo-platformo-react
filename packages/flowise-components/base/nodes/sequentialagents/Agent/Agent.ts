@@ -22,20 +22,26 @@ import {
     IStateWithMessages,
     ConversationHistorySelection
 } from '../../../src/Interface'
-import { ToolCallingAgentOutputParser, AgentExecutor, SOURCE_DOCUMENTS_PREFIX, ARTIFACTS_PREFIX } from '../../../src/agents'
 import {
-    FLOW_CONTEXT_REFERENCE,
+    ToolCallingAgentOutputParser,
+    AgentExecutor,
+    SOURCE_DOCUMENTS_PREFIX,
+    ARTIFACTS_PREFIX,
+    TOOL_ARGS_PREFIX
+} from '../../../src/agents'
+import {
     extractOutputFromArray,
     getInputVariables,
     getVars,
     handleEscapeCharacters,
     prepareSandboxVars,
     removeInvalidImageMarkdown,
-    transformBracesWithColon
+    transformBracesWithColon,
+    executeJavaScriptCode,
+    createCodeExecutionSandbox
 } from '../../../src/utils'
 import {
     customGet,
-    getVM,
     processImageMessage,
     transformObjectPropertyToFunction,
     filterConversationHistory,
@@ -93,7 +99,11 @@ const howToUseCode = `
     \`\`\`
 
 3. You can also get default flow config, including the current "state":
-${FLOW_CONTEXT_REFERENCE}
+    - \`$flow.sessionId\`
+    - \`$flow.chatId\`
+    - \`$flow.chatflowId\`
+    - \`$flow.input\`
+    - \`$flow.state\`
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -135,7 +145,11 @@ const howToUse = `
     | user      | \`$flow.output.usedTools[0].toolOutput\`  |
 
 3. You can get default flow config, including the current "state":
-${FLOW_CONTEXT_REFERENCE}
+    - \`$flow.sessionId\`
+    - \`$flow.chatId\`
+    - \`$flow.chatflowId\`
+    - \`$flow.input\`
+    - \`$flow.state\`
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -411,12 +425,8 @@ class Agent_SeqAgents implements INode {
                                         value: '$flow.chatId'
                                     },
                                     {
-                                        label: 'Canvas Id (string)',
-                                        value: '$flow.canvasId'
-                                    },
-                                    {
-                                        label: 'Chatflow Id (legacy string)',
-                                        value: '$flow.canvasId'
+                                        label: 'Chatflow Id (string)',
+                                        value: '$flow.chatflowId'
                                     }
                                 ],
                                 editable: true,
@@ -677,7 +687,7 @@ async function createAgent(
             sessionId: flowObj?.sessionId,
             chatId: flowObj?.chatId,
             input: flowObj?.input,
-            verbose: process.env.DEBUG === 'true',
+            verbose: process.env.DEBUG === 'true' ? true : false,
             maxIterations: maxIterations ? parseFloat(maxIterations) : undefined
         })
         return executor
@@ -874,10 +884,10 @@ const getReturnOutput = async (nodeData: INodeData, input: string, options: ICom
     const updateStateMemory = nodeData.inputs?.updateStateMemory as string
 
     const selectedTab = tabIdentifier ? tabIdentifier.split(`_${nodeData.id}`)[0] : 'updateStateMemoryUI'
-    const variables = await getVars(appDataSource, databaseEntities, nodeData)
+    const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
 
     const flow = {
-        canvasId: options.canvasId,
+        chatflowId: options.chatflowid,
         sessionId: options.sessionId,
         chatId: options.chatId,
         input,
@@ -927,9 +937,11 @@ const getReturnOutput = async (nodeData: INodeData, input: string, options: ICom
             throw new Error(e)
         }
     } else if (selectedTab === 'updateStateMemoryCode' && updateStateMemoryCode) {
-        const vm = await getVM(appDataSource, databaseEntities, nodeData, flow)
+        const sandbox = createCodeExecutionSandbox(input, variables, flow)
+
         try {
-            const response = await vm.run(`module.exports = async function() {${updateStateMemoryCode}}()`, __dirname)
+            const response = await executeJavaScriptCode(updateStateMemoryCode, sandbox)
+
             if (typeof response !== 'object') throw new Error('Return output must be an object')
             return response
         } catch (e) {
@@ -1038,6 +1050,17 @@ class ToolNode<T extends BaseMessage[] | MessagesState> extends RunnableCallable
                     }
                 }
 
+                let toolInput
+                if (typeof output === 'string' && output.includes(TOOL_ARGS_PREFIX)) {
+                    const outputArray = output.split(TOOL_ARGS_PREFIX)
+                    output = outputArray[0]
+                    try {
+                        toolInput = JSON.parse(outputArray[1])
+                    } catch (e) {
+                        console.error('Error parsing tool input from tool')
+                    }
+                }
+
                 return new ToolMessage({
                     name: tool.name,
                     content: typeof output === 'string' ? output : JSON.stringify(output),
@@ -1045,11 +1068,11 @@ class ToolNode<T extends BaseMessage[] | MessagesState> extends RunnableCallable
                     additional_kwargs: {
                         sourceDocuments,
                         artifacts,
-                        args: call.args,
+                        args: toolInput ?? call.args,
                         usedTools: [
                             {
                                 tool: tool.name ?? '',
-                                toolInput: call.args,
+                                toolInput: toolInput ?? call.args,
                                 toolOutput: output
                             }
                         ]

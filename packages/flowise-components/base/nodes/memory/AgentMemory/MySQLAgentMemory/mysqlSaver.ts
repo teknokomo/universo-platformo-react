@@ -4,7 +4,7 @@ import { BaseMessage } from '@langchain/core/messages'
 import { DataSource } from 'typeorm'
 import { CheckpointTuple, SaverOptions, SerializerProtocol } from '../interface'
 import { IMessage, MemoryMethods } from '../../../../src/Interface'
-import { mapChatMessageToBaseMessage, safeGet } from '../../../../src/utils'
+import { mapChatMessageToBaseMessage } from '../../../../src/utils'
 
 export class MySQLSaver extends BaseCheckpointSaver implements MemoryMethods {
     protected isSetup: boolean
@@ -230,7 +230,7 @@ export class MySQLSaver extends BaseCheckpointSaver implements MemoryMethods {
         const chatMessage = await this.config.appDataSource.getRepository(this.config.databaseEntities['ChatMessage']).find({
             where: {
                 sessionId: overrideSessionId,
-                canvasId: this.config.canvasId
+                chatflowid: this.config.chatflowid
             },
             order: {
                 createdDate: 'ASC'
@@ -242,14 +242,14 @@ export class MySQLSaver extends BaseCheckpointSaver implements MemoryMethods {
         }
 
         if (returnBaseMessages) {
-            return await mapChatMessageToBaseMessage(chatMessage)
+            return await mapChatMessageToBaseMessage(chatMessage, this.config.orgId)
         }
 
         let returnIMessages: IMessage[] = []
         for (const m of chatMessage) {
             returnIMessages.push({
-                message: safeGet(m, 'content', '') as string,
-                type: safeGet(m, 'role', 'user')
+                message: m.content as string,
+                type: m.role
             })
         }
 

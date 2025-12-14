@@ -18,7 +18,7 @@ export const convertSpeechToText = async (upload: IFileUpload, speechToTextConfi
     if (speechToTextConfig) {
         const credentialId = speechToTextConfig.credentialId as string
         const credentialData = await getCredentialData(credentialId ?? '', options)
-        const audio_file = await getFileFromStorage(upload.name, options.canvasId, options.chatId)
+        const audio_file = await getFileFromStorage(upload.name, options.orgId, options.chatflowid, options.chatId)
 
         switch (speechToTextConfig.name) {
             case SpeechToTextType.OPENAI_WHISPER: {
@@ -80,7 +80,7 @@ export const convertSpeechToText = async (upload: IFileUpload, speechToTextConfi
                     const apiVersion = credentialData.apiVersion || '2024-05-15-preview'
 
                     const formData = new FormData()
-                    const audioBlob = new Blob([new Uint8Array(audio_file)], { type: upload.type })
+                    const audioBlob = new Blob([audio_file], { type: upload.type })
                     formData.append('audio', audioBlob, upload.name)
 
                     const channelsStr = speechToTextConfig.channels || '0,1'

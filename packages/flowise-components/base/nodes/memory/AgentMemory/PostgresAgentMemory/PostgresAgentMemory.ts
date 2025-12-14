@@ -63,8 +63,9 @@ class PostgresAgentMemory_Memory implements INode {
     async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<any> {
         const additionalConfig = nodeData.inputs?.additionalConfig as string
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const canvasId = options.canvasId as string
+        const chatflowid = options.chatflowid as string
         const appDataSource = options.appDataSource as DataSource
+        const orgId = options.orgId as string
 
         let additionalConfiguration = {}
         if (additionalConfig) {
@@ -101,7 +102,8 @@ class PostgresAgentMemory_Memory implements INode {
             threadId,
             appDataSource,
             databaseEntities,
-            canvasId
+            chatflowid,
+            orgId
         }
         const recordManager = new PostgresSaver(args)
         return recordManager
