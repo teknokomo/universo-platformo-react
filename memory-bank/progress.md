@@ -31,6 +31,36 @@
 
 ## 📅 2025-12-18
 
+### PR #608 Bot Comments QA: Code Cleanup ✅
+
+**Context:** GitHub bots (Copilot + Gemini Code Assist) identified unused imports, variables, and architectural improvements in PR #608.
+
+**QA Analysis:**
+- **Copilot**: 4 issues (unused imports/variables) ✅ Fixed
+- **Gemini**: 2 issues (code duplication + complex function) ⚠️ Deferred
+
+**Fixed Issues:**
+1. ✅ Removed unused `executionsErrorHandler` import from `@flowise/core-backend/routes/index.ts`
+2. ✅ Removed unused `validationService` variable creation (only router needed)
+3. ✅ Removed unused `position` state variable in `AgentFlowNode.jsx`
+4. ✅ Removed unused `position` state variable in `IterationNode.jsx`
+
+**Deferred Issues (Architectural Improvements):**
+5. ⚠️ Move `showHideInputParams.js` to `@universo/utils` (requires testing all canvas functionality)
+6. ⚠️ Refactor `buildTreeData` function in `ExecutionDetails.jsx` (259 lines, but functional)
+
+**Rationale for Deferral:**
+- Items 5-6 are architectural improvements, not bugs
+- Current code works correctly; refactoring introduces regression risk
+- Requires extensive testing of canvas/execution tree rendering
+- Better suited for dedicated refactoring PR
+
+**Validation:**
+- ✅ `pnpm --filter @flowise/executions-backend lint`: 0 errors
+- ✅ `pnpm --filter @universo/spaces-frontend lint`: 0 errors
+- ✅ `pnpm --filter @flowise/core-backend build`: TypeScript compilation successful
+- ✅ `pnpm --filter @universo/spaces-frontend build`: tsdown build successful
+
 ### `@universo/template-mui`: Lint Unblocked + Full Build ✅
 
 **Context:** Workspace was blocked by `@universo/template-mui` lint errors (a11y `no-autofocus`, test `aria-role` false positives, invalid rule-disable comments, `react/display-name`, and Prettier formatting diffs).

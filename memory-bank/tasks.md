@@ -6,6 +6,19 @@
 
 ## 🔥 ACTIVE TASKS
 
+### PR #608 Bot Comments QA & Fixes ✅
+
+- [x] Remove unused `executionsErrorHandler` import in flowise-core-backend routes
+- [x] Remove unused `validationService` variable in flowise-core-backend routes
+- [x] Remove unused `position` variable in AgentFlowNode.jsx
+- [x] Remove unused `position` variable in IterationNode.jsx
+- [x] DEFERRED: Move `showHideInputParams.js` to @universo/utils (architectural refactor, needs testing)
+- [x] DEFERRED: Refactor `buildTreeData` in ExecutionDetails.jsx (architectural improvement, not a bug)
+- [x] Run lints and builds to validate fixes
+- [x] Update memory bank (progress.md, activeContext.md)
+
+---
+
 ### AgentFlow Integration - Model Selection & Configuration
 
 - [x] Remove spam log '[Canvas] URL params' from Canvas (line 148)

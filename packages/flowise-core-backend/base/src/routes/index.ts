@@ -48,8 +48,8 @@ import { createVariablesService, createVariablesRouter, variablesErrorHandler } 
 import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@flowise/apikey-backend'
 import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@flowise/assistants-backend'
 import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@flowise/leads-backend'
-import { createExecutionsService, createExecutionsRouter, createPublicExecutionsRouter, executionsErrorHandler } from '@flowise/executions-backend'
-import { createValidationService, createValidationRouter } from '@flowise/agents-backend'
+import { createExecutionsService, createExecutionsRouter, createPublicExecutionsRouter } from '@flowise/executions-backend'
+import { createValidationRouter } from '@flowise/agents-backend'
 import {
     createChatMessagesService,
     createChatMessagesController,
@@ -192,15 +192,9 @@ const executionsService = createExecutionsService({
 const executionsRouter = createExecutionsRouter(executionsService)
 const publicExecutionsRouter = createPublicExecutionsRouter(executionsService)
 
-// Create validation service and router using new package with DI
+// Create validation router using new package with DI
 // Uses lazy getters for componentNodes (requires running server)
 // Note: Type assertion needed due to slight differences in INodeParam types
-const validationService = createValidationService({
-    dataSource: getDataSource,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    componentNodes: () => getRunningExpressApp().nodesPool.componentNodes as any,
-    canvasEntityClass: Canvas
-})
 const validationRouter = createValidationRouter({
     dataSource: getDataSource,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

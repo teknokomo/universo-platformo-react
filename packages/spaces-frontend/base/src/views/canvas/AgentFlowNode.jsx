@@ -58,8 +58,6 @@ const AgentFlowNode = ({ data }) => {
     const canvas = useSelector((state) => state.canvas)
     const ref = useRef(null)
     const updateNodeInternals = useUpdateNodeInternals()
-    // eslint-disable-next-line
-    const [position, setPosition] = useState(0)
     const [isHovered, setIsHovered] = useState(false)
     const [warningMessage, setWarningMessage] = useState('')
     const { deleteNode, duplicateNode } = useContext(flowContext)
@@ -167,7 +165,6 @@ const AgentFlowNode = ({ data }) => {
     useEffect(() => {
         if (ref.current) {
             setTimeout(() => {
-                setPosition(ref.current?.offsetTop + ref.current?.clientHeight / 2)
                 updateNodeInternals(data.id)
             }, 10)
         }

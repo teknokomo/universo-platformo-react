@@ -56,8 +56,6 @@ const IterationNode = ({ data }) => {
     const reactFlowWrapper = useRef(null)
 
     const updateNodeInternals = useUpdateNodeInternals()
-    // eslint-disable-next-line
-    const [position, setPosition] = useState(0)
     const [isHovered, setIsHovered] = useState(false)
     const { deleteNode, duplicateNode, reactFlowInstance } = useContext(flowContext)
     const [showInfoDialog, setShowInfoDialog] = useState(false)
@@ -147,7 +145,6 @@ const IterationNode = ({ data }) => {
     useEffect(() => {
         if (ref.current) {
             setTimeout(() => {
-                setPosition(ref.current?.offsetTop + ref.current?.clientHeight / 2)
                 updateNodeInternals(data.id)
             }, 10)
         }
