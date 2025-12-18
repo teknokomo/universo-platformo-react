@@ -11,6 +11,8 @@ export interface CreateSpacesRoutesOptions {
     rateLimiterManager?: RateLimiterManagerLike
     apiKeyService?: CanvasControllerOptions['apiKeyService']
     membership?: CanvasControllerOptions['membership']
+    executionsRouter?: ExpressRouter
+    validationRouter?: ExpressRouter
 }
 
 export function createSpacesRoutes(getDataSourceFn: () => DataSource, options: CreateSpacesRoutesOptions): ExpressRouter {
@@ -69,6 +71,53 @@ export function createSpacesRoutes(getDataSourceFn: () => DataSource, options: C
     router.put('/canvases/:canvasId', (req, res, next) => canvasController.updateCanvas(req, res, next))
     router.delete('/canvases/:canvasId', (req, res, next) => canvasController.deleteCanvas(req, res, next))
     router.get('/canvases/apikey/:apikey', (req, res, next) => canvasController.getCanvasByApiKey(req, res, next))
+
+    // Executions for canvases (if provided)
+    if (options.executionsRouter) {
+        const ensureMembership = async (req: any, res: any, next: any) => {
+            try {
+                const unikId = (req.params.unikId || (req.params as any).id) as string | undefined
+
+                if (unikId && options.membership?.ensureUnikMembershipResponse) {
+                    await options.membership.ensureUnikMembershipResponse(req, res, unikId, {
+                        errorMessage:
+                            options.membership.accessDeniedMessage ?? 'Access denied: You do not have permission to access this Unik'
+                    })
+                }
+
+                next()
+            } catch (error) {
+                next(error)
+            }
+        }
+
+        router.use('/spaces/:spaceId/canvases/:canvasId/executions', ensureMembership, options.executionsRouter)
+        router.use('/canvases/:canvasId/executions', ensureMembership, options.executionsRouter)
+    }
+
+    // Validation for canvases (if provided) - AgentFlow validation checklist
+    if (options.validationRouter) {
+        router.use(
+            '/validation',
+            async (req, res, next) => {
+                try {
+                    const unikId = (req.params.unikId || (req.params as any).id) as string | undefined
+
+                    if (unikId && options.membership?.ensureUnikMembershipResponse) {
+                        await options.membership.ensureUnikMembershipResponse(req, res, unikId, {
+                            errorMessage:
+                                options.membership.accessDeniedMessage ?? 'Access denied: You do not have permission to access this Unik'
+                        })
+                    }
+
+                    next()
+                } catch (error) {
+                    next(error)
+                }
+            },
+            options.validationRouter
+        )
+    }
 
     return router
 }

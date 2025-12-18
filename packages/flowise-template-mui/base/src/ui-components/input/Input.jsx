@@ -17,7 +17,8 @@ export const Input = ({ inputParam, value, nodes, edges, nodeId, onChange, disab
     }
 
     const setNewVal = (val) => {
-        const newVal = myValue + val.substring(2)
+        const base = typeof myValue === 'string' ? myValue : String(myValue ?? '')
+        const newVal = base + val.substring(2)
         onChange(newVal)
         setMyValue(newVal)
     }
@@ -41,6 +42,13 @@ export const Input = ({ inputParam, value, nodes, edges, nodeId, onChange, disab
             setAvailableNodesForVariable(nodesForVariable)
         }
     }, [disabled, inputParam, nodes, edges, nodeId])
+
+    useEffect(() => {
+        setMyValue((prev) => {
+            const next = value ?? ''
+            return prev === next ? prev : next
+        })
+    }, [value])
 
     useEffect(() => {
         if (typeof myValue === 'string' && myValue && myValue.endsWith('{{')) {

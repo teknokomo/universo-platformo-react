@@ -69,6 +69,17 @@ export {
     type PreviewChunksBody,
     type PreviewChunksResponse
 } from './api/documentstore'
+export {
+    ExecutionsApi,
+    executionQueryKeys,
+    ExecutionState,
+    type Execution,
+    type GetExecutionsParams,
+    type GetExecutionsResponse,
+    type UpdateExecutionPayload,
+    type DeleteExecutionsPayload,
+    type DeleteExecutionsResponse
+} from './api/executions'
 export { ExportImportApi, exportimportQueryKeys } from './api/exportimport'
 export { FeedbackApi, feedbackQueryKeys } from './api/feedback'
 export { LeadApi, leadQueryKeys } from './api/lead'
@@ -91,6 +102,12 @@ export { PromptApi, promptQueryKeys } from './api/prompt'
 export { ScraperApi, scraperQueryKeys } from './api/scraper'
 export { SpacesApi, spaceQueryKeys } from './api/spaces'
 export { ToolsApi, toolQueryKeys, type CustomTool, type CreateToolBody, type UpdateToolBody } from './api/tools'
+export {
+    createValidationApi,
+    type ValidationApi,
+    type ValidationResult,
+    type ValidationResponse
+} from './api/validation'
 export { VariablesApi, variablesQueryKeys } from './api/variables'
 export {
     VectorStoreApi,

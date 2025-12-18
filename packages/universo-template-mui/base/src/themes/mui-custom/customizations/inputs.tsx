@@ -13,7 +13,6 @@ const sharedInputSpacing = {
     lineHeight: 1.4375
 } as const
 
-/* eslint-disable import/prefer-default-export */
 export const inputsCustomizations: Components<Theme> = {
     MuiButtonBase: {
         defaultProps: {

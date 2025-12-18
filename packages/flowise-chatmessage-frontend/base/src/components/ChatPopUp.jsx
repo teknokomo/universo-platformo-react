@@ -27,7 +27,7 @@ import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackba
 // Utils
 import { getLocalStorageChatflow, removeLocalStorageChatHistory } from '@universo/utils/ui-utils/genericHelper'
 
-export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, spaceId }) => {
+export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, spaceId, onOpenChange }) => {
     const theme = useTheme()
     const { confirm } = useConfirm()
     const dispatch = useDispatch()
@@ -53,10 +53,13 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
             return
         }
         setOpen(false)
+        if (onOpenChange) onOpenChange(false)
     }
 
     const handleToggle = () => {
-        setOpen((prevOpen) => !prevOpen)
+        const newOpenState = !open
+        setOpen(newOpenState)
+        if (onOpenChange) onOpenChange(newOpenState)
     }
 
     const expandChat = () => {
@@ -137,6 +140,7 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
     useEffect(() => {
         if (prevOpen.current === true && open === false) {
             anchorRef.current.focus()
+            if (onOpenChange) onOpenChange(false)
         }
         prevOpen.current = open
 
@@ -243,5 +247,6 @@ ChatPopUp.propTypes = {
     canvasId: PropTypes.string,
     isAgentCanvas: PropTypes.bool,
     unikId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    spaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    spaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    onOpenChange: PropTypes.func
 }

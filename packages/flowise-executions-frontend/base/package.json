@@ -1,0 +1,56 @@
+{
+    "name": "@flowise/executions-frontend",
+    "version": "0.1.0",
+    "description": "Agent execution tracking frontend for Universo Platformo (adapted from Flowise 3.x)",
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/cjs/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js",
+            "types": "./dist/cjs/index.d.ts"
+        },
+        "./pages/*": {
+            "default": "./src/pages/*"
+        },
+        "./components/*": {
+            "default": "./src/components/*"
+        },
+        "./i18n": {
+            "types": "./src/i18n/index.ts",
+            "import": "./src/i18n/index.ts",
+            "require": "./src/i18n/index.ts"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json",
+        "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@flowise/store": "workspace:*",
+        "@flowise/template-mui": "workspace:*",
+        "@universo/api-client": "workspace:*",
+        "@universo/i18n": "workspace:*",
+        "dompurify": "^3.0.0",
+        "flowise-react-json-view": "^1.21.7"
+    },
+    "peerDependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "@mui/material": "^5.14.0",
+        "@tabler/icons-react": "^3.30.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.0",
+        "eslint": "^8.56.0",
+        "typescript": "^5.5.4"
+    },
+    "license": "Apache-2.0"
+}

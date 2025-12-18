@@ -25,6 +25,7 @@ import NvidiaNIMDialog from '../dialog/NvidiaNIMDialog'
 import PromptLangsmithHubDialog from '../dialog/PromptLangsmithHubDialog'
 import ToolDialog from '../dialogs/ToolDialog'
 import { AsyncDropdown } from '../dropdown/AsyncDropdown'
+import { ArrayRenderer } from '../array/ArrayRenderer'
 import { Dropdown } from '../dropdown/Dropdown'
 import { MultiDropdown } from '../dropdown/MultiDropdown'
 import { CodeEditor } from '../editor/CodeEditor'
@@ -38,7 +39,7 @@ import { TabPanel } from '../tabs/TabPanel'
 import { TabsList } from '../tabs/TabsList'
 import { TooltipWithParser } from '../tooltip/TooltipWithParser'
 import { AssistantDialog } from '@flowise/assistants-frontend'
-import CredentialInputHandler from '../dialogs/CredentialInputHandler'
+import CredentialInputHandler from './CredentialInputHandler'
 
 // utils
 import {
@@ -79,6 +80,7 @@ const NodeInputHandler = ({
     disabled = false,
     isAdditionalParams = false,
     disablePadding = false,
+    onCustomDataChange,
     onHideNodeInfoDialog
 }) => {
     const theme = useTheme()
@@ -104,6 +106,16 @@ const NodeInputHandler = ({
     const [conditionDialogProps, setConditionDialogProps] = useState({})
     const [isNvidiaNIMDialogOpen, setIsNvidiaNIMDialogOpen] = useState(false)
     const [tabValue, setTabValue] = useState(0)
+
+    const setInputValue = (param, newValue) => {
+        if (!data) return
+        if (!data.inputs) data.inputs = {}
+        data.inputs[param.name] = newValue
+
+        if (typeof onCustomDataChange === 'function' && data.id) {
+            onCustomDataChange({ nodeId: data.id, inputParam: param, newValue })
+        }
+    }
 
     const onInputHintDialogClicked = (hint) => {
         const dialogProps = {
@@ -629,12 +641,16 @@ const NodeInputHandler = ({
                         )}
                         {inputParam.type === 'credential' && (
                             <CredentialInputHandler
+                                key={`${data?.id || ''}_${inputParam.name}_${JSON.stringify(
+                                    inputParam.credentialNames || []
+                                )}_${JSON.stringify(data?.inputs?.[inputParam.name])}`}
                                 disabled={disabled}
                                 data={data}
                                 inputParam={inputParam}
                                 onSelect={(newValue) => {
                                     data.credential = newValue
-                                    data.inputs[FLOWISE_CREDENTIAL_ID] = newValue // in case data.credential is not updated
+                                    setInputValue(inputParam, newValue)
+                                    data.inputs[FLOWISE_CREDENTIAL_ID] = newValue // keep legacy key in sync
                                 }}
                             />
                         )}
@@ -664,6 +680,7 @@ const NodeInputHandler = ({
                                             data={data}
                                             isAdditionalParams={true}
                                             disablePadding={true}
+                                            onCustomDataChange={onCustomDataChange}
                                         />
                                     </TabPanel>
                                 ))}
@@ -673,14 +690,14 @@ const NodeInputHandler = ({
                             <File
                                 disabled={disabled}
                                 fileType={inputParam.fileType || '*'}
-                                onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                onChange={(newValue) => setInputValue(inputParam, newValue)}
                                 value={data.inputs[inputParam.name] ?? inputParam.default ?? 'Choose a file to upload'}
                             />
                         )}
                         {inputParam.type === 'boolean' && (
                             <SwitchInput
                                 disabled={disabled}
-                                onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                onChange={(newValue) => setInputValue(inputParam, newValue)}
                                 value={data.inputs[inputParam.name] ?? inputParam.default ?? false}
                             />
                         )}
@@ -690,7 +707,17 @@ const NodeInputHandler = ({
                                 columns={getDataGridColDef(inputParam.datagrid, inputParam)}
                                 hideFooter={true}
                                 rows={data.inputs[inputParam.name] ?? JSON.stringify(inputParam.default) ?? []}
-                                onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                onChange={(newValue) => setInputValue(inputParam, newValue)}
+                            />
+                        )}
+                        {inputParam.type === 'array' && inputParam.array && (
+                            <ArrayRenderer
+                                disabled={disabled}
+                                inputParam={inputParam}
+                                data={data}
+                                onArrayChange={({ name, value }) => {
+                                    setInputValue({ name }, value)
+                                }}
                             />
                         )}
                         {inputParam.type === 'code' && (
@@ -700,7 +727,7 @@ const NodeInputHandler = ({
                                         <Button
                                             variant='outlined'
                                             onClick={() => {
-                                                data.inputs[inputParam.name] = inputParam.codeExample
+                                                setInputValue(inputParam, inputParam.codeExample)
                                             }}
                                         >
                                             {t('canvas.seeExample')}
@@ -723,7 +750,7 @@ const NodeInputHandler = ({
                                         theme={customization.isDarkMode ? 'dark' : 'light'}
                                         lang={'js'}
                                         placeholder={inputParam.placeholder}
-                                        onValueChange={(code) => (data.inputs[inputParam.name] = code)}
+                                        onValueChange={(code) => setInputValue(inputParam, code)}
                                         basicSetup={{ highlightActiveLine: false, highlightActiveLineGutter: false }}
                                     />
                                 </div>
@@ -731,10 +758,9 @@ const NodeInputHandler = ({
                         )}
                         {(inputParam.type === 'string' || inputParam.type === 'password' || inputParam.type === 'number') && (
                             <Input
-                                key={data.inputs[inputParam.name]}
                                 disabled={disabled}
                                 inputParam={inputParam}
-                                onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                onChange={(newValue) => setInputValue(inputParam, newValue)}
                                 value={data.inputs[inputParam.name] ?? inputParam.default ?? ''}
                                 nodes={inputParam?.acceptVariable && reactFlowInstance ? reactFlowInstance.getNodes() : []}
                                 edges={inputParam?.acceptVariable && reactFlowInstance ? reactFlowInstance.getEdges() : []}
@@ -746,7 +772,7 @@ const NodeInputHandler = ({
                                 {!inputParam?.acceptVariable && (
                                     <JsonEditorInput
                                         disabled={disabled}
-                                        onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                        onChange={(newValue) => setInputValue(inputParam, newValue)}
                                         value={
                                             data.inputs[inputParam.name] ||
                                             inputParam.default ||
@@ -776,7 +802,7 @@ const NodeInputHandler = ({
                                             show={showFormatPromptValuesDialog}
                                             dialogProps={formatPromptValuesDialogProps}
                                             onCancel={() => setShowFormatPromptValuesDialog(false)}
-                                            onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                            onChange={(newValue) => setInputValue(inputParam, newValue)}
                                         ></FormatPromptValuesDialog>
                                     </>
                                 )}
@@ -788,7 +814,7 @@ const NodeInputHandler = ({
                                 name={inputParam.name}
                                 options={getDropdownOptions(inputParam)}
                                 freeSolo={inputParam.freeSolo}
-                                onSelect={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                onSelect={(newValue) => setInputValue(inputParam, newValue)}
                                 value={data.inputs[inputParam.name] ?? inputParam.default ?? 'choose an option'}
                             />
                         )}
@@ -797,14 +823,19 @@ const NodeInputHandler = ({
                                 disabled={disabled}
                                 name={inputParam.name}
                                 options={getDropdownOptions(inputParam)}
-                                onSelect={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                onSelect={(newValue) => setInputValue(inputParam, newValue)}
                                 value={data.inputs[inputParam.name] ?? inputParam.default ?? 'choose an option'}
                             />
                         )}
                         {(inputParam.type === 'asyncOptions' || inputParam.type === 'asyncMultiOptions') && (
                             <>
                                 {data.inputParams.length === 1 && <div style={{ marginTop: 10 }} />}
-                                <div key={reloadTimestamp} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                                <div
+                                    key={`${reloadTimestamp}_${data?.id || ''}_${inputParam.name}_${JSON.stringify(
+                                        data?.inputs?.[inputParam.name]
+                                    )}`}
+                                    style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}
+                                >
                                     <AsyncDropdown
                                         disabled={disabled}
                                         name={inputParam.name}
@@ -813,7 +844,10 @@ const NodeInputHandler = ({
                                         freeSolo={inputParam.freeSolo}
                                         multiple={inputParam.type === 'asyncMultiOptions'}
                                         isCreateNewOption={EDITABLE_OPTIONS.includes(inputParam.name)}
-                                        onSelect={(newValue) => (data.inputs[inputParam.name] = newValue)}
+                                        onSelect={(newValue) => {
+                                            if (inputParam.loadConfig) setReloadTimestamp(Date.now().toString())
+                                            setInputValue(inputParam, newValue)
+                                        }}
                                         onCreateNew={() => addAsyncOption(inputParam.name)}
                                     />
                                     {EDITABLE_OPTIONS.includes(inputParam.name) && data.inputs[inputParam.name] && (
@@ -941,6 +975,7 @@ NodeInputHandler.propTypes = {
     disabled: PropTypes.bool,
     isAdditionalParams: PropTypes.bool,
     disablePadding: PropTypes.bool,
+    onCustomDataChange: PropTypes.func,
     onHideNodeInfoDialog: PropTypes.func
 }
 

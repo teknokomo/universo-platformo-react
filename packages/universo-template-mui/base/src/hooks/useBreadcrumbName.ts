@@ -100,7 +100,7 @@ export function createEntityNameHook(config: EntityNameHookConfig) {
  * @param defaultMaxLength - Default max length before truncation (default: 30)
  * @returns A truncate function
  */
-export function createTruncateFunction(defaultMaxLength: number = 30) {
+export function createTruncateFunction(defaultMaxLength = 30) {
     return function truncateName(name: string, maxLength: number = defaultMaxLength): string {
         if (name.length <= maxLength) return name
         return name.slice(0, maxLength - 1) + '…'

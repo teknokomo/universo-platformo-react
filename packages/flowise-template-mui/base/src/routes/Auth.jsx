@@ -7,6 +7,7 @@
  * - MainCard styling via @flowise/template-mui
  */
 import { useCallback, useMemo } from 'react'
+import PropTypes from 'prop-types'
 import { AuthPage, mapSupabaseError } from '@universo/auth-frontend'
 import { MainCard } from '@flowise/template-mui'
 import { useTranslation } from '@universo/i18n'
@@ -20,6 +21,11 @@ const CardSlot = ({ children, sx, ...props }) => (
         {children}
     </MainCard>
 )
+
+CardSlot.propTypes = {
+    children: PropTypes.node,
+    sx: PropTypes.object
+}
 
 /**
  * Application-specific Auth wrapper with i18n and CASL integration.

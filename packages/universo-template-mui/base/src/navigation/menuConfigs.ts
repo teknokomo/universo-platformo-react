@@ -88,6 +88,12 @@ export const getUnikMenuItems = (unikId: string): TemplateMenuItem[] => [
         icon: IconRobot
     },
     {
+        id: 'unik-executions',
+        titleKey: 'executions',
+        url: `/unik/${unikId}/executions`,
+        icon: IconFlag
+    },
+    {
         id: 'unik-analytics',
         titleKey: 'analytics',
         url: `/unik/${unikId}/analytics`,

@@ -24,6 +24,8 @@ import '@flowise/variables-frontend/i18n'
 import '@flowise/apikey-frontend/i18n'
 // Register assistants translations before lazy loading Assistants component
 import '@flowise/assistants-frontend/i18n'
+// Register executions translations before lazy loading Executions component
+import '@flowise/executions-frontend/i18n'
 // Register document-store translations before lazy loading Document Store component
 import '@flowise/docstore-frontend/i18n'
 // Register customtemplates translations before lazy loading Templates component
@@ -72,6 +74,11 @@ const CustomAssistantConfigurePreview = Loadable(
     lazy(() => import('@flowise/assistants-frontend/pages/custom/CustomAssistantConfigurePreview'))
 )
 const OpenAIAssistantLayout = Loadable(lazy(() => import('@flowise/assistants-frontend/pages/openai/OpenAIAssistantLayout')))
+// Executions pages - moved to @flowise/executions-frontend
+// @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
+const Executions = Loadable(lazy(() => import('@flowise/executions-frontend/pages/Executions')))
+// @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
+const PublicExecutionDetails = Loadable(lazy(() => import('@flowise/executions-frontend/pages/PublicExecutionDetails')))
 // @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frontend
 const Analytics = Loadable(lazy(() => import('@universo/analytics-frontend/pages/Analytics')))
 // Custom Templates pages - moved to @flowise/customtemplates-frontend
@@ -162,8 +169,6 @@ const InstanceList = Loadable(lazy(() => import('@universo/admin-frontend/pages/
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const InstanceBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
-const InstanceAccess = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceAccess')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
 const InstanceUsers = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceUsers')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const RolesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/RolesList')))
@@ -190,6 +195,10 @@ const MinimalRoutes = {
         </ErrorBoundary>
     ),
     children: [
+        {
+            path: 'execution/:id',
+            element: <PublicExecutionDetails />
+        },
         {
             path: 'unik/:unikId/spaces/new',
             element: (
@@ -381,6 +390,14 @@ const MainRoutesMUI = {
                     )
                 }
             ]
+        },
+        {
+            path: 'unik/:unikId/executions',
+            element: (
+                <AuthGuard>
+                    <Executions />
+                </AuthGuard>
+            )
         },
         {
             path: 'unik/:unikId/analytics',

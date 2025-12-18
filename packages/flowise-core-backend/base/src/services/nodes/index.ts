@@ -97,7 +97,8 @@ const getSingleNodeAsyncOptions = async (nodeName: string, requestBody: any): Pr
 
                 const dbResponse: INodeOptionsValue[] = await nodeInstance.loadMethods![methodName]!.call(nodeInstance, nodeData, {
                     appDataSource: appServer.AppDataSource,
-                    databaseEntities: databaseEntities
+                    databaseEntities: databaseEntities,
+                    componentNodes: appServer.nodesPool.componentNodes
                 })
 
                 return dbResponse

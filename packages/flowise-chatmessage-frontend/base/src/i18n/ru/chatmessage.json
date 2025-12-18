@@ -1,0 +1,19 @@
+{
+    "chatmessage": {
+        "chat": {
+            "chat": "Чат",
+            "clearChat": "Очистить чат",
+            "clearChatHistory": "Очистить историю чата",
+            "clearChatHistoryConfirm": "Вы уверены, что хотите очистить всю историю чата?",
+            "clear": "Очистить",
+            "clearedChatHistory": "История чата успешно очищена",
+            "clearConversation": "Очистить беседу",
+            "expandChat": "Развернуть чат"
+        },
+        "common": {
+            "cancel": "Отмена"
+        },
+        "initialGreeting": "Привет! Чем могу помочь?",
+        "defaultError": "Что-то пошло не так. Попробуйте снова."
+    }
+}

@@ -89,6 +89,11 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
         setCredentialId(data?.credential ?? '')
     }, [data])
 
+    // Reset credential & reload list when provider (credentialNames) changes
+    useEffect(() => {
+        setReloadTimestamp(Date.now().toString())
+    }, [JSON.stringify(inputParam?.credentialNames)])
+
     return (
         <div ref={ref}>
             {inputParam?.type === 'credential' && (
@@ -97,7 +102,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                         disabled={disabled}
                         name={inputParam.name}
                         nodeData={data}
-                        value={credentialId ?? t('credentials.chooseAnOption')}
+                        value={credentialId || t('credentials.chooseAnOption')}
                         isCreateNewOption
                         credentialNames={inputParam.credentialNames}
                         onSelect={(newValue) => {

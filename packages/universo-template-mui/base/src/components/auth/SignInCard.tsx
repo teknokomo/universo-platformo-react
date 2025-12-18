@@ -31,11 +31,16 @@ const Card = styled(MuiCard)(({ theme }) => ({
 }))
 
 export default function SignInCard() {
+    const emailInputRef = React.useRef<HTMLInputElement>(null)
     const [emailError, setEmailError] = React.useState(false)
     const [emailErrorMessage, setEmailErrorMessage] = React.useState('')
     const [passwordError, setPasswordError] = React.useState(false)
     const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('')
     const [open, setOpen] = React.useState(false)
+
+    React.useEffect(() => {
+        emailInputRef.current?.focus()
+    }, [])
 
     const handleClickOpen = () => {
         setOpen(true)
@@ -108,7 +113,7 @@ export default function SignInCard() {
                         name='email'
                         placeholder='your@email.com'
                         autoComplete='email'
-                        autoFocus
+                        inputRef={emailInputRef}
                         required
                         fullWidth
                         variant='outlined'
@@ -130,7 +135,6 @@ export default function SignInCard() {
                         type='password'
                         id='password'
                         autoComplete='current-password'
-                        autoFocus
                         required
                         fullWidth
                         variant='outlined'

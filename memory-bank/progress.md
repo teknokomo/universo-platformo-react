@@ -29,6 +29,441 @@
 
 ---
 
+## 📅 2025-12-18
+
+### PR #608 Bot Comments QA: Code Cleanup ✅
+
+**Context:** GitHub bots (Copilot + Gemini Code Assist) identified unused imports, variables, and architectural improvements in PR #608.
+
+**QA Analysis:**
+- **Copilot**: 4 issues (unused imports/variables) ✅ Fixed
+- **Gemini**: 2 issues (code duplication + complex function) ⚠️ Deferred
+
+**Fixed Issues:**
+1. ✅ Removed unused `executionsErrorHandler` import from `@flowise/core-backend/routes/index.ts`
+2. ✅ Removed unused `validationService` variable creation (only router needed)
+3. ✅ Removed unused `position` state variable in `AgentFlowNode.jsx`
+4. ✅ Removed unused `position` state variable in `IterationNode.jsx`
+
+**Deferred Issues (Architectural Improvements):**
+5. ⚠️ Move `showHideInputParams.js` to `@universo/utils` (requires testing all canvas functionality)
+6. ⚠️ Refactor `buildTreeData` function in `ExecutionDetails.jsx` (259 lines, but functional)
+
+**Rationale for Deferral:**
+- Items 5-6 are architectural improvements, not bugs
+- Current code works correctly; refactoring introduces regression risk
+- Requires extensive testing of canvas/execution tree rendering
+- Better suited for dedicated refactoring PR
+
+**Validation:**
+- ✅ `pnpm --filter @flowise/executions-backend lint`: 0 errors
+- ✅ `pnpm --filter @universo/spaces-frontend lint`: 0 errors
+- ✅ `pnpm --filter @flowise/core-backend build`: TypeScript compilation successful
+- ✅ `pnpm --filter @universo/spaces-frontend build`: tsdown build successful
+
+### `@universo/template-mui`: Lint Unblocked + Full Build ✅
+
+**Context:** Workspace was blocked by `@universo/template-mui` lint errors (a11y `no-autofocus`, test `aria-role` false positives, invalid rule-disable comments, `react/display-name`, and Prettier formatting diffs).
+
+**Changes:**
+- Replaced `autoFocus` usage with programmatic focus via `ref` + `useEffect`.
+- Removed invalid ESLint disable comments for non-existent rules.
+- Fixed `react/display-name` for MUI Select icon customization.
+- Normalized formatting via ESLint/Prettier.
+
+**Validation:**
+- ✅ `pnpm --filter @universo/template-mui lint`: 0 errors (warnings only)
+- ✅ Full workspace `pnpm build`: 57 tasks successful
+
+## 📅 2025-12-17
+
+### AgentFlow Dialog UX: Input Focus + Start Conditional Fields ✅
+
+**Context:**
+- Typing into text inputs (e.g., Messages → Content) caused focus to be lost after each keystroke.
+- New `startAgentflow` nodes showed form-only fields (Form Title/Description/Input Types) even though default `startInputType` is `chatInput`.
+
+**Root causes:**
+- `NodeInputHandler` rendered `<Input>` with `key={data.inputs[inputParam.name]}`, which forced a remount on every value change.
+- `initNode()` does not apply show/hide rules, so `inputParams.display` was never initialized on first open.
+
+**Changes:**
+- `@flowise/template-mui`:
+   - Removed the value-based key for `<Input>` in `NodeInputHandler`.
+   - Synced `Input` internal state with the `value` prop to support external updates without remounting.
+- `@universo/spaces-frontend`:
+   - Applied `showHideInputParams` when opening `EditNodeDialog` to compute `display` flags immediately.
+
+**Validation:**
+- ✅ `pnpm --filter @flowise/template-mui lint`: 0 errors (warnings only)
+- ✅ `pnpm --filter @universo/spaces-frontend lint`: 0 errors (warnings only)
+- ✅ Full workspace build `pnpm build`: 57 tasks successful (~7m 06s)
+
+### AgentFlow Messages: Canvas-load Rehydration ✅
+
+**Context:** Older saved canvases could miss array-type `inputParams` (e.g., `llmMessages`) created before `'array'` was whitelisted in `initNode`, causing the `Messages` UI to not render.
+
+**Changes:**
+- Moved the “missing array-type inputParams” repair from `EditNodeDialog` to Canvas flow loading paths (Space loader, non-Space loader, and handleLoadFlow), so nodes are repaired on load (Flowise-like).
+- Removed dialog-side schema mutation to keep `EditNodeDialog` side-effect free.
+- Added a follow-up rehydrate pass when `componentNodes` arrive after nodes, then re-applied `normalizeNodeTypes`.
+
+**Validation:**
+- ✅ `pnpm --filter spaces-frontend lint`: 0 errors (warnings only; pre-existing)
+- ✅ Full workspace build `pnpm build`: 57 tasks successful (6m 43s)
+
+### Agents + Executions QA Hardening (Authz + Public Contract) ✅
+
+**Context:** QA found scoping/authz gaps for validation and canvas executions, plus a mismatch between share links, frontend routes, api-client endpoints, and server routes for public execution details.
+
+**Changes:**
+- Validation: prefer parent route params for `unikId` scoping (with UUID validation) and enforce Unik membership when scoped by `unikId`.
+- Executions: enforce Unik membership on canvas-scoped executions routes.
+- Public execution contract aligned: UI route `/execution/:id` (no auth) and API `GET /public-executions/:id` mounted in core-backend.
+
+**Validation:**
+- ✅ Full workspace build `pnpm build`: 57 tasks successful (~7m 06s)
+
+## 📅 2025-12-16
+
+### AgentFlow Features - Phase 4: Universal Canvas with AgentFlow Node Rendering ✅ (QA Fixes)
+
+**Context:** User clarified that the project uses a **universal canvas architecture** (unlike Flowise's separate Canvas/AgentCanvas), where all node types coexist. Node rendering should be determined by **node data (category/name)**, not by URL or canvas type.
+
+**QA Fixes (2025-12-16 evening):**
+
+1. **ValidationPopUp FAB icon color** ✅:
+   - Added `color: 'white'` to StyledFab sx prop
+   - Added explicit `color="white"` to IconX and IconChecklist components
+   - Now matches ChatPopUp styling with white icons on teal background
+
+2. **AgentFlowNode double-click to open settings** ✅:
+   - Added `onNodeClick` from flowContext
+   - Created `handleNodeDoubleClick` handler that calls `onNodeClick({}, { id: data.id, data })`
+   - Added `onDoubleClick={handleNodeDoubleClick}` to wrapper div
+   - Added `cursor: 'pointer'` style to indicate clickable node
+   - Now behaves like standard CanvasNode (double-click opens settings dialog)
+
+3. **AgentFlow LLM config: realtime params + credential dropdown** ✅:
+   - Root cause: `NodeInputHandler` mutated `data.inputs[...]` without notifying the dialog owner, so `EditNodeDialog` and `ConfigInput` did not re-render until closing/reopening.
+   - Fixed: added optional `onCustomDataChange` + `setInputValue()` in `packages/flowise-template-mui/.../NodeInputHandler.jsx` and wired common inputs (Dropdown/AsyncDropdown/Input/Json/Code/etc.) through it.
+   - Fixed: corrected credential selector import in NodeInputHandler to use canvas `./CredentialInputHandler` (AsyncDropdown-based) instead of the dialogs handler.
+   - Fixed: credential placeholder now shows when empty (`credentialId || t(...)`) in `packages/flowise-template-mui/.../canvas/CredentialInputHandler.jsx`.
+   - Cleanup: removed temporary debug `console.log` statements from `packages/spaces-frontend/.../ConfigInput.jsx`.
+
+4. **Provider switch: stale dropdown option lists** ✅:
+   - Problem: after changing provider (e.g., ChatOpenAI → ChatAnthropic), the "Connect Credential" and "Model Name" dropdowns still showed options from the old provider until dialog was closed and reopened.
+   - Root cause: `AsyncDropdown` had a `hasLoaded` flag preventing reload on remount; wrapper key didn't force remount when provider changed.
+   - Fixed: removed `hasLoaded` guard from `packages/flowise-template-mui/.../dropdown/AsyncDropdown.jsx`.
+   - Fixed: updated asyncOptions wrapper key to include `data.id`, `inputParam.name`, and `JSON.stringify(data.inputs[inputParam.name])` so component remounts when value changes.
+   - Fixed: added `setReloadTimestamp(Date.now())` call in asyncOptions `onSelect` when `inputParam.loadConfig` is true.
+   - Fixed: added React key to `CredentialInputHandler` with credentialNames JSON to force remount when provider changes credential list.
+   - Fixed: added `useEffect` in `CredentialInputHandler` to reset `reloadTimestamp` when `inputParam.credentialNames` changes.
+
+5. **Messages (array) UI support** ✅:
+   - Problem: Flowise 3 LLM nodes have `Messages` input (array of Role + Content), but our UI didn't render array-type inputs.
+   - Created `packages/flowise-template-mui/base/src/ui-components/array/ArrayRenderer.jsx` (adapted from Flowise 3).
+   - Added `'array'` to `whitelistTypes` in `initNode()` across all three genericHelper.js files (universo-utils, spaces-frontend, flowise-template-mui).
+   - Added `inputParam.type === 'array'` rendering in `NodeInputHandler.jsx` using `ArrayRenderer`.
+   - Exported `showHideInputs` from `spaces-frontend/utils/showHideInputParams.js` for external use.
+   - Fix: for older saved canvases, EditNodeDialog rehydrates missing array params (e.g., `llmMessages`) from `canvas.componentNodes` via `initNode` when opening the dialog.
+
+**Full workspace build successful** (57 tasks, 9m 24s).
+
+**Key Insight:** AgentFlow nodes in flowise-components have `category: 'Agent Flows'` or names ending with `Agentflow` (e.g., `startAgentflow`, `llmAgentflow`). The AGENTFLOW_ICONS constant maps these names to Tabler icons.
+
+**nodeTypeHelper.js Utility Created:**
+
+Created new utility at `packages/spaces-frontend/base/src/utils/nodeTypeHelper.js` (104 lines):
+
+```javascript
+// Core functions:
+getNodeRenderType(nodeData)      // Returns 'agentFlow' | 'stickyNote' | 'customNode' based on node data
+normalizeNodeTypes(nodes, componentNodes)  // Normalizes node.type for all nodes on load
+isAgentFlowNode(node)            // Returns true if node is AgentFlow type
+getEdgeRenderType(sourceNode, targetNode)  // Returns 'agentFlow' | 'buttonedge' based on connected nodes
+
+// Detection logic:
+// 1. StickyNote type → 'stickyNote'
+// 2. category === 'Agent Flows' → 'agentFlow'
+// 3. name ends with 'Agentflow' (case-insensitive) → 'agentFlow'
+// 4. name matches AGENTFLOW_ICONS key → 'agentFlow'
+// 5. Default → 'customNode'
+```
+
+**Canvas Changes (index.jsx):**
+
+- **Universal nodeTypes/edgeTypes registry**: Single registry with all types always available
+- **onDrop**: Uses `getNodeRenderType(nodeData)` instead of `isAgentCanvas` conditional
+- **onConnect**: Uses `getEdgeRenderType(sourceNode, targetNode)` to determine edge style
+- **handleLoadFlow**: Wraps nodes with `normalizeNodeTypes()` on load
+- **hydrateGeneratedGraph**: Uses `getNodeRenderType(data)` for generated nodes
+- **hasAgentFlowNodes**: New `useMemo` that checks `nodes.some(isAgentFlowNode)`
+- **ValidationPopUp condition**: Changed from `isAgentCanvas` to `hasAgentFlowNodes`
+
+**Benefits of Universal Canvas Approach:**
+
+1. **Mixed node types**: Standard and AgentFlow nodes can coexist on same canvas
+2. **No URL dependency**: Works regardless of route path (`/space/...` or `/agentcanvas/...`)
+3. **Node-based detection**: Each node self-determines its render style
+4. **Dynamic ValidationPopUp**: Appears when any AgentFlow node is added
+
+**Build Validation:**
+- ✅ `pnpm --filter spaces-frontend build` - SUCCESS (5.2s)
+- ✅ `pnpm --filter spaces-frontend lint --fix` - 0 errors, 14 warnings (console.log)
+- ✅ Full workspace build: 57 tasks in 6m 26s, all successful
+
+**Build Validation (follow-up 2025-12-16):**
+- ✅ Full workspace build (`pnpm build`): 57 tasks, 6m 13s, all successful
+- ✅ Re-run full workspace build (`pnpm build`): 57 tasks, 6m 25s, all successful
+- Note: `@flowise/template-mui` lint currently reports pre-existing errors unrelated to the changes above
+
+---
+
+### AgentFlow Features - Phases 1-3 Complete ✅
+
+**Context:** Implementing AgentFlow-specific features from Flowise 3.0.12 for improved canvas UX: Chat Popup i18n fix, Validation Checklist (ValidationPopUp), and foundation for AgentFlow node rendering.
+
+**Phase 1: Chat Popup i18n Fix ✅**
+
+Created proper i18n infrastructure for `@flowise/chatmessage-frontend`:
+- Created `src/i18n/en/chatmessage.json` with English translations
+- Created `src/i18n/ru/chatmessage.json` with Russian translations
+- Created `src/i18n/index.ts` using `registerNamespace('chatmessage', { en, ru })` pattern
+- Updated `src/index.js` with side-effect i18n import
+- Added `onOpenChange` callback prop to `ChatPopUp.jsx` for ValidationPopUp coordination
+
+**Phase 2: flowise-agents-backend Package ✅**
+
+Created new package `@flowise/agents-backend` for Agent-specific backend services:
+
+Files created:
+- `package.json` - Package config with express, typeorm, zod, http-status-codes
+- `tsconfig.json` / `tsconfig.esm.json` - Dual CJS/ESM build configs
+- `src/types/index.ts` - Type definitions (IValidationResult, IReactFlowNode, IReactFlowEdge, INodeParam, IComponentNode, IFlowData)
+- `src/services/validationService.ts` - Adapted from Flowise (329→300 lines), factory pattern with DI
+- `src/services/index.ts` - Services exports
+- `src/routes/validationRouter.ts` - Express router with GET /validation/:canvasId endpoint
+- `src/routes/index.ts` - Routes exports
+- `src/index.ts` - Public exports
+
+Validation service features:
+- Checks node connections (disconnected nodes)
+- Validates required parameters with show/hide conditions
+- Validates array parameter items with nested conditions
+- Validates nested config parameters
+- Validates credential requirements
+- Detects hanging edges (source/target not existing)
+- Zod schemas for response validation
+
+**Phase 3: flowise-agents-frontend Package ✅**
+
+Created new package `@flowise/agents-frontend` for Agent-specific UI components:
+
+Files created:
+- `package.json` - Package config with @flowise/store, @universo/api-client, @universo/i18n
+- `tsconfig.json` / `tsconfig.esm.json` - Dual CJS/ESM build configs (noImplicitAny: false for store compatibility)
+- `src/i18n/en/agents.json` - English translations for validation UI
+- `src/i18n/ru/agents.json` - Russian translations
+- `src/i18n/index.ts` - i18n registration using `registerNamespace('agents', { en, ru })`
+- `src/components/ValidationPopUp.tsx` - Adapted from Flowise (302→310 lines TypeScript)
+- `src/components/index.ts` - Component exports
+- `src/index.ts` - Public exports with i18n side-effect import
+
+ValidationPopUp features:
+- Popper-based popup with FAB toggle (IconChecklist/IconX)
+- Integration with redux store (customization.isDarkMode)
+- AgentFlow icons rendering via AGENTFLOW_ICONS constant
+- Issue list with warning styling (amber/orange theme)
+- Empty state SVG (inline data URI)
+- i18n translations for all UI strings
+- TypeScript interfaces for props and validation items
+
+**API Client Update:**
+
+Added ValidationApi to `@universo/api-client`:
+- Created `src/api/validation.ts` with `createValidationApi()` factory
+- Types: ValidationResult, ValidationResponse
+- Method: `checkValidation(canvasId, unikId?)` → `{ data: ValidationResult[] }`
+- Integrated into `createUniversoApiClient()` as `validation` property
+
+**Phase 4 Status (AgentFlow Node Rendering):**
+
+Implemented in `packages/spaces-frontend` (universal canvas):
+- ✅ Universal nodeTypes/edgeTypes with node-based type detection
+- ✅ ValidationPopUp visibility based on presence of AgentFlow nodes
+- ✅ AgentFlow node config dialog on double-click (Canvas-level `onNodeDoubleClick` + `EditNodeDialog`)
+
+**Build Validation:**
+- ✅ `pnpm --filter @flowise/agents-backend build` - SUCCESS
+- ✅ `pnpm --filter @flowise/agents-frontend build` - SUCCESS
+- ✅ `pnpm --filter @universo/api-client build` - SUCCESS
+- ✅ Full workspace build: 57 tasks in 6m 55s, all successful
+
+---
+
+## 📅 2025-12-15
+
+### Agent Executions - Full Implementation Complete ✅
+
+**Context:** Continuing execution tracking integration. Previous sessions completed backend/API; this session addresses frontend build issues, QA fixes, and i18n integration.
+
+**QA Analysis Completed:**
+1. **Lint errors fixed:** Removed unused `ToolIconFallback`, converted `catch(e)` to `catch` blocks
+2. **Unnecessary files removed:** Deleted 5 redundant index.js barrel exports in template-mui/ui-components
+3. **Security verified:** DOMPurify correctly configured, no unsafe patterns found
+4. **Library choices documented:** flowise-react-json-view is fork of archived repo, noted for future replacement
+
+**I18N Integration (Executions Page):**
+- Added `useTranslation('executions')` hook to Executions.jsx
+- Translated: title, filters (state/dates/canvas/session), buttons (apply/reset), delete dialog, empty state
+- Updated i18n JSON files with proper keys and Russian translations
+- Registered namespace using `registerNamespace()` pattern from apikey-frontend
+
+**Files Cleaned Up:**
+- Deleted: `packages/flowise-template-mui/base/src/ui-components/{safe,json,markdown,editor,dialog}/index.js`
+- Deleted: `packages/universo-i18n/base/src/locales/{en,ru}/views/executions.json` (duplicate)
+
+**Files Modified:**
+- `packages/flowise-executions-frontend/base/src/pages/NodeExecutionDetails.jsx` (lint fixes)
+- `packages/flowise-executions-frontend/base/src/pages/Executions.jsx` (i18n integration)
+- `packages/flowise-executions-frontend/base/src/i18n/index.ts` (registerNamespace pattern)
+- `packages/flowise-executions-frontend/base/src/i18n/en/executions.json` (updated keys)
+- `packages/flowise-executions-frontend/base/src/i18n/ru/executions.json` (updated translations)
+- `packages/flowise-executions-frontend/base/src/index.ts` (i18n side-effect import)
+
+**Build Validation:**
+- ✅ `pnpm --filter @flowise/executions-frontend lint` - 0 errors
+- ✅ `pnpm --filter @flowise/executions-frontend build` - SUCCESS
+- ✅ `pnpm --filter @flowise/core-frontend build` - SUCCESS (~1m 35s)
+
+**Remaining Work:**
+- [ ] Manual runtime testing (navigate to Unik → Executions menu)
+- [ ] E2E testing: create execution via AgentFlow, view details, share, delete
+
+### AgentFlow Canvas UX Parity ✅
+
+**Context:** Aligning AgentFlow UX with Flowise 3.0.12 inside the universal `spaces-frontend` canvas.
+
+**Implemented:** Double-click on AgentFlow nodes opens a settings dialog (Flowise 3.x behavior).
+
+**Files Modified / Added:**
+- Added: `packages/spaces-frontend/base/src/views/canvas/EditNodeDialog.jsx`
+- Added: `packages/spaces-frontend/base/src/utils/showHideInputParams.js`
+- Updated: `packages/spaces-frontend/base/src/views/canvas/index.jsx` (wired `onNodeDoubleClick`)
+- Updated: `packages/spaces-frontend/base/src/views/canvas/AgentFlowNode.jsx` (removed incorrect node-level dblclick handler)
+
+**Build Validation:**
+- ✅ `pnpm --filter spaces-frontend build` - SUCCESS
+- ✅ Full workspace build (`pnpm build`) - SUCCESS
+
+---
+
+### Agent Executions Integration - Backend & API Client Complete ✅
+
+**Context:** Integrating Agent Executions tracking from Flowise 3.0.12 into Universo Platformo. This feature allows tracking execution history for AgentFlow canvases with filtering, pagination, and public sharing capabilities.
+
+**Runtime Hotfix (fresh DB migrations):**
+- Root cause: TypeORM orders migrations by numeric timestamp in the migration class name.
+- The original executions migration (`AddExecutions1734220800000`) ran before spaces/canvases (`AddSpacesAndCanvases1743000000000`) on a fresh DB, so the FK target table `public.canvases` did not exist.
+- Fix: introduced `AddExecutions1743100000000` and updated `executionsMigrations` to export only the new migration.
+
+**Implementation Overview:**
+
+1. **Backend Package (`@flowise/executions-backend`)**:
+   - Created new package with factory pattern architecture
+   - Execution entity with ExecutionState enum (INPROGRESS, FINISHED, ERROR, TERMINATED, TIMEOUT, STOPPED)
+   - Canvas foreign key relationship with CASCADE delete
+   - Soft delete support (isDeleted, deletedDate columns)
+   - PostgreSQL migration `1734220800000-AddExecutions.ts` (Phase 5, after spaces/canvases)
+   - Service factory with Zod validation (executionFiltersSchema, updateExecutionSchema)
+   - Router factory with 5 routes + error handler middleware
+   - Routes: GET /, GET /:id, PUT /:id, DELETE /:id, DELETE / (bulk)
+
+2. **Frontend Package (`@flowise/executions-frontend`)**:
+   - Created package structure with tsdown dual-build (CJS + ESM)
+   - Complete i18n translations (en/ru) for executions UI
+   - Translation keys: title, filters, table columns, states, actions, details, share, delete
+   - Frontend pages pending adaptation from Flowise 3.x (ExecutionDetails.jsx - 985 lines)
+
+3. **Backend Integration**:
+   - Registered Execution entity in `flowise-core-backend/entities/index.ts`
+   - Added executionsMigrations to Phase 5 in `migrations/postgres/index.ts`
+   - Created executionsService and executionsRouter in `flowise-core-backend/routes/index.ts`
+   - Modified `spaces-backend/routes/spacesRoutes.ts` to accept executionsRouter option
+   - Mounted routes at: `/spaces/:spaceId/canvases/:canvasId/executions` and `/canvases/:canvasId/executions`
+   - Full route path: `/api/v1/unik/:unikId/spaces/:spaceId/canvases/:canvasId/executions`
+
+4. **API Client Integration**:
+   - Created `ExecutionsApi` class in `universo-api-client`
+   - Methods: getExecutions, getExecutionById, getPublicExecutionById, updateExecution, deleteExecution, deleteExecutions
+   - TanStack Query key factory: executionQueryKeys with all(), lists(), list(), details(), detail(), public()
+   - Types: Execution, ExecutionState, GetExecutionsParams, GetExecutionsResponse, UpdateExecutionPayload, DeleteExecutionsPayload, DeleteExecutionsResponse
+   - Instantiated in createUniversoApiClient: `executions: new ExecutionsApi(client)`
+
+5. **i18n Integration**:
+   - Added menu translations in `universo-i18n`: "executions" → "Executions" (en), "Исполнения" (ru)
+
+**Build Fixes Applied:**
+- Fixed entity property initializers (added `!` assertion for strictPropertyInitialization)
+- Fixed ExecutionState export visibility (added re-export in services/index.ts)
+- Fixed filter types in router (changed to `any` for Zod validation)
+- Fixed tsconfig.esm.json declarationMap error (disabled when declaration is false)
+- Fixed ExecutionsApi constructor (changed from `typeof client` to `AxiosInstance` type)
+
+**Build Validation:**
+- ✅ `@flowise/executions-backend` builds successfully
+- ✅ `@flowise/executions-frontend` builds successfully
+- ✅ `@universo/spaces-backend` builds successfully
+- ✅ `@universo/api-client` builds successfully
+- ✅ Full workspace build: 55 tasks in 4m 41s, all successful
+
+**Files Created:**
+- `packages/flowise-executions-backend/base/` (package.json, tsconfig, LICENSE-Flowise.md, README.md)
+- `packages/flowise-executions-backend/base/src/database/entities/Execution.ts`
+- `packages/flowise-executions-backend/base/src/database/migrations/postgres/1734220800000-AddExecutions.ts`
+- `packages/flowise-executions-backend/base/src/services/executionsService.ts`
+- `packages/flowise-executions-backend/base/src/routes/executionsRoutes.ts`
+- `packages/flowise-executions-backend/base/src/index.ts`
+- `packages/flowise-executions-frontend/base/` (package.json, tsconfig, LICENSE-Flowise.md, README.md)
+- `packages/flowise-executions-frontend/base/src/i18n/en/executions.json`
+- `packages/flowise-executions-frontend/base/src/i18n/ru/executions.json`
+- `packages/flowise-executions-frontend/base/src/index.ts`
+- `packages/universo-api-client/base/src/api/executions.ts`
+
+**Files Modified:**
+- `packages/flowise-core-backend/base/src/routes/index.ts` (added executionsService and executionsRouter creation)
+- `packages/flowise-core-backend/base/src/database/entities/index.ts` (added Execution entity)
+- `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts` (added executionsMigrations)
+- `packages/spaces-backend/base/src/routes/spacesRoutes.ts` (added executionsRouter option and mounting)
+- `packages/universo-api-client/base/src/client.ts` (added ExecutionsApi instantiation)
+- `packages/universo-api-client/base/src/index.ts` (added executions exports)
+- `packages/universo-i18n/base/src/locales/en/views/menu.json` (added "executions")
+- `packages/universo-i18n/base/src/locales/ru/views/menu.json` (added "executions")
+
+**Phase 5 Completed (2025-12-15):**
+- ✅ Copied all execution pages from Flowise 3.0.12 to flowise-executions-frontend/base/src/pages/
+- ✅ Adapted imports: @flowise/template-mui for UI components, @universo/api-client for API calls
+- ✅ Created ExecutionsListTable component using MUI DataGrid
+- ✅ Added useParams() for canvas routing context (unikId, spaceId, canvasId)
+- ✅ Updated API calls to use api.executions.getExecutions(unikId, spaceId, canvasId, params)
+- ✅ Full workspace build successful: 55 tasks in 4m 56s
+
+**Next Steps:**
+- [ ] Integrate executions pages into spaces-frontend routing
+- [ ] Add Executions tab to Canvas view
+- [ ] Manual runtime testing of executions UI
+- [ ] End-to-end testing: create execution, view details, delete execution
+
+**Technical Notes:**
+- Migration order critical: executions table depends on canvases table (FK constraint)
+- Router uses `mergeParams: true` to inherit :unikId, :spaceId, :canvasId from parent routes
+- Service methods include canvas scoping to ensure execution isolation by canvas
+- Soft delete pattern allows execution history recovery and audit trails
+- TanStack Query keys support granular cache invalidation for list/detail views
+
+---
+
 ## 📅 2025-12-14
 
 ### AgentFlow Icons - spaces-frontend Complete Implementation ✅
@@ -671,6 +1106,8 @@ const renderNodeIcon = (node) => {
 
 **Template MUI CommonJS** (DEFERRED): flowise-ui ESM/CJS conflict, workaround via direct source imports.
 
+**@universo/template-mui lint**: `pnpm --filter @universo/template-mui lint` currently fails due to a mix of ESLint config/rule issues, a11y rules, and Prettier formatting. This appears pre-existing and does not block `pnpm build`, but may block CI if lint is enforced.
+
 **React StrictMode**: Conditional wrapper (dev only) to avoid double-mount issues.
 
 ---
@@ -686,6 +1123,6 @@ const renderNodeIcon = (node) => {
 
 ---
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-18
 
 **Note**: For current work → tasks.md. For patterns → systemPatterns.md.

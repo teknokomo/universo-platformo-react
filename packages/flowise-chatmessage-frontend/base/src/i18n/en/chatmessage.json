@@ -1,0 +1,19 @@
+{
+    "chatmessage": {
+        "chat": {
+            "chat": "Chat",
+            "clearChat": "Clear Chat",
+            "clearChatHistory": "Clear Chat History",
+            "clearChatHistoryConfirm": "Are you sure you want to clear all chat history?",
+            "clear": "Clear",
+            "clearedChatHistory": "Successfully cleared all chat history",
+            "clearConversation": "Clear Conversation",
+            "expandChat": "Expand Chat"
+        },
+        "common": {
+            "cancel": "Cancel"
+        },
+        "initialGreeting": "Hi there! How can I help?",
+        "defaultError": "Something went wrong. Please try again."
+    }
+}

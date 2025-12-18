@@ -49,6 +49,7 @@ export const initNode = (nodeData, newNodeId) => {
         'file',
         'folder',
         'tabs',
+        'array',
         'conditionFunction' // This is a special type for condition functions
     ]
 

@@ -1,0 +1,19 @@
+{
+    "validation": {
+        "title": "Проверка",
+        "noIssues": "Проблем не обнаружено!",
+        "validateFlow": "Проверить",
+        "validating": "Проверка...",
+        "failedToValidate": "Не удалось проверить поток",
+        "empty": {
+            "title": "Всё отлично!",
+            "description": "Проблем с валидацией не найдено"
+        },
+        "nodeNotConnected": "Этот узел ни к чему не подключён",
+        "requiredField": "{{field}} обязательно",
+        "credentialRequired": "Требуются учётные данные",
+        "disconnectedEdge": "Отсоединённое соединение - оба узла не существуют",
+        "nonExistentSource": "Подключен к несуществующему исходному узлу {{nodeId}}",
+        "nonExistentTarget": "Подключен к несуществующему целевому узлу {{nodeId}}"
+    }
+}

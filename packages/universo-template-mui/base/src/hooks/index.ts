@@ -28,4 +28,3 @@ export {
     truncateStorageName
 } from './useBreadcrumbName'
 export type { EntityNameHookConfig, EntityNameFetcher } from './useBreadcrumbName'
-
