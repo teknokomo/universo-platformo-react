@@ -90,6 +90,23 @@
 
 ---
 
+## Public Execution Share Contract Pattern
+
+**Rule**: Shareable execution details must use a stable, cross-package contract.
+
+**Frontend (no-auth route)**:
+- Use Minimal layout route: `/execution/:id`
+
+**Backend (public endpoint)**:
+- Expose: `GET /public-executions/:id`
+
+**API Client**:
+- `getPublicExecutionById(id)` must call `/public-executions/:id`
+
+**Why**: Keeps share links, UI routing, api-client, and server routes aligned and avoids “link opens but API 404/401” regressions.
+
+---
+
 ## Testing Environment Pattern (CRITICAL)
 
 **Rule**: Tests use Vitest, no Jest. UI tests use Testing Library, E2E uses Playwright.
@@ -145,6 +162,19 @@ const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragmen
 ```
 
 **Why**: Prevents double-mount issues in production, keeps dev benefits.
+
+---
+
+## ReactFlow AgentFlow Node Config Dialog Pattern
+
+**Rule**: Node settings dialogs must be opened from the Canvas (ReactFlow-level events), not from node component DOM handlers.
+
+**Pattern**:
+- Use `onNodeDoubleClick` on the universal canvas (`views/canvas/index.jsx`).
+- Gate behavior by node render type (e.g., `node.type === 'agentFlow'`), and explicitly exclude sticky notes.
+- Open a portal dialog (`EditNodeDialog`) with `{ data: node.data, inputParams: visibleInputParams }`.
+
+**Why**: Matches Flowise 3.x behavior and avoids event bubbling / inconsistent behavior across custom node renderers.
 
 ---
 

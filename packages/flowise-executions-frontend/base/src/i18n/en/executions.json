@@ -1,0 +1,62 @@
+{
+    "executions": {
+        "title": "Agent Executions",
+        "empty": {
+            "title": "No Executions Yet",
+            "description": "Monitor and manage agentflows executions"
+        },
+        "filters": {
+            "state": "State",
+            "canvas": "Canvas Name",
+            "session": "Session ID",
+            "startDate": "Start Date",
+            "endDate": "End Date",
+            "apply": "Apply",
+            "clear": "Reset"
+        },
+        "table": {
+            "id": "ID",
+            "canvas": "Canvas",
+            "state": "State",
+            "session": "Session",
+            "action": "Action",
+            "created": "Created",
+            "updated": "Updated",
+            "stopped": "Stopped"
+        },
+        "states": {
+            "ALL": "All",
+            "INPROGRESS": "In Progress",
+            "FINISHED": "Finished",
+            "ERROR": "Error",
+            "TERMINATED": "Terminated",
+            "TIMEOUT": "Timeout",
+            "STOPPED": "Stopped"
+        },
+        "actions": {
+            "view": "View Details",
+            "share": "Share",
+            "delete": "Delete",
+            "deleteSelected": "Delete selected executions"
+        },
+        "details": {
+            "title": "Execution Details",
+            "executionData": "Execution Data",
+            "metadata": "Metadata",
+            "nodes": "Node Executions"
+        },
+        "share": {
+            "title": "Share Execution",
+            "makePublic": "Make Public",
+            "copyLink": "Copy Link",
+            "linkCopied": "Link copied to clipboard"
+        },
+        "delete": {
+            "title": "Confirm Deletion",
+            "confirm": "Are you sure you want to delete {{count}} execution(s)? This action cannot be undone.",
+            "cancel": "Cancel",
+            "success": "Execution(s) deleted successfully",
+            "error": "Failed to delete execution(s)"
+        }
+    }
+}

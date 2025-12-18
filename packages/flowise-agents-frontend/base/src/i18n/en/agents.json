@@ -1,0 +1,19 @@
+{
+    "validation": {
+        "title": "Checklist",
+        "noIssues": "No issues found in your flow!",
+        "validateFlow": "Validate Flow",
+        "validating": "Validating...",
+        "failedToValidate": "Failed to validate flow",
+        "empty": {
+            "title": "All good!",
+            "description": "No validation issues found"
+        },
+        "nodeNotConnected": "This node is not connected to anything",
+        "requiredField": "{{field}} is required",
+        "credentialRequired": "Credential is required",
+        "disconnectedEdge": "Disconnected edge - both source and target nodes do not exist",
+        "nonExistentSource": "Connected to non-existent source node {{nodeId}}",
+        "nonExistentTarget": "Connected to non-existent target node {{nodeId}}"
+    }
+}

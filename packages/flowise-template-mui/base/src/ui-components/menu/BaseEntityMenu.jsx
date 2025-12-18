@@ -1,5 +1,6 @@
 // English-only comments as per repository guidelines.
 import React, { useState, Suspense } from 'react'
+import PropTypes from 'prop-types'
 import { useTranslation } from '@universo/i18n'
 import { Menu, MenuItem, Divider, Button } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
@@ -138,6 +139,17 @@ const BaseEntityMenu = ({
             )}
         </>
     )
+}
+
+BaseEntityMenu.propTypes = {
+    entity: PropTypes.any,
+    entityKind: PropTypes.string.isRequired,
+    descriptors: PropTypes.arrayOf(PropTypes.object).isRequired,
+    namespace: PropTypes.string,
+    menuButtonLabelKey: PropTypes.string,
+    renderTrigger: PropTypes.func,
+    createContext: PropTypes.func.isRequired,
+    contextExtras: PropTypes.object
 }
 
 export default BaseEntityMenu

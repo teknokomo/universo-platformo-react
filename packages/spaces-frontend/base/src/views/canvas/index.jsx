@@ -27,8 +27,16 @@ import ButtonEdge from './ButtonEdge'
 import StickyNote from './StickyNote'
 import CanvasHeader from './CanvasHeader'
 import AddNodes from './AddNodes'
+// AgentFlow specific components
+import AgentFlowNode from './AgentFlowNode'
+import AgentFlowEdge from './AgentFlowEdge'
+import StickyNoteNode from './StickyNoteNode'
+import IterationNode from './IterationNode'
+import ConnectionLine from './ConnectionLine'
+import EditNodeDialog from './EditNodeDialog'
 import ConfirmDialog from '@flowise/template-mui/ui-components/dialog/ConfirmDialog'
 import { ChatPopUp } from '@flowise/chatmessage-frontend'
+import { ValidationPopUp } from '@flowise/agents-frontend'
 import { VectorStorePopUp } from '@flowise/docstore-frontend'
 import CanvasTabs from '../../components/CanvasTabs'
 import React, { useCallback as useReactCallback } from 'react'
@@ -55,6 +63,7 @@ import {
     updateOutdatedNodeData,
     updateOutdatedNodeEdge
 } from '../../utils/genericHelper'
+import { getNodeRenderType, normalizeNodeTypes, isAgentFlowNode, getEdgeRenderType } from '../../utils/nodeTypeHelper'
 import useNotifier from '@flowise/template-mui/hooks/useNotifier'
 import { usePrompt } from '@universo/utils/ui-utils/usePrompt'
 
@@ -65,9 +74,20 @@ import { SpaceBuilderFab, registerSpaceBuilderI18n } from '@universo/space-build
 import { getInstance } from '@universo/i18n/instance'
 const i18n = getInstance()
 
+// Universal node types - all types always registered
+// Node render type is determined by node.type field (set based on node category/data)
+const nodeTypes = {
+    customNode: CanvasNode,      // Standard nodes (LLMs, Tools, Chains, etc.)
+    agentFlow: AgentFlowNode,    // AgentFlow nodes (compact style)
+    iteration: IterationNode,    // Iteration container (resizable)
+    stickyNote: StickyNoteNode   // Sticky notes
+}
 
-const nodeTypes = { customNode: CanvasNode, stickyNote: StickyNote }
-const edgeTypes = { buttonedge: ButtonEdge }
+// Universal edge types
+const edgeTypes = {
+    buttonedge: ButtonEdge,      // Standard edges
+    agentFlow: AgentFlowEdge     // AgentFlow edges (with gradient)
+}
 
 const normalizeIdentifier = (value) => {
     if (value === null || value === undefined) return null
@@ -127,7 +147,6 @@ const Canvas = () => {
     const queryClient = useQueryClient()
     const params = useParams()
     const { unikId, spaceId: routeSpaceId, canvasId: routeCanvasId, id: legacyId } = params
-    console.log('[Canvas] URL params:', { unikId, routeSpaceId, routeCanvasId, legacyId, fullParams: params })
     
     const location = useLocation()
     const locationState =
@@ -150,19 +169,19 @@ const Canvas = () => {
     }
 
     const URLpath = document.location.pathname.toString().split('/')
-    const isAgentCanvas = URLpath.includes('agentcanvas')
+    // Determine if this is an AgentFlow canvas by URL path OR loaded canvas type
+    const isAgentCanvasByUrl = URLpath.includes('agentcanvas')
     
     // CRITICAL: Recalculate spaceId on every render to reflect URL changes after navigation
     const normalizedSpaceId = routeSpaceId && routeSpaceId !== 'new' ? routeSpaceId : null
-    const legacySpaceId = !isAgentCanvas && legacyId && legacyId !== 'new' ? legacyId : null
+    const legacySpaceId = !isAgentCanvasByUrl && legacyId && legacyId !== 'new' ? legacyId : null
     const spaceId = normalizedSpaceId || legacySpaceId || stateSpaceId || null
     
     const normalizedCanvasId = routeSpaceId && routeCanvasId === 'new' ? null : routeCanvasId
     const routeResolvedCanvasId =
         normalizedCanvasId && normalizedCanvasId !== 'new' ? normalizedCanvasId : null
-    const legacyCanvasId = isAgentCanvas && legacyId && legacyId !== 'new' ? legacyId : null
+    const legacyCanvasId = isAgentCanvasByUrl && legacyId && legacyId !== 'new' ? legacyId : null
     const initialCanvasId = routeResolvedCanvasId || legacyCanvasId || stateCanvasId || null
-    const canvasTitle = isAgentCanvas ? t('agent', 'Agent') : t('space', 'Space')
 
     const { confirm } = useConfirm()
 
@@ -170,6 +189,16 @@ const Canvas = () => {
     const canvasState = useSelector((state) => state.canvas)
     const [activeCanvas, setActiveCanvas] = useState(null)
     const { reactFlowInstance, setReactFlowInstance } = useContext(flowContext)
+
+    // Determine if this is an AgentFlow canvas by URL OR by loaded canvas type
+    // AgentFlow types: 'MULTIAGENT', 'AGENTFLOW'
+    const isAgentCanvas = useMemo(() => {
+        if (isAgentCanvasByUrl) return true
+        const canvasType = activeCanvas?.type
+        return canvasType === 'MULTIAGENT' || canvasType === 'AGENTFLOW'
+    }, [isAgentCanvasByUrl, activeCanvas?.type])
+
+    const canvasTitle = isAgentCanvas ? t('agent', 'Agent') : t('space', 'Space')
 
     // ==============================|| Snackbar ||============================== //
 
@@ -181,9 +210,19 @@ const Canvas = () => {
 
     const [nodes, setNodes, onNodesChange] = useNodesState([])
     const [edges, setEdges, onEdgesChange] = useEdgesState([])
+    
+    // Determine if canvas contains any AgentFlow nodes (for ValidationPopUp display)
+    const hasAgentFlowNodes = useMemo(() => {
+        return nodes.some(isAgentFlowNode)
+    }, [nodes])
+    
     const [selectedNode, setSelectedNode] = useState(null)
+    const [editNodeDialogOpen, setEditNodeDialogOpen] = useState(false)
+    const [editNodeDialogProps, setEditNodeDialogProps] = useState({})
     const [isUpsertButtonEnabled, setIsUpsertButtonEnabled] = useState(false)
     const [isSyncNodesButtonEnabled, setIsSyncNodesButtonEnabled] = useState(false)
+    // State to coordinate ChatPopUp and ValidationPopUp visibility
+    const [chatPopupOpen, setChatPopupOpen] = useState(false)
     // Space Builder now fetches providers/models itself; local state no longer needed
 
     const reactFlowWrapper = useRef(null)
@@ -281,9 +320,15 @@ const Canvas = () => {
     // ==============================|| Events & Actions ||============================== //
 
     const onConnect = (params) => {
+        // Determine edge type based on connected node types
+        // For universal canvas: agentFlow edges when connecting AgentFlow nodes
+        const sourceNode = nodes.find((n) => n.id === params.source)
+        const targetNode = nodes.find((n) => n.id === params.target)
+        const edgeType = getEdgeRenderType(sourceNode, targetNode)
+        
         const newEdge = {
             ...params,
-            type: 'buttonedge',
+            type: edgeType,
             id: `${params.source}-${params.sourceHandle}-${params.target}-${params.targetHandle}`
         }
 
@@ -327,12 +372,62 @@ const Canvas = () => {
         setEdges((eds) => addEdge(newEdge, eds))
     }
 
+    const rehydrateMissingArrayTypeInputParams = useCallback((rawNodes, componentNodes) => {
+        if (!Array.isArray(rawNodes) || rawNodes.length === 0) return { nodes: rawNodes, didRehydrate: false }
+        if (!componentNodes || (Array.isArray(componentNodes) && componentNodes.length === 0)) {
+            return { nodes: rawNodes, didRehydrate: false }
+        }
+
+        const getComponentNodeByName = (name) => {
+            if (!name) return null
+            if (Array.isArray(componentNodes)) return componentNodes.find((cn) => cn?.name === name) || null
+            return componentNodes?.[name] || null
+        }
+
+        let didRehydrate = false
+        const nextNodes = rawNodes.map((node) => {
+            const nodeData = node?.data
+            const nodeName = nodeData?.name
+            if (!nodeName) return node
+
+            const componentNode = getComponentNodeByName(nodeName)
+            if (!componentNode) return node
+
+            const componentArrayParamNames = (componentNode.inputParams || [])
+                .filter((p) => p?.type === 'array')
+                .map((p) => p?.name)
+                .filter(Boolean)
+            if (componentArrayParamNames.length === 0) return node
+
+            const existingNames = new Set((nodeData?.inputParams || []).map((p) => p?.name).filter(Boolean))
+            const missingArrayParams = componentArrayParamNames.filter((name) => !existingNames.has(name))
+            if (missingArrayParams.length === 0) return node
+
+            didRehydrate = true
+            const hydrated = initNode(cloneDeep(componentNode), node.id)
+            const mergedInputs = { ...(hydrated.inputs || {}), ...(nodeData?.inputs || {}) }
+            const mergedData = {
+                ...nodeData,
+                inputAnchors: hydrated.inputAnchors,
+                inputParams: hydrated.inputParams,
+                outputAnchors: hydrated.outputAnchors,
+                inputs: mergedInputs
+            }
+
+            return { ...node, data: mergedData }
+        })
+
+        return { nodes: nextNodes, didRehydrate }
+    }, [])
+
     const handleLoadFlow = (file) => {
         try {
             const flowData = JSON.parse(file)
             const nodes = flowData.nodes || []
-
-            setNodes(nodes)
+            const { nodes: rehydratedNodes } = rehydrateMissingArrayTypeInputParams(nodes, canvasState.componentNodes || [])
+            // Normalize node types for universal canvas (determine render type by node data)
+            const normalizedNodes = normalizeNodeTypes(rehydratedNodes, canvasState.componentNodes || [])
+            setNodes(normalizedNodes)
             setEdges(flowData.edges || [])
             setTimeout(() => setDirty(), 0)
         } catch (e) {
@@ -364,7 +459,7 @@ const Canvas = () => {
             }
             return {
                 id: nodeId,
-                type: 'customNode',
+                type: getNodeRenderType(data),
                 position: n.position || { x: 0, y: 0 },
                 data
             }
@@ -832,6 +927,33 @@ const Canvas = () => {
         )
     }, [])
 
+    // eslint-disable-next-line
+    const onNodeDoubleClick = useCallback((event, node) => {
+        if (!node || !node.data) return
+
+        // Only AgentFlow nodes open this dialog (Flowise 3.x behavior)
+        if (node.type !== 'agentFlow') return
+
+        // Sticky note AgentFlow node should not open settings dialog
+        if (node.data.name === 'stickyNoteAgentflow') return
+
+        console.log('[Canvas] Opening edit dialog for node:', {
+            nodeId: node.id,
+            nodeName: node.data.name,
+            dataKeys: Object.keys(node.data),
+            inputParamsCount: (node.data.inputParams || []).length,
+            firstInputParam: node.data.inputParams?.[0]
+        })
+
+        const dialogProps = {
+            data: node.data,
+            inputParams: (node.data.inputParams || []).filter((inputParam) => !inputParam.hidden)
+        }
+
+        setEditNodeDialogProps(dialogProps)
+        setEditNodeDialogOpen(true)
+    }, [])
+
     const onDragOver = useCallback((event) => {
         event.preventDefault()
         event.dataTransfer.dropEffect = 'move'
@@ -857,10 +979,14 @@ const Canvas = () => {
 
             const newNodeId = getUniqueNodeId(nodeData, reactFlowInstance.getNodes())
 
+            // Determine node render type based on node data (category, type, name)
+            // This enables universal canvas with different node styles
+            const nodeType = getNodeRenderType(nodeData)
+
             const newNode = {
                 id: newNodeId,
                 position,
-                type: nodeData.type !== 'StickyNote' ? 'customNode' : 'stickyNote',
+                type: nodeType,
                 data: initNode(nodeData, newNodeId)
             }
 
@@ -997,7 +1123,13 @@ const Canvas = () => {
         if (!response) return
         try {
             const parsed = response.flowData ? JSON.parse(response.flowData) : { nodes: [], edges: [] }
-            setNodes(parsed.nodes || [])
+            const { nodes: rehydratedNodes } = rehydrateMissingArrayTypeInputParams(
+                parsed.nodes || [],
+                canvasState.componentNodes || []
+            )
+            // Normalize node types for universal canvas (determine render type by node data)
+            const normalizedNodes = normalizeNodeTypes(rehydratedNodes, canvasState.componentNodes || [])
+            setNodes(normalizedNodes)
             setEdges(parsed.edges || [])
         } catch (error) {
             setNodes([])
@@ -1007,8 +1139,7 @@ const Canvas = () => {
         const canvasViewModel = buildCanvasAsChatflow(response, {
             unikId: parentUnikId,
             spaceId: response.spaceId || response.space_id || null,
-            spaceName: response.spaceName || response.space_name,
-            isAgentCanvas
+            spaceName: response.spaceName || response.space_name
         })
         dispatch({ type: SET_CANVAS, canvas: canvasViewModel })
         setActiveCanvas(canvasViewModel)
@@ -1070,42 +1201,24 @@ const Canvas = () => {
 
     // Load active Canvas flowData from useCanvases when activeCanvasId changes
     useEffect(() => {
-        console.log('[Canvas] useEffect flowData loader triggered:', { 
-            spaceId, 
-            activeCanvasId, 
-            canvasesLength: canvases?.length 
-        })
-        
-        if (!spaceId) {
-            console.log('[Canvas] useEffect flowData loader: no spaceId, exiting')
-            return
-        }
-        if (!activeCanvasId) {
-            console.log('[Canvas] useEffect flowData loader: no activeCanvasId, exiting')
-            return
-        }
-        if (!canvases?.length) {
-            console.log('[Canvas] useEffect flowData loader: no canvases, exiting')
-            return
-        }
+        if (!spaceId) return
+        if (!activeCanvasId) return
+        if (!canvases?.length) return
 
         const activeCanvasFromList = canvases.find((c) => c.id === activeCanvasId)
-        if (!activeCanvasFromList) {
-            console.log('[Canvas] useEffect flowData loader: activeCanvas not found in list, exiting')
-            return
-        }
-
-        console.log('[Canvas] Loading flowData for active canvas:', {
-            activeCanvasId,
-            hasFlowData: !!activeCanvasFromList.flowData,
-            flowDataLength: activeCanvasFromList.flowData?.length || 0
-        })
+        if (!activeCanvasFromList) return
 
         try {
             const parsed = activeCanvasFromList.flowData
                 ? JSON.parse(activeCanvasFromList.flowData)
                 : { nodes: [], edges: [] }
-            setNodes(parsed.nodes || [])
+            const { nodes: rehydratedNodes } = rehydrateMissingArrayTypeInputParams(
+                parsed.nodes || [],
+                canvasState.componentNodes || []
+            )
+            // Normalize node types for universal canvas (determine render type by node data)
+            const normalizedNodes = normalizeNodeTypes(rehydratedNodes, canvasState.componentNodes || [])
+            setNodes(normalizedNodes)
             setEdges(parsed.edges || [])
         } catch (error) {
             console.error('[Canvas] Failed to parse flowData:', error)
@@ -1116,13 +1229,25 @@ const Canvas = () => {
         const canvasViewModel = buildCanvasAsChatflow(activeCanvasFromList, {
             unikId: parentUnikId,
             spaceId: activeCanvasFromList.spaceId || activeCanvasFromList.space_id || spaceId,
-            spaceName: activeCanvasFromList.spaceName || activeCanvasFromList.space_name,
-            isAgentCanvas
+            spaceName: activeCanvasFromList.spaceName || activeCanvasFromList.space_name
         })
         dispatch({ type: SET_CANVAS, canvas: canvasViewModel })
         setActiveCanvas(canvasViewModel)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [spaceId, activeCanvasId, canvases])
+
+    // When componentNodes arrive/refresh after nodes were loaded, rehydrate once for missing array-type params
+    useEffect(() => {
+        const componentNodes = canvasState.componentNodes || []
+        if (!componentNodes || (Array.isArray(componentNodes) && componentNodes.length === 0)) return
+
+        setNodes((curr) => {
+            if (!Array.isArray(curr) || curr.length === 0) return curr
+            const { nodes: rehydratedNodes, didRehydrate } = rehydrateMissingArrayTypeInputParams(curr, componentNodes)
+            if (!didRehydrate) return curr
+            return normalizeNodeTypes(rehydratedNodes, componentNodes)
+        })
+    }, [canvasState.componentNodes, rehydrateMissingArrayTypeInputParams])
 
     // Initialization
     useEffect(() => {
@@ -1395,12 +1520,14 @@ const Canvas = () => {
                                 edges={edges}
                                 onNodesChange={onNodesChange}
                                 onNodeClick={onNodeClick}
+                                onNodeDoubleClick={onNodeDoubleClick}
                                 onEdgesChange={onEdgesChange}
                                 onDrop={onDrop}
                                 onDragOver={onDragOver}
                                 onNodeDragStop={setDirty}
                                 nodeTypes={nodeTypes}
                                 edgeTypes={edgeTypes}
+                                connectionLineComponent={ConnectionLine}
                                 onConnect={onConnect}
                                 onInit={setReactFlowInstance}
                                 fitView
@@ -1468,6 +1595,19 @@ const Canvas = () => {
                                     canvasId={canvasId}
                                     unikId={chatPopUpUnikId}
                                     spaceId={chatPopUpSpaceId}
+                                    onOpenChange={setChatPopupOpen}
+                                />
+                                {/* Show ValidationPopUp when canvas contains AgentFlow nodes */}
+                                {hasAgentFlowNodes && !chatPopupOpen && canvasId && chatPopUpUnikId && (
+                                    <ValidationPopUp
+                                        canvasId={canvasId}
+                                        validateApi={(id) => api.validation.checkValidation(chatPopUpUnikId, id)}
+                                    />
+                                )}
+                                <EditNodeDialog
+                                    show={editNodeDialogOpen}
+                                    dialogProps={editNodeDialogProps}
+                                    onCancel={() => setEditNodeDialogOpen(false)}
                                 />
                             </ReactFlow>
                         </div>

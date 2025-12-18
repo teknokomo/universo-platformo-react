@@ -31,7 +31,6 @@ const SaveCanvasDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             </DialogTitle>
             <DialogContent>
                 <OutlinedInput
-                    autoFocus
                     sx={{ mt: 1 }}
                     id='canvas-name'
                     type='text'

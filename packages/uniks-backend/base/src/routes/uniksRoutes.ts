@@ -585,6 +585,7 @@ export function createUniksRouter(
     }
 
     const spacesRouter = createSpacesRoutes(getDataSource, options.spacesRoutes)
+    const spacesRoutes = options.spacesRoutes
 
     router.use('/:unikId', (req: Request, _res: Response, next: NextFunction) => {
         if (!req.params.unikId && (req.params as any).id) {
@@ -665,6 +666,31 @@ export function createUniksRouter(
             res.json(members)
         })
     )
+
+    // Expose executions at Unik level (must be BEFORE nested spaces router to avoid interception)
+    if (spacesRoutes.executionsRouter) {
+        router.use(
+            '/:unikId/executions',
+            async (req: Request, res: Response, next: NextFunction) => {
+                try {
+                    const unikId = req.params.unikId
+
+                    if (spacesRoutes.membership?.ensureUnikMembershipResponse) {
+                        await spacesRoutes.membership.ensureUnikMembershipResponse(req, res, unikId, {
+                            errorMessage:
+                                spacesRoutes.membership.accessDeniedMessage ??
+                                'Access denied: You do not have permission to access this Unik'
+                        })
+                    }
+
+                    next()
+                } catch (error) {
+                    next(error)
+                }
+            },
+            spacesRoutes.executionsRouter
+        )
+    }
 
     // Keep nested spaces routes after members endpoints
     router.use('/:unikId', spacesRouter)

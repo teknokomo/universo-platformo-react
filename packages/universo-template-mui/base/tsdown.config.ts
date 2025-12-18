@@ -24,6 +24,7 @@ export default defineConfig({
     'notistack',
     '@tanstack/react-query',
     'canvas',  // Native module from transitive dependency
+    /^@flowise\/executions-frontend(\/.*)?$/,
     /^@ui\//,  // Imports from flowise-ui via @ui alias
     /^@mui\//,
     /^@emotion\//,

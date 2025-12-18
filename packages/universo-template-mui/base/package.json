@@ -45,6 +45,7 @@
         "@flowise/credentials-frontend": "workspace:*",
         "@flowise/customtemplates-frontend": "workspace:*",
         "@flowise/docstore-frontend": "workspace:*",
+        "@flowise/executions-frontend": "workspace:*",
         "@flowise/tools-frontend": "workspace:*",
         "@flowise/variables-frontend": "workspace:*",
         "@tanstack/react-query": "^5.62.13",

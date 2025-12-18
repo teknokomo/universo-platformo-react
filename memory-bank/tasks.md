@@ -6,6 +6,130 @@
 
 ## 🔥 ACTIVE TASKS
 
+### AgentFlow Integration - Model Selection & Configuration
+
+- [x] Remove spam log '[Canvas] URL params' from Canvas (line 148)
+- [x] Add debug logs to AsyncDropdown (fetchDynamicOptions, loadOptions useEffect)
+- [x] Add debug log when opening EditNodeDialog (node data keys, inputParams)
+- [x] User tested and provided logs showing empty response from API
+- [x] Analyzed logs: API returns empty array because `componentNodes` not passed to loadMethods
+- [x] Fixed: Added `componentNodes: appServer.nodesPool.componentNodes` to options in getSingleNodeAsyncOptions
+- [x] Added icon rendering (imageSrc) to AsyncDropdown renderOption
+- [x] Created ConfigInput component for AgentFlow model configuration (based on Flowise 3)
+- [x] Integrated ConfigInput into EditNodeDialog (shows when inputParam.loadConfig === true)
+- [x] Fixed AsyncDropdown imageSrc transformation to full URL (`/api/v1/node-icon/${name}`)
+- [x] Copied full ConfigInput from Flowise 3.0.12 (339 lines) with api.nodes.getSpecificNode
+- [x] Created IterationNode component (resizable container for loops, 380 lines)
+- [x] Created ConnectionLine component (animated edge with labels, 100 lines)
+- [x] Updated AgentFlowNode to full Flowise 3 version (model/tools display, 570 lines)
+- [x] Integrated new components into Canvas (nodeTypes, connectionLineComponent)
+- [x] Full workspace build successful (57 tasks, 7m 53s)
+- [x] Fixed ConfigInput not appearing immediately after provider selection (removed async API reload in second useEffect)
+- [x] Fixed ConfigInput width and border-radius styling (added ml/mr margins, borderRadius '8px')
+- [x] Added debug logs for Connect Credential investigation
+- [x] Fix NodeInputHandler: correct CredentialInputHandler import + propagate input changes via onCustomDataChange
+- [x] Fix credential dropdown empty value placeholder (AsyncDropdown value)
+- [x] Remove temporary debug logs from ConfigInput (spaces-frontend)
+- [x] Validate with builds/lints (template-mui, spaces-frontend) + full pnpm build
+- [x] Fix: switching provider should refresh Connect Credential + Model Name option lists
+  - Note: added remount keys to AsyncDropdown wrapper (node id + param name + current value), update reloadTimestamp on loadConfig select, and reset CredentialInputHandler when credentialNames changes.
+  - Removed "hasLoaded" guard from AsyncDropdown so it reloads on each mount.
+- [x] Implement: Messages section (Role + Content) in ConfigInput like Flowise 3.0.12
+  - Note: created ArrayRenderer component, added 'array' to whitelistTypes in initNode, added array type rendering in NodeInputHandler.
+  - Follow-up: existing saved canvases may still miss array params in node.inputParams (created before 'array' was whitelisted).
+- [x] Fix: show Messages for existing nodes
+  - Note: Temporary fix used EditNodeDialog to rehydrate missing array params (e.g., llmMessages) from componentNodes via initNode when opening the dialog.
+- [x] Move array-param rehydration from EditNodeDialog to Canvas flowData loading
+  - Note: Repair nodes on load (both Space and non-Space loaders, plus handleLoadFlow) by merging in missing array-type inputParams from componentNodes.
+- [x] Remove EditNodeDialog array-param rehydration (keep the dialog side-effect free)
+- [x] Validate AgentFlow config UX after migration
+  - Note: Confirm Messages section appears for existing canvases without reopening dialogs; confirm provider switching + credential/model lists still update.
+- [x] Validate with lints/builds
+  - Note: Run `pnpm --filter spaces-frontend lint` and full `pnpm build`.
+
+- [x] Fix focus loss while typing in input fields
+  - Note: Removed value-based remount key and synced Input internal state with prop value.
+- [x] Fix Start node conditional fields rendering
+  - Note: Apply show/hide rules on dialog open so form-only fields stay hidden for default Chat Input.
+- [x] Validate fixes with lint/build
+  - Note: `pnpm --filter @flowise/template-mui lint` + `pnpm --filter @universo/spaces-frontend lint` + full `pnpm build`.
+
+### Agent Executions Integration (Flowise 3.x)
+
+- [x] Phase 1: Backend Package (`flowise-executions-backend`)
+  - [x] Create package structure and configuration files
+  - [x] Copy and adapt Execution entity from Flowise 3.0.12
+  - [x] Create migration for executions table
+  - [x] Implement service factory with Zod validation
+  - [x] Implement router factory with error handlers
+  - [x] Create public exports (index.ts)
+- [x] Phase 2: Frontend Package (`flowise-executions-frontend`)
+  - [x] Create package structure and configuration files
+  - [x] Create i18n translations (en/ru)
+  - [x] Copy and adapt Executions.jsx page (464 lines)
+  - [x] Copy ExecutionDetails.jsx page (985 lines)
+  - [x] Copy remaining components (NodeExecutionDetails, PublicExecutionDetails, ShareExecutionDialog)
+  - [x] Create ExecutionsListTable component with MUI DataGrid
+- [x] Phase 3: Integration
+  - [x] Register backend service and router in flowise-core-backend
+  - [x] Mount routes in spaces-backend at `/spaces/:spaceId/canvases/:canvasId/executions`
+  - [x] Register Execution entity in core-backend entities
+  - [x] Register executionsMigrations in Phase 5 (after spaces/canvases)
+  - [x] Add ExecutionsApi class to universo-api-client
+  - [x] Add menu translation keys to universo-i18n (en: "Executions", ru: "Исполнения")
+  - [x] Add LICENSE-Flowise.md to both packages
+- [x] Phase 4: Build Validation
+  - [x] Full workspace build (`pnpm build` - 55 tasks, 4m 41s)
+  - [x] Fix TypeScript compilation errors (entity initializers, ExecutionState export, filter types, AxiosInstance import)
+  - [x] Run linters on new packages (all passed: executions-backend, executions-frontend, api-client, spaces-backend, i18n)
+- [x] Phase 5: Frontend Pages
+  - [x] Copy all execution pages from Flowise 3.0.12 (Executions, ExecutionDetails, NodeExecutionDetails, PublicExecutionDetails, ShareExecutionDialog)
+  - [x] Adapt imports to use @flowise/template-mui and @universo/api-client
+  - [x] Create ExecutionsListTable component
+  - [x] Add useParams for canvas context (unikId, spaceId, canvasId)
+    - [x] Full workspace build successful (55 tasks, 4m 56s)
+
+- [ ] Phase 6: Unik UI Integration
+    - [x] Expose Executions in Unik UI (menu + route)
+    - [x] Add Unik-level executions API endpoints (list/detail/update/delete)
+    - [x] Fix Template MUI build resolution for executions-frontend route import
+        - Note: `@universo/template-mui` depends on `@flowise/executions-frontend`; the route lazy import is suppressed for dts emit under TS `moduleResolution: bundler`.
+    - [x] Prevent tsdown from bundling executions-frontend internals
+        - Note: Externalized `@flowise/executions-frontend` in `packages/universo-template-mui/base/tsdown.config.ts`.
+    - [x] Fix executions-frontend build compatibility (Vite strict exports)
+        - Note: Full adaptation of NodeExecutionDetails.jsx from Flowise 3.0.12, replaced all @/ aliases, created SafeHTML/JSONViewer components
+    - [x] Fix lint errors in NodeExecutionDetails.jsx
+        - Note: Removed unused ToolIconFallback, fixed catch(e) to catch blocks
+    - [x] Delete unnecessary index.js files in template-mui/ui-components
+        - Note: Removed 5 redundant barrel export files (safe, json, markdown, editor, dialog)
+    - [x] Integrate i18n for Executions page (en/ru translations)
+        - Note: Added useTranslation hook, registerNamespace pattern, translated filters/states/actions/delete dialog
+    - [x] Full workspace rebuild (`pnpm --filter @flowise/core-frontend build`) - SUCCESS
+    - [ ] Manual runtime testing (start at Unik menu → Executions)
+    - [ ] Test full E2E functionality (create execution via AgentFlow, view details, share, delete)
+
+    ### Agents + Executions QA Hardening (Authz + Contracts + Lint)
+
+    - [x] Enforce scope + membership for validation routes
+      - Note: Validation must be unik/canvas-scoped and reuse the same membership enforcement pattern used by spaces-backend canvas routes.
+    - [x] Enforce scope + membership for executions routes
+      - Note: Executions list/detail/update/delete must be canvas-scoped and deny cross-canvas access.
+    - [x] Align "public execution" contract (frontend route + api-client + backend)
+      - Note: Share links use `/execution/:id` (no auth). API uses `/public-executions/:id`. Backend now mounts `/public-executions` and serves `GET /public-executions/:id`.
+    - [x] Fix lint/Prettier issues in agents/executions packages
+      - Note: Package lints for agents/executions/spaces backends no longer have blocking errors; full `pnpm build` succeeded.
+    - [x] Triage/fix `@universo/template-mui` lint failures
+      - Note: `pnpm --filter @universo/template-mui lint` now reports 0 errors (warnings only; previously included a11y `no-autofocus`, tests `aria-role`, Prettier formatting, invalid rule disables, `react/display-name`).
+      - Note: Full workspace build `pnpm build` succeeded after the fixes.
+
+    - [x] Re-verify executions/validation hardening after formatting
+      - Note: Reviewed scoping/membership enforcement in the listed routes/services after lint/formatting changes; no regressions found.
+      - Files:
+        - `packages/spaces-backend/base/src/routes/spacesRoutes.ts`
+        - `packages/flowise-executions-backend/base/src/database/migrations/postgres/1734220800000-AddExecutions.ts`
+        - `packages/flowise-executions-backend/base/src/services/executionsService.ts`
+        - `packages/flowise-executions-backend/base/src/routes/executionsRoutes.ts`
+
 ### Flowise 3.0.12 Full Package Replacement (Branch: feature/flowise-3.0.12-full-replacement)
 
 - [x] Create branch from main, backup old package as flowise-components-2.2.8-backup
@@ -68,6 +192,54 @@
     - Done: Removed flowise-components-2.2.8-backup (20MB), updated Memory Bank
 - [x] Commit changes to branch
     - Done: Changes committed and pushed to feature/flowise-3.0.12-full-replacement
+
+### AgentFlow Features Integration (Flowise 3.0.12)
+
+- [x] Phase 1: Chat Popup i18n Fix
+  - [x] Create i18n structure in flowise-chatmessage-frontend (locales/en,ru + registerNamespace)
+  - [x] Add side-effect import in index.js
+  - [x] Add onOpenChange callback for ValidationPopUp coordination
+  - [x] Rebuild and verify
+
+- [x] Phase 2: flowise-agents-backend Package
+  - [x] Create package structure (services, routes, types, index.ts)
+  - [x] Adapt validation service from Flowise 3.0.12 (329 lines → 300 lines)
+  - [x] Create validation router with GET /validation/:canvasId
+  - [x] Register validation router in core-backend with lazy componentNodes getter
+
+- [x] Phase 3: flowise-agents-frontend Package
+  - [x] Create package structure with i18n
+  - [x] Adapt ValidationPopUp component (302 lines → 310 lines TypeScript)
+  - [x] Add ValidationApi to universo-api-client
+  - [x] Integrate ValidationPopUp into canvas (conditional render for AgentFlow)
+  - [x] Fix isAgentCanvas detection to check canvas.type (MULTIAGENT/AGENTFLOW) not just URL
+  - [x] Style ValidationPopUp FAB with teal color like Flowise
+
+- [x] Phase 4: Universal Canvas with AgentFlow Node Rendering
+  - [x] Create AgentFlowNode.jsx (compact node with colored border, toolbar)
+  - [x] Create AgentFlowEdge.jsx (gradient edge with hover delete button)
+  - [x] Create StickyNoteNode.jsx (simple note node with color)
+  - [x] Create nodeTypeHelper.js utility (getNodeRenderType, normalizeNodeTypes, isAgentFlowNode, getEdgeRenderType)
+  - [x] Update canvas to use universal nodeTypes/edgeTypes registry
+  - [x] Update onDrop logic to use getNodeRenderType (based on node data, not canvas type)
+  - [x] Update onConnect to use getEdgeRenderType (based on connected nodes)
+  - [x] Update handleLoadFlow and hydrateGeneratedGraph to normalize node types
+  - [x] Add hasAgentFlowNodes useMemo for ValidationPopUp condition
+  - [x] Update ValidationPopUp condition from isAgentCanvas to hasAgentFlowNodes
+  - [x] Fix ESLint/prettier errors in new components
+  - [x] Implement AgentFlow node settings on double-click (Flowise 3.x behavior)
+    - Note: Canvas-level `onNodeDoubleClick` opens `EditNodeDialog`.
+  - [x] Add show/hide input params logic for the AgentFlow edit dialog
+    - Note: Ported `showHideInputParams` logic (upstream) to keep conditional inputs in sync.
+  - [ ] Full workspace build and runtime test
+    - [x] Full workspace build (`pnpm build`)
+    - [ ] Manual runtime test (`pnpm start`)
+  - [ ] Test universal canvas with mixed node types (standard + AgentFlow)
+
+- [ ] Phase 5: Testing & Polish (FUTURE)
+  - [ ] Full E2E test: create AgentFlow → add nodes → validate → run
+  - [ ] Test ValidationPopUp visibility coordination with ChatPopUp
+  - [ ] Update Memory Bank documentation
 
 ### Memory Bank Maintenance
 

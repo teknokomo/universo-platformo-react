@@ -82,11 +82,14 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
             isArray: Array.isArray(getCanvasesApi.data),
             dataKeys: getCanvasesApi.data ? Object.keys(getCanvasesApi.data) : [],
             dataLength: Array.isArray(getCanvasesApi.data) ? getCanvasesApi.data.length : 'N/A',
-            firstElement: Array.isArray(getCanvasesApi.data) && getCanvasesApi.data.length > 0 ? {
-                id: getCanvasesApi.data[0]?.id,
-                name: getCanvasesApi.data[0]?.name,
-                hasFlowData: !!getCanvasesApi.data[0]?.flowData
-            } : null
+            firstElement:
+                Array.isArray(getCanvasesApi.data) && getCanvasesApi.data.length > 0
+                    ? {
+                          id: getCanvasesApi.data[0]?.id,
+                          name: getCanvasesApi.data[0]?.name,
+                          hasFlowData: !!getCanvasesApi.data[0]?.flowData
+                      }
+                    : null
         })
 
         if (!getCanvasesApi.data) {

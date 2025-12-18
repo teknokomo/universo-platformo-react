@@ -13,6 +13,14 @@ interface ForgotPasswordProps {
 }
 
 export default function ForgotPassword({ open, handleClose }: ForgotPasswordProps) {
+    const emailInputRef = React.useRef<HTMLInputElement>(null)
+
+    React.useEffect(() => {
+        if (open) {
+            emailInputRef.current?.focus()
+        }
+    }, [open])
+
     return (
         <Dialog
             open={open}
@@ -34,7 +42,7 @@ export default function ForgotPassword({ open, handleClose }: ForgotPasswordProp
                     Enter your account&apos;s email address, and we&apos;ll send you a link to reset your password.
                 </DialogContentText>
                 <OutlinedInput
-                    autoFocus
+                    inputRef={emailInputRef}
                     required
                     margin='dense'
                     id='email'

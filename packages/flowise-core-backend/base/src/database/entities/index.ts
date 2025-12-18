@@ -5,6 +5,7 @@ import { Variable } from '@flowise/variables-backend'
 import { ApiKey } from '@flowise/apikey-backend'
 import { Assistant } from '@flowise/assistants-backend'
 import { Lead } from '@flowise/leads-backend'
+import { Execution } from '@flowise/executions-backend'
 import { DocumentStore, DocumentStoreFileChunk, UpsertHistory } from '@flowise/docstore-backend'
 import { CustomTemplate } from '@flowise/customtemplates-backend'
 import { Unik, UnikUser } from '@universo/uniks-backend'
@@ -45,6 +46,7 @@ export const entities = {
     DocumentStore,
     DocumentStoreFileChunk,
     Lead,
+    Execution,
     UpsertHistory,
     ApiKey,
     CustomTemplate,

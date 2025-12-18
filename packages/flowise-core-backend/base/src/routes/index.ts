@@ -48,6 +48,8 @@ import { createVariablesService, createVariablesRouter, variablesErrorHandler } 
 import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@flowise/apikey-backend'
 import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@flowise/assistants-backend'
 import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@flowise/leads-backend'
+import { createExecutionsService, createExecutionsRouter, createPublicExecutionsRouter, executionsErrorHandler } from '@flowise/executions-backend'
+import { createValidationService, createValidationRouter } from '@flowise/agents-backend'
 import {
     createChatMessagesService,
     createChatMessagesController,
@@ -83,7 +85,7 @@ import { encryptCredentialData, decryptCredentialData } from '../utils'
 import nodesService from '../services/nodes'
 import componentsCredentialsService from '../services/components-credentials'
 import canvasService, { canvasServiceConfig } from '../services/spacesCanvas'
-import { createCanvasPublicRoutes } from '@universo/spaces-backend'
+import { createCanvasPublicRoutes, Canvas } from '@universo/spaces-backend'
 import canvasStreamingRouter from './canvas-streaming'
 import { RateLimiterManager } from '../utils/rateLimit'
 // apiKeyService removed - now created via @flowise/apikey-backend
@@ -182,6 +184,29 @@ const leadsService = createLeadsService({
     getDataSource
 })
 const leadsRouter = createLeadsRouter(leadsService)
+
+// Create executions service and router using new package with DI
+const executionsService = createExecutionsService({
+    getDataSource
+})
+const executionsRouter = createExecutionsRouter(executionsService)
+const publicExecutionsRouter = createPublicExecutionsRouter(executionsService)
+
+// Create validation service and router using new package with DI
+// Uses lazy getters for componentNodes (requires running server)
+// Note: Type assertion needed due to slight differences in INodeParam types
+const validationService = createValidationService({
+    dataSource: getDataSource,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    componentNodes: () => getRunningExpressApp().nodesPool.componentNodes as any,
+    canvasEntityClass: Canvas
+})
+const validationRouter = createValidationRouter({
+    dataSource: getDataSource,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    componentNodes: () => getRunningExpressApp().nodesPool.componentNodes as any,
+    canvasEntityClass: Canvas
+})
 
 // Create chat messages service, controller and router using new package with DI
 const chatMessagesService = createChatMessagesService({
@@ -283,6 +308,7 @@ router.use('/stats', statsRouter)
 router.use('/vector', vectorRouter)
 router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
+router.use('/public-executions', publicExecutionsRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 // Apply ensureAuthWithRls middleware to /uniks route (collection operations: list, create)
@@ -328,7 +354,9 @@ router.use(
                         return userId === null ? undefined : userId
                     },
                     accessDeniedMessage: 'Access denied: You do not have permission to access this Unik'
-                }
+                },
+                executionsRouter,
+                validationRouter
             }
         }
     )

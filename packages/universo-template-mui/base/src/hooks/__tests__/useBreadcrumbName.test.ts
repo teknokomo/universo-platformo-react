@@ -1,13 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
-import {
-    createEntityNameHook,
-    createTruncateFunction,
-    useMetaverseName,
-    useClusterName,
-    truncateMetaverseName
-} from '../useBreadcrumbName'
+import { createEntityNameHook, createTruncateFunction, useMetaverseName, useClusterName, truncateMetaverseName } from '../useBreadcrumbName'
 
 // Mock fetch globally
 const mockFetch = jest.fn()
@@ -66,10 +60,13 @@ describe('useBreadcrumbName', () => {
                 expect(result.current).toBe('Test Entity Name')
             })
 
-            expect(mockFetch).toHaveBeenCalledWith('/api/v1/tests/test-id-123', expect.objectContaining({
-                method: 'GET',
-                credentials: 'include'
-            }))
+            expect(mockFetch).toHaveBeenCalledWith(
+                '/api/v1/tests/test-id-123',
+                expect.objectContaining({
+                    method: 'GET',
+                    credentials: 'include'
+                })
+            )
         })
 
         it('should use custom nameField when provided', async () => {
@@ -140,20 +137,14 @@ describe('useBreadcrumbName', () => {
             })
 
             // First render
-            const { result: result1 } = renderHook(
-                () => useTestEntityName('cache-test-id'),
-                { wrapper }
-            )
+            const { result: result1 } = renderHook(() => useTestEntityName('cache-test-id'), { wrapper })
 
             await waitFor(() => {
                 expect(result1.current).toBe('Cached Name')
             })
 
             // Second render with same ID - should use cache
-            const { result: result2 } = renderHook(
-                () => useTestEntityName('cache-test-id'),
-                { wrapper }
-            )
+            const { result: result2 } = renderHook(() => useTestEntityName('cache-test-id'), { wrapper })
 
             await waitFor(() => {
                 expect(result2.current).toBe('Cached Name')
@@ -227,7 +218,7 @@ describe('useBreadcrumbName', () => {
 
         it('should handle exact boundary length', () => {
             const truncate = createTruncateFunction(10)
-            expect(truncate('Exactly 10')).toBe('Exactly 10')  // Exactly 10 chars - no truncation
+            expect(truncate('Exactly 10')).toBe('Exactly 10') // Exactly 10 chars - no truncation
             expect(truncate('Exactly 11x')).toBe('Exactly 1…') // 11 chars → 9 chars + ellipsis = 10
         })
     })

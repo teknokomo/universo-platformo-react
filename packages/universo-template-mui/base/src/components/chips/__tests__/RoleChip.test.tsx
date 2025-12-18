@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/aria-role */
+
 import { render, screen } from '@testing-library/react'
 import { RoleChip } from '../RoleChip'
 import type { BaseRole } from '@universo/types'

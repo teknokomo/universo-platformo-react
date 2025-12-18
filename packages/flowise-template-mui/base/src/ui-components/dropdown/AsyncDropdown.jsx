@@ -44,7 +44,6 @@ export const AsyncDropdown = ({
     const [open, setOpen] = useState(false)
     const [options, setOptions] = useState([])
     const [loading, setLoading] = useState(false)
-    const [hasLoaded, setHasLoaded] = useState(false) // Track if options have been loaded
 
     // Use ref to track nodeData without causing re-renders
     const nodeDataRef = useRef(nodeData)
@@ -99,15 +98,13 @@ export const AsyncDropdown = ({
             const response = await client.post(`node-load-method/${currentNodeData.name}`, { ...currentNodeData, loadMethod })
             return response.data ?? []
         } catch (error) {
-            console.error(error)
+            console.error(`[AsyncDropdown] Error fetching options for "${name}":`, error)
             return []
         }
-    }, [client, name]) // Removed nodeData from dependencies - using ref instead
+    }, [client, name])
 
     useEffect(() => {
-        // Only load once per component mount
-        if (hasLoaded) return
-
+        // Load options on every mount (component remounts when provider/context changes via key change in parent)
         let isMounted = true
         const loadOptions = async () => {
             setLoading(true)
@@ -115,8 +112,15 @@ export const AsyncDropdown = ({
                 const response = credentialNames.length ? await fetchCredentialList() : await fetchDynamicOptions()
                 if (!isMounted) return
                 const nextOptions = response ?? []
+
+                // Transform imageSrc to full API URL for node icons
+                for (let j = 0; j < nextOptions.length; j += 1) {
+                    if (nextOptions[j].imageSrc) {
+                        nextOptions[j].imageSrc = `/api/v1/node-icon/${nextOptions[j].name}`
+                    }
+                }
+
                 setOptions(isCreateNewOption ? [...nextOptions, ...addNewOption] : [...nextOptions])
-                setHasLoaded(true) // Mark as loaded to prevent infinite loop
             } finally {
                 if (isMounted) setLoading(false)
             }
@@ -188,7 +192,19 @@ export const AsyncDropdown = ({
                     />
                 )}
                 renderOption={(props, option) => (
-                    <Box component='li' {...props}>
+                    <Box component='li' {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {option.imageSrc && (
+                            <img
+                                src={option.imageSrc}
+                                alt={option.description}
+                                style={{
+                                    width: 30,
+                                    height: 30,
+                                    padding: 1,
+                                    borderRadius: '50%'
+                                }}
+                            />
+                        )}
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography variant='h5'>{option.label}</Typography>
                             {option.description && (

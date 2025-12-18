@@ -26,6 +26,7 @@ import { assistantsMigrations } from '@flowise/assistants-backend'
 import { variablesMigrations } from '@flowise/variables-backend'
 import { docstoreMigrations } from '@flowise/docstore-backend'
 import { leadsMigrations } from '@flowise/leads-backend'
+import { executionsMigrations } from '@flowise/executions-backend'
 import { apikeyMigrations } from '@flowise/apikey-backend'
 import { customTemplatesMigrations } from '@flowise/customtemplates-backend'
 
@@ -91,12 +92,18 @@ export const postgresMigrations = [
     ...spacesMigrations,
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 5: Custom templates
+    // PHASE 5: Executions (depends on canvases - has FK to canvas table)
+    // Creates execution table for tracking agent flow executions
+    // ═══════════════════════════════════════════════════════════════════════
+    ...executionsMigrations,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 6: Custom templates
     // ═══════════════════════════════════════════════════════════════════════
     ...customTemplatesMigrations,
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 6: Publish (depends on spaces/canvases - has FK constraints)
+    // PHASE 7: Publish (depends on spaces/canvases - has FK constraints)
     // ═══════════════════════════════════════════════════════════════════════
     ...publishMigrations
 ]

@@ -1,14 +1,113 @@
 # Active Context
 
-> **Last Updated**: 2025-12-14
+> **Last Updated**: 2025-12-18
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Flowise 3.0.12 Full Package Replacement 🔄 (2025-12-14)
+## Current Focus: AgentFlow Features Integration (Flowise 3.0.12) 🔄 (2025-12-15)
 
-**Status**: Full workspace builds successfully (54 tasks). AgentFlow icons implemented in spaces-frontend. Ready for runtime testing.
+**Status**: Universal canvas architecture implemented with node-based type detection; finishing AgentFlow UX parity for node configuration.
+
+**Branch**: `main` (direct implementation)
+
+**Overview**: Implementing AgentFlow-specific features from Flowise 3.0.12 for improved canvas UX - Chat Popup i18n fix, Validation Checklist (ValidationPopUp), and **universal canvas with node-based rendering**.
+
+**Key Architecture Decision**: 
+- Project uses **universal single canvas** for all node types (unlike Flowise's separate Canvas/AgentCanvas)
+- Node rendering determined by **node data (category/name)**, not URL or canvas type
+- AgentFlow nodes detected by: `category === 'Agent Flows'`, name ending with `Agentflow`, or AGENTFLOW_ICONS match
+
+**Completed (Phases 1-4)**:
+
+1. **Chat Popup i18n Fix** (`@flowise/chatmessage-frontend`) ✅
+2. **flowise-agents-backend Package** (NEW) ✅
+3. **flowise-agents-frontend Package** (NEW) ✅
+4. **Universal Canvas with AgentFlow Node Rendering** ✅:
+   - **nodeTypeHelper.js utility** (NEW, 104 lines):
+     - `getNodeRenderType(nodeData)` → 'agentFlow' | 'stickyNote' | 'customNode'
+     - `normalizeNodeTypes(nodes, componentNodes)` → normalizes on load
+     - `isAgentFlowNode(node)` → boolean check
+     - `getEdgeRenderType(sourceNode, targetNode)` → 'agentFlow' | 'buttonedge'
+   - **Canvas changes**:
+     - Universal nodeTypes/edgeTypes registry (all types always available)
+     - onDrop uses `getNodeRenderType(nodeData)` 
+     - onConnect uses `getEdgeRenderType()`
+     - handleLoadFlow wraps with `normalizeNodeTypes()`
+     - `hasAgentFlowNodes` useMemo for ValidationPopUp condition
+   - **AgentFlowNode.jsx** - compact node with colored border, toolbar
+   - **AgentFlowEdge.jsx** - gradient edge with hover delete button
+   - **StickyNoteNode.jsx** - simple note node with color
+
+**QA Fixes (2025-12-15)** ✅:
+- ValidationPopUp icon color fixed to white (like ChatPopUp)
+- AgentFlow node config dialog on double-click (Flowise 3.x behavior): Canvas-level `onNodeDoubleClick` opens `EditNodeDialog`
+
+**QA Fixes (2025-12-16)** ✅:
+- Fixed EditNodeDialog/ConfigInput reactivity: NodeInputHandler now calls `onCustomDataChange` on value changes, so provider parameters update immediately without closing/reopening dialogs.
+- Fixed Connect Credential UI: NodeInputHandler now uses the canvas CredentialInputHandler (AsyncDropdown-based) and shows the placeholder correctly when empty.
+- Removed temporary debug logs from `packages/spaces-frontend/base/src/views/canvas/ConfigInput.jsx`.
+
+**QA Fixes (2025-12-17)** ✅:
+- Fixed missing `Messages` section for existing saved canvases: moved array-type inputParams rehydration (e.g., `llmMessages`) from `EditNodeDialog` to Canvas flow loading (Space + non-Space loaders + handleLoadFlow) and removed dialog-side schema mutation.
+
+**QA Fixes (2025-12-17)** ✅:
+- Fixed input focus loss on each keystroke: removed value-based remount key for `<Input>` and synced internal input state with the `value` prop.
+- Fixed Start node extra fields shown by default: apply `showHideInputParams` when opening `EditNodeDialog` so form-only fields stay hidden unless `startInputType === 'formInput'`.
+
+**Agents + Executions QA Hardening (2025-12-17)** ✅:
+- Validation and executions routes now enforce Unik membership when scoped by `unikId` and prefer parent route params for scoping.
+- Public execution contract aligned: share links use `/execution/:id` (no auth) and the server exposes `GET /public-executions/:id`.
+
+**QA Fixes (2025-12-18)** ✅:
+- Fixed `@universo/template-mui` lint blockers (no-autofocus, test aria-role false positives, invalid rule disables, react/display-name, Prettier).
+- Full workspace `pnpm build` succeeded after the lint fixes.
+
+**Pending (Phase 5 - Final Testing)**:
+- [ ] Runtime testing (pnpm start) with AgentFlow nodes
+- [ ] E2E test: create canvas → add AgentFlow nodes → configure → validate → run
+
+**Build Status**:
+- ✅ Full workspace build (`pnpm build`) successful
+- ✅ `pnpm --filter @universo/spaces-frontend lint`: 0 errors (warnings only)
+- ✅ `pnpm --filter @flowise/template-mui lint`: 0 errors (warnings only)
+- ✅ `pnpm --filter @universo/template-mui lint`: 0 errors (warnings only)
+
+---
+
+## Previous Focus: Agent Executions Integration (Flowise 3.x) ✅ (2025-12-15)
+
+5. **i18n Integration**:
+   - Menu translations added: "executions" → "Executions" (en), "Исполнения" (ru)
+
+**Build Fixes Applied**:
+- Fixed TypeScript errors: entity initializers, ExecutionState visibility, filter types, AxiosInstance import
+- All packages build successfully, full workspace build passes (55 tasks)
+
+**Phase 5 Completed (2025-12-15)**:
+- ✅ Copied all pages: Executions.jsx (464 lines), ExecutionDetails.jsx (985 lines), NodeExecutionDetails.jsx, PublicExecutionDetails.jsx, ShareExecutionDialog.jsx
+- ✅ Created ExecutionsListTable component with MUI DataGrid
+- ✅ Adapted imports to use @flowise/template-mui and @universo/api-client
+- ✅ Added useParams() for routing context (unikId, spaceId, canvasId)
+- ✅ Full workspace build: 55 tasks, 4m 56s - SUCCESS
+
+**Next Steps**:
+- Integrate executions into spaces-frontend routing (add Executions tab to Canvas view)
+- Manual runtime testing
+- End-to-end validation
+
+**Technical Notes**:
+- Router uses `mergeParams: true` to inherit URL params from parent routes
+- Service methods include canvas scoping for isolation
+- Soft delete pattern preserves execution history
+- Migration order critical due to canvas_id FK constraint
+
+---
+
+## Previous Focus: Flowise 3.0.12 Full Package Replacement ✅ (2025-12-14)
+
+**Status**: Completed. Full workspace builds successfully (54 tasks). AgentFlow icons implemented in spaces-frontend.
 
 **Branch**: `feature/flowise-3.0.12-full-replacement`
 

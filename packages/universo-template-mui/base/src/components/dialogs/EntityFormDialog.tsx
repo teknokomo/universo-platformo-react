@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 
@@ -75,6 +75,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const [extraValues, setExtraValues] = useState<Record<string, any>>(normalizedInitialExtraValues)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const nameInputRef = useRef<HTMLInputElement>(null)
 
     // Only reset form when dialog opens, not when initialExtraValues change
     useEffect(() => {
@@ -84,6 +85,12 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             setFieldErrors({})
         }
     }, [open, initialName, initialDescription])
+
+    useEffect(() => {
+        if (open) {
+            nameInputRef.current?.focus()
+        }
+    }, [open])
 
     // Set initial extra values only on first open
     useEffect(() => {
@@ -155,7 +162,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                         fullWidth
                         required
                         disabled={isLoading}
-                        autoFocus
+                        inputRef={nameInputRef}
                         variant='outlined'
                         error={!!fieldErrors.name}
                         helperText={fieldErrors.name}

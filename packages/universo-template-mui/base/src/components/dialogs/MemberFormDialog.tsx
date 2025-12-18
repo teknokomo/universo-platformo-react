@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, MenuItem, Alert } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -70,6 +70,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
         member: 'Member'
     }
 }) => {
+    const emailInputRef = useRef<HTMLInputElement | null>(null)
     const {
         control,
         handleSubmit,
@@ -94,6 +95,12 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
             })
         }
     }, [open, initialEmail, initialRole, initialComment, reset])
+
+    useEffect(() => {
+        if (open && mode === 'create') {
+            emailInputRef.current?.focus()
+        }
+    }, [open, mode])
 
     const onSubmit = async (data: MemberFormData) => {
         try {
@@ -153,15 +160,18 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                         <Controller
                             name='email'
                             control={control}
-                            render={({ field }) => (
+                            render={({ field: { ref, ...field } }) => (
                                 <TextField
                                     {...field}
+                                    inputRef={(instance) => {
+                                        ref(instance)
+                                        emailInputRef.current = instance
+                                    }}
                                     label={emailLabel}
                                     placeholder='user@example.com'
                                     fullWidth
                                     required
                                     disabled={isLoading || mode === 'edit'}
-                                    autoFocus={mode === 'create'}
                                     variant='outlined'
                                     type='email'
                                     error={!!fieldErrors.email}

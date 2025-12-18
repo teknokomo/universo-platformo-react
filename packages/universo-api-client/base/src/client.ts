@@ -7,6 +7,7 @@ import { ToolsApi } from './api/tools'
 import { NodesApi } from './api/nodes'
 import { SpacesApi } from './api/spaces'
 import { DocumentStoreApi } from './api/documentstore'
+import { ExecutionsApi } from './api/executions'
 import { TemplatesApi } from './api/templates'
 import { CanvasMessagesApi } from './api/canvasMessages'
 import { VariablesApi } from './api/variables'
@@ -21,6 +22,7 @@ import { ScraperApi } from './api/scraper'
 import { ExportImportApi } from './api/exportimport'
 import { AttachmentsApi } from './api/attachments'
 import { ChatMessageFeedbackApi } from './api/chatmessagefeedback'
+import { createValidationApi } from './api/validation'
 
 export interface UniversoApiClientOptions {
     /** Base URL pointing to the API root (e.g. '/api/v1') */
@@ -86,6 +88,7 @@ export const createUniversoApiClient = (options: UniversoApiClientOptions) => {
         config: new ConfigApi(client),
         credentials: new CredentialsApi(client),
         documentStore: new DocumentStoreApi(client),
+        executions: new ExecutionsApi(client),
         exportImport: new ExportImportApi(client),
         feedback: new FeedbackApi(client),
         leads: new LeadApi(client),
@@ -96,6 +99,7 @@ export const createUniversoApiClient = (options: UniversoApiClientOptions) => {
         spaces: new SpacesApi(client),
         templates: new TemplatesApi(client),
         tools: new ToolsApi(client),
+        validation: createValidationApi(client),
         variables: new VariablesApi(client),
         vectorStores: new VectorStoreApi(client),
 
