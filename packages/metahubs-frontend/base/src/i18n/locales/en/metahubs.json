@@ -1,0 +1,91 @@
+{
+    "metahubs": {
+        "title": "MetaHubs",
+        "searchPlaceholder": "Search metahubs...",
+        "noMetahubsFound": "No metahubs found",
+        "createMetahub": "Create MetaHub",
+        "editMetahub": "Edit MetaHub",
+        "deleteMetahub": "Delete MetaHub",
+        "metahubName": "Name",
+        "metahubDescription": "Description",
+        "entities": "Entities",
+        "entitiesCount": "Entities",
+        "fields": "Fields",
+        "records": "Records",
+        "board": {
+            "title": "MetaHub Board",
+            "overview": "Overview",
+            "entitiesSection": "Entity Definitions",
+            "noEntities": "No entities defined yet"
+        },
+        "entity": {
+            "create": "Create Entity",
+            "edit": "Edit Entity",
+            "delete": "Delete Entity",
+            "name": "Entity Name",
+            "codename": "Codename",
+            "description": "Description",
+            "noFields": "No fields defined"
+        },
+        "field": {
+            "create": "Add Field",
+            "edit": "Edit Field",
+            "delete": "Delete Field",
+            "name": "Field Name",
+            "codename": "Codename",
+            "type": "Field Type",
+            "required": "Required",
+            "types": {
+                "string": "Text (short)",
+                "text": "Text (long)",
+                "number": "Number",
+                "boolean": "Yes/No",
+                "date": "Date",
+                "datetime": "Date & Time",
+                "select": "Select",
+                "multiselect": "Multi-select",
+                "reference": "Reference"
+            }
+        },
+        "record": {
+            "create": "Add Record",
+            "edit": "Edit Record",
+            "delete": "Delete Record",
+            "noRecords": "No records yet"
+        },
+        "actions": {
+            "save": "Save",
+            "cancel": "Cancel",
+            "delete": "Delete",
+            "edit": "Edit",
+            "retry": "Retry"
+        },
+        "confirm": {
+            "delete": {
+                "title": "Delete MetaHub",
+                "description": "Are you sure you want to delete this metahub? This action cannot be undone.",
+                "confirm": "Delete",
+                "cancel": "Cancel"
+            },
+            "deleteEntity": {
+                "title": "Delete Entity",
+                "description": "Are you sure you want to delete this entity? All fields and records will be deleted.",
+                "confirm": "Delete",
+                "cancel": "Cancel"
+            }
+        },
+        "errors": {
+            "connectionFailed": "Connection failed",
+            "checkConnection": "Please check your internet connection",
+            "pleaseTryLater": "Please try again later",
+            "saveFailed": "Failed to save",
+            "loadFailed": "Failed to load data"
+        },
+        "menu": {
+            "metahubs": "MetaHubs",
+            "metahubboard": "Board",
+            "entities": "Entities",
+            "access": "Access"
+        }
+    }
+}

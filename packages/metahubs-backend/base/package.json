@@ -1,0 +1,46 @@
+{
+    "name": "@universo/metahubs-backend",
+    "version": "0.1.0",
+    "description": "Backend for MetaHub management in Universo Platformo - Metadata-driven architecture for dynamic entities",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts src/",
+        "test": "jest --config ./jest.config.js",
+        "test:watch": "jest --config ./jest.config.js --watch"
+    },
+    "keywords": [
+        "universo",
+        "platformo",
+        "metahubs",
+        "metadata",
+        "backend",
+        "typescript"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/admin-backend": "workspace:*",
+        "@universo/auth-backend": "workspace:*",
+        "@universo/utils": "workspace:*",
+        "express": "^4.18.2",
+        "http-errors": "catalog:",
+        "typeorm": "catalog:",
+        "zod": "^3.25.76"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/http-errors": "catalog:",
+        "@types/jest": "^29.5.12",
+        "@types/node": "^20.11.17",
+        "eslint": "^8.56.0",
+        "express-rate-limit": "catalog:",
+        "jest": "^29.7.0",
+        "rimraf": "^5.0.5",
+        "ts-jest": "^29.1.2",
+        "typescript": "^5.4.5"
+    }
+}

@@ -10,6 +10,8 @@ import '@universo/projects-frontend/i18n'
 import '@universo/campaigns-frontend/i18n'
 import '@universo/organizations-frontend/i18n'
 import '@universo/storages-frontend/i18n'
+// Register metahubs translations before lazy loading MetaHubs component
+import '@universo/metahubs-frontend/i18n'
 // Register admin translations before lazy loading Admin component
 import '@universo/admin-frontend/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
@@ -37,7 +39,7 @@ import Dashboard from '../views/dashboard/Dashboard'
 import { ErrorBoundary } from '../components'
 
 // Use local routing components (migrated from @flowise/template-mui)
-import { AuthGuard, AdminGuard, Loadable } from '../components/routing'
+import { AuthGuard, AdminGuard, MetahubGuard, Loadable } from '../components/routing'
 
 // Unik module components
 const UnikList = Loadable(lazy(() => import('@universo/uniks-frontend/pages/UnikList')))
@@ -158,6 +160,12 @@ const ContainerList = Loadable(lazy(() => import('@universo/storages-frontend/pa
 const SlotList = Loadable(lazy(() => import('@universo/storages-frontend/pages/SlotList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const StorageMembers = Loadable(lazy(() => import('@universo/storages-frontend/pages/StorageMembers')))
+
+// MetaHub module components (metadata-driven entities)
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubBoard')))
 
 // Admin module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
@@ -808,6 +816,23 @@ const MainRoutesMUI = {
                 <AuthGuard>
                     <StorageMembers />
                 </AuthGuard>
+            )
+        },
+        // MetaHub routes - metadata-driven entities (requires metahubs access)
+        {
+            path: 'metahubs',
+            element: (
+                <MetahubGuard>
+                    <MetahubList />
+                </MetahubGuard>
+            )
+        },
+        {
+            path: 'metahub/:metahubId',
+            element: (
+                <MetahubGuard>
+                    <MetahubBoard />
+                </MetahubGuard>
             )
         },
         {

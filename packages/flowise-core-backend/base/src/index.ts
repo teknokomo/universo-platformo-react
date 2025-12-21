@@ -32,6 +32,7 @@ import { initializeRateLimiters as initializeProjectsRateLimiters } from '@unive
 import { initializeRateLimiters as initializeCampaignsRateLimiters } from '@universo/campaigns-backend'
 import { initializeRateLimiters as initializeOrganizationsRateLimiters } from '@universo/organizations-backend'
 import { initializeRateLimiters as initializeStoragesRateLimiters } from '@universo/storages-backend'
+import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { validateAPIKey } from './utils/validateKey'
@@ -343,6 +344,9 @@ export class App {
 
         // Initialize rate limiters for storages service
         await initializeStoragesRateLimiters()
+
+        // Initialize rate limiters for metahubs service
+        await initializeMetahubsRateLimiters()
 
         this.app.use('/api/v1', flowiseApiV1Router)
 

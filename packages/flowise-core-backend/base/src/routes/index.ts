@@ -37,6 +37,7 @@ import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-backend'
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-backend'
+import { initializeRateLimiters as initializeMetahubsRateLimiters, createMetahubsServiceRoutes } from '@universo/metahubs-backend'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-backend'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-backend'
 import { createCampaignsServiceRoutes } from '@universo/campaigns-backend'
@@ -458,6 +459,22 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (storagesRouter) {
         storagesRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | MetaHubs - metadata-driven entities
+// Note: Rate limiters initialized via initializeMetahubsRateLimiters() in server startup
+// This mounts: /metahubs with nested /entities, /fields, /records
+// Lazy initialization: router created on first request (after initializeMetahubsRateLimiters called)
+let metahubsRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!metahubsRouter) {
+        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (metahubsRouter) {
+        metahubsRouter(req, res, next)
     } else {
         next()
     }

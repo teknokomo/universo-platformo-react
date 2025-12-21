@@ -92,6 +92,7 @@ export default function NavbarBreadcrumbs() {
     const menuMap: Record<string, string> = {
         uniks: 'uniks',
         metaverses: 'metaverses',
+        metahubs: 'metahubs',
         clusters: 'clusters',
         projects: 'projects',
         campaigns: 'campaigns',
@@ -417,6 +418,35 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('storageboard'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('members'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        // MetaHub routes (metadata-driven entities)
+        if (primary === 'metahubs') {
+            const items = [{ label: t(menuMap.metahubs), to: '/metahubs' }]
+            return items
+        }
+
+        if (primary === 'metahub') {
+            const items = [{ label: t(menuMap.metahubs), to: '/metahubs' }]
+
+            if (segments[1]) {
+                // TODO: Add useMetahubName hook for dynamic name loading
+                // For now, use truncated ID as label
+                const metahubLabel = segments[1].substring(0, 12) + '...'
+                items.push({
+                    label: metahubLabel,
+                    to: `/metahub/${segments[1]}`
+                })
+
+                // Sub-pages (entities, access) - use keys from menu namespace
+                if (segments[2] === 'entities') {
+                    items.push({ label: t('entities'), to: location.pathname })
+                } else if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
                 }
             }
 

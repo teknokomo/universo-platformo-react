@@ -9,13 +9,18 @@
  * import { useHasGlobalAccess } from '@flowise/store'
  *
  * function MyComponent() {
- *   const { isSuperuser, canAccessAdmin, canAccessAdminPanel, loading, globalRoles } = useHasGlobalAccess()
+ *   const { isSuperuser, canAccessAdmin, canAccessAdminPanel, canAccessMetahubs, loading, globalRoles } = useHasGlobalAccess()
  *
  *   if (loading) return <Spinner />
  *
  *   // Only show admin link if panel is enabled AND user has access
  *   if (canAccessAdminPanel) {
  *     return <AdminDashboard roles={globalRoles} isSuperuser={isSuperuser} />
+ *   }
+ *
+ *   // Only show metahubs if user has metahubs access
+ *   if (canAccessMetahubs) {
+ *     return <MetahubsDashboard />
  *   }
  *
  *   return <UserDashboard />
@@ -35,7 +40,8 @@ import AbilityContext from './AbilityContext'
  *   rolesMetadata: Object<string, {name: string, displayName: Object, color: string, isSuperuser: boolean}>,
  *   loading: boolean,
  *   adminConfig: {adminPanelEnabled: boolean, globalRolesEnabled: boolean, superuserEnabled: boolean},
- *   canAccessAdminPanel: boolean
+ *   canAccessAdminPanel: boolean,
+ *   canAccessMetahubs: boolean
  * }}
  */
 export function useHasGlobalAccess() {
@@ -52,7 +58,8 @@ export function useHasGlobalAccess() {
                 rolesMetadata: {},
                 loading: false,
                 adminConfig: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true },
-                canAccessAdminPanel: false
+                canAccessAdminPanel: false,
+                canAccessMetahubs: false
             }
         }
 
@@ -66,12 +73,19 @@ export function useHasGlobalAccess() {
         // 2. User has admin-related permissions (roles:read, instances:read, or users:read)
         const canAccessAdminPanel = adminConfig.adminPanelEnabled && hasAdminAccess
 
+        // User can access metahubs if:
+        // 1. User is superuser (has full bypass)
+        // 2. User has ability to read Metahub (via CASL permissions)
+        const ability = context.ability
+        const canAccessMetahubs = isSuperuser || (ability && ability.can('read', 'Metahub'))
+
         console.log('[useHasGlobalAccess] Computed values', {
             isSuperuser,
             hasAdminAccess,
             hasAnyGlobalRole,
             adminConfig,
             canAccessAdminPanel,
+            canAccessMetahubs,
             contextLoading: context.loading
         })
 
@@ -83,7 +97,8 @@ export function useHasGlobalAccess() {
             rolesMetadata: context.rolesMetadata ?? {},
             loading: context.loading ?? false,
             adminConfig,
-            canAccessAdminPanel
+            canAccessAdminPanel,
+            canAccessMetahubs
         }
     }, [context])
 

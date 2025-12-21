@@ -16,7 +16,9 @@ import { useMetaverseName } from '../../hooks'
 import {
     rootMenuItems,
     getAdminMenuItems,
+    getMetahubsMenuItem,
     getMetaverseMenuItems,
+    getMetahubMenuItems,
     getUnikMenuItems,
     getClusterMenuItems,
     getProjectMenuItems,
@@ -36,7 +38,8 @@ export default function MenuContent() {
     const { t, i18n: i18nInst } = useTranslation('menu', { i18n })
     const location = useLocation()
     // Use canAccessAdminPanel which checks both hasGlobalAccess AND adminPanelEnabled
-    const { canAccessAdminPanel } = useHasGlobalAccess()
+    // Use canAccessMetahubs which checks if user has metahubs permissions
+    const { canAccessAdminPanel, canAccessMetahubs } = useHasGlobalAccess()
 
     // Check if we're in a unik context
     const isUnikContext = location.pathname.match(/^\/unik\/([^/]+)/)
@@ -65,6 +68,10 @@ export default function MenuContent() {
     const storageMatch = location.pathname.match(/^\/storages?\/([^/]+)/)
     const storageId = storageMatch ? storageMatch[1] : null
 
+    // Check if we're in a metahub context (/metahub/:id paths)
+    const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
+    const metahubId = metahubMatch ? metahubMatch[1] : null
+
     // Check if we're in a campaign context (both /campaign/:id and /campaigns/:id paths)
     const campaignMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
     const campaignId = campaignMatch ? campaignMatch[1] : null
@@ -87,6 +94,8 @@ export default function MenuContent() {
         ? getOrganizationMenuItems(organizationId)
         : storageId
         ? getStorageMenuItems(storageId)
+        : metahubId
+        ? getMetahubMenuItems(metahubId)
         : campaignId
         ? getCampaignMenuItems(campaignId)
         : instanceId
@@ -104,16 +113,29 @@ export default function MenuContent() {
             sample_metaverses: t('metaverses')
         })
         // eslint-disable-next-line no-console
-        console.log('[MenuContent] Admin access check', {
+        console.log('[MenuContent] Access check', {
             canAccessAdminPanel,
+            canAccessMetahubs,
             instanceId,
             metaverseId,
             clusterId,
             projectId,
             organizationId,
             storageId,
+            metahubId,
             campaignId,
             unikId,
+            willShowMetahubs:
+                canAccessMetahubs &&
+                !instanceId &&
+                !metaverseId &&
+                !clusterId &&
+                !projectId &&
+                !organizationId &&
+                !storageId &&
+                !metahubId &&
+                !campaignId &&
+                !unikId,
             willShowAdmin:
                 canAccessAdminPanel &&
                 !instanceId &&
@@ -122,6 +144,7 @@ export default function MenuContent() {
                 !projectId &&
                 !organizationId &&
                 !storageId &&
+                !metahubId &&
                 !campaignId &&
                 !unikId
         })
@@ -165,6 +188,38 @@ export default function MenuContent() {
                     )
                 })}
 
+                {/* MetaHubs section with divider - only if user can access metahubs and not in any entity context */}
+                {canAccessMetahubs &&
+                    !instanceId &&
+                    !metaverseId &&
+                    !clusterId &&
+                    !projectId &&
+                    !organizationId &&
+                    !storageId &&
+                    !metahubId &&
+                    !campaignId &&
+                    !unikId && (
+                        <>
+                            <Divider sx={{ my: 1 }} />
+                            {/* MetaHubs menu items */}
+                            {getMetahubsMenuItem().map((item) => {
+                                const Icon = item.icon
+                                // Highlight metahubs menu for all metahub sub-routes
+                                const isSelected = location.pathname === item.url || location.pathname.startsWith('/metahub')
+                                return (
+                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                            <ListItemIcon>
+                                                <Icon size={20} stroke={1.5} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={t(item.titleKey)} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                )
+                            })}
+                        </>
+                    )}
+
                 {/* Admin section with divider - only if user can access admin panel and not in any entity context */}
                 {canAccessAdminPanel &&
                     !instanceId &&
@@ -173,6 +228,7 @@ export default function MenuContent() {
                     !projectId &&
                     !organizationId &&
                     !storageId &&
+                    !metahubId &&
                     !campaignId &&
                     !unikId && (
                         <>

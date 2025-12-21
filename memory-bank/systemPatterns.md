@@ -339,6 +339,8 @@ export const isGlobalRolesEnabled = () => process.env.GLOBAL_ROLES_ENABLED !== '
 
 **pnpm workspace**: Run from root, `--filter <package>` for single package, full `pnpm build` required for cross-deps.
 
+**Monorepo dependency graph**: Avoid cyclic workspace dependencies (Turbo will fail). In particular, foundational UI packages (e.g., `@universo/template-mui`) must not depend on feature frontends that already depend on them.
+
 **Performance**: `turbo` for caching, parallel builds where possible.
 
 ---
@@ -366,6 +368,6 @@ export const isGlobalRolesEnabled = () => process.env.GLOBAL_ROLES_ENABLED !== '
 
 ---
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-21
 
 **Note**: For full RLS pattern documentation → `rls-integration-pattern.md`. For implementation history → progress.md.

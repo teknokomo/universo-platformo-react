@@ -6,6 +6,61 @@
 
 ## 🔥 ACTIVE TASKS
 
+### MetaHubs Access Control (Restrict to Global Users) ✅
+
+- [x] Add 'metahubs: Metahub' to CASL MODULE_TO_SUBJECT in AbilityContextProvider
+- [x] Create migration for metahubs:* permission for superuser role
+- [x] Add getMetahubsMenuItem() function to menuConfigs.ts (move from rootMenuItems)
+- [x] Update MenuContent with MetaHubs section with divider (like Admin)
+- [x] Add canAccessMetahubs to useHasGlobalAccess hook
+- [x] Create MetahubGuard component (route protection)
+- [x] Update MainRoutesMUI to use MetahubGuard for /metahubs routes
+- [x] Full workspace rebuild successful (59 tasks)
+
+### MetaHubs UI Runtime Crash Fix (/metahubs currentPage) ✅
+
+- [x] Fix `MetahubList` to use `PaginationControls` API correctly (pass `pagination` + `actions`)
+- [x] Fix `MetahubList` to use `FlowListTable` API correctly (`customColumns`, `renderActions`, `getRowLink`)
+- [x] Rebuild `@universo/metahubs-frontend`
+- [x] Rebuild `@flowise/core-frontend`
+- [x] Run `@universo/metahubs-frontend` lint (clean)
+- [x] Full workspace rebuild (`pnpm build`) to propagate changes
+
+### MetaHubs UI Data Contract Fix (/metahubs d.map)
+
+- [x] Normalize metahubs list API response shape (support `{ items, total, limit, offset }` payloads)
+- [x] Align `MetahubBoard` entities query consumption with `PaginatedResponse` (`items` vs Axios `.data`)
+- [x] Validate with `@universo/metahubs-frontend` lint/build and full `pnpm build`
+- [x] Update memory bank (activeContext.md, progress.md)
+
+### MetaHubs Module MVP (Metadata-Driven Entities) ✅
+
+- [x] Create metahubs-backend package structure
+- [x] Define TypeORM entities (Metahub, MetahubUser, SysEntity, SysField, UserDataStore)
+- [x] Create migration with RLS policies + admin bypass
+- [x] Implement Zod validation schemas
+- [x] Create routes (metahubsRoutes, entitiesRoutes, recordsRoutes)
+- [x] Create metahubs-frontend package structure
+- [x] Define TypeScript types and API client
+- [x] Create i18n translations (en/ru)
+- [x] Create MetahubList and MetahubBoard pages
+- [x] Create mutation hooks (CRUD for all resources)
+- [x] Register backend in core-backend (entities, migrations, routes)
+- [x] Register frontend routes in universo-template-mui
+- [x] Add menu items and breadcrumbs support
+- [x] Add i18n keys to universo-i18n menu files
+
+### MetaHubs Post-Integration Build Fixes ✅
+
+- [x] Break Turbo cycle: remove `@universo/metahubs-frontend` dependency from `@universo/template-mui`
+- [x] Fix TS2352 casts in `@universo/metahubs-backend` routes (user claims extraction)
+- [x] Fix TS1128 syntax/registry issue in `@flowise/core-backend` entities index (remove stray fragment, ensure `Canvas` + `SpaceCanvas` are registered)
+- [x] Rebuild `@universo/metahubs-backend`
+- [x] Rebuild `@flowise/core-backend`
+- [x] Full workspace rebuild (`pnpm build`)
+
+---
+
 ### PR #608 Bot Comments QA & Fixes ✅
 
 - [x] Remove unused `executionsErrorHandler` import in flowise-core-backend routes

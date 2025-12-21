@@ -1,5 +1,6 @@
 import { CreateAdminSchema1733400000000 } from './1733400000000-CreateAdminSchema'
 import { CreateLocalesTable1734100000000 } from './1734100000000-CreateLocalesTable'
+import { AddMetahubsPermission1735300100000 } from './1735300100000-AddMetahubsPermission'
 
 /**
  * Admin schema migrations
@@ -13,4 +14,5 @@ import { CreateLocalesTable1734100000000 } from './1734100000000-CreateLocalesTa
  * - PostgreSQL functions for permission checking (CASL integration)
  * - RLS policies for security
  */
-export const adminMigrations = [CreateAdminSchema1733400000000, CreateLocalesTable1734100000000]
+export const adminMigrations = [CreateAdminSchema1733400000000, CreateLocalesTable1734100000000, AddMetahubsPermission1735300100000]
+

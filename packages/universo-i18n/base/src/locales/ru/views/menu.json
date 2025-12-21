@@ -33,6 +33,8 @@
         "storageboard": "Панель хранилища",
         "containers": "Контейнеры",
         "slots": "Слоты",
+        "metahubs": "МетаХабы",
+        "metahubboard": "Панель МетаХаба",
         "members": "Участники",
         "resources": "Ресурсы",
         "domains": "Домены",

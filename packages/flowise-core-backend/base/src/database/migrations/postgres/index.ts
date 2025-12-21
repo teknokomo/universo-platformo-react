@@ -42,6 +42,7 @@ import { organizationsMigrations } from '@universo/organizations-backend'
 import { storagesMigrations } from '@universo/storages-backend'
 import { spacesMigrations } from '@universo/spaces-backend'
 import { publishMigrations } from '@universo/publish-backend'
+import { metahubsMigrations } from '@universo/metahubs-backend'
 
 export const postgresMigrations = [
     // ═══════════════════════════════════════════════════════════════════════
@@ -105,5 +106,11 @@ export const postgresMigrations = [
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 7: Publish (depends on spaces/canvases - has FK constraints)
     // ═══════════════════════════════════════════════════════════════════════
-    ...publishMigrations
+    ...publishMigrations,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 8: MetaHubs (metadata-driven entities, depends on uniks)
+    // Creates metahubs schema with sys_entities, sys_fields, user_data_store
+    // ═══════════════════════════════════════════════════════════════════════
+    ...metahubsMigrations
 ]

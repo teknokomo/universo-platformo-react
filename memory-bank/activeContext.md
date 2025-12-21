@@ -1,28 +1,131 @@
 # Active Context
 
-> **Last Updated**: 2025-12-18
+> **Last Updated**: 2025-12-21
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: PR #608 Post-Merge Cleanup & QA ✅ (2025-12-18)
+## Current Focus: MetaHubs UI Data Contract Fix ✅ (2025-12-21)
 
-**Status**: AgentFlow Agents + Executions integration complete and pushed to PR #608. Bot comments analyzed and addressed.
+**Status**: Fixed `/metahubs` runtime crash (`TypeError: d.map is not a function`).
 
-**Branch**: `feature/agents-executions-integration` (PR #608 open, awaiting user QA)
+**Root cause**: Some MetaHubs list endpoints can return a wrapper payload (e.g., `{ items, total, limit, offset }`) instead of a raw array. The frontend `listMetahubs()` assumed `response.data` is always an array and placed the wrapper object into `PaginatedResponse.items`. `usePaginated()` then forwarded that value as the `data` array, and the UI attempted to call `.map()` on a non-array.
 
-**Recent Activity**:
-- Analyzed GitHub bot comments (Copilot + Gemini Code Assist) in PR #608
-- Fixed 4 code quality issues (unused imports/variables)
-- Deferred 2 architectural improvements (require dedicated refactoring PR)
-- All lints and builds passing
+**Fix**:
+- Normalized list response shapes in `packages/metahubs-frontend/base/src/api/metahubs.ts` so `items` is always an array (supports both array payloads and `{ items, ... }` wrapper payloads; pagination meta derived from headers or payload).
+- Aligned `packages/metahubs-frontend/base/src/pages/MetahubBoard.tsx` to use `entitiesData.items` (not Axios-style `entitiesData.data`).
+- Added a defensive `Array.isArray` normalization in `packages/metahubs-frontend/base/src/pages/MetahubList.tsx` to avoid runtime crashes if malformed data slips through.
 
-**Next Steps**: User manual QA of Agents + Executions functionality, PR review/merge.
+**Validation**:
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm build` (full workspace)
+
+## Current Focus: MetaHubs UI Runtime Crash Fix ✅ (2025-12-21)
+
+**Status**: Fixed `/metahubs` runtime crash (`Cannot read properties of undefined (reading 'currentPage')`).
+
+**Root cause**: `MetahubList` used `PaginationControls` with an outdated/incorrect props shape, so `pagination` was `undefined` and the component accessed `pagination.currentPage`.
+
+**Fix**:
+- Updated `packages/metahubs-frontend/base/src/pages/MetahubList.tsx` to pass `pagination` + `actions` object props into `PaginationControls`.
+- Aligned `FlowListTable` usage with its actual API (`customColumns`, `renderActions`, `getRowLink`).
+
+**Validation**:
+- `pnpm --filter @universo/metahubs-frontend lint` (clean)
+- `pnpm --filter @flowise/core-frontend build`
+- `pnpm build` (full workspace)
 
 ---
 
-## Previous Focus: AgentFlow Features Integration (Flowise 3.0.12) ✅ (2025-12-15)
+## Previous Focus: MetaHubs Access Control ✅ (2025-12-21)
+
+**Status**: Access control implemented; MetaHubs restricted to global users only.
+
+**Branch**: `main` (direct implementation)
+
+**Overview**: Implemented access restrictions for MetaHubs module to ensure only superusers and users with explicit metahubs permissions can see and access the functionality.
+
+**Implementation Summary**:
+
+1. **CASL Integration**:
+   - Added `metahubs: 'Metahub'` to MODULE_TO_SUBJECT mapping
+   - Enables declarative permission checks with `<Can I="read" a="Metahub">`
+
+2. **Permission System**:
+   - New migration `1735300100000-AddMetahubsPermission.ts`
+   - Superuser role has `metahubs:*` permission (all actions)
+   - Future roles can receive granular metahubs permissions
+
+3. **Menu Protection**:
+   - Moved metahubs from `rootMenuItems` to `getMetahubsMenuItem()` function
+   - Added `canAccessMetahubs` flag to `useHasGlobalAccess()` hook
+   - MetaHubs appears in sidebar with divider (like Admin section)
+   - Only visible when user has permission and not in entity context
+
+4. **Route Protection**:
+   - Created `MetahubGuard` component (like `AdminGuard`)
+   - Wraps `/metahubs` and `/metahub/:metahubId` routes
+   - Redirects to `/` if access denied
+
+**Access Control Pattern**:
+```
+Superuser → Full access
+metahubs:* permission → Full access  
+Regular user → NO access (menu hidden, route redirects to /)
+```
+
+**Files Changed**:
+- `flowise-store/AbilityContextProvider.jsx` - CASL subject mapping
+- `flowise-store/useHasGlobalAccess.js` - canAccessMetahubs flag
+- `admin-backend/migrations/` - New permission migration
+- `universo-template-mui/menuConfigs.ts` - Separate menu function
+- `universo-template-mui/MenuContent.tsx` - MetaHubs section
+- `universo-template-mui/routing/MetahubGuard.tsx` - Route guard
+- `universo-template-mui/MainRoutesMUI.tsx` - Use MetahubGuard
+
+**Validation**: Full workspace build successful (59 tasks, 7m42s)
+
+---
+
+## Previous Focus: MetaHubs Post-Integration Build Stabilization ✅ (2025-12-21)
+
+**Status**: Build blockers resolved; full workspace `pnpm build` is green.
+
+**Branch**: `main` (direct implementation)
+
+**Overview**: Fixed post-integration build issues for MetaHubs (Turbo dependency cycle and TypeScript strictness errors in backend routes).
+
+**Fixes Applied**:
+- Removed the `@universo/template-mui` → `@universo/metahubs-frontend` workspace dependency to break the Turbo cycle.
+- Fixed TS2352 unsafe user-claims casts in `@universo/metahubs-backend` routes.
+- Fixed a syntax issue in `@flowise/core-backend` entities registry introduced during integration.
+
+**Architecture**:
+- **Database**: `metahubs` schema with 5 tables (metahubs, metahubs_users, sys_entities, sys_fields, user_data_store)
+- **Backend**: Express routes with RLS-aware managers, Zod validation, rate limiting
+- **Frontend**: React + MUI + TanStack Query with MetahubList and MetahubBoard pages
+- **Storage**: JSONB for flexible user data, GIN indexes for performance
+
+**Packages Created**:
+1. `@universo/metahubs-backend` - TypeORM entities, migrations, routes, services
+2. `@universo/metahubs-frontend` - React pages, API client, i18n, hooks
+
+**Integration Points**:
+- Registered in `flowise-core-backend` (entities, migrations, routes)
+- Routes added to `universo-template-mui/MainRoutesMUI.tsx`
+- Menu items added to `menuConfigs.ts` with `getMetahubMenuItems()`
+- Breadcrumbs support in `NavbarBreadcrumbs.tsx`
+- i18n keys in `universo-i18n` menu files
+
+**Next Steps**:
+- Optional: runtime test MetaHubs UI (`/metahubs`, `/metahub/:metahubId`).
+- Optional: improve breadcrumbs by resolving metahub name instead of showing truncated id.
+
+---
+
+## Previous Focus: PR #608 Post-Merge Cleanup & QA ✅ (2025-12-18)
 
 **Status**: Universal canvas architecture implemented with node-based type detection; finishing AgentFlow UX parity for node configuration.
 

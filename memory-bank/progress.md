@@ -29,6 +29,153 @@
 
 ---
 
+## 📅 2025-12-21
+
+### MetaHubs: Access Control Implementation (Restrict to Global Users) ✅
+
+**Context:** MetaHubs functionality needed to be restricted to global users only (superusers and users with explicit metahubs permissions). Regular users should not see the MetaHubs menu item or access the routes.
+
+**Implementation:**
+
+1. **CASL Integration:**
+   - Added `metahubs: 'Metahub'` to `MODULE_TO_SUBJECT` in `AbilityContextProvider.jsx`
+   - Enables `<Can I="read" a="Metahub">` permission checks
+
+2. **Permission Migration:**
+   - Created `1735300100000-AddMetahubsPermission.ts` migration
+   - Adds explicit `metahubs:*` permission for superuser role
+   - Registered in `admin-backend/migrations/postgres/index.ts`
+
+3. **Menu Protection:**
+   - Moved `metahubs` from `rootMenuItems` to `getMetahubsMenuItem()` function
+   - Added `canAccessMetahubs` flag to `useHasGlobalAccess()` hook
+   - Added MetaHubs section with divider in `MenuContent.tsx` (like Admin section)
+   - Menu only visible when `canAccessMetahubs && !inAnyEntityContext`
+
+4. **Route Protection:**
+   - Created `MetahubGuard.tsx` component (similar to `AdminGuard.tsx`)
+   - Checks authentication + metahubs permission
+   - Redirects to `/` if access denied
+   - Updated `MainRoutesMUI.tsx` to use `MetahubGuard` for `/metahubs` and `/metahub/:metahubId` routes
+
+**Files Changed:**
+- `packages/flowise-store/base/src/context/AbilityContextProvider.jsx` - Added metahubs subject
+- `packages/flowise-store/base/src/context/useHasGlobalAccess.js` - Added canAccessMetahubs
+- `packages/admin-backend/base/src/database/migrations/postgres/1735300100000-AddMetahubsPermission.ts` - New migration
+- `packages/admin-backend/base/src/database/migrations/postgres/index.ts` - Registered migration
+- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts` - Added getMetahubsMenuItem()
+- `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx` - Added MetaHubs section
+- `packages/universo-template-mui/base/src/components/routing/MetahubGuard.tsx` - New guard
+- `packages/universo-template-mui/base/src/components/routing/index.ts` - Export MetahubGuard
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - Use MetahubGuard
+
+**Access Control Pattern:**
+```
+┌─────────────────────────────────────────────────────────┐
+│                    MetaHubs Access                      │
+├─────────────────────────────────────────────────────────┤
+│ Superuser (is_superuser=true)      → Full access        │
+│ Global Role with 'metahubs:*' perm → Full access        │
+│ Regular user                        → NO access (403)   │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Validation:** Full workspace build successful (59 tasks, 7m42s)
+
+### MetaHubs: Fix `/metahubs` Runtime Crash (PaginationControls currentPage) ✅
+
+**Context:** Opening `/metahubs` crashed the UI with `TypeError: Cannot read properties of undefined (reading 'currentPage')`.
+
+**Root cause:** `MetahubList` used `PaginationControls` with an incorrect props contract, so the component received `pagination === undefined` and accessed `pagination.currentPage`.
+
+**Fixes:**
+- Updated `packages/metahubs-frontend/base/src/pages/MetahubList.tsx` to pass `pagination` + `actions` into `PaginationControls`.
+- Updated `MetahubList` to use the actual `FlowListTable` API (`customColumns`, `renderActions`, `getRowLink`).
+- Auto-fixed Prettier formatting in `@universo/metahubs-frontend` to unblock lint.
+
+**Validation:**
+- ✅ `pnpm --filter @universo/metahubs-frontend build`
+- ✅ `pnpm --filter @flowise/core-frontend build`
+- ✅ `pnpm --filter @universo/metahubs-frontend lint` (clean)
+- ✅ Full workspace `pnpm build` (59 tasks)
+
+### MetaHubs: Fix `/metahubs` Runtime Crash (`d.map is not a function`) ✅
+
+**Context:** After the pagination crash was fixed, opening `/metahubs` could still crash with `TypeError: d.map is not a function`.
+
+**Root cause:** Some list endpoints can return a wrapper payload (e.g., `{ items, total, limit, offset }`) instead of a raw array. The frontend `listMetahubs()` assumed `response.data` is always an array and stored the wrapper object into `PaginatedResponse.items`. The `usePaginated()` hook then forwarded that value into UI rendering, which attempted `.map()` on a non-array.
+
+**Fixes:**
+- Normalized list response shapes in `packages/metahubs-frontend/base/src/api/metahubs.ts` to always return `PaginatedResponse<T>` with `items: T[]`.
+   - Supports both array payloads and `{ items, ... }` payloads.
+   - Pagination metadata is derived from headers when present, otherwise from payload / fallbacks.
+- Aligned `packages/metahubs-frontend/base/src/pages/MetahubBoard.tsx` to consume `listEntities()` as `PaginatedResponse` (`entitiesData.items`).
+- Added a defensive `Array.isArray` normalization in `packages/metahubs-frontend/base/src/pages/MetahubList.tsx` to avoid hard crashes if data is malformed.
+
+**Validation:**
+- ✅ `pnpm --filter @universo/metahubs-frontend lint`
+- ✅ `pnpm --filter @universo/metahubs-frontend build`
+- ✅ Full workspace `pnpm build` (59 tasks, 8m11s)
+
+### MetaHubs: Post-Integration Build Stabilization ✅
+
+**Context:** After integrating MetaHubs into the monorepo, the workspace build was blocked by a Turbo dependency cycle and TypeScript compilation errors.
+
+**Fixes:**
+- Broke the Turbo cycle by removing the `@universo/template-mui` → `@universo/metahubs-frontend` workspace dependency.
+- Fixed TS2352 unsafe casts in `@universo/metahubs-backend` route helpers by routing the conversion through `unknown`.
+- Fixed a syntax issue in `@flowise/core-backend` entities registry and ensured `Canvas`/`SpaceCanvas` are registered.
+
+**Validation:**
+- ✅ `pnpm --filter @universo/metahubs-backend build`
+- ✅ `pnpm --filter @flowise/core-backend build`
+- ✅ Full workspace `pnpm build` succeeded (59 tasks).
+
+## 📅 2025-12-19
+
+### MetaHubs Module MVP ✅
+
+**Context:** Created full-stack MetaHubs module implementing MDA (Model-Driven Architecture) pattern for 1C-like dynamic entity definitions.
+
+**Architecture Decisions:**
+- **Database Schema**: Dedicated `metahubs` PostgreSQL schema with RLS policies and admin bypass
+- **Entity Structure**: Metahub → SysEntity → SysField hierarchy with JSONB user_data_store
+- **Access Model**: Role-based (owner/admin/editor/viewer) following existing module patterns
+- **Storage**: JSONB fields with GIN indexes for flexible record storage
+
+**Packages Created:**
+
+1. **@universo/metahubs-backend** (19 files):
+   - TypeORM entities: Metahub, MetahubUser, SysEntity, SysField, UserDataStore
+   - Migration with RLS policies + `admin.is_superuser()` bypass
+   - Zod validation schemas for all inputs
+   - Express routes: metahubsRoutes, entitiesRoutes, recordsRoutes
+   - Rate limiters following metaverses-backend pattern
+
+2. **@universo/metahubs-frontend** (12 files):
+   - React pages: MetahubList, MetahubBoard
+   - API client with full CRUD for metahubs/entities/fields/records
+   - TanStack Query key factories
+   - i18n translations (en/ru)
+   - Mutation hooks for all CRUD operations
+
+**Integration:**
+- Registered entities and migrations in `flowise-core-backend`
+- Added routes with lazy router initialization pattern
+- Frontend routes in `universo-template-mui/MainRoutesMUI.tsx`
+- Menu items: `getMetahubMenuItems()` in `menuConfigs.ts`
+- Breadcrumbs: `/metahubs` and `/metahub/:id` patterns
+- i18n: `metahubs` and `metahubboard` keys in menu.json
+
+**Database Tables:**
+- `metahubs.metahubs` - MetaHub containers
+- `metahubs.metahubs_users` - Access control (role-based)
+- `metahubs.sys_entities` - Entity type definitions
+- `metahubs.sys_fields` - Field definitions with type config
+- `metahubs.user_data_store` - JSONB record storage
+
+---
+
 ## 📅 2025-12-18
 
 ### PR #608 Bot Comments QA: Code Cleanup ✅

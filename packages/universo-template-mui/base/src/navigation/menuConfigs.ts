@@ -22,7 +22,8 @@ import {
     IconShield,
     IconUsersGroup,
     IconUserShield,
-    IconLanguage
+    IconLanguage,
+    IconCube
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -254,6 +255,28 @@ export const getStorageMenuItems = (storageId: string): TemplateMenuItem[] => [
     }
 ]
 
+// Function to generate metahub menu items for a specific metahub (metadata-driven entities)
+export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
+    {
+        id: 'metahub-board',
+        titleKey: 'metahubboard',
+        url: `/metahub/${metahubId}`,
+        icon: IconCube
+    },
+    {
+        id: 'metahub-entities',
+        titleKey: 'entities',
+        url: `/metahub/${metahubId}/entities`,
+        icon: IconBoxMultiple
+    },
+    {
+        id: 'metahub-access',
+        titleKey: 'access',
+        url: `/metahub/${metahubId}/access`,
+        icon: IconUsers
+    }
+]
+
 // Function to generate campaign menu items for a specific campaign
 export const getCampaignMenuItems = (campaignId: string): TemplateMenuItem[] => [
     {
@@ -341,6 +364,19 @@ export const rootMenuItems: TemplateMenuItem[] = [
         chip: {
             label: '⧉'
         }
+    }
+]
+
+/**
+ * MetaHubs menu items (shown only for users with metahubs access)
+ * Returns single menu item pointing to metahubs list
+ */
+export const getMetahubsMenuItem = (): TemplateMenuItem[] => [
+    {
+        id: 'metahubs',
+        titleKey: 'metahubs',
+        url: '/metahubs',
+        icon: IconCube
     }
 ]
 

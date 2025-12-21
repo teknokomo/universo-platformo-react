@@ -1969,12 +1969,18 @@ importers:
       '@universo/auth-backend':
         specifier: workspace:*
         version: link:../../auth-backend/base
+      '@universo/campaigns-backend':
+        specifier: workspace:*
+        version: link:../../campaigns-backend/base
       '@universo/clusters-backend':
         specifier: workspace:*
         version: link:../../clusters-backend/base
       '@universo/core-backend':
         specifier: workspace:*
         version: link:../../universo-core-backend/base
+      '@universo/metahubs-backend':
+        specifier: workspace:*
+        version: link:../../metahubs-backend/base
       '@universo/metaverses-backend':
         specifier: workspace:*
         version: link:../../metaverses-backend/base
@@ -1999,6 +2005,9 @@ importers:
       '@universo/spaces-backend':
         specifier: workspace:*
         version: link:../../spaces-backend/base
+      '@universo/storages-backend':
+        specifier: workspace:*
+        version: link:../../storages-backend/base
       '@universo/uniks-backend':
         specifier: workspace:*
         version: link:../../uniks-backend/base
@@ -3209,6 +3218,119 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.8.3
+
+  packages/metahubs-backend/base:
+    dependencies:
+      '@universo/admin-backend':
+        specifier: workspace:*
+        version: link:../../admin-backend/base
+      '@universo/auth-backend':
+        specifier: workspace:*
+        version: link:../../auth-backend/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
+      express:
+        specifier: ^4.18.2
+        version: 4.22.1
+      http-errors:
+        specifier: 'catalog:'
+        version: 2.0.1
+      typeorm:
+        specifier: 'catalog:'
+        version: 0.3.28(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mongodb@6.21.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/http-errors':
+        specifier: 'catalog:'
+        version: 2.0.5
+      '@types/jest':
+        specifier: ^29.5.12
+        version: 29.5.14
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      express-rate-limit:
+        specifier: 'catalog:'
+        version: 8.2.1(express@4.22.1)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      ts-jest:
+        specifier: ^29.1.2
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(jest-util@29.7.0)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.8.3
+
+  packages/metahubs-frontend/base:
+    dependencies:
+      '@emotion/react':
+        specifier: ^11.14.0
+        version: 11.14.0(@types/react@18.3.27)(react@18.3.1)
+      '@emotion/styled':
+        specifier: ^11.14.1
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1)
+      '@mui/lab':
+        specifier: ^6.0.0-beta.32
+        version: 6.0.0-dev.240424162023-9968b4889d(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/material':
+        specifier: 'catalog:'
+        version: 6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tabler/icons-react':
+        specifier: ^3.30.0
+        version: 3.35.0(react@18.3.1)
+      '@universo/auth-frontend':
+        specifier: workspace:*
+        version: link:../../auth-frontend/base
+      '@universo/template-mui':
+        specifier: workspace:*
+        version: link:../../universo-template-mui/base
+      axios:
+        specifier: 1.13.2
+        version: 1.13.2(debug@4.4.3)
+      react:
+        specifier: 'catalog:'
+        version: 18.3.1
+      react-dom:
+        specifier: '>=18'
+        version: 18.3.1(react@18.3.1)
+      react-i18next:
+        specifier: 'catalog:'
+        version: 15.5.3(i18next@23.16.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.8.3)
+      react-router-dom:
+        specifier: ^6.0.0
+        version: 6.30.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+    devDependencies:
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.27
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.7(typescript@5.8.3)
 
   packages/metaverses-backend/base:
     dependencies:

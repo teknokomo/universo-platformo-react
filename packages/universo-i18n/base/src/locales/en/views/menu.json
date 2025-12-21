@@ -33,6 +33,8 @@
         "storageboard": "Storageboard",
         "containers": "Containers",
         "slots": "Slots",
+        "metahubs": "MetaHubs",
+        "metahubboard": "MetaHub Board",
         "members": "Members",
         "resources": "Resources",
         "domains": "Domains",

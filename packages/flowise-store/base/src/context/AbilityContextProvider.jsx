@@ -42,6 +42,7 @@ const MODULE_TO_SUBJECT = {
     sections: 'Section',
     organizations: 'Organization',
     storages: 'Storage',
+    metahubs: 'Metahub',
     credentials: 'Credential',
     chatflows: 'Chatflow',
     tools: 'Tool',
