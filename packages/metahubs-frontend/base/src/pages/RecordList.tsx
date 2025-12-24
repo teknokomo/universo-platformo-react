@@ -284,7 +284,7 @@ const RecordList = () => {
     })
 
     const { data: records, isLoading, error } = paginationResult
-    // usePaginated already extracts items array, so data IS the array
+    // usePaginated already returns the items array as `data`, here aliased to `records`
 
     // Instant search for better UX
     const { searchValue, handleSearchChange } = useDebouncedSearch({

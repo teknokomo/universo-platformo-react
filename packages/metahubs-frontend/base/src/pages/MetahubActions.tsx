@@ -1,12 +1,17 @@
 import { createEntityActions } from '@universo/template-mui'
-import type { Metahub } from '../types'
+import type { MetahubDisplay } from '../types'
 
 type MetahubData = {
     name: string
     description?: string
 }
 
-export default createEntityActions<Metahub, MetahubData>({
+/**
+ * Action descriptors for Metahub entity menu.
+ * Uses MetahubDisplay (with string name/description) for compatibility with createEntityActions.
+ * Metahub data must be converted to MetahubDisplay via toMetahubDisplay before passing to BaseEntityMenu.
+ */
+export default createEntityActions<MetahubDisplay, MetahubData>({
     i18nPrefix: 'metahubs',
     getInitialFormData: (entity) => ({
         initialName: entity.name,

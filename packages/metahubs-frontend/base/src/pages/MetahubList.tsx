@@ -128,10 +128,12 @@ const MetahubList = () => {
     const handleCreateMetahub = async (data: { name: string; description?: string }) => {
         setDialogError(null)
         setCreating(true)
+        // Determine current locale for VLC format
+        const currentLang: 'en' | 'ru' = i18n.language === 'ru' ? 'ru' : 'en'
         try {
             await metahubsApi.createMetahub({
-                name: data.name,
-                description: data.description
+                name: { [currentLang]: data.name } as { en?: string; ru?: string },
+                description: data.description ? { [currentLang]: data.description } as { en?: string; ru?: string } : undefined
             })
 
             // Invalidate cache to refetch metahubs list

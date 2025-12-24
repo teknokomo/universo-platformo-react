@@ -419,13 +419,8 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 // Lazy initialization: router created on first request (after initializeMetahubsRateLimiters called)
 let metahubsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
-    // Debug: log if metahubs path is hit
-    if (req.path.includes('metahub')) {
-        console.log('[DEBUG Metahubs] Path hit:', req.method, req.path)
-    }
     if (!metahubsRouter) {
         metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, () => getDataSource())
-        console.log('[Metahubs] Router created')
     }
     if (metahubsRouter) {
         metahubsRouter(req, res, next)

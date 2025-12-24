@@ -4,7 +4,19 @@ import { registerNamespace } from '@universo/i18n/registry'
 import enMetahubs from './locales/en/metahubs.json'
 import ruMetahubs from './locales/ru/metahubs.json'
 
-const consolidateMetahubsNamespace = (bundle: any) => ({
+interface MetahubsBundle {
+    metahubs?: Record<string, unknown>
+    meta_sections?: Record<string, unknown>
+    meta_entities?: Record<string, unknown>
+    members?: Record<string, unknown>
+    hubs?: Record<string, unknown>
+    attributes?: Record<string, unknown>
+    records?: Record<string, unknown>
+    common?: Record<string, unknown>
+    errors?: Record<string, unknown>
+}
+
+const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => ({
     ...(bundle?.metahubs ?? {}),
     meta_sections: bundle?.meta_sections ?? {},
     meta_entities: bundle?.meta_entities ?? {},

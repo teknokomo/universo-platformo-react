@@ -1,5 +1,13 @@
 import apiClient, { extractPaginationMeta } from './apiClient'
-import { Metahub, MetahubMember, MetahubAssignableRole, PaginationParams, PaginatedResponse, MetaEntity, MetaSection } from '../types'
+import { Metahub, MetahubMember, MetahubAssignableRole, PaginationParams, PaginatedResponse, MetaEntity, MetaSection, SimpleLocalizedInput } from '../types'
+
+// Input type for creating/updating metahubs with localized content
+export interface MetahubInput {
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    slug?: string
+    isPublic?: boolean
+}
 
 // Extended pagination params with showAll for admin users
 export interface MetahubPaginationParams extends PaginationParams {
@@ -38,9 +46,9 @@ export const listMetahubs = async (params?: MetahubPaginationParams): Promise<Pa
 
 export const getMetahub = (id: string) => apiClient.get<Metahub>(`/metahubs/${id}`)
 
-export const createMetahub = (data: { name: string; description?: string }) => apiClient.post<Metahub>('/metahubs', data)
+export const createMetahub = (data: MetahubInput) => apiClient.post<Metahub>('/metahubs', data)
 
-export const updateMetahub = (id: string, data: { name: string; description?: string }) => apiClient.put<Metahub>(`/metahubs/${id}`, data)
+export const updateMetahub = (id: string, data: Partial<MetahubInput>) => apiClient.put<Metahub>(`/metahubs/${id}`, data)
 
 export const deleteMetahub = (id: string) => apiClient.delete<void>(`/metahubs/${id}`)
 

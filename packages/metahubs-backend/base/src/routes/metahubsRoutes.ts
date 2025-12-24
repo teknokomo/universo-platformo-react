@@ -14,6 +14,7 @@ import type { MetahubRole } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
+import { escapeLikeWildcards } from '../utils'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -81,7 +82,7 @@ export function createMetahubsRoutes(
                 const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
 
                 if (search) {
-                    const escapedSearch = search.toLowerCase()
+                    const escapedSearch = escapeLikeWildcards(search.toLowerCase())
                     qb.andWhere(
                         `(
                             EXISTS (SELECT 1 FROM auth.users u WHERE u.id = mu.user_id AND LOWER(u.email) LIKE :search)
