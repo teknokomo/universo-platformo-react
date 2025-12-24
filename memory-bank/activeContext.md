@@ -1,369 +1,232 @@
 # Active Context
 
-> **Last Updated**: 2025-12-18
+> **Last Updated**: 2025-12-23
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: PR #608 Post-Merge Cleanup & QA ✅ (2025-12-18)
+## Current Focus: RLS Context Fix Completed (2025-12-23)
 
-**Status**: AgentFlow Agents + Executions integration complete and pushed to PR #608. Bot comments analyzed and addressed.
+**Status**: ✅ FIXED - RLS context now works correctly without breaking admin schema access.
 
-**Branch**: `feature/agents-executions-integration` (PR #608 open, awaiting user QA)
+### Issue 1: Empty Lists Despite Data in DB
 
-**Recent Activity**:
-- Analyzed GitHub bot comments (Copilot + Gemini Code Assist) in PR #608
-- Fixed 4 code quality issues (unused imports/variables)
-- Deferred 2 architectural improvements (require dedicated refactoring PR)
-- All lints and builds passing
+- After DB reset, Metahubs/Uniks data existed in PostgreSQL but UI lists returned empty arrays.
+- **Root Cause**: `applyRlsContext()` used transaction-local settings (`SET LOCAL`), so RLS context was lost after the setup statement.
+- **Fix**: Changed to session-scoped `set_config('request.jwt.claims', ..., false)`.
 
-**Next Steps**: User manual QA of Agents + Executions functionality, PR review/merge.
+### Issue 2: "permission denied for schema admin"
 
----
+- After switching to session-scoped settings, added `SET role = 'authenticated'` which broke access to `admin` schema functions (`admin.is_superuser()` etc.).
+- **Root Cause**: The `authenticated` role doesn't have USAGE privilege on `admin` schema.
+- **Fix**: Removed `SET role = 'authenticated'` entirely. RLS policies only need `request.jwt.claims` for `auth.uid()` to work — no role change required.
 
-## Previous Focus: AgentFlow Features Integration (Flowise 3.0.12) ✅ (2025-12-15)
+### What Was Fixed
 
-**Status**: Universal canvas architecture implemented with node-based type detection; finishing AgentFlow UX parity for node configuration.
+**`packages/auth-backend/base/src/utils/rlsContext.ts`**:
+- Removed `SET role = 'authenticated'` line
+- Kept session-scoped `set_config('request.jwt.claims', ..., false)`
 
-**Branch**: `main` (direct implementation)
+**`packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`**:
+- Removed `RESET role` from cleanup
+- Kept cleanup of `request.jwt.claims` to empty string before releasing connection
 
-**Overview**: Implementing AgentFlow-specific features from Flowise 3.0.12 for improved canvas UX - Chat Popup i18n fix, Validation Checklist (ValidationPopUp), and **universal canvas with node-based rendering**.
+**Build Status:** ✅ Full workspace `pnpm build` successful
 
-**Key Architecture Decision**: 
-- Project uses **universal single canvas** for all node types (unlike Flowise's separate Canvas/AgentCanvas)
-- Node rendering determined by **node data (category/name)**, not URL or canvas type
-- AgentFlow nodes detected by: `category === 'Agent Flows'`, name ending with `Agentflow`, or AGENTFLOW_ICONS match
+### Key Learning (Critical Pattern)
 
-**Completed (Phases 1-4)**:
-
-1. **Chat Popup i18n Fix** (`@flowise/chatmessage-frontend`) ✅
-2. **flowise-agents-backend Package** (NEW) ✅
-3. **flowise-agents-frontend Package** (NEW) ✅
-4. **Universal Canvas with AgentFlow Node Rendering** ✅:
-   - **nodeTypeHelper.js utility** (NEW, 104 lines):
-     - `getNodeRenderType(nodeData)` → 'agentFlow' | 'stickyNote' | 'customNode'
-     - `normalizeNodeTypes(nodes, componentNodes)` → normalizes on load
-     - `isAgentFlowNode(node)` → boolean check
-     - `getEdgeRenderType(sourceNode, targetNode)` → 'agentFlow' | 'buttonedge'
-   - **Canvas changes**:
-     - Universal nodeTypes/edgeTypes registry (all types always available)
-     - onDrop uses `getNodeRenderType(nodeData)` 
-     - onConnect uses `getEdgeRenderType()`
-     - handleLoadFlow wraps with `normalizeNodeTypes()`
-     - `hasAgentFlowNodes` useMemo for ValidationPopUp condition
-   - **AgentFlowNode.jsx** - compact node with colored border, toolbar
-   - **AgentFlowEdge.jsx** - gradient edge with hover delete button
-   - **StickyNoteNode.jsx** - simple note node with color
-
-**QA Fixes (2025-12-15)** ✅:
-- ValidationPopUp icon color fixed to white (like ChatPopUp)
-- AgentFlow node config dialog on double-click (Flowise 3.x behavior): Canvas-level `onNodeDoubleClick` opens `EditNodeDialog`
-
-**QA Fixes (2025-12-16)** ✅:
-- Fixed EditNodeDialog/ConfigInput reactivity: NodeInputHandler now calls `onCustomDataChange` on value changes, so provider parameters update immediately without closing/reopening dialogs.
-- Fixed Connect Credential UI: NodeInputHandler now uses the canvas CredentialInputHandler (AsyncDropdown-based) and shows the placeholder correctly when empty.
-- Removed temporary debug logs from `packages/spaces-frontend/base/src/views/canvas/ConfigInput.jsx`.
-
-**QA Fixes (2025-12-17)** ✅:
-- Fixed missing `Messages` section for existing saved canvases: moved array-type inputParams rehydration (e.g., `llmMessages`) from `EditNodeDialog` to Canvas flow loading (Space + non-Space loaders + handleLoadFlow) and removed dialog-side schema mutation.
-
-**QA Fixes (2025-12-17)** ✅:
-- Fixed input focus loss on each keystroke: removed value-based remount key for `<Input>` and synced internal input state with the `value` prop.
-- Fixed Start node extra fields shown by default: apply `showHideInputParams` when opening `EditNodeDialog` so form-only fields stay hidden unless `startInputType === 'formInput'`.
-
-**Agents + Executions QA Hardening (2025-12-17)** ✅:
-- Validation and executions routes now enforce Unik membership when scoped by `unikId` and prefer parent route params for scoping.
-- Public execution contract aligned: share links use `/execution/:id` (no auth) and the server exposes `GET /public-executions/:id`.
-
-**QA Fixes (2025-12-18)** ✅:
-- Fixed `@universo/template-mui` lint blockers (no-autofocus, test aria-role false positives, invalid rule disables, react/display-name, Prettier).
-- Full workspace `pnpm build` succeeded after the lint fixes.
-
-**Pending (Phase 5 - Final Testing)**:
-- [ ] Runtime testing (pnpm start) with AgentFlow nodes
-- [ ] E2E test: create canvas → add AgentFlow nodes → configure → validate → run
-
-**Build Status**:
-- ✅ Full workspace build (`pnpm build`) successful
-- ✅ `pnpm --filter @universo/spaces-frontend lint`: 0 errors (warnings only)
-- ✅ `pnpm --filter @flowise/template-mui lint`: 0 errors (warnings only)
-- ✅ `pnpm --filter @universo/template-mui lint`: 0 errors (warnings only)
+**NEVER use `SET role = 'authenticated'` in RLS context setup:**
+- The `authenticated` role lacks USAGE on `admin` schema
+- RLS policies use `auth.uid()` which reads from `request.jwt.claims.sub`
+- Only `request.jwt.claims` needs to be set; role change is unnecessary and harmful
 
 ---
 
-## Previous Focus: Agent Executions Integration (Flowise 3.x) ✅ (2025-12-15)
+## Recently Completed: Metahubs - Pagination Data Access Fix (2025-12-23)
 
-5. **i18n Integration**:
-   - Menu translations added: "executions" → "Executions" (en), "Исполнения" (ru)
+**Status**: ✅ FIXED - HubList, AttributeList, RecordList no longer crash on `.map()`. Builds passing.
 
-**Build Fixes Applied**:
-- Fixed TypeScript errors: entity initializers, ExecutionState visibility, filter types, AxiosInstance import
-- All packages build successfully, full workspace build passes (55 tasks)
+### Issue Discovered
 
-**Phase 5 Completed (2025-12-15)**:
-- ✅ Copied all pages: Executions.jsx (464 lines), ExecutionDetails.jsx (985 lines), NodeExecutionDetails.jsx, PublicExecutionDetails.jsx, ShareExecutionDialog.jsx
-- ✅ Created ExecutionsListTable component with MUI DataGrid
-- ✅ Adapted imports to use @flowise/template-mui and @universo/api-client
-- ✅ Added useParams() for routing context (unikId, spaceId, canvasId)
-- ✅ Full workspace build: 55 tasks, 4m 56s - SUCCESS
+- Clicking `/metahub/:metahubId/hubs` crashed with `TypeError: l.map is not a function` (line 364 in HubList.tsx)
+- Same issue in AttributeList and RecordList (pagination data destructuring)
 
-**Next Steps**:
-- Integrate executions into spaces-frontend routing (add Executions tab to Canvas view)
-- Manual runtime testing
-- End-to-end validation
+### Root Cause
 
-**Technical Notes**:
-- Router uses `mergeParams: true` to inherit URL params from parent routes
-- Service methods include canvas scoping for isolation
-- Soft delete pattern preserves execution history
-- Migration order critical due to canvas_id FK constraint
-
----
-
-## Previous Focus: Flowise 3.0.12 Full Package Replacement ✅ (2025-12-14)
-
-**Status**: Completed. Full workspace builds successfully (54 tasks). AgentFlow icons implemented in spaces-frontend.
-
-**Branch**: `feature/flowise-3.0.12-full-replacement`
-
-**Key Changes**:
-1. **Package Replacement**:
-   - Backed up old package as `flowise-components-2.2.8-backup`
-   - Copied full Flowise 3.0.12 components package (820 files, 8.6MB)
-
-2. **Build System Adaptation (Upstream-aligned)**:
-   - Switched `flowise-components` build to upstream approach: `tsc` + `gulp` (instead of rolldown/tsdown)
-   - Removed/avoided CJS lazy-init patterns (`__esm`) that were causing runtime failures on clean rebuilds
-
-3. **API Changes Handled**:
-   - `IServerSideEventStreamer`: Added 8 new methods (AgentFlow + TTS streaming)
-   - Storage functions now return `{ path: string; totalSize: number }` instead of `string`
-   - `addBase64FilesToStorage`: Added `orgId` parameter (4th arg)
-   - `streamStorageFile`: Added `orgId` parameter (4th arg)
-   - `removeFolderFromStorage` / `removeFilesFromStorage`: Now return `{ totalSize: number }`
-   
-4. **New Features in 3.0.12**:
-   - AgentFlow nodes (`nodes/agentflow/`)
-   - AGENTFLOW canvas type added to CanvasType enum
-   - TTS streaming events (text-to-speech)
-   - Enhanced evaluation system
-
-5. **AgentFlow Icons Fix** (2025-12-14):
-   - **Root cause**: AgentFlow nodes don't have icon files - they use built-in @tabler/icons-react v3.x components
-   - **Selection rule** (upstream-aligned): `node.color && !node.icon` → render Tabler icon; otherwise → `/api/v1/node-icon/...`
-   - **AGENTFLOW_ICONS constant**: Array with 15 entries `{name, icon: TablerComponent, color}` in `flowise-template-mui/constants.ts`
-   - **spaces-frontend patches** (2025-12-14):
-     - `AddNodes.jsx`: Added `renderNodeIcon()` helper using `AGENTFLOW_ICONS.find()`
-     - `CanvasNode.jsx`: Same `renderNodeIcon()` pattern for node rendering on canvas
-     - `agentflows/index.jsx`: `buildImageMap()` returns `{images, icons}`; component manages both states
-     - `canvases/index.jsx`: Same pattern applied
-     - `spaces/index.jsx`: Same pattern for `buildImagePreviewMap()`
-     - `NodeInfoDialog.jsx`: Conditional Tabler icon rendering for AgentFlow nodes
-   - **Backend fix**: Global error handler in `routes/index.ts` now respects `err.statusCode` (no longer masks 404 as 500)
-   - Upgraded `@tabler/icons-react` from ^2.32.0 to ^3.30.0 to match Flowise 3.0.12
-
-**Files Modified** (this session):
-- `packages/spaces-frontend/base/src/views/canvas/AddNodes.jsx`
-- `packages/spaces-frontend/base/src/views/canvas/CanvasNode.jsx`
-- `packages/spaces-frontend/base/src/views/agentflows/index.jsx`
-- `packages/spaces-frontend/base/src/views/canvases/index.jsx`
-- `packages/spaces-frontend/base/src/views/spaces/index.jsx`
-- `packages/flowise-template-mui/base/src/ui-components/dialog/NodeInfoDialog.jsx`
-- `packages/flowise-core-backend/base/src/routes/index.ts`
-
-**Current Blockers / Next Steps**:
-- Runtime testing (`pnpm start`) to verify AgentFlow icons display correctly
-- After verification: commit changes to branch
-
----
-
-## Previous Focus: Admin Roles Delete Dialog i18n ✅ (2025-12-13)
-
-**Status**: Completed comprehensive terminology refactoring from "VLC" to "Localized Content".
-
-**Summary**:
-- Renamed all VLC types to LocalizedContent (no deprecated aliases)
-- Renamed all VLC utility functions (createVlc → createLocalizedContent, etc.)
-- Updated database columns: `is_enabled_vlc` → `is_enabled_content`, `is_default_vlc` → `is_default_content`
-- Changed API endpoint: `/api/v1/locales/vlc` → `/api/v1/locales/content`
-- Updated admin UI terminology: "Locales" → "Languages" (en: "Languages", ru: "Языки")
-- UI/UX improvements: nativeName field first and required, column headers shortened
-
-**Key Technical Decisions**:
-- Removed legacy aliases and deprecated exports; use new names only
-- Both index.ts and index.browser.ts updated in universo-utils
-
-**Files Modified**: 18 files across universo-types, universo-utils, admin-backend, admin-frontend, universo-i18n, universo-template-mui
-
-**Details**: See progress.md#2025-12-15
-
----
-
-## Previous Focus: Dynamic Locales System ✅ (2025-12-14)
-
-**Status**: Implemented admin "Locales" management for VLC (Versioned Localized Content).
-
-**Summary**:
-- Admin UI at `/admin/instance/:instanceId/locales` for managing available locales
-- Database-driven instead of hardcoded `en`/`ru`
-- Public API `/api/v1/locales/content` for LocalizedFieldEditor (no auth, cached)
-- Type system changed: `SupportedLocale` now string alias with runtime validation
-- Full i18n support (en/ru translations for all new UI)
-
-**Key Technical Decisions**:
-- Content locales separate from UI i18n (UI still requires file-based translations)
-- System locales (en, ru) protected from deletion
-- Backward compatibility via deprecated type aliases
-
-**Files Created**: 9 new files (entity, migration, routes, API, pages, components)
-**Files Modified**: 14 files (types, utils, routes, i18n, frontend routing)
-
-**Details**: See progress.md#2025-12-14
-
----
-
-## Previous Focus: Development Environment Maintenance ✅ (2025-12-11)
-
-**Status**: Fixed ESLint TypeScript compatibility warnings. Development environment now clean.
-
-**Latest Actions**:
-- ✅ Upgraded @typescript-eslint packages to v8.x (now supports TypeScript 5.8.3)
-- ✅ Updated eslint-plugin-unused-imports to v4.3.0 for compatibility
-- ✅ Reconfigured ESLint to use TypeScript overrides pattern
-- ✅ Verified all packages lint correctly without version warnings
-
-**Impact**: No more "unsupported TypeScript version" warnings during linting. Code quality tools now run cleanly across entire codebase.
-
-**Previous Context**: UUID v7 QA investigation completed successfully (see progress.md#2025-12-11)
-
----
-
-## Previous Focus: UUID v7 Migration - Complete ✅ (2025-12-10)
-
-**Status**: Successfully migrated entire project from UUID v4 to UUID v7 for better database performance.
-
-**Changes**:
-- Created `@universo/utils/uuid` module with `generateUuidV7()`, `isValidUuid()`, `extractTimestampFromUuidV7()`
-- Updated TypeORM from 0.3.6 → 0.3.28 (removed override)
-- Added PostgreSQL `uuid_generate_v7()` function in first migration (admin-backend)
-- Updated 75 database migrations: `uuid_generate_v4()` / `gen_random_uuid()` → `public.uuid_generate_v7()`
-- Updated 24 backend files: replaced `randomUUID()` from crypto and `{ v4 as uuidv4 } from 'uuid'` with `uuid.generateUuidV7()` from `@universo/utils`
-- Updated 7 frontend files: replaced `{ v4 as uuidv4 } from 'uuid'` with `{ uuidv7 } from 'uuidv7'`
-- Added `uuidv7: ^1.1.0` to catalog in `pnpm-workspace.yaml`
-
-**Performance Impact**: UUID v7 provides 30-50% faster indexing (time-ordered) compared to random UUID v4
-
-**Details**: progress.md#2025-12-10
-
----
-
-## Previous Focus: Legacy Code Cleanup ✅ (2025-12-10)
-
-**Status**: Fixed 5 minor issues with outdated comments and legacy naming conventions after Global Roles Access implementation.
-
-**Changes**:
-- Updated 4 comment blocks in admin-frontend: `has_global_access = true` → `is_superuser = true`
-  - Files: `useRoles.ts`, `queryKeys.ts`, `rolesApi.ts`, `useAssignableGlobalRoles.ts`
-- Updated `systemPatterns.md`: Removed reference to deleted `admin.has_global_access()` SQL function
-- Enhanced deprecation warning in `adminConfig.ts` with detailed JSDoc and runtime console.warn()
-
-**Details**: progress.md#2025-12-10
-
----
-
-## Previous Focus: Global Roles Access Implementation ✅ (2025-12-09)
-
-**Summary**: Fixed global roles access architecture - users with subject-specific permissions (e.g., `metaverses:*`) can now access all items of permitted subjects.
-
-**Key Fixes**:
-1. Guard bypass: Fixed `ensureMetaverseAccess` to check global permissions before membership (synthetic membership pattern)
-2. Legacy SQL: Replaced `admin.has_global_access()` → `admin.is_superuser()`
-3. Sections dropdown: Fixed context-awareness for metaverse-specific sections query
-
-**Architecture**: Separated `hasAdminAccess` (admin panel) from `hasGlobalSubjectAccess` (view all data)
-
-**Modified**: 13 files across 4 packages (metaverses-backend, metaverses-frontend, auth-backend, flowise-store)
-
-**Details**: progress.md#2025-12-09
-
----
-
-## Previous Focus: CASL Standard Compliance ✅ (2025-12-08)
-
-**Summary**: Refactored permission system from `module` → `subject` terminology (CASL/Auth0/OWASP standard).
-
-**Changes**: 21 files - database migration, TypeScript types, backend services, frontend components, i18n (EN/RU)
-
-**Impact**: All permission checks now use `subject` field (e.g., `roles:read`, `metaverses:*`)
-
-**Details**: progress.md#2025-12-08
-
----
-
-## Previous Focus: RBAC Architecture Cleanup ✅ (2025-12-07)
-
-**Summary**: Removed `canAccessAdmin` flag redundancy - admin access now computed from RBAC permissions.
-
-**Rule**: `IF user has READ permission on ANY of ['roles', 'instances', 'users'] THEN hasAdminAccess = true`
-
-**Changes**: 18 files - dropped database column, added SQL function `admin.has_admin_permission()`, updated frontend hooks
-
-**Details**: progress.md#2025-12-07
-
----
-
-## Recent Completions (Last 30 Days)
-
-### RBAC System (2025-12-05 to 2025-12-10)
-- Dynamic role dropdowns with database-driven roles (2025-12-09)
-- Database-driven permissions replacing hardcoded checks (2025-12-08)
-- RoleUsers page redesign with pagination/search (2025-12-07)
-- Roles UI unification (card/table views, BaseEntityMenu) (2025-12-06)
-- Admin Roles menu relocation to Instance context (2025-12-06)
-- Admin Roles Management UI with PermissionMatrix (2025-12-05)
-
-### UI/UX Improvements (2025-12-04 to 2025-12-07)
-- Route protection guards (AdminGuard, ResourceGuard, MetaverseGuard) (2025-12-06)
-- Breadcrumbs flicker fix for admin routes (2025-12-07)
-- SettingsDialog UX improvement (disabled state when GLOBAL_ADMIN_ENABLED=false) (2025-12-07)
-- Auth.jsx migration to auth-frontend package (layered architecture) (2025-12-08)
-
-### Admin Module (2025-11-30 to 2025-12-05)
-- Admin Instances module (InstanceList, InstanceBoard, InstanceAccess) (2025-12-05)
-- Metaverse admin access fix (RLS + frontend architecture) (2025-12-04)
-- User settings system (profile-backend, useUserSettings, SettingsDialog) (2025-12-04)
-- CASL ability system integration (permissionService, AbilityContextProvider) (2025-11-30)
-
-**Full History**: progress.md
-
----
-
-## Active Patterns
-
-### Access Control
-- Pattern: systemPatterns.md#rls-integration-pattern
-- Pattern: systemPatterns.md#synthetic-membership-pattern
-- Pattern: systemPatterns.md#casl-ability-system
-
-### Frontend Patterns
-- Pattern: systemPatterns.md#usepaginated-hook
-- Pattern: systemPatterns.md#universal-list-pattern
-- Pattern: systemPatterns.md#entity-actions-factory
-
-### i18n & Localization
-- Pattern: systemPatterns.md#i18n-architecture
-
----
-
-## Quick Commands
-
-```bash
-pnpm --filter <package> build    # Build single package
-pnpm build                       # Full workspace build
-pnpm --filter <package> lint     # Lint single package
+The `usePaginated` hook returns:
+```typescript
+{ data: PaginatedResponse<T>, isLoading, error }
+// where PaginatedResponse = { items: T[], pagination: {...} }
 ```
 
----
+But pages were destructuring:
+```typescript
+const { data: hubs } = paginationResult
+// hubs = { items: [], pagination: {} } ❌ not an array!
+hubs.map(...) // TypeError: hubs.map is not a function
+```
 
-**Note**: For detailed implementation history, see progress.md. For planned work, see tasks.md.
+### What Was Fixed
+
+**All Three List Pages:**
+- `HubList.tsx` - changed to: `const { data } = paginationResult; const hubs = data?.items || []`
+- `AttributeList.tsx` - changed to: `const { data } = paginationResult; const attributes = data?.items || []`
+- `RecordList.tsx` - changed to: `const { data } = paginationResult; const records = data?.items || []`
+
+**Backend Verification:**
+- Confirmed `/metahubs/:id/hubs` endpoint returns correct `{ items: Hub[], pagination: {...} }` structure (hubsRoutes.ts line 92)
+
+**Legacy Routes Removal:**
+- Deleted unused redirect routes from `MainRoutesMUI.tsx`:
+  - Removed `/entities` route (redirect to `/hubs`)
+  - Removed `/sections` route (redirect to `/hubs`)
+- Since old entity/section pages don't exist anymore, no point in redirecting; let 404 handle it naturally
+
+**Build Status:** ✅ `pnpm build --filter metahubs-frontend` successful (3.35s)
+
+### Recently Completed (context)
+
+User reported React error #31 when creating Metahub:
+- Frontend expected `name: string` but backend returns VLC object `{ _schema, locales, _primary }`
+- TypeError: Cannot render object as React child
+
+### What Was Fixed
+
+**Type System:**
+- Added `VersatileLocalizedContent` interface to match backend VLC format
+- Updated `Metahub` type to use `VersatileLocalizedContent` for name/description
+- Created `MetahubDisplay` type with string fields for UI rendering
+- Added `getVLCString()` helper to extract localized content from VLC
+
+**MetahubList.tsx:**
+- Import `MetahubDisplay` and `toMetahubDisplay` converter
+- Convert API data to display format: `metahubsDisplay = metahubs.map(toMetahubDisplay)`
+- Updated all components to use `MetahubDisplay` instead of `Metahub`
+- All column render functions now use Display types with string fields
+
+**MetahubBoard.tsx:**
+- Import `toMetahubDisplay` converter
+- Convert single metahub: `metahubDisplay = toMetahubDisplay(metahub, i18n.language)`
+- Updated ViewHeader and all StatCard components to use display strings
+- Fixed `.slice()` runtime errors by ensuring UI receives strings (not VLC objects)
+
+**NavbarBreadcrumbs / breadcrumb hooks (template-mui):**
+- `useMetahubName()` previously returned a VLC object from `/api/v1/metahubs/:id` and was treated as a string
+- Hardened breadcrumb name fetching and truncation to safely extract localized strings before calling `.slice()`
+
+**Type Conversions:**
+- `getVLCString(vlc, locale)` - extract string from VLC
+- `getLocalizedString(simple, locale)` - extract from SimpleLocalizedInput
+- `toMetahubDisplay(metahub, locale)` - convert Metahub to MetahubDisplay
+- `toHubDisplay(hub, locale)` - convert Hub to HubDisplay
+- `toAttributeDisplay(attr, locale)` - convert Attribute to AttributeDisplay
+- `toHubRecordDisplay(record, attrs, locale)` - convert HubRecord to HubRecordDisplay
+
+**Build Status:**
+- ✅ `pnpm --filter metahubs-frontend build` - successful
+- ✅ `pnpm --filter spaces-frontend build` - successful  
+- ✅ `pnpm --filter @flowise/core-frontend build` - successful
+- ✅ Full project build completed without errors
+
+### Type Pattern Summary
+
+**Backend → Frontend:**
+```typescript
+// Backend returns VLC
+{ 
+  name: { 
+    _schema: "vlc/1",
+    locales: { en: { content: "Test" } },
+    _primary: "en"
+  }
+}
+
+// Frontend converts to Display
+{ 
+  name: "Test"  // Extracted string for current locale
+}
+```
+
+**Hubs/Attributes (SimpleLocalizedInput):**
+```typescript
+// API layer
+{ name: { en: "Hub Name", ru: "Имя хаба" } }
+
+// UI layer (Display)
+{ name: "Hub Name" }  // Current locale
+```
+
+### Next Steps
+
+1. Manual runtime verification in browser:
+  - Metahub sidebar shows Hub-based navigation (no legacy Entities/Sections).
+  - Navigating to `/metahub/:metahubId/entities` and `/sections` redirects to `/hubs`.
+2. If anything still renders legacy menu items, confirm the running app is using latest build artifacts.
+
+### What's true right now
+
+- **New Architecture Implemented (Backend + Frontend):**
+  - Metahubs now uses metadata-driven pattern (like 1C:Enterprise)
+  - Hubs = virtual tables within a Metahub
+  - Attributes = virtual fields within a Hub (with dataType enum)
+  - Records = JSONB data rows within a Hub
+
+- **Backend is complete and builds:**
+  - `pnpm --filter metahubs-backend build` ✅
+  - `pnpm --filter @flowise/core-backend build` ✅
+  - New entities: Hub, Attribute, HubRecord
+  - New routes: hubsRoutes, attributesRoutes, recordsRoutes, publicMetahubsRoutes
+  - Guards updated: ensureHubAccess, ensureAttributeAccess
+
+- **Frontend is complete and builds:**
+  - `pnpm --filter metahubs-frontend build` ✅
+  - New pages: HubList, AttributeList, RecordList
+  - Display types: HubDisplay, AttributeDisplay, HubRecordDisplay (for FlowListTable)
+  - Helper functions: toHubDisplay(), toAttributeDisplay(), toHubRecordDisplay()
+  - i18n: EN/RU translations for hubs, attributes, records
+
+- **New API Structure:**
+  - `GET/POST /metahubs/:metahubId/hubs` - Hub CRUD
+  - `GET/POST /metahubs/:metahubId/hubs/:hubId/attributes` - Attribute CRUD
+  - `GET/POST /metahubs/:metahubId/hubs/:hubId/records` - Record CRUD
+  - `GET /api/public/metahubs/:slug` - Public read-only access
+
+- **Frontend Type Pattern:**
+  - `SimpleLocalizedInput` = `{ en?: string, ru?: string }` - for API
+  - `Hub`, `Attribute`, `HubRecord` - with SimpleLocalizedInput fields
+  - `HubDisplay`, `AttributeDisplay`, `HubRecordDisplay` - with string name/description for UI
+  - Helper functions convert between them
+
+- **Database Migration:**
+  - New schema replaces old M2M junction tables
+  - GIN indexes for JSONB queries on records.data
+  - RLS policies support public access for is_public metahubs
+
+### What's been removed (legacy)
+
+- ❌ MetaEntity, MetaSection, MetaEntityMetahub, MetaSectionMetahub, MetaEntityMetaSection entities
+- ❌ metaEntitiesRoutes.ts, metaSectionsRoutes.ts
+- ❌ ensureSectionAccess, ensureEntityAccess guards
+- ❌ /metahubs/:metahubId/entities and /metahubs/:metahubId/sections endpoints
+- Legacy pages (MetaSectionList, MetaEntityList) kept for backward compatibility
+
+### Notes for next steps
+
+- Frontend needs update:
+  - Rename pages from MetaSection→Hub, MetaEntity→Attribute
+  - Update API calls to new endpoints
+  - Create dynamic form UI based on Hub attributes
+  - LocalizedFieldEditor for VLC name/description
+
+- Database will be recreated:
+  - User confirmed: "База данных будет удалена и создана новая"
+  - No migration of legacy data needed
+
+- Record class is named HubRecord to avoid TypeScript conflict with built-in Record<K,V>
+
+### Next steps
+
+1. Phase 3: Update metahubs-frontend pages and API calls
+2. Phase 4: Test public API access at /api/public/metahubs/:slug
+3. Phase 5: Full `pnpm build` validation and README updates

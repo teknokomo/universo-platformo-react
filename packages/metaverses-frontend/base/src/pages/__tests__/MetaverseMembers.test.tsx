@@ -6,8 +6,39 @@ vi.mock('rehype-raw', () => ({ default: () => () => {} }))
 vi.mock('remark-gfm', () => ({ default: () => () => {} }))
 vi.mock('remark-math', () => ({ default: () => () => {} }))
 
+// MetaverseMembers list-view uses FlowListTable which may depend on app-level providers.
+// For page-level tests we stub FlowListTable and still execute column/action callbacks
+// to increase coverage of page wiring.
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<any>('@universo/template-mui')
+    return {
+        ...actual,
+        FlowListTable: (props: any) => {
+            const rows = Array.isArray(props?.data) ? props.data : []
+            const firstRow = rows[0]
+            const cols = Array.isArray(props?.customColumns) ? props.customColumns : []
+            const renderedCells = firstRow ? cols.map((c: any) => (typeof c?.render === 'function' ? c.render(firstRow) : null)) : []
+            const actions = firstRow && typeof props?.renderActions === 'function' ? props.renderActions(firstRow) : null
+
+            return (
+                <div data-testid='flow-list-table'>
+                    <div data-testid='flow-list-table-cells'>
+                        {renderedCells.map((cell: any, idx: number) => (
+                            <div key={idx}>{cell}</div>
+                        ))}
+                    </div>
+                    <div data-testid='flow-list-table-actions'>{actions}</div>
+                    {rows.map((r: any) => (
+                        <div key={r.id || r.email}>{r.email}</div>
+                    ))}
+                </div>
+            )
+        }
+    }
+})
+
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -20,6 +51,8 @@ import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metaversesEn from '../../i18n/locales/en/metaverses.json'
 import metaversesRu from '../../i18n/locales/ru/metaverses.json'
+import commonEn from '@universo/i18n/locales/en/common.json'
+import commonRu from '@universo/i18n/locales/ru/common.json'
 
 // Mock API module
 vi.mock('../../api/metaverses', () => ({
@@ -42,12 +75,16 @@ vi.mock('@universo/auth-frontend', async () => {
 })
 
 // Mock backend utilities to avoid unnecessary dependencies in frontend tests
-vi.mock('@universo/utils', () => ({
-    extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
-    isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
-    isApiError: vi.fn((error: any) => !!error?.response),
-    getApiBaseURL: vi.fn(() => 'http://localhost:3000')
-}))
+vi.mock('@universo/utils', async () => {
+    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
+    return {
+        ...actual,
+        extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
+        isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
+        isApiError: vi.fn((error: any) => !!error?.response),
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+    }
+})
 
 // Mock markdown components that require rehype/remark (which pull jsdom)
 vi.mock('@flowise/template-mui', async () => {
@@ -64,14 +101,29 @@ registerNamespace('metaverses', {
     en: metaversesEn.metaverses,
     ru: metaversesRu.metaverses
 })
+registerNamespace('common', {
+    en: commonEn,
+    ru: commonRu
+})
 
 const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
-            queries: { retry: false },
+            // NOTE: `usePaginated` sets `retry` per-query; keep retries fast for tests.
+            queries: { retry: false, retryDelay: 0 },
             mutations: { retry: false }
         }
     })
+
+type PaginationMeta = { total: number; limit: number; offset: number }
+const paginated = <T,>(items: T[], meta: PaginationMeta) => ({
+    items,
+    pagination: {
+        ...meta,
+        count: items.length,
+        hasMore: meta.offset + items.length < meta.total
+    }
+})
 
 const renderWithProviders = (ui: React.ReactElement, { route = '/metaverses/test-metaverse-id/members' } = {}) => {
     const queryClient = createTestQueryClient()
@@ -85,6 +137,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/metaverses/test
                         <MemoryRouter initialEntries={[route]}>
                             <Routes>
                                 <Route path='/metaverses/:metaverseId/members' element={ui} />
+                                <Route path='/members' element={ui} />
                             </Routes>
                         </MemoryRouter>
                     </I18nextProvider>
@@ -97,17 +150,10 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/metaverses/test
 describe('MetaverseMembers', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        localStorage.clear()
+        localStorage.setItem('metaverseMembersDisplayStyle', 'card')
         // Default mock: return empty list with proper structure
-        vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue({
-            data: [],
-            pagination: {
-                total: 0,
-                limit: 20,
-                offset: 0,
-                count: 0,
-                hasMore: false
-            }
-        } as any)
+        vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
     })
 
     describe('Component rendering with happy-dom', () => {
@@ -145,7 +191,7 @@ describe('MetaverseMembers', () => {
 
             // Wait for empty state to appear
             await waitFor(() => {
-                expect(screen.getByText(/no members found/i)).toBeInTheDocument()
+                expect(screen.getByAltText('No members')).toBeInTheDocument()
             })
         })
     })
@@ -158,7 +204,7 @@ describe('MetaverseMembers', () => {
                         setTimeout(
                             () =>
                                 resolve({
-                                    data: [],
+                                    items: [],
                                     pagination: { total: 0, limit: 20, offset: 0, count: 0, hasMore: false }
                                 } as any),
                             1000
@@ -187,7 +233,7 @@ describe('MetaverseMembers', () => {
                 metaverseId: 'test-metaverse-id',
                 role: 'admin',
                 email: 'admin@example.com',
-                name: 'Admin User',
+                nickname: 'Admin User',
                 createdAt: '2024-01-01T00:00:00Z',
                 updatedAt: '2024-01-15T00:00:00Z'
             },
@@ -197,33 +243,25 @@ describe('MetaverseMembers', () => {
                 metaverseId: 'test-metaverse-id',
                 role: 'editor',
                 email: 'editor@example.com',
-                name: 'Editor User',
+                nickname: 'Editor User',
                 createdAt: '2024-01-02T00:00:00Z',
                 updatedAt: '2024-01-16T00:00:00Z'
             }
         ]
 
         beforeEach(() => {
-            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue({
-                data: mockMembers,
-                pagination: {
-                    total: 2,
-                    limit: 20,
-                    offset: 0,
-                    count: 2,
-                    hasMore: false
-                }
-            } as any)
+            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(paginated(mockMembers, { total: 2, limit: 20, offset: 0 }))
         })
 
         it('should render member cards with names and emails', async () => {
             renderWithProviders(<MetaverseMembers />)
 
             await waitFor(() => {
-                expect(screen.getByText('Admin User')).toBeInTheDocument()
                 expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-                expect(screen.getByText('Editor User')).toBeInTheDocument()
                 expect(screen.getByText('editor@example.com')).toBeInTheDocument()
+                // In card view, email is the title; nickname renders in description.
+                expect(screen.getByText('Admin User')).toBeInTheDocument()
+                expect(screen.getByText('Editor User')).toBeInTheDocument()
             })
         })
 
@@ -243,9 +281,12 @@ describe('MetaverseMembers', () => {
 
             renderWithProviders(<MetaverseMembers />)
 
-            await waitFor(() => {
-                expect(screen.queryByText(/error/i) || screen.queryByText(/failed/i)).toBeTruthy()
-            })
+            await waitFor(
+                () => {
+                    expect(screen.getByAltText('Connection error')).toBeInTheDocument()
+                },
+                { timeout: 5000 }
+            )
         })
 
         it('should show retry button on error', async () => {
@@ -253,38 +294,34 @@ describe('MetaverseMembers', () => {
 
             renderWithProviders(<MetaverseMembers />)
 
-            await waitFor(() => {
-                const retryButton = screen.queryByRole('button', { name: /retry/i })
-                if (retryButton) {
-                    expect(retryButton).toBeInTheDocument()
-                }
-            })
+            await waitFor(
+                () => {
+                    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+                },
+                { timeout: 5000 }
+            )
         })
     })
 
     describe('Search functionality', () => {
         beforeEach(() => {
-            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue({
-                data: [
-                    {
-                        id: 'member-1',
-                        userId: 'user-1',
-                        metaverseId: 'test-metaverse-id',
-                        role: 'admin',
-                        email: 'admin@example.com',
-                        name: 'Admin User',
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-15T00:00:00Z'
-                    }
-                ],
-                pagination: {
-                    total: 1,
-                    limit: 20,
-                    offset: 0,
-                    count: 1,
-                    hasMore: false
-                }
-            } as any)
+            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'member-1',
+                            userId: 'user-1',
+                            metaverseId: 'test-metaverse-id',
+                            role: 'admin',
+                            email: 'admin@example.com',
+                            nickname: 'Admin User',
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
         })
 
         it('should have search input with placeholder', async () => {
@@ -311,27 +348,23 @@ describe('MetaverseMembers', () => {
 
     describe('Edge cases', () => {
         it('should handle members without names', async () => {
-            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue({
-                data: [
-                    {
-                        id: 'member-1',
-                        userId: 'user-1',
-                        metaverseId: 'test-metaverse-id',
-                        role: 'viewer',
-                        email: 'noname@example.com',
-                        name: undefined,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-01T00:00:00Z'
-                    } as any
-                ],
-                pagination: {
-                    total: 1,
-                    limit: 20,
-                    offset: 0,
-                    count: 1,
-                    hasMore: false
-                }
-            } as any)
+            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'member-1',
+                            userId: 'user-1',
+                            metaverseId: 'test-metaverse-id',
+                            role: 'member',
+                            email: 'noname@example.com',
+                            nickname: undefined,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        } as any
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
 
             renderWithProviders(<MetaverseMembers />)
 
@@ -345,23 +378,16 @@ describe('MetaverseMembers', () => {
                 id: `member-${i}`,
                 userId: `user-${i}`,
                 metaverseId: 'test-metaverse-id',
-                role: i % 3 === 0 ? 'admin' : i % 3 === 1 ? 'editor' : 'viewer',
+                role: i % 3 === 0 ? 'admin' : i % 3 === 1 ? 'editor' : 'member',
                 email: `user${i}@example.com`,
-                name: `User ${i}`,
+                nickname: `User ${i}`,
                 createdAt: '2024-01-01T00:00:00Z',
                 updatedAt: '2024-01-15T00:00:00Z'
             }))
 
-            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue({
-                data: largeMemberList.slice(0, 20),
-                pagination: {
-                    total: 100,
-                    limit: 20,
-                    offset: 0,
-                    count: 20,
-                    hasMore: true
-                }
-            } as any)
+            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(
+                paginated(largeMemberList.slice(0, 20), { total: 100, limit: 20, offset: 0 })
+            )
 
             renderWithProviders(<MetaverseMembers />)
 
@@ -370,8 +396,8 @@ describe('MetaverseMembers', () => {
             })
 
             // Should show pagination for large lists
-            const pagination = document.querySelector('[aria-label*="pagination"]') || document.querySelector('.MuiPagination-root')
-            expect(pagination).toBeTruthy()
+            const tablePagination = document.querySelector('.MuiTablePagination-root')
+            expect(tablePagination).toBeTruthy()
         })
     })
 
@@ -379,10 +405,101 @@ describe('MetaverseMembers', () => {
         it('should handle missing metaverseId parameter', () => {
             vi.mocked(metaversesApi.listMetaverseMembers).mockImplementation(() => new Promise(() => {}))
 
-            renderWithProviders(<MetaverseMembers />, { route: '/metaverses//members' })
+            renderWithProviders(<MetaverseMembers />, { route: '/members' })
 
             // Should not call API without valid metaverseId
             expect(metaversesApi.listMetaverseMembers).not.toHaveBeenCalled()
+
+            // Should render invalid metaverse empty state
+            expect(screen.getByAltText('Invalid metaverse')).toBeInTheDocument()
+        })
+    })
+
+    describe('View Toggle', () => {
+        beforeEach(() => {
+            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'member-1',
+                            userId: 'test-user-id',
+                            metaverseId: 'test-metaverse-id',
+                            role: 'admin',
+                            email: 'admin@example.com',
+                            nickname: 'Admin',
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        } as any
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
+        })
+
+        it('should persist view preference to localStorage and render list view', async () => {
+            const { user } = renderWithProviders(<MetaverseMembers />)
+
+            await waitFor(() => {
+                expect(screen.getByText('admin@example.com')).toBeInTheDocument()
+            })
+
+            const listViewToggle = document.querySelector('button[title="List View"]') as HTMLElement | null
+            expect(listViewToggle).toBeTruthy()
+
+            await user.click(listViewToggle!)
+
+            await waitFor(() => {
+                expect(localStorage.getItem('metaverseMembersDisplayStyle')).toBe('list')
+                expect(screen.getByTestId('flow-list-table')).toBeInTheDocument()
+            })
+        })
+    })
+
+    describe('Invite error branches', () => {
+        beforeEach(() => {
+            vi.mocked(metaversesApi.listMetaverseMembers).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
+        })
+
+        it('should show userNotFound message on 404', async () => {
+            vi.mocked(metaversesApi.inviteMetaverseMember).mockRejectedValue({ response: { status: 404 } })
+
+            const { user } = renderWithProviders(<MetaverseMembers />)
+
+            const addButton = await screen.findByRole('button', { name: /add/i })
+            await user.click(addButton)
+
+            const dialog = await screen.findByRole('dialog')
+            const emailInput = await within(dialog).findByLabelText(/email/i)
+            await user.type(emailInput, 'missing@example.com')
+
+            const saveButton = screen.getByRole('button', { name: /save/i })
+            await user.click(saveButton)
+
+            await waitFor(() => {
+                expect(vi.mocked(metaversesApi.inviteMetaverseMember)).toHaveBeenCalled()
+                expect(within(dialog).getByRole('alert')).toHaveTextContent(/missing@example.com/i)
+            })
+        })
+
+        it('should show userAlreadyMember message on 409 + api code', async () => {
+            vi.mocked(metaversesApi.inviteMetaverseMember).mockRejectedValue({ response: { status: 409, data: { code: 'METAVERSE_MEMBER_EXISTS' } } })
+
+            const { user } = renderWithProviders(<MetaverseMembers />)
+
+            const addButton = await screen.findByRole('button', { name: /add/i })
+            await user.click(addButton)
+
+            const dialog = await screen.findByRole('dialog')
+            const emailInput = await within(dialog).findByLabelText(/email/i)
+            await user.type(emailInput, 'exists@example.com')
+
+            const saveButton = screen.getByRole('button', { name: /save/i })
+            await user.click(saveButton)
+
+            await waitFor(() => {
+                expect(vi.mocked(metaversesApi.inviteMetaverseMember)).toHaveBeenCalled()
+                expect(within(dialog).getByRole('alert')).toHaveTextContent(/exists@example.com/i)
+            })
         })
     })
 })

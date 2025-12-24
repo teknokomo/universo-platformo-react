@@ -113,6 +113,28 @@ export const getUnikMenuItems = (unikId: string): TemplateMenuItem[] => [
     }
 ]
 
+// Function to generate metahub menu items for a specific metahub
+export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
+    {
+        id: 'metahub-board',
+        titleKey: 'metahubboard',
+        url: `/metahub/${metahubId}`,
+        icon: IconBuildingStore
+    },
+    {
+        id: 'metahub-hubs',
+        titleKey: 'hubs',
+        url: `/metahub/${metahubId}/hubs`,
+        icon: IconHierarchy3
+    },
+    {
+        id: 'metahub-access',
+        titleKey: 'access',
+        url: `/metahub/${metahubId}/access`,
+        icon: IconUsers
+    }
+]
+
 // Function to generate metaverse menu items for a specific metaverse
 export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] => [
     {
@@ -341,6 +363,19 @@ export const rootMenuItems: TemplateMenuItem[] = [
         chip: {
             label: '⧉'
         }
+    }
+]
+
+/**
+ * Metahubs menu items (shown in a separate section before Admin)
+ * Returns single menu item pointing to metahubs list
+ */
+export const getMetahubsMenuItem = (): TemplateMenuItem[] => [
+    {
+        id: 'metahubs',
+        titleKey: 'metahubs',
+        url: '/metahubs',
+        icon: IconWorld
     }
 ]
 

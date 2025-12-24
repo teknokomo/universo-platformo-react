@@ -12,19 +12,25 @@ export {
     createTruncateFunction,
     // Pre-configured hooks
     useMetaverseName,
+    useMetahubName,
     useOrganizationName,
     useClusterName,
     useProjectName,
     useCampaignName,
     useUnikName,
     useStorageName,
+    useHubName,
+    useAttributeName,
     // Pre-configured truncate functions
     truncateMetaverseName,
+    truncateMetahubName,
     truncateOrganizationName,
     truncateClusterName,
     truncateProjectName,
     truncateCampaignName,
     truncateUnikName,
-    truncateStorageName
+    truncateStorageName,
+    truncateHubName,
+    truncateAttributeName
 } from './useBreadcrumbName'
 export type { EntityNameHookConfig, EntityNameFetcher } from './useBreadcrumbName'

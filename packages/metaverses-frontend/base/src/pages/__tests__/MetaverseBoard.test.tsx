@@ -38,12 +38,16 @@ vi.mock('@universo/auth-frontend', async () => {
 })
 
 // Mock backend utilities
-vi.mock('@universo/utils', () => ({
-    extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
-    isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
-    isApiError: vi.fn((error: any) => !!error?.response),
-    getApiBaseURL: vi.fn(() => 'http://localhost:3000')
-}))
+vi.mock('@universo/utils', async () => {
+    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
+    return {
+        ...actual,
+        extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
+        isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
+        isApiError: vi.fn((error: any) => !!error?.response),
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+    }
+})
 
 // Mock window.open
 const mockWindowOpen = vi.fn()
@@ -59,7 +63,7 @@ registerNamespace('metaverses', {
 const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
-            queries: { retry: false },
+            queries: { retry: false, retryDelay: 0 },
             mutations: { retry: false }
         }
     })
@@ -116,14 +120,9 @@ describe('MetaverseBoard', () => {
 
             renderWithProviders(<MetaverseBoard />)
 
-            // Wait for error state
-            await waitFor(() => {
-                expect(screen.getByText(/failed to load metaverse data/i)).toBeInTheDocument()
-            })
+            await waitFor(() => expect(screen.getByAltText('Error loading metaverse')).toBeInTheDocument(), { timeout: 10000 })
 
-            // Check for error alert
-            expect(screen.getByRole('alert')).toBeInTheDocument()
-            expect(screen.getByText(/network error/i)).toBeInTheDocument()
+            expect(screen.getByRole('alert')).toHaveTextContent(/network error/i)
         })
 
         it('should display generic error when no metaverse data returned', async () => {
@@ -132,10 +131,9 @@ describe('MetaverseBoard', () => {
 
             renderWithProviders(<MetaverseBoard />)
 
-            // Wait for error state
-            await waitFor(() => {
-                expect(screen.getByText(/failed to load metaverse data/i)).toBeInTheDocument()
-            })
+            await waitFor(() => expect(screen.getByAltText('Error loading metaverse')).toBeInTheDocument(), { timeout: 10000 })
+
+            expect(screen.getByRole('alert')).toHaveTextContent(/failed to load/i)
         })
     })
 

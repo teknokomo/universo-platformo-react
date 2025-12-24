@@ -35,6 +35,7 @@ import { adminMigrations } from '@universo/admin-backend'
 import { uniksMigrations } from '@universo/uniks-backend'
 import { profileMigrations } from '@universo/profile-backend'
 import { metaversesMigrations } from '@universo/metaverses-backend'
+import { metahubsMigrations } from '@universo/metahubs-backend'
 import { clustersMigrations } from '@universo/clusters-backend'
 import { projectsMigrations } from '@universo/projects-backend'
 import { campaignsMigrations } from '@universo/campaigns-backend'
@@ -79,6 +80,7 @@ export const postgresMigrations = [
     // ═══════════════════════════════════════════════════════════════════════
     ...profileMigrations,
     ...metaversesMigrations,
+    ...metahubsMigrations,
     ...clustersMigrations,
     ...projectsMigrations,
     ...campaignsMigrations,

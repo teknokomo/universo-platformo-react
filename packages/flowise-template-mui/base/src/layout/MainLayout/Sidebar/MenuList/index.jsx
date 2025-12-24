@@ -5,6 +5,7 @@ import NavGroup from './NavGroup'
 import dashboard from '../../../../menu-items/dashboard'
 import unikDashboard from '@universo/uniks-frontend/menu-items/unikDashboard'
 import { metaversesDashboard } from '@universo/metaverses-frontend'
+import { metahubsDashboard } from '@universo/metahubs-frontend'
 import { clustersDashboard } from '@universo/clusters-frontend'
 import { campaignsDashboard } from '@universo/campaigns-frontend'
 
@@ -13,14 +14,18 @@ const MenuList = () => {
     const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = metaverseMatch ? metaverseMatch[1] : null
+    const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
+    const metahubId = metahubMatch ? metahubMatch[1] : null
     const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
     const clusterId = clusterMatch ? clusterMatch[1] : null
     const campaignMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
     const campaignId = campaignMatch ? campaignMatch[1] : null
     const [metaversePermissions, setMetaversePermissions] = useState({})
+    const [metahubPermissions, setMetahubPermissions] = useState({})
     const [clusterPermissions, setClusterPermissions] = useState({})
     const [campaignPermissions, setCampaignPermissions] = useState({})
     const knownMetaversePermission = metaverseId ? metaversePermissions[metaverseId] : undefined
+    const knownMetahubPermission = metahubId ? metahubPermissions[metahubId] : undefined
     const knownClusterPermission = clusterId ? clusterPermissions[clusterId] : undefined
     const knownCampaignPermission = campaignId ? campaignPermissions[campaignId] : undefined
 
@@ -66,6 +71,48 @@ const MenuList = () => {
             isActive = false
         }
     }, [metaverseId, knownMetaversePermission])
+
+    useEffect(() => {
+        if (!metahubId) {
+            return
+        }
+        if (knownMetahubPermission !== undefined) {
+            return
+        }
+
+        let isActive = true
+
+        const fetchPermissions = async () => {
+            try {
+                const response = await api.$client.get(`/metahubs/${metahubId}`)
+
+                if (!isActive) return
+
+                setMetahubPermissions((prev) => ({
+                    ...prev,
+                    [metahubId]: Boolean(response?.data?.permissions?.manageMembers)
+                }))
+            } catch (error) {
+                if (!isActive) return
+
+                console.error('Failed to load metahub permissions', {
+                    metahubId,
+                    error
+                })
+
+                setMetahubPermissions((prev) => ({
+                    ...prev,
+                    [metahubId]: false
+                }))
+            }
+        }
+
+        fetchPermissions()
+
+        return () => {
+            isActive = false
+        }
+    }, [metahubId, knownMetahubPermission])
 
     useEffect(() => {
         if (!clusterId) {
@@ -181,6 +228,26 @@ const MenuList = () => {
             children: filteredChildren.map((item) => ({
                 ...item,
                 url: `/metaverses/${metaverseId}${item.url}`
+            }))
+        }
+    } else if (metahubMatch && metahubId) {
+        const filteredChildren = metahubsDashboard.children.filter((item) => {
+            if (item.id !== 'access') {
+                return true
+            }
+
+            if (knownMetahubPermission === undefined) {
+                return true
+            }
+
+            return Boolean(knownMetahubPermission)
+        })
+
+        menuItems = {
+            ...metahubsDashboard,
+            children: filteredChildren.map((item) => ({
+                ...item,
+                url: `/metahub/${metahubId}${item.url}`
             }))
         }
     } else if (clusterMatch && clusterId) {

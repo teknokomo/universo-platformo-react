@@ -35,6 +35,7 @@
         "@universo/api-client": "workspace:*",
         "@universo/auth-frontend": "workspace:*",
         "@universo/i18n": "workspace:*",
+        "@universo/metahubs-frontend": "workspace:*",
         "@universo/metaverses-frontend": "workspace:*",
         "@universo/organizations-frontend": "workspace:*",
         "@universo/publish-frontend": "workspace:*",

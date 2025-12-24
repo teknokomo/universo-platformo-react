@@ -90,6 +90,17 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             const cleanup = async () => {
                 if (!runner.isReleased) {
                     try {
+                        // Reset request.jwt.claims before releasing the pooled connection.
+                        try {
+                            console.log('[RLS] Resetting session context', { path: req.path })
+                            await runner.query(`SELECT set_config('request.jwt.claims', '', false)`)
+                        } catch (resetErr) {
+                            console.warn('[RLS] Failed to reset session context (continuing to release)', {
+                                path: req.path,
+                                error: resetErr instanceof Error ? resetErr.message : String(resetErr)
+                            })
+                        }
+
                         console.log('[RLS] Releasing QueryRunner', { path: req.path })
                         await runner.release()
                     } catch (err) {

@@ -1,4 +1,42 @@
 import { useQuery } from '@tanstack/react-query'
+import i18n from '@universo/i18n'
+
+type VlcLike = {
+    _primary?: string
+    locales?: Record<string, { content?: unknown }>
+}
+
+type SimpleLocalizedInputLike = {
+    en?: unknown
+    ru?: unknown
+    [key: string]: unknown
+}
+
+function extractLocalizedString(value: unknown): string {
+    if (typeof value === 'string') return value
+    if (!value || typeof value !== 'object') return ''
+
+    const language = (i18n?.language || 'en').toLowerCase()
+    const obj = value as Record<string, unknown>
+
+    // VLC-like: { _primary, locales: { en: { content }, ... } }
+    const vlc = obj as VlcLike
+    if (vlc.locales && typeof vlc.locales === 'object') {
+        const primary = typeof vlc._primary === 'string' ? vlc._primary : undefined
+        const entry = (vlc.locales[language] ?? (primary ? vlc.locales[primary] : undefined)) as any
+        const content = entry?.content
+        return typeof content === 'string' ? content : ''
+    }
+
+    // SimpleLocalizedInput-like: { en?: string, ru?: string, ... }
+    const simple = obj as SimpleLocalizedInputLike
+    const localized = simple[language]
+    if (typeof localized === 'string') return localized
+    if (typeof simple.en === 'string') return simple.en
+    if (typeof simple.ru === 'string') return simple.ru
+
+    return ''
+}
 
 /**
  * Fetch function type for entity name retrieval
@@ -38,7 +76,7 @@ function createDefaultFetcher(apiPath: string, nameField: string): EntityNameFet
         }
 
         const data = await response.json()
-        return data[nameField] as string
+        return extractLocalizedString((data as any)?.[nameField])
     }
 }
 
@@ -102,8 +140,9 @@ export function createEntityNameHook(config: EntityNameHookConfig) {
  */
 export function createTruncateFunction(defaultMaxLength = 30) {
     return function truncateName(name: string, maxLength: number = defaultMaxLength): string {
-        if (name.length <= maxLength) return name
-        return name.slice(0, maxLength - 1) + '…'
+        const safeName = typeof name === 'string' ? name : String(name ?? '')
+        if (safeName.length <= maxLength) return safeName
+        return safeName.slice(0, maxLength - 1) + '…'
     }
 }
 
@@ -117,6 +156,14 @@ export function createTruncateFunction(defaultMaxLength = 30) {
 export const useMetaverseName = createEntityNameHook({
     entityType: 'metaverse',
     apiPath: 'metaverses'
+})
+
+/**
+ * Hook to fetch and cache metahub name by ID for breadcrumb display.
+ */
+export const useMetahubName = createEntityNameHook({
+    entityType: 'metahub',
+    apiPath: 'metahubs'
 })
 
 /**
@@ -167,12 +214,69 @@ export const useStorageName = createEntityNameHook({
     apiPath: 'storages'
 })
 
+/**
+ * Hook to fetch Hub name for breadcrumb display.
+ * Requires both metahubId and hubId since Hub API is nested under Metahub.
+ */
+export function useHubName(metahubId: string | null, hubId: string | null): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'hub', metahubId, hubId],
+        queryFn: async () => {
+            if (!metahubId || !hubId) return null
+            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && hubId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+/**
+ * Hook to fetch Attribute name for breadcrumb display.
+ * Requires metahubId, hubId, and attributeId since Attribute API is deeply nested.
+ */
+export function useAttributeName(metahubId: string | null, hubId: string | null, attributeId: string | null): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'attribute', metahubId, hubId, attributeId],
+        queryFn: async () => {
+            if (!metahubId || !hubId || !attributeId) return null
+            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && hubId && attributeId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
 // ============================================================
 // Pre-configured truncate functions
 // ============================================================
 
 /** Truncate metaverse name with ellipsis (default: 30 chars) */
 export const truncateMetaverseName = createTruncateFunction(30)
+
+/** Truncate metahub name with ellipsis (default: 30 chars) */
+export const truncateMetahubName = createTruncateFunction(30)
 
 /** Truncate organization name with ellipsis (default: 30 chars) */
 export const truncateOrganizationName = createTruncateFunction(30)
@@ -191,3 +295,9 @@ export const truncateUnikName = createTruncateFunction(30)
 
 /** Truncate storage name with ellipsis (default: 30 chars) */
 export const truncateStorageName = createTruncateFunction(30)
+
+/** Truncate hub name with ellipsis (default: 30 chars) */
+export const truncateHubName = createTruncateFunction(30)
+
+/** Truncate attribute name with ellipsis (default: 30 chars) */
+export const truncateAttributeName = createTruncateFunction(30)

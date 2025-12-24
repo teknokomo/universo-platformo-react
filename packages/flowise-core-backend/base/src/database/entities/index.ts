@@ -12,6 +12,7 @@ import { Unik, UnikUser } from '@universo/uniks-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
 import { metaversesEntities } from '@universo/metaverses-backend'
+import { metahubsEntities } from '@universo/metahubs-backend'
 import { clustersEntities } from '@universo/clusters-backend'
 import { projectsEntities } from '@universo/projects-backend'
 import { campaignsEntities } from '@universo/campaigns-backend'
@@ -23,6 +24,8 @@ import { adminEntities } from '@universo/admin-backend'
 
 // TypeORM entities here are constructor functions/classes; we only need their names and references
 const metaversesEntitiesObject = Object.fromEntries(metaversesEntities.map((entity) => [entity.name, entity]))
+
+const metahubsEntitiesObject = Object.fromEntries(metahubsEntities.map((entity) => [entity.name, entity]))
 
 const clustersEntitiesObject = Object.fromEntries(clustersEntities.map((entity) => [entity.name, entity]))
 
@@ -52,6 +55,8 @@ export const entities = {
     CustomTemplate,
     // Metaverses service entities
     ...metaversesEntitiesObject,
+    // Metahubs service entities
+    ...metahubsEntitiesObject,
     // Clusters service entities
     ...clustersEntitiesObject,
     // Projects service entities
