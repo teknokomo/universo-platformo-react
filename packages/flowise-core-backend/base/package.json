@@ -87,6 +87,7 @@
         "@flowise/tools-backend": "workspace:*",
         "@flowise/variables-backend": "workspace:*",
         "@universo/metaverses-backend": "workspace:*",
+        "@universo/metahubs-backend": "workspace:*",
         "@universo/multiplayer-colyseus-backend": "workspace:*",
         "@universo/organizations-backend": "workspace:*",
         "@universo/profile-backend": "workspace:*",

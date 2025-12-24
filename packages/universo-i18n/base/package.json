@@ -23,6 +23,15 @@
     "./types": {
       "types": "./src/types.ts",
       "default": "./src/types.ts"
+    },
+    "./locales/en/common.json": {
+      "default": "./src/locales/en/core/common.json"
+    },
+    "./locales/ru/common.json": {
+      "default": "./src/locales/ru/core/common.json"
+    },
+    "./locales/*/*/*.json": {
+      "default": "./src/locales/*/*/*.json"
     }
   },
   "files": [

@@ -16,7 +16,9 @@ import { useMetaverseName } from '../../hooks'
 import {
     rootMenuItems,
     getAdminMenuItems,
+    getMetahubsMenuItem,
     getMetaverseMenuItems,
+    getMetahubMenuItems,
     getUnikMenuItems,
     getClusterMenuItems,
     getProjectMenuItems,
@@ -49,6 +51,10 @@ export default function MenuContent() {
     // If null (loading/error), don't show metaverse-specific menu to prevent flicker
     const metaverseName = useMetaverseName(metaverseId)
 
+    // Check if we're in a metahub context (/metahub/:id)
+    const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
+    const metahubId = metahubMatch ? metahubMatch[1] : null
+
     // Check if we're in a cluster context (both /cluster/:id and /clusters/:id paths)
     const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
     const clusterId = clusterMatch ? clusterMatch[1] : null
@@ -79,6 +85,8 @@ export default function MenuContent() {
         ? getUnikMenuItems(unikId)
         : metaverseId && metaverseName
         ? getMetaverseMenuItems(metaverseId)
+        : metahubId
+        ? getMetahubMenuItems(metahubId)
         : clusterId
         ? getClusterMenuItems(clusterId)
         : projectId
@@ -165,10 +173,44 @@ export default function MenuContent() {
                     )
                 })}
 
+                {/* Metahubs section with divider - only if not in any entity context */}
+                {!instanceId &&
+                    !metaverseId &&
+                    !metahubId &&
+                    !clusterId &&
+                    !projectId &&
+                    !organizationId &&
+                    !storageId &&
+                    !campaignId &&
+                    !unikId && (
+                        <>
+                            <Divider sx={{ my: 1 }} />
+                            {/* Metahubs menu items */}
+                            {getMetahubsMenuItem().map((item) => {
+                                const Icon = item.icon
+                                const isSelected =
+                                    location.pathname === item.url ||
+                                    location.pathname.startsWith('/metahubs') ||
+                                    location.pathname.startsWith('/metahub/')
+                                return (
+                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                            <ListItemIcon>
+                                                <Icon size={20} stroke={1.5} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={t(item.titleKey)} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                )
+                            })}
+                        </>
+                    )}
+
                 {/* Admin section with divider - only if user can access admin panel and not in any entity context */}
                 {canAccessAdminPanel &&
                     !instanceId &&
                     !metaverseId &&
+                    !metahubId &&
                     !clusterId &&
                     !projectId &&
                     !organizationId &&

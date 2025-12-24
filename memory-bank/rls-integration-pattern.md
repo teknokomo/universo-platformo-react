@@ -150,27 +150,24 @@ export async function applyRlsContext(
     const jwtSecret = new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET!)
     const { payload } = await jose.jwtVerify(accessToken, jwtSecret)
 
-    // 2. Set PostgreSQL role
-    await queryRunner.query(`SET LOCAL role = 'authenticated'`)
-
-    // 3. Set request.jwt.claims for RLS policies
+    // 2. Set request.jwt.claims for RLS policies (session-scoped)
+    // NOTE: We do NOT use `SET role = 'authenticated'` because:
+    //   - The 'authenticated' role may lack USAGE on other schemas (e.g., admin)
+    //   - RLS policies use auth.uid() which reads from request.jwt.claims
+    //   - Role change is unnecessary for RLS to work correctly
     const claims = {
         sub: payload.sub,
         email: payload.email,
         role: payload.role || 'authenticated'
     }
-    await queryRunner.query(
-        `SELECT set_config('request.jwt.claims', $1, true)`,
-        [JSON.stringify(claims)]
-    )
-
-    // 4. Set full JWT token (optional, for advanced policies)
-    await queryRunner.query(
-        `SELECT set_config('request.jwt.token', $1, true)`,
-        [accessToken]
-    )
+    await queryRunner.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify(claims)])
 }
 ```
+
+**Important**:
+- **Do NOT use `SET role = 'authenticated'`** — this role lacks USAGE privilege on `admin` schema and will break calls to `admin.is_superuser()` and similar functions.
+- RLS policies use `auth.uid()` which extracts the user ID from `request.jwt.claims.sub`. No role change is needed.
+- Session-scoped `set_config(..., false)` persists across all statements on the pooled connection, so always reset `request.jwt.claims` before releasing the QueryRunner back to the pool.
 
 **Why `jose` instead of `jsonwebtoken`**:
 - Modern, actively maintained (jsonwebtoken in maintenance mode)

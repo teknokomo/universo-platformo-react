@@ -5,6 +5,37 @@ vi.mock('rehype-raw', () => ({ default: () => () => {} }))
 vi.mock('remark-gfm', () => ({ default: () => () => {} }))
 vi.mock('remark-math', () => ({ default: () => () => {} }))
 
+// SectionList list-view uses FlowListTable which may depend on app-level providers.
+// For page-level tests we stub FlowListTable and still execute column/action callbacks
+// to increase coverage of page wiring.
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<any>('@universo/template-mui')
+    return {
+        ...actual,
+        FlowListTable: (props: any) => {
+            const rows = Array.isArray(props?.data) ? props.data : []
+            const firstRow = rows[0]
+            const cols = Array.isArray(props?.customColumns) ? props.customColumns : []
+            const renderedCells = firstRow ? cols.map((c: any) => (typeof c?.render === 'function' ? c.render(firstRow) : null)) : []
+            const actions = firstRow && typeof props?.renderActions === 'function' ? props.renderActions(firstRow) : null
+
+            return (
+                <div data-testid='flow-list-table'>
+                    <div data-testid='flow-list-table-cells'>
+                        {renderedCells.map((cell: any, idx: number) => (
+                            <div key={idx}>{cell}</div>
+                        ))}
+                    </div>
+                    <div data-testid='flow-list-table-actions'>{actions}</div>
+                    {rows.map((r: any) => (
+                        <div key={r.id || r.name}>{r.name}</div>
+                    ))}
+                </div>
+            )
+        }
+    }
+})
+
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -15,6 +46,7 @@ import { I18nextProvider } from 'react-i18next'
 
 import SectionList from '../SectionList'
 import * as sectionsApi from '../../api/sections'
+import * as metaversesApi from '../../api/metaverses'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metaversesEn from '../../i18n/locales/en/metaverses.json'
@@ -30,6 +62,10 @@ vi.mock('../../api/sections', () => ({
     deleteSection: vi.fn()
 }))
 
+vi.mock('../../api/metaverses', () => ({
+    listMetaverseSections: vi.fn()
+}))
+
 // Mock useAuth hook
 vi.mock('@universo/auth-frontend', async () => {
     const actual = await vi.importActual<typeof import('@universo/auth-frontend')>('@universo/auth-frontend')
@@ -43,12 +79,16 @@ vi.mock('@universo/auth-frontend', async () => {
 })
 
 // Mock backend utilities
-vi.mock('@universo/utils', () => ({
-    extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
-    isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
-    isApiError: vi.fn((error: any) => !!error?.response),
-    getApiBaseURL: vi.fn(() => 'http://localhost:3000')
-}))
+vi.mock('@universo/utils', async () => {
+    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
+    return {
+        ...actual,
+        extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
+        isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
+        isApiError: vi.fn((error: any) => !!error?.response),
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+    }
+})
 
 // Initialize i18n
 const i18n = getI18nInstance()
@@ -64,10 +104,22 @@ registerNamespace('common', {
 const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
-            queries: { retry: false },
+            // NOTE: `usePaginated` sets `retry` per-query, so tests must also
+            // force fast retry timing to avoid waitFor() timeouts.
+            queries: { retry: false, retryDelay: 0 },
             mutations: { retry: false }
         }
     })
+
+type PaginationMeta = { total: number; limit: number; offset: number }
+const paginated = <T,>(items: T[], meta: PaginationMeta) => ({
+    items,
+    pagination: {
+        ...meta,
+        count: items.length,
+        hasMore: meta.offset + items.length < meta.total
+    }
+})
 
 const renderWithProviders = (ui: React.ReactElement, { route = '/metaverses/test-metaverse-id/sections' } = {}) => {
     const queryClient = createTestQueryClient()
@@ -81,6 +133,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/metaverses/test
                         <MemoryRouter initialEntries={[route]}>
                             <Routes>
                                 <Route path='/metaverses/:metaverseId/sections' element={ui} />
+                                <Route path='/metaverses/sections' element={ui} />
                             </Routes>
                         </MemoryRouter>
                     </I18nextProvider>
@@ -99,7 +152,7 @@ describe('SectionList', () => {
 
     describe('Loading State', () => {
         it('should display loading skeletons while fetching data', () => {
-            vi.mocked(sectionsApi.listSections).mockImplementation(() => new Promise(() => {}))
+            vi.mocked(metaversesApi.listMetaverseSections).mockImplementation(() => new Promise(() => {}))
 
             renderWithProviders(<SectionList />)
 
@@ -109,42 +162,40 @@ describe('SectionList', () => {
 
     describe('Error State', () => {
         it('should display error message when API fails', async () => {
-            vi.mocked(sectionsApi.listSections).mockRejectedValue(new Error('Network error'))
+            vi.mocked(metaversesApi.listMetaverseSections).mockRejectedValue(new Error('Network error'))
 
             renderWithProviders(<SectionList />)
 
-            await waitFor(() => {
-                expect(screen.queryByText(/connection/i) || screen.queryByText(/error/i)).toBeTruthy()
-            })
+            await waitFor(
+                () => {
+                    expect(screen.getByAltText('Connection error')).toBeInTheDocument()
+                },
+                { timeout: 5000 }
+            )
         })
 
         it('should show retry button on error', async () => {
-            vi.mocked(sectionsApi.listSections).mockRejectedValue(new Error('Network error'))
+            vi.mocked(metaversesApi.listMetaverseSections).mockRejectedValue(new Error('Network error'))
 
             renderWithProviders(<SectionList />)
 
-            await waitFor(() => {
-                const retryButton = screen.queryByRole('button', { name: /retry/i })
-                if (retryButton) {
-                    expect(retryButton).toBeInTheDocument()
-                }
-            })
+            await waitFor(
+                () => {
+                    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+                },
+                { timeout: 5000 }
+            )
         })
     })
 
     describe('Empty State', () => {
         it('should display empty state when no sections exist', async () => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: [],
-                total: 0,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
 
             renderWithProviders(<SectionList />)
 
             await waitFor(() => {
-                expect(screen.queryByText(/no sections/i) || screen.queryByText(/get started/i)).toBeTruthy()
+                expect(screen.getByAltText('No sections')).toBeInTheDocument()
             })
         })
     })
@@ -172,12 +223,7 @@ describe('SectionList', () => {
         ]
 
         beforeEach(() => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: mockSections,
-                total: 2,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(paginated(mockSections, { total: 2, limit: 20, offset: 0 }))
         })
 
         it('should render section cards with names', async () => {
@@ -202,50 +248,88 @@ describe('SectionList', () => {
             renderWithProviders(<SectionList />)
 
             await waitFor(() => {
-                expect(screen.queryByText('10') || screen.queryAllByText('10').length > 0).toBeTruthy()
-                expect(screen.queryByText('5') || screen.queryAllByText('5').length > 0).toBeTruthy()
+                expect(screen.getByText(/10\s+entit/i)).toBeInTheDocument()
+                expect(screen.getByText(/5\s+entit/i)).toBeInTheDocument()
             })
         })
     })
 
     describe('Navigation', () => {
         beforeEach(() => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: [
-                    {
-                        id: 'section-1',
-                        metaverseId: 'test-metaverse-id',
-                        name: 'Test Section',
-                        description: 'Test',
-                        entitiesCount: 1,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-15T00:00:00Z'
-                    }
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'section-1',
+                            metaverseId: 'test-metaverse-id',
+                            name: 'Test Section',
+                            description: 'Test',
+                            entitiesCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
         })
 
         it('should handle missing metaverseId parameter', () => {
-            vi.mocked(sectionsApi.listSections).mockImplementation(() => new Promise(() => {}))
+            vi.mocked(metaversesApi.listMetaverseSections).mockImplementation(() => new Promise(() => {}))
 
-            renderWithProviders(<SectionList />, { route: '/metaverses//sections' })
+            renderWithProviders(<SectionList />, { route: '/metaverses/sections' })
 
             // Should not call API without valid ID
-            expect(sectionsApi.listSections).not.toHaveBeenCalled()
+            expect(metaversesApi.listMetaverseSections).not.toHaveBeenCalled()
+
+            // Should render invalid metaverse empty state
+            expect(screen.getByAltText('Invalid metaverse')).toBeInTheDocument()
+        })
+    })
+
+    describe('View Toggle', () => {
+        beforeEach(() => {
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'section-1',
+                            metaverseId: 'test-metaverse-id',
+                            name: 'Toggle Section',
+                            description: 'Toggle',
+                            entitiesCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        } as any
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
+            Storage.prototype.getItem = vi.fn(() => 'card')
+        })
+
+        it('should persist view preference to localStorage and render list view', async () => {
+            const { user } = renderWithProviders(<SectionList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Toggle Section')).toBeInTheDocument()
+            })
+
+            const listViewToggle = document.querySelector('button[title="List View"]') as HTMLElement | null
+            expect(listViewToggle).toBeTruthy()
+
+            await user.click(listViewToggle!)
+
+            await waitFor(() => {
+                expect(localStorage.getItem('metaversesSectionDisplayStyle')).toBe('list')
+                expect(screen.getByTestId('flow-list-table')).toBeInTheDocument()
+            })
         })
     })
 
     describe('CRUD Operations', () => {
         beforeEach(() => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: [],
-                total: 0,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
             vi.mocked(sectionsApi.createSection).mockResolvedValue({
                 id: 'new-section',
                 metaverseId: 'test-metaverse-id',
@@ -261,7 +345,7 @@ describe('SectionList', () => {
             const { user } = renderWithProviders(<SectionList />)
 
             await waitFor(() => {
-                expect(screen.queryByText(/no sections/i) || screen.queryByText(/get started/i)).toBeTruthy()
+                expect(screen.getByAltText('No sections')).toBeInTheDocument()
             })
 
             // Find Add button
@@ -304,19 +388,14 @@ describe('SectionList', () => {
         ]
 
         beforeEach(() => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: mockSections,
-                total: 2,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(paginated(mockSections, { total: 2, limit: 20, offset: 0 }))
         })
 
         it('should have search input field', async () => {
             renderWithProviders(<SectionList />)
 
             await waitFor(() => {
-                expect(screen.getByText('Production Section')).toBeInTheDocument()
+                expect(screen.getAllByText('Production Section').length).toBeGreaterThan(0)
             })
 
             const searchInput = screen.queryByPlaceholderText(/search/i) || screen.queryByRole('searchbox')
@@ -326,58 +405,59 @@ describe('SectionList', () => {
 
     describe('Edge Cases', () => {
         it('should handle sections with zero entity count', async () => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: [
-                    {
-                        id: 'empty-section',
-                        metaverseId: 'test-metaverse-id',
-                        name: 'Empty Section',
-                        description: 'No entities',
-                        entitiesCount: 0,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-01T00:00:00Z'
-                    }
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            // Force list view so the entitiesCount column renders a plain numeric cell (stable assertion).
+            Storage.prototype.getItem = vi.fn(() => 'list')
+
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'empty-section',
+                            metaverseId: 'test-metaverse-id',
+                            name: 'Empty Section',
+                            description: 'No entities',
+                            entitiesCount: 0,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        }
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
 
             renderWithProviders(<SectionList />)
 
             await waitFor(() => {
-                expect(screen.getByText('Empty Section')).toBeInTheDocument()
+                expect(screen.getAllByText('Empty Section').length).toBeGreaterThan(0)
             })
 
-            const zeroElements = screen.queryAllByText('0')
-            expect(zeroElements.length).toBeGreaterThanOrEqual(1)
+            expect(screen.getByTestId('flow-list-table')).toBeInTheDocument()
+            expect(screen.getByText('0')).toBeInTheDocument()
         })
 
         it('should handle sections without description', async () => {
-            vi.mocked(sectionsApi.listSections).mockResolvedValue({
-                data: [
-                    {
-                        id: 'no-desc',
-                        metaverseId: 'test-metaverse-id',
-                        name: 'No Description',
-                        description: undefined,
-                        entitiesCount: 1,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-01T00:00:00Z'
-                    } as any
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverseSections).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'no-desc',
+                            metaverseId: 'test-metaverse-id',
+                            name: 'No Description',
+                            description: undefined,
+                            entitiesCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        } as any
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
 
             renderWithProviders(<SectionList />)
 
             await waitFor(() => {
-                expect(screen.getByText('No Description')).toBeInTheDocument()
+                expect(screen.getAllByText('No Description').length).toBeGreaterThan(0)
             })
-
-            expect(screen.queryByText('—') || screen.queryByText('')).toBeTruthy()
         })
     })
 })

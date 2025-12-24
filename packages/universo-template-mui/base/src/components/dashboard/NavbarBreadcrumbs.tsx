@@ -10,6 +10,8 @@ import { useHasGlobalAccess } from '@flowise/store'
 import {
     useMetaverseName,
     truncateMetaverseName,
+    useMetahubName,
+    truncateMetahubName,
     useClusterName,
     truncateClusterName,
     useProjectName,
@@ -21,7 +23,11 @@ import {
     useOrganizationName,
     truncateOrganizationName,
     useStorageName,
-    truncateStorageName
+    truncateStorageName,
+    useHubName,
+    truncateHubName,
+    useAttributeName,
+    truncateAttributeName
 } from '../../hooks'
 import { useInstanceName, truncateInstanceName, useRoleName, truncateRoleName } from '@universo/admin-frontend'
 
@@ -44,6 +50,11 @@ export default function NavbarBreadcrumbs() {
     const metaverseIdMatch = location.pathname.match(/^\/metaverses?\/([^/]+)/)
     const metaverseId = metaverseIdMatch ? metaverseIdMatch[1] : null
     const metaverseName = useMetaverseName(metaverseId)
+
+    // Extract metahubId from URL for dynamic name loading (both singular and plural routes)
+    const metahubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)/)
+    const metahubId = metahubIdMatch ? metahubIdMatch[1] : null
+    const metahubName = useMetahubName(metahubId)
 
     // Extract clusterId from URL for dynamic name loading (both singular and plural routes)
     const clusterIdMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
@@ -70,6 +81,21 @@ export default function NavbarBreadcrumbs() {
     const storageId = storageIdMatch ? storageIdMatch[1] : null
     const storageName = useStorageName(storageId)
 
+    // Extract hubId from URL for dynamic name loading (under metahub context)
+    // Pattern: /metahub/:metahubId/hubs/:hubId/...
+    const hubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hubs\/([^/]+)/)
+    const hubParentMetahubId = hubIdMatch ? hubIdMatch[1] : null
+    const hubId = hubIdMatch ? hubIdMatch[2] : null
+    const hubName = useHubName(hubParentMetahubId, hubId)
+
+    // Extract attributeId from URL for dynamic name loading (under hub context)
+    // Pattern: /metahub/:metahubId/hubs/:hubId/attributes/:attributeId
+    const attributeIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hubs\/([^/]+)\/attributes\/([^/]+)/)
+    const attrParentMetahubId = attributeIdMatch ? attributeIdMatch[1] : null
+    const attrParentHubId = attributeIdMatch ? attributeIdMatch[2] : null
+    const attributeId = attributeIdMatch ? attributeIdMatch[3] : null
+    const attributeName = useAttributeName(attrParentMetahubId, attrParentHubId, attributeId)
+
     // Extract unikId from URL for dynamic name loading
     const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = unikIdMatch ? unikIdMatch[1] : null
@@ -92,6 +118,7 @@ export default function NavbarBreadcrumbs() {
     const menuMap: Record<string, string> = {
         uniks: 'uniks',
         metaverses: 'metaverses',
+        metahubs: 'metahubs',
         clusters: 'clusters',
         projects: 'projects',
         campaigns: 'campaigns',
@@ -191,6 +218,57 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('entities'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'metahubs') {
+            return [{ label: t(menuMap.metahubs), to: '/metahubs' }]
+        }
+
+        if (primary === 'metahub') {
+            const items = [{ label: t(menuMap.metahubs), to: '/metahubs' }]
+
+            if (segments[1] && metahubName) {
+                // Use actual metahub name with truncation for long names
+                items.push({
+                    label: truncateMetahubName(metahubName),
+                    to: `/metahub/${segments[1]}`
+                })
+
+                // Sub-pages: hubs, access, members
+                if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'hubs') {
+                    // Hubs list or nested hub routes
+                    items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
+
+                    // If we have a specific hub selected (segments[3])
+                    if (segments[3] && hubName) {
+                        items.push({
+                            label: truncateHubName(hubName),
+                            to: `/metahub/${segments[1]}/hubs/${segments[3]}/attributes`
+                        })
+
+                        // Nested under hub: attributes or records
+                        if (segments[4] === 'attributes') {
+                            items.push({ label: t('attributes'), to: location.pathname })
+
+                            // If a specific attribute is selected
+                            if (segments[5] && attributeName) {
+                                items.push({
+                                    label: truncateAttributeName(attributeName),
+                                    to: location.pathname
+                                })
+                            }
+                        } else if (segments[4] === 'records') {
+                            items.push({ label: t('records'), to: location.pathname })
+                        }
+                    }
                 }
             }
 

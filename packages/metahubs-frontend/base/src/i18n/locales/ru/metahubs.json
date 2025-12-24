@@ -1,0 +1,240 @@
+{
+    "metahubs": {
+        "title": "Метахабы",
+        "searchPlaceholder": "Поиск метахабов...",
+        "noMetahubsFound": "Метахабы не найдены",
+        "createMetahub": "Создать метахаб",
+        "editTitle": "Редактировать метахаб",
+        "confirmDelete": "Удалить метахаб?",
+        "confirmDeleteDescription": "Вы уверены, что хотите удалить метахаб \"{{name}}\"?",
+        "deleteSuccess": "Метахаб успешно удалён",
+        "deleteError": "Не удалось удалить метахаб",
+        "saveError": "Не удалось сохранить метахаб",
+        "errors": {
+            "invalidMetahub": "Неверный метахаб",
+            "pleaseSelectMetahub": "Пожалуйста, выберите метахаб из списка"
+        },
+        "actions": {
+            "edit": "Редактировать",
+            "delete": "Удалить",
+            "backToList": "Назад к метахабам"
+        },
+        "board": {
+            "title": "Метахабборд",
+            "description": "Здесь будет аналитика и статистика метахаба (в разработке)",
+            "defaultDescription": "Аналитика и статистика метахаба",
+            "overview": "Обзор",
+            "stats": {
+                "meta_sections": {
+                    "title": "Секции",
+                    "interval": "За всё время",
+                    "description": "Всего секций в этом метахабе"
+                },
+                "meta_entities": {
+                    "title": "Сущности",
+                    "interval": "За всё время",
+                    "description": "Всего сущностей во всех секциях"
+                },
+                "members": {
+                    "title": "Участники",
+                    "interval": "За всё время",
+                    "description": "Пользователи с доступом к этому метахабу"
+                }
+            },
+            "documentation": {
+                "title": "Изучить документацию",
+                "description": "Узнайте о возможностях метахабов, API и лучших практиках",
+                "button": "Открыть документацию"
+            },
+            "charts": {
+                "activity": {
+                    "title": "Активность пользователей",
+                    "interval": "Последние 30 дней",
+                    "description": "Метрики активности (демо данные - в разработке)"
+                },
+                "resources": {
+                    "title": "Ресурсы",
+                    "interval": "Последние 6 месяцев",
+                    "description": "Использование ресурсов (демо данные - в разработке)"
+                }
+            },
+            "loading": "Загрузка дашборда...",
+            "error": "Не удалось загрузить данные дашборда"
+        },
+        "detail": {
+            "title": "Детали метахаба"
+        },
+        "table": {
+            "description": "Описание",
+            "role": "Роль",
+            "meta_sections": "Секции",
+            "meta_entities": "Сущности"
+        }
+    },
+    "meta_sections": {
+        "title": "Секции",
+        "searchPlaceholder": "Поиск секций...",
+        "noMetaSectionsFound": "Секции не найдены",
+        "createSection": "Создать секцию",
+        "editTitle": "Редактировать секцию",
+        "confirmDelete": "Удалить секцию?",
+        "confirmDeleteDescription": "Вы уверены, что хотите удалить секцию \"{{name}}\"? Все сущности в этой секции также будут удалены.",
+        "deleteSuccess": "Секция успешно удалена",
+        "deleteError": "Не удалось удалить секцию",
+        "saveError": "Не удалось сохранить секцию",
+        "entityCount_one": "{{count}} сущность",
+        "entityCount_few": "{{count}} сущности",
+        "entityCount_many": "{{count}} сущностей",
+        "entityCount_other": "{{count}} сущностей",
+        "actions": {
+            "edit": "Редактировать секцию",
+            "delete": "Удалить секцию"
+        },
+        "table": {
+            "description": "Описание",
+            "meta_entities": "Сущности"
+        }
+    },
+    "meta_entities": {
+        "title": "Сущности",
+        "searchPlaceholder": "Поиск сущностей...",
+        "noMetaEntitiesFound": "Сущности не найдены",
+        "createEntity": "Создать сущность",
+        "editTitle": "Редактировать сущность",
+        "confirmDelete": "Удалить сущность?",
+        "confirmDeleteDescription": "Вы уверены, что хотите удалить сущность \"{{name}}\"?",
+        "deleteSuccess": "Сущность успешно удалена",
+        "deleteError": "Не удалось удалить сущность",
+        "saveError": "Не удалось сохранить сущность",
+        "sectionLabel": "Секция",
+        "noMetaSectionsAvailable": "Нет доступных секций",
+        "errors": {
+            "sectionRequired": "Секция обязательна"
+        },
+        "actions": {
+            "edit": "Редактировать сущность",
+            "delete": "Удалить сущность"
+        },
+        "table": {
+            "description": "Описание"
+        }
+    },
+    "hubs": {
+        "title": "Хабы",
+        "description": "Контейнеры данных, определяющие структуру метахаба",
+        "searchPlaceholder": "Поиск хабов...",
+        "empty": "Хабов пока нет",
+        "emptyDescription": "Создайте первый хаб, чтобы начать определять структуры данных",
+        "create": "Создать хаб",
+        "editTitle": "Редактировать хаб",
+        "createDialog": {
+            "title": "Создать хаб"
+        },
+        "editDialog": {
+            "title": "Редактировать хаб"
+        },
+        "deleteDialog": {
+            "title": "Удалить хаб",
+            "message": "Вы уверены, что хотите удалить этот хаб? Все атрибуты и записи будут безвозвратно удалены."
+        },
+        "codename": "Кодовое имя",
+        "codenameHelper": "Уникальный идентификатор (строчные буквы, подчёркивания)",
+        "nameEn": "Название (English)",
+        "nameRu": "Название (Русский)",
+        "descriptionEn": "Описание (English)",
+        "attributesCount": "Атрибуты",
+        "recordsCount": "Записи",
+        "createError": "Не удалось создать хаб",
+        "updateError": "Не удалось обновить хаб",
+        "deleteError": "Не удалось удалить хаб"
+    },
+    "attributes": {
+        "title": "Атрибуты",
+        "description": "Определите поля для этого хаба",
+        "searchPlaceholder": "Поиск атрибутов...",
+        "empty": "Атрибутов пока нет",
+        "emptyDescription": "Добавьте атрибуты, чтобы определить структуру данных хаба",
+        "create": "Добавить атрибут",
+        "createDialog": {
+            "title": "Добавить атрибут"
+        },
+        "editDialog": {
+            "title": "Редактировать атрибут"
+        },
+        "deleteDialog": {
+            "title": "Удалить атрибут",
+            "message": "Вы уверены, что хотите удалить этот атрибут? Все данные в этом поле будут потеряны."
+        },
+        "codename": "Кодовое имя",
+        "codenameHelper": "Уникальный идентификатор поля (строчные буквы, подчёркивания)",
+        "dataType": "Тип данных",
+        "required": "Обязательный",
+        "nameEn": "Название (English)",
+        "nameRu": "Название (Русский)",
+        "descriptionEn": "Описание (English)",
+        "createError": "Не удалось создать атрибут",
+        "updateError": "Не удалось обновить атрибут",
+        "deleteError": "Не удалось удалить атрибут"
+    },
+    "records": {
+        "title": "Записи",
+        "description": "Данные этого хаба",
+        "searchPlaceholder": "Поиск записей...",
+        "empty": "Записей пока нет",
+        "emptyDescription": "Добавьте записи для хранения данных в этом хабе",
+        "addAttributesFirst": "Сначала определите атрибуты для этого хаба",
+        "noAttributes": "Атрибуты для этого хаба не определены. Сначала добавьте атрибуты.",
+        "create": "Добавить запись",
+        "createDialog": {
+            "title": "Добавить запись"
+        },
+        "editDialog": {
+            "title": "Редактировать запись"
+        },
+        "deleteDialog": {
+            "title": "Удалить запись",
+            "message": "Вы уверены, что хотите удалить эту запись? Это действие нельзя отменить."
+        },
+        "createError": "Не удалось создать запись",
+        "updateError": "Не удалось обновить запись",
+        "deleteError": "Не удалось удалить запись"
+    },
+    "members": {
+        "title": "Участники",
+        "searchPlaceholder": "Поиск участников...",
+        "noMembersFound": "Участники не найдены",
+        "inviteMember": "Пригласить участника",
+        "editRole": "Изменить роль",
+        "removeMember": "Удалить участника",
+        "inviteSuccess": "Участник успешно приглашён",
+        "inviteError": "Не удалось пригласить участника",
+        "updateSuccess": "Роль участника успешно обновлена",
+        "updateError": "Не удалось обновить роль участника",
+        "removeSuccess": "Участник успешно удалён",
+        "removeError": "Не удалось удалить участника",
+        "confirmRemove": "Удалить участника?",
+        "confirmRemoveDescription": "Вы уверены, что хотите удалить {{email}} из этого метахаба?",
+        "table": {
+            "email": "Email",
+            "nickname": "Никнейм",
+            "role": "Роль",
+            "joinedAt": "Присоединился"
+        }
+    },
+    "common": {
+        "loading": "Загрузка...",
+        "error": "Ошибка",
+        "retry": "Повторить",
+        "cancel": "Отмена",
+        "save": "Сохранить",
+        "create": "Создать",
+        "edit": "Редактировать",
+        "delete": "Удалить",
+        "actions": "Действия"
+    },
+    "errors": {
+        "connectionFailed": "Ошибка подключения",
+        "checkConnection": "Пожалуйста, проверьте подключение к сети и попробуйте снова",
+        "pleaseTryLater": "Пожалуйста, попробуйте позже"
+    }
+}

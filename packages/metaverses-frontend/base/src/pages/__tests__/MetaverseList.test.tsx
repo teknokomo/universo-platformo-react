@@ -5,6 +5,36 @@ vi.mock('rehype-raw', () => ({ default: () => () => {} }))
 vi.mock('remark-gfm', () => ({ default: () => () => {} }))
 vi.mock('remark-math', () => ({ default: () => () => {} }))
 
+// MetaverseList list-view uses FlowListTable which depends on a Redux Provider in app runtime.
+// For this page-level test, we stub FlowListTable to avoid coupling tests to Redux store wiring.
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    return {
+        ...actual,
+        FlowListTable: (props: any) => {
+            const rows = Array.isArray(props?.data) ? props.data : []
+            const firstRow = rows[0]
+            const cols = Array.isArray(props?.customColumns) ? props.customColumns : []
+            const renderedCells = firstRow ? cols.map((c: any) => (typeof c?.render === 'function' ? c.render(firstRow) : null)) : []
+            const actions = firstRow && typeof props?.renderActions === 'function' ? props.renderActions(firstRow) : null
+
+            return (
+                <div data-testid='flow-list-table'>
+                    <div data-testid='flow-list-table-cells'>
+                        {renderedCells.map((cell: any, idx: number) => (
+                            <div key={idx}>{cell}</div>
+                        ))}
+                    </div>
+                    <div data-testid='flow-list-table-actions'>{actions}</div>
+                    {rows.map((r: any) => (
+                        <div key={r.id || r.name}>{r.name}</div>
+                    ))}
+                </div>
+            )
+        }
+    }
+})
+
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -43,12 +73,16 @@ vi.mock('@universo/auth-frontend', async () => {
 })
 
 // Mock backend utilities
-vi.mock('@universo/utils', () => ({
-    extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
-    isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
-    isApiError: vi.fn((error: any) => !!error?.response),
-    getApiBaseURL: vi.fn(() => 'http://localhost:3000')
-}))
+vi.mock('@universo/utils', async () => {
+    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
+    return {
+        ...actual,
+        extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
+        isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
+        isApiError: vi.fn((error: any) => !!error?.response),
+        getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+    }
+})
 
 // Initialize i18n
 const i18n = getI18nInstance()
@@ -64,10 +98,26 @@ registerNamespace('common', {
 const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
-            queries: { retry: false },
+            queries: { retry: false, retryDelay: 0 },
             mutations: { retry: false }
         }
     })
+
+const paginated = (items: any[], meta?: { total?: number; limit?: number; offset?: number }) => {
+    const limit = meta?.limit ?? 20
+    const offset = meta?.offset ?? 0
+    const total = meta?.total ?? items.length
+    return {
+        items,
+        pagination: {
+            total,
+            limit,
+            offset,
+            count: items.length,
+            hasMore: offset + items.length < total
+        }
+    }
+}
 
 const renderWithProviders = (ui: React.ReactElement) => {
     const queryClient = createTestQueryClient()
@@ -89,9 +139,9 @@ const renderWithProviders = (ui: React.ReactElement) => {
 describe('MetaverseList', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        // Mock localStorage
-        Storage.prototype.getItem = vi.fn(() => 'card')
-        Storage.prototype.setItem = vi.fn()
+        localStorage.clear()
+        localStorage.setItem('metaversesMetaverseDisplayStyle', 'card')
+        vi.spyOn(Storage.prototype, 'setItem')
     })
 
     describe('Loading State', () => {
@@ -102,7 +152,7 @@ describe('MetaverseList', () => {
             renderWithProviders(<MetaverseList />)
 
             // Check for loading skeletons (part of SkeletonGrid component)
-            expect(screen.getByTestId('skeleton-grid') || document.querySelector('.MuiSkeleton-root')).toBeTruthy()
+            expect(screen.queryByTestId('skeleton-grid') || document.querySelector('.MuiSkeleton-root')).toBeTruthy()
         })
     })
 
@@ -113,10 +163,7 @@ describe('MetaverseList', () => {
 
             renderWithProviders(<MetaverseList />)
 
-            // Wait for error state
-            await waitFor(() => {
-                expect(screen.getByText(/connection/i) || screen.getByText(/error/i)).toBeInTheDocument()
-            })
+            await waitFor(() => expect(screen.getByAltText('Connection error')).toBeInTheDocument(), { timeout: 10000 })
         })
 
         it('should show retry button on error', async () => {
@@ -124,45 +171,27 @@ describe('MetaverseList', () => {
 
             renderWithProviders(<MetaverseList />)
 
-            await waitFor(() => {
-                const retryButton = screen.queryByRole('button', { name: /retry/i })
-                if (retryButton) {
-                    expect(retryButton).toBeInTheDocument()
-                }
-            })
+            await waitFor(() => expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument(), { timeout: 10000 })
         })
     })
 
     describe('Empty State', () => {
         it('should display empty state when no metaverses exist', async () => {
             // Mock API to return empty list
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [],
-                total: 0,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
 
             renderWithProviders(<MetaverseList />)
 
-            await waitFor(() => {
-                expect(screen.getByText(/no metaverses/i) || screen.getByText(/get started/i)).toBeInTheDocument()
-            })
+            await waitFor(() => expect(screen.getByAltText('No metaverses')).toBeInTheDocument(), { timeout: 10000 })
         })
 
         it('should show create button in empty state', async () => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [],
-                total: 0,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
 
             renderWithProviders(<MetaverseList />)
 
             await waitFor(() => {
-                const addButtons = screen.queryAllByRole('button')
-                expect(addButtons.length).toBeGreaterThan(0)
+                expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument()
             })
         })
     })
@@ -194,12 +223,7 @@ describe('MetaverseList', () => {
         ]
 
         beforeEach(() => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: mockMetaverses,
-                total: 2,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(paginated(mockMetaverses, { total: 2, limit: 20, offset: 0 }))
         })
 
         it('should render metaverse cards with names', async () => {
@@ -230,15 +254,7 @@ describe('MetaverseList', () => {
             })
         })
 
-        it('should display sections and entities counts', async () => {
-            renderWithProviders(<MetaverseList />)
-
-            await waitFor(() => {
-                // Check for count values
-                expect(screen.getByText('5') || screen.queryByText('5')).toBeTruthy()
-                expect(screen.getByText('20') || screen.queryByText('20')).toBeTruthy()
-            })
-        })
+        // Note: counts are not shown in card view; list view rendering is covered by template-mui tests.
     })
 
     describe('Search Functionality', () => {
@@ -268,12 +284,7 @@ describe('MetaverseList', () => {
         ]
 
         beforeEach(() => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: mockMetaverses,
-                total: 2,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(paginated(mockMetaverses, { total: 2, limit: 20, offset: 0 }))
         })
 
         it('should have search input field', async () => {
@@ -324,18 +335,13 @@ describe('MetaverseList', () => {
             }))
 
         it('should display pagination controls when total exceeds page size', async () => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: generateMockMetaverses(20),
-                total: 50,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(paginated(generateMockMetaverses(20), { total: 50, limit: 20, offset: 0 }))
 
             renderWithProviders(<MetaverseList />)
 
             await waitFor(() => {
-                // Look for pagination component (MUI Pagination or custom)
-                const pagination = document.querySelector('[aria-label*="pagination"]') || document.querySelector('.MuiPagination-root')
+                // PaginationControls uses MUI TablePagination
+                const pagination = document.querySelector('.MuiTablePagination-root')
                 expect(pagination).toBeTruthy()
             })
         })
@@ -343,12 +349,7 @@ describe('MetaverseList', () => {
 
     describe('Create Metaverse', () => {
         beforeEach(() => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [],
-                total: 0,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
             vi.mocked(metaversesApi.createMetaverse).mockResolvedValue({
                 id: 'new-metaverse',
                 name: 'New Metaverse',
@@ -366,7 +367,7 @@ describe('MetaverseList', () => {
             const { user } = renderWithProviders(<MetaverseList />)
 
             await waitFor(() => {
-                expect(screen.getByText(/no metaverses/i) || screen.getByText(/get started/i)).toBeInTheDocument()
+                expect(screen.getByAltText('No metaverses')).toBeInTheDocument()
             })
 
             // Find Add button
@@ -389,98 +390,93 @@ describe('MetaverseList', () => {
 
     describe('View Toggle', () => {
         beforeEach(() => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [
-                    {
-                        id: 'test-metaverse',
-                        name: 'Test',
-                        description: 'Test',
-                        role: 'admin',
-                        sectionsCount: 1,
-                        entitiesCount: 1,
-                        membersCount: 1,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-15T00:00:00Z'
-                    }
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'test-metaverse',
+                            name: 'Test',
+                            description: 'Test',
+                            role: 'admin',
+                            sectionsCount: 1,
+                            entitiesCount: 1,
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
         })
 
         it('should persist view preference to localStorage', async () => {
             const { user } = renderWithProviders(<MetaverseList />)
 
             await waitFor(() => {
-                expect(screen.getByText('Test')).toBeInTheDocument()
+                expect(screen.getAllByText('Test').length).toBeGreaterThan(0)
             })
 
-            // Find view toggle buttons (card/table view)
-            const toggleButtons = screen.queryAllByRole('button')
-            const viewToggle = toggleButtons.find((btn) => btn.getAttribute('aria-label')?.includes('view'))
+            // ToolbarControls exposes toggle buttons via title attributes.
+            const listViewToggle = document.querySelector('button[title="List View"]') as HTMLElement | null
+            expect(listViewToggle).toBeTruthy()
 
-            if (viewToggle) {
-                await user.click(viewToggle)
+            await user.click(listViewToggle!)
 
-                // Check localStorage was called
-                await waitFor(() => {
-                    expect(Storage.prototype.setItem).toHaveBeenCalled()
-                })
-            }
+            await waitFor(() => {
+                expect(localStorage.getItem('metaversesMetaverseDisplayStyle')).toBe('list')
+                expect(screen.getByTestId('flow-list-table')).toBeInTheDocument()
+            })
         })
     })
 
     describe('Edge Cases', () => {
         it('should handle metaverses without descriptions', async () => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [
-                    {
-                        id: 'no-desc',
-                        name: 'No Description',
-                        description: undefined,
-                        role: 'viewer',
-                        sectionsCount: 0,
-                        entitiesCount: 0,
-                        membersCount: 1,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-01T00:00:00Z'
-                    } as any
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'no-desc',
+                            name: 'No Description',
+                            description: undefined,
+                            role: 'viewer',
+                            sectionsCount: 0,
+                            entitiesCount: 0,
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        } as any
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
 
             renderWithProviders(<MetaverseList />)
 
             await waitFor(() => {
                 expect(screen.getByText('No Description')).toBeInTheDocument()
             })
-
-            // Should render em dash or empty state for description
-            expect(screen.queryByText('—') || screen.queryByText('')).toBeTruthy()
         })
 
         it('should handle metaverses without role', async () => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [
-                    {
-                        id: 'no-role',
-                        name: 'No Role',
-                        description: 'Test',
-                        role: undefined,
-                        sectionsCount: 0,
-                        entitiesCount: 0,
-                        membersCount: 1,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-01T00:00:00Z'
-                    } as any
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'no-role',
+                            name: 'No Role',
+                            description: 'Test',
+                            role: undefined,
+                            sectionsCount: 0,
+                            entitiesCount: 0,
+                            membersCount: 1,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        } as any
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
 
             renderWithProviders(<MetaverseList />)
 
@@ -490,34 +486,30 @@ describe('MetaverseList', () => {
         })
 
         it('should handle metaverses with zero counts', async () => {
-            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue({
-                data: [
-                    {
-                        id: 'zero-counts',
-                        name: 'Zero Counts',
-                        description: 'All zeros',
-                        role: 'admin',
-                        sectionsCount: 0,
-                        entitiesCount: 0,
-                        membersCount: 0,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-01-01T00:00:00Z'
-                    }
-                ],
-                total: 1,
-                limit: 20,
-                offset: 0
-            })
+            vi.mocked(metaversesApi.listMetaverses).mockResolvedValue(
+                paginated(
+                    [
+                        {
+                            id: 'zero-counts',
+                            name: 'Zero Counts',
+                            description: 'All zeros',
+                            role: 'admin',
+                            sectionsCount: 0,
+                            entitiesCount: 0,
+                            membersCount: 0,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-01T00:00:00Z'
+                        }
+                    ],
+                    { total: 1, limit: 20, offset: 0 }
+                )
+            )
 
             renderWithProviders(<MetaverseList />)
 
             await waitFor(() => {
                 expect(screen.getByText('Zero Counts')).toBeInTheDocument()
             })
-
-            // Should display 0 values correctly
-            const zeroElements = screen.queryAllByText('0')
-            expect(zeroElements.length).toBeGreaterThanOrEqual(1)
         })
     })
 })

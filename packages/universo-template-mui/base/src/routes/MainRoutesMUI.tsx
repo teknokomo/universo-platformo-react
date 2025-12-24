@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 
 // CRITICAL: Import i18n registrations BEFORE lazy components
 // Ensures namespaces are registered before route components try to use translations
@@ -96,6 +96,21 @@ const EntityList = Loadable(lazy(() => import('@universo/metaverses-frontend/pag
 const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-frontend/pages/MetaverseMembers')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const MetaverseGuard = Loadable(lazy(() => import('@universo/metaverses-frontend/components/MetaverseGuard')))
+
+// Metahub module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/HubList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/AttributeList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/RecordList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubMembers')))
+
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frontend (package deleted)
 
@@ -476,6 +491,54 @@ const MainRoutesMUI = {
                 {
                     path: 'access',
                     element: <MetaverseMembers />
+                }
+            ]
+        },
+        {
+            path: 'metahubs',
+            element: <Outlet />,
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <MetahubList />
+                        </AuthGuard>
+                    )
+                }
+            ]
+        },
+        {
+            path: 'metahub/:metahubId',
+            element: (
+                <AuthGuard>
+                    <Outlet />
+                </AuthGuard>
+            ),
+            children: [
+                {
+                    index: true,
+                    element: <MetahubBoard />
+                },
+                {
+                    path: 'hubs',
+                    element: <HubList />
+                },
+                {
+                    path: 'hubs/:hubId/attributes',
+                    element: <AttributeList />
+                },
+                {
+                    path: 'hubs/:hubId/records',
+                    element: <RecordList />
+                },
+                {
+                    path: 'members',
+                    element: <MetahubMembers />
+                },
+                {
+                    path: 'access',
+                    element: <MetahubMembers />
                 }
             ]
         },

@@ -37,6 +37,7 @@ import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-backend'
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-backend'
+import { initializeRateLimiters as initializeMetahubsRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from '@universo/metahubs-backend'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-backend'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-backend'
 import { createCampaignsServiceRoutes } from '@universo/campaigns-backend'
@@ -303,6 +304,19 @@ router.use('/vector', vectorRouter)
 router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
 router.use('/public-executions', publicExecutionsRouter)
+// Universo Platformo | Public Metahubs routes (read-only access to published metahubs)
+let publicMetahubsRouter: ExpressRouter | null = null
+router.use('/public/metahubs', (req: Request, res: Response, next: NextFunction) => {
+    if (!publicMetahubsRouter) {
+        publicMetahubsRouter = createPublicMetahubsServiceRoutes(() => getDataSource())
+        console.log('[Metahubs] Public router created')
+    }
+    if (publicMetahubsRouter) {
+        publicMetahubsRouter(req, res, next)
+    } else {
+        next()
+    }
+})
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 // Apply ensureAuthWithRls middleware to /uniks route (collection operations: list, create)
@@ -394,6 +408,27 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (clustersRouter) {
         clustersRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Metahubs, MetaEntities, MetaSections
+// Note: Rate limiters initialized via initializeMetahubsRateLimiters() in server startup
+// This mounts: /metahubs, /meta-entities, /meta-sections
+// Lazy initialization: router created on first request (after initializeMetahubsRateLimiters called)
+let metahubsRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    // Debug: log if metahubs path is hit
+    if (req.path.includes('metahub')) {
+        console.log('[DEBUG Metahubs] Path hit:', req.method, req.path)
+    }
+    if (!metahubsRouter) {
+        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, () => getDataSource())
+        console.log('[Metahubs] Router created')
+    }
+    if (metahubsRouter) {
+        metahubsRouter(req, res, next)
     } else {
         next()
     }

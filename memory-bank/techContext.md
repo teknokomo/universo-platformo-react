@@ -83,6 +83,9 @@ if (!userId) return
 -   **Security**: No exposed keys, backend-only Supabase operations
 -   **Environment**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
 
+**RLS request context (TypeORM + Supabase)**:
+- `ensureAuthWithRls` creates a per-request QueryRunner, sets session `role='authenticated'` and `request.jwt.claims`, and resets them during cleanup before releasing the pooled connection.
+
 ## APPs Architecture (v0.21.0-alpha)
 
 **6 Working Applications** with modular architecture minimizing core Flowise changes:

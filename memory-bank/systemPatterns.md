@@ -26,6 +26,7 @@
 - `getDataSource()` for connection
 - `getRepository(Entity)` for CRUD
 - User ID in request context
+- Ensure RLS context persists across queries (session-scoped settings + reset on cleanup, or a single explicit transaction for the whole request)
 
 **Detection**: `grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules` (antipattern)
 

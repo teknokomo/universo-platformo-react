@@ -19,6 +19,7 @@ export const ROLE_HIERARCHY: Record<BaseRole, number> = {
 
 // Entity-specific role types
 export type MetaverseRole = BaseRole
+export type MetahubRole = BaseRole
 export type ClusterRole = BaseRole
 export type UnikRole = BaseRole
 export type ProjectRole = BaseRole
