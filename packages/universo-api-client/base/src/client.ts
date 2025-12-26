@@ -31,6 +31,14 @@ export interface UniversoApiClientOptions {
     csrfPath?: string
     /** Storage key for CSRF token. Defaults to 'up.auth.csrf' */
     csrfStorageKey?: string
+    /**
+     * Configure 401 redirect behavior.
+     * - 'auto': Redirect to /auth except on PUBLIC_UI_ROUTES (default)
+     * - true: Always redirect to /auth on 401
+     * - false: Never redirect on 401
+     * - string[]: Redirect except on these custom routes
+     */
+    redirectOn401?: 'auto' | boolean | readonly string[]
 }
 
 /**
@@ -56,25 +64,14 @@ export interface UniversoApiClientOptions {
  * ```
  */
 export const createUniversoApiClient = (options: UniversoApiClientOptions) => {
-    // Create authenticated axios client
-    const client = createAuthClient(options)
+    // Create authenticated axios client with 401 redirect handling built-in
+    const client = createAuthClient({
+        ...options,
+        redirectOn401: options.redirectOn401 ?? 'auto'
+    })
 
     // Add custom header for internal requests
     client.defaults.headers.common['x-request-from'] = 'internal'
-
-    // Setup 401 redirect interceptor (moved from flowise-ui client.js)
-    client.interceptors.response.use(
-        (response) => response,
-        (error) => {
-            if (error?.response?.status === 401) {
-                const isAuthRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth')
-                if (!isAuthRoute) {
-                    window.location.href = '/auth'
-                }
-            }
-            return Promise.reject(error)
-        }
-    )
 
     return {
         // API endpoint groups (alphabetical order)

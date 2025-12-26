@@ -9,6 +9,7 @@ export * as updl from './updl'
 export * as publish from './publish'
 export * as env from './env'
 export * as localizedContent from './vlc'
+export * as routes from './routes'
 export { UPDLProcessor } from './updl/UPDLProcessor'
 export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env'
 
@@ -18,6 +19,17 @@ export { formatDate, formatRange } from './ui-utils/formatDate'
 // API error handling utilities
 export * as api from './api/error-handlers'
 export * from './api/error-handlers'
+export { extractPaginationMeta, type PaginationMeta as UtilsPaginationMeta } from './api/pagination'
+
+// Public routes utilities
+export {
+    API_WHITELIST_URLS,
+    PUBLIC_UI_ROUTES,
+    isPublicRoute,
+    isWhitelistedApiPath,
+    type ApiWhitelistUrl,
+    type PublicUiRoute
+} from './routes'
 
 // Localized Content utilities
 export {

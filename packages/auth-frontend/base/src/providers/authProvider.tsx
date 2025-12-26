@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, useRef, type ReactNode } from 'react'
 import { useSession, type AuthUser } from '../hooks/useSession'
-import type { AuthClient } from '../api/client'
+import { clearStoredCsrfToken, type AuthClient } from '../api/client'
 
 /**
  * Universo Platformo | Authentication context value
@@ -118,7 +118,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) 
 
     const value = useMemo<AuthContextValue>(() => {
         const login = async (email: string, password: string): Promise<void> => {
-            await client.post('auth/login', { email, password })
+            const doLogin = async () => {
+                await client.post('auth/login', { email, password })
+            }
+
+            try {
+                await doLogin()
+            } catch (err: any) {
+                const status = err?.response?.status
+                if (status === 419) {
+                    // CSRF token expired (e.g., after server restart with MemoryStore)
+                    // Clear stale token and retry once
+                    clearStoredCsrfToken(client)
+                    await doLogin()
+                } else {
+                    throw err
+                }
+            }
+
+            clearStoredCsrfToken(client)
             const refreshedUser = await session.refresh()
             if (!refreshedUser) {
                 throw new Error('Failed to refresh session after login')
@@ -139,12 +157,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) 
             } catch (error) {
                 console.error('[auth] logout failed', error)
             } finally {
-                try {
-                    await session.refresh()
-                } finally {
-                    window.location.href = '/auth'
-                    logoutInProgress.current = false
-                }
+                logoutInProgress.current = false
+                // No redirect - let React re-render with guest content based on isAuthenticated state
             }
         }
 

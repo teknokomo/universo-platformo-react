@@ -28,6 +28,7 @@
                 "lint": "eslint --ext .ts,.tsx src"
         },
         "dependencies": {
+                "@universo/utils": "workspace:*",
                 "axios": "catalog:"
         },
         "peerDependencies": {

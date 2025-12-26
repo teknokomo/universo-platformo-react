@@ -52,6 +52,16 @@ function normalizeSpacesResponse(raw) {
     return Array.isArray(spaces) ? spaces : []
 }
 
+// Normalize canvases response to array format
+function normalizeCanvasesResponse(raw) {
+    if (Array.isArray(raw)) {
+        return raw
+    }
+    // Handle {canvases: [...], total: N} format from backend
+    const canvases = raw?.canvases || raw?.data
+    return Array.isArray(canvases) ? canvases : []
+}
+
 // Resolve lead points with backward compatibility (points field preferred, fallback to numeric phone)
 function resolveLeadPoints(lead) {
     if (typeof lead?.points === 'number') return lead.points
@@ -265,11 +275,12 @@ const Analytics = () => {
     useEffect(() => {
         if (getCanvasesApi.data) {
             try {
-                const canvasesData = getCanvasesApi.data
-                setCanvases(canvasesData)
+                const raw = getCanvasesApi.data
+                const extracted = normalizeCanvasesResponse(raw)
+                setCanvases(extracted)
                 setCanvasesLoading(false)
-                if (canvasesData.length > 0 && !selectedCanvasId) {
-                    setSelectedCanvasId(canvasesData[0].id)
+                if (extracted.length > 0 && !selectedCanvasId) {
+                    setSelectedCanvasId(extracted[0].id)
                 }
             } catch (error) {
                 console.error('[Analytics] Error processing canvases data:', error)

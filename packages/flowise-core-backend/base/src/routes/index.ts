@@ -43,6 +43,7 @@ import { initializeRateLimiters as initializeProjectsRateLimiters, createProject
 import { createCampaignsServiceRoutes } from '@universo/campaigns-backend'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-backend'
 import { createStoragesServiceRoutes } from '@universo/storages-backend'
+import { createStartServiceRoutes } from '@universo/start-backend'
 import { createToolsService, createToolsRouter, toolsErrorHandler } from '@flowise/tools-backend'
 import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@flowise/credentials-backend'
 import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@flowise/variables-backend'
@@ -488,6 +489,21 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (storagesRouter) {
         storagesRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Start (Onboarding wizard for new users)
+// This mounts: /onboarding
+// Lazy initialization: router created on first request (after initializeStartRateLimiters called)
+let startRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!startRouter) {
+        startRouter = createStartServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (startRouter) {
+        startRouter(req, res, next)
     } else {
         next()
     }

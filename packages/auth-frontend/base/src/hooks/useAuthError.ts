@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../providers/authProvider'
+import { isPublicRoute } from '@universo/utils'
 
 /**
  * Error object structure from API responses
@@ -72,11 +73,12 @@ export const useAuthError = (): UseAuthErrorResult => {
 
             // Don't redirect if already on auth page
             const isAuthPath = location.pathname.startsWith('/auth')
+            const isPublicPath = isPublicRoute(location.pathname)
 
             if (isAuthenticated) {
                 // User is authenticated but got 401 - logout
                 void logout()
-            } else if (!isAuthPath) {
+            } else if (!isAuthPath && !isPublicPath) {
                 // User is not authenticated - redirect to login
                 navigate('/auth', {
                     state: { from: location.pathname },

@@ -10,6 +10,7 @@ export * as publish from './publish'
 export * as env from './env'
 export * as uuid from './uuid'
 export * as localizedContent from './vlc'
+export * as routes from './routes'
 
 // Rate limiting utilities (server-side only)
 // Note: Import from '@universo/utils/rate-limiting' for direct access
@@ -48,6 +49,17 @@ export { formatDate, formatRange } from './ui-utils/formatDate'
 
 // API error handling utilities
 export * from './api/error-handlers'
+export { extractPaginationMeta, type PaginationMeta as UtilsPaginationMeta } from './api/pagination'
+
+// Public routes utilities
+export {
+    API_WHITELIST_URLS,
+    PUBLIC_UI_ROUTES,
+    isPublicRoute,
+    isWhitelistedApiPath,
+    type ApiWhitelistUrl,
+    type PublicUiRoute
+} from './routes'
 
 // Localized Content utilities
 export {

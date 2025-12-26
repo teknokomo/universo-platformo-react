@@ -1,0 +1,26 @@
+{
+    "hero": {
+        "titlePrefix": "We need",
+        "titleHighlight": "all worlds",
+        "description": "An infinite space of exploration and collaboration with like-minded people. Manage organizations, projects, and your own life. Transform digital twins of enterprises and cities into reality.",
+        "button": "To the future"
+    },
+    "testimonials": {
+        "kompendio": {
+            "title": "Kompendio",
+            "description": "Together we gather and structure knowledge about the world, create the education of the future — to bring closer the Era of Teknokomo: the sixth technological paradigm and social justice."
+        },
+        "platformo": {
+            "title": "Platformo",
+            "description": "A common abstract layer for building meta-hubs of management, where you can design processes, services and interfaces for any industry and scale."
+        },
+        "kiberplano": {
+            "title": "Kiberplano",
+            "description": "A worldwide planning and implementation system: unites goals, plans, tasks and resources, coordinates execution and manages robotic processes."
+        },
+        "grandaringo": {
+            "title": "Grandaringo",
+            "description": "The creative circuit of the ecosystem: tools for media and film, collaborative development space, communication, messenger and content process management."
+        }
+    }
+}

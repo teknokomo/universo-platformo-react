@@ -29,6 +29,540 @@
 
 ---
 
+## 📅 2025-12-26
+
+### Start Page i18n & Styling Enhancements ✅
+
+Internationalized remaining guest page elements and updated text styling.
+
+**Internationalization**:
+- **Testimonials (4 modules)**: Created `testimonials` section in `landing.json` with translations for Universo Kompendio, Platformo, Kiberplano, and Grandaringo
+- **AppAppBar buttons**: Created `appbar.json` (EN/RU) with `login` and `logout` translations; updated both desktop and mobile views
+
+**Text Updates**:
+- **Name correction**: "Vladimir Levadnyi" → "Vladimir Levadnij" (EN), kept Russian spelling
+- **Title updates**: 
+  - EN: "General Worker" → "General Diverseworker"
+  - RU: "генеральный разнорабочий" → "Генеральный разнорабочий" (capitalized)
+
+**Styling**:
+- **Welcome title**: Added blue color (`color: 'primary.main'`) to match completion slogan
+- **Completion slogan**: Increased size from `variant="h6"` to `variant="h4"` to match welcome title
+
+**Cleanup**:
+- Removed duplicate files from `packages/universo-template-mui/base/src/views/start-page/`:
+  - `StartPage.tsx`
+  - `GuestStartPage.tsx`
+  - `AuthenticatedStartPage.tsx`
+  - `assets/` folder (entire directory)
+
+**Files Created**:
+- `packages/universo-template-mui/base/src/i18n/locales/en/appbar.json`
+- `packages/universo-template-mui/base/src/i18n/locales/ru/appbar.json`
+
+**Files Modified**:
+- `packages/start-frontend/base/src/views/components/Testimonials.tsx` - Internationalized with i18n
+- `packages/start-frontend/base/src/i18n/locales/en/landing.json` - Added testimonials section
+- `packages/start-frontend/base/src/i18n/locales/ru/landing.json` - Added testimonials section
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx` - Added i18n for buttons
+- `packages/start-frontend/base/src/i18n/locales/en/onboarding.json` - Updated name and title
+- `packages/start-frontend/base/src/i18n/locales/ru/onboarding.json` - Updated name and title (capitalized)
+- `packages/start-frontend/base/src/components/WelcomeStep.tsx` - Added blue color to title
+- `packages/start-frontend/base/src/components/CompletionStep.tsx` - Increased slogan size
+
+---
+
+### Onboarding Content & i18n Enhancement ✅
+
+Added personalized content and internationalized guest landing page.
+
+**Changes**:
+- **Welcome intro paragraph**: Added personal introduction from Vladimir Levadnyi (General Worker at Teknokomo) after the welcome title in WelcomeStep
+- **Completion notice section**: Added styled notice box before "All worlds will be ours!" slogan with:
+  - Alpha version warning about potential delays and glitches
+  - Links to GitHub and GitVerse repositories for tracking updates
+  - Link to Boosty for support information
+- **Guest landing page i18n**: Internationalized Hero component:
+  - Created `landing.json` localization files (EN/RU)
+  - Added `registerLandingI18n` function
+  - Hero now uses `useTranslation('landing')` hook
+  - All text (title, description, button) now supports language switching
+
+**Files Created**:
+- `packages/start-frontend/base/src/i18n/locales/en/landing.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/landing.json`
+
+**Files Modified**:
+- `packages/start-frontend/base/src/components/WelcomeStep.tsx` - Added intro paragraph
+- `packages/start-frontend/base/src/components/CompletionStep.tsx` - Added notice section with links
+- `packages/start-frontend/base/src/views/components/Hero.tsx` - Internationalized with i18n
+- `packages/start-frontend/base/src/i18n/register.ts` - Added `registerLandingI18n`
+- `packages/start-frontend/base/src/i18n/locales/en/onboarding.json` - Added intro and notice keys
+- `packages/start-frontend/base/src/i18n/locales/ru/onboarding.json` - Added intro and notice keys
+- `packages/start-frontend/base/src/index.ts` - Exported `registerLandingI18n`
+
+---
+
+## 📅 2025-06-29
+
+### Onboarding Wizard QA Round 4 ✅
+
+Fixed additional UI/UX issues reported during testing.
+
+**Changes**:
+- **AppAppBar border**: Verified that border styling (`1px solid`) was present in the original code and was not introduced during migration
+- **Mobile content visibility**: Increased top padding for OnboardingWizard on mobile devices (`pt: { xs: 14 }` = 112px) to prevent content being hidden under fixed header
+- **Removed mobile step indicator**: Deleted the "Шаг X из Y" text that was added in QA Round 3 per user request
+- **Language switcher**: Added `LanguageSwitcher` component to AppAppBar (both desktop and mobile views) allowing users to switch between EN/RU on the start page
+
+**Files Modified**:
+- `packages/start-frontend/base/src/components/OnboardingWizard.tsx` - Fixed top padding, removed mobile step indicator
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx` - Added LanguageSwitcher import and placement
+
+---
+
+### Onboarding Wizard QA Fixes ✅
+
+Completed three rounds of QA fixes for the onboarding wizard.
+
+**QA Round 3 - Mobile & Text Fixes**:
+- Fixed completion text: "shared vision" → "great goals" (EN), "общему видению" → "великим целям" (RU)
+- Changed slogan styling from italic to bold (`fontWeight: 700`)
+- Fixed mobile horizontal overflow by hiding Stepper on xs screens and adding mobile step indicator ("Step X of Y")
+- Added `steps.progress` i18n key for mobile step indicator
+- **Major refactor**: Moved start page views from `universo-template-mui` to `@universo/start-frontend`:
+  - Created `views/` folder in start-frontend with StartPage, AuthenticatedStartPage, GuestStartPage
+  - Created `views/components/` with Hero, Testimonials, SitemarkIcon, AppAppBar
+  - Updated MainRoutesMUI.tsx to import StartPage from `@universo/start-frontend/views/StartPage`
+  - Added views exports to start-frontend package.json and index.ts
+
+**QA Round 2**:
+- Hidden Back button on first (Welcome) step
+- Restyled CompletionStep with hero image similar to WelcomeStep
+- Renamed start_mars.jpg to start-mars.jpg (kebab-case)
+
+**QA Round 1**:
+- Fixed i18n translations not loading (removed extra `onboarding:` wrapper from JSON)
+- Added auto-selection of first item on initial load
+- Implemented sync logic - added/removed members on selection change
+- Replaced "Finish" button with "Start Over" (resets wizard)
+
+**Files Modified/Created**:
+- `packages/start-frontend/base/src/components/OnboardingWizard.tsx` - Mobile fixes, Typography import
+- `packages/start-frontend/base/src/components/CompletionStep.tsx` - Text & styling fixes
+- `packages/start-frontend/base/src/i18n/locales/*/onboarding.json` - Text updates, progress key
+- `packages/start-frontend/base/src/views/` - New folder with StartPage, AuthenticatedStartPage, GuestStartPage
+- `packages/start-frontend/base/src/views/components/` - Hero, Testimonials, SitemarkIcon, AppAppBar
+- `packages/start-frontend/base/package.json` - Added views exports, react-router-dom, @mui/icons-material
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - Updated StartPage import
+
+---
+
+### Onboarding Wizard Implementation ✅
+
+Created multi-step onboarding wizard for new users to select their interests: Projects (Global Goals), Campaigns (Personal Interests), and Clusters (Platform Features) owned by system admin.
+
+**Architecture**:
+- Two new packages: `@universo/start-backend` and `@universo/start-frontend`
+- Backend uses lazy router pattern matching other services
+- Frontend uses MUI Stepper with 5 steps: Welcome, Projects, Campaigns, Clusters, Completion
+
+**Backend (start-backend)**:
+- `GET /api/v1/onboarding/items` - Returns admin-owned Projects, Campaigns, Clusters with user's selection status
+- `POST /api/v1/onboarding/join` - Validates admin ownership and adds user as "member" to selected items in transaction
+- Rate limiting: 30 req/min for reads, 10 req/min for writes
+- Searches admin by email (580-39-39@mail.ru) for portability across environments
+
+**Frontend (start-frontend)**:
+- `OnboardingWizard` - Main 5-step stepper component with state management
+- `SelectableListCard` - Card list with large numbers, checkboxes, click-to-toggle selection
+- `WelcomeStep` - Hero image (start_mars.jpg) with inspiring welcome text
+- `SelectionStep` - Reusable step for selecting items by category
+- `CompletionStep` - Final message with continue button
+- i18n support: English and Russian translations in `onboarding` namespace
+
+**Integration**:
+- Registered in `flowise-core-backend/routes/index.ts` with lazy router pattern
+- Rate limiters initialized in `flowise-core-backend/src/index.ts`
+- `AuthenticatedStartPage.tsx` in `universo-template-mui` replaced demo DataGrid with OnboardingWizard
+- i18n registration via `registerOnboardingI18n()` function
+
+**Files Created** (19 files):
+- `packages/start-backend/base/*` - Backend package (7 files)
+- `packages/start-frontend/base/*` - Frontend package (12 files)
+
+**Build Status**: ✅ `pnpm build` successful (61 tasks)
+
+---
+
+## 📅 2025-12-26
+
+### Quiz Leads API & Analytics Bug Fixes ✅
+
+Fixed two critical bugs preventing quiz leads from being saved and analytics data from displaying correctly after AR.js Quiz completion.
+
+**Problems**:
+1. **Leads API 400 Error**: POST `/api/v1/leads` returned 400 when quiz sent `{canvasId: null, points: 9}` payload after completion
+2. **Analytics TypeError**: `w.map is not a function` error crashed Analytics page when displaying canvases dropdown
+
+**Root Causes**:
+1. Zod schema in `leadsService.ts` required `canvasId` as UUID, rejecting null/empty string values sent during quiz initialization
+2. Zod schema didn't accept `points` field sent by quiz template
+3. Backend returns canvases as `{canvases: [...], total: N}` but frontend expected plain array
+
+**Solutions Implemented**:
+
+*Backend Changes*:
+- Updated Lead migration to make `canvas_id` nullable, added performance indexes (IDX_lead_canvas_id, IDX_lead_created_date)
+- Updated Lead entity: `canvasId` changed to optional field with `nullable: true`
+- Enhanced Zod schema:
+  - `canvasId`: Made optional with transformation: `z.string().uuid().optional().or(z.literal('')).transform(val => val === '' ? undefined : val)`
+  - `points`: Added field with validation: `z.number().int().nonnegative().optional().default(0)`
+- Updated `createLead` logic to use `validatedData.points ?? 0`
+
+*Frontend Changes*:
+- Added `normalizeCanvasesResponse()` function in Analytics.jsx to handle both array and object wrapper formats
+- Updated canvases useEffect to normalize API response before setState
+
+*Type Extraction*:
+- Created `packages/universo-types/base/src/validation/leads.ts` with ILead, CreateLeadPayload, LeadsAnalytics interfaces
+- Updated @flowise/leads-backend to use types from @universo/types
+- Added backwards compatibility aliases (CreateLeadBody → CreateLeadPayload)
+
+*Testing*:
+- Created comprehensive unit tests for leadsService (`__tests__/leadsService.test.ts`)
+- 19 test suites covering: valid data, optional canvasId, points validation, email format, real-world quiz scenarios
+- All tests passing ✅
+
+**Files Modified**:
+- `packages/flowise-leads-backend/base/src/database/migrations/postgres/1710832137905-AddLead.ts`
+- `packages/flowise-leads-backend/base/src/database/entities/Lead.ts`
+- `packages/flowise-leads-backend/base/src/services/leadsService.ts`
+- `packages/flowise-leads-backend/base/src/Interface.ts`
+- `packages/analytics-frontend/base/src/pages/Analytics.jsx`
+- `packages/universo-types/base/src/validation/leads.ts` (NEW)
+- `packages/universo-types/base/src/index.ts`
+- `packages/flowise-leads-backend/base/src/services/__tests__/leadsService.test.ts` (NEW)
+- `packages/flowise-leads-backend/base/package.json` (added test scripts + Jest dependencies)
+- `packages/flowise-leads-backend/base/jest.config.js` (NEW)
+
+**Build Status**: 
+- ✅ `pnpm build --filter @universo/types` successful (5.021s)
+- ✅ `pnpm build --filter @flowise/leads-backend` successful (15.943s)
+- ✅ `pnpm build --filter @universo/analytics-frontend` successful (46.513s total with dependencies)
+- ✅ `pnpm test` for @flowise/leads-backend: 19/19 tests passed (2.654s)
+
+**Benefits**:
+- Quiz leads now save correctly without 400 errors
+- Analytics page displays canvases dropdown without crashes
+- Improved database query performance with new indexes
+- Type safety across backend/frontend with centralized types
+- Comprehensive test coverage for validation logic
+- Modern patterns without legacy code
+
+**Next Steps**: Integration test required - create quiz → publish → complete → verify Analytics displays data correctly.
+
+---
+
+### Anonymous Quiz Access Fix ✅
+
+Fixed 401 Unauthorized error when unauthenticated users tried to access published quizzes via `/p/{slug}` URLs.
+
+**Problem**: 
+- Anonymous users couldn't access published quizzes 
+- Browser console showed `GET /api/v1/publish/public/{slug}` returning 401
+- Expected behavior: anyone should be able to view and complete published quizzes without login
+
+**Root Cause**:
+- `/api/v1/publish/public/` endpoint was missing from `API_WHITELIST_URLS` in auth middleware configuration
+- While `/api/v1/publish/arjs/public/` was whitelisted, the general `/api/v1/publish/public/` was not
+- All non-whitelisted API routes require JWT authentication
+- Additionally, `createEnsureAuthWithRls` middleware wrapped `ensureAuth` and returned 401 for anonymous requests before the whitelist could apply
+
+**Investigation Performed**:
+- Verified frontend route `/p/` is in `PUBLIC_UI_ROUTES` ✅
+- Checked RLS policies via Supabase MCP: `canvases` table has RLS (authenticated only), `publish_canvases` RLS disabled
+- Confirmed FlowDataService uses direct DataSource (bypasses RLS) but checks `isPublic` flag for security
+
+**Solution**:
+Added two endpoints to `API_WHITELIST_URLS` in `packages/universo-utils/base/src/routes/index.ts`:
+```typescript
+// Public publication endpoints (accessible without authentication)
+'/api/v1/publish/public/',
+'/api/v1/publish/canvas/public/'
+```
+
+Updated `createEnsureAuthWithRls` to bypass whitelisted public endpoints (prevents 401 for anonymous publish URLs even when RLS middleware is mounted):
+- `packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
+
+**Security Verification**:
+- `FlowDataService.getFlowDataBySlug()` already validates: `if (!link.isPublic) throw new Error('Unik link is not public')`
+- Only canvases explicitly marked as public are accessible via these endpoints
+- No authorization bypass for private content
+
+**Files Modified**:
+- `packages/universo-utils/base/src/routes/index.ts`
+- `packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
+
+**Build Status**:
+- ✅ `pnpm build --filter @universo/utils` successful (13.474s)
+- ✅ `pnpm build --filter @universo/auth-backend` successful (23.45s)
+- ✅ `pnpm build --filter @flowise/core-backend` successful (48 tasks, 6m12.606s)
+
+**Result**: Anonymous users can now access published quizzes at `/p/{slug}` without login requirement.
+
+---
+
+### Login After Server Restart Fix ✅
+
+Implemented automatic retry on CSRF token expiration during login, eliminating the need for users to click twice or manually clear cookies.
+
+**Problem**:
+- After server restart, first login attempt returned 419 (CSRF token expired)
+- User had to click "Login" button twice OR manually clear browser cookies
+- Poor UX due to stale CSRF token stored in `sessionStorage`
+
+**Root Cause**:
+- Server restart clears MemoryStore sessions (old CSRF secrets gone)
+- Browser still holds old CSRF token in sessionStorage (`up.auth.csrf`)
+- First POST `/auth/login` with stale token → server returns 419
+- Frontend interceptor clears token on 419, but doesn't auto-retry
+- Second click fetches fresh CSRF and succeeds
+
+**Solution**:
+- Added retry wrapper in `authProvider.tsx` login function
+- On 419 response: clear stale CSRF token → immediate retry once
+- Same pattern added to `LoginForm.tsx` for standalone usage
+- Retry limited to exactly one attempt to prevent infinite loops
+
+**Files Modified**:
+- `packages/auth-frontend/base/src/providers/authProvider.tsx` - Retry logic in login function
+- `packages/auth-frontend/base/src/components/LoginForm.tsx` - Retry logic in handleSubmit
+
+**Build Status**: ✅ `pnpm build` successful (59 tasks, 7m35s)
+
+**Benefits**:
+- Single-click login after server restart
+- No manual intervention required
+- Graceful handling of stale CSRF tokens
+- Minimal code changes (~15 lines total)
+
+**Related Issues**: Session persistence on restart remains deferred (see tasks.md). This fix makes the symptom (login failure) non-blocking for MVP.
+
+---
+
+### Logout Redirect Fix ✅
+
+Removed forced page redirect after logout for smoother user experience.
+
+**Problem**:
+- After logout, user was redirected to `/auth` via `window.location.href = '/auth'`, causing full page reload and preventing natural guest content display.
+
+**Solution**:
+- Removed hardcoded redirect from `authProvider.tsx` logout function.
+- React now naturally re-renders guest content when `isAuthenticated` becomes `false`.
+- Pages with conditional rendering (e.g., `StartPage.tsx`) automatically show guest version.
+
+**Files Modified**:
+- `packages/auth-frontend/base/src/providers/authProvider.tsx` - Removed redirect, added comment explaining React's declarative approach.
+
+**Build Status**: ✅ `pnpm build` successful (59 tasks, 7m46s)
+
+**Benefits**:
+- No page reload on logout (smoother UX)
+- User stays on current page and sees guest content if available
+- Follows React's declarative rendering approach
+
+---
+
+### Session Persistence Planning 📋 DEFERRED
+
+Documented issue where sessions are lost on server restart (MemoryStore limitation). Deferred implementation until production deployment pattern is clear.
+
+**Problem**: User must re-login after server restart because sessions stored in memory are cleared.
+
+**Options**: PostgreSQL session store, Redis, or stateless JWT approach.
+
+**Decision**: For MVP/dev, manual re-login on restart is acceptable. Will revisit when production needs are clearer.
+
+---
+
+## 📅 2025-12-25
+
+### Logout Functionality Fix ✅
+
+Implemented a more robust logout flow to prevent users from being immediately re-authenticated after clicking logout.
+
+**Root Cause**:
+- Frontend cached CSRF token became stale after server-side `session.regenerate()` during login (CSRF secret stored in session via `csurf({ cookie: false })`).
+- CSRF failures were not surfaced as HTTP 419, so the client did not clear/refresh CSRF and logout could fail to execute reliably.
+- The `/auth` page refresh logic then called `/auth/me`; if the session/cookie remained valid, the UI redirected back into the app.
+
+**Fixes Implemented**:
+1. **Frontend**
+  - Clear cached CSRF token after successful login before refreshing the session.
+  - Retry logout exactly once on HTTP 419 by clearing CSRF and retrying the POST.
+2. **Backend**
+  - Map `EBADCSRFTOKEN` to HTTP 419 in the global error middleware (and preserve existing status codes).
+  - Harden `/logout` to be idempotent and deterministic: best-effort Supabase signOut, Passport logout, session destroy, and clear the session cookie using the correct path.
+
+Build verification: ✅ `pnpm build` successful (full workspace)
+
+Note: Manual browser verification is still required (confirm `/api/v1/auth/me` returns 401 after logout and UI stays on `/auth`).
+
+### Auth Redirect & Landing Page Fixes ✅
+
+Fixed multiple issues with auth flow and landing page for guests.
+
+**Issues Fixed**:
+
+1. **Flash of Protected Content** - Protected routes briefly showed layout/breadcrumbs before redirect
+   - Root Cause: `MainLayoutMUI` rendered before `AuthGuard` could redirect
+   - Fix: Moved `AuthGuard` to wrap entire `MainLayoutMUI`, removed 35+ redundant child wrappers
+
+2. **Infinite Redirect Loop on /auth** - Auth page kept reloading infinitely
+   - Root Cause: `/auth` was not in `PUBLIC_UI_ROUTES`, so 401 from `/auth/me` triggered redirect back to `/auth`
+   - Fix: Added `/auth` to `PUBLIC_UI_ROUTES` in `@universo/utils/routes`
+
+3. **Landing Page UI Updates**:
+   - "Start now" button now links to `/auth` (RouterLink)
+   - Header: Commented out "Sign in" text button, changed "Sign up" to "Sign in"
+   - Both desktop and mobile buttons link to `/auth`
+   - Commented out Testimonials header (title + description)
+   - Commented out demo user data in cards (avatar, name, occupation, logo)
+
+**Files Modified**:
+- `packages/universo-utils/base/src/routes/index.ts` - Added `/auth` to `PUBLIC_UI_ROUTES`
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - AuthGuard architecture fix
+- `packages/universo-template-mui/base/src/views/start-page/components/Hero.tsx` - RouterLink for Start now
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx` - Sign in button + RouterLink
+- `packages/universo-template-mui/base/src/views/start-page/components/Testimonials.tsx` - Commented out header/demo data
+
+Build verification: `pnpm build` successful (59 tasks)
+
+---
+
+### API Client Architecture Refactoring ✅
+
+Eliminated ~500 lines of duplicate code by consolidating public routes and 401 redirect logic.
+
+**New Modules Created**:
+1. **`@universo/utils/routes`** - Single source of truth for public routes:
+   - `API_WHITELIST_URLS` - Backend endpoints not requiring JWT (21 endpoints)
+   - `PUBLIC_UI_ROUTES` - Frontend routes where 401 should not redirect
+   - `isPublicRoute()` - Helper function for route checking
+
+2. **`@universo/utils/api/pagination`** - Shared pagination utilities:
+   - `extractPaginationMeta()` - Extract pagination from response headers
+   - `PaginationMeta` type
+
+**Extended `@universo/auth-frontend`**:
+- Added `redirectOn401` option to `createAuthClient()`:
+  - `'auto'` (default) - Use `isPublicRoute()` from `@universo/utils`
+  - `true` - Always redirect to `/auth` on 401
+  - `false` - Never redirect
+  - `string[]` - Custom routes array
+
+**Files Simplified (9 apiClient.ts files)**:
+- Each file reduced from ~50 lines to ~15 lines
+- Removed duplicate `isPublicRoute()` definitions
+- Removed duplicate 401 interceptors
+- Now use centralized `createAuthClient({ redirectOn401: 'auto' })`
+
+**Backend Update**:
+- `flowise-core-backend` now imports `API_WHITELIST_URLS` from `@universo/utils`
+- Removed `WHITELIST_URLS` from `utils/constants.ts`
+
+**Cleanup**:
+- Deleted unused `packages/flowise-core-frontend/base/src/api.js`
+- Updated all files with duplicate `isPublicRoute()` to use shared version
+
+**Build**: ✅ `pnpm build` successful (59 tasks)
+
+---
+
+### Start Page: Auth-Conditional Rendering ✅
+
+Extended start page to show different content based on authentication status.
+
+**Changes**:
+1. **Hero Cleanup**: Removed email input, Terms & Conditions text, commented out dashboard screenshot
+2. **AppAppBar Cleanup**: Commented out left navigation buttons (Features, Testimonials, etc.)
+3. **Architecture Split**:
+   - Created `StartLayoutMUI.tsx` - minimal layout with AppAppBar only
+   - Created `GuestStartPage.tsx` - landing for non-authenticated (Hero + Testimonials)
+   - Created `AuthenticatedStartPage.tsx` - dashboard with MUI DataGrid demo
+   - Created `StartPage.tsx` - switcher component using `useAuth()`
+
+4. **Guest Redirect Fix (401 auto-redirect)**:
+  - **Problem**: Non-authenticated users saw the guest landing briefly, then were redirected to `/auth`
+  - **Root Cause**: Several frontend API clients/hooks enforced a global `401 → /auth` redirect without considering public routes. Background requests that return `401` for guests (e.g. `/auth/me`, `/auth/permissions`) triggered the redirect.
+  - **Fix**: Added a public-route allowlist (including `/`, `/p/*`, `/b/*`, `/chatbot/*`, `/bots/*`, `/execution/*`) and skip the auto-redirect on those routes.
+  - **Note**: The legacy `MainRoutes` catch-all cleanup was kept, but it was not sufficient on its own.
+
+**Route Architecture**:
+```
+/                          → StartRoute
+├── StartLayoutMUI         → AppTheme + AppAppBar
+│   └── StartPage          → useAuth() check
+│       ├── GuestStartPage       (if !isAuthenticated)
+│       └── AuthenticatedStartPage (if isAuthenticated)
+```
+
+**Files Created**:
+- `packages/universo-template-mui/base/src/layout/StartLayoutMUI.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/GuestStartPage.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/AuthenticatedStartPage.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/StartPage.tsx`
+
+**Files Modified**:
+- `packages/universo-template-mui/base/src/views/start-page/components/Hero.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx`
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- `packages/flowise-template-mui/base/src/routes/index.jsx` - removed MainRoutes from routeTree
+- `packages/flowise-template-mui/base/src/routes/MainRoutes.jsx` - deprecated (set to null)
+- `packages/flowise-core-frontend/base/src/api/client.js` - skip 401 redirect on public routes
+- `packages/flowise-core-frontend/base/src/api.js` - skip 401 redirect on public routes
+- `packages/universo-api-client/base/src/client.ts` - skip 401 redirect on public routes
+- `packages/auth-frontend/base/src/hooks/useAuthError.ts` - skip navigation to /auth on public routes
+
+**Build Status:** ✅ `pnpm build` successful (59 tasks)
+
+---
+
+### Start Page: Marketing Page Template MVP ✅
+
+Integrated MUI Marketing Page template as the public landing page for the platform.
+
+**Problem**: Copied MUI marketing-page template had build errors due to:
+1. Incorrect import paths (template expected `shared-theme/` folder)
+2. MUI Grid2 API (`size` prop) incompatible with current project's Grid v1 usage
+3. TypeScript errors with `theme.vars` type definitions
+
+**Solution**:
+1. Fixed import paths: `../shared-theme/` → `../../components/shared/` for `AppTheme` and `ColorModeIconDropdown`
+2. Converted Grid2 API to Grid v1: `size={{ xs: 12, sm: 6 }}` → `xs={12} sm={6}` in Highlights, Pricing, Testimonials
+3. Fixed TypeScript in AppAppBar.tsx using theme fallback pattern
+
+**Route Changes**:
+- Created public `LandingRoute` for `/` path (no AuthGuard)
+- Moved `UnikList` from index route to `/dashboard` path
+- Landing page shows: AppAppBar (menu), Hero (products + email), Testimonials
+
+**MVP Status**: Demo sections temporarily commented (LogoCollection, Features, Highlights, Pricing, FAQ, Footer) with `MVP: Temporarily commented out` markers for future restoration.
+
+**Files Modified**:
+- `packages/universo-template-mui/base/src/views/start-page/MarketingPage.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/Highlights.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/Pricing.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/Testimonials.tsx`
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+
+**Build Status:** ✅ `pnpm build --filter @universo/template-mui` successful
+
+---
+
 ## 📅 2025-12-23
 
 ### Auth/RLS: Fix Role Change Breaking Admin Schema Access ✅

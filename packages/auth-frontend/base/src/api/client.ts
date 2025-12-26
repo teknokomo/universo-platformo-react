@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
+import { isPublicRoute } from '@universo/utils'
 
 export const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
 const CSRF_STORAGE_SYMBOL = Symbol.for('universo.auth.csrfStorageKey')
@@ -43,11 +44,23 @@ export interface AuthClientOptions {
     csrfPath?: string
     /** Storage key used to persist the fetched CSRF token for the session. */
     csrfStorageKey?: string
+    /**
+     * Configure 401 redirect behavior.
+     * - 'auto': Redirect to /auth except on PUBLIC_UI_ROUTES (default)
+     * - true: Always redirect to /auth on 401
+     * - false: Never redirect on 401
+     * - string[]: Redirect except on these custom routes
+     */
+    redirectOn401?: 'auto' | boolean | readonly string[]
+    /** Custom redirect path. Defaults to '/auth'. */
+    authRedirectPath?: string
 }
 
 const defaultOptions: Required<Omit<AuthClientOptions, 'baseURL'>> = {
     csrfPath: 'auth/csrf',
-    csrfStorageKey: AUTH_CSRF_STORAGE_KEY
+    csrfStorageKey: AUTH_CSRF_STORAGE_KEY,
+    redirectOn401: 'auto',
+    authRedirectPath: '/auth'
 }
 
 const getSessionStorage = () => {
@@ -63,6 +76,8 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
     const mergedOptions: Required<AuthClientOptions> = {
         csrfPath: defaultOptions.csrfPath,
         csrfStorageKey: defaultOptions.csrfStorageKey,
+        redirectOn401: defaultOptions.redirectOn401,
+        authRedirectPath: defaultOptions.authRedirectPath,
         ...options
     }
 
@@ -114,9 +129,36 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
         (response) => response,
         async (error) => {
             const status = error?.response?.status
+
+            // Handle CSRF token expiration
             if (status === 419) {
                 const storage = getSessionStorage()
                 storage?.removeItem(mergedOptions.csrfStorageKey)
+            }
+
+            // Handle 401 Unauthorized - redirect to auth if configured
+            if (status === 401 && mergedOptions.redirectOn401 !== false) {
+                const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
+                let shouldRedirect = false
+
+                if (mergedOptions.redirectOn401 === true) {
+                    // Always redirect
+                    shouldRedirect = true
+                } else if (mergedOptions.redirectOn401 === 'auto') {
+                    // Use isPublicRoute from @universo/utils
+                    shouldRedirect = !isPublicRoute(pathname)
+                } else if (Array.isArray(mergedOptions.redirectOn401)) {
+                    // Custom routes array
+                    const customRoutes = mergedOptions.redirectOn401 as readonly string[]
+                    const isCustomPublic = customRoutes.some((route) =>
+                        route === '/' ? pathname === '/' : pathname.startsWith(route)
+                    )
+                    shouldRedirect = !isCustomPublic
+                }
+
+                if (shouldRedirect && typeof window !== 'undefined') {
+                    window.location.href = mergedOptions.authRedirectPath
+                }
             }
 
             const config: Record<string, any> = error?.config ?? {}
@@ -150,4 +192,12 @@ export const getStoredCsrfToken = (client?: AuthClient, storageKey?: string): st
     const resolvedKey = storageKey ?? ((client as any)?.[CSRF_STORAGE_SYMBOL] as string | undefined) ?? AUTH_CSRF_STORAGE_KEY
 
     return storage.getItem(resolvedKey) ?? null
+}
+
+export const clearStoredCsrfToken = (client?: AuthClient, storageKey?: string): void => {
+    const storage = getSessionStorage()
+    if (!storage) return
+
+    const resolvedKey = storageKey ?? ((client as any)?.[CSRF_STORAGE_SYMBOL] as string | undefined) ?? AUTH_CSRF_STORAGE_KEY
+    storage.removeItem(resolvedKey)
 }

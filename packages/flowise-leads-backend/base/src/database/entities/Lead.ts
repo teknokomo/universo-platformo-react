@@ -22,8 +22,8 @@ export class Lead implements ILead {
     @Column({ type: 'integer', default: 0, nullable: false })
     points!: number
 
-    @Column({ name: 'canvas_id' })
-    canvasId!: string
+    @Column({ name: 'canvas_id', nullable: true })
+    canvasId?: string
 
     @Column()
     chatId!: string

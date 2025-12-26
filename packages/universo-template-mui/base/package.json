@@ -59,6 +59,7 @@
         "@mui/x-tree-view": "^7.22.2",
         "@universo/i18n": "workspace:*",
         "@universo/admin-frontend": "workspace:*",
+        "@universo/start-frontend": "workspace:*",
         "@emotion/react": "catalog:",
         "@emotion/styled": "catalog:",
         "dayjs": "catalog:",

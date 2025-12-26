@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react'
-import type { AuthClient } from '../api/client'
+import { clearStoredCsrfToken, type AuthClient } from '../api/client'
 import type { AuthUser } from '../hooks/useSession'
 
 export interface LoginFormLabels {
@@ -32,9 +32,27 @@ export const LoginForm = ({ client, onSuccess, onError, labels }: LoginFormProps
         setSubmitting(true)
         setError(null)
 
+        const doLogin = async () => {
+            return await client.post<{ user: AuthUser }>('auth/login', { email, password })
+        }
+
         try {
-            const { data } = await client.post<{ user: AuthUser }>('auth/login', { email, password })
-            onSuccess?.(data.user)
+            let response
+            try {
+                response = await doLogin()
+            } catch (err: any) {
+                const status = err?.response?.status
+                if (status === 419) {
+                    // CSRF token expired (e.g., after server restart with MemoryStore)
+                    // Clear stale token and retry once
+                    clearStoredCsrfToken(client)
+                    response = await doLogin()
+                } else {
+                    throw err
+                }
+            }
+
+            onSuccess?.(response.data.user)
         } catch (err: any) {
             const message = err?.response?.data?.error ?? err?.message ?? 'Login failed'
             setError(message)

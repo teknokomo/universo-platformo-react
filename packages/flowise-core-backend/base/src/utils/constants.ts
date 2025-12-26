@@ -1,26 +1,9 @@
-export const WHITELIST_URLS = [
-    '/api/v1/verify/unik/',
-    '/public/canvases',
-    '/api/v1/bots/',
-    '/api/v1/bots/config/',
-    '/api/v1/bots/render/',
-    '/api/v1/prediction/',
-    '/api/v1/vector/upsert/',
-    '/api/v1/node-icon/',
-    '/api/v1/components-credentials-icon/',
-    '/api/v1/canvas-streaming',
-    '/api/v1/openai-assistants-file/download',
-    '/api/v1/feedback',
-    '/api/v1/leads',
-    '/api/v1/get-upload-file',
-    '/api/v1/ip',
-    '/api/v1/ping',
-    '/api/v1/version',
-    '/api/v1/attachments',
-    '/api/v1/metrics',
-    '/api/v1/nvidia-nim',
-    '/api/v1/publish/arjs/public/'
-]
+/**
+ * Flowise-specific constants.
+ *
+ * Note: WHITELIST_URLS has been moved to @universo/utils as API_WHITELIST_URLS.
+ * Import from '@universo/utils' instead.
+ */
 
 export const OMIT_QUEUE_JOB_DATA = ['componentNodes', 'appDataSource', 'sseStreamer', 'telemetry', 'cachePool']
 

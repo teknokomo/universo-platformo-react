@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import type { DataSource, QueryRunner } from 'typeorm'
+import { isWhitelistedApiPath } from '@universo/utils'
 import { ensureAuth } from './ensureAuth'
 import { applyRlsContext } from '../utils/rlsContext'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
@@ -54,6 +55,20 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
     const { getDataSource } = options
 
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const requestPath = (req.originalUrl || req.url || req.path).split('?')[0]
+
+        // Public endpoints must remain accessible without authentication.
+        // This middleware wraps ensureAuth and would otherwise return 401 before the core whitelist is applied.
+        if (isWhitelistedApiPath(requestPath)) {
+            console.log('[RLS] Whitelisted request - skipping auth/RLS', {
+                originalUrl: req.originalUrl,
+                path: req.path,
+                method: req.method
+            })
+            next()
+            return
+        }
+
         // First, ensure authentication
         return ensureAuth(req, res, async () => {
             console.log('[RLS] Middleware invoked', {

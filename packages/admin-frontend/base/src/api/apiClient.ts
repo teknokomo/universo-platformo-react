@@ -1,22 +1,18 @@
-import { createAuthClient } from '@universo/auth-frontend'
-import type { AxiosError, AxiosResponse } from 'axios'
+/**
+ * Universo Platformo | Admin Frontend API Client
+ *
+ * Pre-configured axios client with authentication, CSRF protection,
+ * and automatic 401 redirect handling (except on public routes).
+ */
 
-const apiClient = createAuthClient({ baseURL: '/api/v1' })
+import { createAuthClient } from '@universo/auth-frontend'
+
+const apiClient = createAuthClient({
+    baseURL: '/api/v1',
+    redirectOn401: 'auto'
+})
 
 apiClient.defaults.headers.common['Content-Type'] = 'application/json'
 apiClient.defaults.headers.common['x-request-from'] = 'internal'
-
-apiClient.interceptors.response.use(
-    (response: AxiosResponse) => response,
-    (error: AxiosError) => {
-        if (error?.response?.status === 401 && typeof window !== 'undefined') {
-            const isAuthRoute = window.location.pathname.startsWith('/auth')
-            if (!isAuthRoute) {
-                window.location.href = '/auth'
-            }
-        }
-        return Promise.reject(error)
-    }
-)
 
 export default apiClient

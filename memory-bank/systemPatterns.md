@@ -4,6 +4,59 @@
 
 ---
 
+## Public Routes & 401 Redirect Pattern (CRITICAL)
+
+**Rule**: All public routes constants centralized in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.
+
+**Source of Truth**:
+```typescript
+// packages/universo-utils/base/src/routes/index.ts
+export const API_WHITELIST_URLS = [...] // Backend - no JWT required
+export const PUBLIC_UI_ROUTES = ['/', '/p/', '/b/', ...] // Frontend - no auth redirect
+export function isPublicRoute(pathname: string): boolean { ... }
+```
+
+**Usage in API Clients**:
+```typescript
+import { createAuthClient } from '@universo/auth-frontend'
+export { extractPaginationMeta } from '@universo/utils'
+
+const apiClient = createAuthClient({
+    baseURL: '/api/v1',
+    redirectOn401: 'auto'  // Uses isPublicRoute() from @universo/utils
+})
+```
+
+**Options for `redirectOn401`**:
+- `'auto'` (default) - Redirect except on PUBLIC_UI_ROUTES
+- `true` - Always redirect to /auth on 401
+- `false` - Never redirect
+- `string[]` - Custom routes array
+
+**Detection**: `grep -r "const isPublicRoute" packages/*/src` (antipattern - should use @universo/utils)
+
+**Why**: Single source of truth, consistent behavior, ~500 lines of duplicate code eliminated.
+
+---
+
+## CSRF Token Lifecycle + HTTP 419 Contract (CRITICAL)
+
+**Context**: Backend uses `csurf({ cookie: false })` (CSRF secret stored in session). If the server regenerates the session (e.g., `req.session.regenerate()` during login), the CSRF secret changes and any client-cached CSRF token becomes stale.
+
+**Contract**:
+- Backend MUST map `EBADCSRFTOKEN` to HTTP **419** (not 500).
+- Frontend MUST treat 419 as “CSRF expired” and clear the cached token, then retry the request once when safe (e.g., logout).
+
+**Frontend Pattern**:
+- Cache CSRF token (if needed) but clear it after successful login (before any post-login refresh) to avoid using a token from the pre-regenerated session.
+- On HTTP 419: clear cached CSRF and retry exactly once.
+
+**Backend Pattern**:
+- Preserve status codes in the global error handler; do not coerce csurf errors into 500.
+- Make logout idempotent: do not require `ensureAuthenticated`; always attempt Passport logout + session destroy + clear cookie (best-effort Supabase signOut if tokens exist).
+
+---
+
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
 **Rule**: Source-only packages (no dist/) MUST use peerDependencies, NOT dependencies.

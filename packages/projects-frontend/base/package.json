@@ -51,6 +51,7 @@
         "@tabler/icons-react": "^3.30.0",
         "@universo/auth-frontend": "workspace:*",
         "@universo/template-mui": "workspace:*",
+        "@universo/utils": "workspace:*",
         "react": "catalog:",
         "react-i18next": "catalog:",
         "i18next": "catalog:",
