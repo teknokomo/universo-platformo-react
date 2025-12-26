@@ -78,8 +78,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     const handleNext = useCallback(async () => {
         const currentStepName = STEPS[activeStep]
 
-        // Save selections when leaving selection steps
-        if (currentStepName === 'projects' || currentStepName === 'campaigns' || currentStepName === 'clusters') {
+        // Save all selections only when moving from the last selection step to completion
+        // This prevents unintended side effects from syncing incomplete selections
+        if (currentStepName === 'clusters') {
             try {
                 setIsSaving(true)
                 setError(null)
@@ -92,7 +93,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 console.error('[OnboardingWizard] Failed to save selections:', err)
                 setError(t('errors.saveFailed'))
                 setIsSaving(false)
-                return
+                return // Do not proceed if save fails
             } finally {
                 setIsSaving(false)
             }

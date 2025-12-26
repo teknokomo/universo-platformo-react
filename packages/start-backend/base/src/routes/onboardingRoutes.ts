@@ -228,26 +228,30 @@ export function createOnboardingRoutes(
                 })
                 const currentProjectIds = new Set(currentProjects.map((p) => p.project_id))
 
-                // Add new selections
-                for (const projectId of validProjectIds) {
-                    if (!currentProjectIds.has(projectId)) {
-                        const newMember = manager.create(ProjectUser, {
+                // Batch add new selections
+                const projectsToAdd = validProjectIds
+                    .filter((projectId) => !currentProjectIds.has(projectId))
+                    .map((projectId) =>
+                        manager.create(ProjectUser, {
                             project_id: projectId,
                             user_id: userId,
                             role: 'member'
                         })
-                        await manager.save(newMember)
-                        added.projects++
-                    }
+                    )
+                if (projectsToAdd.length > 0) {
+                    await manager.save(projectsToAdd)
+                    added.projects = projectsToAdd.length
                 }
 
-                // Remove deselected (only if admin-owned and user is member)
+                // Batch remove deselected (only if admin-owned and user is member)
                 const selectedProjectSet = new Set(validProjectIds)
-                for (const current of currentProjects) {
-                    if (adminOwnedProjects.has(current.project_id) && !selectedProjectSet.has(current.project_id)) {
-                        await manager.remove(current)
-                        removed.projects++
-                    }
+                const projectsToRemove = currentProjects.filter(
+                    (current) =>
+                        adminOwnedProjects.has(current.project_id) && !selectedProjectSet.has(current.project_id)
+                )
+                if (projectsToRemove.length > 0) {
+                    await manager.remove(projectsToRemove)
+                    removed.projects = projectsToRemove.length
                 }
 
                 // Sync Campaigns
@@ -256,24 +260,30 @@ export function createOnboardingRoutes(
                 })
                 const currentCampaignIds = new Set(currentCampaigns.map((c) => c.campaign_id))
 
-                for (const campaignId of validCampaignIds) {
-                    if (!currentCampaignIds.has(campaignId)) {
-                        const newMember = manager.create(CampaignMember, {
+                // Batch add new campaign selections
+                const campaignsToAdd = validCampaignIds
+                    .filter((campaignId) => !currentCampaignIds.has(campaignId))
+                    .map((campaignId) =>
+                        manager.create(CampaignMember, {
                             campaign_id: campaignId,
                             user_id: userId,
                             role: 'member'
                         })
-                        await manager.save(newMember)
-                        added.campaigns++
-                    }
+                    )
+                if (campaignsToAdd.length > 0) {
+                    await manager.save(campaignsToAdd)
+                    added.campaigns = campaignsToAdd.length
                 }
 
+                // Batch remove deselected campaigns
                 const selectedCampaignSet = new Set(validCampaignIds)
-                for (const current of currentCampaigns) {
-                    if (adminOwnedCampaigns.has(current.campaign_id) && !selectedCampaignSet.has(current.campaign_id)) {
-                        await manager.remove(current)
-                        removed.campaigns++
-                    }
+                const campaignsToRemove = currentCampaigns.filter(
+                    (current) =>
+                        adminOwnedCampaigns.has(current.campaign_id) && !selectedCampaignSet.has(current.campaign_id)
+                )
+                if (campaignsToRemove.length > 0) {
+                    await manager.remove(campaignsToRemove)
+                    removed.campaigns = campaignsToRemove.length
                 }
 
                 // Sync Clusters
@@ -282,24 +292,30 @@ export function createOnboardingRoutes(
                 })
                 const currentClusterIds = new Set(currentClusters.map((c) => c.cluster_id))
 
-                for (const clusterId of validClusterIds) {
-                    if (!currentClusterIds.has(clusterId)) {
-                        const newMember = manager.create(ClusterUser, {
+                // Batch add new cluster selections
+                const clustersToAdd = validClusterIds
+                    .filter((clusterId) => !currentClusterIds.has(clusterId))
+                    .map((clusterId) =>
+                        manager.create(ClusterUser, {
                             cluster_id: clusterId,
                             user_id: userId,
                             role: 'member'
                         })
-                        await manager.save(newMember)
-                        added.clusters++
-                    }
+                    )
+                if (clustersToAdd.length > 0) {
+                    await manager.save(clustersToAdd)
+                    added.clusters = clustersToAdd.length
                 }
 
+                // Batch remove deselected clusters
                 const selectedClusterSet = new Set(validClusterIds)
-                for (const current of currentClusters) {
-                    if (adminOwnedClusters.has(current.cluster_id) && !selectedClusterSet.has(current.cluster_id)) {
-                        await manager.remove(current)
-                        removed.clusters++
-                    }
+                const clustersToRemove = currentClusters.filter(
+                    (current) =>
+                        adminOwnedClusters.has(current.cluster_id) && !selectedClusterSet.has(current.cluster_id)
+                )
+                if (clustersToRemove.length > 0) {
+                    await manager.remove(clustersToRemove)
+                    removed.clusters = clustersToRemove.length
                 }
             })
 
