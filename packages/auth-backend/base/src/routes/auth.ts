@@ -93,18 +93,42 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
 
     router.post('/refresh', ensureAuthenticated, csrfProtection, ensureAndRefresh, (_req, res) => res.json({ ok: true }))
 
-    router.post('/logout', ensureAuthenticated, csrfProtection, async (req, res) => {
+    router.post('/logout', csrfProtection, async (req, res) => {
         const request = req as AuthenticatedRequest
+
+        const cookieName = process.env.SESSION_COOKIE_NAME ?? 'up.session'
+        const cookiePath = ((request as any).session?.cookie?.path as string | undefined) ?? '/'
+
         try {
             const tokens = (request.session as any).tokens
-            const supa = getSupabaseForReq(request)
-            await supa.auth.setSession({ access_token: tokens.access, refresh_token: tokens.refresh })
-            await supa.auth.signOut()
+            if (tokens?.access && tokens?.refresh) {
+                const supa = getSupabaseForReq(request)
+                await supa.auth.setSession({ access_token: tokens.access, refresh_token: tokens.refresh })
+                await supa.auth.signOut()
+            }
         } catch (e) {
             // Log the error for debugging, but don't block the user logout.
             console.error('[auth] Supabase signOut failed, proceeding with local logout', e)
         }
-        request.logout(() => request.session?.destroy?.(() => res.json({ success: true })))
+
+        await new Promise<void>((resolve) => {
+            if (typeof request.logout !== 'function') return resolve()
+            request.logout((err?: any) => {
+                if (err) console.error('[auth] passport logout failed, proceeding with session destroy', err)
+                resolve()
+            })
+        })
+
+        await new Promise<void>((resolve) => {
+            if (typeof request.session?.destroy !== 'function') return resolve()
+            request.session.destroy((err?: Error | null) => {
+                if (err) console.error('[auth] session destroy failed', err)
+                resolve()
+            })
+        })
+
+        res.clearCookie(cookieName, { path: cookiePath })
+        return res.json({ success: true })
     })
 
     // CASL permissions endpoint - returns user's permissions with metadata for frontend

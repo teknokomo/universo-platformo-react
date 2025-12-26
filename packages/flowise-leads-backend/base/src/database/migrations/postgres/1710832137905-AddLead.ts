@@ -13,7 +13,7 @@ export class AddLead1710832137905 implements MigrationInterface {
         await queryRunner.query(
             `CREATE TABLE IF NOT EXISTS lead (
                 id uuid NOT NULL DEFAULT public.uuid_generate_v7(),
-                "canvas_id" uuid NOT NULL,
+                "canvas_id" uuid,
                 "chatId" varchar NOT NULL,
                 "name" text,
                 "email" text,
@@ -22,6 +22,14 @@ export class AddLead1710832137905 implements MigrationInterface {
                 "createdDate" timestamp NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_lead_id" PRIMARY KEY (id)
             );`
+        )
+
+        // Add indexes for performance
+        await queryRunner.query(
+            `CREATE INDEX IF NOT EXISTS "IDX_lead_canvas_id" ON lead("canvas_id");`
+        )
+        await queryRunner.query(
+            `CREATE INDEX IF NOT EXISTS "IDX_lead_created_date" ON lead("createdDate");`
         )
     }
 

@@ -14,7 +14,7 @@ export { Lead } from './database/entities'
 export { leadsMigrations, AddLead1710832137905 } from './database/migrations/postgres'
 
 // Interface
-export type { ILead, CreateLeadBody } from './Interface'
+export type { ILead, CreateLeadPayload, CreateLeadBody, LeadsAnalytics } from './Interface'
 
 // Services
 export { createLeadsService, LeadsServiceError, createLeadSchema, type ILeadsService, type LeadsServiceConfig } from './services'

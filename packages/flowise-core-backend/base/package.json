@@ -97,6 +97,7 @@
         "@universo/core-backend": "workspace:*",
         "@universo/space-builder-backend": "workspace:*",
         "@universo/spaces-backend": "workspace:*",
+        "@universo/start-backend": "workspace:*",
         "@universo/uniks-backend": "workspace:*",
         "@universo/utils": "workspace:*",
         "async-mutex": "^0.4.0",

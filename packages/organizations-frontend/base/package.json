@@ -54,6 +54,7 @@
         "@universo/auth-frontend": "workspace:*",
         "@universo/template-mui": "workspace:*",
         "@universo/types": "workspace:*",
+        "@universo/utils": "workspace:*",
         "axios": "catalog:",
         "i18next": "catalog:",
         "react": "catalog:",

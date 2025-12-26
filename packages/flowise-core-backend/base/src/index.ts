@@ -33,6 +33,7 @@ import { initializeRateLimiters as initializeProjectsRateLimiters } from '@unive
 import { initializeRateLimiters as initializeCampaignsRateLimiters } from '@universo/campaigns-backend'
 import { initializeRateLimiters as initializeOrganizationsRateLimiters } from '@universo/organizations-backend'
 import { initializeRateLimiters as initializeStoragesRateLimiters } from '@universo/storages-backend'
+import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { validateAPIKey } from './utils/validateKey'
@@ -41,7 +42,7 @@ import { Prometheus } from './metrics/Prometheus'
 import { OpenTelemetry } from './metrics/OpenTelemetry'
 import { QueueManager } from './queue/QueueManager'
 import { RedisEventSubscriber } from './queue/RedisEventSubscriber'
-import { WHITELIST_URLS } from './utils/constants'
+import { API_WHITELIST_URLS } from '@universo/utils'
 import 'global-agent/bootstrap'
 
 const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
@@ -235,7 +236,7 @@ export class App {
 
         this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getDataSource))
 
-        const whitelistURLs = WHITELIST_URLS
+        const whitelistURLs = API_WHITELIST_URLS
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
         const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
 
@@ -347,6 +348,9 @@ export class App {
 
         // Initialize rate limiters for storages service
         await initializeStoragesRateLimiters()
+
+        // Initialize rate limiters for start (onboarding) service
+        await initializeStartRateLimiters()
 
         this.app.use('/api/v1', flowiseApiV1Router)
 

@@ -66,6 +66,9 @@ catalogs:
     '@types/http-errors':
       specifier: ^2.0.4
       version: 2.0.5
+    '@types/react-dom':
+      specifier: ^18.3.5
+      version: 18.3.7
     '@uiw/codemirror-theme-sublime':
       specifier: ^4.23.0
       version: 4.25.3
@@ -531,6 +534,9 @@ importers:
 
   packages/auth-frontend/base:
     dependencies:
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -662,6 +668,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -913,6 +922,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -2003,6 +2015,9 @@ importers:
       '@universo/spaces-backend':
         specifier: workspace:*
         version: link:../../spaces-backend/base
+      '@universo/start-backend':
+        specifier: workspace:*
+        version: link:../../start-backend/base
       '@universo/uniks-backend':
         specifier: workspace:*
         version: link:../../uniks-backend/base
@@ -2862,6 +2877,9 @@ importers:
 
   packages/flowise-leads-backend/base:
     dependencies:
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -2875,9 +2893,15 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
+      '@jest/globals':
+        specifier: ^29.7.0
+        version: 29.7.0
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25
+      '@types/jest':
+        specifier: ^29.5.12
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
@@ -2887,9 +2911,15 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 8.57.1
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      ts-jest:
+        specifier: ^29.1.2
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(jest-util@29.7.0)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3)
       typeorm:
         specifier: 'catalog:'
         version: 0.3.28(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mongodb@6.21.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
@@ -3307,6 +3337,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -3561,6 +3594,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -3855,6 +3891,9 @@ importers:
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -4072,6 +4111,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -4506,6 +4548,116 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.12.12)(happy-dom@20.0.11)(jsdom@23.2.0(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(msw@2.12.3(@types/node@20.12.12)(typescript@5.8.3))(sass@1.94.2)(terser@5.44.1)
 
+  packages/start-backend/base:
+    dependencies:
+      '@universo/auth-backend':
+        specifier: workspace:*
+        version: link:../../auth-backend/base
+      '@universo/campaigns-backend':
+        specifier: workspace:*
+        version: link:../../campaigns-backend/base
+      '@universo/clusters-backend':
+        specifier: workspace:*
+        version: link:../../clusters-backend/base
+      '@universo/projects-backend':
+        specifier: workspace:*
+        version: link:../../projects-backend/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
+      express:
+        specifier: ^4.18.2
+        version: 4.22.1
+      http-errors:
+        specifier: 'catalog:'
+        version: 2.0.1
+      typeorm:
+        specifier: 'catalog:'
+        version: 0.3.28(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mongodb@6.21.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/http-errors':
+        specifier: 'catalog:'
+        version: 2.0.5
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      express-rate-limit:
+        specifier: 'catalog:'
+        version: 8.2.1(express@4.22.1)
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      typescript:
+        specifier: ^5.4.5
+        version: 5.8.3
+
+  packages/start-frontend/base:
+    dependencies:
+      '@emotion/react':
+        specifier: ^11.14.0
+        version: 11.14.0(@types/react@18.3.27)(react@18.3.1)
+      '@emotion/styled':
+        specifier: ^11.14.1
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1)
+      '@mui/icons-material':
+        specifier: 'catalog:'
+        version: 6.5.0(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.27)(react@18.3.1)
+      '@mui/material':
+        specifier: 'catalog:'
+        version: 6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@universo/auth-frontend':
+        specifier: workspace:*
+        version: link:../../auth-frontend/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
+      axios:
+        specifier: 1.13.2
+        version: 1.13.2(debug@4.4.3)
+      i18next:
+        specifier: 'catalog:'
+        version: 23.16.8
+      react:
+        specifier: 'catalog:'
+        version: 18.3.1
+      react-dom:
+        specifier: '>=18'
+        version: 18.3.1(react@18.3.1)
+      react-i18next:
+        specifier: 'catalog:'
+        version: 15.5.3(i18next@23.16.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.8.3)
+      react-router-dom:
+        specifier: 'catalog:'
+        version: 6.30.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+    devDependencies:
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.27
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 18.3.7(@types/react@18.3.27)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.7(typescript@5.8.3)
+
   packages/storages-backend/base:
     dependencies:
       '@universo/admin-backend':
@@ -4596,6 +4748,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -4891,6 +5046,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -5243,6 +5401,9 @@ importers:
       '@universo/i18n':
         specifier: workspace:*
         version: link:../../universo-i18n/base
+      '@universo/start-frontend':
+        specifier: workspace:*
+        version: link:../../start-frontend/base
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19

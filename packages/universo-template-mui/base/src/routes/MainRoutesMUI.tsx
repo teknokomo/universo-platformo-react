@@ -33,6 +33,7 @@ import '@flowise/customtemplates-frontend/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
+import StartLayoutMUI from '../layout/StartLayoutMUI'
 import Dashboard from '../views/dashboard/Dashboard'
 import { ErrorBoundary } from '../components'
 
@@ -81,6 +82,10 @@ const Executions = Loadable(lazy(() => import('@flowise/executions-frontend/page
 const PublicExecutionDetails = Loadable(lazy(() => import('@flowise/executions-frontend/pages/PublicExecutionDetails')))
 // @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frontend
 const Analytics = Loadable(lazy(() => import('@universo/analytics-frontend/pages/Analytics')))
+
+// Start page - moved to @universo/start-frontend
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const StartPage = Loadable(lazy(() => import('@universo/start-frontend/views/StartPage')))
 // Custom Templates pages - moved to @flowise/customtemplates-frontend
 // Note: TemplateCanvas is routed via CanvasRoutes with MinimalLayout
 const Templates = Loadable(lazy(() => import('@flowise/customtemplates-frontend/pages/Templates')))
@@ -201,6 +206,19 @@ const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages
 // IMPORTANT: Use RELATIVE paths for children (without leading slash)
 // React Router v6 correctly concatenates parent '/' + child 'metaverses' = '/metaverses'
 
+// Start page route - shows different content based on auth status
+// Uses StartLayoutMUI with AppAppBar for consistent navigation
+const StartRoute = {
+    path: '/',
+    element: (
+        <ErrorBoundary>
+            <StartLayoutMUI>
+                <StartPage />
+            </StartLayoutMUI>
+        </ErrorBoundary>
+    )
+}
+
 // Routes with minimal layout (no sidebar/navigation) for full-screen views
 const MinimalRoutes = {
     path: '/',
@@ -242,77 +260,49 @@ const MinimalRoutes = {
 }
 
 // Routes with main layout (sidebar + navigation)
+// AuthGuard wraps the entire layout to prevent flash of protected content
 const MainRoutesMUI = {
     path: '/',
     element: (
         <ErrorBoundary>
-            <MainLayoutMUI />
+            <AuthGuard>
+                <MainLayoutMUI />
+            </AuthGuard>
         </ErrorBoundary>
     ),
     children: [
         {
-            index: true,
-            element: (
-                <AuthGuard>
-                    <UnikList />
-                </AuthGuard>
-            )
+            // Dashboard route - main entry point after authentication
+            path: 'dashboard',
+            element: <UnikList />
         },
         {
             path: 'uniks',
-            element: (
-                <AuthGuard>
-                    <UnikList />
-                </AuthGuard>
-            )
+            element: <UnikList />
         },
         {
             path: 'unik/:unikId',
-            element: (
-                <AuthGuard>
-                    <UnikBoard />
-                </AuthGuard>
-            )
+            element: <UnikBoard />
         },
         {
             path: 'unik/:unikId/spaces',
-            element: (
-                <AuthGuard>
-                    <Spaces />
-                </AuthGuard>
-            )
+            element: <Spaces />
         },
         {
             path: 'unik/:unikId/tools',
-            element: (
-                <AuthGuard>
-                    <Tools />
-                </AuthGuard>
-            )
+            element: <Tools />
         },
         {
             path: 'unik/:unikId/credentials',
-            element: (
-                <AuthGuard>
-                    <Credentials />
-                </AuthGuard>
-            )
+            element: <Credentials />
         },
         {
             path: 'unik/:unikId/variables',
-            element: (
-                <AuthGuard>
-                    <Variables />
-                </AuthGuard>
-            )
+            element: <Variables />
         },
         {
             path: 'unik/:unikId/apikey',
-            element: (
-                <AuthGuard>
-                    <ApiKeys />
-                </AuthGuard>
-            )
+            element: <ApiKeys />
         },
         {
             path: 'unik/:unikId/document-stores',
@@ -320,51 +310,27 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <DocumentStores />
-                        </AuthGuard>
-                    )
+                    element: <DocumentStores />
                 },
                 {
                     path: ':storeId',
-                    element: (
-                        <AuthGuard>
-                            <DocumentStoreDetail />
-                        </AuthGuard>
-                    )
+                    element: <DocumentStoreDetail />
                 },
                 {
                     path: ':storeId/:name',
-                    element: (
-                        <AuthGuard>
-                            <LoaderConfigPreviewChunks />
-                        </AuthGuard>
-                    )
+                    element: <LoaderConfigPreviewChunks />
                 },
                 {
                     path: 'chunks/:storeId/:fileId',
-                    element: (
-                        <AuthGuard>
-                            <ShowStoredChunks />
-                        </AuthGuard>
-                    )
+                    element: <ShowStoredChunks />
                 },
                 {
                     path: 'vector/:storeId/:docId',
-                    element: (
-                        <AuthGuard>
-                            <VectorStoreConfigure />
-                        </AuthGuard>
-                    )
+                    element: <VectorStoreConfigure />
                 },
                 {
                     path: 'query/:storeId',
-                    element: (
-                        <AuthGuard>
-                            <VectorStoreQuery />
-                        </AuthGuard>
-                    )
+                    element: <VectorStoreQuery />
                 }
             ]
         },
@@ -374,70 +340,38 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <Assistants />
-                        </AuthGuard>
-                    )
+                    element: <Assistants />
                 },
                 {
                     path: 'custom',
-                    element: (
-                        <AuthGuard>
-                            <CustomAssistantLayout />
-                        </AuthGuard>
-                    )
+                    element: <CustomAssistantLayout />
                 },
                 {
                     path: 'custom/:id',
-                    element: (
-                        <AuthGuard>
-                            <CustomAssistantConfigurePreview />
-                        </AuthGuard>
-                    )
+                    element: <CustomAssistantConfigurePreview />
                 },
                 {
                     path: 'openai',
-                    element: (
-                        <AuthGuard>
-                            <OpenAIAssistantLayout />
-                        </AuthGuard>
-                    )
+                    element: <OpenAIAssistantLayout />
                 }
             ]
         },
         {
             path: 'unik/:unikId/executions',
-            element: (
-                <AuthGuard>
-                    <Executions />
-                </AuthGuard>
-            )
+            element: <Executions />
         },
         {
             path: 'unik/:unikId/analytics',
-            element: (
-                <AuthGuard>
-                    <Analytics />
-                </AuthGuard>
-            )
+            element: <Analytics />
         },
         {
             path: 'unik/:unikId/templates',
-            element: (
-                <AuthGuard>
-                    <Templates />
-                </AuthGuard>
-            )
+            element: <Templates />
             // Note: Template detail view (templates/:id) is in CanvasRoutes with MinimalLayout
         },
         {
             path: 'unik/:unikId/access',
-            element: (
-                <AuthGuard>
-                    <UnikMember />
-                </AuthGuard>
-            )
+            element: <UnikMember />
         },
         {
             path: 'metaverses',
@@ -445,11 +379,7 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <MetaverseList />
-                        </AuthGuard>
-                    )
+                    element: <MetaverseList />
                 },
                 // Nested lists inside a specific metaverse - protected by MetaverseGuard
                 {
@@ -500,21 +430,13 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <MetahubList />
-                        </AuthGuard>
-                    )
+                    element: <MetahubList />
                 }
             ]
         },
         {
             path: 'metahub/:metahubId',
-            element: (
-                <AuthGuard>
-                    <Outlet />
-                </AuthGuard>
-            ),
+            element: <Outlet />,
             children: [
                 {
                     index: true,
@@ -544,19 +466,11 @@ const MainRoutesMUI = {
         },
         {
             path: 'sections',
-            element: (
-                <AuthGuard>
-                    <SectionList />
-                </AuthGuard>
-            )
+            element: <SectionList />
         },
         {
             path: 'entities',
-            element: (
-                <AuthGuard>
-                    <EntityList />
-                </AuthGuard>
-            )
+            element: <EntityList />
         },
         {
             path: 'clusters',
@@ -564,54 +478,30 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <ClusterList />
-                        </AuthGuard>
-                    )
+                    element: <ClusterList />
                 },
                 // Nested lists inside a specific cluster
                 {
                     path: ':clusterId/resources',
-                    element: (
-                        <AuthGuard>
-                            <ResourceList />
-                        </AuthGuard>
-                    )
+                    element: <ResourceList />
                 },
                 {
                     path: ':clusterId/domains',
-                    element: (
-                        <AuthGuard>
-                            <DomainList />
-                        </AuthGuard>
-                    )
+                    element: <DomainList />
                 }
             ]
         },
         {
             path: 'cluster/:clusterId',
-            element: (
-                <AuthGuard>
-                    <ClusterBoard />
-                </AuthGuard>
-            )
+            element: <ClusterBoard />
         },
         {
             path: 'cluster/:clusterId/members',
-            element: (
-                <AuthGuard>
-                    <ClusterMembers />
-                </AuthGuard>
-            )
+            element: <ClusterMembers />
         },
         {
             path: 'cluster/:clusterId/access',
-            element: (
-                <AuthGuard>
-                    <ClusterMembers />
-                </AuthGuard>
-            )
+            element: <ClusterMembers />
         },
         {
             path: 'projects',
@@ -619,70 +509,38 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <ProjectList />
-                        </AuthGuard>
-                    )
+                    element: <ProjectList />
                 },
                 // Nested lists inside a specific project
                 {
                     path: ':projectId/milestones',
-                    element: (
-                        <AuthGuard>
-                            <MilestoneList />
-                        </AuthGuard>
-                    )
+                    element: <MilestoneList />
                 },
                 {
                     path: ':projectId/tasks',
-                    element: (
-                        <AuthGuard>
-                            <TaskList />
-                        </AuthGuard>
-                    )
+                    element: <TaskList />
                 }
             ]
         },
         {
             path: 'project/:projectId',
-            element: (
-                <AuthGuard>
-                    <ProjectBoard />
-                </AuthGuard>
-            )
+            element: <ProjectBoard />
         },
         {
             path: 'project/:projectId/members',
-            element: (
-                <AuthGuard>
-                    <ProjectMembers />
-                </AuthGuard>
-            )
+            element: <ProjectMembers />
         },
         {
             path: 'project/:projectId/access',
-            element: (
-                <AuthGuard>
-                    <ProjectMembers />
-                </AuthGuard>
-            )
+            element: <ProjectMembers />
         },
         {
             path: 'milestones',
-            element: (
-                <AuthGuard>
-                    <MilestoneList />
-                </AuthGuard>
-            )
+            element: <MilestoneList />
         },
         {
             path: 'tasks',
-            element: (
-                <AuthGuard>
-                    <TaskList />
-                </AuthGuard>
-            )
+            element: <TaskList />
         },
         {
             path: 'campaigns',
@@ -690,70 +548,38 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <CampaignList />
-                        </AuthGuard>
-                    )
+                    element: <CampaignList />
                 },
                 // Nested lists inside a specific campaign
                 {
                     path: ':campaignId/events',
-                    element: (
-                        <AuthGuard>
-                            <EventList />
-                        </AuthGuard>
-                    )
+                    element: <EventList />
                 },
                 {
                     path: ':campaignId/activities',
-                    element: (
-                        <AuthGuard>
-                            <ActivityList />
-                        </AuthGuard>
-                    )
+                    element: <ActivityList />
                 }
             ]
         },
         {
             path: 'campaign/:campaignId',
-            element: (
-                <AuthGuard>
-                    <CampaignBoard />
-                </AuthGuard>
-            )
+            element: <CampaignBoard />
         },
         {
             path: 'campaign/:campaignId/members',
-            element: (
-                <AuthGuard>
-                    <CampaignMembers />
-                </AuthGuard>
-            )
+            element: <CampaignMembers />
         },
         {
             path: 'campaign/:campaignId/access',
-            element: (
-                <AuthGuard>
-                    <CampaignMembers />
-                </AuthGuard>
-            )
+            element: <CampaignMembers />
         },
         {
             path: 'events',
-            element: (
-                <AuthGuard>
-                    <EventList />
-                </AuthGuard>
-            )
+            element: <EventList />
         },
         {
             path: 'activities',
-            element: (
-                <AuthGuard>
-                    <ActivityList />
-                </AuthGuard>
-            )
+            element: <ActivityList />
         },
         {
             path: 'organizations',
@@ -761,70 +587,38 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <OrganizationList />
-                        </AuthGuard>
-                    )
+                    element: <OrganizationList />
                 },
                 // Nested lists inside a specific organization
                 {
                     path: ':organizationId/departments',
-                    element: (
-                        <AuthGuard>
-                            <DepartmentList />
-                        </AuthGuard>
-                    )
+                    element: <DepartmentList />
                 },
                 {
                     path: ':organizationId/positions',
-                    element: (
-                        <AuthGuard>
-                            <PositionList />
-                        </AuthGuard>
-                    )
+                    element: <PositionList />
                 }
             ]
         },
         {
             path: 'organization/:organizationId',
-            element: (
-                <AuthGuard>
-                    <OrganizationBoard />
-                </AuthGuard>
-            )
+            element: <OrganizationBoard />
         },
         {
             path: 'organization/:organizationId/members',
-            element: (
-                <AuthGuard>
-                    <OrganizationMembers />
-                </AuthGuard>
-            )
+            element: <OrganizationMembers />
         },
         {
             path: 'organization/:organizationId/access',
-            element: (
-                <AuthGuard>
-                    <OrganizationMembers />
-                </AuthGuard>
-            )
+            element: <OrganizationMembers />
         },
         {
             path: 'departments',
-            element: (
-                <AuthGuard>
-                    <DepartmentList />
-                </AuthGuard>
-            )
+            element: <DepartmentList />
         },
         {
             path: 'positions',
-            element: (
-                <AuthGuard>
-                    <PositionList />
-                </AuthGuard>
-            )
+            element: <PositionList />
         },
         {
             path: 'storages',
@@ -832,70 +626,38 @@ const MainRoutesMUI = {
             children: [
                 {
                     index: true,
-                    element: (
-                        <AuthGuard>
-                            <StorageList />
-                        </AuthGuard>
-                    )
+                    element: <StorageList />
                 },
                 // Nested lists inside a specific storage
                 {
                     path: ':storageId/containers',
-                    element: (
-                        <AuthGuard>
-                            <ContainerList />
-                        </AuthGuard>
-                    )
+                    element: <ContainerList />
                 },
                 {
                     path: ':storageId/slots',
-                    element: (
-                        <AuthGuard>
-                            <SlotList />
-                        </AuthGuard>
-                    )
+                    element: <SlotList />
                 }
             ]
         },
         {
             path: 'storage/:storageId/board',
-            element: (
-                <AuthGuard>
-                    <StorageBoard />
-                </AuthGuard>
-            )
+            element: <StorageBoard />
         },
         {
             path: 'storage/:storageId/members',
-            element: (
-                <AuthGuard>
-                    <StorageMembers />
-                </AuthGuard>
-            )
+            element: <StorageMembers />
         },
         {
             path: 'resources',
-            element: (
-                <AuthGuard>
-                    <DomainList />
-                </AuthGuard>
-            )
+            element: <DomainList />
         },
         {
             path: 'resources',
-            element: (
-                <AuthGuard>
-                    <ResourceList />
-                </AuthGuard>
-            )
+            element: <ResourceList />
         },
         {
             path: 'profile',
-            element: (
-                <AuthGuard>
-                    <ProfilePage />
-                </AuthGuard>
-            )
+            element: <ProfilePage />
         },
         // Admin routes (instances and global access management)
         // Wrapped in AdminGuard to check both authentication and admin panel access
@@ -969,15 +731,13 @@ const MainRoutesMUI = {
         // Temporary dashboard route for testing
         {
             path: 'dashboard-demo',
-            element: (
-                <AuthGuard>
-                    <Dashboard />
-                </AuthGuard>
-            )
+            element: <Dashboard />
         }
     ]
 }
 
-// Export both route configurations
-// MinimalRoutes MUST be first in array to match specific Canvas paths before MainRoutesMUI catches all
-export default [MinimalRoutes, MainRoutesMUI]
+// Export route configurations
+// StartRoute is the exact match for '/' (shows different content based on auth status)
+// MinimalRoutes handles specific paths like /execution/:id, /unik/:unikId/space/:id
+// MainRoutesMUI catches all authenticated routes with main layout
+export default [StartRoute, MinimalRoutes, MainRoutesMUI]

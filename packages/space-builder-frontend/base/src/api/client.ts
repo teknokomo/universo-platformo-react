@@ -1,23 +1,18 @@
+/**
+ * Universo Platformo | Space Builder Frontend API Client
+ *
+ * Pre-configured axios client with authentication, CSRF protection,
+ * and automatic 401 redirect handling (except on public routes).
+ */
+
 import { createAuthClient } from '@universo/auth-frontend'
 import type { AuthClient } from '@universo/auth-frontend'
-import type { AxiosResponse } from 'axios'
 
-const client: AuthClient = createAuthClient({ baseURL: '/api/v1' })
+const client: AuthClient = createAuthClient({
+    baseURL: '/api/v1',
+    redirectOn401: 'auto'
+})
 
 client.defaults.headers.common['x-request-from'] = 'internal'
-
-client.interceptors.response.use(
-    (response: AxiosResponse) => response,
-    (error: unknown) => {
-        const status = typeof error === 'object' && error && 'response' in error ? (error as any).response?.status : undefined
-        if (status === 401 && typeof window !== 'undefined') {
-            const isAuthRoute = window.location.pathname.startsWith('/auth')
-            if (!isAuthRoute) {
-                window.location.href = '/auth'
-            }
-        }
-        return Promise.reject(error)
-    }
-)
 
 export default client

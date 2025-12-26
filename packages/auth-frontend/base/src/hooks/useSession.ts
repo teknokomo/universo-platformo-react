@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AuthClient } from '../api/client'
+import { clearStoredCsrfToken, type AuthClient } from '../api/client'
 
 export interface AuthUser {
     id: string
@@ -53,8 +53,19 @@ export const useSession = ({ client, fetchOnMount = true }: UseSessionOptions): 
     }, [client])
 
     const logout = useCallback(async () => {
-        await client.post('auth/logout', {})
-        setUser(null)
+        try {
+            await client.post('auth/logout', {})
+        } catch (err: any) {
+            const status = err?.response?.status
+            if (status === 419) {
+                clearStoredCsrfToken(client)
+                await client.post('auth/logout', {})
+            } else {
+                throw err
+            }
+        } finally {
+            setUser(null)
+        }
     }, [client])
 
     useEffect(() => {

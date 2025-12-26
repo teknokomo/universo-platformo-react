@@ -1,24 +1,52 @@
 import { StatusCodes } from 'http-status-codes'
 import { DataSource } from 'typeorm'
 import { uuid } from '@universo/utils'
+import type { ILead, CreateLeadPayload } from '@universo/types'
 import { z } from 'zod'
 import { Lead } from '../database/entities/Lead'
-import type { ILead, CreateLeadBody } from '../Interface'
+
+// Helper to transform null/empty string to undefined
+const nullableString = z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => (val === null || val === '' ? undefined : val))
+
+// Helper for UUID that accepts null/empty
+const nullableUuid = z
+    .string()
+    .uuid('Invalid canvasId format')
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform((val) => (val === null || val === '' ? undefined : val))
+
+// Helper for email that accepts null/empty
+const nullableEmail = z
+    .string()
+    .email('Invalid email format')
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform((val) => (val === null || val === '' ? undefined : val))
 
 /**
  * Zod schema for input validation
+ * Handles null values from frontend (JavaScript null vs undefined)
  */
 export const createLeadSchema = z.object({
-    canvasId: z.string().uuid('Invalid canvasId format'),
-    chatId: z.string().optional(),
-    name: z.string().optional(),
-    email: z
-        .string()
-        .email('Invalid email format')
+    canvasId: nullableUuid,
+    chatId: nullableString,
+    name: nullableString,
+    email: nullableEmail,
+    phone: nullableString,
+    points: z
+        .number()
+        .int()
+        .nonnegative('Points must be non-negative')
         .optional()
-        .or(z.literal(''))
-        .transform((val) => (val === '' ? undefined : val)),
-    phone: z.string().optional()
+        .nullable()
+        .transform((val) => val ?? 0)
 })
 
 /**
@@ -42,7 +70,7 @@ export interface LeadsServiceConfig {
  * Leads service interface
  */
 export interface ILeadsService {
-    createLead: (body: CreateLeadBody) => Promise<ILead>
+    createLead: (body: CreateLeadPayload) => Promise<ILead>
     getAllLeads: (canvasId: string) => Promise<ILead[]>
 }
 
@@ -52,9 +80,12 @@ export interface ILeadsService {
 export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
     const { getDataSource } = config
 
-    const createLead = async (body: CreateLeadBody): Promise<ILead> => {
+    const createLead = async (body: CreateLeadPayload): Promise<ILead> => {
+        console.log('[leads-backend] createLead received body:', JSON.stringify(body))
         try {
             const validatedData = createLeadSchema.parse(body)
+            console.log('[leads-backend] Zod validation passed:', JSON.stringify(validatedData))
+            
             const chatId = validatedData.chatId ?? uuid.generateUuidV7()
 
             const dataSource = getDataSource()
@@ -66,15 +97,28 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
                 name: validatedData.name,
                 email: validatedData.email,
                 phone: validatedData.phone,
-                points: 0
+                points: validatedData.points ?? 0
             })
 
-            return await repo.save(newLead)
+            console.log('[leads-backend] Creating lead with data:', JSON.stringify({
+                canvasId: newLead.canvasId,
+                chatId: newLead.chatId,
+                name: newLead.name,
+                email: newLead.email,
+                phone: newLead.phone,
+                points: newLead.points
+            }))
+
+            const saved = await repo.save(newLead)
+            console.log('[leads-backend] Lead saved successfully, id:', saved.id)
+            return saved
         } catch (error) {
             if (error instanceof z.ZodError) {
+                console.error('[leads-backend] Zod validation error:', JSON.stringify(error.errors))
                 throw new LeadsServiceError(StatusCodes.BAD_REQUEST, `Validation error: ${error.errors.map((e) => e.message).join(', ')}`)
             }
             const message = error instanceof Error ? error.message : String(error)
+            console.error('[leads-backend] createLead error:', message)
             throw new LeadsServiceError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: leadsService.createLead - ${message}`)
         }
     }
@@ -94,4 +138,5 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
     return { createLead, getAllLeads }
 }
 
-export type { CreateLeadBody } from '../Interface'
+// Re-export for backwards compatibility
+export type { CreateLeadPayload as CreateLeadBody } from '@universo/types'
