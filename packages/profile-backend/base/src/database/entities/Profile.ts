@@ -24,6 +24,9 @@ export class Profile {
     @Column({ type: 'jsonb', nullable: false, default: () => "'{}'" })
     settings!: UserSettingsData
 
+    @Column({ type: 'boolean', default: false })
+    onboarding_completed!: boolean
+
     @CreateDateColumn()
     created_at!: Date
 

@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { AuthUser } from '@universo/auth-backend'
+import { Profile } from '@universo/profile-backend'
 import { Project, ProjectUser } from '@universo/projects-backend'
 import { Campaign, CampaignMember } from '@universo/campaigns-backend'
 import { Cluster, ClusterUser } from '@universo/clusters-backend'
@@ -61,6 +62,12 @@ export function createOnboardingRoutes(
         const ds = getDataSource()
 
         try {
+            // Check if user has completed onboarding
+            const profile = await ds.manager.findOne(Profile, {
+                where: { user_id: userId }
+            })
+            const onboardingCompleted = profile?.onboarding_completed ?? false
+
             // Find system admin by email (portable across databases)
             const adminUser = await ds.manager.findOne(AuthUser, {
                 where: { email: SYSTEM_ADMIN_EMAIL }
@@ -141,6 +148,7 @@ export function createOnboardingRoutes(
                 }))
 
             res.json({
+                onboardingCompleted,
                 projects: mapToItem(projects, userProjectIds),
                 campaigns: mapToItem(campaigns, userCampaignIds),
                 clusters: mapToItem(clusters, userClusterIds)
@@ -317,12 +325,20 @@ export function createOnboardingRoutes(
                     await manager.remove(clustersToRemove)
                     removed.clusters = clustersToRemove.length
                 }
+
+                // Mark onboarding as completed
+                await manager.update(
+                    Profile,
+                    { user_id: userId },
+                    { onboarding_completed: true }
+                )
             })
 
             res.json({
                 success: true,
                 added,
-                removed
+                removed,
+                onboardingCompleted: true
             })
         } catch (error) {
             console.error('[onboarding] Error syncing items:', error)

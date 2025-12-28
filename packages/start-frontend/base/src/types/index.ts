@@ -16,6 +16,7 @@ export interface OnboardingItem {
  * All onboarding items returned from API
  */
 export interface OnboardingItems {
+    onboardingCompleted: boolean
     projects: OnboardingItem[]
     campaigns: OnboardingItem[]
     clusters: OnboardingItem[]
@@ -45,6 +46,7 @@ export interface JoinItemsResponse {
         campaigns: number
         clusters: number
     }
+    onboardingCompleted: boolean
 }
 
 /**

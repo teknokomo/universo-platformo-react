@@ -1,6 +1,11 @@
 import React from 'react'
-import { Box, Typography, Link } from '@mui/material'
+import { Box, Typography, Link, Button } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+
+interface CompletionStepProps {
+    /** Optional callback to restart onboarding wizard */
+    onStartOver?: () => void
+}
 
 /**
  * CompletionStep - Final step of onboarding wizard
@@ -9,7 +14,7 @@ import { useTranslation } from 'react-i18next'
  * and what happens next with user's selections.
  * Styled similar to WelcomeStep with hero image.
  */
-export const CompletionStep: React.FC = () => {
+export const CompletionStep: React.FC<CompletionStepProps> = ({ onStartOver }) => {
     const { t } = useTranslation('onboarding')
 
     return (
@@ -60,6 +65,16 @@ export const CompletionStep: React.FC = () => {
                             {t('completion.noticeUpdatesGitVerse')}
                         </Link>.
                     </Typography>
+                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {t('completion.noticeTelegram')}{' '}
+                        <Link href="https://t.me/universo_pro" target="_blank" rel="noopener">
+                            {t('completion.noticeTelegramPlatformo')}
+                        </Link>{' '}
+                        {t('completion.noticeTelegramAnd')}{' '}
+                        <Link href="https://t.me/diverslaboristo" target="_blank" rel="noopener">
+                            {t('completion.noticeTelegramDiverslaboristo')}
+                        </Link>.
+                    </Typography>
                     <Typography component="li" variant="body2" color="text.secondary">
                         {t('completion.noticeHelp')}{' '}
                         <Link href="https://boosty.to/universo" target="_blank" rel="noopener">
@@ -72,6 +87,15 @@ export const CompletionStep: React.FC = () => {
             <Typography variant="h4" color="primary" sx={{ fontWeight: 700, mt: 3 }}>
                 {t('completion.slogan')}
             </Typography>
+
+            {/* Start Over button - only shown when callback is provided */}
+            {onStartOver && (
+                <Box sx={{ mt: 4, textAlign: 'center' }}>
+                    <Button variant="outlined" color="primary" onClick={onStartOver}>
+                        {t('buttons.startOver')}
+                    </Button>
+                </Box>
+            )}
         </Box>
     )
 }

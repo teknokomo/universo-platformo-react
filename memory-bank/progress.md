@@ -29,6 +29,72 @@
 
 ---
 
+## 📅 2025-12-28
+
+### Auth Register 419 Auto-Retry ✅
+
+Fixed a UX issue where registration could fail on the first submit with HTTP 419 (stale CSRF token), requiring a second click.
+
+**Changes**:
+- Added retry-once logic for `auth/register`: on 419, clear stored CSRF token and retry once (same approach as login).
+
+**Files Modified**:
+- `packages/auth-frontend/base/src/pages/AuthPage.tsx`
+
+### Start Page UI Bugfixes ✅
+
+Fixed two UX issues on the start/onboarding screens.
+
+**Changes**:
+- **Completion screen desktop spacing**: Increased top padding when rendering `CompletionStep` standalone so the hero image does not overlap the fixed AppBar.
+- **Auth button flicker**: Prevented the brief Login→Logout flash by hiding auth actions until `useAuth()` finishes loading.
+
+**Files Modified**:
+- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx`
+- `packages/start-frontend/base/src/views/components/AppAppBar.tsx`
+
+## 📅 2025-06-30
+
+### Onboarding Completion Tracking (MVP) ✅
+
+Implemented feature to track whether user has completed onboarding wizard. Existing users will need to complete onboarding again (get `onboarding_completed = FALSE` by default).
+
+**Database Changes**:
+- Created migration `1766821477094-AddOnboardingCompleted.ts` in profile-backend
+- Added `onboarding_completed BOOLEAN NOT NULL DEFAULT false` column to `profiles` table
+- Created index `idx_profiles_onboarding_completed` for query optimization
+- Migration uses `IF NOT EXISTS` for idempotent execution
+
+**Backend Changes**:
+- Updated `GET /api/v1/onboarding/items` to return `onboardingCompleted` status from Profile entity
+- Updated `POST /api/v1/onboarding/join` to set `onboarding_completed = true` within transaction
+- Added `@universo/profile-backend` dependency to start-backend for Profile entity access
+
+**Frontend Changes**:
+- `AuthenticatedStartPage`: Now fetches onboarding status first, shows loading spinner while checking
+  - If `onboardingCompleted === true` → renders `<CompletionStep onStartOver={...} />`
+  - If `onboardingCompleted === false` → renders `<OnboardingWizard onComplete={...} />`
+- `CompletionStep`: Added `onStartOver` prop with "Start Over" button to allow re-doing onboarding
+- `OnboardingWizard`: Fixed `onComplete` callback timing - now called when moving to completion step (was never called before due to button replacement logic)
+
+**Files Created**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1766821477094-AddOnboardingCompleted.ts`
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/entities/Profile.ts` - Added `onboarding_completed` column
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - Registered new migration
+- `packages/start-backend/base/package.json` - Added profile-backend dependency
+- `packages/start-backend/base/src/routes/onboardingRoutes.ts` - Read/write onboarding status
+- `packages/start-frontend/base/src/types/index.ts` - Added types for onboardingCompleted
+- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx` - Conditional rendering
+- `packages/start-frontend/base/src/components/CompletionStep.tsx` - Added onStartOver button
+- `packages/start-frontend/base/src/components/OnboardingWizard.tsx` - Fixed onComplete timing
+
+**Build**: 61 tasks successful
+
+---
+
 ## 📅 2025-12-26
 
 ### Start Page i18n & Styling Enhancements ✅
