@@ -35,7 +35,7 @@ const StyledToolbar = styled(Toolbar)(({ theme }) => ({
 
 export default function AppAppBar() {
   const [open, setOpen] = React.useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, loading } = useAuth();
   const { t, i18n } = useTranslation('appbar');
 
   // Register appbar i18n resources on mount
@@ -102,26 +102,16 @@ export default function AppAppBar() {
               Sign in
             </Button>
             */}
-            {isAuthenticated ? (
-              <Button
-                onClick={() => logout()}
-                color="primary"
-                variant="contained"
-                size="small"
-              >
-                {t('logout')}
-              </Button>
-            ) : (
-              <Button
-                component={RouterLink}
-                to="/auth"
-                color="primary"
-                variant="contained"
-                size="small"
-              >
-                {t('login')}
-              </Button>
-            )}
+            {!loading &&
+              (isAuthenticated ? (
+                <Button onClick={() => logout()} color="primary" variant="contained" size="small">
+                  {t('logout')}
+                </Button>
+              ) : (
+                <Button component={RouterLink} to="/auth" color="primary" variant="contained" size="small">
+                  {t('login')}
+                </Button>
+              ))}
             {/* MVP: Theme toggle temporarily commented out
             <ColorModeIconDropdown />
             */}
@@ -164,25 +154,27 @@ export default function AppAppBar() {
                 <MenuItem>FAQ</MenuItem>
                 <MenuItem>Blog</MenuItem> */}
                 <Divider sx={{ my: 3 }} />
-                <MenuItem>
-                  {isAuthenticated ? (
-                    <Button
-                      onClick={() => {
-                        toggleDrawer(false)();
-                        logout();
-                      }}
-                      color="primary"
-                      variant="contained"
-                      fullWidth
-                    >
-                      {t('logout')}
-                    </Button>
-                  ) : (
-                    <Button component={RouterLink} to="/auth" color="primary" variant="contained" fullWidth>
-                      {t('login')}
-                    </Button>
-                  )}
-                </MenuItem>
+                {!loading && (
+                  <MenuItem>
+                    {isAuthenticated ? (
+                      <Button
+                        onClick={() => {
+                          toggleDrawer(false)();
+                          logout();
+                        }}
+                        color="primary"
+                        variant="contained"
+                        fullWidth
+                      >
+                        {t('logout')}
+                      </Button>
+                    ) : (
+                      <Button component={RouterLink} to="/auth" color="primary" variant="contained" fullWidth>
+                        {t('login')}
+                      </Button>
+                    )}
+                  </MenuItem>
+                )}
                 {/* MVP: Sign in outlined button temporarily commented out
                 <MenuItem>
                   <Button color="primary" variant="outlined" fullWidth>

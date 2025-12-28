@@ -39,7 +39,7 @@ const StyledToolbar = styled(Toolbar)(({ theme }) => ({
 
 export default function AppAppBar() {
     const [open, setOpen] = React.useState(false)
-    const { isAuthenticated, logout } = useAuth()
+    const { isAuthenticated, logout, loading } = useAuth()
 
     const toggleDrawer = (newOpen: boolean) => () => {
         setOpen(newOpen)
@@ -68,26 +68,16 @@ export default function AppAppBar() {
                             alignItems: 'center',
                         }}
                     >
-                        {isAuthenticated ? (
-                            <Button
-                                onClick={() => logout()}
-                                color="primary"
-                                variant="contained"
-                                size="small"
-                            >
-                                Выйти
-                            </Button>
-                        ) : (
-                            <Button
-                                component={RouterLink}
-                                to="/auth"
-                                color="primary"
-                                variant="contained"
-                                size="small"
-                            >
-                                Войти
-                            </Button>
-                        )}
+                        {!loading &&
+                            (isAuthenticated ? (
+                                <Button onClick={() => logout()} color="primary" variant="contained" size="small">
+                                    Выйти
+                                </Button>
+                            ) : (
+                                <Button component={RouterLink} to="/auth" color="primary" variant="contained" size="small">
+                                    Войти
+                                </Button>
+                            ))}
                     </Box>
                     <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1 }}>
                         <IconButton aria-label="Menu button" onClick={toggleDrawer(true)}>
@@ -115,25 +105,27 @@ export default function AppAppBar() {
                                     </IconButton>
                                 </Box>
                                 <Divider sx={{ my: 3 }} />
-                                <MenuItem>
-                                    {isAuthenticated ? (
-                                        <Button
-                                            onClick={() => {
-                                                toggleDrawer(false)()
-                                                logout()
-                                            }}
-                                            color="primary"
-                                            variant="contained"
-                                            fullWidth
-                                        >
-                                            Выйти
-                                        </Button>
-                                    ) : (
-                                        <Button component={RouterLink} to="/auth" color="primary" variant="contained" fullWidth>
-                                            Войти
-                                        </Button>
-                                    )}
-                                </MenuItem>
+                                {!loading && (
+                                    <MenuItem>
+                                        {isAuthenticated ? (
+                                            <Button
+                                                onClick={() => {
+                                                    toggleDrawer(false)()
+                                                    logout()
+                                                }}
+                                                color="primary"
+                                                variant="contained"
+                                                fullWidth
+                                            >
+                                                Выйти
+                                            </Button>
+                                        ) : (
+                                            <Button component={RouterLink} to="/auth" color="primary" variant="contained" fullWidth>
+                                                Войти
+                                            </Button>
+                                        )}
+                                    </MenuItem>
+                                )}
                             </Box>
                         </Drawer>
                     </Box>

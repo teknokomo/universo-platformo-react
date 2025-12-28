@@ -1,12 +1,101 @@
 # Active Context
 
-> **Last Updated**: 2025-06-29
+> **Last Updated**: 2025-12-28
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Onboarding Wizard Implementation - 2025-06-29 ✅ COMPLETED
+## Current Focus: Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
+
+**Status**: Completed
+
+### What Was Implemented
+
+Applied fixes based on automated bot (Gemini, Copilot) review comments:
+- Added `@Index` decorator to `onboarding_completed` column for consistency with migration
+- Added `affected === 0` check in manager.update to prevent silent failure
+- Improved console.error message with fallback context explanation
+- Fixed name spelling: "Vladimir Levadnyy" → "Vladimir Levadnij"
+- Fixed incorrect dates: "2025-06-30" → "2025-12-28" in memory-bank
+
+### Files Modified
+
+- `packages/profile-backend/base/src/database/entities/Profile.ts`
+- `packages/start-backend/base/src/routes/onboardingRoutes.ts`
+- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
+- `packages/start-frontend/base/src/i18n/locales/en/onboarding.json`
+- `memory-bank/activeContext.md`
+- `memory-bank/tasks.md`
+
+---
+
+## Previous Focus: Auth Register 419 Auto-Retry - 2025-12-28 ✅ COMPLETED
+
+**Status**: Completed
+
+### What Was Implemented
+
+- Fixed onboarding completion screen top spacing on desktop to avoid overlap with the fixed AppBar.
+- Prevented the brief Login→Logout button flash by hiding auth actions until the auth hook finishes loading.
+
+### Files Modified
+
+- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
+- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx`
+- `packages/start-frontend/base/src/views/components/AppAppBar.tsx`
+
+---
+
+## Previous Focus: Onboarding Completion Tracking (MVP) - 2025-12-28 ✅ COMPLETED
+
+**Status**: Implementation complete, ready for testing
+
+### What Was Implemented
+
+Added `onboarding_completed` boolean field to `profiles` table to track whether user has completed the onboarding wizard. This prevents users from having to redo the wizard on every page refresh or re-login.
+
+**Key Behavior**:
+- Existing users get `onboarding_completed = FALSE` (must complete wizard again)
+- When user completes wizard (saves on Clusters step) → flag set to TRUE
+- On page load, if flag is TRUE → show CompletionStep directly (not full wizard)
+- "Start Over" button on CompletionStep allows re-doing the wizard
+
+### Files Created
+
+**Migration**: `packages/profile-backend/base/src/database/migrations/postgres/1766821477094-AddOnboardingCompleted.ts`
+- Adds `onboarding_completed BOOLEAN NOT NULL DEFAULT false` column
+- Creates index `idx_profiles_onboarding_completed`
+- Uses `IF NOT EXISTS` for idempotent execution
+
+### Files Modified
+
+**Backend**:
+- `Profile.ts` - Added `onboarding_completed` column to entity
+- `migrations/postgres/index.ts` - Registered new migration
+- `start-backend/package.json` - Added `@universo/profile-backend` dependency
+- `onboardingRoutes.ts` - Read flag in GET, set TRUE in POST transaction
+
+**Frontend**:
+- `types/index.ts` - Added `onboardingCompleted` to interfaces
+- `AuthenticatedStartPage.tsx` - Conditional render based on status
+- `CompletionStep.tsx` - Added `onStartOver` prop with button
+- `OnboardingWizard.tsx` - Fixed `onComplete` callback timing
+
+### Build Status
+
+✅ `pnpm build` successful (61 tasks, 6m40s)
+
+### Next Steps
+
+1. Run `pnpm dev` and test with live database
+2. Verify migration adds column to profiles table
+3. Test: complete wizard → refresh → should see CompletionStep
+4. Test: click "Start Over" → should re-show full wizard
+
+---
+
+## Previous Focus: Onboarding Wizard Implementation - 2025-06-29 ✅ COMPLETED
 
 **Status**: Implementation complete, ready for testing
 

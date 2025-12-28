@@ -6,6 +6,69 @@
 
 ## 🔥 ACTIVE TASKS
 
+### Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
+
+**Goal**: Apply fixes based on automated bot (Gemini, Copilot) review comments in PR #614.
+
+**Tasks**:
+- [x] Add @Index decorator to onboarding_completed column (consistency with migration)
+- [x] Add affected === 0 check in manager.update (prevent silent failure)
+- [x] Improve console.error message with fallback context
+- [x] Fix name spelling: Vladimir Levadnyy → Vladimir Levadnij
+- [x] Fix incorrect dates: 2025-06-30 → 2025-12-28 in memory-bank
+- [x] Build and push to update PR #614
+
+---
+
+### Auth Register 419 Auto-Retry - 2025-12-28 ✅ COMPLETED
+
+**Goal**: Registration should not fail on first submit with HTTP 419 (stale CSRF). Clear CSRF token and retry once, matching login behavior.
+
+**Tasks**:
+- [x] Add 419 retry-once to register handler in auth-frontend
+- [x] Run full monorepo build to validate
+- [x] Update memory-bank (activeContext.md, progress.md) and mark this task completed
+
+### Start Page UI Bugfixes - 2025-12-28 ✅ COMPLETED
+
+**Goal**: Fix onboarding completion layout on desktop and prevent auth button flicker.
+
+**Tasks**:
+- [x] Fix completion screen top spacing on desktop (avoid overlap with fixed AppBar)
+- [x] Prevent Login→Logout button flash by waiting for auth hook to finish loading
+
+---
+
+### Onboarding Completion Tracking (MVP) - 2025-12-28 ✅ COMPLETED
+
+**Goal**: Track whether user has completed onboarding wizard so they don't have to redo it on page refresh/re-login.
+
+**Tasks**:
+- [x] Step 1: Create migration `AddOnboardingCompleted` for profiles table
+- [x] Step 2: Update Profile entity with `onboarding_completed` boolean field
+- [x] Step 3: Register migration in profile-backend index.ts
+- [x] Step 4: Add @universo/profile-backend dependency to start-backend
+- [x] Step 5: Update onboardingRoutes - read flag in GET, set TRUE in POST
+- [x] Step 6: Update frontend types (OnboardingItems, JoinItemsResponse)
+- [x] Step 7: Update AuthenticatedStartPage - conditional render based on status
+- [x] Step 8: Fix OnboardingWizard onComplete timing (was never called)
+- [x] Step 9: Build and verify - 61 tasks successful
+
+**Files Created**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1766821477094-AddOnboardingCompleted.ts`
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/entities/Profile.ts`
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts`
+- `packages/start-backend/base/package.json`
+- `packages/start-backend/base/src/routes/onboardingRoutes.ts`
+- `packages/start-frontend/base/src/types/index.ts`
+- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
+- `packages/start-frontend/base/src/components/CompletionStep.tsx`
+- `packages/start-frontend/base/src/components/OnboardingWizard.tsx`
+
+---
+
 ### Start Page i18n & Styling Enhancements - 2025-12-26 ✅ COMPLETED
 
 **Goal**: Internationalize remaining UI elements and update text styling.

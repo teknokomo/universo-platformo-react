@@ -7,17 +7,17 @@
         "projects": {
             "label": "Global Goals",
             "title": "Choose Your Global Goals",
-            "subtitle": "Select the goals that resonate with your vision for a better future. You can always change your selections later."
+            "subtitle": "Select the goals that resonate with your vision for a better future, you can choose any number of options. You can always change your selections later, and you will also be able to create your own global goals and propose them to the community for discussion."
         },
         "campaigns": {
             "label": "Interests",
             "title": "Define Your Personal Interests",
-            "subtitle": "Tell us about your interests to personalize your experience. Select all that apply."
+            "subtitle": "Tell us about your interests to personalize your experience. Select all that apply. Later on our platform, you will be able to mark other personal interests, as well as add new interest options and find like-minded people."
         },
         "clusters": {
             "label": "Features",
             "title": "Select Platform Features",
-            "subtitle": "Choose the platform capabilities you want to explore. We'll help you get started with the selected features."
+            "subtitle": "Choose the platform capabilities you want to explore. We will help you get started with the selected features. Also, when you gain access to the corresponding functionality, you will be able to create new capabilities on our platform and give other users access to them."
         },
         "completion": {
             "label": "Complete"
@@ -44,6 +44,10 @@
         "noticeUpdatesGitVerse": "GitVerse",
         "noticeHelp": "You can help the platform development with your work and financially, please see the information on",
         "noticeHelpBoosty": "Boosty",
+        "noticeTelegram": "You can also receive information about our work in our Telegram channels:",
+        "noticeTelegramPlatformo": "Universo Platformo",
+        "noticeTelegramAnd": "and",
+        "noticeTelegramDiverslaboristo": "General Diverseworker",
         "slogan": "All worlds will be ours!"
     },
     "buttons": {

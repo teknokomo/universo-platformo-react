@@ -24,6 +24,7 @@
         "@universo/auth-backend": "workspace:*",
         "@universo/campaigns-backend": "workspace:*",
         "@universo/clusters-backend": "workspace:*",
+        "@universo/profile-backend": "workspace:*",
         "@universo/projects-backend": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",

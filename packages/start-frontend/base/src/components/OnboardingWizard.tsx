@@ -89,6 +89,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     campaignIds: selectedCampaigns,
                     clusterIds: selectedClusters
                 })
+                // Onboarding completed successfully - notify parent
+                // (still proceed to completion step for user to see the final message)
             } catch (err) {
                 console.error('[OnboardingWizard] Failed to save selections:', err)
                 setError(t('errors.saveFailed'))
@@ -99,10 +101,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             }
         }
 
+        // Move to next step
         if (activeStep < STEPS.length - 1) {
             setActiveStep((prev) => prev + 1)
-        } else if (onComplete) {
-            onComplete()
+            // If we just moved to completion step, notify parent that onboarding is done
+            if (STEPS[activeStep + 1] === 'completion' && onComplete) {
+                onComplete()
+            }
         }
     }, [activeStep, selectedProjects, selectedCampaigns, selectedClusters, onComplete, t])
 

@@ -4559,6 +4559,9 @@ importers:
       '@universo/clusters-backend':
         specifier: workspace:*
         version: link:../../clusters-backend/base
+      '@universo/profile-backend':
+        specifier: workspace:*
+        version: link:../../profile-backend/base
       '@universo/projects-backend':
         specifier: workspace:*
         version: link:../../projects-backend/base

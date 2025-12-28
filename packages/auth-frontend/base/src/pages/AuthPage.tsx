@@ -8,6 +8,7 @@ import { useCallback, useEffect, type ComponentType, type ReactNode } from 'reac
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { BoxProps } from '@mui/material'
 
+import { clearStoredCsrfToken } from '../api/client'
 import { useAuth } from '../providers/authProvider'
 import { AuthView, type AuthViewLabels } from '../components/AuthView'
 
@@ -126,7 +127,21 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
 
     const handleRegister = useCallback(
         async (email: string, password: string): Promise<void> => {
-            await client.post('auth/register', { email, password })
+            const doRegister = async () => {
+                return await client.post('auth/register', { email, password })
+            }
+
+            try {
+                await doRegister()
+            } catch (err: any) {
+                const status = err?.response?.status
+                if (status === 419) {
+                    clearStoredCsrfToken(client)
+                    await doRegister()
+                    return
+                }
+                throw err
+            }
         },
         [client]
     )

@@ -21,7 +21,7 @@ Continue following your **base prompt**, and augment with the instructions below
     - If maintenance config exists, enable it: `sudo ln -sf /etc/nginx/sites-available/universo.pro.maintenance /etc/nginx/sites-enabled/universo.pro`
     - If maintenance config doesn't exist, create and enable it (see error handling section for config template)
     - Reload nginx: `sudo systemctl reload nginx`
-    - Verify maintenance page is accessible at https://nova.universo.pro
+    - Verify maintenance page is accessible at https://universo.pro
 4. **Stop services and create backup**:
     - Stop PM2 processes: `pm2 stop universo-platformo` (or `pm2 stop all` if process name not found)
     - Navigate to `/srv/` directory
@@ -45,7 +45,7 @@ Continue following your **base prompt**, and augment with the instructions below
     - If all health checks fail, DO NOT disable maintenance mode and report error
     - Only if health check succeeds: Restore main configuration: `sudo ln -sf /etc/nginx/sites-available/universo.pro /etc/nginx/sites-enabled/universo.pro`
     - Reload nginx: `sudo systemctl reload nginx`
-    - Final verification: Test application accessibility at https://nova.universo.pro
+    - Final verification: Test application accessibility at https://universo.pro
 8. **Post-deployment verification**:
     - Check application health and basic functionality
     - Monitor PM2 logs for any errors: `pm2 logs universo-platformo`
