@@ -32,8 +32,11 @@ export default function AuthenticatedStartPage() {
                 const data = await getOnboardingItems()
                 setOnboardingCompleted(data.onboardingCompleted)
             } catch (err) {
-                console.error('[AuthenticatedStartPage] Failed to check status:', err)
-                // Default to showing wizard on error
+                console.error(
+                    '[AuthenticatedStartPage] Failed to check onboarding status, defaulting to show wizard:',
+                    err
+                )
+                // Default to showing wizard on error (intentional UX fallback)
                 setOnboardingCompleted(false)
             }
             setIsReady(true)

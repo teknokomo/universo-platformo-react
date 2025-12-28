@@ -327,11 +327,14 @@ export function createOnboardingRoutes(
                 }
 
                 // Mark onboarding as completed
-                await manager.update(
+                const updateResult = await manager.update(
                     Profile,
                     { user_id: userId },
                     { onboarding_completed: true }
                 )
+                if (updateResult.affected === 0) {
+                    console.warn(`[onboarding] Profile not found for user ${userId}. Onboarding status not updated.`)
+                }
             })
 
             res.json({

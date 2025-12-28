@@ -24,6 +24,7 @@ export class Profile {
     @Column({ type: 'jsonb', nullable: false, default: () => "'{}'" })
     settings!: UserSettingsData
 
+    @Index('idx_profiles_onboarding_completed')
     @Column({ type: 'boolean', default: false })
     onboarding_completed!: boolean
 
