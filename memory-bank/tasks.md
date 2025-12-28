@@ -6,6 +6,20 @@
 
 ## 🔥 ACTIVE TASKS
 
+### Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
+
+**Goal**: Apply fixes based on automated bot (Gemini, Copilot) review comments in PR #614.
+
+**Tasks**:
+- [x] Add @Index decorator to onboarding_completed column (consistency with migration)
+- [x] Add affected === 0 check in manager.update (prevent silent failure)
+- [x] Improve console.error message with fallback context
+- [x] Fix name spelling: Vladimir Levadnyy → Vladimir Levadnij
+- [x] Fix incorrect dates: 2025-06-30 → 2025-12-28 in memory-bank
+- [x] Build and push to update PR #614
+
+---
+
 ### Auth Register 419 Auto-Retry - 2025-12-28 ✅ COMPLETED
 
 **Goal**: Registration should not fail on first submit with HTTP 419 (stale CSRF). Clear CSRF token and retry once, matching login behavior.

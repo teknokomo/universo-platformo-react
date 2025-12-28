@@ -6,22 +6,31 @@
 
 ---
 
-## Current Focus: Auth Register 419 Auto-Retry - 2025-12-28 ✅ COMPLETED
+## Current Focus: Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
 
 **Status**: Completed
 
 ### What Was Implemented
 
-- Added retry-once behavior for registration when the first attempt fails with HTTP 419 (stale CSRF).
-- On 419, the stored CSRF token is cleared and the register request is retried once, matching the login flow.
+Applied fixes based on automated bot (Gemini, Copilot) review comments:
+- Added `@Index` decorator to `onboarding_completed` column for consistency with migration
+- Added `affected === 0` check in manager.update to prevent silent failure
+- Improved console.error message with fallback context explanation
+- Fixed name spelling: "Vladimir Levadnyy" → "Vladimir Levadnij"
+- Fixed incorrect dates: "2025-06-30" → "2025-12-28" in memory-bank
 
 ### Files Modified
 
-- `packages/auth-frontend/base/src/pages/AuthPage.tsx`
+- `packages/profile-backend/base/src/database/entities/Profile.ts`
+- `packages/start-backend/base/src/routes/onboardingRoutes.ts`
+- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
+- `packages/start-frontend/base/src/i18n/locales/en/onboarding.json`
+- `memory-bank/activeContext.md`
+- `memory-bank/tasks.md`
 
 ---
 
-## Previous Focus: Start Page UI Bugfixes - 2025-12-28 ✅ COMPLETED
+## Previous Focus: Auth Register 419 Auto-Retry - 2025-12-28 ✅ COMPLETED
 
 **Status**: Completed
 
