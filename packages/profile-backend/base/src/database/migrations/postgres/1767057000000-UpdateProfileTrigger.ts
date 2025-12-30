@@ -53,7 +53,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                 terms_at TIMESTAMPTZ;
                 privacy_acc BOOLEAN;
                 privacy_at TIMESTAMPTZ;
-                consent_ver VARCHAR(50);
+                terms_ver VARCHAR(50);
+                privacy_ver VARCHAR(50);
             BEGIN
                 -- Extract consent data from raw_user_meta_data (passed during signUp)
                 BEGIN
@@ -61,7 +62,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                     terms_at := (NEW.raw_user_meta_data->>'terms_accepted_at')::timestamptz;
                     privacy_acc := COALESCE((NEW.raw_user_meta_data->>'privacy_accepted')::boolean, false);
                     privacy_at := (NEW.raw_user_meta_data->>'privacy_accepted_at')::timestamptz;
-                    consent_ver := NEW.raw_user_meta_data->>'consent_version';
+                    terms_ver := NEW.raw_user_meta_data->>'terms_version';
+                    privacy_ver := NEW.raw_user_meta_data->>'privacy_version';
                 EXCEPTION WHEN OTHERS THEN
                     -- Log parsing errors for debugging, but don't block registration
                     RAISE NOTICE 'Failed to parse consent data from raw_user_meta_data for user %: %', NEW.id, SQLERRM;
@@ -69,7 +71,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                     privacy_acc := false;
                     terms_at := NULL;
                     privacy_at := NULL;
-                    consent_ver := NULL;
+                    terms_ver := NULL;
+                    privacy_ver := NULL;
                 END;
 
                 -- Generate unique temporary nickname
@@ -90,7 +93,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                             terms_accepted_at,
                             privacy_accepted,
                             privacy_accepted_at,
-                            consent_version
+                            terms_version,
+                            privacy_version
                         )
                         VALUES (
                             NEW.id, 
@@ -100,7 +104,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                             terms_at,
                             privacy_acc,
                             privacy_at,
-                            consent_ver
+                            terms_ver,
+                            privacy_ver
                         );
                         EXIT; -- Success
                     EXCEPTION
@@ -116,7 +121,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                                     terms_accepted_at,
                                     privacy_accepted,
                                     privacy_accepted_at,
-                                    consent_version
+                                    terms_version,
+                                    privacy_version
                                 )
                                 VALUES (
                                     NEW.id, 
@@ -126,7 +132,8 @@ export class UpdateProfileTrigger1767057000000 implements MigrationInterface {
                                     terms_at,
                                     privacy_acc,
                                     privacy_at,
-                                    consent_ver
+                                    terms_ver,
+                                    privacy_ver
                                 );
                                 EXIT;
                             END IF;

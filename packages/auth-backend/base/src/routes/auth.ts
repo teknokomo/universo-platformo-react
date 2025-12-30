@@ -53,7 +53,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             })
             
             const now = new Date()
-            const consentVersion = '1.0.0' // Current version of legal documents
+            const termsVersion = process.env.LEGAL_TERMS_VERSION || '1.0.0'
+            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION || '1.0.0'
             const { data, error } = await supa.auth.signUp({
                 email: parsed.data.email,
                 password: parsed.data.password,
@@ -63,7 +64,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         terms_accepted_at: now.toISOString(),
                         privacy_accepted: parsed.data.privacyAccepted,
                         privacy_accepted_at: now.toISOString(),
-                        consent_version: consentVersion
+                        terms_version: termsVersion,
+                        privacy_version: privacyVersion
                     }
                 }
             })
@@ -105,10 +107,11 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                                  terms_accepted_at = $2, 
                                  privacy_accepted = $3, 
                                  privacy_accepted_at = $4,
-                                 consent_version = $5
-                             WHERE user_id = $6
+                                 terms_version = $5,
+                                 privacy_version = $6
+                             WHERE user_id = $7
                              RETURNING user_id`,
-                            [true, now, true, now, consentVersion, userId]
+                            [true, now, true, now, termsVersion, privacyVersion, userId]
                         )
                         // PostgreSQL with TypeORM returns [rows[], rowCount] for queries with RETURNING
                         // updateResult[0] is the array of returned rows, updateResult[1] is affected count
@@ -147,16 +150,17 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         const dataSource = getDataSource()
                         const nickname = `user_${userId.substring(0, 8)}`
                         const upsertResult = await dataSource.query(
-                            `INSERT INTO profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, consent_version)
-                             VALUES ($1, $2, '{}', $3, $4, $5, $6, $7)
+                            `INSERT INTO profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version)
+                             VALUES ($1, $2, '{}', $3, $4, $5, $6, $7, $8)
                              ON CONFLICT (user_id) DO UPDATE
                              SET terms_accepted = EXCLUDED.terms_accepted,
                                  terms_accepted_at = EXCLUDED.terms_accepted_at,
                                  privacy_accepted = EXCLUDED.privacy_accepted,
                                  privacy_accepted_at = EXCLUDED.privacy_accepted_at,
-                                 consent_version = EXCLUDED.consent_version
+                                 terms_version = EXCLUDED.terms_version,
+                                 privacy_version = EXCLUDED.privacy_version
                              RETURNING user_id, nickname`,
-                            [userId, nickname, true, now, true, now, consentVersion]
+                            [userId, nickname, true, now, true, now, termsVersion, privacyVersion]
                         )
                         console.info('[auth] consent saved via UPSERT fallback', { userId, result: upsertResult })
                         

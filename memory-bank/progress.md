@@ -29,6 +29,25 @@
 
 ---
 
+## 📅 2025-12-31
+
+### Split consent_version into terms_version + privacy_version ✅
+
+Refactored consent tracking to support independent versioning for Terms of Service and Privacy Policy documents.
+
+**Changes**:
+- Split single `consent_version` field into `terms_version` and `privacy_version` in Profile entity
+- Added two separate version columns in AddConsentFields migration
+- Updated database trigger to extract and store both versions from raw_user_meta_data
+- auth.ts now reads versions from `LEGAL_TERMS_VERSION` and `LEGAL_PRIVACY_VERSION` environment variables
+- Added new env vars to `.env` and `.env.example` with documentation
+
+**Reason**: Terms of Service and Privacy Policy may be updated independently, requiring separate version tracking for compliance.
+
+**Files Modified**: Profile.ts, 2 migrations, auth.ts, .env, .env.example
+
+---
+
 ## 📅 2025-12-30
 
 ### Profile Creation Debug & Migration Consolidation ✅

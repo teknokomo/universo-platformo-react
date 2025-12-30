@@ -44,7 +44,10 @@ export class Profile {
     privacy_accepted_at?: Date
 
     @Column({ type: 'varchar', length: 50, nullable: true })
-    consent_version?: string
+    terms_version?: string
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    privacy_version?: string
 
     @CreateDateColumn()
     created_at!: Date

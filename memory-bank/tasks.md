@@ -12,6 +12,28 @@ _No active tasks. See completed tasks below or GitHub Issues for planned work._
 
 ## ✅ COMPLETED TASKS
 
+### Split consent_version into terms_version + privacy_version - 2025-12-31 ✅ COMPLETED
+
+**Goal**: Replace single `consent_version` with two separate fields `terms_version` and `privacy_version`. Move version values from hardcoded to `.env` variables.
+
+**Tasks**:
+- [x] Update Profile.ts entity - replace `consent_version` with `terms_version` and `privacy_version`
+- [x] Update AddConsentFields migration - replace consent_version column with two columns
+- [x] Update UpdateProfileTrigger migration - replace consent_ver variable with terms_ver + privacy_ver
+- [x] Update auth.ts - read versions from process.env and use two fields
+- [x] Add LEGAL_TERMS_VERSION and LEGAL_PRIVACY_VERSION to .env and .env.example
+- [x] Build and verify - 61 tasks successful
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/entities/Profile.ts` - split consent_version into terms_version + privacy_version
+- `packages/profile-backend/base/src/database/migrations/postgres/1767049102876-AddConsentFields.ts` - add terms_version + privacy_version columns
+- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts` - use terms_ver + privacy_ver variables
+- `packages/auth-backend/base/src/routes/auth.ts` - read from LEGAL_TERMS_VERSION + LEGAL_PRIVACY_VERSION env vars
+- `packages/flowise-core-backend/base/.env` - add LEGAL_TERMS_VERSION=1.0.0 and LEGAL_PRIVACY_VERSION=1.0.0
+- `packages/flowise-core-backend/base/.env.example` - add documented env vars for legal document versions
+
+---
+
 ### Profile Creation Debug & Migration Consolidation - 2025-12-30 ✅ COMPLETED
 
 **Goal**: Debug and fix profile not being created upon registration, consolidate duplicate migrations.

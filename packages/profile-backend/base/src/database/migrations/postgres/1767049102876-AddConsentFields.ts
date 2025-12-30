@@ -41,10 +41,16 @@ export class AddConsentFields1767049102876 implements MigrationInterface {
             ADD COLUMN IF NOT EXISTS "privacy_accepted_at" TIMESTAMP WITH TIME ZONE
         `)
 
-        // Add consent_version to track which version of legal documents user accepted
+        // Add terms_version to track which version of Terms of Service user accepted
         await queryRunner.query(`
             ALTER TABLE "profiles" 
-            ADD COLUMN IF NOT EXISTS "consent_version" VARCHAR(50)
+            ADD COLUMN IF NOT EXISTS "terms_version" VARCHAR(50)
+        `)
+
+        // Add privacy_version to track which version of Privacy Policy user accepted
+        await queryRunner.query(`
+            ALTER TABLE "profiles" 
+            ADD COLUMN IF NOT EXISTS "privacy_version" VARCHAR(50)
         `)
 
         // Add indexes for efficient filtering (useful for compliance queries)
@@ -62,7 +68,8 @@ export class AddConsentFields1767049102876 implements MigrationInterface {
     public async down(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_profiles_privacy_accepted"`)
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_profiles_terms_accepted"`)
-        await queryRunner.query(`ALTER TABLE "profiles" DROP COLUMN IF EXISTS "consent_version"`)
+        await queryRunner.query(`ALTER TABLE "profiles" DROP COLUMN IF EXISTS "privacy_version"`)
+        await queryRunner.query(`ALTER TABLE "profiles" DROP COLUMN IF EXISTS "terms_version"`)
         await queryRunner.query(`ALTER TABLE "profiles" DROP COLUMN IF EXISTS "privacy_accepted_at"`)
         await queryRunner.query(`ALTER TABLE "profiles" DROP COLUMN IF EXISTS "privacy_accepted"`)
         await queryRunner.query(`ALTER TABLE "profiles" DROP COLUMN IF EXISTS "terms_accepted_at"`)
