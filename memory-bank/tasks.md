@@ -6,6 +6,129 @@
 
 ## 🔥 ACTIVE TASKS
 
+_No active tasks. See completed tasks below or GitHub Issues for planned work._
+
+---
+
+## ✅ COMPLETED TASKS
+
+### Split consent_version into terms_version + privacy_version - 2025-12-31 ✅ COMPLETED
+
+**Goal**: Replace single `consent_version` with two separate fields `terms_version` and `privacy_version`. Move version values from hardcoded to `.env` variables.
+
+**Tasks**:
+- [x] Update Profile.ts entity - replace `consent_version` with `terms_version` and `privacy_version`
+- [x] Update AddConsentFields migration - replace consent_version column with two columns
+- [x] Update UpdateProfileTrigger migration - replace consent_ver variable with terms_ver + privacy_ver
+- [x] Update auth.ts - read versions from process.env and use two fields
+- [x] Add LEGAL_TERMS_VERSION and LEGAL_PRIVACY_VERSION to .env and .env.example
+- [x] Build and verify - 61 tasks successful
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/entities/Profile.ts` - split consent_version into terms_version + privacy_version
+- `packages/profile-backend/base/src/database/migrations/postgres/1767049102876-AddConsentFields.ts` - add terms_version + privacy_version columns
+- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts` - use terms_ver + privacy_ver variables
+- `packages/auth-backend/base/src/routes/auth.ts` - read from LEGAL_TERMS_VERSION + LEGAL_PRIVACY_VERSION env vars
+- `packages/flowise-core-backend/base/.env` - add LEGAL_TERMS_VERSION=1.0.0 and LEGAL_PRIVACY_VERSION=1.0.0
+- `packages/flowise-core-backend/base/.env.example` - add documented env vars for legal document versions
+
+---
+
+### Profile Creation Debug & Migration Consolidation - 2025-12-30 ✅ COMPLETED
+
+**Goal**: Debug and fix profile not being created upon registration, consolidate duplicate migrations.
+
+**Root Cause Analysis** (via logging):
+1. **Database trigger NOT firing** - `create_user_profile()` trigger on `auth.users` is NOT creating the profile
+2. **Node.js fallback bug** - TypeORM returns `[rows[], rowCount]` format but code was checking `updateResult.length > 0` instead of `updateResult[0].length`
+
+**Tasks**:
+- [x] Add detailed logging to auth.ts registration flow
+- [x] Analyze test registration logs - discovered two issues
+- [x] Fix TypeORM result parsing bug (check `updateResult[0]` not `updateResult`)
+- [x] Full build (51 tasks successful, 4m38s)
+- [x] Consolidate two migrations (UpdateProfileTrigger + FixProfileInsertRLS) into one
+- [x] Delete redundant migration file `1767059500000-FixProfileInsertRLS.ts`
+- [x] Full build verification (61 tasks successful)
+- [x] Create GitHub Issue for future trigger investigation
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts` - consolidated trigger + RLS policy
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - removed FixProfileInsertRLS import
+
+**Files Deleted**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1767059500000-FixProfileInsertRLS.ts`
+
+**GitHub Issue Created**: "Investigate and verify database trigger for profile creation during registration"
+
+---
+
+### Legal Pages & Registration Consent Fixes - 2025-12-30 ✅ COMPLETED
+
+**Goal**: Fix post-testing issues: terminology corrections, add document version, punctuation fixes, and CRITICAL fix for profile consent not saving during registration.
+
+**Tasks**:
+- [x] Fix terminology "Условия использования" → "Пользовательское соглашение" in legal.json and auth.json (RU)
+- [x] Add version "1.0.0" alongside date on legal pages (lastUpdated format change)
+- [x] Add periods at the end of consent checkbox link labels (EN/RU)
+- [x] CRITICAL: Fix consent fields not saved during registration (UPDATE result check bug + UPSERT fallback)
+- [x] RE-FIX CRITICAL: Implement Database Trigger for reliable profile creation with consent data (Supabase `raw_user_meta_data` pattern)
+- [x] Build and verify affected packages (pnpm build) - 61 tasks successful
+
+---
+
+### Legal Pages & Consent UX Fixes - 2025-12-30 ✅ COMPLETED
+
+**Goal**: Fix post-implementation UX issues: disable register button until both consent checkboxes are accepted, make /terms and /privacy accessible to guests, fix i18n rendering, and align legal pages layout with the onboarding completion screen.
+
+**Tasks**:
+- [x] Disable Register button until both consent checkboxes are checked
+- [x] Add /terms and /privacy to public UI route whitelist (prevent 401->/auth redirect)
+- [x] Ensure start-frontend i18n is registered in the main route tree (legal translations)
+- [x] Redesign legal pages layout to match onboarding completion screen and add "Go to home" button
+- [x] Build and verify affected packages (pnpm build)
+
+---
+
+### Terms of Service & Privacy Policy Consent - 2025-12-30 ✅ COMPLETED
+
+**Goal**: Add legal compliance features - Terms of Service and Privacy Policy pages with consent checkboxes in registration form.
+
+**Tasks**:
+- [x] Create migration `AddConsentFields` for 4 new columns in profiles table
+- [x] Update Profile entity with consent tracking fields
+- [x] Register migration in profile-backend index.ts
+- [x] Update RegisterSchema with termsAccepted and privacyAccepted validation
+- [x] Update /register endpoint to save consent data after user creation
+- [x] Create LegalPage component with TermsPage and PrivacyPage variants
+- [x] Add /terms and /privacy routes with StartLayoutMUI
+- [x] Update AuthView with consent checkboxes (shown only in register mode)
+- [x] Update i18n EN/RU translations for consent labels
+- [x] Add consent labels to Auth.jsx in flowise-template-mui
+- [x] Build and verify - 61 tasks successful
+
+**Files Created**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1767049102876-AddConsentFields.ts`
+- `packages/start-frontend/base/src/views/LegalPage.tsx`
+- `packages/start-frontend/base/src/i18n/locales/en/legal.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/legal.json`
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/entities/Profile.ts`
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts`
+- `packages/auth-backend/base/src/routes/auth.ts`
+- `packages/auth-frontend/base/src/components/AuthView.tsx`
+- `packages/auth-frontend/base/src/pages/AuthPage.tsx`
+- `packages/start-frontend/base/src/i18n/register.ts`
+- `packages/start-frontend/base/src/i18n/index.ts`
+- `packages/start-frontend/base/src/views/index.ts`
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- `packages/flowise-template-mui/base/src/routes/Auth.jsx`
+- `packages/universo-i18n/base/src/locales/en/views/auth.json`
+- `packages/universo-i18n/base/src/locales/ru/views/auth.json`
+
+---
+
 ### Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
 
 **Goal**: Apply fixes based on automated bot (Gemini, Copilot) review comments in PR #614.

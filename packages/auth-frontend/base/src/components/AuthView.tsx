@@ -9,6 +9,8 @@ import {
     Grid,
     Link,
     CircularProgress,
+    FormControlLabel,
+    Checkbox,
     type BoxProps,
     type ContainerProps
 } from '@mui/material'
@@ -34,12 +36,18 @@ export interface AuthViewLabels {
     successRegister: string
     loginSuccess: string
     loginError: (error: string) => string
+    // Consent labels (optional for backwards compatibility)
+    termsCheckbox?: string
+    termsLink?: string
+    privacyCheckbox?: string
+    privacyLink?: string
+    consentRequired?: string
 }
 
 export interface AuthViewProps {
     labels: AuthViewLabels
     onLogin: (email: string, password: string) => Promise<void>
-    onRegister: (email: string, password: string) => Promise<void>
+    onRegister: (email: string, password: string, termsAccepted?: boolean, privacyAccepted?: boolean) => Promise<void>
     errorMapper?: (error: string) => string
     initialMode?: AuthViewMode
     slots?: {
@@ -59,9 +67,16 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
     const [mode, setMode] = useState<AuthViewMode>(initialMode)
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [termsAccepted, setTermsAccepted] = useState(false)
+    const [privacyAccepted, setPrivacyAccepted] = useState(false)
     const [error, setError] = useState<string>('')
     const [info, setInfo] = useState<string>('')
     const [submitting, setSubmitting] = useState(false)
+
+    // Check if consent labels are provided (enables consent checkboxes)
+    const hasConsentLabels = Boolean(labels.termsCheckbox && labels.termsLink && labels.privacyCheckbox && labels.privacyLink)
+
+    const isConsentBlockingRegister = mode === 'register' && hasConsentLabels && (!termsAccepted || !privacyAccepted)
 
     const mapError = useCallback(
         (message: string) => {
@@ -91,12 +106,21 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
             return
         }
 
+        // Validate consent if consent labels are provided
+        if (hasConsentLabels && (!termsAccepted || !privacyAccepted)) {
+            setError(labels.consentRequired || 'You must accept the Terms and Privacy Policy')
+            return
+        }
+
         resetMessages()
         setSubmitting(true)
         try {
-            await onRegister(email, password)
+            await onRegister(email, password, termsAccepted, privacyAccepted)
             setInfo(labels.successRegister)
             setMode('login')
+            // Reset consent checkboxes after successful registration
+            setTermsAccepted(false)
+            setPrivacyAccepted(false)
         } catch (err: any) {
             const message = err?.response?.data?.error || err?.message || 'Registration failed'
             setError(mapError(message))
@@ -212,6 +236,51 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
                                     InputProps={{ startAdornment: adornment.password }}
                                 />
                             </Grid>
+                            {/* Consent checkboxes - only shown in register mode when labels are provided */}
+                            {mode === 'register' && hasConsentLabels ? (
+                                <>
+                                    <Grid item xs={12}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={termsAccepted}
+                                                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                                                    disabled={submitting}
+                                                    size='small'
+                                                />
+                                            }
+                                            label={
+                                                <Typography variant='body2'>
+                                                    {labels.termsCheckbox}{' '}
+                                                    <Link href='/terms' target='_blank' rel='noopener noreferrer' underline='hover'>
+                                                        {labels.termsLink}
+                                                    </Link>
+                                                </Typography>
+                                            }
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sx={{ mt: -1 }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={privacyAccepted}
+                                                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                                    disabled={submitting}
+                                                    size='small'
+                                                />
+                                            }
+                                            label={
+                                                <Typography variant='body2'>
+                                                    {labels.privacyCheckbox}{' '}
+                                                    <Link href='/privacy' target='_blank' rel='noopener noreferrer' underline='hover'>
+                                                        {labels.privacyLink}
+                                                    </Link>
+                                                </Typography>
+                                            }
+                                        />
+                                    </Grid>
+                                </>
+                            ) : null}
                             <Grid item xs={12}>
                                 <Button
                                     fullWidth
@@ -219,7 +288,7 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
                                     variant='contained'
                                     color='primary'
                                     size='large'
-                                    disabled={submitting}
+                                    disabled={submitting || isConsentBlockingRegister}
                                     startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
                                 >
                                     {submitLabel}

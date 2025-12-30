@@ -31,6 +31,9 @@ import '@flowise/docstore-frontend/i18n'
 // Register customtemplates translations before lazy loading Templates component
 import '@flowise/customtemplates-frontend/i18n'
 
+// Register start-frontend translations (onboarding + legal)
+import '@universo/start-frontend/i18n'
+
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
 import StartLayoutMUI from '../layout/StartLayoutMUI'
@@ -86,6 +89,11 @@ const Analytics = Loadable(lazy(() => import('@universo/analytics-frontend/pages
 // Start page - moved to @universo/start-frontend
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const StartPage = Loadable(lazy(() => import('@universo/start-frontend/views/StartPage')))
+// Legal pages - Terms of Service and Privacy Policy
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const TermsPage = Loadable(lazy(() => import('@universo/start-frontend/views/LegalPage').then((m) => ({ default: m.TermsPage }))))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const PrivacyPage = Loadable(lazy(() => import('@universo/start-frontend/views/LegalPage').then((m) => ({ default: m.PrivacyPage }))))
 // Custom Templates pages - moved to @flowise/customtemplates-frontend
 // Note: TemplateCanvas is routed via CanvasRoutes with MinimalLayout
 const Templates = Loadable(lazy(() => import('@flowise/customtemplates-frontend/pages/Templates')))
@@ -214,6 +222,30 @@ const StartRoute = {
         <ErrorBoundary>
             <StartLayoutMUI>
                 <StartPage />
+            </StartLayoutMUI>
+        </ErrorBoundary>
+    )
+}
+
+// Terms of Service page - public access
+const TermsRoute = {
+    path: '/terms',
+    element: (
+        <ErrorBoundary>
+            <StartLayoutMUI>
+                <TermsPage />
+            </StartLayoutMUI>
+        </ErrorBoundary>
+    )
+}
+
+// Privacy Policy page - public access
+const PrivacyRoute = {
+    path: '/privacy',
+    element: (
+        <ErrorBoundary>
+            <StartLayoutMUI>
+                <PrivacyPage />
             </StartLayoutMUI>
         </ErrorBoundary>
     )
@@ -738,6 +770,7 @@ const MainRoutesMUI = {
 
 // Export route configurations
 // StartRoute is the exact match for '/' (shows different content based on auth status)
+// TermsRoute and PrivacyRoute are public legal pages
 // MinimalRoutes handles specific paths like /execution/:id, /unik/:unikId/space/:id
 // MainRoutesMUI catches all authenticated routes with main layout
-export default [StartRoute, MinimalRoutes, MainRoutesMUI]
+export default [StartRoute, TermsRoute, PrivacyRoute, MinimalRoutes, MainRoutesMUI]

@@ -50,6 +50,8 @@ export const API_WHITELIST_URLS = [
 export const PUBLIC_UI_ROUTES = [
     '/', // Landing page - exact match only
     '/auth', // Auth page itself - prevents infinite redirect loop
+    '/terms', // Terms of Service (public legal page)
+    '/privacy', // Privacy Policy (public legal page)
     '/p/', // Public publish pages
     '/b/', // Public bot pages
     '/chatbot/', // Chatbot embeds
