@@ -1,12 +1,114 @@
 # Active Context
 
-> **Last Updated**: 2025-12-28
+> **Last Updated**: 2025-12-30
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
+## Current Focus: No Active Tasks
+
+**Status**: All tasks completed. See GitHub Issues for planned work.
+
+---
+
+## Previous Focus: Profile Creation Debug & Migration Consolidation - 2025-12-30 ✅ COMPLETED
+
+**Status**: Completed
+
+### What Was Fixed
+
+- **CRITICAL - TypeORM result parsing bug**:
+  - **Problem**: `query()` with RETURNING returns `[rows[], rowCount]` tuple format
+  - Code was checking `updateResult.length` instead of `updateResult[0].length`
+  - Empty arrays were incorrectly treated as success
+  - **Solution**: Fixed parsing to check `updateResult[0].length > 0`
+
+- **Migration Consolidation**:
+  - Merged two migrations (`UpdateProfileTrigger` + `FixProfileInsertRLS`) into one
+  - Single source of truth for trigger function and RLS policy
+  - Deleted redundant migration file
+
+### Files Modified
+
+- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts` - consolidated trigger + RLS
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - removed FixProfileInsertRLS import
+
+### Files Deleted
+
+- `packages/profile-backend/base/src/database/migrations/postgres/1767059500000-FixProfileInsertRLS.ts`
+
+### Next Steps (GitHub Issue Created)
+
+- Investigate and verify database trigger is firing in Supabase UP-test
+- Read-only audit of trigger/function/policies in production database
+- Consider removing Node.js fallback once trigger is verified
+
+---
+
+## Previous Focus: Legal Pages & Registration Consent Fixes - 2025-12-30 ✅ COMPLETED
+
+**Status**: Completed
+
+### What Was Implemented
+
+Legal compliance features for GDPR/regulatory requirements:
+
+1. **Database Migration**: Created `AddConsentFields1767049102876` migration adding 4 columns to `profiles`:
+   - `terms_accepted` (boolean, default false)
+   - `terms_accepted_at` (timestamptz, nullable)
+   - `privacy_accepted` (boolean, default false)
+   - `privacy_accepted_at` (timestamptz, nullable)
+
+2. **Backend Changes**: 
+   - Updated `RegisterSchema` with zod validation requiring `termsAccepted: true` and `privacyAccepted: true`
+   - Updated `/register` endpoint to save consent data to profile after Supabase user creation
+   - Implemented retry pattern (up to 3 attempts) to handle async profile creation trigger
+
+3. **Legal Pages**: Created `/terms` and `/privacy` routes with `StartLayoutMUI`:
+   - `LegalPage.tsx` component with PDF download and open links
+   - Currently serves Russian PDFs (EN versions to be added later)
+
+4. **Registration Form**: Added consent checkboxes to `AuthView.tsx`:
+   - Two required checkboxes shown only in register mode
+   - Links to /terms and /privacy open in new tab
+   - Validation prevents registration without both checked
+
+5. **Internationalization**: Added EN/RU translations for:
+   - Consent checkbox labels in `auth.json`
+   - Legal page content in `legal.json`
+
+### Files Created
+
+- `packages/profile-backend/base/src/database/migrations/postgres/1767049102876-AddConsentFields.ts`
+- `packages/start-frontend/base/src/views/LegalPage.tsx`
+- `packages/start-frontend/base/src/i18n/locales/en/legal.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/legal.json`
+
+### Files Modified
+
+- `packages/profile-backend/base/src/database/entities/Profile.ts` - added consent fields
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - registered migration
+- `packages/auth-backend/base/src/routes/auth.ts` - consent validation and saving
+- `packages/auth-frontend/base/src/components/AuthView.tsx` - consent checkboxes UI
+- `packages/auth-frontend/base/src/pages/AuthPage.tsx` - pass consent to API
+- `packages/start-frontend/base/src/i18n/register.ts` - register legal namespace
+- `packages/start-frontend/base/src/i18n/index.ts` - register legal namespace
+- `packages/start-frontend/base/src/views/index.ts` - export LegalPage components
+- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - routes for /terms, /privacy
+- `packages/flowise-template-mui/base/src/routes/Auth.jsx` - consent labels
+- `packages/universo-i18n/base/src/locales/en/views/auth.json` - consent translations
+- `packages/universo-i18n/base/src/locales/ru/views/auth.json` - consent translations
+
+### Technical Notes
+
+- Backwards compatible: consent labels are optional in `AuthViewLabels` interface
+- Existing users have `terms_accepted = false` by default (no forced re-consent)
+- Retry pattern handles race condition between Supabase trigger and consent update
+
+---
+
+## Previous Focus: Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
 
 **Status**: Completed
 

@@ -29,6 +29,115 @@
 
 ---
 
+## 📅 2025-12-30
+
+### Profile Creation Debug & Migration Consolidation ✅
+
+Debugged and fixed profile creation during registration, consolidated duplicate migrations.
+
+**Bug Fixes**:
+- **CRITICAL**: Fixed TypeORM result parsing in auth.ts registration flow
+  - TypeORM `query()` with RETURNING returns `[rows[], rowCount]` tuple format
+  - Code incorrectly checked `updateResult.length` instead of `updateResult[0].length`
+  - This caused false positives (empty array was treated as success)
+  
+**Migration Consolidation**:
+- Merged `1767057000000-UpdateProfileTrigger.ts` and `1767059500000-FixProfileInsertRLS.ts` into single migration
+- The consolidated migration now includes:
+  - RLS INSERT policy update (allows INSERT for valid auth.users entries)
+  - Trigger function with `SECURITY DEFINER` and `SET search_path = public`
+  - Consent field extraction from `raw_user_meta_data`
+  - Fail-open strategy (RAISE WARNING instead of blocking signup)
+- Deleted redundant migration file `1767059500000-FixProfileInsertRLS.ts`
+
+**Files Modified**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts`
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts`
+
+**Files Deleted**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1767059500000-FixProfileInsertRLS.ts`
+
+**GitHub Issue Created**: "Investigate and verify database trigger for profile creation during registration"
+
+**Build**: 61 tasks successful
+
+---
+
+### Legal Pages & Registration Consent Fixes ✅
+
+Fixed post-testing issues with legal compliance features.
+
+**Bug Fixes**:
+- **CRITICAL**: Fixed consent not saving during registration
+  - **Initial Attempt**: Node.js retry/upsert logic (insufficient due to race conditions/RLS).
+  - **Final Solution**: Implemented **Database Trigger** (`create_user_profile`) update.
+    - Passed `terms_accepted` and `privacy_accepted` via `raw_user_meta_data` in `supa.auth.signUp`.
+    - Updated Postgres trigger to read metadata and insert profile *synchronously* with user creation.
+    - Added `SECURITY DEFINER` to trigger function to bypass RLS during profile creation.
+- **Terminology**: Changed "Условия использования" → "Пользовательское соглашение" (RU)
+- **Version display**: Added version number to legal pages format
+  - New format: "Version 1.0.0, last updated: 25.12.2025"
+- **Punctuation**: Added periods at the end of consent checkbox link labels
+
+**Files Modified**:
+- `packages/auth-backend/base/src/routes/auth.ts` - Added metadata to signUp options.
+- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts` - New migration for trigger logic.
+- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - Registered new migration.
+- `packages/start-frontend/base/src/i18n/locales/ru/legal.json` - Terminology + version format
+- `packages/start-frontend/base/src/i18n/locales/en/legal.json` - Version format
+- `packages/start-frontend/base/src/views/LegalPage.tsx` - Pass version to translation
+- `packages/universo-i18n/base/src/locales/ru/views/auth.json` - Terminology + periods
+- `packages/universo-i18n/base/src/locales/en/views/auth.json` - Periods
+
+**Technical Notes**:
+- PostgreSQL RETURNING clause returns array of affected rows (reliable check)
+- UPSERT fallback ensures profile with consent is created even if trigger fails
+- No migration needed - schema already supports consent fields
+
+---
+
+### Terms of Service & Privacy Policy Consent ✅
+
+Implemented legal compliance features for GDPR/regulatory requirements: legal pages with PDF documents and consent checkboxes in registration form.
+
+**Database Changes**:
+- Created migration `1767049102876-AddConsentFields.ts` in profile-backend
+- Added 4 columns to `profiles` table:
+  - `terms_accepted BOOLEAN DEFAULT false`
+  - `terms_accepted_at TIMESTAMPTZ`
+  - `privacy_accepted BOOLEAN DEFAULT false`
+  - `privacy_accepted_at TIMESTAMPTZ`
+- Created indexes `idx_profiles_terms_accepted`, `idx_profiles_privacy_accepted`
+
+**Backend Changes**:
+- Extended `RegisterSchema` (zod) requiring `termsAccepted: true`, `privacyAccepted: true`
+- Updated `/register` endpoint to save consent with timestamps after user creation
+- Implemented retry pattern (up to 3 attempts) to handle async profile creation trigger
+
+**Frontend Changes**:
+- Created `LegalPage.tsx` component with `TermsPage`/`PrivacyPage` variants
+- Added `/terms` and `/privacy` routes with `StartLayoutMUI`
+- Added consent checkboxes to `AuthView.tsx` (shown only when labels provided)
+- Checkboxes link to /terms and /privacy (opens in new tab)
+
+**i18n**:
+- Created `legal.json` translations (EN/RU) for legal pages
+- Added consent labels to `auth.json` (termsCheckbox, privacyCheckbox, consentRequired)
+
+**Post-implementation Fixes**:
+- Disabled the Register submit button until both consent checkboxes are checked
+- Added `/terms` and `/privacy` to the public UI whitelist to prevent guest redirects to `/auth`
+- Registered start-frontend i18n in the main route tree so legal pages render translations
+- Reworked legal pages layout to match onboarding completion screen and added a "Go to home" button
+
+**Files Created**:
+- `packages/profile-backend/base/src/database/migrations/postgres/1767049102876-AddConsentFields.ts`
+- `packages/start-frontend/base/src/views/LegalPage.tsx`
+- `packages/start-frontend/base/src/i18n/locales/en/legal.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/legal.json`
+
+---
+
 ## 📅 2025-12-28
 
 ### Auth Register 419 Auto-Retry ✅

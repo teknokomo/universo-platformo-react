@@ -61,7 +61,13 @@ const Auth = () => {
             fieldsRequired: t('fieldsRequired'),
             successRegister: t('successRegister'),
             loginSuccess: t('loginSuccess'),
-            loginError: (error) => t('loginError', { error })
+            loginError: (error) => t('loginError', { error }),
+            // Consent labels for registration form
+            termsCheckbox: t('termsCheckbox'),
+            termsLink: t('termsLink'),
+            privacyCheckbox: t('privacyCheckbox'),
+            privacyLink: t('privacyLink'),
+            consentRequired: t('consentRequired')
         }),
         [t]
     )

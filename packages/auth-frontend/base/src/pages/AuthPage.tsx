@@ -126,9 +126,14 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
     )
 
     const handleRegister = useCallback(
-        async (email: string, password: string): Promise<void> => {
+        async (email: string, password: string, termsAccepted?: boolean, privacyAccepted?: boolean): Promise<void> => {
             const doRegister = async () => {
-                return await client.post('auth/register', { email, password })
+                return await client.post('auth/register', {
+                    email,
+                    password,
+                    termsAccepted: termsAccepted ?? true,
+                    privacyAccepted: privacyAccepted ?? true
+                })
             }
 
             try {

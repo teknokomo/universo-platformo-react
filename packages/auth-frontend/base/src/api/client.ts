@@ -150,9 +150,7 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
                 } else if (Array.isArray(mergedOptions.redirectOn401)) {
                     // Custom routes array
                     const customRoutes = mergedOptions.redirectOn401 as readonly string[]
-                    const isCustomPublic = customRoutes.some((route) =>
-                        route === '/' ? pathname === '/' : pathname.startsWith(route)
-                    )
+                    const isCustomPublic = customRoutes.some((route) => (route === '/' ? pathname === '/' : pathname.startsWith(route)))
                     shouldRedirect = !isCustomPublic
                 }
 

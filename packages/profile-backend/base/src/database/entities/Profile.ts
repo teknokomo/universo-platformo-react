@@ -28,6 +28,21 @@ export class Profile {
     @Column({ type: 'boolean', default: false })
     onboarding_completed!: boolean
 
+    // Consent tracking fields - added for Terms of Service and Privacy Policy acceptance
+    @Index('idx_profiles_terms_accepted')
+    @Column({ type: 'boolean', default: false })
+    terms_accepted!: boolean
+
+    @Column({ type: 'timestamptz', nullable: true })
+    terms_accepted_at?: Date
+
+    @Index('idx_profiles_privacy_accepted')
+    @Column({ type: 'boolean', default: false })
+    privacy_accepted!: boolean
+
+    @Column({ type: 'timestamptz', nullable: true })
+    privacy_accepted_at?: Date
+
     @CreateDateColumn()
     created_at!: Date
 

@@ -1,0 +1,13 @@
+{
+    "imageAlt": "Background image",
+    "termsTitle": "Terms of Service",
+    "privacyTitle": "Privacy Policy",
+    "termsDescription": "This document describes the terms and conditions for using Universo Platformo services. Please read it carefully before using our platform.",
+    "privacyDescription": "This document describes how we collect, use, and protect your personal data. Please read it carefully to understand our privacy practices.",
+    "downloadTerms": "Download Terms of Service",
+    "downloadPrivacy": "Download Privacy Policy",
+    "openInNewTab": "Open in new tab",
+    "back": "Back",
+    "goHome": "Go to home",
+    "lastUpdated": "Version {{version}}, last updated: {{date}}"
+}
