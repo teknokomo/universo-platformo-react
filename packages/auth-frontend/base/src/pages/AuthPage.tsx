@@ -131,8 +131,8 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
                 return await client.post('auth/register', {
                     email,
                     password,
-                    termsAccepted: termsAccepted ?? true,
-                    privacyAccepted: privacyAccepted ?? true
+                    termsAccepted,
+                    privacyAccepted
                 })
             }
 

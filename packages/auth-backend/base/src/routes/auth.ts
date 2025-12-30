@@ -53,15 +53,17 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             })
             
             const now = new Date()
+            const consentVersion = '1.0.0' // Current version of legal documents
             const { data, error } = await supa.auth.signUp({
                 email: parsed.data.email,
                 password: parsed.data.password,
                 options: {
                     data: {
-                        terms_accepted: true,
+                        terms_accepted: parsed.data.termsAccepted,
                         terms_accepted_at: now.toISOString(),
-                        privacy_accepted: true,
-                        privacy_accepted_at: now.toISOString()
+                        privacy_accepted: parsed.data.privacyAccepted,
+                        privacy_accepted_at: now.toISOString(),
+                        consent_version: consentVersion
                     }
                 }
             })
@@ -102,10 +104,11 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                              SET terms_accepted = $1, 
                                  terms_accepted_at = $2, 
                                  privacy_accepted = $3, 
-                                 privacy_accepted_at = $4
-                             WHERE user_id = $5
+                                 privacy_accepted_at = $4,
+                                 consent_version = $5
+                             WHERE user_id = $6
                              RETURNING user_id`,
-                            [true, now, true, now, userId]
+                            [true, now, true, now, consentVersion, userId]
                         )
                         // PostgreSQL with TypeORM returns [rows[], rowCount] for queries with RETURNING
                         // updateResult[0] is the array of returned rows, updateResult[1] is affected count
@@ -144,15 +147,16 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         const dataSource = getDataSource()
                         const nickname = `user_${userId.substring(0, 8)}`
                         const upsertResult = await dataSource.query(
-                            `INSERT INTO profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at)
-                             VALUES ($1, $2, '{}', $3, $4, $5, $6)
+                            `INSERT INTO profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, consent_version)
+                             VALUES ($1, $2, '{}', $3, $4, $5, $6, $7)
                              ON CONFLICT (user_id) DO UPDATE
                              SET terms_accepted = EXCLUDED.terms_accepted,
                                  terms_accepted_at = EXCLUDED.terms_accepted_at,
                                  privacy_accepted = EXCLUDED.privacy_accepted,
-                                 privacy_accepted_at = EXCLUDED.privacy_accepted_at
+                                 privacy_accepted_at = EXCLUDED.privacy_accepted_at,
+                                 consent_version = EXCLUDED.consent_version
                              RETURNING user_id, nickname`,
-                            [userId, nickname, true, now, true, now]
+                            [userId, nickname, true, now, true, now, consentVersion]
                         )
                         console.info('[auth] consent saved via UPSERT fallback', { userId, result: upsertResult })
                         

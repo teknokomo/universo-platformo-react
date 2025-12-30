@@ -43,6 +43,9 @@ export class Profile {
     @Column({ type: 'timestamptz', nullable: true })
     privacy_accepted_at?: Date
 
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    consent_version?: string
+
     @CreateDateColumn()
     created_at!: Date
 
