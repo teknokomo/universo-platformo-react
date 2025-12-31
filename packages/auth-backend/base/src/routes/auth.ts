@@ -53,8 +53,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             })
             
             const now = new Date()
-            const termsVersion = process.env.LEGAL_TERMS_VERSION || '1.0.0'
-            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION || '1.0.0'
+            const termsVersion = process.env.LEGAL_TERMS_VERSION
+            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION
             const { data, error } = await supa.auth.signUp({
                 email: parsed.data.email,
                 password: parsed.data.password,

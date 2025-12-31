@@ -93,8 +93,8 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
             const now = new Date()
 
             // Get legal document versions from environment
-            const termsVersion = process.env.LEGAL_TERMS_VERSION || '1.0.0'
-            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION || '1.0.0'
+            const termsVersion = process.env.LEGAL_TERMS_VERSION
+            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION
 
             const dataSource = getDataSource()
             const repo = dataSource.getRepository(Lead)
