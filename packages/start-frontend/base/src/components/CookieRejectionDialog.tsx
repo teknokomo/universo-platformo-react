@@ -12,13 +12,12 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Container from '@mui/material/Container'
 import Dialog from '@mui/material/Dialog'
-import IconButton from '@mui/material/IconButton'
 import Link from '@mui/material/Link'
 import Slide from '@mui/material/Slide'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
 import type { TransitionProps } from '@mui/material/transitions'
-import { IconX } from '@tabler/icons-react'
 import { useTranslation } from '@universo/i18n'
 
 const SlideTransition = forwardRef(function Transition(props: TransitionProps & { children: React.ReactElement }, ref: React.Ref<unknown>) {
@@ -47,7 +46,7 @@ export function CookieRejectionDialog({ open, onClose }: CookieRejectionDialogPr
             slotProps={{
                 paper: {
                     sx: (theme) => ({
-                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30, 30, 30, 0.50)' : 'rgba(255, 255, 255, 0.50)',
+                        backgroundColor: alpha(theme.palette.background.paper, 0.55),
                         backdropFilter: 'blur(10px)'
                     })
                 }
@@ -62,10 +61,7 @@ export function CookieRejectionDialog({ open, onClose }: CookieRejectionDialogPr
                 }}
             >
                 <Toolbar>
-                    <IconButton edge='start' onClick={onClose} aria-label='close'>
-                        <IconX size={24} />
-                    </IconButton>
-                    <Typography sx={{ ml: 2, flex: 1 }} variant='h6' component='div'>
+                    <Typography sx={{ flex: 1 }} variant='h6' component='div'>
                         {t('rejection.title')}
                     </Typography>
                     <Button variant='contained' onClick={onClose}>
@@ -110,5 +106,3 @@ export function CookieRejectionDialog({ open, onClose }: CookieRejectionDialogPr
         </Dialog>
     )
 }
-
-export default CookieRejectionDialog

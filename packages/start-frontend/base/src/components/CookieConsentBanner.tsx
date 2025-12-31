@@ -11,6 +11,7 @@ import Link from '@mui/material/Link'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
 import { useTranslation } from '@universo/i18n'
 import { useCookieConsent } from '../hooks/useCookieConsent'
 import { CookieRejectionDialog } from './CookieRejectionDialog'
@@ -42,8 +43,7 @@ export function CookieConsentBanner() {
         <>
             <Fade appear={false} in={showBanner && !showRejectionDialog}>
                 <Paper
-                    role='dialog'
-                    aria-modal='false'
+                    role='region'
                     aria-label={t('banner.title')}
                     square
                     variant='outlined'
@@ -58,7 +58,7 @@ export function CookieConsentBanner() {
                         borderWidth: 0,
                         borderTopWidth: 1,
                         zIndex: 1300,
-                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30, 30, 30, 0.50)' : 'rgba(255, 255, 255, 0.50)',
+                        backgroundColor: alpha(theme.palette.background.paper, 0.55),
                         backdropFilter: 'blur(10px)'
                     })}
                 >
@@ -96,5 +96,3 @@ export function CookieConsentBanner() {
         </>
     )
 }
-
-export default CookieConsentBanner

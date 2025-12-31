@@ -3,6 +3,9 @@
  *
  * Manages the cookie consent banner visibility and user preference storage.
  * Uses localStorage to persist user's choice across sessions.
+ *
+ * SSR-safe implementation: initializes to 'pending' and syncs with localStorage
+ * on mount to avoid hydration mismatches.
  */
 import { useState, useCallback, useEffect } from 'react'
 
@@ -26,30 +29,64 @@ interface UseCookieConsentReturn {
 }
 
 /**
+ * Safely get item from localStorage (handles private browsing mode, disabled storage)
+ */
+function safeGetItem(key: string): string | null {
+    try {
+        if (typeof window === 'undefined') return null
+        return localStorage.getItem(key)
+    } catch {
+        // localStorage may be unavailable or disabled
+        return null
+    }
+}
+
+/**
+ * Safely set item in localStorage (handles quota exceeded, private browsing mode)
+ */
+function safeSetItem(key: string, value: string): boolean {
+    try {
+        if (typeof window === 'undefined') return false
+        localStorage.setItem(key, value)
+        return true
+    } catch {
+        // localStorage may be unavailable, disabled, or quota exceeded
+        return false
+    }
+}
+
+/**
+ * Safely remove item from localStorage
+ */
+function safeRemoveItem(key: string): boolean {
+    try {
+        if (typeof window === 'undefined') return false
+        localStorage.removeItem(key)
+        return true
+    } catch {
+        // localStorage may be unavailable or disabled
+        return false
+    }
+}
+
+/**
  * Hook to manage cookie consent state
  * @returns Object with consent status and control functions
  */
 export function useCookieConsent(): UseCookieConsentReturn {
-    const [status, setStatus] = useState<CookieConsentStatus>(() => {
-        // Initialize from localStorage on first render
-        if (typeof window === 'undefined') return 'pending'
+    // Initialize to 'pending' - SSR-safe, avoids hydration mismatch
+    const [status, setStatus] = useState<CookieConsentStatus>('pending')
 
-        const stored = localStorage.getItem(STORAGE_KEY)
-        if (stored === 'accepted') return 'accepted'
-        // rejected is not stored permanently - always show banner on reload
-        return 'pending'
-    })
-
-    // Sync with localStorage on mount (for SSR hydration)
+    // On mount, check localStorage to sync state (SSR-safe)
     useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY)
-        if (stored === 'accepted' && status !== 'accepted') {
+        const stored = safeGetItem(STORAGE_KEY)
+        if (stored === 'accepted') {
             setStatus('accepted')
         }
-    }, [status])
+    }, []) // Empty dependency array - runs only once on mount
 
     const acceptCookies = useCallback(() => {
-        localStorage.setItem(STORAGE_KEY, 'accepted')
+        safeSetItem(STORAGE_KEY, 'accepted')
         setStatus('accepted')
     }, [])
 
@@ -65,7 +102,7 @@ export function useCookieConsent(): UseCookieConsentReturn {
     }, [])
 
     const resetConsent = useCallback(() => {
-        localStorage.removeItem(STORAGE_KEY)
+        safeRemoveItem(STORAGE_KEY)
         setStatus('pending')
     }, [])
 
@@ -79,5 +116,3 @@ export function useCookieConsent(): UseCookieConsentReturn {
         resetConsent
     }
 }
-
-export default useCookieConsent
