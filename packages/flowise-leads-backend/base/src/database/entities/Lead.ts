@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm'
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm'
 import type { ILead } from '../../Interface'
 
 /**
@@ -27,6 +27,27 @@ export class Lead implements ILead {
 
     @Column()
     chatId!: string
+
+    // Consent tracking fields - added for Terms of Service and Privacy Policy acceptance
+    @Index('idx_lead_terms_accepted')
+    @Column({ type: 'boolean', default: false })
+    terms_accepted!: boolean
+
+    @Column({ type: 'timestamptz', nullable: true })
+    terms_accepted_at?: Date
+
+    @Index('idx_lead_privacy_accepted')
+    @Column({ type: 'boolean', default: false })
+    privacy_accepted!: boolean
+
+    @Column({ type: 'timestamptz', nullable: true })
+    privacy_accepted_at?: Date
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    terms_version?: string
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    privacy_version?: string
 
     @CreateDateColumn()
     createdDate!: Date

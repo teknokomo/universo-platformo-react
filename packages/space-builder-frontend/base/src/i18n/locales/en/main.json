@@ -59,7 +59,7 @@
             "replace": "Clear current canvas",
             "newCanvas": "Create a new canvas in this space",
             "newSpace": "Create a new space",
-            "append": "Append to current space (as separate nodes)"
+            "append": "Append to current canvas (as separate nodes)"
         }
     }
 }

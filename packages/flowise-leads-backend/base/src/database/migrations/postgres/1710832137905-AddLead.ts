@@ -25,12 +25,8 @@ export class AddLead1710832137905 implements MigrationInterface {
         )
 
         // Add indexes for performance
-        await queryRunner.query(
-            `CREATE INDEX IF NOT EXISTS "IDX_lead_canvas_id" ON lead("canvas_id");`
-        )
-        await queryRunner.query(
-            `CREATE INDEX IF NOT EXISTS "IDX_lead_created_date" ON lead("createdDate");`
-        )
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_lead_canvas_id" ON lead("canvas_id");`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_lead_created_date" ON lead("createdDate");`)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

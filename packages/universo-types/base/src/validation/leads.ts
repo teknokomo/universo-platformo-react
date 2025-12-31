@@ -24,6 +24,20 @@ export interface ILead {
     chatId: string
     /** Creation timestamp */
     createdDate: Date
+
+    // Consent tracking fields
+    /** Whether Terms of Service were accepted */
+    terms_accepted: boolean
+    /** Timestamp when Terms were accepted */
+    terms_accepted_at?: Date
+    /** Whether Privacy Policy was accepted */
+    privacy_accepted: boolean
+    /** Timestamp when Privacy Policy was accepted */
+    privacy_accepted_at?: Date
+    /** Version of Terms document at acceptance */
+    terms_version?: string
+    /** Version of Privacy Policy at acceptance */
+    privacy_version?: string
 }
 
 /**
@@ -42,6 +56,12 @@ export interface CreateLeadPayload {
     phone?: string
     /** Points/score (default: 0, must be non-negative) */
     points?: number
+
+    // Consent fields
+    /** Whether Terms of Service were accepted */
+    termsAccepted?: boolean
+    /** Whether Privacy Policy was accepted */
+    privacyAccepted?: boolean
 }
 
 /**

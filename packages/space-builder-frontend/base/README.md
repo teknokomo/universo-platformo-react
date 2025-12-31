@@ -89,7 +89,7 @@ Credentials-based models are discovered from existing platform credentials and s
 -   The Settings step exposes a "Creation mode" select with three options:
     -   "Clear current canvas" — replaces the current canvas with the generated graph
     -   "Create a new space" — if the canvas has nodes, opens a new tab and transfers the graph there via `localStorage`; if empty, behaves like replace
-    -   "Append to current space (as separate nodes)" — appends with ID remap and safe vertical offset below the lowest nodes
+    -   "Append to current canvas (as separate nodes)" — appends with ID remap and safe vertical offset below the lowest nodes
 
 ## Why `tsconfig.esm.json`
 
