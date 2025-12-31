@@ -46,7 +46,10 @@ export const createLeadSchema = z.object({
         .nonnegative('Points must be non-negative')
         .optional()
         .nullable()
-        .transform((val) => val ?? 0)
+        .transform((val) => val ?? 0),
+    // Consent fields - optional, default to false if not provided
+    termsAccepted: z.boolean().optional().default(false),
+    privacyAccepted: z.boolean().optional().default(false)
 })
 
 /**
@@ -85,8 +88,13 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
         try {
             const validatedData = createLeadSchema.parse(body)
             console.log('[leads-backend] Zod validation passed:', JSON.stringify(validatedData))
-            
+
             const chatId = validatedData.chatId ?? uuid.generateUuidV7()
+            const now = new Date()
+
+            // Get legal document versions from environment
+            const termsVersion = process.env.LEGAL_TERMS_VERSION
+            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION
 
             const dataSource = getDataSource()
             const repo = dataSource.getRepository(Lead)
@@ -97,17 +105,29 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
                 name: validatedData.name,
                 email: validatedData.email,
                 phone: validatedData.phone,
-                points: validatedData.points ?? 0
+                points: validatedData.points ?? 0,
+                // Consent fields
+                terms_accepted: validatedData.termsAccepted ?? false,
+                terms_accepted_at: validatedData.termsAccepted ? now : undefined,
+                privacy_accepted: validatedData.privacyAccepted ?? false,
+                privacy_accepted_at: validatedData.privacyAccepted ? now : undefined,
+                terms_version: validatedData.termsAccepted ? termsVersion : undefined,
+                privacy_version: validatedData.privacyAccepted ? privacyVersion : undefined
             })
 
-            console.log('[leads-backend] Creating lead with data:', JSON.stringify({
-                canvasId: newLead.canvasId,
-                chatId: newLead.chatId,
-                name: newLead.name,
-                email: newLead.email,
-                phone: newLead.phone,
-                points: newLead.points
-            }))
+            console.log(
+                '[leads-backend] Creating lead with data:',
+                JSON.stringify({
+                    canvasId: newLead.canvasId,
+                    chatId: newLead.chatId,
+                    name: newLead.name,
+                    email: newLead.email,
+                    phone: newLead.phone,
+                    points: newLead.points,
+                    terms_accepted: newLead.terms_accepted,
+                    privacy_accepted: newLead.privacy_accepted
+                })
+            )
 
             const saved = await repo.save(newLead)
             console.log('[leads-backend] Lead saved successfully, id:', saved.id)

@@ -31,6 +31,33 @@
 
 ## 📅 2025-12-31
 
+### Lead Consent for Quiz AR.js Applications ✅
+
+Added consent collection (Terms of Service and Privacy Policy) for Lead records in AR.js Quiz applications, mirroring the profile registration consent pattern.
+
+**Changes**:
+- Created migration `1735638000000-AddConsentFieldsToLead` with 6 new columns:
+  - `terms_accepted` (boolean), `terms_accepted_at` (timestamptz)
+  - `privacy_accepted` (boolean), `privacy_accepted_at` (timestamptz)
+  - `terms_version` (varchar 50), `privacy_version` (varchar 50)
+  - Two indexes for accepted fields
+- Updated Lead.ts entity with new TypeORM column/index decorators
+- Extended ILead interface and CreateLeadPayload Zod schema in universo-types
+- Enhanced leadsService.ts to capture consent timestamp and versions from env vars
+- Modified DataHandler generateLeadCollectionForm():
+  - Added two consent checkboxes with links to /terms and /privacy
+  - "Начать квиз" button disabled until both checkboxes checked
+  - JavaScript validation ensures consent before form submission
+  - Consent data (termsAccepted, privacyAccepted) sent to API
+
+**Test Notes**: Manual testing required - publish a quiz, verify checkboxes work, check database receives consent fields.
+
+**Files**:
+- Created: `packages/flowise-leads-backend/base/src/database/migrations/postgres/1735638000000-AddConsentFieldsToLead.ts`
+- Modified: Lead.ts entity, leads.ts types, leadsService.ts, DataHandler/index.ts, migrations index.ts
+
+---
+
 ### Split consent_version into terms_version + privacy_version ✅
 
 Refactored consent tracking to support independent versioning for Terms of Service and Privacy Policy documents.

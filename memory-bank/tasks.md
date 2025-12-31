@@ -12,6 +12,33 @@ _No active tasks. See completed tasks below or GitHub Issues for planned work._
 
 ## ✅ COMPLETED TASKS
 
+### Lead Consent for Quiz AR.js Applications - 2025-12-31 ✅ COMPLETED
+
+**Goal**: Add Terms of Service and Privacy Policy consent collection for Lead records (quiz AR.js applications), similar to profile registration consent.
+
+**Tasks**:
+- [x] Create migration AddConsentFieldsToLead for 6 new columns in lead table
+- [x] Register migration in flowise-leads-backend index.ts
+- [x] Update Lead.ts entity with consent fields
+- [x] Update ILead types in universo-types (leads.ts)
+- [x] Update leadsService.ts with consent handling
+- [x] Update DataHandler - generateLeadCollectionForm with consent checkboxes and validation
+- [x] Fix lint errors (prettier formatting) in both packages
+- [x] Full build verification
+- [x] QA: Fix node-based mode - add consent fields to saveLeadDataToSupabase and setupLeadForm
+
+**Files Created**:
+- `packages/flowise-leads-backend/base/src/database/migrations/postgres/1735638000000-AddConsentFieldsToLead.ts`
+
+**Files Modified**:
+- `packages/flowise-leads-backend/base/src/database/migrations/postgres/index.ts`
+- `packages/flowise-leads-backend/base/src/database/entities/Lead.ts`
+- `packages/universo-types/base/src/validation/leads.ts`
+- `packages/flowise-leads-backend/base/src/services/leadsService.ts`
+- `packages/template-quiz/base/src/arjs/handlers/DataHandler/index.ts`
+
+---
+
 ### Split consent_version into terms_version + privacy_version - 2025-12-31 ✅ COMPLETED
 
 **Goal**: Replace single `consent_version` with two separate fields `terms_version` and `privacy_version`. Move version values from hardcoded to `.env` variables.

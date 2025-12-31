@@ -460,6 +460,8 @@ export class DataHandler {
                     name: '',
                     email: '',
                     phone: '',
+                    termsAccepted: false,
+                    privacyAccepted: false,
                     hasData: false
                 };
                 
@@ -1090,6 +1092,40 @@ export class DataHandler {
                     dbg('[LeadCollection] init form');
                     
                     const startQuizBtn = document.getElementById('start-quiz-btn');
+                    const termsCheckbox = document.getElementById('lead-terms-checkbox');
+                    const privacyCheckbox = document.getElementById('lead-privacy-checkbox');
+                    
+                    // Function to update button state based on checkboxes
+                    function updateButtonState() {
+                        const termsChecked = termsCheckbox ? termsCheckbox.checked : false;
+                        const privacyChecked = privacyCheckbox ? privacyCheckbox.checked : false;
+                        const bothChecked = termsChecked && privacyChecked;
+                        
+                        if (startQuizBtn) {
+                            startQuizBtn.disabled = !bothChecked;
+                            if (bothChecked) {
+                                startQuizBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
+                                startQuizBtn.style.cursor = 'pointer';
+                                startQuizBtn.style.opacity = '1';
+                            } else {
+                                startQuizBtn.style.background = '#9E9E9E';
+                                startQuizBtn.style.cursor = 'not-allowed';
+                                startQuizBtn.style.opacity = '0.7';
+                            }
+                        }
+                    }
+                    
+                    // Add listeners to checkboxes
+                    if (termsCheckbox) {
+                        termsCheckbox.addEventListener('change', updateButtonState);
+                    }
+                    if (privacyCheckbox) {
+                        privacyCheckbox.addEventListener('change', updateButtonState);
+                    }
+                    
+                    // Initialize button visual state on page load
+                    updateButtonState();
+                    
                     if (startQuizBtn) {
                         startQuizBtn.addEventListener('click', function() {
                             if (validateAndCollectLeadData()) {
@@ -1106,6 +1142,8 @@ export class DataHandler {
                     const nameField = document.getElementById('lead-name');
                     const emailField = document.getElementById('lead-email');
                     const phoneField = document.getElementById('lead-phone');
+                    const termsCheckbox = document.getElementById('lead-terms-checkbox');
+                    const privacyCheckbox = document.getElementById('lead-privacy-checkbox');
                     const errorElement = document.getElementById('lead-form-error');
                     
                     // Reset error
@@ -1118,14 +1156,24 @@ export class DataHandler {
                     leadData.email = emailField ? emailField.value.trim() : '';
                     leadData.phone = phoneField ? phoneField.value.trim() : '';
                     
+                    // Collect consent data
+                    leadData.termsAccepted = termsCheckbox ? termsCheckbox.checked : false;
+                    leadData.privacyAccepted = privacyCheckbox ? privacyCheckbox.checked : false;
+                    
                     // Validate required fields
                     let isValid = true;
                     let errorMessage = '';
                     
+                    // Validate consent checkboxes first
+                    if (!leadData.termsAccepted || !leadData.privacyAccepted) {
+                        isValid = false;
+                        errorMessage = 'Необходимо принять Условия и Политику конфиденциальности';
+                    }
+                    
                     ${
                         leadCollection.collectName
                             ? `
-                    if (!leadData.name) {
+                    if (isValid && !leadData.name) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите ваше имя';
                     }`
@@ -1135,7 +1183,7 @@ export class DataHandler {
                     ${
                         !leadCollection.collectName && leadCollection.collectEmail
                             ? `
-                    if (!leadData.email) {
+                    if (isValid && !leadData.email) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите ваш email';
                     } else if (leadData.email && !isValidEmail(leadData.email)) {
@@ -1148,7 +1196,7 @@ export class DataHandler {
                     ${
                         !leadCollection.collectName && !leadCollection.collectEmail && leadCollection.collectPhone
                             ? `
-                    if (!leadData.phone) {
+                    if (isValid && !leadData.phone) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите ваш телефон';
                     }`
@@ -1156,7 +1204,7 @@ export class DataHandler {
                     }
                     
                     // Validate email format if provided
-                    if (leadData.email && !isValidEmail(leadData.email)) {
+                    if (isValid && leadData.email && !isValidEmail(leadData.email)) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите корректный email';
                     }
@@ -1170,7 +1218,7 @@ export class DataHandler {
                     }
                     
                     leadData.hasData = true;
-                    dbg('[LeadCollection] collected');
+                    dbg('[LeadCollection] collected with consent');
                     
                     return true;
                 }
@@ -1209,7 +1257,9 @@ export class DataHandler {
                             email: leadInfo.email || null,
                             phone: leadInfo.phone || null,
                             points: totalPoints, // Dedicated field for points
-                            createdDate: new Date().toISOString()
+                            // Consent fields
+                            termsAccepted: leadInfo.termsAccepted || false,
+                            privacyAccepted: leadInfo.privacyAccepted || false
                         };
                         
                         dbg('[LeadCollection] payload', leadPayload);
@@ -1825,7 +1875,7 @@ export class DataHandler {
 
         if (leadCollection.collectPhone) {
             formHtml += `
-                    <div style="margin-bottom: 20px;">
+                    <div style="margin-bottom: 15px;">
                         <label for="lead-phone" style="display: block; margin-bottom: 5px; font-size: 14px;">
                             Телефон ${!leadCollection.collectName && !leadCollection.collectEmail ? '*' : ''}
                         </label>
@@ -1847,23 +1897,71 @@ export class DataHandler {
             `
         }
 
+        // Universo Platformo | Consent checkboxes (required for all lead forms)
+        formHtml += `
+                    <div style="margin-bottom: 12px; margin-top: 5px;">
+                        <label style="display: flex; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.4;">
+                            <input 
+                                type="checkbox" 
+                                id="lead-terms-checkbox"
+                                style="
+                                    margin-right: 8px; 
+                                    margin-top: 2px;
+                                    min-width: 16px; 
+                                    width: 16px; 
+                                    height: 16px;
+                                    cursor: pointer;
+                                "
+                            >
+                            <span>
+                                Я принимаю 
+                                <a href="/terms" target="_blank" rel="noopener noreferrer" style="color: #4CAF50; text-decoration: underline;">
+                                    Пользовательское соглашение.
+                                </a>
+                            </span>
+                        </label>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: flex; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.4;">
+                            <input 
+                                type="checkbox" 
+                                id="lead-privacy-checkbox"
+                                style="
+                                    margin-right: 8px; 
+                                    margin-top: 2px;
+                                    min-width: 16px; 
+                                    width: 16px; 
+                                    height: 16px;
+                                    cursor: pointer;
+                                "
+                            >
+                            <span>
+                                Я ознакомился с 
+                                <a href="/privacy" target="_blank" rel="noopener noreferrer" style="color: #4CAF50; text-decoration: underline;">
+                                    Политикой конфиденциальности.
+                                </a>
+                            </span>
+                        </label>
+                    </div>
+        `
+
         formHtml += `
                     <button 
                         id="start-quiz-btn"
+                        disabled
                         style="
                             width: 100%; 
                             padding: 12px; 
-                            background: linear-gradient(45deg, #4CAF50, #45a049); 
+                            background: #9E9E9E; 
                             color: white; 
                             border: none; 
                             border-radius: 8px; 
                             font-size: 16px; 
                             font-weight: bold;
-                            cursor: pointer;
+                            cursor: not-allowed;
                             transition: all 0.3s ease;
+                            opacity: 0.7;
                         "
-                        onmouseover="this.style.transform='scale(1.05)'"
-                        onmouseout="this.style.transform='scale(1)'"
                     >
                         Начать квиз
                     </button>
@@ -2123,6 +2221,9 @@ export class DataHandler {
             'use strict';
             console.log('[NodeQuiz] Initializing node-based quiz system');
 
+            // Lead collection configuration (injected from build options)
+            const leadCollection = ${JSON.stringify(leadCollection || null)};
+
             // Global state
             const quizState = {
                 currentSceneIndex: 0,
@@ -2171,15 +2272,26 @@ export class DataHandler {
             }
 
             async function saveLeadDataToSupabase(leadInfo, totalPoints = 0, origin = 'unknown') {
-                if (!leadCollection) return;
-
-                if (!leadInfo || (!leadInfo.name && !leadInfo.email && !leadInfo.phone)) {
+                if (!leadCollection) {
+                    console.log('[LeadCollection] No leadCollection config, skipping save');
                     return;
                 }
 
                 if (leadSaved) {
+                    console.log('[LeadCollection] Already saved, skipping duplicate');
                     return;
                 }
+
+                // Always save if we have consent (even without contact fields)
+                const hasConsentData = leadInfo && (leadInfo.termsAccepted || leadInfo.privacyAccepted);
+                const hasContactData = leadInfo && (leadInfo.name || leadInfo.email || leadInfo.phone);
+                
+                if (!hasConsentData && !hasContactData) {
+                    console.log('[LeadCollection] No data to save (no consent, no contact info)');
+                    return;
+                }
+
+                console.log('[LeadCollection] Saving lead data (origin=' + origin + ')', { hasConsentData, hasContactData });
 
                 const leadPayload = {
                     canvasId: window.canvasId || null,
@@ -2187,7 +2299,9 @@ export class DataHandler {
                     email: leadInfo.email || null,
                     phone: leadInfo.phone || null,
                     points: totalPoints,
-                    createdDate: new Date().toISOString()
+                    // Consent fields
+                    termsAccepted: leadInfo.termsAccepted || false,
+                    privacyAccepted: leadInfo.privacyAccepted || false
                 };
 
                 try {
@@ -2216,12 +2330,45 @@ export class DataHandler {
                 const leadForm = document.getElementById('lead-collection-form');
                 const startBtn = document.getElementById('start-quiz-btn');
                 const errorDiv = document.getElementById('lead-form-error');
+                const termsCheckbox = document.getElementById('lead-terms-checkbox');
+                const privacyCheckbox = document.getElementById('lead-privacy-checkbox');
 
                 if (!startBtn || !leadForm) {
                     console.error('[NodeQuiz] Lead form elements not found');
                     startQuiz();
                     return;
                 }
+
+                // Function to update button state based on consent checkboxes
+                function updateStartButtonState() {
+                    const termsChecked = termsCheckbox ? termsCheckbox.checked : false;
+                    const privacyChecked = privacyCheckbox ? privacyCheckbox.checked : false;
+                    const bothChecked = termsChecked && privacyChecked;
+                    
+                    if (startBtn) {
+                        startBtn.disabled = !bothChecked;
+                        if (bothChecked) {
+                            startBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
+                            startBtn.style.cursor = 'pointer';
+                            startBtn.style.opacity = '1';
+                        } else {
+                            startBtn.style.background = '#9E9E9E';
+                            startBtn.style.cursor = 'not-allowed';
+                            startBtn.style.opacity = '0.7';
+                        }
+                    }
+                }
+
+                // Add listeners to consent checkboxes
+                if (termsCheckbox) {
+                    termsCheckbox.addEventListener('change', updateStartButtonState);
+                }
+                if (privacyCheckbox) {
+                    privacyCheckbox.addEventListener('change', updateStartButtonState);
+                }
+                
+                // Initialize button visual state on page load
+                updateStartButtonState();
 
                 startBtn.addEventListener('click', function() {
                     const nameInput = document.getElementById('lead-name');
@@ -2262,6 +2409,21 @@ export class DataHandler {
                     `
                             : ''
                     }
+
+                    // Collect and validate consent data
+                    const termsChecked = termsCheckbox ? termsCheckbox.checked : false;
+                    const privacyChecked = privacyCheckbox ? privacyCheckbox.checked : false;
+                    
+                    if (!termsChecked || !privacyChecked) {
+                        isValid = false;
+                        if (errorDiv) {
+                            errorDiv.textContent = 'Необходимо принять Условия и Политику конфиденциальности';
+                        }
+                    }
+                    
+                    // Store consent in leadData
+                    quizState.leadData.termsAccepted = termsChecked;
+                    quizState.leadData.privacyAccepted = privacyChecked;
 
                     if (!isValid) {
                         errorDiv.style.display = 'block';
@@ -2569,16 +2731,19 @@ export class DataHandler {
                         : ''
                 }
 
+                // Show feedback and always proceed to next scene (like buttons mode)
                 if (correctCount === totalQuestions) {
                     feedback.textContent = 'Отлично! Все правильно!';
                     feedback.style.color = '#4CAF50';
-                    setTimeout(function() {
-                        nextScene();
-                    }, 1500);
                 } else {
                     feedback.textContent = 'Правильно: ' + correctCount + ' из ' + totalQuestions;
                     feedback.style.color = '#ff9800';
                 }
+                
+                // Always move to next scene after showing feedback
+                setTimeout(function() {
+                    nextScene();
+                }, 1500);
             }
 
             function handleClearConnections() {
@@ -2597,7 +2762,7 @@ export class DataHandler {
             }
 
             function finishQuiz() {
-                console.log('[NodeQuiz] Quiz finished');
+                console.log('[NodeQuiz] Quiz finished, leadData:', JSON.stringify(quizState.leadData), 'points:', quizState.points);
                 ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
                 saveLeadDataToSupabase(quizState.leadData, quizState.points, 'nodes-finish');
                 ${
