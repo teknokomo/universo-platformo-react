@@ -1123,6 +1123,9 @@ export class DataHandler {
                         privacyCheckbox.addEventListener('change', updateButtonState);
                     }
                     
+                    // Initialize button visual state on page load
+                    updateButtonState();
+                    
                     if (startQuizBtn) {
                         startQuizBtn.addEventListener('click', function() {
                             if (validateAndCollectLeadData()) {
@@ -2363,6 +2366,9 @@ export class DataHandler {
                 if (privacyCheckbox) {
                     privacyCheckbox.addEventListener('change', updateStartButtonState);
                 }
+                
+                // Initialize button visual state on page load
+                updateStartButtonState();
 
                 startBtn.addEventListener('click', function() {
                     const nameInput = document.getElementById('lead-name');

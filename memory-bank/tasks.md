@@ -12,7 +12,7 @@ _No active tasks. See completed tasks below or GitHub Issues for planned work._
 
 ## ✅ COMPLETED TASKS
 
-### Lead Consent for Quiz AR.js Applications - 2024-12-31 ✅ COMPLETED
+### Lead Consent for Quiz AR.js Applications - 2025-12-31 ✅ COMPLETED
 
 **Goal**: Add Terms of Service and Privacy Policy consent collection for Lead records (quiz AR.js applications), similar to profile registration consent.
 
