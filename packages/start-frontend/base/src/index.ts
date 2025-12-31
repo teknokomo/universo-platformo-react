@@ -7,6 +7,12 @@
 // Components
 export { OnboardingWizard } from './components/OnboardingWizard'
 export { SelectableListCard } from './components/SelectableListCard'
+export { CookieConsentBanner } from './components/CookieConsentBanner'
+export { CookieRejectionDialog } from './components/CookieRejectionDialog'
+
+// Hooks
+export { useCookieConsent } from './hooks/useCookieConsent'
+export type { CookieConsentStatus } from './hooks/useCookieConsent'
 
 // Views
 export * from './views'
@@ -18,4 +24,4 @@ export * from './api/onboarding'
 export * from './types'
 
 // i18n registration
-export { registerOnboardingI18n, registerLandingI18n } from './i18n/register'
+export { registerOnboardingI18n, registerLandingI18n, registerCookiesI18n } from './i18n/register'

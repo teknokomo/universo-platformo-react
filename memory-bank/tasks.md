@@ -12,6 +12,62 @@ _No active tasks. See completed tasks below or GitHub Issues for planned work._
 
 ## ✅ COMPLETED TASKS
 
+### Cookie Consent Banner - PR Bot Review Fixes - 2026-01-01 ✅ COMPLETED
+
+**Goal**: Address code review comments from Gemini Code Assist and GitHub Copilot in PR #621.
+
+**Bot Recommendations Analysis**:
+| # | Issue | Valid? | Fixed? | Notes |
+|---|-------|--------|--------|-------|
+| 1 | SSR Hydration Mismatch | ✅ Yes | ✅ Yes | Initialize to 'pending', sync in useEffect |
+| 2 | Hardcoded backgroundColor | ✅ Yes | ✅ Yes | Use alpha() from @mui/material/styles |
+| 3 | Redundant default exports | ✅ Yes | ✅ Yes | Removed, index.ts uses named exports |
+| 4 | Try-catch for localStorage | ✅ Yes | ✅ Yes | Added safe helper functions |
+| 5 | useEffect [status] → [] | ✅ Yes | ✅ Yes | Fixed infinite loop potential |
+| 6 | Unused rejectCookies | ⚠️ Partial | ❌ No | API kept for future extensibility |
+| 7 | role='dialog' → 'region' | ✅ Yes | ✅ Yes | Non-modal uses role='region' |
+
+**Changes Applied**:
+- Refactored useCookieConsent hook for SSR-safety
+- Added safeGetItem/safeSetItem/safeRemoveItem helper functions
+- Replaced hardcoded rgba() with alpha(theme.palette.background.paper, 0.5)
+- Changed aria role from 'dialog' to 'region' for non-modal banner
+- Removed redundant default exports
+
+**Build Verification**: 61 tasks successful
+
+---
+
+### Cookie Consent Banner Implementation - 2025-12-31 ✅ COMPLETED
+
+**Goal**: Implement GDPR-compliant cookie consent banner with acceptance/rejection flow for Universo Platformo.
+
+**Tasks**:
+- [x] Create i18n translations (cookies.json) for EN/RU
+- [x] Create useCookieConsent hook for localStorage management
+- [x] Create CookieConsentBanner component (non-modal, fixed bottom)
+- [x] Create CookieRejectionDialog component (full-screen)
+- [x] Register cookies namespace in i18n
+- [x] Integrate banner into StartLayoutMUI
+- [x] Full build verification (61 tasks successful)
+
+**Files Created**:
+- `packages/start-frontend/base/src/i18n/locales/en/cookies.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/cookies.json`
+- `packages/start-frontend/base/src/hooks/useCookieConsent.ts`
+- `packages/start-frontend/base/src/hooks/index.ts`
+- `packages/start-frontend/base/src/components/CookieConsentBanner.tsx`
+- `packages/start-frontend/base/src/components/CookieRejectionDialog.tsx`
+
+**Files Modified**:
+- `packages/start-frontend/base/src/components/index.ts` - added cookie component exports
+- `packages/start-frontend/base/src/index.ts` - added hook and component exports
+- `packages/start-frontend/base/src/i18n/register.ts` - added registerCookiesI18n function
+- `packages/start-frontend/base/src/i18n/index.ts` - registered cookies namespace
+- `packages/universo-template-mui/base/src/layout/StartLayoutMUI.tsx` - integrated CookieConsentBanner
+
+---
+
 ### Lead Consent for Quiz AR.js Applications - 2025-12-31 ✅ COMPLETED
 
 **Goal**: Add Terms of Service and Privacy Policy consent collection for Lead records (quiz AR.js applications), similar to profile registration consent.

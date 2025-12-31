@@ -1,10 +1,12 @@
 // Universo Platformo | Start Frontend i18n
-// Register onboarding and legal namespaces
+// Register onboarding, legal, and cookies namespaces
 import { registerNamespace } from '@universo/i18n/registry'
 import enOnboarding from './locales/en/onboarding.json'
 import ruOnboarding from './locales/ru/onboarding.json'
 import enLegal from './locales/en/legal.json'
 import ruLegal from './locales/ru/legal.json'
+import enCookies from './locales/en/cookies.json'
+import ruCookies from './locales/ru/cookies.json'
 
 // Register namespaces
 registerNamespace('onboarding', {
@@ -15,6 +17,11 @@ registerNamespace('onboarding', {
 registerNamespace('legal', {
     en: enLegal,
     ru: ruLegal
+})
+
+registerNamespace('cookies', {
+    en: enCookies,
+    ru: ruCookies
 })
 
 type LanguageCode = 'en' | 'ru'
