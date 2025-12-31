@@ -1,6 +1,6 @@
 # Active Context
 
-> **Last Updated**: 2025-12-30
+> **Last Updated**: 2025-12-31
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
@@ -9,6 +9,38 @@
 ## Current Focus: No Active Tasks
 
 **Status**: All tasks completed. See GitHub Issues for planned work.
+
+---
+
+## Previous Focus: Cookie Consent Banner Implementation - 2025-12-31 ✅ COMPLETED
+
+**Status**: Completed
+
+### What Was Implemented
+
+GDPR-compliant cookie consent banner with two-stage flow:
+1. **Non-modal banner** at bottom of page with Accept/Reject buttons
+2. **Full-screen rejection dialog** explaining cookie requirements
+
+### Key Components
+
+- **useCookieConsent hook**: Manages localStorage state (`up_cookie_consent`)
+- **CookieConsentBanner**: Fixed bottom banner, shows when consent pending
+- **CookieRejectionDialog**: Full-screen info dialog when user rejects
+- **i18n translations**: EN/RU support via `cookies` namespace
+
+### Files Created
+
+- `packages/start-frontend/base/src/i18n/locales/en/cookies.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/cookies.json`
+- `packages/start-frontend/base/src/hooks/useCookieConsent.ts`
+- `packages/start-frontend/base/src/hooks/index.ts`
+- `packages/start-frontend/base/src/components/CookieConsentBanner.tsx`
+- `packages/start-frontend/base/src/components/CookieRejectionDialog.tsx`
+
+### Integration Point
+
+- Banner integrated in `StartLayoutMUI.tsx` - shows on all start/landing pages
 
 ---
 

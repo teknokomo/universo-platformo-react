@@ -1,0 +1,21 @@
+{
+    "banner": {
+        "title": "Cookie Usage",
+        "description": "We use cookies to improve site performance, analytics, and personalized advertising. You can configure cookie usage or opt out. Learn more in our",
+        "privacyPolicyLink": "privacy policy",
+        "acceptButton": "Accept",
+        "rejectButton": "Decline"
+    },
+    "rejection": {
+        "title": "Cookie Information",
+        "paragraph1": "Universo Platformo requires cookies to function. If you do not agree to the use of cookies, you must stop using the Platform or configure your browser to block cookies (or specific cookie categories).",
+        "paragraph2": "We do not force you to agree to the use of cookies or any other Platform functionality, but we inform you that blocking cookies may result in limited Platform functionality or complete inability to use certain Services and/or Tools of Universo Platformo. This is due to both the limitations set by the software libraries we use and their architecture, as well as our responsibility for the security of other Platform users.",
+        "paragraph3": "If needed, you can deploy your own version of Universo Platformo on your own resources by downloading the necessary distribution from",
+        "gitVerseLink": "GitVerse",
+        "orText": "or",
+        "gitHubLink": "GitHub",
+        "paragraph4": "More detailed information about cookie processing is available in our",
+        "privacyPolicyLink": "privacy policy",
+        "closeButton": "Close"
+    }
+}

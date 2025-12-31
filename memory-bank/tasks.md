@@ -12,6 +12,36 @@ _No active tasks. See completed tasks below or GitHub Issues for planned work._
 
 ## ✅ COMPLETED TASKS
 
+### Cookie Consent Banner Implementation - 2025-12-31 ✅ COMPLETED
+
+**Goal**: Implement GDPR-compliant cookie consent banner with acceptance/rejection flow for Universo Platformo.
+
+**Tasks**:
+- [x] Create i18n translations (cookies.json) for EN/RU
+- [x] Create useCookieConsent hook for localStorage management
+- [x] Create CookieConsentBanner component (non-modal, fixed bottom)
+- [x] Create CookieRejectionDialog component (full-screen)
+- [x] Register cookies namespace in i18n
+- [x] Integrate banner into StartLayoutMUI
+- [x] Full build verification (61 tasks successful)
+
+**Files Created**:
+- `packages/start-frontend/base/src/i18n/locales/en/cookies.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/cookies.json`
+- `packages/start-frontend/base/src/hooks/useCookieConsent.ts`
+- `packages/start-frontend/base/src/hooks/index.ts`
+- `packages/start-frontend/base/src/components/CookieConsentBanner.tsx`
+- `packages/start-frontend/base/src/components/CookieRejectionDialog.tsx`
+
+**Files Modified**:
+- `packages/start-frontend/base/src/components/index.ts` - added cookie component exports
+- `packages/start-frontend/base/src/index.ts` - added hook and component exports
+- `packages/start-frontend/base/src/i18n/register.ts` - added registerCookiesI18n function
+- `packages/start-frontend/base/src/i18n/index.ts` - registered cookies namespace
+- `packages/universo-template-mui/base/src/layout/StartLayoutMUI.tsx` - integrated CookieConsentBanner
+
+---
+
 ### Lead Consent for Quiz AR.js Applications - 2025-12-31 ✅ COMPLETED
 
 **Goal**: Add Terms of Service and Privacy Policy consent collection for Lead records (quiz AR.js applications), similar to profile registration consent.

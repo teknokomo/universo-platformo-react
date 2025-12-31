@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import CssBaseline from '@mui/material/CssBaseline'
 import AppTheme from '../components/shared/AppTheme'
 import AppAppBar from '../views/start-page/components/AppAppBar'
+import { CookieConsentBanner } from '@universo/start-frontend/components'
 
 interface StartLayoutMUIProps {
     disableCustomTheme?: boolean
@@ -20,6 +21,7 @@ export default function StartLayoutMUI({ disableCustomTheme, children }: StartLa
             <CssBaseline enableColorScheme />
             <AppAppBar />
             {children || <Outlet />}
+            <CookieConsentBanner />
         </AppTheme>
     )
 }

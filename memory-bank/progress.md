@@ -31,6 +31,42 @@
 
 ## 📅 2025-12-31
 
+### Cookie Consent Banner Implementation ✅
+
+Implemented GDPR-compliant cookie consent banner with two-stage acceptance/rejection flow for Universo Platformo.
+
+**Features**:
+- Non-modal banner fixed to bottom of screen (MUI Paper)
+- Two equal buttons: Accept and Decline (no dark patterns)
+- Links to Privacy Policy page (/privacy)
+- Full-screen rejection dialog explaining cookie requirements
+- Links to GitVerse and GitHub for self-hosting option
+- localStorage persistence (`up_cookie_consent` key)
+- Full i18n support (EN/RU translations)
+
+**Architecture**:
+- `useCookieConsent` hook: manages localStorage state
+- `CookieConsentBanner`: non-modal banner component
+- `CookieRejectionDialog`: full-screen MUI Dialog
+- Integrated into `StartLayoutMUI` - shows on all start/landing pages
+
+**Files Created**:
+- `packages/start-frontend/base/src/i18n/locales/en/cookies.json`
+- `packages/start-frontend/base/src/i18n/locales/ru/cookies.json`
+- `packages/start-frontend/base/src/hooks/useCookieConsent.ts`
+- `packages/start-frontend/base/src/hooks/index.ts`
+- `packages/start-frontend/base/src/components/CookieConsentBanner.tsx`
+- `packages/start-frontend/base/src/components/CookieRejectionDialog.tsx`
+
+**Files Modified**:
+- `packages/start-frontend/base/src/components/index.ts`
+- `packages/start-frontend/base/src/index.ts`
+- `packages/start-frontend/base/src/i18n/register.ts`
+- `packages/start-frontend/base/src/i18n/index.ts`
+- `packages/universo-template-mui/base/src/layout/StartLayoutMUI.tsx`
+
+---
+
 ### Lead Consent for Quiz AR.js Applications ✅
 
 Added consent collection (Terms of Service and Privacy Policy) for Lead records in AR.js Quiz applications, mirroring the profile registration consent pattern.
