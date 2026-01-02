@@ -36,9 +36,15 @@
                 "@mui/system": "^6.4.3",
                 "@mui/icons-material": "^5.0.3",
                 "@tabler/icons-react": "^3.30.0",
+                "@yandex/smart-captcha": "catalog:",
                 "react": "^18.2.0",
                 "react-dom": "^18.2.0",
                 "react-router-dom": "catalog:"
+        },
+        "peerDependenciesMeta": {
+                "@yandex/smart-captcha": {
+                        "optional": true
+                }
         },
         "devDependencies": {
                 "@mui/material": "^5.15.0",

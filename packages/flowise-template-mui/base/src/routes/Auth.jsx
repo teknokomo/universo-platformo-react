@@ -67,7 +67,8 @@ const Auth = () => {
             termsLink: t('termsLink'),
             privacyCheckbox: t('privacyCheckbox'),
             privacyLink: t('privacyLink'),
-            consentRequired: t('consentRequired')
+            consentRequired: t('consentRequired'),
+            captchaRequired: t('captchaRequired')
         }),
         [t]
     )

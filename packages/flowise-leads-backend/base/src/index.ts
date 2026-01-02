@@ -17,7 +17,17 @@ export { leadsMigrations, AddLead1710832137905 } from './database/migrations/pos
 export type { ILead, CreateLeadPayload, CreateLeadBody, LeadsAnalytics } from './Interface'
 
 // Services
-export { createLeadsService, LeadsServiceError, createLeadSchema, type ILeadsService, type LeadsServiceConfig } from './services'
+export {
+    createLeadsService,
+    LeadsServiceError,
+    createLeadSchema,
+    isPublicationCaptchaRequired,
+    validatePublicationCaptcha,
+    type ILeadsService,
+    type LeadsServiceConfig,
+    type CreateLeadOptions,
+    type CaptchaValidationResult
+} from './services'
 
 // Routes
 export { createLeadsRouter, leadsErrorHandler, LeadsControllerError } from './routes'

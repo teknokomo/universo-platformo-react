@@ -4,6 +4,7 @@ import { uuid } from '@universo/utils'
 import type { ILead, CreateLeadPayload } from '@universo/types'
 import { z } from 'zod'
 import { Lead } from '../database/entities/Lead'
+import { isPublicationCaptchaRequired, validatePublicationCaptcha } from './captchaService'
 
 // Helper to transform null/empty string to undefined
 const nullableString = z
@@ -49,7 +50,9 @@ export const createLeadSchema = z.object({
         .transform((val) => val ?? 0),
     // Consent fields - optional, default to false if not provided
     termsAccepted: z.boolean().optional().default(false),
-    privacyAccepted: z.boolean().optional().default(false)
+    privacyAccepted: z.boolean().optional().default(false),
+    // Captcha token - validated server-side if SMARTCAPTCHA_PUBLICATION_ENABLED=true
+    captchaToken: nullableString
 })
 
 /**
@@ -70,10 +73,18 @@ export interface LeadsServiceConfig {
 }
 
 /**
+ * Options for createLead operation
+ */
+export interface CreateLeadOptions {
+    /** Client IP address for captcha validation */
+    clientIp?: string
+}
+
+/**
  * Leads service interface
  */
 export interface ILeadsService {
-    createLead: (body: CreateLeadPayload) => Promise<ILead>
+    createLead: (body: CreateLeadPayload, options?: CreateLeadOptions) => Promise<ILead>
     getAllLeads: (canvasId: string) => Promise<ILead[]>
 }
 
@@ -83,11 +94,41 @@ export interface ILeadsService {
 export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
     const { getDataSource } = config
 
-    const createLead = async (body: CreateLeadPayload): Promise<ILead> => {
-        console.log('[leads-backend] createLead received body:', JSON.stringify(body))
+    const createLead = async (body: CreateLeadPayload, options?: CreateLeadOptions): Promise<ILead> => {
+        const bodyAny = body as any
+        const bodyCaptchaToken = typeof bodyAny?.captchaToken === 'string' ? bodyAny.captchaToken : ''
+        console.log('[leads-backend] createLead received', {
+            hasCanvasId: !!bodyAny?.canvasId,
+            hasName: !!bodyAny?.name,
+            hasEmail: !!bodyAny?.email,
+            hasPhone: !!bodyAny?.phone,
+            hasCaptchaToken: !!bodyCaptchaToken,
+            captchaTokenLength: bodyCaptchaToken ? bodyCaptchaToken.length : 0,
+            termsAccepted: !!bodyAny?.termsAccepted,
+            privacyAccepted: !!bodyAny?.privacyAccepted,
+            pointsType: typeof bodyAny?.points
+        })
         try {
             const validatedData = createLeadSchema.parse(body)
-            console.log('[leads-backend] Zod validation passed:', JSON.stringify(validatedData))
+            console.log('[leads-backend] Zod validation passed', {
+                hasCanvasId: !!validatedData.canvasId,
+                hasName: !!validatedData.name,
+                hasEmail: !!validatedData.email,
+                hasPhone: !!validatedData.phone,
+                hasCaptchaToken: !!validatedData.captchaToken,
+                captchaTokenLength: validatedData.captchaToken ? validatedData.captchaToken.length : 0,
+                termsAccepted: !!validatedData.termsAccepted,
+                privacyAccepted: !!validatedData.privacyAccepted,
+                points: validatedData.points ?? 0
+            })
+
+            // Validate captcha if publication captcha is enabled
+            if (isPublicationCaptchaRequired()) {
+                const captchaResult = await validatePublicationCaptcha(validatedData.captchaToken || '', options?.clientIp || '')
+                if (!captchaResult.success) {
+                    throw new LeadsServiceError(StatusCodes.BAD_REQUEST, captchaResult.error || 'Captcha verification failed')
+                }
+            }
 
             const chatId = validatedData.chatId ?? uuid.generateUuidV7()
             const now = new Date()
@@ -115,19 +156,16 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
                 privacy_version: validatedData.privacyAccepted ? privacyVersion : undefined
             })
 
-            console.log(
-                '[leads-backend] Creating lead with data:',
-                JSON.stringify({
-                    canvasId: newLead.canvasId,
-                    chatId: newLead.chatId,
-                    name: newLead.name,
-                    email: newLead.email,
-                    phone: newLead.phone,
-                    points: newLead.points,
-                    terms_accepted: newLead.terms_accepted,
-                    privacy_accepted: newLead.privacy_accepted
-                })
-            )
+            console.log('[leads-backend] Creating lead', {
+                hasCanvasId: !!newLead.canvasId,
+                hasChatId: !!newLead.chatId,
+                hasName: !!newLead.name,
+                hasEmail: !!newLead.email,
+                hasPhone: !!newLead.phone,
+                points: newLead.points,
+                terms_accepted: !!newLead.terms_accepted,
+                privacy_accepted: !!newLead.privacy_accepted
+            })
 
             const saved = await repo.save(newLead)
             console.log('[leads-backend] Lead saved successfully, id:', saved.id)
@@ -137,6 +175,11 @@ export function createLeadsService(config: LeadsServiceConfig): ILeadsService {
                 console.error('[leads-backend] Zod validation error:', JSON.stringify(error.errors))
                 throw new LeadsServiceError(StatusCodes.BAD_REQUEST, `Validation error: ${error.errors.map((e) => e.message).join(', ')}`)
             }
+
+            if (error instanceof LeadsServiceError) {
+                throw error
+            }
+
             const message = error instanceof Error ? error.message : String(error)
             console.error('[leads-backend] createLead error:', message)
             throw new LeadsServiceError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: leadsService.createLead - ${message}`)

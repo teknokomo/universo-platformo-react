@@ -57,6 +57,20 @@ const apiClient = createAuthClient({
 
 ---
 
+## Backend Status Codes + PII-safe Logging (CRITICAL)
+
+**Rule**: Never log PII or captcha token values for public endpoints. Preserve expected validation status codes (400/403/404) and avoid masking them as 500.
+
+**Required**:
+- If a service throws a domain error (e.g., `LeadsServiceError`), rethrow it as-is so controllers/error middleware can respond with the correct HTTP status.
+- Avoid `console.log(JSON.stringify(req.body))` for endpoints that accept names/emails/phones/captcha tokens.
+- Log only safe diagnostics: `hasField` flags, `tokenLength`, `points`, `termsAccepted`, `privacyAccepted`.
+- Never log captcha server keys. Avoid logging full SmartCaptcha validation URLs/params.
+
+**Why**: Prevents sensitive data leakage in logs while keeping monitoring and debugging viable.
+
+---
+
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
 **Rule**: Source-only packages (no dist/) MUST use peerDependencies, NOT dependencies.

@@ -212,6 +212,9 @@ export interface IUPDLSpace {
         collectName?: boolean
         collectEmail?: boolean
         collectPhone?: boolean
+        // Universo Platformo | Captcha settings for lead forms
+        captchaEnabled?: boolean
+        captchaSiteKey?: string
     }
     settings?: {
         background?: IUPDLColor | string

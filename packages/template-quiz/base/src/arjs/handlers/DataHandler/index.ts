@@ -114,7 +114,39 @@ export class DataHandler {
 
             // Universo Platformo | Extract leadCollection from first scene
             const firstScene = multiScene.scenes.length > 0 ? multiScene.scenes[0] : null
-            const leadCollection = firstScene?.spaceData?.leadCollection
+            const leadCollectionRaw = firstScene?.spaceData?.leadCollection
+
+            // Universo Platformo | Publication captcha config (global)
+            // Note: this allows enabling captcha via ENV even if the specific space does not explicitly set captcha fields.
+            const publicationCaptchaConfig = (options as any)?.publicationCaptchaConfig as
+                | {
+                      enabled?: boolean
+                      siteKey?: string | null
+                      testMode?: boolean
+                  }
+                | undefined
+
+            const globalCaptchaEnabled = Boolean(publicationCaptchaConfig?.enabled && publicationCaptchaConfig?.siteKey)
+            const globalCaptchaSiteKey = publicationCaptchaConfig?.siteKey || ''
+
+            // Universo Platformo | Global captcha test mode from environment
+            const globalCaptchaTestMode = Boolean(publicationCaptchaConfig?.testMode)
+
+            let leadCollection = leadCollectionRaw
+            if (leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)) {
+                const explicitCaptchaEnabled = typeof leadCollection.captchaEnabled === 'boolean' ? leadCollection.captchaEnabled : undefined
+                const effectiveCaptchaEnabled = explicitCaptchaEnabled ?? globalCaptchaEnabled
+
+                const explicitSiteKey = typeof leadCollection.captchaSiteKey === 'string' ? leadCollection.captchaSiteKey.trim() : ''
+                const effectiveSiteKey = explicitSiteKey || (effectiveCaptchaEnabled ? globalCaptchaSiteKey : '')
+
+                leadCollection = {
+                    ...leadCollection,
+                    captchaEnabled: effectiveCaptchaEnabled,
+                    captchaSiteKey: effectiveSiteKey,
+                    captchaTestMode: globalCaptchaTestMode
+                }
+            }
 
             // Universo Platformo | Extract showPoints from any scene that has it enabled
             let showPointsFromScenes = false
@@ -128,11 +160,22 @@ export class DataHandler {
             // Use showPoints from scenes or from options parameter
             const finalShowPoints = showPointsFromScenes || !!options.showPoints
 
+            debugLog('🔧 [DataHandler] Captcha test mode (publication):', {
+                globalCaptchaTestMode,
+                publicationCaptchaConfigTestMode: publicationCaptchaConfig?.testMode,
+                leadCollectionCaptchaTestMode: leadCollection?.captchaTestMode
+            })
+
             debugLog('🔧 [DataHandler] Lead collection analysis:', {
                 hasScenes: multiScene.scenes.length > 0,
                 firstSceneExists: !!firstScene,
                 hasSpaceData: !!firstScene?.spaceData,
                 leadCollection,
+                publicationCaptchaConfig: {
+                    enabled: !!publicationCaptchaConfig?.enabled,
+                    hasSiteKey: !!publicationCaptchaConfig?.siteKey,
+                    testMode: !!publicationCaptchaConfig?.testMode
+                },
                 showPointsFromScenes,
                 showPointsFromOptions: !!options.showPoints,
                 finalShowPoints,
@@ -197,7 +240,7 @@ export class DataHandler {
     private generateMultiSceneUI(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean; captchaEnabled?: boolean; captchaSiteKey?: string; captchaTestMode?: boolean },
         timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
     ): string {
         // UI generation parameters logged only in debug mode
@@ -419,7 +462,7 @@ export class DataHandler {
     private generateMultiSceneScript(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean; captchaEnabled?: boolean; captchaSiteKey?: string; captchaTestMode?: boolean },
         timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
     ): string {
         // Script generation parameters logged only in debug mode
@@ -460,6 +503,7 @@ export class DataHandler {
                     name: '',
                     email: '',
                     phone: '',
+                    captchaToken: '',
                     termsAccepted: false,
                     privacyAccepted: false,
                     hasData: false
@@ -1088,22 +1132,27 @@ export class DataHandler {
                 ${
                     leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
                         ? `
+                // Universo Platformo | Captcha configuration
+                const CAPTCHA_ENABLED = ${leadCollection.captchaEnabled ? 'true' : 'false'};
+                
                 function initializeLeadForm() {
                     dbg('[LeadCollection] init form');
                     
                     const startQuizBtn = document.getElementById('start-quiz-btn');
                     const termsCheckbox = document.getElementById('lead-terms-checkbox');
                     const privacyCheckbox = document.getElementById('lead-privacy-checkbox');
+                    const captchaTokenField = document.getElementById('lead-captcha-token');
                     
-                    // Function to update button state based on checkboxes
+                    // Function to update button state based on checkboxes and captcha
                     function updateButtonState() {
                         const termsChecked = termsCheckbox ? termsCheckbox.checked : false;
                         const privacyChecked = privacyCheckbox ? privacyCheckbox.checked : false;
-                        const bothChecked = termsChecked && privacyChecked;
+                        const captchaValid = !CAPTCHA_ENABLED || (captchaTokenField && captchaTokenField.value);
+                        const allValid = termsChecked && privacyChecked && captchaValid;
                         
                         if (startQuizBtn) {
-                            startQuizBtn.disabled = !bothChecked;
-                            if (bothChecked) {
+                            startQuizBtn.disabled = !allValid;
+                            if (allValid) {
                                 startQuizBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
                                 startQuizBtn.style.cursor = 'pointer';
                                 startQuizBtn.style.opacity = '1';
@@ -1114,6 +1163,9 @@ export class DataHandler {
                             }
                         }
                     }
+                    
+                    // Expose updateButtonState globally for captcha callback
+                    window.updateLeadFormButtonState = updateButtonState;
                     
                     // Add listeners to checkboxes
                     if (termsCheckbox) {
@@ -1209,6 +1261,19 @@ export class DataHandler {
                         errorMessage = 'Пожалуйста, введите корректный email';
                     }
                     
+                    // Universo Platformo | Validate captcha if enabled
+                    if (isValid && CAPTCHA_ENABLED) {
+                        const captchaTokenField = document.getElementById('lead-captcha-token');
+                        const captchaToken = captchaTokenField ? captchaTokenField.value : '';
+                        if (!captchaToken) {
+                            isValid = false;
+                            errorMessage = 'Пожалуйста, пройдите проверку капчи';
+                        } else {
+                            // Store captcha token for later use in saveLeadDataToSupabase
+                            leadData.captchaToken = captchaToken;
+                        }
+                    }
+                    
                     if (!isValid) {
                         if (errorElement) {
                             errorElement.textContent = errorMessage;
@@ -1256,6 +1321,7 @@ export class DataHandler {
                             name: leadInfo.name || null,
                             email: leadInfo.email || null,
                             phone: leadInfo.phone || null,
+                            captchaToken: leadInfo.captchaToken || null,
                             points: totalPoints, // Dedicated field for points
                             // Consent fields
                             termsAccepted: leadInfo.termsAccepted || false,
@@ -1798,7 +1864,14 @@ export class DataHandler {
      * @param leadCollection Lead collection configuration
      * @returns HTML string with lead collection form
      */
-    private generateLeadCollectionForm(leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean }): string {
+    private generateLeadCollectionForm(leadCollection?: { 
+        collectName?: boolean; 
+        collectEmail?: boolean; 
+        collectPhone?: boolean;
+        captchaEnabled?: boolean;
+        captchaSiteKey?: string;
+        captchaTestMode?: boolean;
+    }): string {
         if (!leadCollection || (!leadCollection.collectName && !leadCollection.collectEmail && !leadCollection.collectPhone)) {
             return ''
         }
@@ -1914,14 +1987,14 @@ export class DataHandler {
                                 "
                             >
                             <span>
-                                Я принимаю 
+                                Я ознакомился и принимаю 
                                 <a href="/terms" target="_blank" rel="noopener noreferrer" style="color: #4CAF50; text-decoration: underline;">
                                     Пользовательское соглашение.
                                 </a>
                             </span>
                         </label>
                     </div>
-                    <div style="margin-bottom: 20px;">
+                    <div style="margin-bottom: 15px;">
                         <label style="display: flex; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.4;">
                             <input 
                                 type="checkbox" 
@@ -1936,14 +2009,34 @@ export class DataHandler {
                                 "
                             >
                             <span>
-                                Я ознакомился с 
+                                Я ознакомился и принимаю 
                                 <a href="/privacy" target="_blank" rel="noopener noreferrer" style="color: #4CAF50; text-decoration: underline;">
-                                    Политикой конфиденциальности.
+                                    Политику конфиденциальности.
                                 </a>
                             </span>
                         </label>
                     </div>
         `
+
+        // Universo Platformo | SmartCaptcha container (if enabled)
+        if (leadCollection.captchaEnabled && leadCollection.captchaSiteKey) {
+            const captchaTestMode = Boolean(leadCollection.captchaTestMode)
+            debugLog('🔧 [DataHandler] SmartCaptcha lead form params:', {
+                captchaEnabled: leadCollection.captchaEnabled,
+                captchaSiteKey: !!leadCollection.captchaSiteKey,
+                captchaTestMode
+            })
+            formHtml += `
+                    <div id="lead-captcha-container" style="margin-bottom: 15px;">
+                        <div 
+                            id="lead-captcha-widget" 
+                            class="smart-captcha" 
+                            style="display: flex; justify-content: center;"
+                        ></div>
+                        <input type="hidden" id="lead-captcha-token" value="">
+                    </div>
+            `
+        }
 
         formHtml += `
                     <button 
@@ -1978,6 +2071,90 @@ export class DataHandler {
             </div>
         `
 
+        // Universo Platformo | SmartCaptcha script loader (if enabled)
+        if (leadCollection.captchaEnabled && leadCollection.captchaSiteKey) {
+            formHtml += `
+            <script src="https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=__onSmartCaptchaReady" defer></script>
+            <script>
+                // Universo Platformo | SmartCaptcha callback handler
+                window.smartCaptchaCallback = function(token) {
+                    var tokenField = document.getElementById('lead-captcha-token');
+                    if (tokenField) {
+                        tokenField.value = token;
+                    }
+                    // Trigger button state update
+                    if (typeof window.updateLeadFormButtonState === 'function') {
+                        window.updateLeadFormButtonState();
+                    }
+                };
+                
+                // Universo Platformo | SmartCaptcha expired callback
+                window.smartCaptchaExpired = function() {
+                    var tokenField = document.getElementById('lead-captcha-token');
+                    if (tokenField) {
+                        tokenField.value = '';
+                    }
+                    // Trigger button state update
+                    if (typeof window.updateLeadFormButtonState === 'function') {
+                        window.updateLeadFormButtonState();
+                    }
+                };
+
+                // Universo Platformo | Explicit SmartCaptcha init (ensures test mode is applied)
+                (function() {
+                    function detectHl() {
+                        try {
+                            var lang = (document.documentElement.getAttribute('lang') || 'ru').toLowerCase();
+                            return lang.indexOf('ru') === 0 ? 'ru' : 'en';
+                        } catch (e) {
+                            return 'ru';
+                        }
+                    }
+
+                    function initSmartCaptcha() {
+                        if (!window.smartCaptcha || typeof window.smartCaptcha.render !== 'function') return false;
+                        var container = document.getElementById('lead-captcha-widget');
+                        if (!container) return false;
+                        if (window.__leadCaptchaWidgetId !== undefined && window.__leadCaptchaWidgetId !== null) return true;
+
+                        try {
+                            var widgetId = window.smartCaptcha.render(container, {
+                                sitekey: "${leadCollection.captchaSiteKey}",
+                                test: ${Boolean(leadCollection.captchaTestMode)},
+                                hl: detectHl(),
+                                callback: window.smartCaptchaCallback
+                            });
+                            window.__leadCaptchaWidgetId = widgetId;
+
+                            if (typeof window.smartCaptcha.subscribe === 'function') {
+                                window.smartCaptcha.subscribe(widgetId, 'token-expired', function() {
+                                    if (typeof window.smartCaptchaExpired === 'function') window.smartCaptchaExpired();
+                                });
+                                window.smartCaptcha.subscribe(widgetId, 'network-error', function() {
+                                    if (typeof window.smartCaptchaExpired === 'function') window.smartCaptchaExpired();
+                                });
+                            }
+                            return true;
+                        } catch (e) {
+                            console.error('[SmartCaptcha] render failed', e);
+                            return false;
+                        }
+                    }
+
+                    // Called by captcha.js when API is ready
+                    window.__onSmartCaptchaReady = function() {
+                        initSmartCaptcha();
+                    };
+
+                    // Fallback: try after DOM is ready
+                    document.addEventListener('DOMContentLoaded', function() {
+                        initSmartCaptcha();
+                    });
+                })();
+            </script>
+            `
+        }
+
         return formHtml
     }
 
@@ -1992,7 +2169,7 @@ export class DataHandler {
     private generateNodeBasedUI(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean; captchaEnabled?: boolean; captchaSiteKey?: string; captchaTestMode?: boolean },
         timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
     ): string {
         debugLog('🔧 [DataHandler] Generating node-based UI')
@@ -2185,7 +2362,7 @@ export class DataHandler {
     private generateNodeBasedScript(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean; captchaEnabled?: boolean; captchaSiteKey?: string; captchaTestMode?: boolean },
         timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
     ): string {
         debugLog('🔧 [DataHandler] Generating node-based script')
@@ -2298,6 +2475,7 @@ export class DataHandler {
                     name: leadInfo.name || null,
                     email: leadInfo.email || null,
                     phone: leadInfo.phone || null,
+                    captchaToken: leadInfo.captchaToken || null,
                     points: totalPoints,
                     // Consent fields
                     termsAccepted: leadInfo.termsAccepted || false,
@@ -2327,11 +2505,15 @@ export class DataHandler {
                 ${
                     leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
                         ? `
+                // Universo Platformo | Captcha configuration for node-based mode
+                const CAPTCHA_ENABLED_NODE = ${leadCollection.captchaEnabled ? 'true' : 'false'};
+                
                 const leadForm = document.getElementById('lead-collection-form');
                 const startBtn = document.getElementById('start-quiz-btn');
                 const errorDiv = document.getElementById('lead-form-error');
                 const termsCheckbox = document.getElementById('lead-terms-checkbox');
                 const privacyCheckbox = document.getElementById('lead-privacy-checkbox');
+                const captchaTokenField = document.getElementById('lead-captcha-token');
 
                 if (!startBtn || !leadForm) {
                     console.error('[NodeQuiz] Lead form elements not found');
@@ -2339,15 +2521,16 @@ export class DataHandler {
                     return;
                 }
 
-                // Function to update button state based on consent checkboxes
+                // Function to update button state based on consent checkboxes and captcha
                 function updateStartButtonState() {
                     const termsChecked = termsCheckbox ? termsCheckbox.checked : false;
                     const privacyChecked = privacyCheckbox ? privacyCheckbox.checked : false;
-                    const bothChecked = termsChecked && privacyChecked;
+                    const captchaValid = !CAPTCHA_ENABLED_NODE || (captchaTokenField && captchaTokenField.value);
+                    const allValid = termsChecked && privacyChecked && captchaValid;
                     
                     if (startBtn) {
-                        startBtn.disabled = !bothChecked;
-                        if (bothChecked) {
+                        startBtn.disabled = !allValid;
+                        if (allValid) {
                             startBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
                             startBtn.style.cursor = 'pointer';
                             startBtn.style.opacity = '1';
@@ -2358,6 +2541,9 @@ export class DataHandler {
                         }
                     }
                 }
+                
+                // Expose updateStartButtonState globally for captcha callback
+                window.updateLeadFormButtonState = updateStartButtonState;
 
                 // Add listeners to consent checkboxes
                 if (termsCheckbox) {
@@ -2421,6 +2607,19 @@ export class DataHandler {
                         }
                     }
                     
+                    // Universo Platformo | Validate captcha if enabled
+                    if (isValid && CAPTCHA_ENABLED_NODE) {
+                        const captchaToken = captchaTokenField ? captchaTokenField.value : '';
+                        if (!captchaToken) {
+                            isValid = false;
+                            if (errorDiv) {
+                                errorDiv.textContent = 'Пожалуйста, пройдите проверку капчи';
+                            }
+                        } else {
+                            quizState.leadData.captchaToken = captchaToken;
+                        }
+                    }
+                    
                     // Store consent in leadData
                     quizState.leadData.termsAccepted = termsChecked;
                     quizState.leadData.privacyAccepted = privacyChecked;
@@ -2430,7 +2629,13 @@ export class DataHandler {
                         return;
                     }
 
-                    console.log('[NodeQuiz] Lead data collected:', quizState.leadData);
+                    console.log('[NodeQuiz] Lead data collected', {
+                        hasName: !!quizState.leadData.name,
+                        hasEmail: !!quizState.leadData.email,
+                        hasPhone: !!quizState.leadData.phone,
+                        hasCaptchaToken: !!quizState.leadData.captchaToken,
+                        captchaTokenLength: (quizState.leadData.captchaToken || '').length
+                    });
                     leadForm.style.display = 'none';
                     startQuiz();
                 });
@@ -2762,7 +2967,15 @@ export class DataHandler {
             }
 
             function finishQuiz() {
-                console.log('[NodeQuiz] Quiz finished, leadData:', JSON.stringify(quizState.leadData), 'points:', quizState.points);
+                console.log('[NodeQuiz] Quiz finished', {
+                    points: quizState.points,
+                    hasLeadData: !!quizState.leadData,
+                    hasName: !!quizState.leadData?.name,
+                    hasEmail: !!quizState.leadData?.email,
+                    hasPhone: !!quizState.leadData?.phone,
+                    hasCaptchaToken: !!quizState.leadData?.captchaToken,
+                    captchaTokenLength: (quizState.leadData?.captchaToken || '').length
+                });
                 ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
                 saveLeadDataToSupabase(quizState.leadData, quizState.points, 'nodes-finish');
                 ${

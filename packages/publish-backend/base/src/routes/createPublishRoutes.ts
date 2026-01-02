@@ -8,6 +8,8 @@ import { DataSource } from 'typeorm'
 import { PublishController } from '../controllers/publishController'
 import { FlowDataService } from '../services/FlowDataService'
 import { PublishLinkService } from '../services/PublishLinkService'
+import { getPublicationCaptchaConfig } from '../services/captchaService'
+import { renderQuizHtml } from '../services/quizRenderService'
 import logger from '../utils/logger'
 
 /**
@@ -231,6 +233,83 @@ export function createPublishRoutes(dataSource: DataSource): Router {
                 error: 'Internal server error',
                 details: error instanceof Error ? error.message : 'Unknown error'
             })
+        }
+    })
+
+    /**
+     * @route   GET /captcha/config
+     * @desc    Get captcha configuration for published content (quizzes, AR experiences)
+     * @access  Public (needed by Space Builder UI to show/hide captcha options)
+     */
+    router.get('/captcha/config', readLimiter, async (_req: Request, res: Response) => {
+        try {
+            const config = getPublicationCaptchaConfig()
+            logger.info('[createPublishRoutes] Captcha config requested:', { enabled: config.enabled })
+            res.json({
+                success: true,
+                data: config
+            })
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in GET /captcha/config:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get captcha configuration'
+            })
+        }
+    })
+
+    /**
+     * @route   GET /render/:slug
+     * @desc    Render and serve quiz HTML for a publication slug
+     * @access  Public (served in iframe on /p/:slug pages)
+     * 
+     * This endpoint generates quiz HTML on the server to ensure:
+     * - Proper domain origin for Yandex SmartCaptcha (not blob: or about:srcdoc)
+     * - Consistent rendering across all clients
+     */
+    router.get('/render/:slug', readLimiter, async (req: Request, res: Response) => {
+        const slug = req.params.slug
+        if (!slug) {
+            res.status(400).send('<!-- Error: slug parameter is required -->')
+            return
+        }
+
+        try {
+            const controller = await getController()
+            const flowDataService = (controller as any).flowDataService as FlowDataService
+
+            // Get flow data by slug
+            const flowDataResult = await flowDataService.getFlowDataBySlug(slug)
+            
+            logger.info('[createPublishRoutes] Rendering quiz for slug:', {
+                slug,
+                canvasName: flowDataResult.canvas?.name,
+                canvasId: flowDataResult.canvas?.id
+            })
+
+            // Render HTML on server
+            const renderResult = await renderQuizHtml({
+                flowData: flowDataResult.flowData,
+                projectName: flowDataResult.canvas?.name || `Quiz ${slug}`,
+                canvasId: flowDataResult.canvas?.id,
+                libraryConfig: flowDataResult.libraryConfig,
+                renderConfig: flowDataResult.renderConfig
+            })
+
+            if (!renderResult.success || !renderResult.html) {
+                logger.error('[createPublishRoutes] Quiz render failed:', { error: renderResult.error })
+                res.status(500).send(`<!-- Error: ${renderResult.error || 'Failed to render quiz'} -->`)
+                return
+            }
+
+            // Serve HTML with proper content type
+            res.setHeader('Content-Type', 'text/html; charset=utf-8')
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            res.send(renderResult.html)
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            logger.error('[createPublishRoutes] Error in GET /render/:slug:', { error: errorMessage })
+            res.status(404).send(`<!-- Error: ${errorMessage} -->`)
         }
     })
 

@@ -7,7 +7,9 @@
         const debugId = `auth-frontend:${(hash >>> 0).toString(16)}`
         // eslint-disable-next-line no-console
         console.info('[auth] module loaded', { moduleId: src, debugId })
-    } catch {}
+    } catch {
+        // Silent fail - debug logging is not critical
+    }
 })()
 
 export { createAuthClient, AUTH_CSRF_STORAGE_KEY, getStoredCsrfToken } from './api/client'
@@ -26,7 +28,7 @@ export { LoginForm } from './components/LoginForm'
 export type { LoginFormProps, LoginFormLabels } from './components/LoginForm'
 
 export { AuthView } from './components/AuthView'
-export type { AuthViewProps, AuthViewLabels, AuthViewMode } from './components/AuthView'
+export type { AuthViewProps, AuthViewLabels, AuthViewMode, CaptchaConfig } from './components/AuthView'
 
 // Pages (full authentication flows)
 export { AuthPage } from './pages/AuthPage'
