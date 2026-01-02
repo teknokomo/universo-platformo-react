@@ -162,6 +162,24 @@ export class SpaceNode extends BaseUPDLNode {
                     default: false,
                     additionalParams: true
                 },
+                // Universo Platformo | Captcha settings for lead forms
+                {
+                    name: 'captchaEnabled',
+                    type: 'boolean',
+                    label: 'Enable Captcha',
+                    description: 'Enable Yandex SmartCaptcha for lead collection form',
+                    default: false,
+                    additionalParams: true
+                },
+                {
+                    name: 'captchaSiteKey',
+                    type: 'string',
+                    label: 'Captcha Site Key',
+                    description: 'Yandex SmartCaptcha client-side key (visible). Get from Yandex Cloud Console.',
+                    default: '',
+                    placeholder: 'ysc1_...',
+                    additionalParams: true
+                },
                 {
                     label: 'Datas',
                     name: 'data',
@@ -258,6 +276,10 @@ export class SpaceNode extends BaseUPDLNode {
         const collectLeadEmail = nodeData.inputs?.collectLeadEmail ? true : false
         const collectLeadPhone = nodeData.inputs?.collectLeadPhone ? true : false
 
+        // Universo Platformo | Captcha settings for lead forms
+        const captchaEnabled = nodeData.inputs?.captchaEnabled ? true : false
+        const captchaSiteKey = (nodeData.inputs?.captchaSiteKey as string) || ''
+
         // Use empty arrays for connected elements; connections are handled by Flowise graph execution
         const inputSpace = nodeData.inputs?.spaces || null
         const objects = nodeData.inputs?.objects || []
@@ -294,7 +316,9 @@ export class SpaceNode extends BaseUPDLNode {
             leadCollection: {
                 collectName: collectLeadName,
                 collectEmail: collectLeadEmail,
-                collectPhone: collectLeadPhone
+                collectPhone: collectLeadPhone,
+                captchaEnabled: captchaEnabled,
+                captchaSiteKey: captchaSiteKey
             },
             inputSpace,
             objects,

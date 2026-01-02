@@ -151,6 +151,7 @@ const PublicFlowView: React.FC = () => {
                     libraryConfig={publication.libraryConfig}
                     projectName={publication.projectName}
                     canvasId={publication.canvasId}
+                    slug={slug}
                 />
             )
         case 'playcanvas':

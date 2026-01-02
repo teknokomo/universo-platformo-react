@@ -78,6 +78,9 @@ catalogs:
     '@uiw/react-codemirror':
       specifier: ^4.23.0
       version: 4.25.3
+    '@yandex/smart-captcha':
+      specifier: ^2.9.0
+      version: 2.9.0
     async-mutex:
       specifier: ^0.5.0
       version: 0.5.0
@@ -537,6 +540,9 @@ importers:
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
+      '@yandex/smart-captcha':
+        specifier: 'catalog:'
+        version: 2.9.0(react@18.3.1)
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -2337,6 +2343,9 @@ importers:
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
+      '@yandex/smart-captcha':
+        specifier: 'catalog:'
+        version: 2.9.0(react@18.3.1)
       axios:
         specifier: 1.13.2
         version: 1.13.2(debug@4.4.3)
@@ -4196,6 +4205,12 @@ importers:
 
   packages/publish-backend/base:
     dependencies:
+      '@universo/template-quiz':
+        specifier: workspace:*
+        version: link:../../template-quiz/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -5505,6 +5520,9 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      axios:
+        specifier: 1.13.2
+        version: 1.13.2(debug@4.4.3)
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19
@@ -12057,6 +12075,11 @@ packages:
 
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
+
+  '@yandex/smart-captcha@2.9.0':
+    resolution: {integrity: sha512-jNumIxsmtMtvEQL+r8cQdQ869Mw+FvUTinCgmrpKBzvnvdC/9dUWILJ7hLZaQZlxdiWZ6kHv3LNx/0PPXXsGpA==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   '@zilliz/milvus2-sdk-node@2.6.5':
     resolution: {integrity: sha512-bHK2gNNpK2Oni4l+3+xbmHWFNpum5dUTSuxio9xG3zmV4mZMS7W5WGhhnjbCy1tYYhme5LGNDY1CGT/Q1ZtxQQ==}
@@ -32667,6 +32690,10 @@ snapshots:
   '@xtuc/ieee754@1.2.0': {}
 
   '@xtuc/long@4.2.2': {}
+
+  '@yandex/smart-captcha@2.9.0(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
 
   '@zilliz/milvus2-sdk-node@2.6.5':
     dependencies:

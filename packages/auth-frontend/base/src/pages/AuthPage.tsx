@@ -4,13 +4,13 @@
  * Full authentication page with login/register forms.
  * Provides integration points via callbacks for application-specific logic.
  */
-import { useCallback, useEffect, type ComponentType, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { BoxProps } from '@mui/material'
 
 import { clearStoredCsrfToken } from '../api/client'
 import { useAuth } from '../providers/authProvider'
-import { AuthView, type AuthViewLabels } from '../components/AuthView'
+import { AuthView, type AuthViewLabels, type CaptchaConfig } from '../components/AuthView'
 
 export interface AuthPageProps {
     /**
@@ -88,26 +88,18 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
     const navigate = useNavigate()
     const location = useLocation()
     const { login, client, isAuthenticated, loading } = useAuth()
+    const [captchaConfig, setCaptchaConfig] = useState<CaptchaConfig | undefined>(undefined)
 
     // Memoize redirect path calculation to avoid duplication (DRY principle)
     const getRedirectPath = useCallback(() => {
         return (location.state as { from?: string } | null)?.from ?? redirectTo ?? '/'
     }, [location.state, redirectTo])
 
-    // Redirect if already authenticated
-    useEffect(() => {
-        if (!loading && isAuthenticated) {
-            navigate(getRedirectPath(), { replace: true })
-        }
-    }, [isAuthenticated, loading, navigate, getRedirectPath])
-
-    // Don't render until client is ready
-    if (!client) return null
-
     // Memoize handlers to prevent unnecessary re-renders of AuthView
+    // IMPORTANT: All hooks must be called unconditionally before any early returns
     const handleLogin = useCallback(
-        async (email: string, password: string): Promise<void> => {
-            await login(email, password)
+        async (email: string, password: string, captchaToken?: string): Promise<void> => {
+            await login(email, password, captchaToken)
 
             // Execute post-login callback (e.g., refresh CASL abilities)
             // Non-critical: errors logged but don't block navigation
@@ -126,20 +118,32 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
     )
 
     const handleRegister = useCallback(
-        async (email: string, password: string, termsAccepted?: boolean, privacyAccepted?: boolean): Promise<void> => {
+        async (
+            email: string,
+            password: string,
+            termsAccepted?: boolean,
+            privacyAccepted?: boolean,
+            captchaToken?: string
+        ): Promise<void> => {
+            if (!client) {
+                throw new Error('Auth client not initialized')
+            }
+
             const doRegister = async () => {
                 return await client.post('auth/register', {
                     email,
                     password,
                     termsAccepted,
-                    privacyAccepted
+                    privacyAccepted,
+                    captchaToken
                 })
             }
 
             try {
                 await doRegister()
-            } catch (err: any) {
-                const status = err?.response?.status
+            } catch (err: unknown) {
+                const axiosErr = err as { response?: { status?: number } }
+                const status = axiosErr?.response?.status
                 if (status === 419) {
                     clearStoredCsrfToken(client)
                     await doRegister()
@@ -151,7 +155,45 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
         [client]
     )
 
-    return <AuthView labels={labels} onLogin={handleLogin} onRegister={handleRegister} errorMapper={errorMapper} slots={slots} />
+    // Fetch captcha configuration from backend on mount
+    useEffect(() => {
+        if (!client) return
+
+        const fetchCaptchaConfig = async () => {
+            try {
+                const response = await client.get<CaptchaConfig>('auth/captcha-config')
+                console.info('[AuthPage] Captcha config received:', response.data)
+                setCaptchaConfig(response.data)
+            } catch (err) {
+                console.warn('[AuthPage] Failed to fetch captcha config:', err)
+                // Default to disabled if fetch fails
+                setCaptchaConfig({ enabled: false, siteKey: null, testMode: false })
+            }
+        }
+
+        fetchCaptchaConfig()
+    }, [client])
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!loading && isAuthenticated) {
+            navigate(getRedirectPath(), { replace: true })
+        }
+    }, [isAuthenticated, loading, navigate, getRedirectPath])
+
+    // Don't render until client is ready (after all hooks are called)
+    if (!client) return null
+
+    return (
+        <AuthView
+            labels={labels}
+            onLogin={handleLogin}
+            onRegister={handleRegister}
+            errorMapper={errorMapper}
+            captchaConfig={captchaConfig}
+            slots={slots}
+        />
+    )
 }
 
 export default AuthPage

@@ -38,7 +38,9 @@ export const API_WHITELIST_URLS = [
     // Public publication endpoints (accessible without authentication)
     '/api/v1/publish/arjs/public/',
     '/api/v1/publish/public/',
-    '/api/v1/publish/canvas/public/'
+    '/api/v1/publish/canvas/public/',
+    '/api/v1/publish/captcha/config',
+    '/api/v1/publish/render/'
 ] as const
 
 /**

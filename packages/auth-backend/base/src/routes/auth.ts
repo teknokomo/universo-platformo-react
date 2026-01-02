@@ -4,11 +4,20 @@ import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import { ensureAuthenticated, getSupabaseForReq, ensureAndRefresh, type AuthenticatedRequest } from '../services/supabaseSession'
 import { createPermissionService } from '../services/permissionService'
+import {
+    validateCaptcha,
+    getCaptchaConfig,
+    isCaptchaRequired,
+    validateLoginCaptcha,
+    getLoginCaptchaConfig,
+    isLoginCaptchaRequired
+} from '../services/captchaService'
 import type { DataSource } from 'typeorm'
 
 const LoginSchema = z.object({
     email: z.string().email().max(320),
-    password: z.string().min(6).max(1024)
+    password: z.string().min(6).max(1024),
+    captchaToken: z.string().optional()
 })
 
 const RegisterSchema = z.object({
@@ -19,7 +28,8 @@ const RegisterSchema = z.object({
     }),
     privacyAccepted: z.literal(true, {
         errorMap: () => ({ message: 'Privacy Policy must be accepted' })
-    })
+    }),
+    captchaToken: z.string().optional()
 })
 
 type MiddlewareFn = (...args: any[]) => unknown
@@ -35,6 +45,30 @@ type RouterFactory = (csrfProtection: MiddlewareFn, loginLimiter: MiddlewareFn, 
 export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, getDataSource) => {
     const router = Router()
 
+    // Captcha configuration endpoint (public, no auth required)
+    // Returns separate configurations for registration and login forms
+    router.get('/captcha-config', (req, res) => {
+        const registrationConfig = getCaptchaConfig()
+        const loginConfig = getLoginCaptchaConfig()
+        console.info('[captcha] /captcha-config', {
+            hostname: req.hostname,
+            origin: req.get('origin'),
+            referer: req.get('referer'),
+            registration: { enabled: registrationConfig.enabled, hasSiteKey: Boolean(registrationConfig.siteKey) },
+            login: { enabled: loginConfig.enabled, hasSiteKey: Boolean(loginConfig.siteKey) },
+            testMode: registrationConfig.testMode
+        })
+        return res.json({
+            // Legacy format (for backwards compatibility with existing registration)
+            enabled: registrationConfig.enabled,
+            siteKey: registrationConfig.siteKey,
+            testMode: registrationConfig.testMode,
+            // New format with separate configs
+            registration: registrationConfig,
+            login: loginConfig
+        })
+    })
+
     router.get('/csrf', csrfProtection, (req, res) => {
         const request = req as AuthenticatedRequest
         return res.json({ csrfToken: request.csrfToken?.() ?? '' })
@@ -47,11 +81,19 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
             return res.status(400).json({ error: firstError })
         }
 
+        // Validate Captcha (only if enabled)
+        if (isCaptchaRequired()) {
+            const captchaResult = await validateCaptcha(parsed.data.captchaToken || '', req.ip || req.socket.remoteAddress || '')
+            if (!captchaResult.success) {
+                return res.status(400).json({ error: captchaResult.error || 'Captcha validation failed' })
+            }
+        }
+
         try {
             const supa = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
                 auth: { persistSession: false }
             })
-            
+
             const now = new Date()
             const termsVersion = process.env.LEGAL_TERMS_VERSION
             const privacyVersion = process.env.LEGAL_PRIVACY_VERSION
@@ -93,9 +135,9 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                             `SELECT user_id, nickname, terms_accepted FROM profiles WHERE user_id = $1`,
                             [userId]
                         )
-                        console.info('[auth:profile] Profile check result', { 
-                            userId, 
-                            attempt, 
+                        console.info('[auth:profile] Profile check result', {
+                            userId,
+                            attempt,
                             exists: existingProfile?.length > 0,
                             profile: existingProfile?.[0] || null
                         })
@@ -117,9 +159,9 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         // updateResult[0] is the array of returned rows, updateResult[1] is affected count
                         const returnedRows = Array.isArray(updateResult) ? updateResult[0] : updateResult
                         const hasRows = Array.isArray(returnedRows) && returnedRows.length > 0
-                        console.info('[auth:profile] UPDATE result', { 
-                            userId, 
-                            attempt, 
+                        console.info('[auth:profile] UPDATE result', {
+                            userId,
+                            attempt,
                             rawResult: updateResult,
                             returnedRows,
                             hasRows
@@ -136,7 +178,12 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                             await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
                         }
                     } catch (dbError) {
-                        console.warn('[auth] consent save attempt failed', { userId, attempt, error: String(dbError), stack: (dbError as Error)?.stack })
+                        console.warn('[auth] consent save attempt failed', {
+                            userId,
+                            attempt,
+                            error: String(dbError),
+                            stack: (dbError as Error)?.stack
+                        })
                         if (attempt < maxAttempts) {
                             await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
                         }
@@ -163,7 +210,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                             [userId, nickname, true, now, true, now, termsVersion, privacyVersion]
                         )
                         console.info('[auth] consent saved via UPSERT fallback', { userId, result: upsertResult })
-                        
+
                         // Verify profile was created
                         const verifyProfile = await dataSource.query(
                             `SELECT user_id, nickname, terms_accepted, created_at FROM profiles WHERE user_id = $1`,
@@ -171,7 +218,11 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
                         )
                         console.info('[auth:profile] Verification after UPSERT', { userId, profile: verifyProfile?.[0] || null })
                     } catch (insertError) {
-                        console.error('[auth] consent save fallback failed', { userId, error: String(insertError), stack: (insertError as Error)?.stack })
+                        console.error('[auth] consent save fallback failed', {
+                            userId,
+                            error: String(insertError),
+                            stack: (insertError as Error)?.stack
+                        })
                     }
                 }
             } else {
@@ -186,9 +237,18 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
         }
     })
 
-    router.post('/login', loginLimiter, csrfProtection, (req, res, next) => {
+    router.post('/login', loginLimiter, csrfProtection, async (req, res, next) => {
         const parsed = LoginSchema.safeParse(req.body)
         if (!parsed.success) return res.status(400).json({ error: 'Invalid payload' })
+
+        // Validate Captcha for login (only if enabled)
+        if (isLoginCaptchaRequired()) {
+            const captchaResult = await validateLoginCaptcha(parsed.data.captchaToken || '', req.ip || req.socket.remoteAddress || '')
+            if (!captchaResult.success) {
+                return res.status(400).json({ error: captchaResult.error || 'Captcha validation failed' })
+            }
+        }
+
         const request = req as AuthenticatedRequest
         request.session.regenerate?.((regenErr) => {
             if (regenErr) return res.status(500).json({ error: 'Server error' })

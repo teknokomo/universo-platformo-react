@@ -21,8 +21,9 @@ export function createLeadsRouter(leadsService: ILeadsService): Router {
 
     const createLead = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            // Validation is handled by Zod schema in the service layer
-            const apiResponse = await leadsService.createLead(req.body)
+            // Pass client IP for captcha validation
+            const clientIp = req.ip || req.socket.remoteAddress || ''
+            const apiResponse = await leadsService.createLead(req.body, { clientIp })
             res.json(apiResponse)
         } catch (error) {
             next(error)

@@ -62,6 +62,10 @@ export interface CreateLeadPayload {
     termsAccepted?: boolean
     /** Whether Privacy Policy was accepted */
     privacyAccepted?: boolean
+
+    // Captcha validation
+    /** Captcha token from SmartCaptcha widget (validated server-side if enabled) */
+    captchaToken?: string
 }
 
 /**

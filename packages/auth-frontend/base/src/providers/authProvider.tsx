@@ -14,8 +14,8 @@ export interface AuthContextValue {
     error: string | null
     /** True if user is authenticated */
     isAuthenticated: boolean
-    /** Login with email and password */
-    login: (email: string, password: string) => Promise<void>
+    /** Login with email and password (optionally with captcha token) */
+    login: (email: string, password: string, captchaToken?: string) => Promise<void>
     /** Logout current user and redirect to /auth */
     logout: () => Promise<void>
     /** Refresh current session */
@@ -117,9 +117,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ client, children }) 
     })
 
     const value = useMemo<AuthContextValue>(() => {
-        const login = async (email: string, password: string): Promise<void> => {
+        const login = async (email: string, password: string, captchaToken?: string): Promise<void> => {
             const doLogin = async () => {
-                await client.post('auth/login', { email, password })
+                await client.post('auth/login', { email, password, captchaToken })
             }
 
             try {

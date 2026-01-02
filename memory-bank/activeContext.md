@@ -1,802 +1,128 @@
 # Active Context
 
-> **Last Updated**: 2025-12-31
+> **Last Updated**: 2026-01-02
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: No Active Tasks
+## Current Focus: SmartCaptcha UX & Cookie Text Improvements - 2026-01-02 ✅
 
-**Status**: All tasks completed. See GitHub Issues for planned work.
+### SmartCaptcha onNetworkError Handler
 
----
+Added `onNetworkError` callback to SmartCaptcha widget for better UX when captcha service is unavailable.
 
-## Previous Focus: Cookie Consent Banner Implementation - 2025-12-31 ✅ COMPLETED
+| File | Change |
+|------|--------|
+| `AuthView.tsx` | Added `onNetworkError` handler, new optional `captchaNetworkError` label |
 
-**Status**: Completed
+**Behavior**: When SmartCaptcha widget encounters a network error, user sees error message instead of silent failure.
 
-### What Was Implemented
+### Cookie Consent Text Updates
 
-GDPR-compliant cookie consent banner with two-stage flow:
-1. **Non-modal banner** at bottom of page with Accept/Reject buttons
-2. **Full-screen rejection dialog** explaining cookie requirements
+Updated rejection dialog text in both languages to consistently use "Universo Platformo" instead of "Платформа/Platform".
 
-### Key Components
-
-- **useCookieConsent hook**: Manages localStorage state (`up_cookie_consent`)
-- **CookieConsentBanner**: Fixed bottom banner, shows when consent pending
-- **CookieRejectionDialog**: Full-screen info dialog when user rejects
-- **i18n translations**: EN/RU support via `cookies` namespace
-
-### Files Created
-
-- `packages/start-frontend/base/src/i18n/locales/en/cookies.json`
-- `packages/start-frontend/base/src/i18n/locales/ru/cookies.json`
-- `packages/start-frontend/base/src/hooks/useCookieConsent.ts`
-- `packages/start-frontend/base/src/hooks/index.ts`
-- `packages/start-frontend/base/src/components/CookieConsentBanner.tsx`
-- `packages/start-frontend/base/src/components/CookieRejectionDialog.tsx`
-
-### Integration Point
-
-- Banner integrated in `StartLayoutMUI.tsx` - shows on all start/landing pages
-
----
-
-## Previous Focus: Profile Creation Debug & Migration Consolidation - 2025-12-30 ✅ COMPLETED
-
-**Status**: Completed
-
-### What Was Fixed
-
-- **CRITICAL - TypeORM result parsing bug**:
-  - **Problem**: `query()` with RETURNING returns `[rows[], rowCount]` tuple format
-  - Code was checking `updateResult.length` instead of `updateResult[0].length`
-  - Empty arrays were incorrectly treated as success
-  - **Solution**: Fixed parsing to check `updateResult[0].length > 0`
-
-- **Migration Consolidation**:
-  - Merged two migrations (`UpdateProfileTrigger` + `FixProfileInsertRLS`) into one
-  - Single source of truth for trigger function and RLS policy
-  - Deleted redundant migration file
-
-### Files Modified
-
-- `packages/profile-backend/base/src/database/migrations/postgres/1767057000000-UpdateProfileTrigger.ts` - consolidated trigger + RLS
-- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - removed FixProfileInsertRLS import
-
-### Files Deleted
-
-- `packages/profile-backend/base/src/database/migrations/postgres/1767059500000-FixProfileInsertRLS.ts`
-
-### Next Steps (GitHub Issue Created)
-
-- Investigate and verify database trigger is firing in Supabase UP-test
-- Read-only audit of trigger/function/policies in production database
-- Consider removing Node.js fallback once trigger is verified
-
----
-
-## Previous Focus: Legal Pages & Registration Consent Fixes - 2025-12-30 ✅ COMPLETED
-
-**Status**: Completed
-
-### What Was Implemented
-
-Legal compliance features for GDPR/regulatory requirements:
-
-1. **Database Migration**: Created `AddConsentFields1767049102876` migration adding 4 columns to `profiles`:
-   - `terms_accepted` (boolean, default false)
-   - `terms_accepted_at` (timestamptz, nullable)
-   - `privacy_accepted` (boolean, default false)
-   - `privacy_accepted_at` (timestamptz, nullable)
-
-2. **Backend Changes**: 
-   - Updated `RegisterSchema` with zod validation requiring `termsAccepted: true` and `privacyAccepted: true`
-   - Updated `/register` endpoint to save consent data to profile after Supabase user creation
-   - Implemented retry pattern (up to 3 attempts) to handle async profile creation trigger
-
-3. **Legal Pages**: Created `/terms` and `/privacy` routes with `StartLayoutMUI`:
-   - `LegalPage.tsx` component with PDF download and open links
-   - Currently serves Russian PDFs (EN versions to be added later)
-
-4. **Registration Form**: Added consent checkboxes to `AuthView.tsx`:
-   - Two required checkboxes shown only in register mode
-   - Links to /terms and /privacy open in new tab
-   - Validation prevents registration without both checked
-
-5. **Internationalization**: Added EN/RU translations for:
-   - Consent checkbox labels in `auth.json`
-   - Legal page content in `legal.json`
-
-### Files Created
-
-- `packages/profile-backend/base/src/database/migrations/postgres/1767049102876-AddConsentFields.ts`
-- `packages/start-frontend/base/src/views/LegalPage.tsx`
-- `packages/start-frontend/base/src/i18n/locales/en/legal.json`
-- `packages/start-frontend/base/src/i18n/locales/ru/legal.json`
-
-### Files Modified
-
-- `packages/profile-backend/base/src/database/entities/Profile.ts` - added consent fields
-- `packages/profile-backend/base/src/database/migrations/postgres/index.ts` - registered migration
-- `packages/auth-backend/base/src/routes/auth.ts` - consent validation and saving
-- `packages/auth-frontend/base/src/components/AuthView.tsx` - consent checkboxes UI
-- `packages/auth-frontend/base/src/pages/AuthPage.tsx` - pass consent to API
-- `packages/start-frontend/base/src/i18n/register.ts` - register legal namespace
-- `packages/start-frontend/base/src/i18n/index.ts` - register legal namespace
-- `packages/start-frontend/base/src/views/index.ts` - export LegalPage components
-- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - routes for /terms, /privacy
-- `packages/flowise-template-mui/base/src/routes/Auth.jsx` - consent labels
-- `packages/universo-i18n/base/src/locales/en/views/auth.json` - consent translations
-- `packages/universo-i18n/base/src/locales/ru/views/auth.json` - consent translations
-
-### Technical Notes
-
-- Backwards compatible: consent labels are optional in `AuthViewLabels` interface
-- Existing users have `terms_accepted = false` by default (no forced re-consent)
-- Retry pattern handles race condition between Supabase trigger and consent update
-
----
-
-## Previous Focus: Bot Review Fixes for PR #614 - 2025-12-28 ✅ COMPLETED
-
-**Status**: Completed
-
-### What Was Implemented
-
-Applied fixes based on automated bot (Gemini, Copilot) review comments:
-- Added `@Index` decorator to `onboarding_completed` column for consistency with migration
-- Added `affected === 0` check in manager.update to prevent silent failure
-- Improved console.error message with fallback context explanation
-- Fixed name spelling: "Vladimir Levadnyy" → "Vladimir Levadnij"
-- Fixed incorrect dates: "2025-06-30" → "2025-12-28" in memory-bank
-
-### Files Modified
-
-- `packages/profile-backend/base/src/database/entities/Profile.ts`
-- `packages/start-backend/base/src/routes/onboardingRoutes.ts`
-- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
-- `packages/start-frontend/base/src/i18n/locales/en/onboarding.json`
-- `memory-bank/activeContext.md`
-- `memory-bank/tasks.md`
-
----
-
-## Previous Focus: Auth Register 419 Auto-Retry - 2025-12-28 ✅ COMPLETED
-
-**Status**: Completed
-
-### What Was Implemented
-
-- Fixed onboarding completion screen top spacing on desktop to avoid overlap with the fixed AppBar.
-- Prevented the brief Login→Logout button flash by hiding auth actions until the auth hook finishes loading.
-
-### Files Modified
-
-- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
-- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx`
-- `packages/start-frontend/base/src/views/components/AppAppBar.tsx`
-
----
-
-## Previous Focus: Onboarding Completion Tracking (MVP) - 2025-12-28 ✅ COMPLETED
-
-**Status**: Implementation complete, ready for testing
-
-### What Was Implemented
-
-Added `onboarding_completed` boolean field to `profiles` table to track whether user has completed the onboarding wizard. This prevents users from having to redo the wizard on every page refresh or re-login.
-
-**Key Behavior**:
-- Existing users get `onboarding_completed = FALSE` (must complete wizard again)
-- When user completes wizard (saves on Clusters step) → flag set to TRUE
-- On page load, if flag is TRUE → show CompletionStep directly (not full wizard)
-- "Start Over" button on CompletionStep allows re-doing the wizard
-
-### Files Created
-
-**Migration**: `packages/profile-backend/base/src/database/migrations/postgres/1766821477094-AddOnboardingCompleted.ts`
-- Adds `onboarding_completed BOOLEAN NOT NULL DEFAULT false` column
-- Creates index `idx_profiles_onboarding_completed`
-- Uses `IF NOT EXISTS` for idempotent execution
-
-### Files Modified
-
-**Backend**:
-- `Profile.ts` - Added `onboarding_completed` column to entity
-- `migrations/postgres/index.ts` - Registered new migration
-- `start-backend/package.json` - Added `@universo/profile-backend` dependency
-- `onboardingRoutes.ts` - Read flag in GET, set TRUE in POST transaction
-
-**Frontend**:
-- `types/index.ts` - Added `onboardingCompleted` to interfaces
-- `AuthenticatedStartPage.tsx` - Conditional render based on status
-- `CompletionStep.tsx` - Added `onStartOver` prop with button
-- `OnboardingWizard.tsx` - Fixed `onComplete` callback timing
+| File | Change |
+|------|--------|
+| `ru/cookies.json` | Updated paragraph1 and paragraph2 with "Universo Platformo" |
+| `en/cookies.json` | Updated paragraph1 and paragraph2 with "Universo Platformo" |
 
 ### Build Status
 
-✅ `pnpm build` successful (61 tasks, 6m40s)
-
-### Next Steps
-
-1. Run `pnpm dev` and test with live database
-2. Verify migration adds column to profiles table
-3. Test: complete wizard → refresh → should see CompletionStep
-4. Test: click "Start Over" → should re-show full wizard
+- ✅ Lint passed: auth-frontend (0 errors, 11 warnings)
+- ✅ Full workspace build: 61 tasks, 6m12s
 
 ---
 
-## Previous Focus: Onboarding Wizard Implementation - 2025-06-29 ✅ COMPLETED
+## Previous Focus: SmartCaptcha Mode Switch Fix - 2026-01-02 ✅
 
-**Status**: Implementation complete, ready for testing
+Added optional Yandex SmartCaptcha support for the login form, mirroring the existing registration captcha implementation.
 
-### What Was Implemented
-
-Created a multi-step onboarding wizard for new users after registration. Users select:
-- **Projects (Global Goals)** - High-level initiatives to participate in
-- **Campaigns (Personal Interests)** - Topic-based groups aligned with interests
-- **Clusters (Platform Features)** - Specific features/tools to enable
-
-All items shown are owned by the system admin (email: `580-39-39@mail.ru`).
-
-### Packages Created
-
-**@universo/start-backend** (`packages/start-backend/base/`):
-- Express routes with rate limiting
-- TypeORM queries with admin ownership verification
-- Transaction-safe join operation adding user as "member"
-
-**@universo/start-frontend** (`packages/start-frontend/base/`):
-- OnboardingWizard - 5-step MUI Stepper component
-- SelectableListCard - Clickable card list with checkboxes
-- WelcomeStep, SelectionStep, CompletionStep - Step implementations
-- i18n support with English/Russian translations
-
-### API Endpoints
-
-- `GET /api/v1/onboarding/items` - Returns admin-owned items with user selection status
-- `POST /api/v1/onboarding/join` - Joins user to selected items as "member"
-
-### Integration Points
-
-- Backend registered in `flowise-core-backend/routes/index.ts` with lazy router pattern
-- Rate limiters initialized in `flowise-core-backend/src/index.ts`
-- Frontend used in `universo-template-mui` AuthenticatedStartPage
-- i18n registered via `registerOnboardingI18n()` on component mount
-
-### Build Status
-
-✅ `pnpm build` successful (61 tasks, 6m41s)
-
-### Next Steps
-
-1. Manual testing with live database (requires running server with `pnpm dev`)
-2. Create test data: Projects, Campaigns, Clusters owned by 580-39-39@mail.ru
-3. Register new user and verify onboarding flow
+- **Environment Variable**: `SMARTCAPTCHA_LOGIN_ENABLED` (default: false) controls login captcha
+- **Factory Pattern**: New `createLoginCaptchaService()` in shared `@universo/utils/captcha`
+- **UX**: Login button disabled until captcha completed when enabled, widget resets on mode switch
 
 ---
 
-## Previous Focus: Quiz Leads API & Analytics Integration Test - 2025-12-26
-
-**Status**: Implementation complete, ready for integration test
-
-### Objective
-
-Verify the complete flow works end-to-end:
-1. Create AR.js Quiz through UI
-2. Publish quiz and obtain URL
-3. Complete quiz (answer all 10 questions)
-4. Verify lead saves without 400 error
-5. Navigate to Analytics page
-6. Verify no TypeError, canvases dropdown works, leads table displays correctly
-
-### What Was Fixed
-
-**Bug 1: Leads API 400 Error**
-- Root cause: Zod schema required canvasId as UUID, but quiz sent null/empty string during initialization
-- Root cause: Zod schema didn't accept points field sent by quiz template
-- Solution: Made canvasId optional with empty string transformation, added points field validation
-- Result: Leads now save correctly with optional canvasId and validated points
-
-**Bug 2: Analytics TypeError "w.map is not a function"**
-- Root cause: Backend returns `{canvases: [...], total: N}`, frontend expected array
-- Solution: Added `normalizeCanvasesResponse()` function to handle both formats
-- Result: Analytics page renders correctly without crashes
-
-### Implementation Summary
-
-**Backend Changes**:
-- ✅ Lead migration updated (nullable canvas_id + performance indexes)
-- ✅ Lead entity updated (optional canvasId field)
-- ✅ Zod schema enhanced (points validation, optional canvasId with transformation)
-- ✅ leadsService updated to use new types from @universo/types
-- ✅ Comprehensive unit tests created (19 tests, all passing)
-
-**Frontend Changes**:
-- ✅ Analytics page updated with normalizeCanvasesResponse()
-- ✅ useEffect updated to normalize API response before setState
-
-**Type Safety**:
-- ✅ Types extracted to @universo/types (ILead, CreateLeadPayload, LeadsAnalytics)
-- ✅ Package dependencies updated (@flowise/leads-backend → @universo/types)
-- ✅ Backwards compatibility maintained (CreateLeadBody alias)
-
-**Testing**:
-- ✅ Unit tests: 19/19 passing (validates Zod schema behavior)
-- ⏳ Integration test: Awaiting manual verification
-
-### Build Status
-
-All packages built successfully:
-- ✅ @universo/types: 5.021s (50.09 kB CJS + 45.72 kB ESM)
-- ✅ @universo/utils: 4.120s (1817.79 kB CJS + 1868.06 kB ESM)
-- ✅ @flowise/leads-backend: 15.943s (TypeScript compilation clean)
-- ✅ @universo/analytics-frontend: 46.513s total (with dependencies)
-
-### Next Step
-
-**Manual Integration Test**:
-1. Start development server (`pnpm dev` with user permission)
-2. Create new AR.js Quiz
-3. Publish quiz
-4. Complete quiz in browser
-5. Check browser console: no 400 error on POST /api/v1/leads
-6. Navigate to Analytics page
-7. Check browser console: no TypeError
-8. Verify canvases dropdown displays correctly
-9. Verify leads table shows quiz results with points
-
-### Files Modified
-
-**Backend**:
-- `packages/flowise-leads-backend/base/src/database/migrations/postgres/1710832137905-AddLead.ts`
-- `packages/flowise-leads-backend/base/src/database/entities/Lead.ts`
-- `packages/flowise-leads-backend/base/src/services/leadsService.ts`
-- `packages/flowise-leads-backend/base/src/Interface.ts`
-- `packages/flowise-leads-backend/base/src/services/__tests__/leadsService.test.ts` (NEW)
-- `packages/flowise-leads-backend/base/package.json`
-- `packages/flowise-leads-backend/base/jest.config.js` (NEW)
-
-**Frontend**:
-- `packages/analytics-frontend/base/src/pages/Analytics.jsx`
-
-**Types**:
-- `packages/universo-types/base/src/validation/leads.ts` (NEW)
-- `packages/universo-types/base/src/index.ts`
+## Previous Focus: Captcha QA Fixes - 2026-01-02 ✅
 
 ---
 
-## Previous: Auth UX Improvements Complete - 2025-12-26
+## Reference: Publication Captcha Configuration
 
-All active auth UX issues resolved. Ready for manual testing.
+- Registration SmartCaptcha integrated end-to-end (auth-backend token validation + auth-frontend widget).
+- Publication SmartCaptcha now appears in published `/p/:slug` AR.js quiz lead forms when enabled via ENV.
+- Global toggles live in backend `.env`:
+  - `SMARTCAPTCHA_REGISTRATION_ENABLED=true/false`
+  - `SMARTCAPTCHA_PUBLICATION_ENABLED=true/false`
+  - `SMARTCAPTCHA_SITE_KEY`, `SMARTCAPTCHA_SERVER_KEY`
+  - `SMARTCAPTCHA_TEST_MODE=true/false`
+- Public endpoints:
+  - `GET /api/v1/auth/captcha-config` (registration UI config)
+  - `GET /api/v1/publish/captcha/config` (publication UI config)
 
----
+### Key Finding (Yandex docs)
 
-## Previous: Login After Server Restart Fix - 2025-12-26 ✅ COMPLETED
+- `test=true` does **not** bypass domain validation; it only forces a challenge for debugging.
+- For local testing, the hostname must be allowlisted in Yandex Cloud SmartCaptcha settings (or use a dev hostname).
 
-**Status**: ✅ Implemented and built successfully
+### Implementation Notes
 
-### Problem Summary
+- publish-backend exposes publication captcha config via `GET /api/v1/publish/captcha/config`.
+- The endpoint must also be present in `API_WHITELIST_URLS` because flowise-core-backend applies a global `/api/v1` auth middleware.
+- publish-frontend `ARViewPage` fetches that config and passes it into the builder as `publicationCaptchaConfig`.
+- template-quiz `DataHandler.processMultiScene()` merges `publicationCaptchaConfig` into `leadCollection` defaults:
+  - If `leadCollection.captchaEnabled` is explicitly set, it wins.
+  - Otherwise, global `publicationCaptchaConfig.enabled && siteKey` enables captcha.
+  - If captcha is enabled but `leadCollection.captchaSiteKey` is empty, it falls back to the global siteKey.
+- Result: captcha can be globally enabled for publications without requiring per-space captcha fields.
 
-After server restart, users had to click "Login" button twice (or manually clear cookies) to login successfully.
+### Publication Test Mode (Follow-up)
 
-### Why This Happened
+- Issue: `/p/:slug` SmartCaptcha widget loaded with `test=false` in iframe URL even when `SMARTCAPTCHA_TEST_MODE=true`.
+- Fix: `template-quiz` lead form now initializes the widget via `window.smartCaptcha.render(..., { test })` and loads captcha script with `?render=onload&onload=__onSmartCaptchaReady` to ensure the `test` flag is applied.
 
-1. Server restarts → MemoryStore sessions cleared → CSRF secrets lost
-2. Browser keeps old CSRF token in sessionStorage
-3. First login attempt → 419 (stale CSRF token)
-4. Frontend clears token but doesn't retry automatically
-5. Second click → fetches fresh CSRF → succeeds
+### Verification
 
-### Solution
-
-Added automatic retry logic when receiving 419 CSRF errors during login:
-
-**File**: `packages/auth-frontend/base/src/providers/authProvider.tsx`
-
-```typescript
-const login = async (email: string, password: string): Promise<void> => {
-    const doLogin = async () => {
-        await client.post('auth/login', { email, password })
-    }
-
-    try {
-        await doLogin()
-    } catch (err: any) {
-        const status = err?.response?.status
-        if (status === 419) {
-            // CSRF token expired (e.g., after server restart with MemoryStore)
-            // Clear stale token and retry once
-            clearStoredCsrfToken(client)
-            await doLogin()
-        } else {
-            throw err
-        }
-    }
-
-    clearStoredCsrfToken(client)
-    const refreshedUser = await session.refresh()
-    if (!refreshedUser) {
-        throw new Error('Failed to refresh session after login')
-    }
-}
-```
-
-**File**: `packages/auth-frontend/base/src/components/LoginForm.tsx`
-
-Same retry pattern added to standalone LoginForm component.
-
-### Benefits
-
-- ✅ Single-click login after server restart
-- ✅ No manual cookie clearing needed
-- ✅ Graceful CSRF token refresh
-- ✅ Limited to one retry (prevents loops)
-
-### Build Status
-
-✅ `pnpm build` successful (59 tasks, 7m35s)
-
-### Technical Details
-
-- **Pattern**: Try-catch wrapper with conditional retry on 419
-- **Safety**: Exactly one retry per login attempt
-- **Scope**: Both authProvider (main) and LoginForm (standalone)
-- **Interceptor**: Existing axios interceptor clears token on 419, new code adds retry
+- Built `template-quiz` and `publish-frontend` successfully.
+- Full workspace build succeeded after changes.
+- Manual: `/p/:slug` should now show SmartCaptcha in the lead form when publication captcha is enabled.
 
 ---
 
-## Previous: Logout Redirect Fix - 2025-12-26 ✅ COMPLETED
+## Recent Highlights (last 7 days)
 
-**Status**: ✅ Implemented and built successfully
+### 2026-01-01: Publication Captcha Wiring ✅
 
-### Problem
+- Issue: published app `/p/:slug` lacked captcha even with `SMARTCAPTCHA_PUBLICATION_ENABLED=true`.
+- Root cause: generated lead form relied only on per-space `leadCollection.captcha*` fields.
+- Fix: publish-frontend fetches global config and passes it into template build; template-quiz merges defaults into `leadCollection`.
+- Reference: progress.md#2026-01-01 (Publication Captcha Wiring)
 
-After logout, user was forcefully redirected to `/auth` page via `window.location.href = '/auth'`, causing full page reload and preventing natural guest content display.
+### 2026-01-01: Registration SmartCaptcha ✅
 
-### Solution
+- Backend: Yandex SmartCaptcha token verification (fail-open in dev/test).
+- Frontend: widget rendered under consent checkboxes; register button blocked until solved.
+- Reference: progress.md#2026-01-01 (Yandex Smart Captcha Integration)
 
-Removed hardcoded redirect from `authProvider.tsx` logout function. Now React naturally re-renders guest content when `isAuthenticated` becomes `false`.
+### 2025-12-31: Cookie Consent + Lead Consent ✅
 
-### Changes Made
+- Cookie consent banner (accept/reject) with rejection dialog; localStorage persistence.
+- Quiz lead consent: Terms/Privacy checkboxes and schema support.
+- Reference: progress.md#2025-12-31
 
-**File**: `packages/auth-frontend/base/src/providers/authProvider.tsx`
+### 2025-12-30: Legal Pages + Profile Fixes ✅
 
-```typescript
-// Before:
-} finally {
-    window.location.href = '/auth'  // ❌ Force redirect
-    logoutInProgress.current = false
-}
+- Legal pages (`/terms`, `/privacy`) and registration consent enforcement.
+- Profile creation bugfix (TypeORM query result parsing) + migration consolidation.
+- Reference: progress.md#2025-12-30
 
-// After:
-} finally {
-    logoutInProgress.current = false
-    // ✅ No redirect - let React re-render with guest content based on isAuthenticated state
-}
-```
+### 2025-12-28: Onboarding Wizard MVP ✅
 
-### Benefits
+- Multi-step onboarding flow (Projects/Campaigns/Clusters) with backend persistence.
+- Reference: progress.md#2025-12-28
 
-- No page reload on logout (smoother UX)
-- Pages like `StartPage.tsx` automatically show guest version via conditional rendering
-- Follows React's declarative approach
-- User stays on current page and sees guest content if available
+### 2025-12-26: Auth UX Improvements ✅
 
-### Build Status
-
-✅ `pnpm build` successful (59 tasks, 7m46s)
-
----
-
-## Previous: Logout Functionality Fix - 2025-12-25 ✅ COMPLETED
-
-**Status**: ✅ COMPLETED - Eliminated ~500 lines of duplicate code across 15+ packages.
-- Updated all duplicate `isPublicRoute()` definitions
-
-### Files Modified: 17+ files
-### Build Status: ✅ `pnpm build` successful - 59 tasks
-
----
-
-## Previous: Start Page Auth-Conditional Rendering - 2025-12-25 ✅ COMPLETED
-
-**1. Hero Component Cleanup**
-- Removed email input field and Terms & Conditions text
-- Commented out dashboard screenshot image (StyledBox)
-- Kept only "Start now" button centered
-
-**2. AppAppBar Menu Cleanup**
-- Commented out left navigation buttons (Features, Testimonials, Highlights, Pricing, FAQ, Blog)
-- Kept only: Sitemark logo, Sign in, Sign up, ColorMode switcher
-- Commented out mobile menu items as well
-
-**3. Created StartLayoutMUI**
-- New minimal layout at `layout/StartLayoutMUI.tsx`
-- Contains only AppAppBar (top navigation) without sidebar
-- Used for both guest and authenticated start pages
-
-**4. Split Pages by Auth Status**
-- `GuestStartPage.tsx` - Landing page for non-authenticated users (Hero + Testimonials)
-- `AuthenticatedStartPage.tsx` - Dashboard for authenticated users (MUI DataGrid with demo data)
-- `StartPage.tsx` - Switcher component that renders appropriate page based on auth status
-
-**5. Route Updates**
-- Replaced `LandingRoute` with `StartRoute`
-- Uses `StartLayoutMUI` wrapper with `StartPage` inside
-- Path `/` now shows different content based on authentication
-- No AuthGuard redirect - guests see landing, authenticated see dashboard
-
-**6. Guest Redirect Root Cause + Fix** (Latest)
-- **Problem**: Non-authenticated users saw the guest landing briefly, then were redirected to `/auth`
-- **Root Cause**: Multiple frontend API clients/hooks enforced a global `401 → /auth` redirect without considering public routes. Background requests like `/api/v1/auth/me` and `/api/v1/auth/permissions` return `401` for guests and triggered the redirect.
-- **Fix**: Added a public-route allowlist (including `/`, `/p/*`, `/b/*`, `/chatbot/*`, `/bots/*`, `/execution/*`) and skip the auto-redirect on those routes.
-- **Files Modified**:
-  - `packages/flowise-core-frontend/base/src/api/client.js`
-  - `packages/flowise-core-frontend/base/src/api.js`
-  - `packages/universo-api-client/base/src/client.ts`
-  - `packages/auth-frontend/base/src/hooks/useAuthError.ts`
-  - Several `*/frontend/*/src/api/*` clients with the same 401 redirect pattern
-
-**Files Created:**
-- `packages/universo-template-mui/base/src/layout/StartLayoutMUI.tsx`
-- `packages/universo-template-mui/base/src/views/start-page/GuestStartPage.tsx`
-- `packages/universo-template-mui/base/src/views/start-page/AuthenticatedStartPage.tsx`
-- `packages/universo-template-mui/base/src/views/start-page/StartPage.tsx`
-
-**Files Modified:**
-- `packages/universo-template-mui/base/src/views/start-page/components/Hero.tsx`
-- `packages/universo-template-mui/base/src/views/start-page/components/AppAppBar.tsx`
-- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
-
-**Build Status:** ✅ `pnpm build` successful
-
-### Architecture Pattern
-
-```
-/                          → StartRoute
-├── StartLayoutMUI         → AppTheme + AppAppBar
-│   └── StartPage          → useAuth() check
-│       ├── GuestStartPage       (if !isAuthenticated)
-│       │   ├── Hero             (title + Start now button)
-│       │   └── Testimonials     (6 cards)
-│       └── AuthenticatedStartPage (if isAuthenticated)
-│           └── DataGrid         (demo table)
-```
-
-### Next Steps (Future)
-- [ ] Replace demo content with actual Universo Platform branding
-- [ ] Connect Sign In / Sign Up buttons to auth routes (`/auth`)
-- [ ] Connect "Start now" button to appropriate action
-- [ ] Add i18n support for landing page text
-- [ ] Replace AuthenticatedStartPage demo table with real dashboard
-
----
-
-## Recently Completed: Start Page (Marketing Page) MVP - 2025-12-25
-
-**Status**: ✅ FIXED - RLS context now works correctly without breaking admin schema access.
-
-### Issue 1: Empty Lists Despite Data in DB
-
-- After DB reset, Metahubs/Uniks data existed in PostgreSQL but UI lists returned empty arrays.
-- **Root Cause**: `applyRlsContext()` used transaction-local settings (`SET LOCAL`), so RLS context was lost after the setup statement.
-- **Fix**: Changed to session-scoped `set_config('request.jwt.claims', ..., false)`.
-
-### Issue 2: "permission denied for schema admin"
-
-- After switching to session-scoped settings, added `SET role = 'authenticated'` which broke access to `admin` schema functions (`admin.is_superuser()` etc.).
-- **Root Cause**: The `authenticated` role doesn't have USAGE privilege on `admin` schema.
-- **Fix**: Removed `SET role = 'authenticated'` entirely. RLS policies only need `request.jwt.claims` for `auth.uid()` to work — no role change required.
-
-### What Was Fixed
-
-**`packages/auth-backend/base/src/utils/rlsContext.ts`**:
-- Removed `SET role = 'authenticated'` line
-- Kept session-scoped `set_config('request.jwt.claims', ..., false)`
-
-**`packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`**:
-- Removed `RESET role` from cleanup
-- Kept cleanup of `request.jwt.claims` to empty string before releasing connection
-
-**Build Status:** ✅ Full workspace `pnpm build` successful
-
-### Key Learning (Critical Pattern)
-
-**NEVER use `SET role = 'authenticated'` in RLS context setup:**
-- The `authenticated` role lacks USAGE on `admin` schema
-- RLS policies use `auth.uid()` which reads from `request.jwt.claims.sub`
-- Only `request.jwt.claims` needs to be set; role change is unnecessary and harmful
-
----
-
-## Recently Completed: Metahubs - Pagination Data Access Fix (2025-12-23)
-
-**Status**: ✅ FIXED - HubList, AttributeList, RecordList no longer crash on `.map()`. Builds passing.
-
-### Issue Discovered
-
-- Clicking `/metahub/:metahubId/hubs` crashed with `TypeError: l.map is not a function` (line 364 in HubList.tsx)
-- Same issue in AttributeList and RecordList (pagination data destructuring)
-
-### Root Cause
-
-The `usePaginated` hook returns:
-```typescript
-{ data: PaginatedResponse<T>, isLoading, error }
-// where PaginatedResponse = { items: T[], pagination: {...} }
-```
-
-But pages were destructuring:
-```typescript
-const { data: hubs } = paginationResult
-// hubs = { items: [], pagination: {} } ❌ not an array!
-hubs.map(...) // TypeError: hubs.map is not a function
-```
-
-### What Was Fixed
-
-**All Three List Pages:**
-- `HubList.tsx` - changed to: `const { data } = paginationResult; const hubs = data?.items || []`
-- `AttributeList.tsx` - changed to: `const { data } = paginationResult; const attributes = data?.items || []`
-- `RecordList.tsx` - changed to: `const { data } = paginationResult; const records = data?.items || []`
-
-**Backend Verification:**
-- Confirmed `/metahubs/:id/hubs` endpoint returns correct `{ items: Hub[], pagination: {...} }` structure (hubsRoutes.ts line 92)
-
-**Legacy Routes Removal:**
-- Deleted unused redirect routes from `MainRoutesMUI.tsx`:
-  - Removed `/entities` route (redirect to `/hubs`)
-  - Removed `/sections` route (redirect to `/hubs`)
-- Since old entity/section pages don't exist anymore, no point in redirecting; let 404 handle it naturally
-
-**Build Status:** ✅ `pnpm build --filter metahubs-frontend` successful (3.35s)
-
-### Recently Completed (context)
-
-User reported React error #31 when creating Metahub:
-- Frontend expected `name: string` but backend returns VLC object `{ _schema, locales, _primary }`
-- TypeError: Cannot render object as React child
-
-### What Was Fixed
-
-**Type System:**
-- Added `VersatileLocalizedContent` interface to match backend VLC format
-- Updated `Metahub` type to use `VersatileLocalizedContent` for name/description
-- Created `MetahubDisplay` type with string fields for UI rendering
-- Added `getVLCString()` helper to extract localized content from VLC
-
-**MetahubList.tsx:**
-- Import `MetahubDisplay` and `toMetahubDisplay` converter
-- Convert API data to display format: `metahubsDisplay = metahubs.map(toMetahubDisplay)`
-- Updated all components to use `MetahubDisplay` instead of `Metahub`
-- All column render functions now use Display types with string fields
-
-**MetahubBoard.tsx:**
-- Import `toMetahubDisplay` converter
-- Convert single metahub: `metahubDisplay = toMetahubDisplay(metahub, i18n.language)`
-- Updated ViewHeader and all StatCard components to use display strings
-- Fixed `.slice()` runtime errors by ensuring UI receives strings (not VLC objects)
-
-**NavbarBreadcrumbs / breadcrumb hooks (template-mui):**
-- `useMetahubName()` previously returned a VLC object from `/api/v1/metahubs/:id` and was treated as a string
-- Hardened breadcrumb name fetching and truncation to safely extract localized strings before calling `.slice()`
-
-**Type Conversions:**
-- `getVLCString(vlc, locale)` - extract string from VLC
-- `getLocalizedString(simple, locale)` - extract from SimpleLocalizedInput
-- `toMetahubDisplay(metahub, locale)` - convert Metahub to MetahubDisplay
-- `toHubDisplay(hub, locale)` - convert Hub to HubDisplay
-- `toAttributeDisplay(attr, locale)` - convert Attribute to AttributeDisplay
-- `toHubRecordDisplay(record, attrs, locale)` - convert HubRecord to HubRecordDisplay
-
-**Build Status:**
-- ✅ `pnpm --filter metahubs-frontend build` - successful
-- ✅ `pnpm --filter spaces-frontend build` - successful  
-- ✅ `pnpm --filter @flowise/core-frontend build` - successful
-- ✅ Full project build completed without errors
-
-### Type Pattern Summary
-
-**Backend → Frontend:**
-```typescript
-// Backend returns VLC
-{ 
-  name: { 
-    _schema: "vlc/1",
-    locales: { en: { content: "Test" } },
-    _primary: "en"
-  }
-}
-
-// Frontend converts to Display
-{ 
-  name: "Test"  // Extracted string for current locale
-}
-```
-
-**Hubs/Attributes (SimpleLocalizedInput):**
-```typescript
-// API layer
-{ name: { en: "Hub Name", ru: "Имя хаба" } }
-
-// UI layer (Display)
-{ name: "Hub Name" }  // Current locale
-```
-
-### Next Steps
-
-1. Manual runtime verification in browser:
-  - Metahub sidebar shows Hub-based navigation (no legacy Entities/Sections).
-  - Navigating to `/metahub/:metahubId/entities` and `/sections` redirects to `/hubs`.
-2. If anything still renders legacy menu items, confirm the running app is using latest build artifacts.
-
-### What's true right now
-
-- **New Architecture Implemented (Backend + Frontend):**
-  - Metahubs now uses metadata-driven pattern (like 1C:Enterprise)
-  - Hubs = virtual tables within a Metahub
-  - Attributes = virtual fields within a Hub (with dataType enum)
-  - Records = JSONB data rows within a Hub
-
-- **Backend is complete and builds:**
-  - `pnpm --filter metahubs-backend build` ✅
-  - `pnpm --filter @flowise/core-backend build` ✅
-  - New entities: Hub, Attribute, HubRecord
-  - New routes: hubsRoutes, attributesRoutes, recordsRoutes, publicMetahubsRoutes
-  - Guards updated: ensureHubAccess, ensureAttributeAccess
-
-- **Frontend is complete and builds:**
-  - `pnpm --filter metahubs-frontend build` ✅
-  - New pages: HubList, AttributeList, RecordList
-  - Display types: HubDisplay, AttributeDisplay, HubRecordDisplay (for FlowListTable)
-  - Helper functions: toHubDisplay(), toAttributeDisplay(), toHubRecordDisplay()
-  - i18n: EN/RU translations for hubs, attributes, records
-
-- **New API Structure:**
-  - `GET/POST /metahubs/:metahubId/hubs` - Hub CRUD
-  - `GET/POST /metahubs/:metahubId/hubs/:hubId/attributes` - Attribute CRUD
-  - `GET/POST /metahubs/:metahubId/hubs/:hubId/records` - Record CRUD
-  - `GET /api/public/metahubs/:slug` - Public read-only access
-
-- **Frontend Type Pattern:**
-  - `SimpleLocalizedInput` = `{ en?: string, ru?: string }` - for API
-  - `Hub`, `Attribute`, `HubRecord` - with SimpleLocalizedInput fields
-  - `HubDisplay`, `AttributeDisplay`, `HubRecordDisplay` - with string name/description for UI
-  - Helper functions convert between them
-
-- **Database Migration:**
-  - New schema replaces old M2M junction tables
-  - GIN indexes for JSONB queries on records.data
-  - RLS policies support public access for is_public metahubs
-
-### What's been removed (legacy)
-
-- ❌ MetaEntity, MetaSection, MetaEntityMetahub, MetaSectionMetahub, MetaEntityMetaSection entities
-- ❌ metaEntitiesRoutes.ts, metaSectionsRoutes.ts
-- ❌ ensureSectionAccess, ensureEntityAccess guards
-- ❌ /metahubs/:metahubId/entities and /metahubs/:metahubId/sections endpoints
-- Legacy pages (MetaSectionList, MetaEntityList) kept for backward compatibility
-
-### Notes for next steps
-
-- Frontend needs update:
-  - Rename pages from MetaSection→Hub, MetaEntity→Attribute
-  - Update API calls to new endpoints
-  - Create dynamic form UI based on Hub attributes
-  - LocalizedFieldEditor for VLC name/description
-
-- Database will be recreated:
-  - User confirmed: "База данных будет удалена и создана новая"
-  - No migration of legacy data needed
-
-- Record class is named HubRecord to avoid TypeScript conflict with built-in Record<K,V>
-
-### Next steps
-
-1. Phase 3: Update metahubs-frontend pages and API calls
-2. Phase 4: Test public API access at /api/public/metahubs/:slug
-3. Phase 5: Full `pnpm build` validation and README updates
+- 419 auto-retry after restart; improved logout guest behavior; public endpoints allowlist.
+- Reference: progress.md#2025-12-26

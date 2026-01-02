@@ -27,6 +27,11 @@
             "require": "./dist/rate-limiting.js",
             "types": "./dist/rate-limiting.d.ts"
         },
+        "./captcha": {
+            "import": "./dist/captcha/index.mjs",
+            "require": "./dist/captcha/index.js",
+            "types": "./dist/captcha/index.d.ts"
+        },
         "./ui-utils": {
             "import": "./dist/ui-utils.mjs",
             "require": "./dist/ui-utils.js"
@@ -45,6 +50,7 @@
     "dependencies": {
         "@universo/types": "workspace:*",
         "@universo/i18n": "workspace:*",
+        "axios": "catalog:",
         "dayjs": "catalog:",
         "express-rate-limit": "catalog:",
         "rate-limit-redis": "catalog:",

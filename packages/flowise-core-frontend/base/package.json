@@ -48,6 +48,7 @@
         "@universo/types": "workspace:*",
         "@universo/uniks-frontend": "workspace:*",
         "@universo/utils": "workspace:*",
+        "@yandex/smart-captcha": "catalog:",
         "axios": "catalog:",
         "clsx": "^1.1.1",
         "dompurify": "^3.2.6",

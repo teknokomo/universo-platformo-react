@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type FormEvent, type MouseEvent, type ComponentType, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type MouseEvent, type ComponentType, type ReactNode } from 'react'
 import {
     Box,
     TextField,
@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { IconMail, IconLock } from '@tabler/icons-react'
+import { SmartCaptcha } from '@yandex/smart-captcha'
 
 export type AuthViewMode = 'login' | 'register'
 
@@ -42,14 +43,42 @@ export interface AuthViewLabels {
     privacyCheckbox?: string
     privacyLink?: string
     consentRequired?: string
+    captchaRequired?: string
+    captchaNetworkError?: string
+}
+
+/** Single captcha configuration for a specific form */
+export interface SingleCaptchaConfig {
+    enabled: boolean
+    siteKey: string | null
+    testMode: boolean
+}
+
+/** Combined captcha configuration from backend API */
+export interface CaptchaConfig {
+    // Legacy format (backwards compatible)
+    enabled: boolean
+    siteKey: string | null
+    testMode: boolean
+    // Separate configs for registration and login
+    registration?: SingleCaptchaConfig
+    login?: SingleCaptchaConfig
 }
 
 export interface AuthViewProps {
     labels: AuthViewLabels
-    onLogin: (email: string, password: string) => Promise<void>
-    onRegister: (email: string, password: string, termsAccepted?: boolean, privacyAccepted?: boolean) => Promise<void>
+    onLogin: (email: string, password: string, captchaToken?: string) => Promise<void>
+    onRegister: (
+        email: string,
+        password: string,
+        termsAccepted?: boolean,
+        privacyAccepted?: boolean,
+        captchaToken?: string
+    ) => Promise<void>
     errorMapper?: (error: string) => string
     initialMode?: AuthViewMode
+    /** Captcha configuration from backend API */
+    captchaConfig?: CaptchaConfig
     slots?: {
         Root?: ComponentType<{ children: ReactNode; sx?: BoxProps['sx'] }>
         Container?: ComponentType<ContainerProps>
@@ -62,21 +91,81 @@ export interface AuthViewProps {
     }
 }
 
-export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode = 'login', slots, slotProps }: AuthViewProps) => {
+export const AuthView = ({
+    labels,
+    onLogin,
+    onRegister,
+    errorMapper,
+    initialMode = 'login',
+    captchaConfig,
+    slots,
+    slotProps
+}: AuthViewProps) => {
     const theme = useTheme()
     const [mode, setMode] = useState<AuthViewMode>(initialMode)
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [termsAccepted, setTermsAccepted] = useState(false)
     const [privacyAccepted, setPrivacyAccepted] = useState(false)
+    const [captchaToken, setCaptchaToken] = useState('')
     const [error, setError] = useState<string>('')
     const [info, setInfo] = useState<string>('')
     const [submitting, setSubmitting] = useState(false)
+
+    // Get mode-specific captcha config (with legacy fallback for registration)
+    const registrationCaptchaConfig = captchaConfig?.registration ?? {
+        enabled: captchaConfig?.enabled ?? false,
+        siteKey: captchaConfig?.siteKey ?? null,
+        testMode: captchaConfig?.testMode ?? false
+    }
+    const loginCaptchaConfig = captchaConfig?.login ?? {
+        enabled: false,
+        siteKey: null,
+        testMode: false
+    }
+
+    // Captcha is enabled based on current mode
+    const currentCaptchaConfig = mode === 'register' ? registrationCaptchaConfig : loginCaptchaConfig
+    const captchaEnabled = Boolean(currentCaptchaConfig.enabled && currentCaptchaConfig.siteKey)
+    const siteKey = currentCaptchaConfig.siteKey ?? ''
+    const testMode = currentCaptchaConfig.testMode ?? false
+
+    // Debug log for captcha configuration
+    console.info('[AuthView] Captcha config:', {
+        mode,
+        captchaEnabled,
+        siteKey: siteKey ? '***' : null,
+        testMode,
+        registrationEnabled: registrationCaptchaConfig.enabled,
+        loginEnabled: loginCaptchaConfig.enabled
+    })
+
+    // Important: Yandex SmartCaptcha test mode does NOT bypass domain validation.
+    // If you see a "key cannot be used on domain localhost" error, you must configure domains in Yandex Cloud
+    // (or use a separate dev key / disable domain validation).
+    useEffect(() => {
+        if (!captchaEnabled) return
+        if (!testMode) return
+
+        const hostname = window.location.hostname
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+        if (!isLocalhost) return
+
+        console.warn(
+            `[AuthView] SmartCaptcha (${mode}): testMode=true does not bypass domain validation. Configure Yandex Cloud CAPTCHA domains for localhost/127.0.0.1 or use a dedicated dev sitekey.`
+        )
+    }, [captchaEnabled, mode, testMode])
+
+    // Reset captcha token when switching modes
+    useEffect(() => {
+        setCaptchaToken('')
+    }, [mode])
 
     // Check if consent labels are provided (enables consent checkboxes)
     const hasConsentLabels = Boolean(labels.termsCheckbox && labels.termsLink && labels.privacyCheckbox && labels.privacyLink)
 
     const isConsentBlockingRegister = mode === 'register' && hasConsentLabels && (!termsAccepted || !privacyAccepted)
+    const isCaptchaBlocking = captchaEnabled && !captchaToken
 
     const mapError = useCallback(
         (message: string) => {
@@ -112,18 +201,28 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
             return
         }
 
+        // Validate captcha if enabled
+        if (captchaEnabled && !captchaToken) {
+            setError(labels.captchaRequired || 'Please complete the captcha')
+            return
+        }
+
         resetMessages()
         setSubmitting(true)
         try {
-            await onRegister(email, password, termsAccepted, privacyAccepted)
+            await onRegister(email, password, termsAccepted, privacyAccepted, captchaToken)
             setInfo(labels.successRegister)
             setMode('login')
-            // Reset consent checkboxes after successful registration
+            // Reset consent checkboxes and captcha after successful registration
             setTermsAccepted(false)
             setPrivacyAccepted(false)
-        } catch (err: any) {
-            const message = err?.response?.data?.error || err?.message || 'Registration failed'
+            setCaptchaToken('')
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+            const message = axiosErr?.response?.data?.error || axiosErr?.message || 'Registration failed'
             setError(mapError(message))
+            // Reset captcha on error
+            setCaptchaToken('')
         } finally {
             setSubmitting(false)
         }
@@ -135,14 +234,25 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
             return
         }
 
+        // Validate captcha if enabled for login
+        if (captchaEnabled && !captchaToken) {
+            setError(labels.captchaRequired || 'Please complete the captcha')
+            return
+        }
+
         resetMessages()
         setSubmitting(true)
         try {
-            await onLogin(email, password)
+            await onLogin(email, password, captchaToken || undefined)
             setInfo(labels.loginSuccess)
-        } catch (err: any) {
-            const message = err?.response?.data?.error || err?.message || 'Login failed'
+            // Reset captcha on success
+            setCaptchaToken('')
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+            const message = axiosErr?.response?.data?.error || axiosErr?.message || 'Login failed'
             setError(mapError(message))
+            // Reset captcha on error
+            setCaptchaToken('')
         } finally {
             setSubmitting(false)
         }
@@ -281,6 +391,26 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
                                     </Grid>
                                 </>
                             ) : null}
+                            {/* Captcha widget - shown for both login and register when enabled */}
+                            {/* key prop forces re-render on mode change, resetting the widget state */}
+                            {captchaEnabled ? (
+                                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                                    <SmartCaptcha
+                                        key={`captcha-${mode}`}
+                                        sitekey={siteKey}
+                                        onSuccess={setCaptchaToken}
+                                        onTokenExpired={() => setCaptchaToken('')}
+                                        onNetworkError={() => {
+                                            console.error('[AuthView] SmartCaptcha network error')
+                                            setError(
+                                                labels.captchaNetworkError ||
+                                                    'Captcha service is temporarily unavailable. Please try again.'
+                                            )
+                                        }}
+                                        test={testMode}
+                                    />
+                                </Grid>
+                            ) : null}
                             <Grid item xs={12}>
                                 <Button
                                     fullWidth
@@ -288,7 +418,7 @@ export const AuthView = ({ labels, onLogin, onRegister, errorMapper, initialMode
                                     variant='contained'
                                     color='primary'
                                     size='large'
-                                    disabled={submitting || isConsentBlockingRegister}
+                                    disabled={submitting || isConsentBlockingRegister || isCaptchaBlocking}
                                     startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
                                 >
                                     {submitLabel}

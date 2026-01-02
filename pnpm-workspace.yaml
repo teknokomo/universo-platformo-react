@@ -107,6 +107,9 @@ catalog:
     react-redux: ^8.0.5
     reactflow: ^11.5.6
     
+    # Captcha
+    '@yandex/smart-captcha': ^2.9.0
+    
     # Code editor (CodeMirror)
     '@uiw/react-codemirror': ^4.23.0
     '@uiw/codemirror-theme-vscode': ^4.23.0
