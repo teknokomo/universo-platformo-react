@@ -21,8 +21,8 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({ onStartOver }) =
         <Box>
             {/* Hero image - same style as WelcomeStep */}
             <Box
-                component="img"
-                src="/background-image.jpg"
+                component='img'
+                src='/background-image.jpg'
                 alt={t('completion.imageAlt')}
                 sx={{
                     width: '100%',
@@ -34,64 +34,67 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({ onStartOver }) =
             />
 
             {/* Completion text */}
-            <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
+            <Typography variant='h4' component='h1' gutterBottom sx={{ fontWeight: 600 }}>
                 {t('completion.title')}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
                 {t('completion.message1')}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
                 {t('completion.message2')}
             </Typography>
 
             {/* Notice section */}
             <Box sx={{ mt: 3, mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                <Typography variant='subtitle1' sx={{ fontWeight: 600, mb: 1 }}>
                     {t('completion.noticeTitle')}
                 </Typography>
-                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Box component='ul' sx={{ m: 0, pl: 2.5 }}>
+                    <Typography component='li' variant='body2' color='text.secondary' sx={{ mb: 1 }}>
                         {t('completion.noticeAlpha')}
                     </Typography>
-                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography component='li' variant='body2' color='text.secondary' sx={{ mb: 1 }}>
                         {t('completion.noticeUpdates')}{' '}
-                        <Link href="https://github.com/teknokomo/universo-platformo-react" target="_blank" rel="noopener">
+                        <Link href='https://github.com/teknokomo/universo-platformo-react' target='_blank' rel='noopener'>
                             {t('completion.noticeUpdatesGitHub')}
                         </Link>{' '}
                         {t('completion.noticeUpdatesAnd')}{' '}
-                        <Link href="https://gitverse.ru/teknokomo/universo-platformo-react" target="_blank" rel="noopener">
+                        <Link href='https://gitverse.ru/teknokomo/universo-platformo-react' target='_blank' rel='noopener'>
                             {t('completion.noticeUpdatesGitVerse')}
-                        </Link>.
+                        </Link>
+                        .
                     </Typography>
-                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography component='li' variant='body2' color='text.secondary' sx={{ mb: 1 }}>
                         {t('completion.noticeTelegram')}{' '}
-                        <Link href="https://t.me/universo_pro" target="_blank" rel="noopener">
+                        <Link href='https://t.me/universo_pro' target='_blank' rel='noopener'>
                             {t('completion.noticeTelegramPlatformo')}
                         </Link>{' '}
                         {t('completion.noticeTelegramAnd')}{' '}
-                        <Link href="https://t.me/diverslaboristo" target="_blank" rel="noopener">
+                        <Link href='https://t.me/diverslaboristo' target='_blank' rel='noopener'>
                             {t('completion.noticeTelegramDiverslaboristo')}
-                        </Link>.
+                        </Link>
+                        .
                     </Typography>
-                    <Typography component="li" variant="body2" color="text.secondary">
+                    <Typography component='li' variant='body2' color='text.secondary'>
                         {t('completion.noticeHelp')}{' '}
-                        <Link href="https://boosty.to/universo" target="_blank" rel="noopener">
+                        <Link href='https://boosty.to/universo' target='_blank' rel='noopener'>
                             {t('completion.noticeHelpBoosty')}
-                        </Link>.
+                        </Link>
+                        .
                     </Typography>
                 </Box>
             </Box>
 
-            <Typography variant="h4" color="primary" sx={{ fontWeight: 700, mt: 3 }}>
+            <Typography variant='h4' color='primary' sx={{ fontWeight: 700, mt: 3 }}>
                 {t('completion.slogan')}
             </Typography>
 
             {/* Start Over button - only shown when callback is provided */}
             {onStartOver && (
                 <Box sx={{ mt: 4, textAlign: 'center' }}>
-                    <Button variant="outlined" color="primary" onClick={onStartOver}>
+                    <Button variant='outlined' color='primary' onClick={onStartOver}>
                         {t('buttons.startOver')}
                     </Button>
                 </Box>

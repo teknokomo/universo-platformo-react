@@ -42,6 +42,7 @@ export interface AuthViewLabels {
     termsLink?: string
     privacyCheckbox?: string
     privacyLink?: string
+    privacySuffix?: string
     consentRequired?: string
     captchaRequired?: string
     captchaNetworkError?: string
@@ -385,6 +386,7 @@ export const AuthView = ({
                                                     <Link href='/privacy' target='_blank' rel='noopener noreferrer' underline='hover'>
                                                         {labels.privacyLink}
                                                     </Link>
+                                                    {labels.privacySuffix}
                                                 </Typography>
                                             }
                                         />

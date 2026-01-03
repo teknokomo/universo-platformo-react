@@ -23,5 +23,9 @@ export * from './api/onboarding'
 // Types
 export * from './types'
 
-// i18n registration
+/**
+ * @deprecated These functions are deprecated. Namespaces are now auto-registered
+ * via the i18n/index.ts module using registerNamespace() from @universo/i18n/registry.
+ * Components should simply use `useTranslation('namespace')` from @universo/i18n.
+ */
 export { registerOnboardingI18n, registerLandingI18n, registerCookiesI18n } from './i18n/register'

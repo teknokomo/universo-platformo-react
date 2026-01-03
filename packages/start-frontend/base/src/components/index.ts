@@ -11,3 +11,6 @@ export { CompletionStep } from './CompletionStep'
 // Cookie consent components
 export { CookieConsentBanner } from './CookieConsentBanner'
 export { CookieRejectionDialog } from './CookieRejectionDialog'
+
+// Footer component
+export { StartFooter } from './StartFooter'

@@ -7,17 +7,17 @@
         "projects": {
             "label": "Global Goals",
             "title": "Choose Your Global Goals",
-            "subtitle": "Select the goals that resonate with your vision for a better future, you can choose any number of options. You can always change your selections later, and you will also be able to create your own global goals and propose them to the community for discussion."
+            "subtitle": "Choose goals that seem interesting to you. You can choose any number of options or nothing at all. You can always change your choice later, and you will also be able to create your own global goals and propose them to the community for discussion.\n\nPlease note that the stated goals are meta-projects, whose task, among other things, is to collect, structure and study information on the specified topic. Do not treat this as a clear expression of your own political views, religious or philosophical beliefs, and the like."
         },
         "campaigns": {
             "label": "Interests",
-            "title": "Define Your Personal Interests",
-            "subtitle": "Tell us about your interests to personalize your experience. Select all that apply. Later on our platform, you will be able to mark other personal interests, as well as add new interest options and find like-minded people."
+            "title": "Define Interesting Topics",
+            "subtitle": "Choose topics that interest you to personalize your experience. Select all suitable options or nothing at all. Later on our platform, you will be able to mark other topics, as well as add new options for interesting topics and find like-minded people.\n\nPlease note that the specified topics are communities that help you navigate the platform. Do not treat this as a clear expression of your own personal interests, preferences, and the like."
         },
         "clusters": {
             "label": "Features",
             "title": "Select Platform Features",
-            "subtitle": "Choose the platform capabilities you want to explore. We will help you get started with the selected features. Also, when you gain access to the corresponding functionality, you will be able to create new capabilities on our platform and give other users access to them."
+            "subtitle": "If necessary, you can choose the platform capabilities you want to explore. We will help you get started with the selected features. Also, when you gain access to the corresponding functionality, you will be able to create new capabilities on our platform and give other users access to them.\n\nPlease note that selecting this functionality does not guarantee that this functionality will be provided to you immediately or in full: some features may be under development, in test mode, available by invitation, gradually opening to different groups of users, or depend on the type of your account on the platform."
         },
         "completion": {
             "label": "Complete"
@@ -29,6 +29,7 @@
         "intro": "Saluton, hello! My name is Vladimir Levadnij, I am the General Diverseworker at the Teknokomo International Community. Let me introduce myself.",
         "description1": "You are entering an infinite space of exploration and collaboration with like-minded people. Here you can manage organizations, projects, and your own life.",
         "description2": "Our platform helps transform digital twins of enterprises and cities into reality. Together we are building bridges between worlds - virtual and real.",
+        "description4": "Use metaverses like Universo MMOOMM: a multiplayer space sandbox game where you unite in organizations, explore the universe, and build an economy. Here you can model chains and projects, transfer solutions to reality through automation and robots, and move between parallel worlds with different economies and rules.",
         "description3": "In the next few steps, you will choose your global goals, personal interests, and platform features. This will help us personalize your experience and connect you with the right communities."
     },
     "completion": {

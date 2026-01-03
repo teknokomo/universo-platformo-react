@@ -16,8 +16,8 @@ export const WelcomeStep: React.FC = () => {
         <Box>
             {/* Hero image */}
             <Box
-                component="img"
-                src="/start-mars.jpg"
+                component='img'
+                src='/start-mars.jpg'
                 alt={t('welcome.imageAlt')}
                 sx={{
                     width: '100%',
@@ -29,23 +29,27 @@ export const WelcomeStep: React.FC = () => {
             />
 
             {/* Welcome text */}
-            <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
+            <Typography variant='h4' component='h1' gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
                 {t('welcome.title')}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
                 {t('welcome.intro')}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
                 {t('welcome.description1')}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
                 {t('welcome.description2')}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
+                {t('welcome.description4')}
+            </Typography>
+
+            <Typography variant='body1' color='text.secondary' sx={{ lineHeight: 1.8 }}>
                 {t('welcome.description3')}
             </Typography>
         </Box>

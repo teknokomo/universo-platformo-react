@@ -42,11 +42,11 @@ export function LegalPage({ type }: LegalPageProps) {
     )
 
     return (
-        <Container maxWidth="md" sx={{ pt: { xs: 14, sm: 14 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+        <Container maxWidth='md' sx={{ pt: { xs: 14, sm: 14 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
             {/* Hero image - aligned with onboarding completion screen */}
             <Box
-                component="img"
-                src="/background-image.jpg"
+                component='img'
+                src='/background-image.jpg'
                 alt={t('imageAlt')}
                 sx={{
                     width: '100%',
@@ -57,15 +57,15 @@ export function LegalPage({ type }: LegalPageProps) {
                 }}
             />
 
-            <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
+            <Typography variant='h4' component='h1' gutterBottom sx={{ fontWeight: 600 }}>
                 {content.title}
             </Typography>
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
                 {content.description}
             </Typography>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
                 {content.lastUpdated}
             </Typography>
 
@@ -73,24 +73,18 @@ export function LegalPage({ type }: LegalPageProps) {
             <Box sx={{ mt: 3, mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Button
-                        variant="contained"
+                        variant='contained'
                         startIcon={<IconDownload size={18} />}
-                        component="a"
+                        component='a'
                         href={content.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        target='_blank'
+                        rel='noopener noreferrer'
                         download
                     >
                         {content.downloadLabel}
                     </Button>
 
-                    <Button
-                        variant="outlined"
-                        component="a"
-                        href={content.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
+                    <Button variant='outlined' component='a' href={content.pdfUrl} target='_blank' rel='noopener noreferrer'>
                         {t('openInNewTab')}
                     </Button>
                 </Box>
@@ -98,7 +92,7 @@ export function LegalPage({ type }: LegalPageProps) {
 
             {/* Go Home button */}
             <Box sx={{ mt: 4, textAlign: 'center' }}>
-                <Button variant="outlined" color="primary" onClick={() => navigate('/')}>
+                <Button variant='outlined' color='primary' onClick={() => navigate('/')}>
                     {t('goHome')}
                 </Button>
             </Box>
@@ -108,11 +102,11 @@ export function LegalPage({ type }: LegalPageProps) {
 
 // Pre-configured page components for routes
 export function TermsPage() {
-    return <LegalPage type="terms" />
+    return <LegalPage type='terms' />
 }
 
 export function PrivacyPage() {
-    return <LegalPage type="privacy" />
+    return <LegalPage type='privacy' />
 }
 
 export default LegalPage
