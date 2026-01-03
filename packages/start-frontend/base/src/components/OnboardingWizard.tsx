@@ -181,7 +181,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     ]
 
     return (
-        <Container maxWidth="md" sx={{ pt: { xs: 14, sm: 4 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 }, overflow: 'hidden' }}>
+        <Container maxWidth='md' sx={{ pt: { xs: 14, sm: 4 }, pb: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 }, overflow: 'hidden' }}>
             {/* Stepper - hide labels on mobile to prevent overflow */}
             <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: { xs: 2, sm: 4 }, display: { xs: 'none', sm: 'flex' } }}>
                 {stepLabels.map((label, index) => (
@@ -193,7 +193,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
 
             {/* Error message */}
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+                <Alert severity='error' sx={{ mb: 3 }} onClose={() => setError(null)}>
                     {error}
                 </Alert>
             )}
@@ -206,17 +206,17 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 {activeStep === 0 ? (
                     <Box /> // Empty placeholder for first step
                 ) : (
-                    <Button onClick={handleBack} disabled={isSaving} variant="outlined">
+                    <Button onClick={handleBack} disabled={isSaving} variant='outlined'>
                         {t('buttons.back')}
                     </Button>
                 )}
                 {activeStep === STEPS.length - 1 ? (
-                    <Button onClick={handleStartOver} variant="contained" color="primary">
+                    <Button onClick={handleStartOver} variant='contained' color='primary'>
                         {t('buttons.startOver')}
                     </Button>
                 ) : (
-                    <Button onClick={handleNext} disabled={isLoading || isSaving} variant="contained" color="primary">
-                        {isSaving ? <CircularProgress size={24} color="inherit" /> : t('buttons.next')}
+                    <Button onClick={handleNext} disabled={isLoading || isSaving} variant='contained' color='primary'>
+                        {isSaving ? <CircularProgress size={24} color='inherit' /> : t('buttons.next')}
                     </Button>
                 )}
             </Box>

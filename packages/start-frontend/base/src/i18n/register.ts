@@ -1,7 +1,11 @@
 /**
  * Universo Platformo | Start Frontend i18n Registration
  *
- * Registers onboarding, landing, legal, and cookies translations with the i18n instance
+ * @deprecated These functions are deprecated. Namespaces are now auto-registered
+ * via i18n/index.ts using registerNamespace() from @universo/i18n/registry.
+ * Components should simply use `useTranslation('namespace')` without manual registration.
+ *
+ * These functions are kept for backwards compatibility and will be removed in a future release.
  */
 import type { i18n as I18nInstance } from 'i18next'
 import onboardingEn from './locales/en/onboarding.json'
@@ -14,6 +18,7 @@ import cookiesEn from './locales/en/cookies.json'
 import cookiesRu from './locales/ru/cookies.json'
 
 /**
+ * @deprecated Use `useTranslation('onboarding')` directly. Namespace is auto-registered via i18n/index.ts.
  * Registers onboarding i18n resources with the provided i18n instance
  * @param i18n - The i18next instance to register resources with
  */
@@ -30,6 +35,7 @@ export function registerOnboardingI18n(i18n: I18nInstance): void {
 }
 
 /**
+ * @deprecated Use `useTranslation('landing')` directly. Namespace is auto-registered via i18n/index.ts.
  * Registers landing page i18n resources with the provided i18n instance
  * @param i18n - The i18next instance to register resources with
  */
@@ -46,6 +52,7 @@ export function registerLandingI18n(i18n: I18nInstance): void {
 }
 
 /**
+ * @deprecated Use `useTranslation('legal')` directly. Namespace is auto-registered via i18n/index.ts.
  * Registers legal pages i18n resources with the provided i18n instance
  * @param i18n - The i18next instance to register resources with
  */
@@ -62,6 +69,7 @@ export function registerLegalI18n(i18n: I18nInstance): void {
 }
 
 /**
+ * @deprecated Use `useTranslation('cookies')` directly. Namespace is auto-registered via i18n/index.ts.
  * Registers cookie consent i18n resources with the provided i18n instance
  * @param i18n - The i18next instance to register resources with
  */
