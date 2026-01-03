@@ -68,16 +68,10 @@ export default function AppAppBar() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 cursor: 'pointer',
-                                textDecoration: 'none !important',
-                                '&::before': {
-                                    display: 'none'
-                                },
+                                textDecoration: 'none',
                                 '&:hover': {
                                     opacity: 0.8,
-                                    textDecoration: 'none !important'
-                                },
-                                '& *': {
-                                    textDecoration: 'none !important'
+                                    textDecoration: 'none'
                                 }
                             }}
                         >

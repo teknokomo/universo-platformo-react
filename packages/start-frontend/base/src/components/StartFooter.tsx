@@ -10,7 +10,7 @@
  * Responsive: horizontal on desktop, vertical on mobile
  * Supports two variants: 'guest' (white text with shadow) and 'internal' (dark gray text)
  */
-import React from 'react'
+import React, { useMemo } from 'react'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import Link from '@mui/material/Link'
@@ -75,7 +75,8 @@ interface StartFooterProps {
 export const StartFooter: React.FC<StartFooterProps> = ({ variant = 'guest' }) => {
     const { t } = useTranslation('landing')
 
-    const footerItems: Omit<FooterItemProps, 'variant'>[] = [
+    const footerItems: Omit<FooterItemProps, 'variant'>[] = useMemo(
+        () => [
         {
             icon: <TelegramIcon fontSize='small' />,
             text: t('footer.owner'),
@@ -92,15 +93,17 @@ export const StartFooter: React.FC<StartFooterProps> = ({ variant = 'guest' }) =
             icon: <ArticleIcon fontSize='small' />,
             text: t('footer.termsOfService'),
             href: '/terms',
-            external: true
+            external: false
         },
         {
             icon: <PolicyIcon fontSize='small' />,
             text: t('footer.privacyPolicy'),
             href: '/privacy',
-            external: true
+            external: false
         }
-    ]
+    ],
+        [t]
+    )
 
     const isGuest = variant === 'guest'
 
