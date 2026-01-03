@@ -1,40 +1,57 @@
 # Active Context
 
-> **Last Updated**: 2026-01-02
+> **Last Updated**: 2026-01-03
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: SmartCaptcha UX & Cookie Text Improvements - 2026-01-02 ✅
+## Current Focus: i18n Migration to registerNamespace() Pattern - 2026-01-03 ✅
 
-### SmartCaptcha onNetworkError Handler
+### Migration Summary
 
-Added `onNetworkError` callback to SmartCaptcha widget for better UX when captcha service is unavailable.
+Migrated `start-frontend` i18n from legacy manual registration to standard `registerNamespace()` pattern.
+
+**Before (Legacy)**:
+- Components called `registerLandingI18n(i18n)` in `useEffect`
+- Required `useState` for `isReady` flag and conditional rendering
+- Namespace `landing` was missing from central registration
+
+**After (Standard)**:
+- All namespaces registered in `i18n/index.ts` via `registerNamespace()`
+- Components simply use `useTranslation('namespace')` from `@universo/i18n`
+- No `useEffect`, no `isReady` state, cleaner code
+
+### Files Modified
 
 | File | Change |
 |------|--------|
-| `AuthView.tsx` | Added `onNetworkError` handler, new optional `captchaNetworkError` label |
-
-**Behavior**: When SmartCaptcha widget encounters a network error, user sees error message instead of silent failure.
-
-### Cookie Consent Text Updates
-
-Updated rejection dialog text in both languages to consistently use "Universo Platformo" instead of "Платформа/Platform".
-
-| File | Change |
-|------|--------|
-| `ru/cookies.json` | Updated paragraph1 and paragraph2 with "Universo Platformo" |
-| `en/cookies.json` | Updated paragraph1 and paragraph2 with "Universo Platformo" |
+| `i18n/index.ts` | Added `landing` namespace registration |
+| `Testimonials.tsx` | Removed useEffect, switched to @universo/i18n |
+| `Hero.tsx` | Removed useEffect, switched to @universo/i18n |
+| `StartFooter.tsx` | Removed useEffect, switched to @universo/i18n |
+| `AuthenticatedStartPage.tsx` | Removed redundant registerOnboardingI18n call |
+| `i18n/register.ts` | All functions marked @deprecated |
+| `index.ts` | Legacy exports marked @deprecated |
 
 ### Build Status
 
-- ✅ Lint passed: auth-frontend (0 errors, 11 warnings)
-- ✅ Full workspace build: 61 tasks, 6m12s
+- ✅ Lint passed: start-frontend (0 errors after --fix)
+- ✅ Full workspace build: 61 tasks, 6m8s
 
 ---
 
-## Previous Focus: SmartCaptcha Mode Switch Fix - 2026-01-02 ✅
+## Previous: Start Section Footer & Onboarding Text Updates - 2026-01-03 ✅
+
+- **Guest Start Page Footer**: Adjusted link hover color for better readability on the hero image (lighter blue on hover; internal pages keep the default blue).
+- **Onboarding Subtitles**: Ensured the "Notice" text renders as a true second paragraph by splitting subtitle strings on blank lines ("\n\n") and rendering paragraphs as separate Typography blocks.
+- **Footer Spacing**: Restored guest cards↔footer vertical spacing to 4 modules (after rollback) by adjusting the testimonials section bottom padding.
+- **Brand Link**: Made AppAppBar brand (logo + "Universo" text) clickable with RouterLink to home route.
+- **Validation**: start-frontend lint + build verified after changes.
+
+---
+
+## Previous Focus: SmartCaptcha UX & Cookie Text Improvements - 2026-01-02 ✅
 
 Added optional Yandex SmartCaptcha support for the login form, mirroring the existing registration captcha implementation.
 

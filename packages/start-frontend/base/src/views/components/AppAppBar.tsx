@@ -22,6 +22,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useAuth } from '@universo/auth-frontend'
 import SitemarkIcon from './SitemarkIcon'
+import Link from '@mui/material/Link'
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
     display: 'flex',
@@ -34,7 +35,7 @@ const StyledToolbar = styled(Toolbar)(({ theme }) => ({
     borderColor: theme.palette.divider,
     backgroundColor: alpha(theme.palette.background.default, 0.4),
     boxShadow: theme.shadows[1],
-    padding: '8px 12px',
+    padding: '8px 12px'
 }))
 
 export default function AppAppBar() {
@@ -47,57 +48,73 @@ export default function AppAppBar() {
 
     return (
         <AppBar
-            position="fixed"
+            position='fixed'
             enableColorOnDark
             sx={{
                 boxShadow: 0,
                 bgcolor: 'transparent',
                 backgroundImage: 'none',
-                mt: 'calc(var(--template-frame-height, 0px) + 28px)',
+                mt: 'calc(var(--template-frame-height, 0px) + 28px)'
             }}
         >
-            <Container maxWidth="lg">
-                <StyledToolbar variant="dense" disableGutters>
+            <Container maxWidth='lg'>
+                <StyledToolbar variant='dense' disableGutters>
                     <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', px: 0 }}>
-                        <SitemarkIcon />
+                        <Link
+                            component={RouterLink}
+                            to='/'
+                            underline='none'
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                textDecoration: 'none',
+                                '&:hover': {
+                                    opacity: 0.8,
+                                    textDecoration: 'none'
+                                }
+                            }}
+                        >
+                            <SitemarkIcon />
+                        </Link>
                     </Box>
                     <Box
                         sx={{
                             display: { xs: 'none', md: 'flex' },
                             gap: 1,
-                            alignItems: 'center',
+                            alignItems: 'center'
                         }}
                     >
                         {!loading &&
                             (isAuthenticated ? (
-                                <Button onClick={() => logout()} color="primary" variant="contained" size="small">
+                                <Button onClick={() => logout()} color='primary' variant='contained' size='small'>
                                     Выйти
                                 </Button>
                             ) : (
-                                <Button component={RouterLink} to="/auth" color="primary" variant="contained" size="small">
+                                <Button component={RouterLink} to='/auth' color='primary' variant='contained' size='small'>
                                     Войти
                                 </Button>
                             ))}
                     </Box>
                     <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1 }}>
-                        <IconButton aria-label="Menu button" onClick={toggleDrawer(true)}>
+                        <IconButton aria-label='Menu button' onClick={toggleDrawer(true)}>
                             <MenuIcon />
                         </IconButton>
                         <Drawer
-                            anchor="top"
+                            anchor='top'
                             open={open}
                             onClose={toggleDrawer(false)}
                             PaperProps={{
                                 sx: {
-                                    top: 'var(--template-frame-height, 0px)',
-                                },
+                                    top: 'var(--template-frame-height, 0px)'
+                                }
                             }}
                         >
                             <Box sx={{ p: 2, backgroundColor: 'background.default' }}>
                                 <Box
                                     sx={{
                                         display: 'flex',
-                                        justifyContent: 'flex-end',
+                                        justifyContent: 'flex-end'
                                     }}
                                 >
                                     <IconButton onClick={toggleDrawer(false)}>
@@ -113,14 +130,14 @@ export default function AppAppBar() {
                                                     toggleDrawer(false)()
                                                     logout()
                                                 }}
-                                                color="primary"
-                                                variant="contained"
+                                                color='primary'
+                                                variant='contained'
                                                 fullWidth
                                             >
                                                 Выйти
                                             </Button>
                                         ) : (
-                                            <Button component={RouterLink} to="/auth" color="primary" variant="contained" fullWidth>
+                                            <Button component={RouterLink} to='/auth' color='primary' variant='contained' fullWidth>
                                                 Войти
                                             </Button>
                                         )}

@@ -22,5 +22,11 @@
             "title": "Grandaringo",
             "description": "The creative circuit of the ecosystem: tools for media and film, collaborative development space, communication, messenger and content process management."
         }
+    },
+    "footer": {
+        "owner": "Vladimir Levadnij",
+        "email": "universo.pro@yandex.ru",
+        "termsOfService": "Terms of Service",
+        "privacyPolicy": "Privacy Policy"
     }
 }

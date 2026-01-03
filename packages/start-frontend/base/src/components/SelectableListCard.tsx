@@ -1,15 +1,5 @@
 import React from 'react'
-import {
-    Box,
-    Card,
-    CardActionArea,
-    CardContent,
-    Checkbox,
-    Skeleton,
-    Typography,
-    alpha,
-    useTheme
-} from '@mui/material'
+import { Box, Card, CardActionArea, CardContent, Checkbox, Skeleton, Typography, alpha, useTheme } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import type { OnboardingItem } from '../types'
 
@@ -29,20 +19,13 @@ interface SelectableListCardProps {
  * - Checkbox on the right for selection
  * - Click anywhere on card to toggle selection
  */
-export const SelectableListCard: React.FC<SelectableListCardProps> = ({
-    items,
-    selectedIds,
-    onSelectionChange,
-    isLoading
-}) => {
+export const SelectableListCard: React.FC<SelectableListCardProps> = ({ items, selectedIds, onSelectionChange, isLoading }) => {
     const theme = useTheme()
     const { t } = useTranslation('onboarding')
 
     const handleToggle = (id: string) => {
         const isCurrentlySelected = selectedIds.includes(id)
-        const newSelected = isCurrentlySelected
-            ? selectedIds.filter((selectedId) => selectedId !== id)
-            : [...selectedIds, id]
+        const newSelected = isCurrentlySelected ? selectedIds.filter((selectedId) => selectedId !== id) : [...selectedIds, id]
         onSelectionChange(newSelected)
     }
 
@@ -52,14 +35,14 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                 {[1, 2, 3].map((i) => (
                     <Card key={i} sx={{ display: 'flex', alignItems: 'center' }}>
                         <Box sx={{ width: 80, minHeight: 80, p: 2 }}>
-                            <Skeleton variant="circular" width={48} height={48} />
+                            <Skeleton variant='circular' width={48} height={48} />
                         </Box>
                         <CardContent sx={{ flex: 1 }}>
-                            <Skeleton variant="text" width="60%" height={28} />
-                            <Skeleton variant="text" width="80%" height={20} />
+                            <Skeleton variant='text' width='60%' height={28} />
+                            <Skeleton variant='text' width='80%' height={20} />
                         </CardContent>
                         <Box sx={{ pr: 2 }}>
-                            <Skeleton variant="rectangular" width={24} height={24} />
+                            <Skeleton variant='rectangular' width={24} height={24} />
                         </Box>
                     </Card>
                 ))}
@@ -76,7 +59,7 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                     color: 'text.secondary'
                 }}
             >
-                <Typography variant="body1">{t('errors.noItemsAvailable')}</Typography>
+                <Typography variant='body1'>{t('errors.noItemsAvailable')}</Typography>
             </Box>
         )
     }
@@ -97,9 +80,7 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                             transition: 'all 0.2s ease',
                             '&:hover': {
                                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                                borderColor: isSelected
-                                    ? theme.palette.primary.main
-                                    : alpha(theme.palette.primary.main, 0.3)
+                                borderColor: isSelected ? theme.palette.primary.main : alpha(theme.palette.primary.main, 0.3)
                             }
                         }}
                     >
@@ -118,7 +99,7 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                             }}
                         >
                             <Typography
-                                variant="h3"
+                                variant='h3'
                                 sx={{
                                     fontWeight: 700,
                                     color: isSelected ? theme.palette.primary.main : theme.palette.text.secondary,
@@ -142,8 +123,8 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                         >
                             <CardContent sx={{ flex: 1, py: 2 }}>
                                 <Typography
-                                    variant="h6"
-                                    component="div"
+                                    variant='h6'
+                                    component='div'
                                     sx={{
                                         fontWeight: isSelected ? 600 : 500,
                                         color: isSelected ? theme.palette.primary.main : 'inherit'
@@ -152,11 +133,7 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                                     {item.name}
                                 </Typography>
                                 {item.description && (
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                        sx={{ mt: 0.5, lineHeight: 1.4 }}
-                                    >
+                                    <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5, lineHeight: 1.4 }}>
                                         {item.description}
                                     </Typography>
                                 )}
@@ -168,7 +145,7 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({
                                     checked={isSelected}
                                     onChange={() => handleToggle(item.id)}
                                     onClick={(e) => e.stopPropagation()}
-                                    color="primary"
+                                    color='primary'
                                     sx={{
                                         '& .MuiSvgIcon-root': {
                                             fontSize: 28

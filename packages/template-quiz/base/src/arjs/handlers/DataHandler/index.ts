@@ -2011,8 +2011,7 @@ export class DataHandler {
                             <span>
                                 Я ознакомился и принимаю 
                                 <a href="/privacy" target="_blank" rel="noopener noreferrer" style="color: #4CAF50; text-decoration: underline;">
-                                    Политику конфиденциальности.
-                                </a>
+                                    Политику конфиденциальности</a>, даю согласие на обработку персональных данных.
                             </span>
                         </label>
                     </div>

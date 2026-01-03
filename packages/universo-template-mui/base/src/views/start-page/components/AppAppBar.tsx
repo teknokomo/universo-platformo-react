@@ -10,6 +10,7 @@ import Container from '@mui/material/Container'
 import Divider from '@mui/material/Divider'
 import MenuItem from '@mui/material/MenuItem'
 import Drawer from '@mui/material/Drawer'
+import Link from '@mui/material/Link'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useAuth } from '@universo/auth-frontend'
@@ -66,7 +67,29 @@ export default function AppAppBar() {
       <Container maxWidth="lg">
         <StyledToolbar variant="dense" disableGutters>
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', px: 0 }}>
-            <Sitemark />
+            <Link
+              component={RouterLink}
+              to='/'
+              underline="none"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                textDecoration: 'none !important',
+                '&::before': {
+                  display: 'none',
+                },
+                '&:hover': {
+                  opacity: 0.8,
+                  textDecoration: 'none !important',
+                },
+                '& *': {
+                  textDecoration: 'none !important',
+                }
+              }}
+            >
+              <Sitemark />
+            </Link>
             {/* MVP: Navigation buttons temporarily commented out */}
             {/* <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
               <Button variant="text" color="info" size="small">

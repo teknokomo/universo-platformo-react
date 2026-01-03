@@ -12,6 +12,38 @@ _No active tasks._
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-03: i18n Migration to registerNamespace() Pattern ✅
+
+- [x] Added `landing` namespace registration to `i18n/index.ts` via `registerNamespace()`
+- [x] Refactored `Testimonials.tsx` - removed legacy `useEffect` + `registerLandingI18n`, switched to `@universo/i18n`
+- [x] Refactored `Hero.tsx` - removed legacy pattern, switched to `@universo/i18n`
+- [x] Refactored `StartFooter.tsx` - removed legacy pattern, switched to `@universo/i18n`
+- [x] Refactored `AuthenticatedStartPage.tsx` - removed redundant `registerOnboardingI18n` call
+- [x] Marked legacy functions in `register.ts` as `@deprecated` with migration guidance
+- [x] Marked legacy exports in `index.ts` as `@deprecated`
+- [x] Lint passed: start-frontend (0 errors after --fix)
+- [x] Full workspace build passed (61 tasks, 6m8s)
+
+### 2026-01-03: Start Section Footer & Onboarding Text Updates ✅
+
+- [x] Created StartFooter component with contact info (owner, email) and legal links
+- [x] Added footer i18n keys to landing.json (ru/en)
+- [x] Exported StartFooter from components/index.ts
+- [x] Integrated StartFooter in GuestStartPage
+- [x] Integrated StartFooter in AuthenticatedStartPage
+- [x] Added description4 to WelcomeStep (Universo MMOOMM metaverse text)
+- [x] Updated projects subtitle in onboarding.json (ru/en)
+- [x] Updated campaigns title and subtitle in onboarding.json (ru/en)
+- [x] Updated clusters subtitle in onboarding.json (ru/en)
+- [x] Adjusted guest footer hover color to a lighter blue for contrast (kept internal hover blue)
+- [x] Fixed onboarding subtitle paragraph rendering (split by blank line into two Typography blocks)
+- [x] Reduced guest footer top spacing to zero (bring closer to module cards)
+- [x] Restored guest cards↔footer spacing to 4 modules after rollback (Testimonials `pb`)
+- [x] Made AppAppBar brand (logo + name) clickable with link to home route
+- [x] Verified start-frontend lint and build
+- [x] Lint passed: start-frontend (0 errors after --fix)
+- [x] Full workspace build passed (61 tasks, 8m20s)
+
 ### 2026-01-02: SmartCaptcha Login Form Support ✅
 
 - [x] Added `SMARTCAPTCHA_LOGIN_ENABLED` env variable to .env and .env.example

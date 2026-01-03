@@ -31,6 +31,49 @@
 
 ---
 
+## 📅 2026-01-03
+
+### i18n Migration to registerNamespace() Pattern ✅
+
+- **Pattern Unification**: Migrated `start-frontend` from legacy manual registration to standard `registerNamespace()` pattern
+- **Problem Solved**: `landing` namespace was missing from central registration, forcing components to call `registerLandingI18n(i18n)` in useEffect
+- **Changes**:
+  - Added `landing` namespace to `i18n/index.ts` via `registerNamespace()`
+  - Refactored `Testimonials.tsx`, `Hero.tsx`, `StartFooter.tsx` - removed useEffect, switched to `@universo/i18n`
+  - Refactored `AuthenticatedStartPage.tsx` - removed redundant `registerOnboardingI18n` call
+  - Marked all legacy functions in `register.ts` as `@deprecated`
+  - Marked legacy exports in `index.ts` as `@deprecated`
+- **Benefits**: Cleaner code, no useEffect for i18n, no isReady state, consistent with 20+ other packages
+- **Backwards Compatibility**: Legacy functions preserved with @deprecated notice for any external consumers
+- **Build Status**: Full workspace build passed (61 tasks, 6m8s)
+
+### Start Section Footer & Onboarding Text Updates ✅
+
+- **StartFooter Component**: New reusable footer for start pages
+  - Contact info: Owner name (Telegram link), Email address
+  - Legal links: Terms of Service, Privacy Policy
+  - Responsive: horizontal on desktop, vertical on mobile
+  - i18n support: RU/EN translations
+  - Files: `StartFooter.tsx`, `landing.json` (ru/en)
+- **Footer Integration**: Added to both GuestStartPage and AuthenticatedStartPage
+- **Onboarding Text Updates**:
+  - WelcomeStep: Added description4 about Universo MMOOMM metaverse
+  - Projects step: Updated subtitle with meta-projects clarification
+  - Campaigns step: Changed title to "Определите интересные темы", updated subtitle
+  - Clusters step: Updated subtitle with functionality availability note
+  - Files: `WelcomeStep.tsx`, `onboarding.json` (ru/en)
+- **Build Status**: Full workspace build passed (61 tasks, 8m20s)
+
+### Start Section UI Polish (Footer Hover + Paragraph Rendering) ✅
+
+- **Guest Footer Hover**: Updated guest footer links so hover uses a lighter blue for contrast on the landing hero background (internal pages keep primary blue hover).
+- **Onboarding Subtitles**: Fixed paragraph rendering for step subtitles by splitting translation strings on blank lines ("\n\n") and rendering each paragraph as its own Typography block.
+- **Footer Spacing**: Restored guest cards↔footer vertical spacing to 4 modules after rollback (adjusted testimonials bottom padding).
+- **Brand Link**: Made AppAppBar brand (logo + text) clickable with RouterLink to home route (`/`).
+- **Build Status**: start-frontend lint and build passed.
+
+---
+
 ## 📅 2026-01-02
 
 ### SmartCaptcha UX Improvements & Cookie Text Updates ✅
