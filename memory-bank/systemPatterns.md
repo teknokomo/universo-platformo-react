@@ -71,6 +71,21 @@ const apiClient = createAuthClient({
 
 ---
 
+## ENV Feature Flags + Public Config Endpoint Pattern
+
+**Goal**: Centralize auth-related feature toggles in ENV, expose them to the UI via a small public endpoint, and keep captcha configuration backwards-compatible.
+
+**Pattern**:
+- Parse feature flags in shared utils (`packages/universo-utils/base/src/env/authConfig.ts`) so both backend and frontend can share the same semantics.
+- Backend exposes a dedicated config endpoint: `GET /api/v1/auth/auth-config`.
+- Response shape is **explicitly nested** and versionable:
+  - `{ features: { ... }, captcha: { ... } }`
+- Keep legacy compatibility endpoints when needed (e.g., `/captcha-config`) to avoid breaking older clients.
+
+**Frontend requirement**: Treat the config response as a compound object and pass the nested `captcha` object into components that expect captcha config; do not assume the entire response is the captcha config.
+
+---
+
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
 **Rule**: Source-only packages (no dist/) MUST use peerDependencies, NOT dependencies.

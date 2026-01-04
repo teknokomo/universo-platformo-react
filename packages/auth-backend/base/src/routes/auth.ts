@@ -12,6 +12,7 @@ import {
     getLoginCaptchaConfig,
     isLoginCaptchaRequired
 } from '../services/captchaService'
+import { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled } from '@universo/utils/auth'
 import type { DataSource } from 'typeorm'
 
 const LoginSchema = z.object({
@@ -69,12 +70,29 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
         })
     })
 
+    // Auth feature configuration endpoint (public, no auth required)
+    // Returns feature toggles for registration, login, and email confirmation
+    router.get('/auth-config', (req, res) => {
+        const authFeatures = getAuthFeatureConfig()
+        console.info('[auth] /auth-config', {
+            hostname: req.hostname,
+            features: authFeatures
+        })
+        return res.json(authFeatures)
+    })
+
     router.get('/csrf', csrfProtection, (req, res) => {
         const request = req as AuthenticatedRequest
         return res.json({ csrfToken: request.csrfToken?.() ?? '' })
     })
 
     router.post('/register', loginLimiter, csrfProtection, async (req, res) => {
+        // Check if registration is enabled
+        if (!isRegistrationEnabled()) {
+            console.info('[auth] Registration attempt blocked - feature disabled')
+            return res.status(403).json({ error: 'Registration is currently disabled' })
+        }
+
         const parsed = RegisterSchema.safeParse(req.body)
         if (!parsed.success) {
             const firstError = parsed.error.errors[0]?.message || 'Invalid payload'
@@ -238,6 +256,12 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
     })
 
     router.post('/login', loginLimiter, csrfProtection, async (req, res, next) => {
+        // Check if login is enabled
+        if (!isLoginEnabled()) {
+            console.info('[auth] Login attempt blocked - feature disabled')
+            return res.status(403).json({ error: 'Login is currently disabled' })
+        }
+
         const parsed = LoginSchema.safeParse(req.body)
         if (!parsed.success) return res.status(400).json({ error: 'Invalid payload' })
 

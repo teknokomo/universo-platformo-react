@@ -28,7 +28,7 @@ export { LoginForm } from './components/LoginForm'
 export type { LoginFormProps, LoginFormLabels } from './components/LoginForm'
 
 export { AuthView } from './components/AuthView'
-export type { AuthViewProps, AuthViewLabels, AuthViewMode, CaptchaConfig } from './components/AuthView'
+export type { AuthViewProps, AuthViewLabels, AuthViewMode, CaptchaConfig, AuthFeatureConfig } from './components/AuthView'
 
 // Pages (full authentication flows)
 export { AuthPage } from './pages/AuthPage'

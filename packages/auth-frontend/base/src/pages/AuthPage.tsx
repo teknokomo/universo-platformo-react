@@ -10,7 +10,7 @@ import type { BoxProps } from '@mui/material'
 
 import { clearStoredCsrfToken } from '../api/client'
 import { useAuth } from '../providers/authProvider'
-import { AuthView, type AuthViewLabels, type CaptchaConfig } from '../components/AuthView'
+import { AuthView, type AuthViewLabels, type CaptchaConfig, type AuthFeatureConfig } from '../components/AuthView'
 
 export interface AuthPageProps {
     /**
@@ -89,6 +89,7 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
     const location = useLocation()
     const { login, client, isAuthenticated, loading } = useAuth()
     const [captchaConfig, setCaptchaConfig] = useState<CaptchaConfig | undefined>(undefined)
+    const [authFeatureConfig, setAuthFeatureConfig] = useState<AuthFeatureConfig | undefined>(undefined)
 
     // Memoize redirect path calculation to avoid duplication (DRY principle)
     const getRedirectPath = useCallback(() => {
@@ -174,6 +175,29 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
         fetchCaptchaConfig()
     }, [client])
 
+    // Fetch auth feature configuration from backend on mount
+    useEffect(() => {
+        if (!client) return
+
+        const fetchAuthFeatureConfig = async () => {
+            try {
+                const response = await client.get<AuthFeatureConfig>('auth/auth-config')
+                console.info('[AuthPage] Auth feature config received:', response.data)
+                setAuthFeatureConfig(response.data)
+            } catch (err) {
+                console.warn('[AuthPage] Failed to fetch auth feature config:', err)
+                // Default to all enabled if fetch fails (backwards compatibility)
+                setAuthFeatureConfig({
+                    registrationEnabled: true,
+                    loginEnabled: true,
+                    emailConfirmationRequired: true
+                })
+            }
+        }
+
+        fetchAuthFeatureConfig()
+    }, [client])
+
     // Redirect if already authenticated
     useEffect(() => {
         if (!loading && isAuthenticated) {
@@ -191,6 +215,7 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
             onRegister={handleRegister}
             errorMapper={errorMapper}
             captchaConfig={captchaConfig}
+            authFeatureConfig={authFeatureConfig}
             slots={slots}
         />
     )

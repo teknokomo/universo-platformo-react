@@ -33,6 +33,24 @@
 
 ## 📅 2026-01-03
 
+### Auth Feature Toggles & Legal Pages Footer ✅
+
+- **Legal Pages Footer**: Added `StartFooter` component to `LegalPage.tsx` (Terms of Service, Privacy Policy pages)
+- **ENV Variables**: Added 3 new environment toggles in `.env` / `.env.example`:
+  - `AUTH_REGISTRATION_ENABLED` (default: true) - disable new user registration
+  - `AUTH_LOGIN_ENABLED` (default: true) - disable user login (maintenance mode)
+  - `AUTH_EMAIL_CONFIRMATION_REQUIRED` (default: true) - control success message after registration
+- **New Endpoint**: `GET /api/v1/auth/auth-config` returns `AuthFeatureConfig` (separate from captcha-config)
+- **Backend Protection**: Registration/login routes return 403 when disabled
+- **Frontend UX**:
+  - Shows Alert when feature is disabled
+  - Disables form buttons when feature is off
+  - Different success message based on `emailConfirmationRequired` setting
+- **New Package Submodule**: `@universo/utils/auth` with `getAuthFeatureConfig()`, `isRegistrationEnabled()`, `isLoginEnabled()`, `isEmailConfirmationRequired()`
+- **i18n Keys Added**: `registrationDisabled`, `loginDisabled`, `successRegisterNoEmail` (EN/RU)
+- **Build Status**: Full workspace build passed (61 tasks, 4m58s)
+- **Pattern**: Follows captcha-config pattern - separate endpoint, env-driven, defaults to enabled for backwards compatibility
+
 ### i18n Migration to registerNamespace() Pattern ✅
 
 - **Pattern Unification**: Migrated `start-frontend` from legacy manual registration to standard `registerNamespace()` pattern

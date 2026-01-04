@@ -1,47 +1,32 @@
 # Active Context
 
-> **Last Updated**: 2026-01-03
+> **Last Updated**: 2025-01-10
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: i18n Migration to registerNamespace() Pattern - 2026-01-03 ✅
+## Current Focus: Auth Disabled State UX Refinements - 2025-01-10 ✅
 
-### Migration Summary
+Refined UX when auth features are disabled based on QA feedback.
 
-Migrated `start-frontend` i18n from legacy manual registration to standard `registerNamespace()` pattern.
+### Key Deliverables
 
-**Before (Legacy)**:
-- Components called `registerLandingI18n(i18n)` in `useEffect`
-- Required `useState` for `isReady` flag and conditional rendering
-- Namespace `landing` was missing from central registration
-
-**After (Standard)**:
-- All namespaces registered in `i18n/index.ts` via `registerNamespace()`
-- Components simply use `useTranslation('namespace')` from `@universo/i18n`
-- No `useEffect`, no `isReady` state, cleaner code
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `i18n/index.ts` | Added `landing` namespace registration |
-| `Testimonials.tsx` | Removed useEffect, switched to @universo/i18n |
-| `Hero.tsx` | Removed useEffect, switched to @universo/i18n |
-| `StartFooter.tsx` | Removed useEffect, switched to @universo/i18n |
-| `AuthenticatedStartPage.tsx` | Removed redundant registerOnboardingI18n call |
-| `i18n/register.ts` | All functions marked @deprecated |
-| `index.ts` | Legacy exports marked @deprecated |
+- **Cleaner disabled state**: When registration/login is disabled, the entire form is now hidden (not just button disabled)
+- **Alert message**: Shows only the disabled notification with admin contact email
+- **Mode switcher preserved**: Links to switch between login/register remain visible when feature disabled
+- **i18n updates**: Updated disabled messages with admin contact emails:
+  - RU: `universo.pro@yandex.ru`
+  - EN: `universo.pro@yandex.com`
+- **Legal pages footer**: Fixed sticky positioning with `minHeight: 100vh` and `flexGrow: 1`
 
 ### Build Status
 
-- ✅ Lint passed: start-frontend (0 errors after --fix)
-- ✅ Full workspace build: 61 tasks, 6m8s
+- ✅ Full workspace build passed (61 tasks, 4m52s)
 
 ---
 
-## Previous: Start Section Footer & Onboarding Text Updates - 2026-01-03 ✅
+## Previous: Auth Feature Flags & Auth UI Layout - 2026-01-04 ✅
 
 - **Guest Start Page Footer**: Adjusted link hover color for better readability on the hero image (lighter blue on hover; internal pages keep the default blue).
 - **Onboarding Subtitles**: Ensured the "Notice" text renders as a true second paragraph by splitting subtitle strings on blank lines ("\n\n") and rendering paragraphs as separate Typography blocks.
