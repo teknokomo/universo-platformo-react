@@ -31,6 +31,25 @@
 
 ---
 
+## 📅 2026-01-05
+
+### Improve Login Error Messages UX ✅
+
+- **Problem**: User tried to login with unregistered email and saw generic "Ошибка сервера" (Server error) message
+- **Root Cause**: `mapSupabaseError()` looked for Supabase phrase "Invalid login credentials" but our backend returned "Invalid credentials"
+- **Fix**: Updated `errorMapping.ts` to match both Supabase and backend error messages
+- **New i18n Key**: `loginFailed` with user-friendly message guiding to registration
+  - EN: "Failed to sign in. Please check your email and password, or register if you don't have an account yet."
+  - RU: "Не удалось войти в систему. Проверьте email и пароль или зарегистрируйтесь, если у вас ещё нет аккаунта."
+- **Improved `serverError`**: Changed from generic to more helpful message for actual server errors
+  - EN: "An unexpected error occurred. Please try again later or contact support if the problem persists."
+  - RU: "Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже или обратитесь в поддержку, если проблема сохраняется."
+- **Security**: Message doesn't reveal if email exists in system (OWASP best practice)
+- **Files Changed**: `errorMapping.ts`, `auth.json` (en/ru)
+- **Build**: Full workspace passed (61 tasks, 4m36s)
+
+---
+
 ## 📅 2026-01-03
 
 ### Auth Feature Toggles & Legal Pages Footer ✅

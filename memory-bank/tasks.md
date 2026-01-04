@@ -12,6 +12,18 @@ _No active tasks._
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-05: Improve Login Error Messages UX ✅
+
+- [x] Update `errorMapping.ts` — add mapping `Invalid credentials` → `loginFailed`
+- [x] Add `loginFailed` i18n key to EN locale
+- [x] Add `loginFailed` i18n key to RU locale
+- [x] Update `serverError` messages in both locales (more informative)
+- [x] Lint check `auth-frontend` and `@universo/i18n` (0 errors)
+- [x] Full workspace build passed (61 tasks, 4m36s)
+- **Result**: "Ошибка сервера" → "Не удалось войти в систему. Проверьте email и пароль или зарегистрируйтесь, если у вас ещё нет аккаунта."
+- **Security**: Message doesn't reveal if email exists (OWASP best practice)
+- **Pattern**: `mapSupabaseError()` now matches both Supabase and backend error messages
+
 ### 2026-01-04: PR #627 Bot Review Fixes ✅
 
 - [x] Fixed DRY violation: extracted mode switcher outside conditional block in AuthView.tsx

@@ -9,7 +9,7 @@
  * Maps Supabase error messages to i18n translation key suffixes.
  *
  * @param errorMessage - Raw error message from Supabase API
- * @returns Translation key suffix (e.g., 'invalidCredentials')
+ * @returns Translation key suffix (e.g., 'loginFailed', 'serverError')
  *
  * @example
  * ```typescript
@@ -25,7 +25,11 @@
 export const mapSupabaseError = (errorMessage: string | null | undefined): string => {
     if (!errorMessage) return 'unknownError'
 
-    if (errorMessage.includes('Invalid login credentials')) return 'invalidCredentials'
+    // Match both Supabase phrase and our backend message for login failures
+    // Security: Uses generic message that doesn't reveal if email exists (OWASP best practice)
+    if (errorMessage.includes('Invalid login credentials') || errorMessage.includes('Invalid credentials')) {
+        return 'loginFailed'
+    }
     if (errorMessage.includes('User already registered')) return 'userAlreadyRegistered'
     if (errorMessage.includes('Email not confirmed')) return 'emailNotConfirmed'
     if (errorMessage.includes('Password should be')) return 'passwordRequirements'
