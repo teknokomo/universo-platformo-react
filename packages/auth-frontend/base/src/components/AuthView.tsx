@@ -351,7 +351,7 @@ export const AuthView = ({
                         </Alert>
                     ) : null}
 
-                    {/* Feature disabled - show only message and mode switcher, no form */}
+                    {/* Feature disabled - show only warning message, no form */}
                     {(mode === 'register' && !authFeatures.registrationEnabled) || (mode === 'login' && !authFeatures.loginEnabled) ? (
                         <Box>
                             <Alert severity='warning' sx={{ mb: 3 }}>
@@ -359,12 +359,6 @@ export const AuthView = ({
                                     ? labels.registrationDisabled || 'Registration is currently unavailable. Please try again later.'
                                     : labels.loginDisabled || 'Login is currently unavailable. The system is under maintenance.'}
                             </Alert>
-                            <Typography align='center'>
-                                {mode === 'login' ? labels.noAccount : labels.haveAccount}{' '}
-                                <Link href='#' onClick={toggleMode} underline='hover'>
-                                    {mode === 'login' ? labels.createAccount : labels.loginInstead}
-                                </Link>
-                            </Typography>
                         </Box>
                     ) : (
                         <Box component='form' onSubmit={handleSubmit}>
@@ -470,17 +464,16 @@ export const AuthView = ({
                                         {submitLabel}
                                     </Button>
                                 </Grid>
-                                <Grid item xs={12}>
-                                    <Typography align='center'>
-                                        {mode === 'login' ? labels.noAccount : labels.haveAccount}{' '}
-                                        <Link href='#' onClick={toggleMode} underline='hover'>
-                                            {mode === 'login' ? labels.createAccount : labels.loginInstead}
-                                        </Link>
-                                    </Typography>
-                                </Grid>
                             </Grid>
                         </Box>
                     )}
+                    {/* Mode switcher - shown for both enabled and disabled states (DRY) */}
+                    <Typography align='center' sx={{ mt: 2 }}>
+                        {mode === 'login' ? labels.noAccount : labels.haveAccount}{' '}
+                        <Link href='#' onClick={toggleMode} underline='hover'>
+                            {mode === 'login' ? labels.createAccount : labels.loginInstead}
+                        </Link>
+                    </Typography>
                 </CardComponent>
             </ContainerComponent>
         </RootComponent>

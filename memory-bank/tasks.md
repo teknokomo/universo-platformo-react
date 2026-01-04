@@ -12,6 +12,13 @@ _No active tasks._
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-04: PR #627 Bot Review Fixes ✅
+
+- [x] Fixed DRY violation: extracted mode switcher outside conditional block in AuthView.tsx
+- [x] Combined two useEffect hooks into one with Promise.allSettled in AuthPage.tsx
+- [x] Fixed systemPatterns.md: documentation now correctly reflects flat config structure (not nested)
+- **Changes**: Auth frontend code quality improvements per Gemini/Copilot review comments
+
 ### 2025-01-10: Auth Disabled State UX Refinements ✅
 
 - [x] Hide entire form when auth feature disabled (registration/login), show only alert message
