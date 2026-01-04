@@ -7,7 +7,8 @@ export default defineConfig({
         'env/index': './src/env/index.ts',
         'ui-utils': './src/ui-utils/index.js',
         'rate-limiting': './src/rate-limiting/index.ts',
-        'captcha/index': './src/captcha/index.ts'
+        'captcha/index': './src/captcha/index.ts',
+        'auth/index': './src/auth/index.ts'
     },
     format: ['esm', 'cjs'],
     dts: true,

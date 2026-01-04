@@ -60,6 +60,7 @@ const Auth = () => {
             loginInstead: t('loginLink'),
             fieldsRequired: t('fieldsRequired'),
             successRegister: t('successRegister'),
+            successRegisterNoEmail: t('successRegisterNoEmail'),
             loginSuccess: t('loginSuccess'),
             loginError: (error) => t('loginError', { error }),
             // Consent labels for registration form
@@ -69,7 +70,10 @@ const Auth = () => {
             privacyLink: t('privacyLink'),
             privacySuffix: t('privacySuffix'),
             consentRequired: t('consentRequired'),
-            captchaRequired: t('captchaRequired')
+            captchaRequired: t('captchaRequired'),
+            // Feature toggle labels
+            registrationDisabled: t('registrationDisabled'),
+            loginDisabled: t('loginDisabled')
         }),
         [t]
     )

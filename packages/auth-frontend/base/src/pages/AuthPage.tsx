@@ -10,7 +10,7 @@ import type { BoxProps } from '@mui/material'
 
 import { clearStoredCsrfToken } from '../api/client'
 import { useAuth } from '../providers/authProvider'
-import { AuthView, type AuthViewLabels, type CaptchaConfig } from '../components/AuthView'
+import { AuthView, type AuthViewLabels, type CaptchaConfig, type AuthFeatureConfig } from '../components/AuthView'
 
 export interface AuthPageProps {
     /**
@@ -89,6 +89,7 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
     const location = useLocation()
     const { login, client, isAuthenticated, loading } = useAuth()
     const [captchaConfig, setCaptchaConfig] = useState<CaptchaConfig | undefined>(undefined)
+    const [authFeatureConfig, setAuthFeatureConfig] = useState<AuthFeatureConfig | undefined>(undefined)
 
     // Memoize redirect path calculation to avoid duplication (DRY principle)
     const getRedirectPath = useCallback(() => {
@@ -155,23 +156,42 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
         [client]
     )
 
-    // Fetch captcha configuration from backend on mount
+    // Fetch captcha and auth feature configurations from backend on mount (parallel)
     useEffect(() => {
         if (!client) return
 
-        const fetchCaptchaConfig = async () => {
-            try {
-                const response = await client.get<CaptchaConfig>('auth/captcha-config')
-                console.info('[AuthPage] Captcha config received:', response.data)
-                setCaptchaConfig(response.data)
-            } catch (err) {
-                console.warn('[AuthPage] Failed to fetch captcha config:', err)
+        const fetchConfigs = async () => {
+            const [captchaResult, authResult] = await Promise.allSettled([
+                client.get<CaptchaConfig>('auth/captcha-config'),
+                client.get<AuthFeatureConfig>('auth/auth-config')
+            ])
+
+            // Handle captcha config result
+            if (captchaResult.status === 'fulfilled') {
+                console.info('[AuthPage] Captcha config received:', captchaResult.value.data)
+                setCaptchaConfig(captchaResult.value.data)
+            } else {
+                console.warn('[AuthPage] Failed to fetch captcha config:', captchaResult.reason)
                 // Default to disabled if fetch fails
                 setCaptchaConfig({ enabled: false, siteKey: null, testMode: false })
             }
+
+            // Handle auth feature config result
+            if (authResult.status === 'fulfilled') {
+                console.info('[AuthPage] Auth feature config received:', authResult.value.data)
+                setAuthFeatureConfig(authResult.value.data)
+            } else {
+                console.warn('[AuthPage] Failed to fetch auth feature config:', authResult.reason)
+                // Default to all enabled if fetch fails (backwards compatibility)
+                setAuthFeatureConfig({
+                    registrationEnabled: true,
+                    loginEnabled: true,
+                    emailConfirmationRequired: true
+                })
+            }
         }
 
-        fetchCaptchaConfig()
+        fetchConfigs()
     }, [client])
 
     // Redirect if already authenticated
@@ -191,6 +211,7 @@ export const AuthPage = ({ labels, onLoginSuccess, errorMapper, redirectTo, slot
             onRegister={handleRegister}
             errorMapper={errorMapper}
             captchaConfig={captchaConfig}
+            authFeatureConfig={authFeatureConfig}
             slots={slots}
         />
     )

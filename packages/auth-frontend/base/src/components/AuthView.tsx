@@ -46,6 +46,10 @@ export interface AuthViewLabels {
     consentRequired?: string
     captchaRequired?: string
     captchaNetworkError?: string
+    // Feature toggle messages (optional for backwards compatibility)
+    registrationDisabled?: string
+    loginDisabled?: string
+    successRegisterNoEmail?: string
 }
 
 /** Single captcha configuration for a specific form */
@@ -66,6 +70,16 @@ export interface CaptchaConfig {
     login?: SingleCaptchaConfig
 }
 
+/** Auth feature toggles from backend API */
+export interface AuthFeatureConfig {
+    /** Whether new user registration is enabled */
+    registrationEnabled: boolean
+    /** Whether user login is enabled */
+    loginEnabled: boolean
+    /** Whether email confirmation is required (affects success message only) */
+    emailConfirmationRequired: boolean
+}
+
 export interface AuthViewProps {
     labels: AuthViewLabels
     onLogin: (email: string, password: string, captchaToken?: string) => Promise<void>
@@ -80,6 +94,8 @@ export interface AuthViewProps {
     initialMode?: AuthViewMode
     /** Captcha configuration from backend API */
     captchaConfig?: CaptchaConfig
+    /** Auth feature toggles from backend API */
+    authFeatureConfig?: AuthFeatureConfig
     slots?: {
         Root?: ComponentType<{ children: ReactNode; sx?: BoxProps['sx'] }>
         Container?: ComponentType<ContainerProps>
@@ -99,6 +115,7 @@ export const AuthView = ({
     errorMapper,
     initialMode = 'login',
     captchaConfig,
+    authFeatureConfig,
     slots,
     slotProps
 }: AuthViewProps) => {
@@ -112,6 +129,13 @@ export const AuthView = ({
     const [error, setError] = useState<string>('')
     const [info, setInfo] = useState<string>('')
     const [submitting, setSubmitting] = useState(false)
+
+    // Auth feature defaults (all enabled for backwards compatibility)
+    const authFeatures = authFeatureConfig ?? {
+        registrationEnabled: true,
+        loginEnabled: true,
+        emailConfirmationRequired: true
+    }
 
     // Get mode-specific captcha config (with legacy fallback for registration)
     const registrationCaptchaConfig = captchaConfig?.registration ?? {
@@ -212,7 +236,11 @@ export const AuthView = ({
         setSubmitting(true)
         try {
             await onRegister(email, password, termsAccepted, privacyAccepted, captchaToken)
-            setInfo(labels.successRegister)
+            // Show appropriate success message based on email confirmation setting
+            const successMessage = authFeatures.emailConfirmationRequired
+                ? labels.successRegister
+                : labels.successRegisterNoEmail || labels.successRegister
+            setInfo(successMessage)
             setMode('login')
             // Reset consent checkboxes and captcha after successful registration
             setTermsAccepted(false)
@@ -323,119 +351,129 @@ export const AuthView = ({
                         </Alert>
                     ) : null}
 
-                    <Box component='form' onSubmit={handleSubmit}>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    type='email'
-                                    label={labels.email}
-                                    value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
-                                    disabled={submitting}
-                                    InputProps={{ startAdornment: adornment.email }}
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    type='password'
-                                    label={labels.password}
-                                    value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
-                                    disabled={submitting}
-                                    InputProps={{ startAdornment: adornment.password }}
-                                />
-                            </Grid>
-                            {/* Consent checkboxes - only shown in register mode when labels are provided */}
-                            {mode === 'register' && hasConsentLabels ? (
-                                <>
-                                    <Grid item xs={12}>
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={termsAccepted}
-                                                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                                                    disabled={submitting}
-                                                    size='small'
-                                                />
-                                            }
-                                            label={
-                                                <Typography variant='body2'>
-                                                    {labels.termsCheckbox}{' '}
-                                                    <Link href='/terms' target='_blank' rel='noopener noreferrer' underline='hover'>
-                                                        {labels.termsLink}
-                                                    </Link>
-                                                </Typography>
-                                            }
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sx={{ mt: -1 }}>
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={privacyAccepted}
-                                                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                                                    disabled={submitting}
-                                                    size='small'
-                                                />
-                                            }
-                                            label={
-                                                <Typography variant='body2'>
-                                                    {labels.privacyCheckbox}{' '}
-                                                    <Link href='/privacy' target='_blank' rel='noopener noreferrer' underline='hover'>
-                                                        {labels.privacyLink}
-                                                    </Link>
-                                                    {labels.privacySuffix}
-                                                </Typography>
-                                            }
-                                        />
-                                    </Grid>
-                                </>
-                            ) : null}
-                            {/* Captcha widget - shown for both login and register when enabled */}
-                            {/* key prop forces re-render on mode change, resetting the widget state */}
-                            {captchaEnabled ? (
-                                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
-                                    <SmartCaptcha
-                                        key={`captcha-${mode}`}
-                                        sitekey={siteKey}
-                                        onSuccess={setCaptchaToken}
-                                        onTokenExpired={() => setCaptchaToken('')}
-                                        onNetworkError={() => {
-                                            console.error('[AuthView] SmartCaptcha network error')
-                                            setError(
-                                                labels.captchaNetworkError ||
-                                                    'Captcha service is temporarily unavailable. Please try again.'
-                                            )
-                                        }}
-                                        test={testMode}
+                    {/* Feature disabled - show only warning message, no form */}
+                    {(mode === 'register' && !authFeatures.registrationEnabled) || (mode === 'login' && !authFeatures.loginEnabled) ? (
+                        <Box>
+                            <Alert severity='warning' sx={{ mb: 3 }}>
+                                {mode === 'register'
+                                    ? labels.registrationDisabled || 'Registration is currently unavailable. Please try again later.'
+                                    : labels.loginDisabled || 'Login is currently unavailable. The system is under maintenance.'}
+                            </Alert>
+                        </Box>
+                    ) : (
+                        <Box component='form' onSubmit={handleSubmit}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        type='email'
+                                        label={labels.email}
+                                        value={email}
+                                        onChange={(event) => setEmail(event.target.value)}
+                                        disabled={submitting}
+                                        InputProps={{ startAdornment: adornment.email }}
                                     />
                                 </Grid>
-                            ) : null}
-                            <Grid item xs={12}>
-                                <Button
-                                    fullWidth
-                                    type='submit'
-                                    variant='contained'
-                                    color='primary'
-                                    size='large'
-                                    disabled={submitting || isConsentBlockingRegister || isCaptchaBlocking}
-                                    startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
-                                >
-                                    {submitLabel}
-                                </Button>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        type='password'
+                                        label={labels.password}
+                                        value={password}
+                                        onChange={(event) => setPassword(event.target.value)}
+                                        disabled={submitting}
+                                        InputProps={{ startAdornment: adornment.password }}
+                                    />
+                                </Grid>
+                                {/* Consent checkboxes - only shown in register mode when labels are provided */}
+                                {mode === 'register' && hasConsentLabels ? (
+                                    <>
+                                        <Grid item xs={12}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={termsAccepted}
+                                                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                                                        disabled={submitting}
+                                                        size='small'
+                                                    />
+                                                }
+                                                label={
+                                                    <Typography variant='body2'>
+                                                        {labels.termsCheckbox}{' '}
+                                                        <Link href='/terms' target='_blank' rel='noopener noreferrer' underline='hover'>
+                                                            {labels.termsLink}
+                                                        </Link>
+                                                    </Typography>
+                                                }
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sx={{ mt: -1 }}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={privacyAccepted}
+                                                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                                        disabled={submitting}
+                                                        size='small'
+                                                    />
+                                                }
+                                                label={
+                                                    <Typography variant='body2'>
+                                                        {labels.privacyCheckbox}{' '}
+                                                        <Link href='/privacy' target='_blank' rel='noopener noreferrer' underline='hover'>
+                                                            {labels.privacyLink}
+                                                        </Link>
+                                                        {labels.privacySuffix}
+                                                    </Typography>
+                                                }
+                                            />
+                                        </Grid>
+                                    </>
+                                ) : null}
+                                {/* Captcha widget - shown for both login and register when enabled */}
+                                {/* key prop forces re-render on mode change, resetting the widget state */}
+                                {captchaEnabled ? (
+                                    <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                                        <SmartCaptcha
+                                            key={`captcha-${mode}`}
+                                            sitekey={siteKey}
+                                            onSuccess={setCaptchaToken}
+                                            onTokenExpired={() => setCaptchaToken('')}
+                                            onNetworkError={() => {
+                                                console.error('[AuthView] SmartCaptcha network error')
+                                                setError(
+                                                    labels.captchaNetworkError ||
+                                                        'Captcha service is temporarily unavailable. Please try again.'
+                                                )
+                                            }}
+                                            test={testMode}
+                                        />
+                                    </Grid>
+                                ) : null}
+                                <Grid item xs={12}>
+                                    <Button
+                                        fullWidth
+                                        type='submit'
+                                        variant='contained'
+                                        color='primary'
+                                        size='large'
+                                        disabled={submitting || isConsentBlockingRegister || isCaptchaBlocking}
+                                        startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
+                                    >
+                                        {submitLabel}
+                                    </Button>
+                                </Grid>
                             </Grid>
-                            <Grid item xs={12}>
-                                <Typography align='center'>
-                                    {mode === 'login' ? labels.noAccount : labels.haveAccount}{' '}
-                                    <Link href='#' onClick={toggleMode} underline='hover'>
-                                        {mode === 'login' ? labels.createAccount : labels.loginInstead}
-                                    </Link>
-                                </Typography>
-                            </Grid>
-                        </Grid>
-                    </Box>
+                        </Box>
+                    )}
+                    {/* Mode switcher - shown for both enabled and disabled states (DRY) */}
+                    <Typography align='center' sx={{ mt: 2 }}>
+                        {mode === 'login' ? labels.noAccount : labels.haveAccount}{' '}
+                        <Link href='#' onClick={toggleMode} underline='hover'>
+                            {mode === 'login' ? labels.createAccount : labels.loginInstead}
+                        </Link>
+                    </Typography>
                 </CardComponent>
             </ContainerComponent>
         </RootComponent>

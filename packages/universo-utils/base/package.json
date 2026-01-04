@@ -32,6 +32,11 @@
             "require": "./dist/captcha/index.js",
             "types": "./dist/captcha/index.d.ts"
         },
+        "./auth": {
+            "import": "./dist/auth/index.mjs",
+            "require": "./dist/auth/index.js",
+            "types": "./dist/auth/index.d.ts"
+        },
         "./ui-utils": {
             "import": "./dist/ui-utils.mjs",
             "require": "./dist/ui-utils.js"

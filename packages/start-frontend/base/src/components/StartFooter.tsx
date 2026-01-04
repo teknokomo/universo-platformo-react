@@ -77,31 +77,31 @@ export const StartFooter: React.FC<StartFooterProps> = ({ variant = 'guest' }) =
 
     const footerItems: Omit<FooterItemProps, 'variant'>[] = useMemo(
         () => [
-        {
-            icon: <TelegramIcon fontSize='small' />,
-            text: t('footer.owner'),
-            href: 'https://t.me/diverslaboristo',
-            external: true
-        },
-        {
-            icon: <EmailIcon fontSize='small' />,
-            text: t('footer.email'),
-            href: `mailto:${t('footer.email')}`,
-            external: true
-        },
-        {
-            icon: <ArticleIcon fontSize='small' />,
-            text: t('footer.termsOfService'),
-            href: '/terms',
-            external: false
-        },
-        {
-            icon: <PolicyIcon fontSize='small' />,
-            text: t('footer.privacyPolicy'),
-            href: '/privacy',
-            external: false
-        }
-    ],
+            {
+                icon: <TelegramIcon fontSize='small' />,
+                text: t('footer.owner'),
+                href: 'https://t.me/diverslaboristo',
+                external: true
+            },
+            {
+                icon: <EmailIcon fontSize='small' />,
+                text: t('footer.email'),
+                href: `mailto:${t('footer.email')}`,
+                external: true
+            },
+            {
+                icon: <ArticleIcon fontSize='small' />,
+                text: t('footer.termsOfService'),
+                href: '/terms',
+                external: false
+            },
+            {
+                icon: <PolicyIcon fontSize='small' />,
+                text: t('footer.privacyPolicy'),
+                href: '/privacy',
+                external: false
+            }
+        ],
         [t]
     )
 

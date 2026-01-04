@@ -12,6 +12,36 @@ _No active tasks._
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-04: PR #627 Bot Review Fixes ✅
+
+- [x] Fixed DRY violation: extracted mode switcher outside conditional block in AuthView.tsx
+- [x] Combined two useEffect hooks into one with Promise.allSettled in AuthPage.tsx
+- [x] Fixed systemPatterns.md: documentation now correctly reflects flat config structure (not nested)
+- **Changes**: Auth frontend code quality improvements per Gemini/Copilot review comments
+
+### 2025-01-10: Auth Disabled State UX Refinements ✅
+
+- [x] Hide entire form when auth feature disabled (registration/login), show only alert message
+- [x] Keep mode switcher links visible when feature disabled ("Нет аккаунта?" / "Уже есть аккаунт?")
+- [x] Updated i18n messages with admin contact email: `universo.pro@yandex.ru` (RU), `universo.pro@yandex.com` (EN)
+- [x] Fixed LegalPage footer sticky positioning: `minHeight: 100vh` + `flexGrow: 1`
+- [x] Simplified button disabled logic (removed auth feature checks since form hidden when disabled)
+- [x] Full workspace build passed (61 tasks, 4m52s)
+- **Pattern**: Conditional rendering for cleaner disabled state - when feature off, render only Alert + mode switcher, skip form fields entirely
+
+### 2026-01-03: Auth Feature Toggles & Legal Pages Footer ✅
+
+- [x] **Phase 1**: Added StartFooter to LegalPage.tsx (Terms/Privacy pages)
+- [x] **Phase 2**: Added AUTH_* env variables to .env and .env.example (AUTH_REGISTRATION_ENABLED, AUTH_LOGIN_ENABLED, AUTH_EMAIL_CONFIRMATION_REQUIRED)
+- [x] **Phase 3**: Created @universo/utils/auth module with getAuthFeatureConfig(), isRegistrationEnabled(), isLoginEnabled(), isEmailConfirmationRequired()
+- [x] **Phase 4**: Added `/auth-config` endpoint to auth-backend (separate from captcha-config)
+- [x] **Phase 5**: Updated auth-frontend types (AuthFeatureConfig interface), AuthView with disabled state UI, AuthPage with useEffect to fetch auth-config
+- [x] **Phase 6**: Added i18n keys (registrationDisabled, loginDisabled, successRegisterNoEmail) to en/ru locales
+- [x] **Phase 7**: Updated Auth.jsx wrapper with new labels
+- [x] **Phase 8**: Added auth submodule export to tsdown.config.ts and package.json exports
+- [x] Full workspace build passed (61 tasks, 4m58s)
+- **Pattern**: Separate endpoint for auth feature config (like captcha-config pattern), env-driven toggles with defaults to true for backwards compatibility
+
 ### 2026-01-03: i18n Migration to registerNamespace() Pattern ✅
 
 - [x] Added `landing` namespace registration to `i18n/index.ts` via `registerNamespace()`

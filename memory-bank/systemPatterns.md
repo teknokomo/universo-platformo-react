@@ -71,6 +71,24 @@ const apiClient = createAuthClient({
 
 ---
 
+## ENV Feature Flags + Public Config Endpoint Pattern
+
+**Goal**: Centralize auth-related feature toggles in ENV, expose them to the UI via small public endpoints, and keep separate configurations for different concerns.
+
+**Pattern (current implementation)**:
+- Parse feature flags in shared utils (`packages/universo-utils/base/src/auth/index.ts`) so both backend and frontend can share the same semantics.
+- Backend exposes **separate** config endpoints:
+  - `GET /api/v1/auth/auth-config` - returns flat auth feature flags: `{ registrationEnabled, loginEnabled, emailConfirmationRequired }`
+  - `GET /api/v1/auth/captcha-config` - returns captcha settings: `{ enabled, siteKey, testMode }`
+- This separation allows independent evolution and caching of each configuration type.
+
+**Frontend requirement**: Fetch both configs in parallel using `Promise.allSettled` for better performance. Each response is a standalone flat object - treat them independently.
+
+**Pattern (future / v2, recommended)**:
+- For new clients and future API versions, consider consolidating into a nested, versionable response such as `{ features: { ... }, captcha: { ... } }` to reduce HTTP round-trips while allowing config evolution without breaking existing consumers.
+
+---
+
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
 **Rule**: Source-only packages (no dist/) MUST use peerDependencies, NOT dependencies.
