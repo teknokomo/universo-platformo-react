@@ -19,6 +19,7 @@ _No active tasks._
 - [x] Updated frontend entrypoints to consume metadata (`packages/flowise-core-frontend/base/index.html`, `packages/flowise-core-frontend/base/src/App.jsx`)
 - [x] Updated documentation and package metadata: `README.md`, `README-RU.md`, `package.json`
 - [x] Created issue #630 and pull request #631
+- [x] Applied bot review recommendations: added `packages/universo-i18n/base/src/supported-languages.json` and `packages/flowise-core-frontend/base/scripts/sync-supported-langs.mjs`; pushed to PR #631.
 - **Validation**: Verify EN/RU strings on landing and onboarding, run `pnpm --filter <package> lint`, then `pnpm build` at repo root
 
 ### 2026-01-05: Improve Login Error Messages UX ✅
