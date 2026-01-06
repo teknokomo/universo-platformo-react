@@ -31,6 +31,25 @@
 
 ---
 
+## 📅 2026-01-06
+
+### Internationalize project metadata and update texts ✅
+
+- **Summary**: Internationalized project metadata and updated translations and documentation across the repository.
+- **Files Changed**:
+  - `packages/universo-i18n/base/src/locales/en/core/meta.json` (new)
+  - `packages/universo-i18n/base/src/locales/ru/core/meta.json` (new)
+  - `packages/start-frontend/base/src/i18n/locales/en/landing.json`
+  - `packages/start-frontend/base/src/i18n/locales/en/onboarding.json`
+  - `packages/start-frontend/base/src/i18n/locales/ru/landing.json`
+  - `packages/start-frontend/base/src/i18n/locales/ru/onboarding.json`
+  - `packages/flowise-core-frontend/base/index.html`
+  - `packages/flowise-core-frontend/base/public/index.html`
+  - `packages/flowise-core-frontend/base/src/App.jsx`
+  - `README.md`, `README-RU.md`, `package.json`
+- **PR / Issue**: PR #631, Issue #630
+- **Validation**: Verify EN/RU strings on landing and onboarding pages, run `pnpm --filter <package> lint` for affected packages, then `pnpm build` at repo root
+
 ## 📅 2026-01-05
 
 ### Improve Login Error Messages UX ✅

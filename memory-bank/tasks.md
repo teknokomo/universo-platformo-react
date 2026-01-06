@@ -12,6 +12,15 @@ _No active tasks._
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-06: Internationalize project metadata and update texts ✅
+
+- [x] Added locale metadata files: `packages/universo-i18n/base/src/locales/en/core/meta.json`, `packages/universo-i18n/base/src/locales/ru/core/meta.json`
+- [x] Updated translations for landing and onboarding (`start-frontend` en/ru)
+- [x] Updated frontend entrypoints to consume metadata (`packages/flowise-core-frontend/base/index.html`, `packages/flowise-core-frontend/base/src/App.jsx`)
+- [x] Updated documentation and package metadata: `README.md`, `README-RU.md`, `package.json`
+- [x] Created issue #630 and pull request #631
+- **Validation**: Verify EN/RU strings on landing and onboarding, run `pnpm --filter <package> lint`, then `pnpm build` at repo root
+
 ### 2026-01-05: Improve Login Error Messages UX ✅
 
 - [x] Update `errorMapping.ts` — add mapping `Invalid credentials` → `loginFailed`
