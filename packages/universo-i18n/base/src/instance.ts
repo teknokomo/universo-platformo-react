@@ -22,6 +22,7 @@ import settingsEn from './locales/en/core/settings.json'
 import settingsRu from './locales/ru/core/settings.json'
 import metaEn from './locales/en/core/meta.json'
 import metaRu from './locales/ru/core/meta.json'
+import supportedLanguages from './supported-languages.json'
 
 // Import views
 import adminEn from './locales/en/views/admin.json'
@@ -250,6 +251,7 @@ export function getInstance(): typeof i18n {
                     }
                 },
                 fallbackLng: 'en',
+                supportedLngs: supportedLanguages,
                 defaultNS: 'common',
                 fallbackNS: ['common', 'header', 'spaces'],
                 load: 'languageOnly', // Use only 'ru' instead of 'ru-RU'

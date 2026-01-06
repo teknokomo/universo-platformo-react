@@ -20,6 +20,8 @@
 - ✅ **Инициализация побочными эффектами** - Просто импортируйте, и всё работает
 - ✅ **Определение языка браузера** - Автоматически определяет язык пользователя
 - ✅ **Постоянный выбор языка** - Сохраняет в localStorage
+- ✅ **Реестр поддерживаемых языков** - Централизованный список в `supported-languages.json`, используется приложениями и сборкой
+- ✅ **Пространство имен meta** - Централизованные строки метаданных для синхронизации HTML head
 
 ## Использование
 
@@ -47,7 +49,7 @@ export const MyComponent = () => {
 
 ### Основные пространства имен (Автоматические)
 
-Основные пространства имен (`common`, `header`, `spaces`, `roles`, `access`) и пространства представлений (например, `chatbot`, `admin`, `menu`) получают автоматическую проверку типов:
+Основные пространства имен (`common`, `header`, `spaces`, `roles`, `access`, `meta`) и пространства представлений (например, `chatbot`, `admin`, `menu`) получают автоматическую проверку типов:
 
 ```typescript
 import { useTranslation } from '@universo/i18n'
@@ -87,6 +89,19 @@ t('wrongKey')     // ❌ Ошибка компиляции TypeScript
 - `useMetaversesTranslation()` из `@universo/metaverses-frontend/i18n/types`
 - `useUniksTranslation()` из `@universo/uniks-frontend/i18n/types`
 - `usePublishTranslation()` из `@universo/publish-frontend/i18n/types`
+
+## Поддерживаемые языки
+
+Поддерживаемые языки определены в `src/supported-languages.json` и подключены в i18next через `supportedLngs`. Приложения и инструменты сборки (например, подстановка в HTML) используют этот список, чтобы синхронизировать `lang` и мета-теги.
+
+```json
+[
+  "en",
+  "ru"
+]
+```
+
+Обновляйте этот список при добавлении новых локалей и держите переводы синхронизированными.
 
 ### Как это работает
 
@@ -208,7 +223,7 @@ FRT пакеты (publish-frontend, analytics-frontend, и т.д.)
 
 Следующие пространства имен включены по умолчанию (EN + RU):
 
-- `common`, `header`, `spaces`, `roles`, `access`
+- `common`, `header`, `spaces`, `roles`, `access`, `meta`
 - `admin`, `auth`, `canvas`, `canvases`, `chatbot`, `chatmessage`
 - `flowList`, `menu`, `profile-menu`, `templates`
 - Диалоги вроде `about`, `manageLinks`, `viewLeads` и др.

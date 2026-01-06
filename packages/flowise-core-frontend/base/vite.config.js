@@ -3,9 +3,23 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { createRequire } from 'module'
 import dotenv from 'dotenv'
+import fs from 'fs'
 
 const require = createRequire(import.meta.url)
 const tablerIconsEsm = require.resolve('@tabler/icons-react/dist/esm/tabler-icons-react.mjs')
+const supportedLanguagesPath = resolve(__dirname, '../../universo-i18n/base/src/supported-languages.json')
+const supportedLanguages = JSON.parse(fs.readFileSync(supportedLanguagesPath, 'utf-8'))
+
+const supportedLanguagesPlugin = () => ({
+    name: 'inject-supported-languages',
+    transformIndexHtml(html) {
+        if (!html.includes('__SUPPORTED_LANGS__')) {
+            return html
+        }
+
+        return html.replace('__SUPPORTED_LANGS__', JSON.stringify(supportedLanguages))
+    }
+})
 
 export default defineConfig(async ({ mode }) => {
     let proxy = undefined
@@ -25,7 +39,7 @@ export default defineConfig(async ({ mode }) => {
 
     dotenv.config()
     return {
-        plugins: [react()],
+        plugins: [react(), supportedLanguagesPlugin()],
         optimizeDeps: {
             // Disable pre-bundling to eliminate accidental duplicate singletons during dev
             // Re-enable later if needed after full stabilization

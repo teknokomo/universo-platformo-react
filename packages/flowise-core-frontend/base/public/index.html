@@ -20,56 +20,7 @@
         <script>
             ;(function () {
                 try {
-                    var storedLang = localStorage.getItem('i18nextLng')
-                    var browserLang = (navigator.languages && navigator.languages[0]) || navigator.language || 'en'
-                    var rawLang = storedLang || browserLang
-                    if (rawLang) {
-                        var baseLang = String(rawLang).split('-')[0].toLowerCase()
-                        if (baseLang === 'ru' || baseLang === 'en') {
-                            document.documentElement.setAttribute('lang', baseLang)
-                        }
-                    }
-                } catch (e) {
-                    // no-op
-                }
-            })()
-        </script>
-        <!-- Open Graph / Facebook -->
-        <meta property="og:locale" content="en_US" />
-        <meta property="og:locale:alternate" content="ru_RU" />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://universo.pro/" />
-        <meta property="og:site_name" content="universo.pro/" />
-        <meta property="article:publisher" content="https://www.facebook.com/codedthemes" />
-        <meta property="og:title" content="Universo Platformo — exploration and collaboration" />
-        <meta
-            property="og:description"
-            content="An infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
-        />
-        <meta property="og:image" content="https://flowiseai.com/og-image/og-facebook.png" />
-        <!-- Twitter -->
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://twitter.com/Diverslaboristo" />
-        <meta property="twitter:title" content="Universo Platformo — exploration and collaboration" />
-        <meta
-            property="twitter:description"
-            content="An infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
-        />
-        <meta property="twitter:image" content="https://flowiseai.com/og-image/og-twitter.png" />
-        <meta name="twitter:creator" content="@codedthemes" />
-        <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-
-        <link rel="preconnect" href="https://fonts.gstatic.com" />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
+                    const supportedLanguages = ["en","ru"];500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
             rel="stylesheet"
         />
     </head>

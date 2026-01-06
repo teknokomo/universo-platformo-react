@@ -42,6 +42,7 @@ The main React frontend application for the Universo Platformo visual programmin
 - **Hot Reloading**: Vite-powered development server
 - **TypeScript Support**: Mixed JS/TS with gradual migration
 - **Internationalization**: Multi-language support via `@universo/i18n`
+- **Internationalized Metadata**: HTML lang + meta tags synced with i18n (runtime + build)
 - **API Integration**: Centralized API client via `@universo/api-client`
 
 ## Installation & Setup
@@ -119,6 +120,22 @@ src/
     }
   }
 }
+```
+
+## Internationalized Metadata
+
+This app keeps `<html lang>`, `<title>`, and key meta tags in sync with the active i18n language:
+- Runtime sync happens in `src/App.jsx`.
+- Early `lang` is set by an inline script in `index.html` before React loads.
+
+Supported languages are injected at build time:
+- Source list: `@universo/i18n` `supported-languages.json`
+- Vite HTML transform: `vite.config.js` replaces `__SUPPORTED_LANGS__`
+- `public/index.html` is synced by `scripts/sync-supported-langs.mjs` (prebuild)
+
+Example inline snippet:
+```html
+const supportedLanguages = __SUPPORTED_LANGS__
 ```
 
 ## Views & Features
