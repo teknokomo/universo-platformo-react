@@ -7,7 +7,7 @@ import fs from 'fs'
 
 const require = createRequire(import.meta.url)
 const tablerIconsEsm = require.resolve('@tabler/icons-react/dist/esm/tabler-icons-react.mjs')
-const supportedLanguagesPath = resolve(__dirname, '../../universo-i18n/base/src/supported-languages.json')
+const supportedLanguagesPath = require.resolve('@universo/i18n/supported-languages.json')
 const supportedLanguages = JSON.parse(fs.readFileSync(supportedLanguagesPath, 'utf-8'))
 
 const supportedLanguagesPlugin = () => ({

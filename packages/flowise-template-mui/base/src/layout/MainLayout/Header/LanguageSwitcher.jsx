@@ -27,7 +27,7 @@ const normalizeLang = (code) => (code ? String(code).slice(0, 2).toLowerCase() :
 
 const LanguageSwitcher = () => {
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('header')
     const [anchorEl, setAnchorEl] = useState(null)
     const open = Boolean(anchorEl)
 
@@ -42,7 +42,7 @@ const LanguageSwitcher = () => {
         return codes.map((code) => ({
             code,
             // Use translated label if exists, fallback to uppercased code
-            label: t(`header.language.${code}`, { defaultValue: code.toUpperCase() })
+            label: t(`language.${code}`, { defaultValue: code.toUpperCase() })
         }))
     }, [t])
 
@@ -61,7 +61,7 @@ const LanguageSwitcher = () => {
 
     return (
         <>
-            <Tooltip title={t('header.language.tooltip')}>
+            <Tooltip title={t('language.tooltip')}>
                 <span>
                     <LangBadge
                         overlap='rectangular'
@@ -98,7 +98,7 @@ const LanguageSwitcher = () => {
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
                 <MenuItem disabled>
-                    <ListItemText primary={t('header.language.menuTitle')} />
+                    <ListItemText primary={t('language.menuTitle')} />
                 </MenuItem>
                 <Divider />
                 {languageItems.map((l) => {

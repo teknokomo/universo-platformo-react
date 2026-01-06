@@ -1,11 +1,13 @@
 import { readFile, writeFile } from 'fs/promises'
+import { createRequire } from 'module'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+const require = createRequire(import.meta.url)
 
-const supportedLanguagesPath = resolve(__dirname, '../../../universo-i18n/base/src/supported-languages.json')
+const supportedLanguagesPath = require.resolve('@universo/i18n/supported-languages.json')
 const publicIndexPath = resolve(__dirname, '../public/index.html')
 const placeholder = '__SUPPORTED_LANGS__'
 const assignmentRegex = /const supportedLanguages = [^;]+;/

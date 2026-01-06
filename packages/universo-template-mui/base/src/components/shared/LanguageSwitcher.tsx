@@ -1,10 +1,10 @@
 import * as React from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, Badge, Box, IconButton } from '@mui/material'
 import { styled, useTheme } from '@mui/material/styles'
 import LanguageIcon from '@mui/icons-material/Language'
 import CheckIcon from '@mui/icons-material/Check'
-import i18n from '@universo/i18n'
+import i18n, { useTranslation } from '@universo/i18n'
 
 // Small badge style for 2-letter language code overlay
 const LangBadge = styled(Badge)(({ theme }) => ({
@@ -27,12 +27,9 @@ const normalizeLang = (code: string) => (code ? String(code).slice(0, 2).toLower
 
 export default function LanguageSwitcher() {
     const theme = useTheme()
+    const { t } = useTranslation('header')
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
     const [currentLang, setCurrentLang] = useState('en')
-    const [availableLanguages, setAvailableLanguages] = useState([
-        { code: 'en', label: 'English' },
-        { code: 'ru', label: 'Русский' }
-    ])
     const open = Boolean(anchorEl)
 
     // Update current language when it changes
@@ -43,19 +40,21 @@ export default function LanguageSwitcher() {
 
         updateLanguage()
 
-        const resourceLangs = Object.keys(i18n.options?.resources || { en: {}, ru: {} })
-        const languages = resourceLangs.map((code) => ({
-            code,
-            label: code === 'en' ? 'English' : code === 'ru' ? 'Русский' : code.toUpperCase()
-        }))
-        setAvailableLanguages(languages)
-
         i18n.on('languageChanged', updateLanguage)
 
         return () => {
             i18n.off('languageChanged', updateLanguage)
         }
     }, [])
+
+    const availableLanguages = useMemo(() => {
+        const resourceLangs = Object.keys(i18n.options?.resources || { en: {}, ru: {} })
+        const codes = Array.from(new Set(resourceLangs)).sort()
+        return codes.map((code) => ({
+            code,
+            label: t(`language.${code}`, { defaultValue: code.toUpperCase() })
+        }))
+    }, [t])
 
     const handleOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)
     const handleClose = () => setAnchorEl(null)
@@ -72,7 +71,7 @@ export default function LanguageSwitcher() {
 
     return (
         <>
-            <Tooltip title='Change language'>
+            <Tooltip title={t('language.tooltip')}>
                 <span>
                     <LangBadge
                         overlap='rectangular'
@@ -112,7 +111,7 @@ export default function LanguageSwitcher() {
                 }}
             >
                 <MenuItem disabled>
-                    <ListItemText primary='Language' />
+                    <ListItemText primary={t('language.menuTitle')} />
                 </MenuItem>
                 <Divider />
                 {availableLanguages.map((l) => {
