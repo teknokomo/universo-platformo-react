@@ -78,6 +78,60 @@ const App = () => {
         }
     }, [i18n])
 
+    useEffect(() => {
+        if (!i18nInitialized || typeof document === 'undefined') {
+            return
+        }
+
+        const normalizeLang = (value) => (value ? String(value).split('-')[0].toLowerCase() : 'en')
+
+        const getMeta = (key) => {
+            const value = i18n.t(key, { ns: 'meta' })
+            return value && value !== key ? value : ''
+        }
+
+        const setMeta = (selector, content) => {
+            if (!content) {
+                return
+            }
+
+            const element = document.querySelector(selector)
+            if (element) {
+                element.setAttribute('content', content)
+            }
+        }
+
+        const applyMeta = () => {
+            const lang = normalizeLang(i18n.resolvedLanguage || i18n.language || 'en')
+            const locale = getMeta('ogLocale')
+            const alternateLocale = locale === 'ru_RU' ? 'en_US' : 'ru_RU'
+
+            document.documentElement.setAttribute('lang', lang)
+
+            const title = getMeta('title')
+            if (title) {
+                document.title = title
+            }
+
+            setMeta('meta[name="title"]', title)
+            setMeta('meta[name="description"]', getMeta('description'))
+            setMeta('meta[name="keywords"]', getMeta('keywords'))
+            setMeta('meta[property="og:title"]', getMeta('ogTitle'))
+            setMeta('meta[property="og:description"]', getMeta('ogDescription'))
+            setMeta('meta[property="og:locale"]', locale)
+            setMeta('meta[property="og:locale:alternate"]', alternateLocale)
+            setMeta('meta[property="twitter:title"]', getMeta('twitterTitle'))
+            setMeta('meta[property="twitter:description"]', getMeta('twitterDescription'))
+        }
+
+        applyMeta()
+        i18n.on('languageChanged', applyMeta)
+
+        return () => {
+            i18n.off('languageChanged', applyMeta)
+        }
+    }, [i18n, i18nInitialized])
+
     if (!i18nInitialized) {
         return <StyledEngineProvider injectFirst>
             <ThemeProvider theme={themeInstance}>

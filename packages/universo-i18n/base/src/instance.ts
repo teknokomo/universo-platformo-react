@@ -20,6 +20,8 @@ import accessRu from './locales/ru/core/access.json'
 
 import settingsEn from './locales/en/core/settings.json'
 import settingsRu from './locales/ru/core/settings.json'
+import metaEn from './locales/en/core/meta.json'
+import metaRu from './locales/ru/core/meta.json'
 
 // Import views
 import adminEn from './locales/en/views/admin.json'
@@ -154,6 +156,7 @@ export function getInstance(): typeof i18n {
                         roles: rolesEn.roles,
                         access: accessEn.access,
                         settings: settingsEn.settings,
+                        meta: metaEn.meta,
                         // Views
                         admin: adminEn.admin,
                         // apiKeys: now in @flowise/apikey-frontend
@@ -203,6 +206,7 @@ export function getInstance(): typeof i18n {
                         roles: rolesRu.roles,
                         access: accessRu.access,
                         settings: settingsRu.settings,
+                        meta: metaRu.meta,
                         // Views
                         admin: adminRu.admin,
                         // apiKeys: now in @flowise/apikey-frontend

@@ -1,28 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>Kiberplano — aggregation and planning</title>
+        <title>Universo Platformo — exploration, collaboration, digital twins, metaverses</title>
         <link rel="icon" href="favicon.ico" />
         <!-- Meta Tags-->
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#2296f3" />
-        <meta name="title" content="Kiberplano — aggregation and planning" />
-        <meta name="description" content="Kiberplano helps you plan tasks and manage resources for all of humanity, starting with each individual and organization" />
-        <meta name="keywords" content="react, material-ui, reactjs, reactjs, workflow automation, web3, web2, blockchain, aggregation, planning" />
-        <meta name="author" content="Universo Kiberplano" />
+        <meta name="title" content="Universo Platformo — exploration, collaboration, digital twins, metaverses" />
+        <meta
+            name="description"
+            content="Universo Platformo is an infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
+        />
+        <meta
+            name="keywords"
+            content="Universo Platformo, Universo Kiberplano, Universo Kompendio, Universo Grandaringo, digital twins, metaverse, collaboration, planning, organizations, projects"
+        />
+        <meta name="author" content="Universo Platformo" />
+        <script>
+            ;(function () {
+                try {
+                    var storedLang = localStorage.getItem('i18nextLng')
+                    var browserLang = (navigator.languages && navigator.languages[0]) || navigator.language || 'en'
+                    var rawLang = storedLang || browserLang
+                    if (rawLang) {
+                        var baseLang = String(rawLang).split('-')[0].toLowerCase()
+                        if (baseLang === 'ru' || baseLang === 'en') {
+                            document.documentElement.setAttribute('lang', baseLang)
+                        }
+                    }
+                } catch (e) {
+                    // no-op
+                }
+            })()
+        </script>
         <!-- Open Graph / Facebook -->
         <meta property="og:locale" content="en_US" />
+        <meta property="og:locale:alternate" content="ru_RU" />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://universo.pro/" />
         <meta property="og:site_name" content="universo.pro/" />
-        <meta property="og:title" content="Kiberplano — aggregation and planning" />
-        <meta property="og:description" content="Kiberplano helps you plan tasks and manage resources for all of humanity, starting with each individual and organization" />
+        <meta property="og:title" content="Universo Platformo — exploration and collaboration" />
+        <meta
+            property="og:description"
+            content="An infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
+        />
+        <meta property="og:image" content="https://flowiseai.com/og-image/og-facebook.png" />
         <!-- Twitter -->
         <meta property="twitter:card" content="summary_large_image" />
         <meta property="twitter:url" content="https://twitter.com/Diverslaboristo" />
-        <meta property="twitter:title" content="Kiberplano — aggregation and planning" />
-        <meta property="twitter:description" content="Kiberplano helps you plan tasks and manage resources for all of humanity, starting with each individual and organization" />
+        <meta property="twitter:title" content="Universo Platformo — exploration and collaboration" />
+        <meta
+            property="twitter:description"
+            content="An infinite space for exploration and collaboration. Manage organizations and projects, bring digital twins to reality, and live in metaverses."
+        />
+        <meta property="twitter:image" content="https://flowiseai.com/og-image/og-twitter.png" />
         <meta name="twitter:creator" content="@FlowiseAI" />
 
         <link rel="preconnect" href="https://fonts.gstatic.com" />
