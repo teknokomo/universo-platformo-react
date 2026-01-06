@@ -20,6 +20,8 @@
 - ✅ **Side-effect initialization** - Just import and it works
 - ✅ **Browser language detection** - Auto-detects user's language
 - ✅ **Persistent language choice** - Saves to localStorage
+- ✅ **Supported languages registry** - Central list in `supported-languages.json` used by apps and build tooling
+- ✅ **Meta namespace** - Centralized metadata strings for HTML head synchronization
 
 ## Usage
 
@@ -47,7 +49,7 @@ This package provides **full TypeScript type safety** for all translation keys u
 
 ### Core Namespaces (Automatic)
 
-Core namespaces (`common`, `header`, `spaces`, `roles`, `access`) and view namespaces (e.g., `chatbot`, `admin`, `menu`) get automatic type checking:
+Core namespaces (`common`, `header`, `spaces`, `roles`, `access`, `meta`) and view namespaces (e.g., `chatbot`, `admin`, `menu`) get automatic type checking:
 
 ```typescript
 import { useTranslation } from '@universo/i18n'
@@ -87,6 +89,19 @@ t('wrongKey')     // ❌ TypeScript compile error
 - `useMetaversesTranslation()` from `@universo/metaverses-frontend/i18n/types`
 - `useUniksTranslation()` from `@universo/uniks-frontend/i18n/types`
 - `usePublishTranslation()` from `@universo/publish-frontend/i18n/types`
+
+## Supported Languages
+
+Supported languages are defined in `src/supported-languages.json` and wired into i18next via `supportedLngs`. Frontends and build tooling (e.g., HTML injection) read this list to keep `lang` and meta tags consistent.
+
+```json
+[
+  "en",
+  "ru"
+]
+```
+
+Update this list when adding new locales and keep translations in sync.
 
 ### How It Works
 
@@ -208,7 +223,7 @@ App packages (flowise-ui, template-mui, etc.)
 
 The following namespaces are included by default (EN + RU):
 
-- `common`, `header`, `spaces`, `roles`, `access`
+- `common`, `header`, `spaces`, `roles`, `access`, `meta`
 - `admin`, `auth`, `canvas`, `canvases`, `chatbot`, `chatmessage`
 - `flowList`, `menu`, `profile-menu`, `templates`
 - Dialog namespaces such as `about`, `manageLinks`, `viewLeads`, etc.
@@ -238,4 +253,3 @@ When contributing to this package:
 ---
 
 _Universo Platformo | i18n Package_
-

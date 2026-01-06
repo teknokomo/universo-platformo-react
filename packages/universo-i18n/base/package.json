@@ -30,6 +30,9 @@
     "./locales/ru/common.json": {
       "default": "./src/locales/ru/core/common.json"
     },
+    "./supported-languages.json": {
+      "default": "./src/supported-languages.json"
+    },
     "./locales/*/*/*.json": {
       "default": "./src/locales/*/*/*.json"
     }
