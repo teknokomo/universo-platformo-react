@@ -49,6 +49,7 @@
   - `README.md`, `README-RU.md`, `package.json`
 - **PR / Issue**: PR #631, Issue #630
 - **Follow-up**: Applied bot review recommendations — added `packages/universo-i18n/base/src/supported-languages.json` and `packages/flowise-core-frontend/base/scripts/sync-supported-langs.mjs`, plus small README/vite.config fixes; pushed to `feature/630-i18n-meta-texts` and included in PR #631.
+- **Follow-up 2**: Applied additional improvements per reviewer feedback — fixed `LanguageSwitcher` in `packages/universo-template-mui` and `packages/flowise-template-mui`, updated `packages/universo-i18n/base/package.json`, and tweaked `vite.config.js`; pushed to `feature/630-i18n-meta-texts` and commented on the PR.
 - **Validation**: Verify EN/RU strings on landing and onboarding pages, run `pnpm --filter <package> lint` for affected packages, then `pnpm build` at repo root
 
 ## 📅 2026-01-05

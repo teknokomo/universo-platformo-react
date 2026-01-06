@@ -20,6 +20,7 @@ _No active tasks._
 - [x] Updated documentation and package metadata: `README.md`, `README-RU.md`, `package.json`
 - [x] Created issue #630 and pull request #631
 - [x] Applied bot review recommendations: added `packages/universo-i18n/base/src/supported-languages.json` and `packages/flowise-core-frontend/base/scripts/sync-supported-langs.mjs`; pushed to PR #631.
+- [x] Applied additional review improvements: fixed LanguageSwitcher components (template-mui & flowise-template-mui), adjusted `packages/universo-i18n/base/package.json`, and tweaked `vite.config.js`; pushed to PR #631.
 - **Validation**: Verify EN/RU strings on landing and onboarding, run `pnpm --filter <package> lint`, then `pnpm build` at repo root
 
 ### 2026-01-05: Improve Login Error Messages UX ✅
