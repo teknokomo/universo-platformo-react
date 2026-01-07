@@ -5,6 +5,14 @@ vi.mock('rehype-raw', () => ({ default: () => () => {} }))
 vi.mock('remark-gfm', () => ({ default: () => () => {} }))
 vi.mock('remark-math', () => ({ default: () => () => {} }))
 
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    return {
+        ...actual,
+        LocalizedInlineField: () => <div data-testid='localized-inline-field' />
+    }
+})
+
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -202,8 +210,22 @@ describe('MetahubList', () => {
         const mockMetahubs = [
             {
                 id: 'metahub-1',
-                name: 'Test Metahub 1',
-                description: 'First test metahub',
+                name: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Test Metahub 1' },
+                        ru: { content: 'Тестовый метахаб 1' }
+                    }
+                },
+                description: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'First test metahub' },
+                        ru: { content: 'Первый тестовый метахаб' }
+                    }
+                },
                 role: 'admin',
                 meta_sectionsCount: 5,
                 meta_entitiesCount: 20,

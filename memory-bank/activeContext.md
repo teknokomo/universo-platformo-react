@@ -1,12 +1,30 @@
 # Active Context
 
-> **Last Updated**: 2025-01-10
+> **Last Updated**: 2026-01-07
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Auth Disabled State UX Refinements - 2025-01-10 ✅
+## Current Focus: Localized Field UI Rollout - 2026-01-07 ✅
+
+Implemented compact localized field UI (inline language button + menu, primary badge) and wired it into
+metahubs create/edit flows, admin role/locale forms, and shared utilities. Added backend support for
+optional primary locale overrides and dynamic locale keys without deleting data. Added common i18n keys
+and updated tests. Metahubs-frontend tests run; all tests pass but coverage thresholds still fail
+(same suite now reports coverage below 70%).
+
+Applied UI refinements: language button moved into the top-right corner of the field without shrinking
+text width, and multiline input padding aligned with single-line spacing across both `@universo/template-mui`
+and legacy `flowise-template-mui` themes.
+
+Removed temporary diagnostic logs and restored the default backend log level after resolving the admin roles reload incident.
+
+Applied PR #633 review fixes: deduped localized helpers, made localized locales endpoint configurable, aligned VLC filtering with isActive, validated locale codes, stabilized VLC primary fallback selection, and documented CSRF shared promise behavior.
+
+---
+
+## Previous Focus: Auth Disabled State UX Refinements - 2025-01-10 ✅
 
 Refined UX when auth features are disabled based on QA feedback.
 

@@ -12,6 +12,9 @@ vi.mock('../pages/MetahubBoard', () => ({ default: () => null }))
 vi.mock('../pages/MetaSectionList', () => ({ default: () => null }))
 vi.mock('../pages/MetaEntityList', () => ({ default: () => null }))
 vi.mock('../pages/MetahubMembers', () => ({ default: () => null }))
+vi.mock('../pages/HubList', () => ({ default: () => null }))
+vi.mock('../pages/AttributeList', () => ({ default: () => null }))
+vi.mock('../pages/RecordList', () => ({ default: () => null }))
 
 beforeEach(() => {
     vi.clearAllMocks()

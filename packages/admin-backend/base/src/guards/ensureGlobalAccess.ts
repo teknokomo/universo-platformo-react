@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import * as httpErrors from 'http-errors'
 import type { GlobalAccessService } from '../services/globalAccessService'
-import type { IPermissionService } from '@universo/auth-backend'
+import type { IPermissionService, RequestWithDbContext } from '@universo/auth-backend'
 import { isAdminPanelEnabled } from '@universo/utils'
 
 // Handle both ESM and CJS imports
@@ -48,6 +48,8 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
         return async (req: Request, res: Response, next: NextFunction) => {
             console.log('[ensureGlobalAccess] Starting check', { module, action, path: req.path, method: req.method })
             try {
+                const rlsRunner = (req as RequestWithDbContext).dbContext?.queryRunner
+
                 // Check if admin panel is enabled
                 if (!isAdminPanelEnabled()) {
                     console.log('[ensureGlobalAccess] Admin panel disabled')
@@ -64,7 +66,7 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
 
                 // Check if user can access admin panel
                 console.log('[ensureGlobalAccess] Checking admin panel access...')
-                const canAccess = await globalAccessService.canAccessAdmin(userId)
+                const canAccess = await globalAccessService.canAccessAdmin(userId, rlsRunner)
                 console.log('[ensureGlobalAccess] canAccessAdmin result:', canAccess)
 
                 if (!canAccess) {
@@ -72,7 +74,7 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
                 }
 
                 // Check if user is superuser (bypasses permission checks)
-                const isSuper = await globalAccessService.isSuperuser(userId)
+                const isSuper = await globalAccessService.isSuperuser(userId, rlsRunner)
                 if (isSuper) {
                     console.log('[ensureGlobalAccess] Superuser detected - bypassing permission check')
                     return next()
@@ -80,7 +82,7 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
 
                 // Check specific permission using database-driven RBAC
                 console.log('[ensureGlobalAccess] Checking permission:', { userId, module, action })
-                const hasPermission = await permissionService.hasPermission(userId, module, action)
+                const hasPermission = await permissionService.hasPermission(userId, module, action, undefined, rlsRunner)
                 console.log('[ensureGlobalAccess] hasPermission result:', hasPermission)
 
                 if (!hasPermission) {
@@ -88,7 +90,7 @@ export function createEnsureGlobalAccess(options: EnsureGlobalAccessOptions) {
                 }
 
                 // Get role codename for request context
-                const roleCodename = await globalAccessService.getGlobalRoleCodename(userId)
+                const roleCodename = await globalAccessService.getGlobalRoleCodename(userId, rlsRunner)
                 console.log('[ensureGlobalAccess] ✅ Access granted', { roleCodename, module, action })
 
                 // Attach role info to request

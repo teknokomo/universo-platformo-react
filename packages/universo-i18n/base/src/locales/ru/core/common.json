@@ -195,6 +195,17 @@
         "description": "Это действие нельзя отменить. {{entity}} \"{{name}}\" и все его данные будут безвозвратно удалены.",
         "confirm": "Удалить"
       }
+    },
+    "localizedField": {
+      "loading": "Загрузка языков...",
+      "addLanguage": "Добавить язык",
+      "changeLanguage": "Поменять язык",
+      "makePrimary": "Сделать главным",
+      "primaryVariant": "Главный вариант",
+      "removeLanguage": "Удалить",
+      "back": "Назад",
+      "noLanguagesAvailable": "Нет доступных языков",
+      "fallbackNotice": "Используются резервные языки"
     }
   }
 }

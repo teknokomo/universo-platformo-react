@@ -15,10 +15,10 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent, filterLocalizedContent } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 
-import { LocalizedFieldEditor } from '@universo/template-mui'
+import { LocalizedInlineField } from '@universo/template-mui'
 
 import * as localesApi from '../api/localesApi'
 import type { LocaleItem, CreateLocalePayload, UpdateLocalePayload } from '../api/localesApi'
@@ -34,7 +34,7 @@ interface LocaleDialogProps {
  * Dialog for creating/editing locales
  */
 const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) => {
-    const { t } = useTranslation('admin')
+    const { t, i18n } = useTranslation('admin')
     const { enqueueSnackbar } = useSnackbar()
     const isEditMode = Boolean(locale)
 
@@ -102,7 +102,7 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
         return /^[a-z]{2}(-[A-Z]{2})?$/.test(value)
     }
 
-    // Handle name change from LocalizedFieldEditor
+    // Handle name change from LocalizedInlineField
     const handleNameChange = useCallback((value: VersionedLocalizedContent<string>) => {
         setName(value)
     }, [])
@@ -130,8 +130,9 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
 
         if (isEditMode && locale) {
             // Update existing locale
+            const filteredName = filterLocalizedContent(name)
             const updateData: UpdateLocalePayload = {
-                name: name || undefined,
+                name: filteredName || undefined,
                 nativeName: nativeName || null,
                 isEnabledContent,
                 isEnabledUi,
@@ -140,7 +141,8 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
             updateMutation.mutate({ id: locale.id, data: updateData })
         } else {
             // Create new locale - if name not set, create with nativeName
-            const effectiveName = name || createLocalizedContent('en', nativeName)
+            const filteredName = filterLocalizedContent(name)
+            const effectiveName = filteredName || createLocalizedContent('en', nativeName)
             const createData: CreateLocalePayload = {
                 code,
                 name: effectiveName,
@@ -152,13 +154,6 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
             createMutation.mutate(createData)
         }
     }, [isEditMode, locale, code, name, nativeName, isEnabledContent, isEnabledUi, sortOrder, createMutation, updateMutation, t])
-
-    // Initialize name VLC if empty
-    const handleInitializeName = useCallback(() => {
-        if (!name) {
-            setName(createLocalizedContent('en', ''))
-        }
-    }, [name])
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth>
@@ -211,21 +206,16 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
                     />
 
                     {/* Localized Name (optional) */}
-                    <LocalizedFieldEditor
+                    <LocalizedInlineField
+                        mode='localized'
                         value={name}
                         onChange={handleNameChange}
                         label={t('locales.name', 'Name')}
                         required={false}
                         disabled={isLoading}
                         error={null}
+                        uiLocale={i18n.language}
                     />
-
-                    {/* Initialize button if name is empty */}
-                    {!name && (
-                        <Button variant='outlined' size='small' onClick={handleInitializeName}>
-                            {t('locales.initializeName', 'Initialize Name')}
-                        </Button>
-                    )}
 
                     {/* Sort Order */}
                     <TextField

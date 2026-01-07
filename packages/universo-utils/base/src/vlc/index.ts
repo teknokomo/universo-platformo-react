@@ -127,6 +127,37 @@ export function getLocalizedContentLocales<T = string>(content: VersionedLocaliz
 }
 
 /**
+ * Filter localized content to keep only non-empty locale entries.
+ * Returns null when no locales have content.
+ */
+export function filterLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined
+): VersionedLocalizedContent<T> | null {
+    if (!content?.locales) return null
+
+    const filteredLocales: Record<string, LocalizedContentEntry<T>> = {}
+
+    for (const [localeCode, entry] of Object.entries(content.locales)) {
+        if (!entry || entry.content === undefined || entry.content === null) continue
+        if (entry.isActive === false) continue
+        if (typeof entry.content === 'string' && entry.content.trim() === '') continue
+        filteredLocales[localeCode] = entry
+    }
+
+    if (Object.keys(filteredLocales).length === 0) {
+        return null
+    }
+
+    const primary = filteredLocales[content._primary] ? content._primary : Object.keys(filteredLocales)[0]
+
+    return {
+        _schema: content._schema,
+        _primary: primary,
+        locales: filteredLocales as typeof content.locales
+    }
+}
+
+/**
  * Type guard to check if object is localized content format
  */
 export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedContent<unknown> {

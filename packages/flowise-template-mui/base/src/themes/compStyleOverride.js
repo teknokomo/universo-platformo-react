@@ -153,9 +153,6 @@ export default function componentStyleOverrides(theme) {
                     },
                     '&:hover $notchedOutline': {
                         borderColor: theme.colors?.primaryLight
-                    },
-                    '&.MuiInputBase-multiline': {
-                        padding: 1
                     }
                 },
                 input: {

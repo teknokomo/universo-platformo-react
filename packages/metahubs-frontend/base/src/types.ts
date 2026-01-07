@@ -1,4 +1,5 @@
 import type { MetahubRole, GlobalRole } from '@universo/types'
+import { getSimpleLocalizedValue, normalizeLocale } from './utils/localizedInput'
 
 export type { MetahubRole }
 
@@ -85,8 +86,16 @@ export interface MetahubDisplay {
  * Used when creating/updating entities via API
  */
 export interface SimpleLocalizedInput {
+    [key: string]: string | undefined
     en?: string
     ru?: string
+}
+
+export interface MetahubLocalizedPayload {
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
 }
 
 /**
@@ -234,10 +243,22 @@ export interface LocalizedField {
 /**
  * Helper to extract localized content from VersatileLocalizedContent
  */
-export function getVLCString(field: VersatileLocalizedContent | undefined | null, locale = 'en'): string {
+export function getVLCString(
+    field: VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null,
+    locale = 'en'
+): string {
     if (!field) return ''
-    const entry = field.locales[locale] || field.locales[field._primary]
-    return entry?.content || ''
+    if (typeof field === 'string') return field
+    if (typeof field !== 'object') return ''
+
+    if ('locales' in field && field.locales && typeof field.locales === 'object') {
+        const normalized = normalizeLocale(locale)
+        const primary = typeof field._primary === 'string' ? field._primary : undefined
+        const entry = field.locales[normalized] || (primary ? field.locales[primary] : undefined)
+        return typeof entry?.content === 'string' ? entry.content : ''
+    }
+
+    return getSimpleLocalizedValue(field as SimpleLocalizedInput, locale)
 }
 
 /**
@@ -245,7 +266,7 @@ export function getVLCString(field: VersatileLocalizedContent | undefined | null
  */
 export function getLocalizedString(field: SimpleLocalizedInput | undefined | null, locale = 'en'): string {
     if (!field) return ''
-    return field[locale as keyof SimpleLocalizedInput] || field.en || field.ru || ''
+    return getSimpleLocalizedValue(field, locale)
 }
 
 /**
@@ -254,7 +275,8 @@ export function getLocalizedString(field: SimpleLocalizedInput | undefined | nul
  */
 export function getLocalizedContent(field: LocalizedField | undefined, locale = 'en'): string {
     if (!field) return ''
-    const entry = field.locales[locale] || field.locales[field._primary]
+    const normalized = normalizeLocale(locale)
+    const entry = field.locales[normalized] || field.locales[field._primary]
     return entry?.content || ''
 }
 

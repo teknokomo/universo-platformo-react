@@ -421,6 +421,9 @@ export const inputsCustomizations: Components<Theme> = {
                         borderColor: brand[400]
                     }
                 },
+                [`&.${outlinedInputClasses.multiline}`]: {
+                    padding: 0
+                },
                 [`&.${outlinedInputClasses.disabled}`]: {
                     '& .MuiOutlinedInput-notchedOutline': {
                         borderColor: alpha(gray[200], 0.8)

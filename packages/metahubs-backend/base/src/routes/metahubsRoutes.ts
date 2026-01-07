@@ -15,6 +15,8 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
 import { escapeLikeWildcards } from '../utils'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { isValidLocaleCode } from '@universo/types'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -28,6 +30,43 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+const sanitizeLocalizedInput = (input: Record<string, string | undefined>) => {
+    const sanitized: Record<string, string> = {}
+    for (const [locale, value] of Object.entries(input)) {
+        if (typeof value !== 'string') continue
+        const trimmedValue = value.trim()
+        if (!trimmedValue) continue
+        const normalized = locale.trim().replace('_', '-')
+        const [lang, region] = normalized.split('-')
+        const normalizedCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : lang.toLowerCase()
+        if (!isValidLocaleCode(normalizedCode)) continue
+        sanitized[normalizedCode] = trimmedValue
+    }
+    return sanitized
+}
+
+const buildLocalizedContent = (
+    input: Record<string, string>,
+    primaryLocale?: string,
+    fallbackPrimary?: string
+): VersionedLocalizedContent<string> | undefined => {
+    const localeCodes = Object.keys(input).sort()
+    if (localeCodes.length === 0) return undefined
+
+    const primaryCandidate = primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
+    const primary = primaryCandidate ?? localeCodes[0]
+    let content = createLocalizedContent(primary, input[primary] ?? '')
+
+    for (const locale of localeCodes) {
+        if (locale === primary) continue
+        const value = input[locale]
+        if (typeof value !== 'string') continue
+        content = updateLocalizedContentLocale(content, locale, value)
+    }
+
+    return content
 }
 
 export function createMetahubsRoutes(
@@ -295,26 +334,19 @@ export function createMetahubsRoutes(
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
+            const localizedInputSchema = z
+                .union([z.string().min(1).max(255), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+            const optionalLocalizedInputSchema = z
+                .union([z.string(), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
             const schema = z.object({
-                name: z
-                    .union([
-                        z.string().min(1).max(255),
-                        z.object({
-                            en: z.string().optional(),
-                            ru: z.string().optional()
-                        })
-                    ])
-                    .transform((val) => (typeof val === 'string' ? { en: val } : val)),
-                description: z
-                    .union([
-                        z.string(),
-                        z.object({
-                            en: z.string().optional(),
-                            ru: z.string().optional()
-                        })
-                    ])
-                    .optional()
-                    .transform((val) => (typeof val === 'string' ? { en: val } : val)),
+                name: localizedInputSchema,
+                description: optionalLocalizedInputSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
                 slug: z
                     .string()
                     .min(1)
@@ -339,18 +371,25 @@ export function createMetahubsRoutes(
                 }
             }
 
-            // Create VLC for name
-            let nameVlc = createLocalizedContent('en', result.data.name.en || '')
-            if (result.data.name.ru) {
-                nameVlc = updateLocalizedContentLocale(nameVlc, 'ru', result.data.name.ru)
+            const sanitizedName = sanitizeLocalizedInput(result.data.name)
+            if (Object.keys(sanitizedName).length === 0) {
+                return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
             }
 
-            // Create VLC for description if provided
+            const nameVlc = buildLocalizedContent(sanitizedName, result.data.namePrimaryLocale, 'en')
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
+            }
+
             let descriptionVlc = undefined
             if (result.data.description) {
-                descriptionVlc = createLocalizedContent('en', result.data.description.en || '')
-                if (result.data.description.ru) {
-                    descriptionVlc = updateLocalizedContentLocale(descriptionVlc, 'ru', result.data.description.ru)
+                const sanitizedDescription = sanitizeLocalizedInput(result.data.description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    descriptionVlc = buildLocalizedContent(
+                        sanitizedDescription,
+                        result.data.descriptionPrimaryLocale,
+                        result.data.namePrimaryLocale ?? 'en'
+                    )
                 }
             }
 
@@ -399,27 +438,19 @@ export function createMetahubsRoutes(
 
             await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub')
 
+            const localizedInputSchema = z
+                .union([z.string().min(1).max(255), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+            const optionalLocalizedInputSchema = z
+                .union([z.string(), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
             const schema = z.object({
-                name: z
-                    .union([
-                        z.string().min(1).max(255),
-                        z.object({
-                            en: z.string().optional(),
-                            ru: z.string().optional()
-                        })
-                    ])
-                    .optional()
-                    .transform((val) => (typeof val === 'string' ? { en: val } : val)),
-                description: z
-                    .union([
-                        z.string(),
-                        z.object({
-                            en: z.string().optional(),
-                            ru: z.string().optional()
-                        })
-                    ])
-                    .optional()
-                    .transform((val) => (typeof val === 'string' ? { en: val } : val)),
+                name: localizedInputSchema.optional(),
+                description: optionalLocalizedInputSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
                 slug: z
                     .string()
                     .min(1)
@@ -450,15 +481,26 @@ export function createMetahubsRoutes(
             }
 
             if (result.data.name !== undefined) {
-                metahub.name = createLocalizedContent('en', result.data.name.en || '')
-                if (result.data.name.ru) {
-                    metahub.name = updateLocalizedContentLocale(metahub.name, 'ru', result.data.name.ru)
+                const sanitizedName = sanitizeLocalizedInput(result.data.name)
+                if (Object.keys(sanitizedName).length === 0) {
+                    return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
+                }
+                const namePrimary = result.data.namePrimaryLocale ?? metahub.name?._primary ?? 'en'
+                const nameVlc = buildLocalizedContent(sanitizedName, namePrimary, namePrimary)
+                if (nameVlc) {
+                    metahub.name = nameVlc
                 }
             }
             if (result.data.description !== undefined) {
-                metahub.description = createLocalizedContent('en', result.data.description.en || '')
-                if (result.data.description.ru) {
-                    metahub.description = updateLocalizedContentLocale(metahub.description, 'ru', result.data.description.ru)
+                const sanitizedDescription = sanitizeLocalizedInput(result.data.description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    const descriptionPrimary = result.data.descriptionPrimaryLocale ?? metahub.description?._primary ?? metahub.name?._primary ?? 'en'
+                    const descriptionVlc = buildLocalizedContent(sanitizedDescription, descriptionPrimary, descriptionPrimary)
+                    if (descriptionVlc) {
+                        metahub.description = descriptionVlc
+                    }
+                } else {
+                    metahub.description = undefined
                 }
             }
             if (result.data.isPublic !== undefined) {

@@ -29,7 +29,8 @@ describe('metahubs mutation hooks', () => {
 
         vi.doMock('react-i18next', () => ({
             useTranslation: () => ({
-                t: (_key: string, fallback?: string) => fallback ?? _key
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                i18n: { language: 'en' }
             })
         }))
 
@@ -126,7 +127,18 @@ describe('metahubs mutation hooks', () => {
         })
 
         expect(metahubsApi.createMetahub).toHaveBeenCalledTimes(1)
-        expect(metahubsApi.updateMetahub).toHaveBeenCalledWith('m1', { name: 'Name2' })
+        expect(metahubsApi.createMetahub).toHaveBeenCalledWith({
+            name: { en: 'Name' },
+            description: { en: 'Desc' },
+            namePrimaryLocale: 'en',
+            descriptionPrimaryLocale: 'en'
+        })
+        expect(metahubsApi.updateMetahub).toHaveBeenCalledWith('m1', {
+            name: { en: 'Name2' },
+            description: undefined,
+            namePrimaryLocale: 'en',
+            descriptionPrimaryLocale: undefined
+        })
         expect(metahubsApi.deleteMetahub).toHaveBeenCalledWith('m1')
 
         expect(sectionsApi.createSection).toHaveBeenCalledTimes(1)
@@ -154,7 +166,8 @@ describe('metahubs mutation hooks', () => {
 
         vi.doMock('react-i18next', () => ({
             useTranslation: () => ({
-                t: (_key: string, fallback?: string) => fallback ?? _key
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                i18n: { language: 'en' }
             })
         }))
 

@@ -9,7 +9,7 @@ import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { PermissionInput, CreateRolePayload, UpdateRolePayload, VersionedLocalizedContent } from '@universo/types'
 import { isValidLocaleCode } from '@universo/types'
-import { createLocalizedContent, resolveLocalizedContent } from '@universo/utils'
+import { createLocalizedContent, resolveLocalizedContent, filterLocalizedContent } from '@universo/utils'
 
 // Project imports
 import {
@@ -17,7 +17,7 @@ import {
     ViewHeaderMUI as ViewHeader,
     EmptyListState,
     APIEmptySVG,
-    LocalizedFieldEditor
+    LocalizedInlineField
 } from '@universo/template-mui'
 
 import apiClient from '../api/apiClient'
@@ -42,40 +42,6 @@ const getDefaultFormState = (currentLocale: string) => {
         color: '#9e9e9e',
         isSuperuser: false,
         permissions: [] as PermissionInput[]
-    }
-}
-
-/**
- * Filter out locales with empty content from VersionedLocalizedContent
- * Returns null if all locales are empty (for optional fields)
- * Returns object with only non-empty locales (preserving _primary if it has content)
- */
-const filterEmptyLocales = <T extends string>(
-    vlc: VersionedLocalizedContent<T> | null | undefined
-): VersionedLocalizedContent<T> | null => {
-    if (!vlc) return null
-
-    const filteredLocales: Record<string, (typeof vlc.locales)[string]> = {}
-
-    for (const [localeCode, entry] of Object.entries(vlc.locales)) {
-        // Keep only locales with non-empty content
-        if (entry && entry.content && String(entry.content).trim() !== '') {
-            filteredLocales[localeCode] = entry
-        }
-    }
-
-    // If no locales have content, return null (for optional fields)
-    if (Object.keys(filteredLocales).length === 0) {
-        return null
-    }
-
-    // Determine new primary: keep original if it has content, otherwise pick first available
-    const newPrimary = filteredLocales[vlc._primary] !== undefined ? vlc._primary : (Object.keys(filteredLocales)[0] as string)
-
-    return {
-        _schema: vlc._schema,
-        _primary: newPrimary,
-        locales: filteredLocales as typeof vlc.locales
     }
 }
 
@@ -286,8 +252,8 @@ const RoleEdit = () => {
         }
 
         // Filter out empty locales before sending to backend
-        const filteredName = filterEmptyLocales(formState.name)
-        const filteredDescription = filterEmptyLocales(formState.description)
+        const filteredName = filterLocalizedContent(formState.name)
+        const filteredDescription = filterLocalizedContent(formState.description)
 
         // For system roles, only send allowed fields (description, name, color)
         // Do NOT send name, isSuperuser, or permissions
@@ -423,17 +389,20 @@ const RoleEdit = () => {
                             />
                         </Grid>
                         <Grid item xs={12}>
-                            <LocalizedFieldEditor
+                            <LocalizedInlineField
+                                mode='localized'
                                 value={formState.name}
-                                onChange={handleNameChange}
+                                onChange={(value) => handleNameChange(value)}
                                 label={t('roles.field.name', 'Name')}
                                 disabled={isSaving}
-                                error={!!validationErrors.name}
+                                error={validationErrors.name || null}
                                 helperText={validationErrors.name}
+                                uiLocale={i18n.language}
                             />
                         </Grid>
                         <Grid item xs={12}>
-                            <LocalizedFieldEditor
+                            <LocalizedInlineField
+                                mode='localized'
                                 value={formState.description}
                                 onChange={(value) => {
                                     setFormState((prev) => ({ ...prev, description: value }))
