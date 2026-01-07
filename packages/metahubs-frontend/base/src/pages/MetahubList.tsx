@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
+import type { VersionedLocalizedContent } from '@universo/types'
 
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
@@ -25,7 +26,8 @@ import {
     ConfirmDialog,
     useConfirm,
     RoleChip,
-    useUserSettings
+    useUserSettings,
+    LocalizedInlineField
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -34,14 +36,16 @@ import type { TriggerProps } from '@universo/template-mui'
 import { useUpdateMetahub, useDeleteMetahub } from '../hooks/mutations'
 import * as metahubsApi from '../api/metahubs'
 import { metahubsQueryKeys } from '../api/queryKeys'
-import { Metahub, MetahubDisplay, toMetahubDisplay } from '../types'
+import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay } from '../types'
 import metahubActions from './MetahubActions'
+import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 
 // Type for metahub update/create data
-type MetahubData = {
-    name: string
-    description?: string
+type MetahubFormValues = {
+    nameVlc?: VersionedLocalizedContent<string> | null
+    descriptionVlc?: VersionedLocalizedContent<string> | null
 }
+
 
 const MetahubList = () => {
     // Use metahubs namespace for view-specific keys, roles and access for role/permission labels
@@ -85,7 +89,7 @@ const MetahubList = () => {
     // State for independent ConfirmDeleteDialog (not managed by BaseEntityMenu)
     const [deleteDialogState, setDeleteDialogState] = useState<{
         open: boolean
-        metahub: Metahub | null
+        metahub: MetahubDisplay | null
     }>({ open: false, metahub: null })
 
     const { confirm } = useConfirm()
@@ -100,6 +104,11 @@ const MetahubList = () => {
         return metahubs.map((metahub) => toMetahubDisplay(metahub, currentLocale))
     }, [metahubs, i18n.language])
 
+    const metahubMap = useMemo(() => {
+        if (!Array.isArray(metahubs)) return new Map<string, Metahub>()
+        return new Map(metahubs.map((metahub) => [metahub.id, metahub]))
+    }, [metahubs])
+
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
@@ -113,7 +122,70 @@ const MetahubList = () => {
         return imagesMap
     }, [metahubsDisplay])
 
+    const localizedFormDefaults = useMemo<MetahubFormValues>(() => ({ nameVlc: null, descriptionVlc: null }), [])
+
+    const renderLocalizedFields = useCallback(
+        ({
+            values,
+            setValue,
+            isLoading,
+            errors
+        }: {
+            values: Record<string, any>
+            setValue: (name: string, value: any) => void
+            isLoading: boolean
+            errors?: Record<string, string>
+        }) => {
+            const fieldErrors = errors ?? {}
+            const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+            return (
+                <>
+                    <LocalizedInlineField
+                        mode='localized'
+                        label={tc('fields.name', 'Name')}
+                        required
+                        disabled={isLoading}
+                        value={nameVlc}
+                        onChange={(next) => setValue('nameVlc', next)}
+                        error={fieldErrors.nameVlc || null}
+                        helperText={fieldErrors.nameVlc}
+                        uiLocale={i18n.language}
+                    />
+                    <LocalizedInlineField
+                        mode='localized'
+                        label={tc('fields.description', 'Description')}
+                        disabled={isLoading}
+                        value={descriptionVlc}
+                        onChange={(next) => setValue('descriptionVlc', next)}
+                        uiLocale={i18n.language}
+                        multiline
+                        rows={2}
+                    />
+                </>
+            )
+        },
+        [i18n.language, tc]
+    )
+
+    const validateMetahubForm = useCallback(
+        (values: Record<string, any>) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            if (!hasPrimaryContent(nameVlc)) {
+                return { nameVlc: tc('crud.nameRequired', 'Name is required') }
+            }
+            return null
+        },
+        [tc]
+    )
+
+    const canSaveMetahubForm = useCallback((values: Record<string, any>) => {
+        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        return hasPrimaryContent(nameVlc)
+    }, [])
+
     const handleAddNew = () => {
+        setDialogError(null)
         setDialogOpen(true)
     }
 
@@ -125,15 +197,24 @@ const MetahubList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateMetahub = async (data: { name: string; description?: string }) => {
+    const handleCreateMetahub = async (data: Record<string, any>) => {
         setDialogError(null)
         setCreating(true)
-        // Determine current locale for VLC format
-        const currentLang: 'en' | 'ru' = i18n.language === 'ru' ? 'ru' : 'en'
         try {
+            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            if (!nameInput || !namePrimaryLocale) {
+                setDialogError(tc('crud.nameRequired', 'Name is required'))
+                return
+            }
+            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+
             await metahubsApi.createMetahub({
-                name: { [currentLang]: data.name } as { en?: string; ru?: string },
-                description: data.description ? { [currentLang]: data.description } as { en?: string; ru?: string } : undefined
+                name: nameInput,
+                description: descriptionInput,
+                namePrimaryLocale,
+                descriptionPrimaryLocale
             })
 
             // Invalidate cache to refetch metahubs list
@@ -239,8 +320,10 @@ const MetahubList = () => {
     const createMetahubContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
+            metahubMap,
+            uiLocale: i18n.language,
             api: {
-                updateEntity: async (id: string, patch: any) => {
+                updateEntity: async (id: string, patch: MetahubLocalizedPayload) => {
                     await updateMetahubMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
@@ -277,12 +360,12 @@ const MetahubList = () => {
                     }
                 },
                 // Helper to open ConfirmDeleteDialog independently from BaseEntityMenu
-                openDeleteDialog: (metahub: Metahub) => {
+                openDeleteDialog: (metahub: MetahubDisplay) => {
                     setDeleteDialogState({ open: true, metahub })
                 }
             }
         }),
-        [confirm, deleteMetahubMutation, enqueueSnackbar, queryClient, updateMetahubMutation]
+        [confirm, deleteMetahubMutation, enqueueSnackbar, i18n.language, metahubMap, queryClient, updateMetahubMutation]
     )
 
     return (
@@ -374,7 +457,7 @@ const MetahubList = () => {
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<MetahubDisplay, MetahubData>
+                                                            <BaseEntityMenu<MetahubDisplay, MetahubLocalizedPayload>
                                                                 entity={metahub}
                                                                 entityKind='metahub'
                                                                 descriptors={descriptors}
@@ -418,7 +501,7 @@ const MetahubList = () => {
                                             if (!descriptors.length) return null
 
                                             return (
-                                                <BaseEntityMenu<MetahubDisplay, MetahubData>
+                                                <BaseEntityMenu<MetahubDisplay, MetahubLocalizedPayload>
                                                     entity={row}
                                                     entityKind='metahub'
                                                     descriptors={descriptors}
@@ -464,6 +547,11 @@ const MetahubList = () => {
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
                 onSave={handleCreateMetahub}
+                hideDefaultFields
+                initialExtraValues={localizedFormDefaults}
+                extraFields={renderLocalizedFields}
+                canSave={canSaveMetahubForm}
+                validate={validateMetahubForm}
             />
 
             {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}

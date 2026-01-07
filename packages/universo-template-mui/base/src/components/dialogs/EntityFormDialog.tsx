@@ -33,10 +33,15 @@ export interface EntityFormDialogProps {
     deleteButtonDisabled?: boolean
     /** Callback when delete button is clicked (only in edit mode) */
     onDelete?: () => void | Promise<void>
+    /** Hide default name/description fields (useful for custom field rendering). */
+    hideDefaultFields?: boolean
+    /** Custom save gating based on current values. */
+    canSave?: (values: { name: string; description: string } & Record<string, any>) => boolean
     extraFields?: (helpers: {
         values: Record<string, any>
         setValue: (name: string, value: any) => void
         isLoading: boolean
+        errors: Record<string, string>
     }) => React.ReactNode
     initialExtraValues?: Record<string, any>
     validate?: (values: { name: string; description: string } & Record<string, any>) => Record<string, string> | null
@@ -65,6 +70,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     showDeleteButton = false,
     deleteButtonDisabled = false,
     onDelete,
+    hideDefaultFields = false,
+    canSave,
     extraFields,
     initialExtraValues,
     validate
@@ -87,10 +94,10 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }, [open, initialName, initialDescription])
 
     useEffect(() => {
-        if (open) {
+        if (open && !hideDefaultFields) {
             nameInputRef.current?.focus()
         }
-    }, [open])
+    }, [open, hideDefaultFields])
 
     // Set initial extra values only on first open
     useEffect(() => {
@@ -107,7 +114,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         const trimmedName = name.trim()
         const trimmedDescription = description.trim()
 
-        if (!trimmedName) {
+        if (!hideDefaultFields && !trimmedName) {
             setFieldErrors({ name: 'Name is required' })
             return
         }
@@ -118,6 +125,10 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                 setFieldErrors(errors)
                 return
             }
+        }
+
+        if (canSave && !canSave({ name: trimmedName, description: trimmedDescription, ...extraValues })) {
+            return
         }
 
         setFieldErrors({})
@@ -144,6 +155,9 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }
 
     const isLoading = loading || isSubmitting
+    const isSubmitDisabled = canSave
+        ? !canSave({ name: name.trim(), description: description.trim(), ...extraValues })
+        : !hideDefaultFields && !name.trim()
 
     const handleClose = () => {
         if (!isLoading) onClose()
@@ -154,35 +168,40 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             <DialogTitle>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible' }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-                    <TextField
-                        label={nameLabel}
-                        placeholder={namePlaceholder}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        fullWidth
-                        required
-                        disabled={isLoading}
-                        inputRef={nameInputRef}
-                        variant='outlined'
-                        error={!!fieldErrors.name}
-                        helperText={fieldErrors.name}
-                        InputProps={{ sx: { borderRadius: 1 } }}
-                    />
-                    <TextField
-                        label={descriptionLabel}
-                        placeholder={descriptionPlaceholder}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        fullWidth
-                        disabled={isLoading}
-                        variant='outlined'
-                        InputProps={{ sx: { borderRadius: 1 } }}
-                    />
+                    {!hideDefaultFields && (
+                        <>
+                            <TextField
+                                label={nameLabel}
+                                placeholder={namePlaceholder}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                fullWidth
+                                required
+                                disabled={isLoading}
+                                inputRef={nameInputRef}
+                                variant='outlined'
+                                error={!!fieldErrors.name}
+                                helperText={fieldErrors.name}
+                                InputProps={{ sx: { borderRadius: 1 } }}
+                            />
+                            <TextField
+                                label={descriptionLabel}
+                                placeholder={descriptionPlaceholder}
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                fullWidth
+                                disabled={isLoading}
+                                variant='outlined'
+                                InputProps={{ sx: { borderRadius: 1 } }}
+                            />
+                        </>
+                    )}
                     {extraFields &&
                         extraFields({
                             values: extraValues,
                             setValue: handleExtraValueChange,
-                            isLoading
+                            isLoading,
+                            errors: fieldErrors
                         })}
                     {error && (
                         <Typography color='error' variant='body2'>
@@ -216,7 +235,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                     <Button
                         onClick={handleSave}
                         variant='contained'
-                        disabled={isLoading || !name.trim()}
+                        disabled={isLoading || isSubmitDisabled}
                         sx={{
                             borderRadius: 1,
                             minWidth: '100px', // Ensure button doesn't shrink too much

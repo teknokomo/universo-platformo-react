@@ -31,6 +31,61 @@
 
 ---
 
+## 📅 2026-01-07
+
+### Diagnostics Logs Cleanup ✅
+
+- **Summary**: Removed temporary diagnostic logs from auth/admin flows and restored default backend log level to reduce noise after the incident was resolved.
+- **Files Changed**:
+  - `packages/flowise-core-backend/base/src/utils/config.ts`
+  - `packages/auth-frontend/base/src/api/client.ts`
+  - `packages/auth-backend/base/src/routes/auth.ts`
+  - `packages/admin-backend/base/src/services/globalAccessService.ts`
+  - `packages/admin-backend/base/src/routes/rolesRoutes.ts`
+  - `packages/admin-backend/base/src/routes/globalUsersRoutes.ts`
+
+### Admin Roles Direct Navigation Incident Notes ✅
+
+- **Summary**: Documented the direct navigation/reload issue for admin roles and the QueryRunner reuse fix in package READMEs and system patterns.
+- **Files Changed**:
+  - `packages/admin-backend/base/README.md`
+  - `packages/admin-backend/base/README-RU.md`
+  - `memory-bank/systemPatterns.md`
+
+### Localized Field UI Rollout ✅
+
+- **Summary**: Added compact localized field UI (inline language button + menu, primary badge) and wired it into metahubs create/edit flows and admin role/locale forms. Added shared VLC filter helper, common i18n keys, and backend support for optional primary locale overrides.
+- **Files Changed**:
+  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
+  - `packages/universo-template-mui/base/src/components/dialogs/EntityFormDialog.tsx`
+  - `packages/universo-utils/base/src/vlc/index.ts`
+  - `packages/universo-utils/base/src/index.ts`
+  - `packages/universo-utils/base/src/index.browser.ts`
+  - `packages/universo-i18n/base/src/locales/en/core/common.json`
+  - `packages/universo-i18n/base/src/locales/ru/core/common.json`
+  - `packages/admin-frontend/base/src/pages/RoleEdit.tsx`
+  - `packages/admin-frontend/base/src/components/LocaleDialog.tsx`
+  - `packages/metahubs-frontend/base/src/pages/MetahubList.tsx`
+  - `packages/metahubs-frontend/base/src/pages/MetahubActions.tsx`
+  - `packages/metahubs-frontend/base/src/utils/localizedInput.ts`
+  - `packages/metahubs-frontend/base/src/types.ts`
+  - `packages/metahubs-frontend/base/src/api/metahubs.ts`
+  - `packages/metahubs-frontend/base/src/hooks/mutations.ts`
+  - `packages/metahubs-frontend/base/src/pages/__tests__/MetahubList.test.tsx`
+  - `packages/metahubs-frontend/base/src/pages/__tests__/actionsFactories.test.ts`
+  - `packages/metahubs-frontend/base/src/__tests__/exports.test.ts`
+  - `packages/metahubs-backend/base/src/routes/metahubsRoutes.ts`
+- **Validation**: `pnpm --filter @universo/metahubs-frontend test` (tests pass; coverage thresholds fail at ~48–59%, existing suite uses coverage gates).
+
+### Localized Field UI Refinements ✅
+
+- **Summary**: Moved the localized language button into the top-right corner of fields without shrinking text width. Aligned multiline padding with single-line spacing in both `@universo/template-mui` and legacy `flowise-template-mui` themes.
+- **Files Changed**:
+  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
+  - `packages/universo-template-mui/base/src/themes/mui-custom/customizations/inputs.tsx`
+  - `packages/flowise-template-mui/base/src/themes/compStyleOverride.js`
+- **Validation**: Manual review recommended in metahubs/roles/locales dialogs (no automated UI tests).
+
 ## 📅 2026-01-06
 
 ### Internationalize project metadata and update texts ✅
@@ -51,6 +106,16 @@
 - **Follow-up**: Applied bot review recommendations — added `packages/universo-i18n/base/src/supported-languages.json` and `packages/flowise-core-frontend/base/scripts/sync-supported-langs.mjs`, plus small README/vite.config fixes; pushed to `feature/630-i18n-meta-texts` and included in PR #631.
 - **Follow-up 2**: Applied additional improvements per reviewer feedback — fixed `LanguageSwitcher` in `packages/universo-template-mui` and `packages/flowise-template-mui`, updated `packages/universo-i18n/base/package.json`, and tweaked `vite.config.js`; pushed to `feature/630-i18n-meta-texts` and commented on the PR.
 - **Validation**: Verify EN/RU strings on landing and onboarding pages, run `pnpm --filter <package> lint` for affected packages, then `pnpm build` at repo root
+
+### Metahubs localized fields hardening ✅
+
+- **Summary**: Prevented runtime crashes when metahubs name/description arrive in mixed formats (VLC, SimpleLocalizedInput, or string). Updated metahubs mutations to send localized payloads based on current UI language and adjusted tests to include VLC data.
+- **Files Changed**:
+  - `packages/metahubs-frontend/base/src/types.ts`
+  - `packages/metahubs-frontend/base/src/hooks/mutations.ts`
+  - `packages/metahubs-frontend/base/src/hooks/__tests__/mutations.test.tsx`
+  - `packages/metahubs-frontend/base/src/pages/__tests__/MetahubList.test.tsx`
+- **Validation**: `pnpm --filter @universo/metahubs-frontend test -- --runInBand` (1 existing timeout in `src/__tests__/exports.test.ts`)
 
 ## 📅 2026-01-05
 

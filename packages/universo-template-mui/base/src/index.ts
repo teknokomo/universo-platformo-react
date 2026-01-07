@@ -63,6 +63,7 @@ export * from './components/dialogs'
 
 // Forms
 export { LocalizedFieldEditor } from './components/forms/LocalizedFieldEditor'
+export { LocalizedInlineField } from './components/forms/LocalizedInlineField'
 
 // Chips
 export { RoleChip } from './components/chips'

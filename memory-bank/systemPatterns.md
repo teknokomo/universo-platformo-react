@@ -119,6 +119,18 @@ const apiClient = createAuthClient({
 
 ---
 
+## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
+
+**Rule**: When admin guards perform permission checks, reuse the request-scoped RLS `QueryRunner` from `req.dbContext` to avoid extra pooled connections and `QueryRunnerAlreadyReleasedError` on direct page reloads.
+
+**Required**:
+- Pass `queryRunner` into `globalAccessService` helpers (e.g., `isSuperuser`, `canAccessAdmin`, `getGlobalAccessInfo`) and permission checks.
+- If the request `QueryRunner` is missing or released, fall back to `getDataSource().query(...)`.
+
+**Why**: Keeps admin access checks in the same RLS session, prevents pending requests after direct navigation, and avoids released-runner errors under pool contention.
+
+---
+
 ## i18n Architecture (CRITICAL)
 
 **Rule**: Core namespaces in `@universo/i18n`; feature packages ship own translations via `registerNamespace`.

@@ -37,6 +37,7 @@ export {
     updateLocalizedContentLocale,
     resolveLocalizedContent,
     getLocalizedContentLocales,
+    filterLocalizedContent,
     isLocalizedContent
 } from './vlc'
 

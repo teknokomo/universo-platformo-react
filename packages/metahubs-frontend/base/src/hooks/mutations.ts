@@ -11,6 +11,8 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import type { AssignableRole } from '@universo/template-mui'
+import type { MetahubLocalizedPayload, SimpleLocalizedInput } from '../types'
+import { normalizeLocale } from '../utils/localizedInput'
 
 import * as metahubsApi from '../api/metahubs'
 import * as meta_sectionsApi from '../api/metaSections'
@@ -21,9 +23,11 @@ import { metahubsQueryKeys, meta_sectionsQueryKeys, meta_entitiesQueryKeys } fro
 // Types
 // ============================================================================
 
+type LegacyMetahubInput = { name: string; description?: string }
+
 interface UpdateMetahubParams {
     id: string
-    data: { name: string; description?: string }
+    data: LegacyMetahubInput | MetahubLocalizedPayload
 }
 
 interface UpdateSectionParams {
@@ -71,14 +75,29 @@ interface InviteMemberParams {
 /**
  * Hook for creating a metahub
  */
+const buildLocalizedInput = (value: string | undefined, locale: string): SimpleLocalizedInput | undefined => {
+    if (!value) return undefined
+    return { [locale]: value }
+}
+
 export function useCreateMetahub() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
+    const { t, i18n } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async (data: { name: string; description?: string }) => {
-            const response = await metahubsApi.createMetahub(data)
+        mutationFn: async (data: LegacyMetahubInput | MetahubLocalizedPayload) => {
+            const locale = normalizeLocale(i18n.language)
+            const payload: MetahubLocalizedPayload =
+                typeof data.name === 'string'
+                    ? {
+                          name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
+                          description: buildLocalizedInput(data.description, locale),
+                          namePrimaryLocale: locale,
+                          descriptionPrimaryLocale: data.description ? locale : undefined
+                      }
+                    : data
+            const response = await metahubsApi.createMetahub(payload)
             return response.data
         },
         onSuccess: () => {
@@ -97,11 +116,21 @@ export function useCreateMetahub() {
 export function useUpdateMetahub() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
+    const { t, i18n } = useTranslation('metahubs')
 
     return useMutation({
         mutationFn: async ({ id, data }: UpdateMetahubParams) => {
-            const response = await metahubsApi.updateMetahub(id, data)
+            const locale = normalizeLocale(i18n.language)
+            const payload: MetahubLocalizedPayload =
+                typeof data.name === 'string'
+                    ? {
+                          name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
+                          description: buildLocalizedInput(data.description, locale),
+                          namePrimaryLocale: locale,
+                          descriptionPrimaryLocale: data.description ? locale : undefined
+                      }
+                    : data
+            const response = await metahubsApi.updateMetahub(id, payload)
             return response.data
         },
         onSuccess: () => {

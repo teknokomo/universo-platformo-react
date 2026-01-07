@@ -6,11 +6,22 @@
 
 ## 🔥 ACTIVE TASKS
 
-_No active tasks._
+- [x] Remove temporary diagnostic logs and restore default backend log level.
+- [x] Update `LocalizedInlineField` UI: place language button inside field top-right without shrinking text width, align radius with field, and adjust input padding to avoid overlap.
+- [x] Fix global multiline padding in `@universo/template-mui` theme to match single-line spacing (avoid double padding).
+- [x] Sync multiline padding in `flowise-template-mui` theme to avoid conflicting styles.
+- [x] Quick visual check in metahubs/roles/locales dialogs and adjust if needed.
 
 ---
 
 ## ✅ RECENTLY COMPLETED
+
+### 2026-01-06: Metahubs localization hardening ✅
+
+- [x] Harden metahubs localized field handling to avoid crashes on mixed formats (VLC / SimpleLocalizedInput / string).
+- [x] Align metahubs create/update mutations with localized payloads based on current UI language.
+- [x] Adjust metahubs frontend tests to cover VLC payloads and updated mutation calls.
+- [x] Verify metahubs list rendering is resilient for language variants (e.g., ru-RU) and update docs if needed.
 
 ### 2026-01-06: Internationalize project metadata and update texts ✅
 
@@ -112,6 +123,170 @@ _No active tasks._
 - [x] Full workspace build passed (61 tasks, 5m46s)
 - **Pattern**: Factory pattern with separate env vars for granular control (SMARTCAPTCHA_REGISTRATION_ENABLED, SMARTCAPTCHA_LOGIN_ENABLED)
 - **UX**: Login button disabled until captcha completed when enabled
+
+### 2026-01-02: Captcha QA Fixes — Code Quality & Shared Module ✅
+
+- [x] Fixed P0 React Hooks order violation in AuthPage.tsx (moved useCallback before early return)
+- [x] Fixed P1 Prettier errors in auth-frontend (ran prettier --fix, reformatted function signatures)
+- [x] Fixed P1 `err: any` typing → `err: unknown` with proper type casting in AuthPage.tsx and AuthView.tsx
+- [x] Created @universo/utils/captcha shared module (extracted from auth-backend and leads-backend)
+- [x] Implemented factory pattern: `createRegistrationCaptchaService()`, `createPublicationCaptchaService()`
+- [x] Replaced native https.request with axios (cleaner error handling, timeout support, catalog dependency)
+- [x] Updated leads-backend tsconfig.json: moduleResolution node → node16 (for subpath exports)
+- [x] auth-frontend lint: 0 errors (down from 9), 11 warnings
+- [x] Full workspace build passed (61 tasks successful)
+- **Deduplication**: ~250 lines of duplicate captcha code → 35 lines per service (re-export pattern)
+- **Consistency**: Both captcha services now share identical validation logic
+
+### 2026-01-02: SmartCaptcha Fail-Closed Security Hardening ✅
+
+- [x] Implemented fail-closed behavior for auth-backend captchaService.ts
+- [x] Implemented fail-closed behavior for flowise-leads-backend captchaService.ts
+- [x] All error cases now return `{ success: false, error: '...' }` instead of allowing bypass
+- [x] Error messages: "Captcha service is not configured", "Captcha service unavailable", "Captcha service error", "Captcha service timeout"
+- [x] Ran lint --fix on auth-backend (0 errors, 40 warnings)
+- [x] Ran lint --fix on flowise-leads-backend (0 errors, 5 warnings)
+- [x] Full workspace build passed (61 tasks successful)
+- **Security**: When Yandex SmartCaptcha API is unavailable, registration and lead forms are blocked
+- **Rationale**: "единственная возможность пройти дальше это пройти эту капчу"
+
+### 2026-01-01: Server-side Captcha Validation for Leads ✅
+
+- [x] Added `captchaToken?: string` to CreateLeadPayload type (universo-types)
+- [x] Created captchaService.ts in flowise-leads-backend (mirrors auth-backend pattern)
+- [x] Added `isPublicationCaptchaRequired()` and `validatePublicationCaptcha(token, ip)` functions
+- [x] Updated leadsService.ts with captcha validation before lead creation
+- [x] Updated leadsRoutes.ts to pass clientIp from request
+- [x] Exported captcha functions from leads-backend index
+- **Security**: Server key (ysc2_...) used only in backend; fail-open on API errors (5s timeout)
+- **Trigger**: `SMARTCAPTCHA_PUBLICATION_ENABLED=true` env variable
+
+### 2026-01-01: SmartCaptcha Domain Fix in /p/:slug ✅
+
+- [x] Created quizRenderService.ts for server-side quiz HTML generation
+- [x] Added GET /api/v1/publish/render/:slug endpoint to serve quiz HTML from server
+- [x] Updated ARViewPage to use server endpoint (iframe.src) instead of blob: URL
+- [x] Added /api/v1/publish/render/ to API_WHITELIST_URLS
+- [x] Fixed timerConfig.position type narrowing (TimerPosition literal type)
+- **Root cause**: blob: URL creates opaque origin that SmartCaptcha cannot validate
+- **Solution**: Server-side rendering ensures iframe content comes from actual domain
+
+### 2026-01-01: SmartCaptcha for Quiz Lead Forms ✅
+
+- [x] Added `captchaEnabled` and `captchaSiteKey` to IUPDLSpace.leadCollection type
+- [x] Added captcha inputs to SpaceNode (UPDL node config)
+- [x] Updated DataHandler to generate SmartCaptcha HTML in lead form
+- [x] Added captcha.js script loader with success/expired callbacks
+- [x] Updated button state logic to require captcha token (both multi-scene and node-based)
+- [x] Added captcha validation in form submission
+- [x] Updated consent checkbox text to match registration form style ("Я ознакомился и принимаю")
+- [x] Updated .env/.env.example documentation about test mode behavior
+- [x] Added SMARTCAPTCHA_PUBLICATION_ENABLED env variable for separate control
+- [x] Created captchaService.ts in publish-backend for publication captcha config
+- [x] Added /captcha/config API endpoint in publish-backend routes
+- [x] Whitelisted /api/v1/publish/captcha/config in API_WHITELIST_URLS (fix 401 for public /p/:slug)
+- [x] Fixed published /p/:slug missing captcha by injecting publicationCaptchaConfig into template build
+- [x] Fixed SmartCaptcha domain error in /p/:slug by rendering iframe content via blob URL (avoid about:srcdoc)
+
+### 2026-01-01: Yandex Smart Captcha ✅
+
+- [x] Backend: Captcha validation service (fail-open)
+- [x] Backend: Register route update (token verification)
+- [x] Frontend: AuthView update (SmartCaptcha widget, state logic)
+- [x] i18n: Updated consent labels and added captcha error messages
+- Details: progress.md#2026-01-01
+
+### 2025-12-31: Cookie Consent & Lead Consent ✅
+
+- [x] Cookie consent banner (useCookieConsent, CookieConsentBanner, CookieRejectionDialog)
+- [x] Lead consent for AR.js Quiz (migration, entity, DataHandler)
+- [x] Split consent_version into terms_version + privacy_version
+- [x] Bot review fixes for PR #621 (SSR, localStorage, alpha(), aria role)
+- Details: progress.md#2025-12-31
+
+### 2025-12-30: Profile & Legal Pages ✅
+
+- [x] Profile creation debug - TypeORM result parsing fix
+- [x] Migration consolidation (UpdateProfileTrigger + FixProfileInsertRLS)
+- [x] Legal pages (/terms, /privacy) with consent checkboxes
+- [x] Database trigger for consent via raw_user_meta_data
+- Details: progress.md#2025-12-30
+
+### 2025-12-28: Onboarding & Auth Fixes ✅
+
+- [x] Onboarding completion tracking (onboarding_completed flag)
+- [x] Bot review fixes for PR #614
+- [x] Auth register 419 auto-retry
+- [x] Start page UI bugfixes (spacing, button flicker)
+- Details: progress.md#2025-12-28
+
+### 2025-12-26: Quiz Leads, Auth UX, Start Page i18n ✅
+
+- [x] Quiz leads API fix (optional canvasId, points validation)
+- [x] Analytics TypeError fix (normalizeCanvasesResponse)
+- [x] Anonymous quiz access fix (public endpoints whitelist)
+- [x] Login after restart fix (419 auto-retry)
+- [x] Logout redirect fix (React re-render instead of redirect)
+- [x] Start page i18n (Testimonials, AppAppBar buttons)
+- [x] Onboarding content & notices enhancement
+- Details: progress.md#2025-12-26
+
+### 2025-12-25: Start Page MVP & API Client Refactor ✅
+
+- [x] Start page auth-conditional rendering (Guest/Authenticated)
+- [x] StartLayoutMUI, GuestStartPage, AuthenticatedStartPage
+- [x] Guest redirect fix (public routes allowlist)
+- [x] API client architecture refactoring (~500 lines duplicate code eliminated)
+- [x] Public routes centralized in @universo/utils/routes
+- [x] Auth redirect & landing page fixes
+- Details: progress.md#2025-12-25
+
+### 2025-12-23: RLS & Metahubs Fixes ✅
+
+- [x] RLS context persistence (session-scoped settings)
+- [x] Role change breaking admin schema fix (removed SET role)
+- [x] Metahubs pagination data access fix
+- [x] Metahubs i18n, breadcrumbs, navigation improvements
+- Details: progress.md#2025-12-23
+
+### 2025-12-22: Metahubs Transformation ✅
+
+- [x] Phase 1-2: Backend entities (Hub, Attribute, HubRecord)
+- [x] Phase 3: Frontend (HubList, AttributeList, RecordList)
+- [x] VLC type handling (Display types, converters)
+- [x] Metahubs MVP copy-refactor from Metaverses
+- Details: progress.md#2025-12-22
+
+### 2025-12-18: AgentFlow QA Hardening ✅
+
+- [x] Scope + membership enforcement for validation/executions routes
+- [x] Public execution share contract alignment
+- [x] Lint/Prettier fixes in agents/executions packages
+- [x] Template-MUI lint failures triage
+- Details: progress.md#2025-12-18
+
+### 2025-12-17: AgentFlow Config UX ✅
+
+- [x] Input focus loss fix (removed value-based remount)
+- [x] Start node conditional fields rendering
+- [x] Messages array section for saved canvases
+- Details: progress.md#2025-12-17
+
+### 2025-12-15-16: AgentFlow Integration ✅
+
+- [x] Universal canvas: node-based AgentFlow detection
+- [x] Chat popup i18n (flowise-chatmessage-frontend)
+- [x] Agents backend package (validation service/router)
+- [x] Agents frontend package (ValidationPopUp)
+- [x] AgentFlow node/edge rendering
+- Details: progress.md#2025-12-15
+
+### 2025-12-14: Flowise 3.0.12 Components ✅
+
+- [x] Components replacement with upstream version
+- [x] AgentFlow icon rendering (Tabler icons)
+- [x] Backend error handler improvement
+- Details: progress.md#2025-12-14
 
 ---
 
@@ -220,7 +395,6 @@ _No active tasks._
 - [x] Backend: Captcha validation service (fail-open)
 - [x] Backend: Register route update (token verification)
 - [x] Frontend: AuthView update (SmartCaptcha widget, state logic)
-- [x] Frontend: AuthPage update (pass token to API)
 - [x] i18n: Updated consent labels and added captcha error messages
 - Details: progress.md#2026-01-01
 

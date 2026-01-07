@@ -14,29 +14,21 @@ beforeEach(() => {
 })
 
 describe('Metahubs page action factories', () => {
-    it('MetahubActions passes correct config and getInitialFormData works', async () => {
+    it('MetahubActions exports edit/delete descriptors for localized forms', async () => {
         const mod = await import('../MetahubActions')
 
-        expect(createEntityActions).toHaveBeenCalledTimes(1)
-        expect(createEntityActions).toHaveBeenCalledWith(
-            expect.objectContaining({
-                i18nPrefix: 'metahubs',
-                getInitialFormData: expect.any(Function)
-            })
-        )
+        expect(createEntityActions).not.toHaveBeenCalled()
 
-        const cfg = mod.default as any
-        expect(cfg.i18nPrefix).toBe('metahubs')
+        const descriptors = mod.default as any[]
+        expect(Array.isArray(descriptors)).toBe(true)
 
-        expect(cfg.getInitialFormData({ name: 'Hub', description: undefined })).toEqual({
-            initialName: 'Hub',
-            initialDescription: ''
-        })
+        const edit = descriptors.find((d) => d.id === 'edit')
+        const del = descriptors.find((d) => d.id === 'delete')
 
-        expect(cfg.getInitialFormData({ name: 'Hub', description: 'Desc' })).toEqual({
-            initialName: 'Hub',
-            initialDescription: 'Desc'
-        })
+        expect(edit).toBeTruthy()
+        expect(edit.dialog).toBeTruthy()
+        expect(del).toBeTruthy()
+        expect(del.dialog).toBeTruthy()
     })
 
     it('MetaSectionActions passes correct config and getInitialFormData works', async () => {

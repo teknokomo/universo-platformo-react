@@ -30,6 +30,7 @@ export type {
     Metahub,
     MetahubDisplay,
     VersatileLocalizedContent,
-    SimpleLocalizedInput
+    SimpleLocalizedInput,
+    MetahubLocalizedPayload
 } from './types'
 export { toMetahubDisplay, toHubDisplay, toAttributeDisplay, toHubRecordDisplay, getVLCString, getLocalizedString } from './types'

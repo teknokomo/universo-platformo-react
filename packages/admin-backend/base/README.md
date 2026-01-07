@@ -115,6 +115,14 @@ This module uses a deliberate hybrid approach:
 
 This design ensures that permission checks in application code match the database-level RLS policies exactly.
 
+## Troubleshooting
+
+### Admin roles list hangs after direct navigation
+
+- **Symptom**: Direct navigation or page reload on `/admin/instance/:id/roles` leaves the UI on skeleton loaders and Network shows pending `GET /api/v1/admin/roles` requests.
+- **Root cause**: Admin guard checks executed outside the request-scoped RLS `QueryRunner`, competing for pooled connections and sometimes running after the runner was released, which caused `QueryRunnerAlreadyReleasedError` or hanging requests.
+- **Fix**: Reuse the request `QueryRunner` for admin access checks and permission queries, and fall back to `DataSource` only when no active runner exists. No database schema changes required.
+
 ## File Structure
 
 ```

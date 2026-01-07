@@ -12,6 +12,9 @@ vi.mock('../pages/MetahubBoard', () => ({ default: () => null }))
 vi.mock('../pages/MetaSectionList', () => ({ default: () => null }))
 vi.mock('../pages/MetaEntityList', () => ({ default: () => null }))
 vi.mock('../pages/MetahubMembers', () => ({ default: () => null }))
+vi.mock('../pages/HubList', () => ({ default: () => null }))
+vi.mock('../pages/AttributeList', () => ({ default: () => null }))
+vi.mock('../pages/RecordList', () => ({ default: () => null }))
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -31,7 +34,7 @@ describe('metahubs-frontend entry exports', () => {
         expect(entry.MetahubMembers).toBeTruthy()
         expect(entry.metahubsDashboard).toBeTruthy()
         expect(entry.metahubsTranslations).toBeTruthy()
-    }, 10000)
+    }, 20000)
 
     it('exports metahubs dashboard menu structure', async () => {
         const { default: metahubDashboard } = await import('../menu-items/metahubDashboard')

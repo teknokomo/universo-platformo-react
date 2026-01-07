@@ -1,10 +1,17 @@
 import apiClient, { extractPaginationMeta } from './apiClient'
-import { Metahub, MetahubMember, MetahubAssignableRole, PaginationParams, PaginatedResponse, MetaEntity, MetaSection, SimpleLocalizedInput } from '../types'
+import {
+    Metahub,
+    MetahubMember,
+    MetahubAssignableRole,
+    PaginationParams,
+    PaginatedResponse,
+    MetaEntity,
+    MetaSection,
+    MetahubLocalizedPayload
+} from '../types'
 
 // Input type for creating/updating metahubs with localized content
-export interface MetahubInput {
-    name: SimpleLocalizedInput
-    description?: SimpleLocalizedInput
+export interface MetahubInput extends MetahubLocalizedPayload {
     slug?: string
     isPublic?: boolean
 }

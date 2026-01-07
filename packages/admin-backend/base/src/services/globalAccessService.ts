@@ -1,5 +1,5 @@
 import { In } from 'typeorm'
-import type { DataSource } from 'typeorm'
+import type { DataSource, QueryRunner } from 'typeorm'
 import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
 import type { RoleMetadata, GlobalRoleInfo, GlobalUserMember, VersionedLocalizedContent } from '@universo/types'
@@ -103,6 +103,18 @@ function toRoleMetadata(role: Role | RoleRow): RoleMetadata {
  * - Raw SQL for RLS functions and complex queries (consistency with PostgreSQL policies)
  */
 export function createGlobalAccessService({ getDataSource }: GlobalAccessServiceDeps) {
+    const runQuery = async <T = unknown>(
+        sql: string,
+        params: unknown[],
+        queryRunner?: QueryRunner
+    ): Promise<T[]> => {
+        if (queryRunner && !queryRunner.isReleased) {
+            return (await queryRunner.query(sql, params)) as T[]
+        }
+
+        return (await getDataSource().query(sql, params)) as T[]
+    }
+
     /**
      * Get all roles with metadata (TypeORM Repository)
      */
@@ -134,45 +146,44 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
     /**
      * Check if user is superuser (has is_superuser=true role)
      */
-    async function isSuperuser(userId: string): Promise<boolean> {
-        const ds = getDataSource()
-        const result = (await ds.query(
+    async function isSuperuser(userId: string, queryRunner?: QueryRunner): Promise<boolean> {
+        const result = await runQuery<{ is_super: boolean }>(
             `
             SELECT admin.is_superuser($1::uuid) as is_super
         `,
-            [userId]
-        )) as { is_super: boolean }[]
+            [userId],
+            queryRunner
+        )
         return result[0]?.is_super ?? false
     }
 
     /**
      * Check if user can access admin panel (has admin-related permissions)
      */
-    async function canAccessAdmin(userId: string): Promise<boolean> {
-        const ds = getDataSource()
-        const result = (await ds.query(
+    async function canAccessAdmin(userId: string, queryRunner?: QueryRunner): Promise<boolean> {
+        const result = await runQuery<{ can_access: boolean }>(
             `
             SELECT admin.has_admin_permission($1::uuid) as can_access
         `,
-            [userId]
-        )) as { can_access: boolean }[]
+            [userId],
+            queryRunner
+        )
         return result[0]?.can_access ?? false
     }
 
     /**
      * Get user's global access info (roles with metadata)
      */
-    async function getGlobalAccessInfo(userId: string): Promise<GlobalAccessInfo> {
-        const ds = getDataSource()
-
+    async function getGlobalAccessInfo(userId: string, queryRunner?: QueryRunner): Promise<GlobalAccessInfo> {
         // Get all user's roles with metadata
-        const rows = (await ds.query(
+        const rows = await runQuery<{ role_codename: string; name: VersionedLocalizedContent<string>; color: string }>(
             `
             SELECT role_codename, name, color
             FROM admin.get_user_global_roles($1::uuid)
         `,
-            [userId]
-        )) as { role_codename: string; name: VersionedLocalizedContent<string>; color: string }[]
+            [userId],
+            queryRunner
+        )
 
         const globalRoles: GlobalRoleInfo[] = rows.map((row) => ({
             codename: row.role_codename,
@@ -185,8 +196,8 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
         }))
 
         // Check if user is superuser
-        const isSuperuserFlag = await isSuperuser(userId)
-        const canAccessAdminFlag = await canAccessAdmin(userId)
+        const isSuperuserFlag = await isSuperuser(userId, queryRunner)
+        const canAccessAdminFlag = await canAccessAdmin(userId, queryRunner)
 
         // Mark superuser role
         if (isSuperuserFlag) {
@@ -207,8 +218,8 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
      * Get user's primary global role codename (for backward compatibility)
      * Returns the first global role or null
      */
-    async function getGlobalRoleCodename(userId: string): Promise<string | null> {
-        const info = await getGlobalAccessInfo(userId)
+    async function getGlobalRoleCodename(userId: string, queryRunner?: QueryRunner): Promise<string | null> {
+        const info = await getGlobalAccessInfo(userId, queryRunner)
         return info.globalRoles[0]?.codename ?? null
     }
 

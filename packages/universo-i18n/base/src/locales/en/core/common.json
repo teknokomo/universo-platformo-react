@@ -195,6 +195,17 @@
         "description": "This action cannot be undone. {{entity}} \"{{name}}\" and all its data will be permanently deleted.",
         "confirm": "Delete"
       }
+    },
+    "localizedField": {
+      "loading": "Loading languages...",
+      "addLanguage": "Add language",
+      "changeLanguage": "Change language",
+      "makePrimary": "Make primary",
+      "primaryVariant": "Primary variant",
+      "removeLanguage": "Remove",
+      "back": "Back",
+      "noLanguagesAvailable": "No languages available",
+      "fallbackNotice": "Using fallback languages"
     }
   }
 }

@@ -83,7 +83,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, ge
 
     router.get('/csrf', csrfProtection, (req, res) => {
         const request = req as AuthenticatedRequest
-        return res.json({ csrfToken: request.csrfToken?.() ?? '' })
+        const token = request.csrfToken?.() ?? ''
+        return res.json({ csrfToken: token })
     })
 
     router.post('/register', loginLimiter, csrfProtection, async (req, res) => {

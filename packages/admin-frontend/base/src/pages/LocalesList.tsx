@@ -58,7 +58,7 @@ const LocalesList = () => {
         mutationFn: ({ id, data }: { id: string; data: UpdateLocalePayload }) => localesApi.updateLocale(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: localesQueryKeys.lists() })
-            // Invalidate public content locales endpoint used by LocalizedFieldEditor
+            // Invalidate public content locales endpoint used by localized field UI
             queryClient.invalidateQueries({ queryKey: ['locales', 'content', 'public'] })
         },
         onError: (err: Error) => {
@@ -71,7 +71,7 @@ const LocalesList = () => {
         mutationFn: localesApi.deleteLocale,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: localesQueryKeys.lists() })
-            // Invalidate public content locales endpoint used by LocalizedFieldEditor
+            // Invalidate public content locales endpoint used by localized field UI
             queryClient.invalidateQueries({ queryKey: ['locales', 'content', 'public'] })
             enqueueSnackbar(t('locales.deleteSuccess', 'Locale deleted successfully'), { variant: 'success' })
         },
@@ -141,7 +141,7 @@ const LocalesList = () => {
     // Handler: Dialog success (refresh list)
     const handleDialogSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: localesQueryKeys.lists() })
-        // Invalidate public content locales endpoint used by LocalizedFieldEditor
+        // Invalidate public content locales endpoint used by localized field UI
         queryClient.invalidateQueries({ queryKey: ['locales', 'content', 'public'] })
         handleCloseDialog()
     }, [queryClient, handleCloseDialog])

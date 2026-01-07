@@ -8,6 +8,7 @@ const RETRYABLE_METHODS = new Set(['get', 'head', 'options'])
 const RETRYABLE_STATUSES = new Set([503, 504])
 const MAX_RETRY_ATTEMPTS = 4
 const BASE_BACKOFF_MS = 300
+const CSRF_REQUIRED_METHODS = new Set(['post', 'put', 'patch', 'delete'])
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -118,9 +119,14 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
     }
 
     instance.interceptors.request.use(async (config) => {
-        const token = await resolveCsrfToken()
-        config.headers = config.headers ?? {}
-        config.headers['X-CSRF-Token'] = token
+        const method = typeof config.method === 'string' ? config.method.toLowerCase() : 'get'
+
+        if (CSRF_REQUIRED_METHODS.has(method)) {
+            const token = await resolveCsrfToken()
+            config.headers = config.headers ?? {}
+            config.headers['X-CSRF-Token'] = token
+        }
+
         config.withCredentials = true
         return config
     })
@@ -129,6 +135,7 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
         (response) => response,
         async (error) => {
             const status = error?.response?.status
+            const config: Record<string, any> = error?.config ?? {}
 
             // Handle CSRF token expiration
             if (status === 419) {
@@ -159,7 +166,6 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
                 }
             }
 
-            const config: Record<string, any> = error?.config ?? {}
             const method = typeof config?.method === 'string' ? config.method.toLowerCase() : ''
             const shouldRetry = RETRYABLE_METHODS.has(method) && typeof status === 'number' && RETRYABLE_STATUSES.has(status)
 
