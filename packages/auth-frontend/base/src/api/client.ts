@@ -104,6 +104,7 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
         const cached = storage?.getItem(mergedOptions.csrfStorageKey)
         if (cached) return cached
         if (!csrfPromise) {
+            // Shared promise prevents redundant CSRF fetches when multiple mutations start together.
             csrfPromise = csrfFetcher
                 .get<{ csrfToken: string }>(mergedOptions.csrfPath)
                 .then(({ data }) => {

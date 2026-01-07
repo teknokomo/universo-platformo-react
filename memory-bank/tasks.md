@@ -6,11 +6,9 @@
 
 ## 🔥 ACTIVE TASKS
 
-- [x] Remove temporary diagnostic logs and restore default backend log level.
-- [x] Update `LocalizedInlineField` UI: place language button inside field top-right without shrinking text width, align radius with field, and adjust input padding to avoid overlap.
-- [x] Fix global multiline padding in `@universo/template-mui` theme to match single-line spacing (avoid double padding).
-- [x] Sync multiline padding in `flowise-template-mui` theme to avoid conflicting styles.
-- [x] Quick visual check in metahubs/roles/locales dialogs and adjust if needed.
+- [x] Review PR #633 bot suggestions and apply safe fixes across metahubs-frontend utilities and tests.
+- [x] Make `LocalizedInlineField` locales endpoint configurable and add guidance for stable `onChange` callbacks.
+- [x] Align VLC utilities with `isActive` semantics and validate locale codes in metahubs backend helpers.
 
 ---
 

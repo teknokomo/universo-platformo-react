@@ -1,4 +1,5 @@
 import type { MetahubRole, GlobalRole } from '@universo/types'
+import { getSimpleLocalizedValue, normalizeLocale } from './utils/localizedInput'
 
 export type { MetahubRole }
 
@@ -39,18 +40,6 @@ export interface VersatileLocalizedContent {
     _schema: string
     locales: Record<string, { content: string }>
     _primary: string
-}
-
-const normalizeLocale = (locale = 'en'): string => locale.toLowerCase().split(/[-_]/)[0]
-
-const getSimpleLocalizedValue = (field: SimpleLocalizedInput, locale = 'en'): string => {
-    const normalized = normalizeLocale(locale)
-    const localized = field[normalized]
-    if (typeof localized === 'string' && localized.trim() !== '') return localized
-    if (typeof field.en === 'string' && field.en.trim() !== '') return field.en
-    if (typeof field.ru === 'string' && field.ru.trim() !== '') return field.ru
-    const fallback = Object.values(field).find((value) => typeof value === 'string' && value.trim() !== '')
-    return typeof fallback === 'string' ? fallback : ''
 }
 
 export interface Metahub {

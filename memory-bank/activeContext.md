@@ -20,6 +20,8 @@ and legacy `flowise-template-mui` themes.
 
 Removed temporary diagnostic logs and restored the default backend log level after resolving the admin roles reload incident.
 
+Applied PR #633 review fixes: deduped localized helpers, made localized locales endpoint configurable, aligned VLC filtering with isActive, validated locale codes, stabilized VLC primary fallback selection, and documented CSRF shared promise behavior.
+
 ---
 
 ## Previous Focus: Auth Disabled State UX Refinements - 2025-01-10 ✅

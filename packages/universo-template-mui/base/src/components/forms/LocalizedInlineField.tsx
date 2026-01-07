@@ -78,6 +78,7 @@ type LocalizedFieldProps = BaseProps & {
     onChange: (value: VersionedLocalizedContent<string>) => void
     uiLocale?: string
     autoInitialize?: boolean
+    localesEndpoint?: string
 }
 
 export type LocalizedInlineFieldProps = SimpleFieldProps | LocalizedFieldProps
@@ -132,7 +133,8 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
         rows,
         size,
         uiLocale,
-        autoInitialize = true
+        autoInitialize = true,
+        localesEndpoint = '/api/v1/locales/content'
     } = props
 
     const {
@@ -140,9 +142,9 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
         isLoading: localesLoading,
         isError: localesError
     } = useQuery<{ locales: LocaleOption[]; defaultLocale?: string }>({
-        queryKey: CONTENT_LOCALES_QUERY_KEY,
+        queryKey: [...CONTENT_LOCALES_QUERY_KEY, localesEndpoint],
         queryFn: async () => {
-            const response = await fetch('/api/v1/locales/content')
+            const response = await fetch(localesEndpoint)
             if (!response.ok) {
                 throw new Error('Failed to fetch locales')
             }
@@ -162,6 +164,7 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
     const normalizedUiLocale = normalizeLocale(uiLocale)
 
     useEffect(() => {
+        // Note: onChange should be memoized at the call site to avoid re-init loops.
         if (!autoInitialize || value) return
         if (!availableLocales.length) return
         const initialLocale = pickInitialLocale(normalizedUiLocale, availableLocales, defaultLocale)

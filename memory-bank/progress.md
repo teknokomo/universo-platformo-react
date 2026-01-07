@@ -52,6 +52,23 @@
   - `packages/admin-backend/base/README-RU.md`
   - `memory-bank/systemPatterns.md`
 
+### PR #633 Bot Review Fixes ✅
+
+- **Summary**: Applied safe fixes from PR review: deduped localized helpers, configurable locales endpoint, stabilized VLC filtering, locale code validation, deterministic VLC primary fallback, and clarified CSRF shared promise behavior.
+- **Files Changed**:
+  - `packages/metahubs-frontend/base/src/utils/localizedInput.ts`
+  - `packages/metahubs-frontend/base/src/types.ts`
+  - `packages/metahubs-frontend/base/src/__tests__/exports.test.ts`
+  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
+  - `packages/universo-utils/base/src/vlc/index.ts`
+  - `packages/metahubs-backend/base/src/routes/metahubsRoutes.ts`
+  - `packages/auth-frontend/base/src/api/client.ts`
+- **Validation**:
+  - `pnpm --filter @universo/metahubs-frontend test -- --runTestsByPath src/__tests__/exports.test.ts` (fails only on existing coverage thresholds)
+  - `pnpm --filter @universo/template-mui build`
+  - `pnpm --filter @universo/metahubs-backend build`
+  - `pnpm --filter @universo/utils build`
+
 ### Localized Field UI Rollout ✅
 
 - **Summary**: Added compact localized field UI (inline language button + menu, primary badge) and wired it into metahubs create/edit flows and admin role/locale forms. Added shared VLC filter helper, common i18n keys, and backend support for optional primary locale overrides.

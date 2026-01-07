@@ -139,6 +139,7 @@ export function filterLocalizedContent<T = string>(
 
     for (const [localeCode, entry] of Object.entries(content.locales)) {
         if (!entry || entry.content === undefined || entry.content === null) continue
+        if (entry.isActive === false) continue
         if (typeof entry.content === 'string' && entry.content.trim() === '') continue
         filteredLocales[localeCode] = entry
     }
