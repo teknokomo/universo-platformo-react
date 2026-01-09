@@ -1,6 +1,22 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Chip, ToggleButtonGroup, ToggleButton } from '@mui/material'
+import {
+    Box,
+    Skeleton,
+    Stack,
+    Typography,
+    Chip,
+    Divider,
+    ToggleButtonGroup,
+    ToggleButton,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormControlLabel,
+    Switch
+} from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
@@ -20,24 +36,122 @@ import {
     PaginationControls,
     FlowListTable,
     ConfirmDialog,
-    useConfirm
+    useConfirm,
+    LocalizedInlineField,
+    useCodenameAutoFill
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute } from '../hooks/mutations'
+import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute, useMoveAttribute } from '../hooks/mutations'
 import * as attributesApi from '../api/attributes'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../api/queryKeys'
-import { Attribute, AttributeDisplay, AttributeDataType, toAttributeDisplay } from '../types'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { Attribute, AttributeDisplay, AttributeDataType, AttributeLocalizedPayload, getVLCString, toAttributeDisplay } from '../types'
+import { sanitizeCodename, isValidCodename } from '../utils/codename'
+import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
+import { CodenameField } from '../components'
 import attributeActions from './AttributeActions'
 
-// Type for attribute create/update data
-type AttributeData = {
+type AttributeFormValues = {
+    nameVlc: VersionedLocalizedContent<string> | null
     codename: string
-    dataType: AttributeDataType
-    name?: { en?: string; ru?: string }
-    description?: { en?: string; ru?: string }
+    codenameTouched?: boolean
+    dataType?: AttributeDataType
     isRequired?: boolean
+}
+
+type AttributeFormFieldsProps = {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    errors: Record<string, string>
+    uiLocale: string
+    nameLabel: string
+    codenameLabel: string
+    codenameHelper: string
+    dataTypeLabel: string
+    requiredLabel: string
+    dataTypeOptions: Array<{ value: AttributeDataType; label: string }>
+}
+
+const AttributeFormFields = ({
+    values,
+    setValue,
+    isLoading,
+    errors,
+    uiLocale,
+    nameLabel,
+    codenameLabel,
+    codenameHelper,
+    dataTypeLabel,
+    requiredLabel,
+    dataTypeOptions
+}: AttributeFormFieldsProps) => {
+    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameTouched = Boolean(values.codenameTouched)
+    const dataType = (values.dataType as AttributeDataType | undefined) ?? 'STRING'
+    const isRequired = Boolean(values.isRequired)
+    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
+    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
+    const nextCodename = sanitizeCodename(nameValue)
+
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    return (
+        <>
+            <LocalizedInlineField
+                mode='localized'
+                label={nameLabel}
+                required
+                disabled={isLoading}
+                value={nameVlc}
+                onChange={(next) => setValue('nameVlc', next)}
+                error={errors.nameVlc || null}
+                helperText={errors.nameVlc}
+                uiLocale={uiLocale}
+            />
+            <FormControl fullWidth disabled={isLoading}>
+                <InputLabel id='attribute-data-type-label'>{dataTypeLabel}</InputLabel>
+                <Select
+                    labelId='attribute-data-type-label'
+                    label={dataTypeLabel}
+                    value={dataType}
+                    onChange={(event) => setValue('dataType', event.target.value as AttributeDataType)}
+                >
+                    {dataTypeOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+            <FormControlLabel
+                control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
+                label={requiredLabel}
+                disabled={isLoading}
+            />
+            <Divider />
+            <CodenameField
+                value={codename}
+                onChange={(value) => setValue('codename', value)}
+                touched={codenameTouched}
+                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                label={codenameLabel}
+                helperText={codenameHelper}
+                error={errors.codename}
+                disabled={isLoading}
+                required
+            />
+        </>
+    )
 }
 
 // Get color for data type chip
@@ -76,15 +190,15 @@ const AttributeList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Use paginated hook for attributes list
-    const paginationResult = usePaginated<Attribute, 'codename' | 'created' | 'updated'>({
+    const paginationResult = usePaginated<Attribute, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn: metahubId && hubId ? (params) => metahubsQueryKeys.attributesList(metahubId, hubId, params) : () => ['empty'],
         queryFn:
             metahubId && hubId
                 ? (params) => attributesApi.listAttributes(metahubId, hubId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
-        sortBy: 'updated',
-        sortOrder: 'desc',
+        sortBy: 'sortOrder',
+        sortOrder: 'asc',
         enabled: !!metahubId && !!hubId
     })
 
@@ -108,6 +222,7 @@ const AttributeList = () => {
     const createAttributeMutation = useCreateAttribute()
     const updateAttributeMutation = useUpdateAttribute()
     const deleteAttributeMutation = useDeleteAttribute()
+    const moveAttributeMutation = useMoveAttribute()
 
     // Memoize images object
     const images = useMemo(() => {
@@ -122,13 +237,94 @@ const AttributeList = () => {
         return imagesMap
     }, [attributes])
 
+    const attributeMap = useMemo(() => {
+        if (!Array.isArray(attributes)) return new Map<string, Attribute>()
+        return new Map(attributes.map((attr) => [attr.id, attr]))
+    }, [attributes])
+
+    const localizedFormDefaults = useMemo<AttributeFormValues>(
+        () => ({ nameVlc: null, codename: '', codenameTouched: false, dataType: 'STRING', isRequired: false }),
+        []
+    )
+
+    const validateAttributeForm = useCallback(
+        (values: Record<string, any>) => {
+            const errors: Record<string, string> = {}
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            if (!hasPrimaryContent(nameVlc)) {
+                errors.nameVlc = tc('crud.nameRequired', 'Name is required')
+            }
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = sanitizeCodename(rawCodename)
+            if (!normalizedCodename) {
+                errors.codename = t('attributes.validation.codenameRequired', 'Codename is required')
+            } else if (!isValidCodename(normalizedCodename)) {
+                errors.codename = t('attributes.validation.codenameInvalid', 'Codename contains invalid characters')
+            }
+            return Object.keys(errors).length > 0 ? errors : null
+        },
+        [t, tc]
+    )
+
+    const canSaveAttributeForm = useCallback((values: Record<string, any>) => {
+        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+        const normalizedCodename = sanitizeCodename(rawCodename)
+        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    }, [])
+
+    const renderLocalizedFields = useCallback(
+        ({
+            values,
+            setValue,
+            isLoading,
+            errors
+        }: {
+            values: Record<string, any>
+            setValue: (name: string, value: any) => void
+            isLoading: boolean
+            errors?: Record<string, string>
+        }) => {
+            const fieldErrors = errors ?? {}
+            return (
+                <AttributeFormFields
+                    values={values}
+                    setValue={setValue}
+                    isLoading={isLoading}
+                    errors={fieldErrors}
+                    uiLocale={i18n.language}
+                    nameLabel={tc('fields.name', 'Name')}
+                    codenameLabel={t('attributes.codename', 'Codename')}
+                    codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
+                    dataTypeLabel={t('attributes.dataType', 'Data Type')}
+                    requiredLabel={t('attributes.isRequiredLabel', 'Required')}
+                    dataTypeOptions={[{ value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') }]}
+                />
+            )
+        },
+        [i18n.language, t, tc]
+    )
+
     const attributeColumns = useMemo(
         () => [
             {
+                id: 'sortOrder',
+                label: t('attributes.table.order', '#'),
+                width: '3%',
+                align: 'center' as const,
+                sortable: true,
+                sortAccessor: (row: AttributeDisplay) => row.sortOrder ?? 0,
+                render: (row: AttributeDisplay) => (
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ? row.sortOrder : '—'}</Typography>
+                )
+            },
+            {
                 id: 'codename',
                 label: t('attributes.codename', 'Codename'),
-                width: '15%',
+                width: '20%',
                 align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: AttributeDisplay) => row.codename || '',
                 render: (row: AttributeDisplay) => (
                     <Typography
                         sx={{
@@ -145,8 +341,10 @@ const AttributeList = () => {
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '20%',
+                width: '35%',
                 align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: AttributeDisplay) => row.name || '',
                 render: (row: AttributeDisplay) => (
                     <Typography
                         sx={{
@@ -162,14 +360,14 @@ const AttributeList = () => {
             {
                 id: 'dataType',
                 label: t('attributes.dataType', 'Type'),
-                width: '12%',
+                width: '17%',
                 align: 'center' as const,
                 render: (row: AttributeDisplay) => <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
             },
             {
                 id: 'isRequired',
                 label: t('attributes.required', 'Required'),
-                width: '10%',
+                width: '15%',
                 align: 'center' as const,
                 render: (row: AttributeDisplay) => (
                     <Chip
@@ -179,22 +377,6 @@ const AttributeList = () => {
                         color={row.isRequired ? 'error' : 'default'}
                     />
                 )
-            },
-            {
-                id: 'description',
-                label: tc('table.description', 'Description'),
-                width: '33%',
-                align: 'left' as const,
-                render: (row: AttributeDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.description || '—'}
-                    </Typography>
-                )
             }
         ],
         [t, tc]
@@ -203,15 +385,32 @@ const AttributeList = () => {
     const createAttributeContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
+            attributeMap,
+            uiLocale: i18n.language,
             api: {
-                updateEntity: async (id: string, patch: any) => {
+                updateEntity: async (id: string, patch: AttributeLocalizedPayload) => {
                     if (!metahubId || !hubId) return
-                    await updateAttributeMutation.mutateAsync({ metahubId, hubId, attributeId: id, data: patch })
+                    const normalizedCodename = sanitizeCodename(patch.codename)
+                    if (!normalizedCodename) {
+                        throw new Error(t('attributes.validation.codenameRequired', 'Codename is required'))
+                    }
+                    const dataType = patch.dataType ?? 'STRING'
+                    await updateAttributeMutation.mutateAsync({
+                        metahubId,
+                        hubId,
+                        attributeId: id,
+                        data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
+                    })
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId || !hubId) return
                     await deleteAttributeMutation.mutateAsync({ metahubId, hubId, attributeId: id })
                 }
+            },
+            moveAttribute: async (id: string, direction: 'up' | 'down') => {
+                if (!metahubId || !hubId) return
+                await moveAttributeMutation.mutateAsync({ metahubId, hubId, attributeId: id, direction })
+                await invalidateAttributesQueries.all(queryClient, metahubId, hubId)
             },
             helpers: {
                 refreshList: async () => {
@@ -245,7 +444,19 @@ const AttributeList = () => {
                 }
             }
         }),
-        [confirm, deleteAttributeMutation, enqueueSnackbar, hubId, metahubId, queryClient, updateAttributeMutation]
+        [
+            attributeMap,
+            confirm,
+            deleteAttributeMutation,
+            enqueueSnackbar,
+            hubId,
+            i18n.language,
+            metahubId,
+            moveAttributeMutation,
+            queryClient,
+            t,
+            updateAttributeMutation
+        ]
     )
 
     // Validate metahubId and hubId from URL AFTER all hooks
@@ -272,17 +483,34 @@ const AttributeList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateAttribute = async (data: { name: string; description?: string }) => {
+    const handleCreateAttribute = async (data: Record<string, any>) => {
         setDialogError(null)
         setCreating(true)
         try {
+            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            if (!nameInput || !namePrimaryLocale) {
+                setDialogError(tc('crud.nameRequired', 'Name is required'))
+                return
+            }
+            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            if (!normalizedCodename) {
+                setDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
+                return
+            }
+
+            const dataType = (data.dataType as AttributeDataType | undefined) ?? 'STRING'
+            const isRequired = Boolean(data.isRequired)
+
             await createAttributeMutation.mutateAsync({
                 metahubId,
                 hubId,
                 data: {
-                    codename: data.name.toLowerCase().replace(/\s+/g, '_'),
-                    dataType: 'STRING',
-                    name: { en: data.name }
+                    codename: normalizedCodename,
+                    dataType,
+                    isRequired,
+                    name: nameInput,
+                    namePrimaryLocale
                 }
             })
 
@@ -332,12 +560,7 @@ const AttributeList = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     {/* Tab navigation between Attributes and Records */}
                     <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup
-                            value='attributes'
-                            exclusive
-                            size='small'
-                            sx={{ mb: 1 }}
-                        >
+                        <ToggleButtonGroup value='attributes' exclusive size='small' sx={{ mb: 1 }}>
                             <ToggleButton value='attributes' sx={{ px: 2, py: 0.5 }}>
                                 <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />
                                 {t('attributes.title')}
@@ -393,7 +616,7 @@ const AttributeList = () => {
                                     if (!descriptors.length) return null
 
                                     return (
-                                        <BaseEntityMenu<AttributeDisplay, AttributeData>
+                                        <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
                                             entity={toAttributeDisplay(originalAttribute, i18n.language)}
                                             entityKind='attribute'
                                             descriptors={descriptors}
@@ -435,6 +658,11 @@ const AttributeList = () => {
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
                 onSave={handleCreateAttribute}
+                hideDefaultFields
+                initialExtraValues={localizedFormDefaults}
+                extraFields={renderLocalizedFields}
+                validate={validateAttributeForm}
+                canSave={canSaveAttributeForm}
             />
 
             {/* Independent ConfirmDeleteDialog */}

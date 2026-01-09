@@ -73,10 +73,4 @@ export {
 } from './vlc'
 
 // Auth feature toggles utilities
-export {
-    getAuthFeatureConfig,
-    isRegistrationEnabled,
-    isLoginEnabled,
-    isEmailConfirmationRequired,
-    type AuthFeatureConfig
-} from './auth'
+export { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled, isEmailConfirmationRequired, type AuthFeatureConfig } from './auth'

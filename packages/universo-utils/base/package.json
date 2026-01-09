@@ -41,7 +41,17 @@
             "import": "./dist/ui-utils.mjs",
             "require": "./dist/ui-utils.js"
         },
-        "./ui-utils/*": "./src/ui-utils/*"
+        "./ui-utils/*": "./src/ui-utils/*",
+        "./vlc": {
+            "import": "./dist/vlc/index.mjs",
+            "require": "./dist/vlc/index.js",
+            "types": "./dist/vlc/index.d.ts"
+        },
+        "./validation/codename": {
+            "import": "./dist/validation/codename.mjs",
+            "require": "./dist/validation/codename.js",
+            "types": "./dist/validation/codename.d.ts"
+        }
     },
     "sideEffects": false,
     "scripts": {
@@ -55,6 +65,7 @@
     "dependencies": {
         "@universo/types": "workspace:*",
         "@universo/i18n": "workspace:*",
+        "@justrelate/slugify": "catalog:",
         "axios": "catalog:",
         "dayjs": "catalog:",
         "express-rate-limit": "catalog:",

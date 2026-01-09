@@ -431,6 +431,46 @@ export const isGlobalRolesEnabled = () => process.env.GLOBAL_ROLES_ENABLED !== '
 
 ---
 
+## VLC (Versioned Localized Content) Utilities Pattern
+
+**Context**: Multiple packages need to sanitize localized inputs and build VLC structures. Codename validation/normalization is also reused across backend and frontend.
+
+**Shared Modules in `@universo/utils`**:
+
+```typescript
+// @universo/utils/vlc - VLC sanitization for backend
+import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+
+// sanitizeLocalizedInput: Filters empty translations, extracts valid content
+// buildLocalizedContent: Creates VLC structure with primary locale and version
+
+// @universo/utils/validation/codename - Codename validation
+import { CODENAME_PATTERN, normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+
+// CODENAME_PATTERN: /^[a-z][a-z0-9_-]*$/
+// normalizeCodename: Lowercase + replace non-alphanumeric with underscore (NO transliteration)
+// isValidCodename: Validates against CODENAME_PATTERN
+```
+
+**Frontend Hook in `@universo/template-mui`**:
+
+```typescript
+// useCodenameAutoFill - Auto-fill codename from localized name
+import { useCodenameAutoFill } from '@universo/template-mui'
+
+useCodenameAutoFill({
+    codename,           // Current codename value
+    codenameTouched,    // Whether user manually edited
+    nextCodename,       // Suggested codename from name
+    nameValue,          // Current name value
+    setValue            // Form setValue function
+})
+```
+
+**Note**: Backend uses `normalizeCodename()` (no transliteration), frontend uses `slugifyCodename()` from local utils (with `@justrelate/slugify` transliteration) — intentionally different for different use cases (backend preserves existing codenames, frontend helps users create new ones).
+
+---
+
 ## Build System Patterns
 
 **tsdown**: Dual output (CJS + ESM), path aliases `@/*`, type declarations.

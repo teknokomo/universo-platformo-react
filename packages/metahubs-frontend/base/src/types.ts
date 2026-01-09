@@ -1,4 +1,4 @@
-import type { MetahubRole, GlobalRole } from '@universo/types'
+import type { MetahubRole, GlobalRole, VersionedLocalizedContent } from '@universo/types'
 import { getSimpleLocalizedValue, normalizeLocale } from './utils/localizedInput'
 
 export type { MetahubRole }
@@ -98,20 +98,35 @@ export interface MetahubLocalizedPayload {
     descriptionPrimaryLocale?: string
 }
 
+export interface HubLocalizedPayload {
+    codename: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+}
+
+export interface AttributeLocalizedPayload {
+    codename: string
+    dataType: AttributeDataType
+    name: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    isRequired?: boolean
+}
+
 /**
  * Hub - a virtual table within a Metahub
  * Replaces the old MetaSection concept
  *
- * Note: name/description use SimpleLocalizedInput format in both
- * API responses and requests for simplicity. Backend handles
- * VLC conversion internally.
+ * Note: name/description are stored as VersionedLocalizedContent (VLC).
+ * API payloads still use SimpleLocalizedInput for create/update.
  */
 export interface Hub {
     id: string
     metahubId: string
     codename: string
-    name: SimpleLocalizedInput
-    description?: SimpleLocalizedInput
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
     sortOrder: number
     createdAt: string
     updatedAt: string
@@ -150,15 +165,14 @@ export type AttributeDataType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'DATE
  * Attribute - a virtual field within a Hub
  * Replaces the old MetaEntity concept
  *
- * Note: name/description use SimpleLocalizedInput format for simplicity.
+ * Note: name is stored as VersionedLocalizedContent (VLC).
  */
 export interface Attribute {
     id: string
     hubId: string
     codename: string
     dataType: AttributeDataType
-    name: SimpleLocalizedInput
-    description?: SimpleLocalizedInput
+    name: VersionedLocalizedContent<string>
     targetHubId?: string
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
@@ -179,7 +193,6 @@ export interface AttributeDisplay {
     codename: string
     dataType: AttributeDataType
     name: string
-    description: string
     targetHubId?: string
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
@@ -243,10 +256,7 @@ export interface LocalizedField {
 /**
  * Helper to extract localized content from VersatileLocalizedContent
  */
-export function getVLCString(
-    field: VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null,
-    locale = 'en'
-): string {
+export function getVLCString(field: VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null, locale = 'en'): string {
     if (!field) return ''
     if (typeof field === 'string') return field
     if (typeof field !== 'object') return ''
@@ -295,12 +305,12 @@ export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDispla
  * Convert Hub to HubDisplay for table rendering
  */
 export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
-    const name = getLocalizedString(hub.name, locale)
+    const name = getVLCString(hub.name, locale)
     return {
         ...hub,
         // Fallback to codename if name is empty
         name: name || hub.codename || '',
-        description: getLocalizedString(hub.description, locale)
+        description: getVLCString(hub.description, locale)
     }
 }
 
@@ -310,8 +320,7 @@ export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
 export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
     return {
         ...attr,
-        name: getLocalizedString(attr.name, locale),
-        description: getLocalizedString(attr.description, locale)
+        name: getVLCString(attr.name, locale)
     }
 }
 
@@ -319,10 +328,14 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
  * Convert HubRecord to HubRecordDisplay for table rendering
  * Uses first attribute value as name, or record id as fallback
  */
-export function toHubRecordDisplay(record: HubRecord, attributes: Attribute[] = [], _locale = 'en'): HubRecordDisplay {
+export function toHubRecordDisplay(record: HubRecord, attributes: Attribute[] = [], locale = 'en'): HubRecordDisplay {
     // Find first string attribute to use as display name
     const firstStringAttr = attributes.find((a) => a.dataType === 'STRING')
-    const nameValue = firstStringAttr ? String(record.data[firstStringAttr.codename] || '') : `Record ${record.id.slice(0, 8)}`
+    const rawValue = firstStringAttr ? record.data[firstStringAttr.codename] : undefined
+    const nameValue =
+        firstStringAttr && rawValue !== undefined && rawValue !== null
+            ? getVLCString(rawValue as VersatileLocalizedContent, locale) || String(rawValue)
+            : `Record ${record.id.slice(0, 8)}`
 
     return {
         ...record,

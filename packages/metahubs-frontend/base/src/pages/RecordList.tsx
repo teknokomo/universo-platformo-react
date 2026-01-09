@@ -1,23 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-    Box,
-    Skeleton,
-    Stack,
-    Typography,
-    TextField,
-    Checkbox,
-    FormControlLabel,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    CircularProgress,
-    Alert,
-    ToggleButtonGroup,
-    ToggleButton
-} from '@mui/material'
+import { Box, Skeleton, Stack, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
@@ -39,209 +22,16 @@ import {
     ConfirmDialog,
     useConfirm
 } from '@universo/template-mui'
-import { ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { ConfirmDeleteDialog, DynamicEntityFormDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/mutations'
 import * as recordsApi from '../api/records'
 import * as attributesApi from '../api/attributes'
 import { metahubsQueryKeys, invalidateRecordsQueries } from '../api/queryKeys'
-import { HubRecord, HubRecordDisplay, Attribute, getLocalizedString, toHubRecordDisplay } from '../types'
+import { HubRecord, HubRecordDisplay, Attribute, getVLCString, toHubRecordDisplay } from '../types'
 import recordActions from './RecordActions'
-
-// Dynamic form field component based on attribute type
-interface DynamicFieldProps {
-    attribute: Attribute
-    value: unknown
-    onChange: (value: unknown) => void
-    locale: string
-}
-
-const DynamicField = ({ attribute, value, onChange, locale }: DynamicFieldProps) => {
-    const label = getLocalizedString(attribute.name, locale) || attribute.codename
-
-    switch (attribute.dataType) {
-        case 'STRING':
-            return (
-                <TextField
-                    fullWidth
-                    label={label}
-                    value={(value as string) ?? ''}
-                    onChange={(e) => onChange(e.target.value)}
-                    required={attribute.isRequired}
-                    size='small'
-                />
-            )
-        case 'NUMBER':
-            return (
-                <TextField
-                    fullWidth
-                    type='number'
-                    label={label}
-                    value={(value as number) ?? ''}
-                    onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                    required={attribute.isRequired}
-                    size='small'
-                />
-            )
-        case 'BOOLEAN':
-            return (
-                <FormControlLabel
-                    control={<Checkbox checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />}
-                    label={label}
-                />
-            )
-        case 'DATE':
-            return (
-                <TextField
-                    fullWidth
-                    type='date'
-                    label={label}
-                    value={(value as string) ?? ''}
-                    onChange={(e) => onChange(e.target.value)}
-                    required={attribute.isRequired}
-                    size='small'
-                    InputLabelProps={{ shrink: true }}
-                />
-            )
-        case 'DATETIME':
-            return (
-                <TextField
-                    fullWidth
-                    type='datetime-local'
-                    label={label}
-                    value={(value as string) ?? ''}
-                    onChange={(e) => onChange(e.target.value)}
-                    required={attribute.isRequired}
-                    size='small'
-                    InputLabelProps={{ shrink: true }}
-                />
-            )
-        case 'JSON':
-            return (
-                <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    label={label}
-                    value={typeof value === 'string' ? value : JSON.stringify(value ?? {}, null, 2)}
-                    onChange={(e) => {
-                        try {
-                            onChange(JSON.parse(e.target.value))
-                        } catch {
-                            onChange(e.target.value)
-                        }
-                    }}
-                    required={attribute.isRequired}
-                    size='small'
-                />
-            )
-        case 'REF':
-            return (
-                <TextField
-                    fullWidth
-                    label={`${label} (ID)`}
-                    value={(value as string) ?? ''}
-                    onChange={(e) => onChange(e.target.value)}
-                    required={attribute.isRequired}
-                    size='small'
-                    placeholder='Enter referenced record ID'
-                />
-            )
-        default:
-            return (
-                <TextField
-                    fullWidth
-                    label={label}
-                    value={String(value ?? '')}
-                    onChange={(e) => onChange(e.target.value)}
-                    required={attribute.isRequired}
-                    size='small'
-                />
-            )
-    }
-}
-
-// Dynamic Record Form Dialog
-interface RecordFormDialogProps {
-    open: boolean
-    onClose: () => void
-    onSubmit: (data: Record<string, unknown>) => Promise<void>
-    attributes: Attribute[]
-    initialData?: Record<string, unknown>
-    isSubmitting: boolean
-    error: string | null
-    title: string
-    locale: string
-}
-
-const RecordFormDialog = ({
-    open,
-    onClose,
-    onSubmit,
-    attributes,
-    initialData,
-    isSubmitting,
-    error,
-    title,
-    locale
-}: RecordFormDialogProps) => {
-    const { t } = useTranslation(['metahubs', 'common'])
-    const { t: tc } = useCommonTranslations()
-    const [formData, setFormData] = useState<Record<string, unknown>>({})
-
-    // Reset form when dialog opens
-    useEffect(() => {
-        if (open) {
-            setFormData(initialData ?? {})
-        }
-    }, [open, initialData])
-
-    const handleFieldChange = useCallback((codename: string, value: unknown) => {
-        setFormData((prev) => ({ ...prev, [codename]: value }))
-    }, [])
-
-    const handleSubmit = async () => {
-        await onSubmit(formData)
-    }
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogContent>
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                    {error && <Alert severity='error'>{error}</Alert>}
-                    {attributes.length === 0 ? (
-                        <Typography color='text.secondary'>{t('records.noAttributes')}</Typography>
-                    ) : (
-                        attributes.map((attr) => (
-                            <DynamicField
-                                key={attr.id}
-                                attribute={attr}
-                                value={formData[attr.codename]}
-                                onChange={(value) => handleFieldChange(attr.codename, value)}
-                                locale={locale}
-                            />
-                        ))
-                    )}
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} disabled={isSubmitting}>
-                    {tc('actions.cancel', 'Cancel')}
-                </Button>
-                <Button
-                    onClick={handleSubmit}
-                    variant='contained'
-                    disabled={isSubmitting || attributes.length === 0}
-                    startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
-                >
-                    {tc('actions.save', 'Save')}
-                </Button>
-            </DialogActions>
-        </Dialog>
-    )
-}
+import type { DynamicFieldConfig } from '@universo/template-mui/components/dialogs'
 
 const RecordList = () => {
     const navigate = useNavigate()
@@ -269,6 +59,18 @@ const RecordList = () => {
     })
 
     const attributes = attributesData?.items ?? []
+
+    const recordFields = useMemo<DynamicFieldConfig[]>(
+        () =>
+            attributes.map((attribute) => ({
+                id: attribute.codename,
+                label: getVLCString(attribute.name, i18n.language) || attribute.codename,
+                type: attribute.dataType as DynamicFieldConfig['type'],
+                required: attribute.isRequired,
+                localized: attribute.dataType === 'STRING'
+            })),
+        [attributes, i18n.language]
+    )
 
     // Use paginated hook for records list
     const paginationResult = usePaginated<HubRecord, 'created' | 'updated'>({
@@ -317,6 +119,33 @@ const RecordList = () => {
         return imagesMap
     }, [records])
 
+    const recordMap = useMemo(() => {
+        if (!Array.isArray(records)) return new Map<string, HubRecord>()
+        return new Map(records.map((record) => [record.id, record]))
+    }, [records])
+
+    const orderedAttributes = useMemo(() => {
+        const normalizedName = tc('fields.name', 'Name').trim().toLowerCase()
+        const normalizedDescription = tc('fields.description', 'Description').trim().toLowerCase()
+        const nameTokens = new Set(['name', 'title', 'название', normalizedName])
+        const descriptionTokens = new Set(['description', 'desc', 'описание', normalizedDescription])
+
+        const normalizeValue = (value: string) => value.trim().toLowerCase()
+
+        const getRank = (attr: Attribute) => {
+            const codename = normalizeValue(attr.codename || '')
+            const label = normalizeValue(getVLCString(attr.name, i18n.language) || '')
+            if (nameTokens.has(codename) || nameTokens.has(label)) return 0
+            if (descriptionTokens.has(codename) || descriptionTokens.has(label)) return 1
+            return 2
+        }
+
+        return attributes
+            .map((attr, index) => ({ attr, index, rank: getRank(attr) }))
+            .sort((a, b) => a.rank - b.rank || a.index - b.index)
+            .map((item) => item.attr)
+    }, [attributes, i18n.language, tc])
+
     // Build dynamic columns based on attributes
     const recordColumns = useMemo(() => {
         const cols: Array<{
@@ -328,11 +157,11 @@ const RecordList = () => {
         }> = []
 
         // Add columns for first 4 attributes
-        const visibleAttrs = attributes.slice(0, 4)
+        const visibleAttrs = orderedAttributes.slice(0, 4)
         visibleAttrs.forEach((attr) => {
             cols.push({
                 id: attr.codename,
-                label: getLocalizedString(attr.name, i18n.language) || attr.codename,
+                label: getVLCString(attr.name, i18n.language) || attr.codename,
                 width: `${80 / Math.max(visibleAttrs.length, 1)}%`,
                 align: 'left',
                 render: (row: HubRecordDisplay) => {
@@ -340,6 +169,17 @@ const RecordList = () => {
                     if (value === undefined || value === null) return '—'
 
                     switch (attr.dataType) {
+                        case 'STRING': {
+                            const localizedValue =
+                                value && typeof value === 'object' && 'locales' in (value as any)
+                                    ? getVLCString(value as VersionedLocalizedContent<string>, i18n.language)
+                                    : String(value)
+                            return (
+                                <Typography sx={{ fontSize: 14 }} noWrap>
+                                    {localizedValue || '—'}
+                                </Typography>
+                            )
+                        }
                         case 'BOOLEAN':
                             return value ? '✓' : '✗'
                         case 'JSON':
@@ -362,7 +202,7 @@ const RecordList = () => {
         // Add updated column
         cols.push({
             id: 'updatedAt',
-            label: tc('table.updated', 'Updated'),
+            label: t('records.table.updated', 'Updated'),
             width: '15%',
             align: 'left',
             render: (row: HubRecordDisplay) => (
@@ -373,7 +213,7 @@ const RecordList = () => {
         })
 
         return cols
-    }, [attributes, i18n.language, tc])
+    }, [i18n.language, orderedAttributes, t])
 
     const createRecordContext = useCallback(
         (baseContext: any) => ({
@@ -415,15 +255,30 @@ const RecordList = () => {
                         enqueueSnackbar(payload.message, payload.options)
                     }
                 },
-                openDeleteDialog: (record: HubRecord) => {
-                    setDeleteDialogState({ open: true, record })
+                openDeleteDialog: (record: HubRecordDisplay) => {
+                    const fullRecord = recordMap.get(record.id) ?? (record as unknown as HubRecord)
+                    setDeleteDialogState({ open: true, record: fullRecord })
                 },
-                openEditDialog: (record: HubRecord) => {
-                    setEditingRecord(record)
+                openEditDialog: async (record: HubRecord | HubRecordDisplay) => {
+                    if (!metahubId || !hubId) return
+                    const hasData = typeof (record as HubRecord).data === 'object'
+                    const fullRecord =
+                        hasData && (record as HubRecord).data
+                            ? (record as HubRecord)
+                            : recordMap.get(record.id) ||
+                              (await recordsApi
+                                  .getRecord(metahubId, hubId, record.id)
+                                  .then((res) => res.data)
+                                  .catch(() => null))
+                    if (fullRecord) {
+                        setEditingRecord(fullRecord)
+                    } else {
+                        enqueueSnackbar(t('records.updateError', 'Failed to update record'), { variant: 'error' })
+                    }
                 }
             }
         }),
-        [confirm, deleteRecordMutation, enqueueSnackbar, hubId, metahubId, queryClient, updateRecordMutation]
+        [confirm, deleteRecordMutation, enqueueSnackbar, hubId, metahubId, queryClient, recordMap, t, updateRecordMutation]
     )
 
     // Validate metahubId and hubId from URL AFTER all hooks
@@ -513,7 +368,7 @@ const RecordList = () => {
     }
 
     // Transform Record data for FlowListTable
-    const getRecordTableData = (record: HubRecord): HubRecordDisplay => toHubRecordDisplay(record, attributes)
+    const getRecordTableData = (record: HubRecord): HubRecordDisplay => toHubRecordDisplay(record, attributes, i18n.language)
 
     return (
         <MainCard
@@ -539,12 +394,7 @@ const RecordList = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     {/* Tab navigation between Attributes and Records */}
                     <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup
-                            value='records'
-                            exclusive
-                            size='small'
-                            sx={{ mb: 1 }}
-                        >
+                        <ToggleButtonGroup value='records' exclusive size='small' sx={{ mb: 1 }}>
                             <ToggleButton
                                 value='attributes'
                                 sx={{ px: 2, py: 0.5 }}
@@ -602,13 +452,14 @@ const RecordList = () => {
 
                                     return (
                                         <BaseEntityMenu<HubRecordDisplay, { data: Record<string, unknown> }>
-                                            entity={toHubRecordDisplay(originalRecord, attributes)}
+                                            entity={toHubRecordDisplay(originalRecord, attributes, i18n.language)}
                                             entityKind='record'
                                             descriptors={descriptors}
                                             namespace='metahubs'
                                             menuButtonLabelKey='flowList:menu.button'
                                             i18nInstance={i18n}
                                             createContext={createRecordContext}
+                                            contextExtras={{ rawRecord: originalRecord }}
                                         />
                                     )
                                 }}
@@ -632,28 +483,45 @@ const RecordList = () => {
             )}
 
             {/* Create Record Dialog */}
-            <RecordFormDialog
+            <DynamicEntityFormDialog
                 open={isDialogOpen}
                 onClose={handleDialogClose}
                 onSubmit={handleCreateRecord}
-                attributes={attributes}
+                fields={recordFields}
                 isSubmitting={isSubmitting}
                 error={dialogError}
                 title={t('records.createDialog.title', 'Add Record')}
                 locale={i18n.language}
+                requireAnyValue
+                emptyStateText={t('records.noAttributes')}
+                saveButtonText={tc('actions.save', 'Save')}
+                savingButtonText={tc('actions.saving', 'Saving...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
             />
 
             {/* Edit Record Dialog */}
-            <RecordFormDialog
+            <DynamicEntityFormDialog
                 open={!!editingRecord}
                 onClose={handleEditClose}
                 onSubmit={handleUpdateRecord}
-                attributes={attributes}
                 initialData={editingRecord?.data}
                 isSubmitting={isSubmitting}
                 error={dialogError}
                 title={t('records.editDialog.title', 'Edit Record')}
                 locale={i18n.language}
+                fields={recordFields}
+                requireAnyValue
+                emptyStateText={t('records.noAttributes')}
+                saveButtonText={tc('actions.save', 'Save')}
+                savingButtonText={tc('actions.saving', 'Saving...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                showDeleteButton
+                deleteButtonText={tc('actions.delete', 'Delete')}
+                onDelete={() => {
+                    if (editingRecord) {
+                        setDeleteDialogState({ open: true, record: editingRecord })
+                    }
+                }}
             />
 
             {/* Independent ConfirmDeleteDialog */}

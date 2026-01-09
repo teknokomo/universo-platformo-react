@@ -5,7 +5,10 @@ import type { RequestWithDbContext } from '@universo/auth-backend'
 import { Attribute, AttributeDataType } from '../database/entities/Attribute'
 import { Hub } from '../database/entities/Hub'
 import { z } from 'zod'
-import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
+import { ListQuerySchema } from '../schemas/queryParams'
+import { escapeLikeWildcards } from '../utils'
+import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -14,6 +17,13 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
     const rlsContext = (req as RequestWithDbContext).dbContext
     return rlsContext?.manager ?? dataSource.manager
 }
+
+const AttributesListQuerySchema = ListQuerySchema.extend({
+    sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
+    sortOrder: z.enum(['asc', 'desc']).default('asc')
+})
+
+const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
 
 // Validation schemas
 const validationRulesSchema = z
@@ -38,15 +48,13 @@ const uiConfigSchema = z
     })
     .optional()
 
+const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
+
 const createAttributeSchema = z.object({
     codename: z.string().min(1).max(100),
     dataType: z.nativeEnum(AttributeDataType),
-    name: z
-        .object({
-            en: z.string().optional(),
-            ru: z.string().optional()
-        })
-        .optional(),
+    name: localizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
     targetHubId: z.string().uuid().optional(),
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
@@ -57,12 +65,8 @@ const createAttributeSchema = z.object({
 const updateAttributeSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
     dataType: z.nativeEnum(AttributeDataType).optional(),
-    name: z
-        .object({
-            en: z.string().optional(),
-            ru: z.string().optional()
-        })
-        .optional(),
+    name: localizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
     targetHubId: z.string().uuid().nullable().optional(),
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
@@ -94,6 +98,20 @@ export function createAttributesRoutes(
         }
     }
 
+    const ensureSequentialSortOrder = async (hubId: string, attributeRepo: ReturnType<typeof repos>['attributeRepo']) => {
+        const attributes = await attributeRepo.find({
+            where: { hubId },
+            order: { sortOrder: 'ASC', createdAt: 'ASC' }
+        })
+        const requiresReset = attributes.some((attribute) => !attribute.sortOrder || attribute.sortOrder <= 0)
+        if (!requiresReset) return attributes
+        attributes.forEach((attribute, index) => {
+            attribute.sortOrder = index + 1
+        })
+        await attributeRepo.save(attributes)
+        return attributes
+    }
+
     /**
      * GET /metahubs/:metahubId/hubs/:hubId/attributes
      * List all attributes in a hub
@@ -105,12 +123,43 @@ export function createAttributesRoutes(
             const { hubId } = req.params
             const { attributeRepo } = repos(req)
 
-            const attributes = await attributeRepo.find({
-                where: { hubId },
-                order: { sortOrder: 'ASC', createdAt: 'ASC' }
-            })
+            let validatedQuery
+            try {
+                validatedQuery = validateAttributesListQuery(req.query)
+            } catch (error) {
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+                }
+                throw error
+            }
 
-            res.json({ items: attributes, pagination: { total: attributes.length, limit: 100, offset: 0 } })
+            const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+
+            let qb = attributeRepo.createQueryBuilder('a').where('a.hubId = :hubId', { hubId })
+
+            if (search) {
+                const escapedSearch = escapeLikeWildcards(search)
+                qb = qb.andWhere('(a.name::text ILIKE :search OR a.codename ILIKE :search)', { search: `%${escapedSearch}%` })
+            }
+
+            const orderColumn =
+                sortBy === 'sortOrder'
+                    ? 'a.sortOrder'
+                    : sortBy === 'codename'
+                    ? 'a.codename'
+                    : sortBy === 'name'
+                    ? "COALESCE(a.name->>(a.name->>'_primary'), a.name->>'en', '')"
+                    : sortBy === 'created'
+                    ? 'a.created_at'
+                    : 'a.updated_at'
+            qb = qb
+                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
+                .skip(offset)
+                .take(limit)
+
+            const [attributes, total] = await qb.getManyAndCount()
+
+            res.json({ items: attributes, pagination: { total, limit, offset } })
         })
     )
 
@@ -159,10 +208,19 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, targetHubId, validationRules, uiConfig, isRequired, sortOrder } = parsed.data
+            const { codename, dataType, name, namePrimaryLocale, targetHubId, validationRules, uiConfig, isRequired, sortOrder } =
+                parsed.data
+
+            const normalizedCodename = normalizeCodename(codename)
+            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
 
             // Check for duplicate codename
-            const existing = await attributeRepo.findOne({ where: { hubId, codename } })
+            const existing = await attributeRepo.findOne({ where: { hubId, codename: normalizedCodename } })
             if (existing) {
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
@@ -175,22 +233,31 @@ export function createAttributesRoutes(
                 }
             }
 
+            const sanitizedName = sanitizeLocalizedInput(name ?? {})
+            if (Object.keys(sanitizedName).length === 0) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const nameVlc = buildLocalizedContent(sanitizedName, namePrimaryLocale, namePrimaryLocale ?? 'en')
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const existingAttributes = await ensureSequentialSortOrder(hubId, attributeRepo)
+            const maxSortOrder = existingAttributes.reduce((max, attribute) => Math.max(max, attribute.sortOrder || 0), 0)
+            const resolvedSortOrder = sortOrder ?? maxSortOrder + 1
+
             const attribute = attributeRepo.create({
                 hubId,
-                codename,
+                codename: normalizedCodename,
                 dataType,
-                name: name?.en ? createLocalizedContent('en', name.en) : createLocalizedContent('en', codename),
+                name: nameVlc,
                 targetHubId: dataType === AttributeDataType.REF ? targetHubId : undefined,
                 validationRules: validationRules ?? {},
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
-                sortOrder: sortOrder ?? 0
+                sortOrder: resolvedSortOrder
             })
-
-            // Add Russian locale if provided
-            if (name?.ru) {
-                attribute.name = updateLocalizedContentLocale(attribute.name, 'ru', name.ru)
-            }
 
             const saved = await attributeRepo.save(attribute)
             res.status(201).json(saved)
@@ -218,24 +285,39 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, targetHubId, validationRules, uiConfig, isRequired, sortOrder } = parsed.data
+            const { codename, dataType, name, namePrimaryLocale, targetHubId, validationRules, uiConfig, isRequired, sortOrder } =
+                parsed.data
 
             if (codename && codename !== attribute.codename) {
-                const existing = await attributeRepo.findOne({ where: { hubId, codename } })
-                if (existing) {
-                    return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                const normalizedCodename = normalizeCodename(codename)
+                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                    return res.status(400).json({
+                        error: 'Validation failed',
+                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    })
                 }
-                attribute.codename = codename
+                if (normalizedCodename !== attribute.codename) {
+                    const existing = await attributeRepo.findOne({ where: { hubId, codename: normalizedCodename } })
+                    if (existing) {
+                        return res.status(409).json({ error: 'Attribute with this codename already exists' })
+                    }
+                    attribute.codename = normalizedCodename
+                }
             }
 
             if (dataType) {
                 attribute.dataType = dataType
             }
 
-            if (name) {
-                attribute.name = createLocalizedContent('en', name.en || attribute.codename)
-                if (name.ru) {
-                    attribute.name = updateLocalizedContentLocale(attribute.name, 'ru', name.ru)
+            if (name !== undefined) {
+                const sanitizedName = sanitizeLocalizedInput(name)
+                if (Object.keys(sanitizedName).length === 0) {
+                    return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+                }
+                const primary = namePrimaryLocale ?? attribute.name?._primary ?? 'en'
+                const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
+                if (nameVlc) {
+                    attribute.name = nameVlc
                 }
             }
 
@@ -269,6 +351,65 @@ export function createAttributesRoutes(
 
             const saved = await attributeRepo.save(attribute)
             res.json(saved)
+        })
+    )
+
+    /**
+     * PATCH /metahubs/:metahubId/hubs/:hubId/attributes/:attributeId/move
+     * Reorder attributes within a hub
+     */
+    router.patch(
+        '/metahubs/:metahubId/hubs/:hubId/attributes/:attributeId/move',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { hubId, attributeId } = req.params
+            const manager = getRequestManager(req, getDataSource())
+
+            const parsed = z.object({ direction: z.enum(['up', 'down']) }).safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const { direction } = parsed.data
+
+            const result = await manager.transaction(async (transactionalEntityManager) => {
+                const attributeRepo = transactionalEntityManager.getRepository(Attribute)
+                const attribute = await attributeRepo.findOne({ where: { id: attributeId, hubId } })
+                if (!attribute) {
+                    return { status: 404, payload: { error: 'Attribute not found' } }
+                }
+
+                await ensureSequentialSortOrder(hubId, attributeRepo)
+
+                const refreshedAttribute = await attributeRepo.findOne({ where: { id: attributeId, hubId } })
+                if (!refreshedAttribute) {
+                    return { status: 404, payload: { error: 'Attribute not found' } }
+                }
+
+                const currentOrder = refreshedAttribute.sortOrder
+
+                const neighbor = await attributeRepo
+                    .createQueryBuilder('a')
+                    .where('a.hubId = :hubId', { hubId })
+                    .andWhere(direction === 'up' ? 'a.sortOrder < :currentOrder' : 'a.sortOrder > :currentOrder', {
+                        currentOrder
+                    })
+                    .orderBy('a.sortOrder', direction === 'up' ? 'DESC' : 'ASC')
+                    .addOrderBy('a.created_at', direction === 'up' ? 'DESC' : 'ASC')
+                    .getOne()
+
+                if (!neighbor) {
+                    return { status: 200, payload: refreshedAttribute }
+                }
+
+                refreshedAttribute.sortOrder = neighbor.sortOrder
+                neighbor.sortOrder = currentOrder
+
+                await attributeRepo.save([refreshedAttribute, neighbor])
+                return { status: 200, payload: refreshedAttribute }
+            })
+
+            return res.status(result.status).json(result.payload)
         })
     )
 

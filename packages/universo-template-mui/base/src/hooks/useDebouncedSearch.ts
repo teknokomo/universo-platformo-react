@@ -73,6 +73,7 @@ export function useDebouncedSearch({
     delay = 300
 }: UseDebouncedSearchOptions): UseDebouncedSearchReturn {
     const [searchValue, setSearchValue] = useState(initialValue)
+    const shouldDebounce = delay > 0
 
     // Debounced callback with use-debounce library
     const debouncedSetSearch = useDebouncedCallback(
@@ -85,28 +86,37 @@ export function useDebouncedSearch({
 
     // Cleanup on unmount
     useEffect(() => {
+        if (!shouldDebounce) return undefined
         return () => {
             debouncedSetSearch.cancel()
         }
-    }, [debouncedSetSearch])
+    }, [debouncedSetSearch, shouldDebounce])
 
     // Handler for input change events
     const handleSearchChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
             const newValue = e.target.value
             setSearchValue(newValue)
-            debouncedSetSearch(newValue)
+            if (shouldDebounce) {
+                debouncedSetSearch(newValue)
+                return
+            }
+            onSearchChange(newValue)
         },
-        [debouncedSetSearch]
+        [debouncedSetSearch, onSearchChange, shouldDebounce]
     )
 
     // Direct setter (for programmatic changes)
     const setSearchValueDirect = useCallback(
         (value: string) => {
             setSearchValue(value)
-            debouncedSetSearch(value)
+            if (shouldDebounce) {
+                debouncedSetSearch(value)
+                return
+            }
+            onSearchChange(value)
         },
-        [debouncedSetSearch]
+        [debouncedSetSearch, onSearchChange, shouldDebounce]
     )
 
     return {
@@ -114,9 +124,9 @@ export function useDebouncedSearch({
         handleSearchChange,
         setSearchValue: setSearchValueDirect,
         debounced: {
-            cancel: debouncedSetSearch.cancel,
-            flush: debouncedSetSearch.flush,
-            isPending: debouncedSetSearch.isPending
+            cancel: shouldDebounce ? debouncedSetSearch.cancel : () => undefined,
+            flush: shouldDebounce ? debouncedSetSearch.flush : () => undefined,
+            isPending: shouldDebounce ? debouncedSetSearch.isPending : () => false
         }
     }
 }

@@ -6,13 +6,84 @@
 
 ## 🔥 ACTIVE TASKS
 
-- [x] Review PR #633 bot suggestions and apply safe fixes across metahubs-frontend utilities and tests.
-- [x] Make `LocalizedInlineField` locales endpoint configurable and add guidance for stable `onChange` callbacks.
-- [x] Align VLC utilities with `isActive` semantics and validate locale codes in metahubs backend helpers.
+- No active tasks.
 
 ---
 
 ## ✅ RECENTLY COMPLETED
+
+### 2026-01-10: QA fixes from PR #635 review ✅
+
+- [x] Fix `replace('_', '-')` in `universo-utils/vlc/sanitize.ts` → use `replace(/_/g, '-')` for global replacement.
+- [x] Fix metahubsRoutes.ts sorting hardcoded 'en' → use `COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')` pattern.
+- [x] Create `CodenameField.tsx` shared component in metahubs-frontend for consistent codename field behavior.
+- [x] Refactor `HubFormFields` in HubList.tsx to use `CodenameField`.
+- [x] Refactor `AttributeFormFields` in AttributeList.tsx to use `CodenameField`.
+- [x] Refactor `HubEditFields` in HubActions.tsx to use `useCodenameAutoFill` hook + `CodenameField`.
+- [x] Refactor `AttributeEditFields` in AttributeActions.tsx to use `useCodenameAutoFill` hook + `CodenameField`.
+- [x] Build verification: universo-utils, metahubs-backend, metahubs-frontend all compile successfully.
+- **Result**: All 3 QA issues resolved; ~45 lines of duplicated codename field logic removed via shared component.
+
+### 2026-01-10: Metahubs code deduplication refactoring ✅
+
+- [x] Create `vlc/sanitize.ts` in universo-utils with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions.
+- [x] Create `validation/codename.ts` in universo-utils with `CODENAME_PATTERN`, `normalizeCodename()`, `isValidCodename()` functions.
+- [x] Update universo-utils exports (package.json, tsdown.config.ts) to expose new modules.
+- [x] Update metahubs-backend routes (attributesRoutes, hubsRoutes, metahubsRoutes) to use shared functions.
+- [x] Update metahubs-frontend codename.ts to re-export shared utilities.
+- [x] Create `useCodenameAutoFill` hook in universo-template-mui for form codename auto-generation.
+- [x] Refactor HubList.tsx to use `useCodenameAutoFill` hook instead of duplicated useEffect.
+- [x] Refactor AttributeList.tsx to use `useCodenameAutoFill` hook instead of duplicated useEffect.
+- [x] Full project build successful.
+- **Result**: Removed ~112 lines of duplicated code in backend, created reusable hook for frontend.
+
+### 2026-01-09: Metahubs VLC rollout — PR #635 opened ✅
+
+- [x] Opened PR #635 containing Metahubs localized Attributes/Records (VLC) and UI/backend updates; includes FlowListTable header center fix.
+- [x] All changed files committed and pushed to `feature/metahubs-vlc`.
+- [x] Local `pnpm build` completed; request CI & reviewers.
+
+### 2026-01-09: FlowListTable centered sortable column fix ✅
+
+- [x] Replace complex grid-based centering with standard MUI flex approach for TableSortLabel.
+- [x] Use inline-flex + justifyContent: center on TableSortLabel for center-aligned sortable columns.
+- [x] Remove nested Box wrapper with grid layout that caused misalignment.
+- [x] Build entire project to apply changes.
+
+### 2026-01-08: Records UI localization fixes ✅
+
+- [x] Switch record field labels to VLC-aware rendering and fix "1" placeholders.
+- [x] Add localized input for STRING record fields using LocalizedInlineField.
+- [x] Disable record save when all fields are empty and strip empty values before submit.
+- [x] Localize records table "Updated" column.
+- [x] Replace record actions to open the correct record dialogs (fix metahub delete copy).
+- [x] Build metahubs-frontend after changes.
+
+### 2026-01-08: Record save validation (VLC strings) ✅
+
+- [x] Allow record validation to accept VLC objects for STRING fields.
+- [x] Apply required/validation rules against VLC primary content.
+- [x] Build metahubs-backend after changes.
+
+### 2026-01-08: Record edit hydration fix ✅
+
+- [x] Pass raw record data to record actions and fetch full record when missing.
+- [x] Build metahubs-frontend after changes.
+
+### 2026-01-08: Record edit initial render guard ✅
+
+- [x] Delay record edit fields until initial data is hydrated to avoid empty first render.
+- [x] Build metahubs-frontend after changes.
+
+### 2026-01-08: Attributes localization + codename cleanup ✅
+
+- [x] Update Attribute domain types/display to use VLC for name (drop description) and fix attribute table rendering.
+- [x] Implement localized create/edit UI for attributes with codename auto-fill and no description field.
+- [x] Replace Attribute actions dialog to support localized name + codename editing.
+- [x] Align attributes API payloads/mutations with localized inputs + primary locale fields.
+- [x] Update attributes backend routes to use sanitized localized inputs, primary locale handling, and codename normalization/validation.
+- [x] Remove attribute description column/labels from UI and update i18n helper/validation strings.
+- [x] Run package builds/tests relevant to metahubs frontend/backend changes.
 
 ### 2026-01-06: Metahubs localization hardening ✅
 

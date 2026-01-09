@@ -88,6 +88,9 @@ export type { UsePaginatedParams, UsePaginatedReturn } from './hooks/usePaginate
 export { useDebouncedSearch } from './hooks/useDebouncedSearch'
 export type { UseDebouncedSearchOptions, UseDebouncedSearchReturn } from './hooks/useDebouncedSearch'
 
+export { useCodenameAutoFill } from './hooks/useCodenameAutoFill'
+export type { UseCodenameAutoFillOptions } from './hooks/useCodenameAutoFill'
+
 export { PaginationControls } from './components/pagination'
 export type { PaginationControlsProps } from './components/pagination'
 

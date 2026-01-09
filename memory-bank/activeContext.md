@@ -1,8 +1,26 @@
 # Active Context
 
-> **Last Updated**: 2026-01-07
+> **Last Updated**: 2026-01-10
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## Current Focus: Metahubs Code Deduplication - 2026-01-10 ✅
+
+Extracted duplicated utility functions from Metahubs module into shared packages to reduce code duplication and improve maintainability.
+
+**Backend refactoring**:
+- Created `@universo/utils/vlc` module with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions for VLC handling.
+- Created `@universo/utils/validation/codename` module with `CODENAME_PATTERN`, `normalizeCodename()`, `isValidCodename()` functions.
+- Updated 3 backend routes (attributesRoutes, hubsRoutes, metahubsRoutes) to use shared functions, removing ~112 lines of duplicated code.
+
+**Frontend refactoring**:
+- Created `useCodenameAutoFill` hook in `@universo/template-mui` for automatic codename generation from localized name field.
+- Refactored `HubList.tsx` and `AttributeList.tsx` to use the new hook instead of duplicated useEffect logic.
+- Updated `metahubs-frontend/utils/codename.ts` to re-export shared utilities.
+
+**Note**: Backend uses `normalizeCodename()` (no transliteration), frontend uses `slugifyCodename()` (with transliteration from @justrelate/slugify) — intentionally different behaviors for different use cases.
 
 ---
 
@@ -21,6 +39,54 @@ and legacy `flowise-template-mui` themes.
 Removed temporary diagnostic logs and restored the default backend log level after resolving the admin roles reload incident.
 
 Applied PR #633 review fixes: deduped localized helpers, made localized locales endpoint configurable, aligned VLC filtering with isActive, validated locale codes, stabilized VLC primary fallback selection, and documented CSRF shared promise behavior.
+
+**Update (2026-01-09)**: PR #635 opened for the Metahubs VLC rollout and related UI/backend fixes (includes FlowListTable header center fix); PR is ready for review and CI verification.
+
+---
+
+## Current Focus: Hub Attributes Localization & Codename - 2026-01-08 ✅
+
+- Switched Attribute name to VLC types and updated display helpers.
+- Added localized create/edit UI for attributes with codename auto-fill/validation and no description field.
+- Updated attribute actions dialog to handle localized name + codename.
+- Aligned attribute API payloads to include primary locale and sanitized localized inputs.
+- Backend attributes routes now normalize/validate codenames and build VLC from provided locales.
+
+---
+
+## Current Focus: Records Form Localization - 2026-01-08 ✅
+
+- Record field labels now use VLC-aware rendering (no placeholder "1").
+- STRING fields use LocalizedInlineField; empty records are blocked.
+- Records table "Updated" column localized and delete actions wired to record dialogs.
+
+---
+
+## Current Focus: Record Save Validation - 2026-01-08 ✅
+
+- Backend record validation now accepts VLC for STRING attributes.
+- Required checks and validation rules use primary locale content.
+
+---
+
+## Current Focus: Record Edit Hydration - 2026-01-08 ✅
+
+- Record edit pulls full data via contextExtras or fallback fetch before opening dialog.
+
+---
+
+## Current Focus: Record Edit Initial Render Guard - 2026-01-08 ✅
+
+- Record edit dialog renders fields only after initial data is hydrated to avoid blank first open.
+
+---
+
+## Current Focus: Hubs Localization & Codename - 2026-01-07 ✅
+
+- Switched Hub name/description types to VLC and updated display helpers.
+- Added localized create/edit UI for hubs with codename auto-fill, normalization, and validation.
+- Aligned hubs API payloads to include primary locale fields and server-side sanitization of localized inputs.
+- Codename normalization enforces lowercase URL-safe tokens; underscores are normalized to hyphens for new input.
 
 ---
 

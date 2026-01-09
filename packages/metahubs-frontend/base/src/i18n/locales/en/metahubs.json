@@ -136,7 +136,7 @@
             "message": "Are you sure you want to delete this hub? All attributes and records will be permanently removed."
         },
         "codename": "Codename",
-        "codenameHelper": "Unique identifier (lowercase, underscores only)",
+        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
         "descriptionEn": "Description (English)",
@@ -144,7 +144,11 @@
         "recordsCount": "Records",
         "createError": "Failed to create hub",
         "updateError": "Failed to update hub",
-        "deleteError": "Failed to delete hub"
+        "deleteError": "Failed to delete hub",
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+        }
     },
     "attributes": {
         "title": "Attributes",
@@ -159,20 +163,37 @@
         "editDialog": {
             "title": "Edit Attribute"
         },
+        "actions": {
+            "moveUp": "Move up",
+            "moveDown": "Move down"
+        },
         "deleteDialog": {
             "title": "Delete Attribute",
             "message": "Are you sure you want to delete this attribute? All data in this field will be lost."
         },
+        "table": {
+            "order": "#"
+        },
         "codename": "Codename",
-        "codenameHelper": "Unique field identifier (lowercase, underscores)",
+        "codenameHelper": "Unique field identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
         "dataType": "Data Type",
+        "dataTypeOptions": {
+            "string": "String"
+        },
+        "isRequiredLabel": "Required",
         "required": "Required",
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
         "descriptionEn": "Description (English)",
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+        },
         "createError": "Failed to create attribute",
         "updateError": "Failed to update attribute",
-        "deleteError": "Failed to delete attribute"
+        "deleteError": "Failed to delete attribute",
+        "moveSuccess": "Attribute order updated",
+        "moveError": "Failed to update attribute order"
     },
     "records": {
         "title": "Records",
@@ -192,6 +213,9 @@
         "deleteDialog": {
             "title": "Delete Record",
             "message": "Are you sure you want to delete this record? This action cannot be undone."
+        },
+        "table": {
+            "updated": "Updated"
         },
         "createError": "Failed to create record",
         "updateError": "Failed to update record",

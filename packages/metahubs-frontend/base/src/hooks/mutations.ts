@@ -11,7 +11,7 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import type { AssignableRole } from '@universo/template-mui'
-import type { MetahubLocalizedPayload, SimpleLocalizedInput } from '../types'
+import type { AttributeLocalizedPayload, HubLocalizedPayload, MetahubLocalizedPayload, SimpleLocalizedInput } from '../types'
 import { normalizeLocale } from '../utils/localizedInput'
 
 import * as metahubsApi from '../api/metahubs'
@@ -428,23 +428,13 @@ import { metahubsQueryKeys as hubQueryKeys } from '../api/queryKeys'
 
 interface CreateHubParams {
     metahubId: string
-    data: {
-        codename: string
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
-        sortOrder?: number
-    }
+    data: HubLocalizedPayload & { sortOrder?: number }
 }
 
 interface UpdateHubParams {
     metahubId: string
     hubId: string
-    data: {
-        codename?: string
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
-        sortOrder?: number
-    }
+    data: HubLocalizedPayload & { sortOrder?: number }
 }
 
 interface DeleteHubParams {
@@ -527,11 +517,7 @@ export function useDeleteHub() {
 interface CreateAttributeParams {
     metahubId: string
     hubId: string
-    data: {
-        codename: string
-        dataType: string
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
+    data: AttributeLocalizedPayload & {
         targetHubId?: string
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
@@ -544,11 +530,7 @@ interface UpdateAttributeParams {
     metahubId: string
     hubId: string
     attributeId: string
-    data: {
-        codename?: string
-        dataType?: string
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
+    data: AttributeLocalizedPayload & {
         targetHubId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
@@ -561,6 +543,13 @@ interface DeleteAttributeParams {
     metahubId: string
     hubId: string
     attributeId: string
+}
+
+interface MoveAttributeParams {
+    metahubId: string
+    hubId: string
+    attributeId: string
+    direction: 'up' | 'down'
 }
 
 /**
@@ -636,6 +625,29 @@ export function useDeleteAttribute() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('attributes.deleteError', 'Failed to delete attribute'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for reordering an attribute
+ */
+export function useMoveAttribute() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, attributeId, direction }: MoveAttributeParams) => {
+            const response = await attributesApi.moveAttribute(metahubId, hubId, attributeId, direction)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId) })
+            enqueueSnackbar(t('attributes.moveSuccess', 'Attribute order updated'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('attributes.moveError', 'Failed to update attribute order'), { variant: 'error' })
         }
     })
 }

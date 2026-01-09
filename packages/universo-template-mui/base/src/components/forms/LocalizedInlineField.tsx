@@ -1,17 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-    Badge,
-    Box,
-    ButtonBase,
-    CircularProgress,
-    Divider,
-    Menu,
-    MenuItem,
-    Stack,
-    TextField,
-    Typography
-} from '@mui/material'
-import { styled } from '@mui/material/styles'
+import { Badge, Box, ButtonBase, CircularProgress, Divider, Menu, MenuItem, Stack, TextField, Typography } from '@mui/material'
+import { styled, useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import type { LocaleCode, VersionedLocalizedContent } from '@universo/types'
@@ -102,6 +91,7 @@ const resolveInlineMetrics = (size?: 'small' | 'medium') => {
 
 export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props) => {
     const { t } = useCommonTranslations('localizedField')
+    const theme = useTheme()
     if (props.mode !== 'localized') {
         const { value, onChange, label, required, disabled, error, helperText, multiline, rows, size } = props
         return (
@@ -193,6 +183,7 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
     const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
     const [menuLocale, setMenuLocale] = useState<LocaleCode | null>(null)
     const [menuMode, setMenuMode] = useState<'main' | 'add' | 'change'>('main')
+    const [focusedLocale, setFocusedLocale] = useState<LocaleCode | null>(null)
 
     const closeMenu = useCallback(() => {
         setMenuAnchor(null)
@@ -279,17 +270,23 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
                 rows={rows}
                 size={size}
                 value=''
+                InputLabelProps={{ shrink: false }}
             />
         )
     }
 
     return (
         <Stack spacing={1.5}>
-            {orderedLocales.map((locale) => {
+            {orderedLocales.map((locale, index) => {
                 const entry = value.locales[locale]
                 const isPrimary = value._primary === locale
                 const buttonLabel = locale.toUpperCase()
                 const metrics = resolveInlineMetrics(size)
+                const connectorOffset = Math.abs(metrics.offset)
+                const showConnector = orderedLocales.length > 1 && connectorOffset > 0
+                const isFirst = index === 0
+                const isLast = index === orderedLocales.length - 1
+                const connectorGap = theme.spacing(0.75)
 
                 const languageButton = (
                     <LocaleButton
@@ -304,8 +301,26 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
                     </LocaleButton>
                 )
 
+                const isFocused = focusedLocale === locale
+                const shouldShrink = Boolean(entry?.content?.trim()) || isFocused
+
                 return (
-                    <Box key={locale} sx={{ position: 'relative' }}>
+                    <Box key={locale} sx={{ position: 'relative', overflow: 'visible' }}>
+                        {showConnector && (
+                            <Box
+                                sx={{
+                                    position: 'absolute',
+                                    left: -connectorOffset,
+                                    top: isFirst ? '50%' : `calc(0px - ${connectorGap})`,
+                                    bottom: isLast ? '50%' : `calc(0px - ${connectorGap})`,
+                                    width: connectorOffset,
+                                    borderLeft: `1px solid ${theme.palette.divider}`,
+                                    borderTopLeftRadius: isFirst ? theme.shape.borderRadius : 0,
+                                    borderBottomLeftRadius: isLast ? theme.shape.borderRadius : 0,
+                                    pointerEvents: 'none'
+                                }}
+                            />
+                        )}
                         <TextField
                             fullWidth
                             label={label}
@@ -317,7 +332,10 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
                             rows={rows}
                             size={size}
                             value={entry?.content ?? ''}
+                            InputLabelProps={{ shrink: shouldShrink }}
                             onChange={(event) => onChange(updateLocalizedContentLocale(value, locale, event.target.value))}
+                            onFocus={() => setFocusedLocale(locale)}
+                            onBlur={() => setFocusedLocale((prev) => (prev === locale ? null : prev))}
                         />
                         <Box
                             sx={{

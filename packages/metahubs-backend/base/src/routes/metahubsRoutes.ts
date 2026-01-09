@@ -13,10 +13,8 @@ import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner } from './guards'
 import type { MetahubRole } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
-import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
+import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { escapeLikeWildcards } from '../utils'
-import type { VersionedLocalizedContent } from '@universo/types'
-import { isValidLocaleCode } from '@universo/types'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -30,43 +28,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-const sanitizeLocalizedInput = (input: Record<string, string | undefined>) => {
-    const sanitized: Record<string, string> = {}
-    for (const [locale, value] of Object.entries(input)) {
-        if (typeof value !== 'string') continue
-        const trimmedValue = value.trim()
-        if (!trimmedValue) continue
-        const normalized = locale.trim().replace('_', '-')
-        const [lang, region] = normalized.split('-')
-        const normalizedCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : lang.toLowerCase()
-        if (!isValidLocaleCode(normalizedCode)) continue
-        sanitized[normalizedCode] = trimmedValue
-    }
-    return sanitized
-}
-
-const buildLocalizedContent = (
-    input: Record<string, string>,
-    primaryLocale?: string,
-    fallbackPrimary?: string
-): VersionedLocalizedContent<string> | undefined => {
-    const localeCodes = Object.keys(input).sort()
-    if (localeCodes.length === 0) return undefined
-
-    const primaryCandidate = primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
-    const primary = primaryCandidate ?? localeCodes[0]
-    let content = createLocalizedContent(primary, input[primary] ?? '')
-
-    for (const locale of localeCodes) {
-        if (locale === primary) continue
-        const value = input[locale]
-        if (typeof value !== 'string') continue
-        content = updateLocalizedContentLocale(content, locale, value)
-    }
-
-    return content
 }
 
 export function createMetahubsRoutes(
@@ -208,8 +169,13 @@ export function createMetahubsRoutes(
                 )
             }
 
-            // Sorting - use JSONB extraction for name sorting
-            const orderColumn = sortBy === 'name' ? "m.name->>'en'" : sortBy === 'created' ? 'm.created_at' : 'm.updated_at'
+            // Sorting - use JSONB extraction with dynamic primary locale for name sorting
+            const orderColumn =
+                sortBy === 'name'
+                    ? "COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')"
+                    : sortBy === 'created'
+                    ? 'm.created_at'
+                    : 'm.updated_at'
             qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
             // Pagination
@@ -494,7 +460,8 @@ export function createMetahubsRoutes(
             if (result.data.description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(result.data.description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    const descriptionPrimary = result.data.descriptionPrimaryLocale ?? metahub.description?._primary ?? metahub.name?._primary ?? 'en'
+                    const descriptionPrimary =
+                        result.data.descriptionPrimaryLocale ?? metahub.description?._primary ?? metahub.name?._primary ?? 'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, descriptionPrimary, descriptionPrimary)
                     if (descriptionVlc) {
                         metahub.description = descriptionVlc

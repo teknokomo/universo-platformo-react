@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 
 // CRITICAL: Import i18n registrations BEFORE lazy components
 // Ensures namespaces are registered before route components try to use translations

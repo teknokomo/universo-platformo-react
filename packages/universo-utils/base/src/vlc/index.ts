@@ -68,6 +68,7 @@ export function updateLocalizedContentLocale<T = string>(
  * @param fallback - Fallback value if nothing found (guarantees return type)
  * @returns Resolved content (guaranteed when fallback provided)
  */
+// eslint-disable-next-line no-redeclare
 export function resolveLocalizedContent<T = string>(
     content: VersionedLocalizedContent<T> | null | undefined,
     locale: LocaleCode,
@@ -81,12 +82,14 @@ export function resolveLocalizedContent<T = string>(
  * @param locale - Requested locale
  * @returns Resolved content or undefined
  */
+// eslint-disable-next-line no-redeclare
 export function resolveLocalizedContent<T = string>(
     content: VersionedLocalizedContent<T> | null | undefined,
     locale: LocaleCode
 ): T | undefined
 
 // Implementation
+// eslint-disable-next-line no-redeclare
 export function resolveLocalizedContent<T = string>(
     content: VersionedLocalizedContent<T> | null | undefined,
     locale: LocaleCode,
@@ -163,3 +166,6 @@ export function filterLocalizedContent<T = string>(
 export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedContent<unknown> {
     return typeof obj === 'object' && obj !== null && '_schema' in obj && (obj as Record<string, unknown>)._schema === '1'
 }
+
+// Re-export sanitize utilities for backend use
+export { sanitizeLocalizedInput, buildLocalizedContent } from './sanitize'

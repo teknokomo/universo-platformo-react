@@ -46,7 +46,6 @@ type MetahubFormValues = {
     descriptionVlc?: VersionedLocalizedContent<string> | null
 }
 
-
 const MetahubList = () => {
     // Use metahubs namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['metahubs', 'roles', 'access', 'flowList'])

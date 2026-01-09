@@ -14,27 +14,27 @@ import Grid from '@mui/material/Grid2'
 
 // Universo ecosystem product cards
 const universoProducts = [
-  {
-    title: 'Universo Kompendio',
-    description:
-      'Вместе собираем и структурируем знания о мире, создаём образование будущего — чтобы приблизить Эру Текнокомо: шестой технологический уклад и социальную справедливость.',
-  },
-  {
-    title: 'Universo Platformo',
-    description:
-      'Общий абстрактный слой для построения метахабов управления, где можно проектировать процессы, сервисы и интерфейсы под любые отрасли и масштабы.',
-  },
-  {
-    title: 'Universo Kiberplano',
-    description:
-      'Система всемирного планирования и реализации: объединяет цели, планы, задачи и ресурсы, координирует исполнение и управляет роботизированными процессами.',
-  },
-  {
-    title: 'Universo Grandaringo',
-    description:
-      'Творческий контур экосистемы: инструменты для медиа и кино, пространство совместной разработки, коммуникации, мессенджер и управление контент-процессами.',
-  },
-];
+    {
+        title: 'Universo Kompendio',
+        description:
+            'Вместе собираем и структурируем знания о мире, создаём образование будущего — чтобы приблизить Эру Текнокомо: шестой технологический уклад и социальную справедливость.'
+    },
+    {
+        title: 'Universo Platformo',
+        description:
+            'Общий абстрактный слой для построения метахабов управления, где можно проектировать процессы, сервисы и интерфейсы под любые отрасли и масштабы.'
+    },
+    {
+        title: 'Universo Kiberplano',
+        description:
+            'Система всемирного планирования и реализации: объединяет цели, планы, задачи и ресурсы, координирует исполнение и управляет роботизированными процессами.'
+    },
+    {
+        title: 'Universo Grandaringo',
+        description:
+            'Творческий контур экосистемы: инструменты для медиа и кино, пространство совместной разработки, коммуникации, мессенджер и управление контент-процессами.'
+    }
+]
 
 /* MVP: Logo arrays commented out - not used in current simplified layout
 const darkModeLogos = [
@@ -62,7 +62,7 @@ const logoStyle = {
 */
 
 export default function Testimonials() {
-  /* MVP: useColorScheme logic commented out - not used in current simplified layout
+    /* MVP: useColorScheme logic commented out - not used in current simplified layout
   const { mode, systemMode } = useColorScheme();
 
   let logos;
@@ -79,21 +79,21 @@ export default function Testimonials() {
   }
   */
 
-  return (
-    <Container
-      id="testimonials"
-      sx={{
-        // Cards at bottom - minimal padding to match header spacing
-        pt: { xs: 2, sm: 2 },
-        pb: { xs: 3.5, sm: 3.5 },
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: { xs: 2, sm: 2 },
-      }}
-    >
-      {/* MVP: Testimonials header temporarily commented out
+    return (
+        <Container
+            id='testimonials'
+            sx={{
+                // Cards at bottom - minimal padding to match header spacing
+                pt: { xs: 2, sm: 2 },
+                pb: { xs: 3.5, sm: 3.5 },
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: { xs: 2, sm: 2 }
+            }}
+        >
+            {/* MVP: Testimonials header temporarily commented out
       <Box
         sx={{
           width: { sm: '100%', md: '60%' },
@@ -115,48 +115,40 @@ export default function Testimonials() {
         </Typography>
       </Box>
       */}
-      <Grid container spacing={2}>
-        {universoProducts.map((product, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index} sx={{ display: 'flex' }}>
-            <Card
-              variant="outlined"
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                flexGrow: 1,
-              }}
-            >
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  component="h3"
-                  gutterBottom
-                  sx={{ fontWeight: 'bold' }}
-                >
-                  <Typography
-                    component="span"
-                    sx={(theme) => ({
-                      color: 'primary.main',
-                      fontWeight: 'bold',
-                      fontSize: 'inherit',
-                      ...theme.applyStyles('dark', {
-                        color: 'primary.light',
-                      }),
-                    })}
-                  >
-                    Universo
-                  </Typography>
-                  {' '}{product.title.replace('Universo ', '')}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ color: 'text.secondary' }}
-                >
-                  {product.description}
-                </Typography>
-              </CardContent>
-              {/* MVP: Demo user data (avatar, name, occupation, logo) temporarily commented out
+            <Grid container spacing={2}>
+                {universoProducts.map((product, index) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index} sx={{ display: 'flex' }}>
+                        <Card
+                            variant='outlined'
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                flexGrow: 1
+                            }}
+                        >
+                            <CardContent>
+                                <Typography variant='h6' component='h3' gutterBottom sx={{ fontWeight: 'bold' }}>
+                                    <Typography
+                                        component='span'
+                                        sx={(theme) => ({
+                                            color: 'primary.main',
+                                            fontWeight: 'bold',
+                                            fontSize: 'inherit',
+                                            ...theme.applyStyles('dark', {
+                                                color: 'primary.light'
+                                            })
+                                        })}
+                                    >
+                                        Universo
+                                    </Typography>{' '}
+                                    {product.title.replace('Universo ', '')}
+                                </Typography>
+                                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                                    {product.description}
+                                </Typography>
+                            </CardContent>
+                            {/* MVP: Demo user data (avatar, name, occupation, logo) temporarily commented out
               <Box
                 sx={{
                   display: 'flex',
@@ -176,10 +168,10 @@ export default function Testimonials() {
                 />
               </Box>
               */}
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    </Container>
-  );
+                        </Card>
+                    </Grid>
+                ))}
+            </Grid>
+        </Container>
+    )
 }
