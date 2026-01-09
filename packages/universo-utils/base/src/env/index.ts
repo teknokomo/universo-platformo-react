@@ -33,7 +33,7 @@ export const getUIBaseURL = (): string => {
  * @param key - Environment variable name
  * @param fallback - Fallback value if variable is not set
  */
-export const getEnv = (key: string, fallback: string = ''): string => {
+export const getEnv = (key: string, fallback = ''): string => {
     if (typeof import.meta.env !== 'undefined' && import.meta.env[key]) {
         return import.meta.env[key] as string
     }
