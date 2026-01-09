@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import { Box, Skeleton, Stack, Typography, IconButton, TextField, Divider } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -22,7 +22,8 @@ import {
     FlowListTable,
     gridSpacing,
     ConfirmDialog,
-    useConfirm
+    useConfirm,
+    LocalizedInlineField
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -31,14 +32,113 @@ import type { TriggerProps } from '@universo/template-mui'
 import { useCreateHub, useUpdateHub, useDeleteHub } from '../hooks/mutations'
 import * as hubsApi from '../api/hubs'
 import { metahubsQueryKeys, invalidateHubsQueries } from '../api/queryKeys'
-import { Hub, HubDisplay, toHubDisplay } from '../types'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { Hub, HubDisplay, HubLocalizedPayload, getVLCString, toHubDisplay } from '../types'
+import { sanitizeCodename, isValidCodename } from '../utils/codename'
+import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
 import hubActions from './HubActions'
 
-// Type for hub create/update data
-type HubData = {
+type HubFormValues = {
+    nameVlc: VersionedLocalizedContent<string> | null
+    descriptionVlc: VersionedLocalizedContent<string> | null
     codename: string
-    name?: { en?: string; ru?: string }
-    description?: { en?: string; ru?: string }
+    codenameTouched?: boolean
+}
+
+type HubFormFieldsProps = {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    errors: Record<string, string>
+    uiLocale: string
+    nameLabel: string
+    descriptionLabel: string
+    codenameLabel: string
+    codenameHelper: string
+}
+
+const HubFormFields = ({
+    values,
+    setValue,
+    isLoading,
+    errors,
+    uiLocale,
+    nameLabel,
+    descriptionLabel,
+    codenameLabel,
+    codenameHelper
+}: HubFormFieldsProps) => {
+    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameTouched = Boolean(values.codenameTouched)
+    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
+    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
+    const nextCodename = sanitizeCodename(nameValue)
+
+    useEffect(() => {
+        if (codenameTouched && !codename && !nameValue) {
+            setValue('codenameTouched', false)
+            return
+        }
+        if (codenameTouched) return
+        if (!nextCodename) {
+            if (codename) {
+                setValue('codename', '')
+            }
+            return
+        }
+        if (nextCodename === codename) return
+        setValue('codename', nextCodename)
+    }, [codenameTouched, nextCodename, codename, setValue])
+
+    return (
+        <>
+            <LocalizedInlineField
+                mode='localized'
+                label={nameLabel}
+                required
+                disabled={isLoading}
+                value={nameVlc}
+                onChange={(next) => setValue('nameVlc', next)}
+                error={errors.nameVlc || null}
+                helperText={errors.nameVlc}
+                uiLocale={uiLocale}
+            />
+            <LocalizedInlineField
+                mode='localized'
+                label={descriptionLabel}
+                disabled={isLoading}
+                value={descriptionVlc}
+                onChange={(next) => setValue('descriptionVlc', next)}
+                uiLocale={uiLocale}
+                multiline
+                rows={2}
+            />
+            <Divider />
+            <TextField
+                label={codenameLabel}
+                value={codename}
+                onChange={(event) => {
+                    setValue('codename', event.target.value)
+                    if (!values.codenameTouched) {
+                        setValue('codenameTouched', true)
+                    }
+                }}
+                onBlur={() => {
+                    const normalized = sanitizeCodename(codename)
+                    if (normalized && normalized !== codename) {
+                        setValue('codename', normalized)
+                    }
+                }}
+                fullWidth
+                required
+                disabled={isLoading}
+                error={Boolean(errors.codename)}
+                helperText={errors.codename || codenameHelper}
+            />
+        </>
+    )
 }
 
 const HubList = () => {
@@ -102,6 +202,72 @@ const HubList = () => {
         return imagesMap
     }, [hubs])
 
+    const hubMap = useMemo(() => {
+        if (!Array.isArray(hubs)) return new Map<string, Hub>()
+        return new Map(hubs.map((hub) => [hub.id, hub]))
+    }, [hubs])
+
+    const localizedFormDefaults = useMemo<HubFormValues>(
+        () => ({ nameVlc: null, descriptionVlc: null, codename: '', codenameTouched: false }),
+        []
+    )
+
+    const validateHubForm = useCallback(
+        (values: Record<string, any>) => {
+            const errors: Record<string, string> = {}
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            if (!hasPrimaryContent(nameVlc)) {
+                errors.nameVlc = tc('crud.nameRequired', 'Name is required')
+            }
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = sanitizeCodename(rawCodename)
+            if (!normalizedCodename) {
+                errors.codename = t('hubs.validation.codenameRequired', 'Codename is required')
+            } else if (!isValidCodename(normalizedCodename)) {
+                errors.codename = t('hubs.validation.codenameInvalid', 'Codename contains invalid characters')
+            }
+            return Object.keys(errors).length > 0 ? errors : null
+        },
+        [t, tc]
+    )
+
+    const canSaveHubForm = useCallback((values: Record<string, any>) => {
+        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+        const normalizedCodename = sanitizeCodename(rawCodename)
+        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    }, [])
+
+    const renderLocalizedFields = useCallback(
+        ({
+            values,
+            setValue,
+            isLoading,
+            errors
+        }: {
+            values: Record<string, any>
+            setValue: (name: string, value: any) => void
+            isLoading: boolean
+            errors?: Record<string, string>
+        }) => {
+            const fieldErrors = errors ?? {}
+            return (
+                <HubFormFields
+                    values={values}
+                    setValue={setValue}
+                    isLoading={isLoading}
+                    errors={fieldErrors}
+                    uiLocale={i18n.language}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    codenameLabel={t('hubs.codename', 'Codename')}
+                    codenameHelper={t('hubs.codenameHelper', 'Unique identifier')}
+                />
+            )
+        },
+        [i18n.language, t, tc]
+    )
+
     const hubColumns = useMemo(
         () => [
             {
@@ -128,15 +294,21 @@ const HubList = () => {
                 width: '25%',
                 align: 'left' as const,
                 render: (row: HubDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.name || '—'}
-                    </Typography>
+                    <Link to={`/metahub/${metahubId}/hubs/${row.id}/attributes`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                    color: 'primary.main'
+                                }
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
+                    </Link>
                 )
             },
             {
@@ -176,22 +348,20 @@ const HubList = () => {
     const createHubContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
+            hubMap,
+            uiLocale: i18n.language,
             api: {
-                updateEntity: async (id: string, patch: { name?: string; description?: string }) => {
+                updateEntity: async (id: string, patch: HubLocalizedPayload) => {
                     if (!metahubId) return
-                    // Transform flat name/description to localized structure with current language
-                    const currentLang = i18n.language === 'ru' ? 'ru' : 'en'
-                    const localizedPatch: {
-                        name?: { [key: string]: string }
-                        description?: { [key: string]: string }
-                    } = {}
-                    if (patch.name) {
-                        localizedPatch.name = { [currentLang]: patch.name }
+                    const normalizedCodename = sanitizeCodename(patch.codename)
+                    if (!normalizedCodename) {
+                        throw new Error(t('hubs.validation.codenameRequired', 'Codename is required'))
                     }
-                    if (patch.description !== undefined) {
-                        localizedPatch.description = { [currentLang]: patch.description }
-                    }
-                    await updateHubMutation.mutateAsync({ metahubId, hubId: id, data: localizedPatch })
+                    await updateHubMutation.mutateAsync({
+                        metahubId,
+                        hubId: id,
+                        data: { ...patch, codename: normalizedCodename }
+                    })
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId) return
@@ -230,7 +400,7 @@ const HubList = () => {
                 }
             }
         }),
-        [confirm, deleteHubMutation, enqueueSnackbar, metahubId, queryClient, updateHubMutation]
+        [confirm, deleteHubMutation, enqueueSnackbar, hubMap, i18n.language, metahubId, queryClient, t, updateHubMutation]
     )
 
     // Validate metahubId from URL AFTER all hooks
@@ -257,20 +427,32 @@ const HubList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateHub = async (data: { name: string; description?: string }) => {
+    const handleCreateHub = async (data: Record<string, any>) => {
         setDialogError(null)
         setCreating(true)
         try {
-            // Use current UI language for localized content
-            const currentLang = i18n.language === 'ru' ? 'ru' : 'en'
-            
-            // Transform flat name/description to localized structure with current language
+            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            if (!nameInput || !namePrimaryLocale) {
+                setDialogError(tc('crud.nameRequired', 'Name is required'))
+                return
+            }
+            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            if (!normalizedCodename) {
+                setDialogError(t('hubs.validation.codenameRequired', 'Codename is required'))
+                return
+            }
+
             await createHubMutation.mutateAsync({
                 metahubId,
                 data: {
-                    codename: data.name.toLowerCase().replace(/\s+/g, '_'),
-                    name: { [currentLang]: data.name },
-                    description: data.description ? { [currentLang]: data.description } : undefined
+                    codename: normalizedCodename,
+                    name: nameInput,
+                    description: descriptionInput,
+                    namePrimaryLocale,
+                    descriptionPrimaryLocale
                 }
             })
 
@@ -397,7 +579,7 @@ const HubList = () => {
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<HubDisplay, HubData>
+                                                            <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
                                                                 entity={toHubDisplay(hub, i18n.language)}
                                                                 entityKind='hub'
                                                                 descriptors={descriptors}
@@ -438,7 +620,7 @@ const HubList = () => {
                                             if (!descriptors.length) return null
 
                                             return (
-                                                <BaseEntityMenu<HubDisplay, HubData>
+                                                <BaseEntityMenu<HubDisplay, HubLocalizedPayload>
                                                     entity={toHubDisplay(originalHub, i18n.language)}
                                                     entityKind='hub'
                                                     descriptors={descriptors}
@@ -482,6 +664,11 @@ const HubList = () => {
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
                 onSave={handleCreateHub}
+                hideDefaultFields
+                initialExtraValues={localizedFormDefaults}
+                extraFields={renderLocalizedFields}
+                validate={validateHubForm}
+                canSave={canSaveHubForm}
             />
 
             {/* Independent ConfirmDeleteDialog */}

@@ -55,6 +55,7 @@
     "dependencies": {
         "@universo/types": "workspace:*",
         "@universo/i18n": "workspace:*",
+        "@justrelate/slugify": "catalog:",
         "axios": "catalog:",
         "dayjs": "catalog:",
         "express-rate-limit": "catalog:",

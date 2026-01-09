@@ -1,5 +1,5 @@
 import apiClient from './apiClient'
-import { Hub, PaginationParams, PaginatedResponse } from '../types'
+import { Hub, HubLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
 
 /**
  * List hubs for a specific metahub
@@ -40,29 +40,14 @@ export const getHub = (metahubId: string, hubId: string) => apiClient.get<Hub>(`
 /**
  * Create a new hub
  */
-export const createHub = (
-    metahubId: string,
-    data: {
-        codename: string
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
-        sortOrder?: number
-    }
-) => apiClient.post<Hub>(`/metahubs/${metahubId}/hubs`, data)
+export const createHub = (metahubId: string, data: HubLocalizedPayload & { sortOrder?: number }) =>
+    apiClient.post<Hub>(`/metahubs/${metahubId}/hubs`, data)
 
 /**
  * Update a hub
  */
-export const updateHub = (
-    metahubId: string,
-    hubId: string,
-    data: {
-        codename?: string
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
-        sortOrder?: number
-    }
-) => apiClient.patch<Hub>(`/metahubs/${metahubId}/hubs/${hubId}`, data)
+export const updateHub = (metahubId: string, hubId: string, data: HubLocalizedPayload & { sortOrder?: number }) =>
+    apiClient.patch<Hub>(`/metahubs/${metahubId}/hubs/${hubId}`, data)
 
 /**
  * Delete a hub

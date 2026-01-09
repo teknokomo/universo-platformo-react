@@ -13,6 +13,10 @@ const sharedInputSpacing = {
     lineHeight: 1.4375
 } as const
 
+const sharedInputSpacingSmall = {
+    padding: '8.5px 14px'
+} as const
+
 export const inputsCustomizations: Components<Theme> = {
     MuiButtonBase: {
         defaultProps: {
@@ -439,10 +443,16 @@ export const inputsCustomizations: Components<Theme> = {
                 })
             }),
             input: {
-                ...sharedInputSpacing
+                ...sharedInputSpacing,
+                '&.MuiInputBase-inputSizeSmall': {
+                    ...sharedInputSpacingSmall
+                }
             },
             inputMultiline: {
-                ...sharedInputSpacing
+                ...sharedInputSpacing,
+                '&.MuiInputBase-inputSizeSmall': {
+                    ...sharedInputSpacingSmall
+                }
             }
         }
     },
