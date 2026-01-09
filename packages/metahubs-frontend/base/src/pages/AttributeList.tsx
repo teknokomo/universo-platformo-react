@@ -50,6 +50,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { Attribute, AttributeDisplay, AttributeDataType, AttributeLocalizedPayload, getVLCString, toAttributeDisplay } from '../types'
 import { sanitizeCodename, isValidCodename } from '../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
+import { CodenameField } from '../components'
 import attributeActions from './AttributeActions'
 
 type AttributeFormValues = {
@@ -138,26 +139,16 @@ const AttributeFormFields = ({
                 disabled={isLoading}
             />
             <Divider />
-            <TextField
-                label={codenameLabel}
+            <CodenameField
                 value={codename}
-                onChange={(event) => {
-                    setValue('codename', event.target.value)
-                    if (!values.codenameTouched) {
-                        setValue('codenameTouched', true)
-                    }
-                }}
-                onBlur={() => {
-                    const normalized = sanitizeCodename(codename)
-                    if (normalized && normalized !== codename) {
-                        setValue('codename', normalized)
-                    }
-                }}
-                fullWidth
-                required
+                onChange={(value) => setValue('codename', value)}
+                touched={codenameTouched}
+                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                label={codenameLabel}
+                helperText={codenameHelper}
+                error={errors.codename}
                 disabled={isLoading}
-                error={Boolean(errors.codename)}
-                helperText={errors.codename || codenameHelper}
+                required
             />
         </>
     )

@@ -169,8 +169,13 @@ export function createMetahubsRoutes(
                 )
             }
 
-            // Sorting - use JSONB extraction for name sorting
-            const orderColumn = sortBy === 'name' ? "m.name->>'en'" : sortBy === 'created' ? 'm.created_at' : 'm.updated_at'
+            // Sorting - use JSONB extraction with dynamic primary locale for name sorting
+            const orderColumn =
+                sortBy === 'name'
+                    ? "COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')"
+                    : sortBy === 'created'
+                    ? 'm.created_at'
+                    : 'm.updated_at'
             qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
             // Pagination

@@ -68,6 +68,7 @@ export function updateLocalizedContentLocale<T = string>(
  * @param fallback - Fallback value if nothing found (guarantees return type)
  * @returns Resolved content (guaranteed when fallback provided)
  */
+// eslint-disable-next-line no-redeclare
 export function resolveLocalizedContent<T = string>(
     content: VersionedLocalizedContent<T> | null | undefined,
     locale: LocaleCode,
@@ -81,12 +82,14 @@ export function resolveLocalizedContent<T = string>(
  * @param locale - Requested locale
  * @returns Resolved content or undefined
  */
+// eslint-disable-next-line no-redeclare
 export function resolveLocalizedContent<T = string>(
     content: VersionedLocalizedContent<T> | null | undefined,
     locale: LocaleCode
 ): T | undefined
 
 // Implementation
+// eslint-disable-next-line no-redeclare
 export function resolveLocalizedContent<T = string>(
     content: VersionedLocalizedContent<T> | null | undefined,
     locale: LocaleCode,

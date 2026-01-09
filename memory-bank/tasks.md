@@ -12,6 +12,18 @@
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-10: QA fixes from PR #635 review ✅
+
+- [x] Fix `replace('_', '-')` in `universo-utils/vlc/sanitize.ts` → use `replace(/_/g, '-')` for global replacement.
+- [x] Fix metahubsRoutes.ts sorting hardcoded 'en' → use `COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')` pattern.
+- [x] Create `CodenameField.tsx` shared component in metahubs-frontend for consistent codename field behavior.
+- [x] Refactor `HubFormFields` in HubList.tsx to use `CodenameField`.
+- [x] Refactor `AttributeFormFields` in AttributeList.tsx to use `CodenameField`.
+- [x] Refactor `HubEditFields` in HubActions.tsx to use `useCodenameAutoFill` hook + `CodenameField`.
+- [x] Refactor `AttributeEditFields` in AttributeActions.tsx to use `useCodenameAutoFill` hook + `CodenameField`.
+- [x] Build verification: universo-utils, metahubs-backend, metahubs-frontend all compile successfully.
+- **Result**: All 3 QA issues resolved; ~45 lines of duplicated codename field logic removed via shared component.
+
 ### 2026-01-10: Metahubs code deduplication refactoring ✅
 
 - [x] Create `vlc/sanitize.ts` in universo-utils with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions.

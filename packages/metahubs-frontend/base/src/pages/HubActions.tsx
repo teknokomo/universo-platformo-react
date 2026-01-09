@@ -1,14 +1,14 @@
-import { useEffect } from 'react'
 import { TextField, Divider } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Hub, HubDisplay, HubLocalizedPayload } from '../types'
 import { getVLCString } from '../types'
 import { sanitizeCodename, isValidCodename } from '../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
+import { CodenameField } from '../components'
 
 const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
     const hubMap = ctx.hubMap as Map<string, Hub> | undefined
@@ -88,21 +88,13 @@ const HubEditFields = ({
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
     const nextCodename = sanitizeCodename(nameValue)
 
-    useEffect(() => {
-        if (codenameTouched && !codename && !nameValue) {
-            setValue('codenameTouched', false)
-            return
-        }
-        if (codenameTouched) return
-        if (!nextCodename) {
-            if (codename) {
-                setValue('codename', '')
-            }
-            return
-        }
-        if (nextCodename === codename) return
-        setValue('codename', nextCodename)
-    }, [codenameTouched, codename, nameValue, nextCodename, setValue])
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
 
     return (
         <>
@@ -128,26 +120,16 @@ const HubEditFields = ({
                 rows={2}
             />
             <Divider />
-            <TextField
-                label={t('hubs.codename', 'Codename')}
+            <CodenameField
                 value={codename}
-                onChange={(event) => {
-                    setValue('codename', event.target.value)
-                    if (!values.codenameTouched) {
-                        setValue('codenameTouched', true)
-                    }
-                }}
-                onBlur={() => {
-                    const normalized = sanitizeCodename(String(values.codename || ''))
-                    if (normalized && normalized !== values.codename) {
-                        setValue('codename', normalized)
-                    }
-                }}
-                fullWidth
-                required
+                onChange={(value) => setValue('codename', value)}
+                touched={codenameTouched}
+                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                label={t('hubs.codename', 'Codename')}
+                helperText={t('hubs.codenameHelper', 'Unique identifier')}
+                error={fieldErrors.codename}
                 disabled={isLoading}
-                error={Boolean(fieldErrors.codename)}
-                helperText={fieldErrors.codename || t('hubs.codenameHelper', 'Unique identifier')}
+                required
             />
         </>
     )

@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
 import { TextField, FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Divider } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Attribute, AttributeDisplay, AttributeLocalizedPayload } from '../types'
 import { getVLCString } from '../types'
 import { sanitizeCodename, isValidCodename } from '../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
+import { CodenameField } from '../components'
 
 const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
     const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
@@ -89,21 +89,13 @@ const AttributeEditFields = ({
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
     const nextCodename = sanitizeCodename(nameValue)
 
-    useEffect(() => {
-        if (codenameTouched && !codename && !nameValue) {
-            setValue('codenameTouched', false)
-            return
-        }
-        if (codenameTouched) return
-        if (!nextCodename) {
-            if (codename) {
-                setValue('codename', '')
-            }
-            return
-        }
-        if (nextCodename === codename) return
-        setValue('codename', nextCodename)
-    }, [codenameTouched, codename, nameValue, nextCodename, setValue])
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
 
     return (
         <>
@@ -135,26 +127,16 @@ const AttributeEditFields = ({
                 disabled={isLoading}
             />
             <Divider />
-            <TextField
-                label={t('attributes.codename', 'Codename')}
+            <CodenameField
                 value={codename}
-                onChange={(event) => {
-                    setValue('codename', event.target.value)
-                    if (!values.codenameTouched) {
-                        setValue('codenameTouched', true)
-                    }
-                }}
-                onBlur={() => {
-                    const normalized = sanitizeCodename(String(values.codename || ''))
-                    if (normalized && normalized !== values.codename) {
-                        setValue('codename', normalized)
-                    }
-                }}
-                fullWidth
-                required
+                onChange={(value) => setValue('codename', value)}
+                touched={codenameTouched}
+                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                label={t('attributes.codename', 'Codename')}
+                helperText={t('attributes.codenameHelper', 'Unique identifier')}
+                error={fieldErrors.codename}
                 disabled={isLoading}
-                error={Boolean(fieldErrors.codename)}
-                helperText={fieldErrors.codename || t('attributes.codenameHelper', 'Unique identifier')}
+                required
             />
         </>
     )

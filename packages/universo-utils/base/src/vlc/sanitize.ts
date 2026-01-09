@@ -20,7 +20,7 @@ export const sanitizeLocalizedInput = (input: Record<string, string | undefined>
         const trimmedValue = value.trim()
         if (!trimmedValue) continue
 
-        const normalized = locale.trim().replace('_', '-')
+        const normalized = locale.trim().replace(/_/g, '-')
         const [lang, region] = normalized.split('-')
         const normalizedCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : lang.toLowerCase()
 
