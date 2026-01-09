@@ -12,6 +12,12 @@
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-09: Metahubs VLC rollout — PR #635 opened ✅
+
+- [x] Opened PR #635 containing Metahubs localized Attributes/Records (VLC) and UI/backend updates; includes FlowListTable header center fix.
+- [x] All changed files committed and pushed to `feature/metahubs-vlc`.
+- [x] Local `pnpm build` completed; request CI & reviewers.
+
 ### 2026-01-09: FlowListTable centered sortable column fix ✅
 
 - [x] Replace complex grid-based centering with standard MUI flex approach for TableSortLabel.

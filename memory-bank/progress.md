@@ -31,6 +31,16 @@
 
 ---
 
+## 📅 2026-01-09
+
+### Metahubs VLC rollout & UI fixes (PR #635) — PR opened ✅
+
+- **Summary**: Opened PR #635 containing the Metahubs localization (VLC) rollout and related UI/backend updates; this includes a small UI fix to center the sortable `#` header in Attributes tables (FlowListTable change).
+- **PR**: https://github.com/teknokomo/universo-platformo-react/pull/635
+- **Issue**: #634
+- **Key files changed**: `packages/metahubs-frontend/base/src/pages/AttributeList.tsx`, `packages/metahubs-frontend/base/src/pages/RecordList.tsx`, `packages/metahubs-backend/base/src/routes/attributesRoutes.ts`, `packages/universo-template-mui/base/src/components/table/FlowListTable.tsx`, i18n locales, tests and utilities.
+- **Validation**: Local `pnpm build` completed successfully; please run CI and request reviewers.
+
 ## 📅 2026-01-08
 
 ### Records Form Localization & Validation ✅

@@ -22,6 +22,8 @@ Removed temporary diagnostic logs and restored the default backend log level aft
 
 Applied PR #633 review fixes: deduped localized helpers, made localized locales endpoint configurable, aligned VLC filtering with isActive, validated locale codes, stabilized VLC primary fallback selection, and documented CSRF shared promise behavior.
 
+**Update (2026-01-09)**: PR #635 opened for the Metahubs VLC rollout and related UI/backend fixes (includes FlowListTable header center fix); PR is ready for review and CI verification.
+
 ---
 
 ## Current Focus: Hub Attributes Localization & Codename - 2026-01-08 ✅
