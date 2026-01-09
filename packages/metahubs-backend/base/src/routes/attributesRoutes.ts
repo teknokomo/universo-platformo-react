@@ -7,9 +7,8 @@ import { Hub } from '../database/entities/Hub'
 import { z } from 'zod'
 import { ListQuerySchema } from '../schemas/queryParams'
 import { escapeLikeWildcards } from '../utils'
-import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
-import type { VersionedLocalizedContent } from '@universo/types'
-import { isValidLocaleCode } from '@universo/types'
+import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -19,63 +18,12 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
     return rlsContext?.manager ?? dataSource.manager
 }
 
-const CODENAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-
-const normalizeCodename = (value: string) =>
-    value
-        .trim()
-        .toLowerCase()
-        .replace(/[\s_]+/g, '-')
-        .replace(/[^a-z0-9-]/g, '')
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '')
-
-const isValidCodename = (value: string) => CODENAME_PATTERN.test(value)
-
-const sanitizeLocalizedInput = (input: Record<string, string | undefined>) => {
-    const sanitized: Record<string, string> = {}
-    for (const [locale, value] of Object.entries(input)) {
-        if (typeof value !== 'string') continue
-        const trimmedValue = value.trim()
-        if (!trimmedValue) continue
-        const normalized = locale.trim().replace('_', '-')
-        const [lang, region] = normalized.split('-')
-        const normalizedCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : lang.toLowerCase()
-        if (!isValidLocaleCode(normalizedCode)) continue
-        sanitized[normalizedCode] = trimmedValue
-    }
-    return sanitized
-}
-
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
     sortOrder: z.enum(['asc', 'desc']).default('asc')
 })
 
 const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
-
-const buildLocalizedContent = (
-    input: Record<string, string>,
-    primaryLocale?: string,
-    fallbackPrimary?: string
-): VersionedLocalizedContent<string> | undefined => {
-    const localeCodes = Object.keys(input).sort()
-    if (localeCodes.length === 0) return undefined
-
-    const primaryCandidate =
-        primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
-    const primary = primaryCandidate ?? localeCodes[0]
-    let content = createLocalizedContent(primary, input[primary] ?? '')
-
-    for (const locale of localeCodes) {
-        if (locale === primary) continue
-        const value = input[locale]
-        if (typeof value !== 'string') continue
-        content = updateLocalizedContentLocale(content, locale, value)
-    }
-
-    return content
-}
 
 // Validation schemas
 const validationRulesSchema = z

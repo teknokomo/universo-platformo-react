@@ -163,3 +163,6 @@ export function filterLocalizedContent<T = string>(
 export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedContent<unknown> {
     return typeof obj === 'object' && obj !== null && '_schema' in obj && (obj as Record<string, unknown>)._schema === '1'
 }
+
+// Re-export sanitize utilities for backend use
+export { sanitizeLocalizedInput, buildLocalizedContent } from './sanitize'

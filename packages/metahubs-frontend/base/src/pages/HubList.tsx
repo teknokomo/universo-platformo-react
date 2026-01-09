@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton, TextField, Divider } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -23,7 +23,8 @@ import {
     gridSpacing,
     ConfirmDialog,
     useConfirm,
-    LocalizedInlineField
+    LocalizedInlineField,
+    useCodenameAutoFill
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -76,21 +77,13 @@ const HubFormFields = ({
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
     const nextCodename = sanitizeCodename(nameValue)
 
-    useEffect(() => {
-        if (codenameTouched && !codename && !nameValue) {
-            setValue('codenameTouched', false)
-            return
-        }
-        if (codenameTouched) return
-        if (!nextCodename) {
-            if (codename) {
-                setValue('codename', '')
-            }
-            return
-        }
-        if (nextCodename === codename) return
-        setValue('codename', nextCodename)
-    }, [codenameTouched, nextCodename, codename, setValue])
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
 
     return (
         <>

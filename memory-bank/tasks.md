@@ -12,6 +12,19 @@
 
 ## ✅ RECENTLY COMPLETED
 
+### 2026-01-10: Metahubs code deduplication refactoring ✅
+
+- [x] Create `vlc/sanitize.ts` in universo-utils with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions.
+- [x] Create `validation/codename.ts` in universo-utils with `CODENAME_PATTERN`, `normalizeCodename()`, `isValidCodename()` functions.
+- [x] Update universo-utils exports (package.json, tsdown.config.ts) to expose new modules.
+- [x] Update metahubs-backend routes (attributesRoutes, hubsRoutes, metahubsRoutes) to use shared functions.
+- [x] Update metahubs-frontend codename.ts to re-export shared utilities.
+- [x] Create `useCodenameAutoFill` hook in universo-template-mui for form codename auto-generation.
+- [x] Refactor HubList.tsx to use `useCodenameAutoFill` hook instead of duplicated useEffect.
+- [x] Refactor AttributeList.tsx to use `useCodenameAutoFill` hook instead of duplicated useEffect.
+- [x] Full project build successful.
+- **Result**: Removed ~112 lines of duplicated code in backend, created reusable hook for frontend.
+
 ### 2026-01-09: Metahubs VLC rollout — PR #635 opened ✅
 
 - [x] Opened PR #635 containing Metahubs localized Attributes/Records (VLC) and UI/backend updates; includes FlowListTable header center fix.

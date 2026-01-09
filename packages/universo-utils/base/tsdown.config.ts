@@ -8,7 +8,9 @@ export default defineConfig({
         'ui-utils': './src/ui-utils/index.js',
         'rate-limiting': './src/rate-limiting/index.ts',
         'captcha/index': './src/captcha/index.ts',
-        'auth/index': './src/auth/index.ts'
+        'auth/index': './src/auth/index.ts',
+        'vlc/index': './src/vlc/index.ts',
+        'validation/codename': './src/validation/codename.ts'
     },
     format: ['esm', 'cjs'],
     dts: true,

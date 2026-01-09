@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
     Box,
@@ -37,7 +37,8 @@ import {
     FlowListTable,
     ConfirmDialog,
     useConfirm,
-    LocalizedInlineField
+    LocalizedInlineField,
+    useCodenameAutoFill
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -95,21 +96,13 @@ const AttributeFormFields = ({
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
     const nextCodename = sanitizeCodename(nameValue)
 
-    useEffect(() => {
-        if (codenameTouched && !codename && !nameValue) {
-            setValue('codenameTouched', false)
-            return
-        }
-        if (codenameTouched) return
-        if (!nextCodename) {
-            if (codename) {
-                setValue('codename', '')
-            }
-            return
-        }
-        if (nextCodename === codename) return
-        setValue('codename', nextCodename)
-    }, [codenameTouched, nextCodename, codename, setValue])
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
 
     return (
         <>

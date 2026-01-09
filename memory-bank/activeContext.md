@@ -1,8 +1,26 @@
 # Active Context
 
-> **Last Updated**: 2026-01-08
+> **Last Updated**: 2026-01-10
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+
+---
+
+## Current Focus: Metahubs Code Deduplication - 2026-01-10 ✅
+
+Extracted duplicated utility functions from Metahubs module into shared packages to reduce code duplication and improve maintainability.
+
+**Backend refactoring**:
+- Created `@universo/utils/vlc` module with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions for VLC handling.
+- Created `@universo/utils/validation/codename` module with `CODENAME_PATTERN`, `normalizeCodename()`, `isValidCodename()` functions.
+- Updated 3 backend routes (attributesRoutes, hubsRoutes, metahubsRoutes) to use shared functions, removing ~112 lines of duplicated code.
+
+**Frontend refactoring**:
+- Created `useCodenameAutoFill` hook in `@universo/template-mui` for automatic codename generation from localized name field.
+- Refactored `HubList.tsx` and `AttributeList.tsx` to use the new hook instead of duplicated useEffect logic.
+- Updated `metahubs-frontend/utils/codename.ts` to re-export shared utilities.
+
+**Note**: Backend uses `normalizeCodename()` (no transliteration), frontend uses `slugifyCodename()` (with transliteration from @justrelate/slugify) — intentionally different behaviors for different use cases.
 
 ---
 

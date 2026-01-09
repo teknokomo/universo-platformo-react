@@ -31,6 +31,21 @@
 
 ---
 
+## 📅 2026-01-10
+
+### Metahubs Code Deduplication Refactoring ✅
+
+- **Summary**: Extracted duplicated code from Metahubs backend and frontend into shared utilities in `@universo/utils` and created a reusable `useCodenameAutoFill` hook in `@universo/template-mui`.
+- **Issue**: #634 (continued from PR #635 bot reviews)
+- **Key changes**:
+  - Created `@universo/utils/vlc` module with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions.
+  - Created `@universo/utils/validation/codename` module with `CODENAME_PATTERN`, `normalizeCodename()`, `isValidCodename()` functions.
+  - Updated `tsdown.config.ts` and `package.json` in universo-utils to export new modules.
+  - Refactored 3 backend routes (attributesRoutes, hubsRoutes, metahubsRoutes) to use shared functions (~112 lines removed).
+  - Created `useCodenameAutoFill` hook for automatic codename generation from localized name.
+  - Refactored `HubList.tsx` and `AttributeList.tsx` to use the new hook.
+- **Validation**: Full project build successful.
+
 ## 📅 2026-01-09
 
 ### Metahubs VLC rollout & UI fixes (PR #635) — PR opened ✅
