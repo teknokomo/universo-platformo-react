@@ -129,14 +129,17 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
         ? [...data].sort((a, b) => {
               if (columnsToRender) {
                   const sortableColumn = columnsToRender.find((column) => column.sortable && column.id === orderBy)
-                  if (!sortableColumn) return 0
-                  const rawA = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(a) : (a as any)?.[sortableColumn.id]
-                  const rawB = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(b) : (b as any)?.[sortableColumn.id]
-                  const valueA = typeof rawA === 'string' ? rawA.toLowerCase() : rawA ?? ''
-                  const valueB = typeof rawB === 'string' ? rawB.toLowerCase() : rawB ?? ''
-                  if (valueA < valueB) return order === 'asc' ? -1 : 1
-                  if (valueA > valueB) return order === 'asc' ? 1 : -1
-                  return 0
+                  if (sortableColumn) {
+                      const rawA = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(a) : (a as any)?.[sortableColumn.id]
+                      const rawB = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(b) : (b as any)?.[sortableColumn.id]
+                      const valueA = typeof rawA === 'string' ? rawA.toLowerCase() : rawA ?? ''
+                      const valueB = typeof rawB === 'string' ? rawB.toLowerCase() : rawB ?? ''
+                      if (valueA < valueB) return order === 'asc' ? -1 : 1
+                      if (valueA > valueB) return order === 'asc' ? 1 : -1
+                      return 0
+                  }
+                  // If no matching sortable column found (e.g., stale localStorage value),
+                  // fall through to default name/updatedDate sorting below
               }
 
               const resolvedOrderBy = orderBy === 'name' || orderBy === 'updatedDate' ? orderBy : 'updatedDate'

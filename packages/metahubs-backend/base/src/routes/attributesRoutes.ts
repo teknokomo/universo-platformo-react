@@ -19,7 +19,7 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
     return rlsContext?.manager ?? dataSource.manager
 }
 
-const CODENAME_PATTERN = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/
+const CODENAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 const normalizeCodename = (value: string) =>
     value
@@ -200,7 +200,7 @@ export function createAttributesRoutes(
                     : sortBy === 'codename'
                     ? 'a.codename'
                     : sortBy === 'name'
-                    ? "a.name->>'en'"
+                    ? "COALESCE(a.name->>(a.name->>'_primary'), a.name->>'en', '')"
                     : sortBy === 'created'
                     ? 'a.created_at'
                     : 'a.updated_at'

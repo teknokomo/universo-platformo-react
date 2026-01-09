@@ -21,7 +21,7 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
     return rlsContext?.manager ?? dataSource.manager
 }
 
-const CODENAME_PATTERN = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/
+const CODENAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 const normalizeCodename = (value: string) =>
     value
@@ -155,7 +155,12 @@ export function createHubsRoutes(
                 )
             }
 
-            const orderColumn = sortBy === 'name' ? "h.name->>'en'" : sortBy === 'created' ? 'h.created_at' : 'h.updated_at'
+            const orderColumn =
+                sortBy === 'name'
+                    ? "COALESCE(h.name->>(h.name->>'_primary'), h.name->>'en', '')"
+                    : sortBy === 'created'
+                    ? 'h.created_at'
+                    : 'h.updated_at'
             qb = qb
                 .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
                 .skip(offset)
