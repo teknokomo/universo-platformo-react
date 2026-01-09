@@ -1,5 +1,5 @@
 import apiClient from './apiClient'
-import { Attribute, AttributeDataType, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
+import { Attribute, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
 
 /**
  * List attributes for a specific hub
@@ -82,9 +82,5 @@ export const deleteAttribute = (metahubId: string, hubId: string, attributeId: s
 /**
  * Move attribute within a hub (reorder)
  */
-export const moveAttribute = (
-    metahubId: string,
-    hubId: string,
-    attributeId: string,
-    direction: 'up' | 'down'
-) => apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}/move`, { direction })
+export const moveAttribute = (metahubId: string, hubId: string, attributeId: string, direction: 'up' | 'down') =>
+    apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}/move`, { direction })

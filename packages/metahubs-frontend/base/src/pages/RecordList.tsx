@@ -1,13 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-    Box,
-    Skeleton,
-    Stack,
-    Typography,
-    ToggleButtonGroup,
-    ToggleButton
-} from '@mui/material'
+import { Box, Skeleton, Stack, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
@@ -273,7 +266,10 @@ const RecordList = () => {
                         hasData && (record as HubRecord).data
                             ? (record as HubRecord)
                             : recordMap.get(record.id) ||
-                              (await recordsApi.getRecord(metahubId, hubId, record.id).then((res) => res.data).catch(() => null))
+                              (await recordsApi
+                                  .getRecord(metahubId, hubId, record.id)
+                                  .then((res) => res.data)
+                                  .catch(() => null))
                     if (fullRecord) {
                         setEditingRecord(fullRecord)
                     } else {
@@ -398,12 +394,7 @@ const RecordList = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     {/* Tab navigation between Attributes and Records */}
                     <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup
-                            value='records'
-                            exclusive
-                            size='small'
-                            sx={{ mb: 1 }}
-                        >
+                        <ToggleButtonGroup value='records' exclusive size='small' sx={{ mb: 1 }}>
                             <ToggleButton
                                 value='attributes'
                                 sx={{ px: 2, py: 0.5 }}

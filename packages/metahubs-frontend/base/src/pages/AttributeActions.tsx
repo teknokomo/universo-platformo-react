@@ -130,9 +130,7 @@ const AttributeEditFields = ({
                 </Select>
             </FormControl>
             <FormControlLabel
-                control={
-                    <Switch checked={Boolean(values.isRequired)} onChange={(event) => setValue('isRequired', event.target.checked)} />
-                }
+                control={<Switch checked={Boolean(values.isRequired)} onChange={(event) => setValue('isRequired', event.target.checked)} />}
                 label={t('attributes.isRequiredLabel', 'Required')}
                 disabled={isLoading}
             />

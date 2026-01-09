@@ -55,7 +55,8 @@ const buildLocalizedContent = (
     const localeCodes = Object.keys(input).sort()
     if (localeCodes.length === 0) return undefined
 
-    const primaryCandidate = primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
+    const primaryCandidate =
+        primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
     const primary = primaryCandidate ?? localeCodes[0]
     let content = createLocalizedContent(primary, input[primary] ?? '')
 
@@ -494,7 +495,8 @@ export function createMetahubsRoutes(
             if (result.data.description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(result.data.description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    const descriptionPrimary = result.data.descriptionPrimaryLocale ?? metahub.description?._primary ?? metahub.name?._primary ?? 'en'
+                    const descriptionPrimary =
+                        result.data.descriptionPrimaryLocale ?? metahub.description?._primary ?? metahub.name?._primary ?? 'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, descriptionPrimary, descriptionPrimary)
                     if (descriptionVlc) {
                         metahub.description = descriptionVlc

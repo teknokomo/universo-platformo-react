@@ -63,11 +63,7 @@ const buildLocalizedContent = (
     if (localeCodes.length === 0) return undefined
 
     const primaryCandidate =
-        primaryLocale && input[primaryLocale]
-            ? primaryLocale
-            : fallbackPrimary && input[fallbackPrimary]
-            ? fallbackPrimary
-            : undefined
+        primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
     const primary = primaryCandidate ?? localeCodes[0]
     let content = createLocalizedContent(primary, input[primary] ?? '')
 
@@ -208,7 +204,10 @@ export function createAttributesRoutes(
                     : sortBy === 'created'
                     ? 'a.created_at'
                     : 'a.updated_at'
-            qb = qb.orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC').skip(offset).take(limit)
+            qb = qb
+                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
+                .skip(offset)
+                .take(limit)
 
             const [attributes, total] = await qb.getManyAndCount()
 
@@ -261,7 +260,8 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetHubId, validationRules, uiConfig, isRequired, sortOrder } = parsed.data
+            const { codename, dataType, name, namePrimaryLocale, targetHubId, validationRules, uiConfig, isRequired, sortOrder } =
+                parsed.data
 
             const normalizedCodename = normalizeCodename(codename)
             if (!normalizedCodename || !isValidCodename(normalizedCodename)) {

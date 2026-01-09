@@ -13,27 +13,27 @@ import Testimonials from './components/Testimonials'
 // import Footer from './components/Footer'
 
 export default function MarketingPage(props: { disableCustomTheme?: boolean }) {
-  return (
-    <AppTheme {...props}>
-      <CssBaseline enableColorScheme />
+    return (
+        <AppTheme {...props}>
+            <CssBaseline enableColorScheme />
 
-      <AppAppBar />
-      <Hero />
-      <div>
-        {/* MVP: Temporarily commented out - will be restored later */}
-        {/* <LogoCollection /> */}
-        {/* <Features /> */}
-        {/* <Divider /> */}
-        <Testimonials />
-        {/* <Divider /> */}
-        {/* <Highlights /> */}
-        {/* <Divider /> */}
-        {/* <Pricing /> */}
-        {/* <Divider /> */}
-        {/* <FAQ /> */}
-        {/* <Divider /> */}
-        {/* <Footer /> */}
-      </div>
-    </AppTheme>
-  )
+            <AppAppBar />
+            <Hero />
+            <div>
+                {/* MVP: Temporarily commented out - will be restored later */}
+                {/* <LogoCollection /> */}
+                {/* <Features /> */}
+                {/* <Divider /> */}
+                <Testimonials />
+                {/* <Divider /> */}
+                {/* <Highlights /> */}
+                {/* <Divider /> */}
+                {/* <Pricing /> */}
+                {/* <Divider /> */}
+                {/* <FAQ /> */}
+                {/* <Divider /> */}
+                {/* <Footer /> */}
+            </div>
+        </AppTheme>
+    )
 }

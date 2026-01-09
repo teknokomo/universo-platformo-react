@@ -58,11 +58,7 @@ const buildLocalizedContent = (
     if (localeCodes.length === 0) return undefined
 
     const primaryCandidate =
-        primaryLocale && input[primaryLocale]
-            ? primaryLocale
-            : fallbackPrimary && input[fallbackPrimary]
-            ? fallbackPrimary
-            : undefined
+        primaryLocale && input[primaryLocale] ? primaryLocale : fallbackPrimary && input[fallbackPrimary] ? fallbackPrimary : undefined
     const primary = primaryCandidate ?? localeCodes[0]
     let content = createLocalizedContent(primary, input[primary] ?? '')
 
@@ -160,7 +156,10 @@ export function createHubsRoutes(
             }
 
             const orderColumn = sortBy === 'name' ? "h.name->>'en'" : sortBy === 'created' ? 'h.created_at' : 'h.updated_at'
-            qb = qb.orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC').skip(offset).take(limit)
+            qb = qb
+                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
+                .skip(offset)
+                .take(limit)
 
             const [hubs, total] = await qb.getManyAndCount()
 
@@ -253,11 +252,7 @@ export function createHubsRoutes(
             if (description) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    descriptionVlc = buildLocalizedContent(
-                        sanitizedDescription,
-                        descriptionPrimaryLocale,
-                        namePrimaryLocale ?? 'en'
-                    )
+                    descriptionVlc = buildLocalizedContent(sanitizedDescription, descriptionPrimaryLocale, namePrimaryLocale ?? 'en')
                 }
             }
 
@@ -329,8 +324,7 @@ export function createHubsRoutes(
             if (description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    const primary =
-                        descriptionPrimaryLocale ?? hub.description?._primary ?? hub.name?._primary ?? namePrimaryLocale ?? 'en'
+                    const primary = descriptionPrimaryLocale ?? hub.description?._primary ?? hub.name?._primary ?? namePrimaryLocale ?? 'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
                     if (descriptionVlc) {
                         hub.description = descriptionVlc

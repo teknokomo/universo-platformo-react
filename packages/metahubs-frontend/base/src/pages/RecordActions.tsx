@@ -14,9 +14,11 @@ const recordActions: readonly ActionDescriptor<HubRecordDisplay, RecordData>[] =
         icon: <EditIcon />,
         order: 10,
         onSelect: async (ctx) => {
-            const helpers = ctx.helpers as {
-                openEditDialog?: (entity: HubRecord | HubRecordDisplay) => void | Promise<void>
-            } | undefined
+            const helpers = ctx.helpers as
+                | {
+                      openEditDialog?: (entity: HubRecord | HubRecordDisplay) => void | Promise<void>
+                  }
+                | undefined
             const rawRecord = (ctx as { rawRecord?: HubRecord }).rawRecord
             await helpers?.openEditDialog?.(rawRecord ?? ctx.entity)
         }

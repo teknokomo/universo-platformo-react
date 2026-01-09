@@ -256,10 +256,7 @@ export interface LocalizedField {
 /**
  * Helper to extract localized content from VersatileLocalizedContent
  */
-export function getVLCString(
-    field: VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null,
-    locale = 'en'
-): string {
+export function getVLCString(field: VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null, locale = 'en'): string {
     if (!field) return ''
     if (typeof field === 'string') return field
     if (typeof field !== 'object') return ''

@@ -44,9 +44,7 @@ const hasAnyLocalizedContent = (value: unknown): boolean => {
     if (!isLocalizedContent(value)) return false
     const filtered = filterLocalizedContent(value as VersionedLocalizedContent<string>)
     if (!filtered) return false
-    return Object.values(filtered.locales).some(
-        (entry) => typeof entry?.content === 'string' && entry.content.trim() !== ''
-    )
+    return Object.values(filtered.locales).some((entry) => typeof entry?.content === 'string' && entry.content.trim() !== '')
 }
 
 const hasRequiredValue = (attr: Attribute, value: unknown): boolean => {
@@ -239,7 +237,10 @@ export function createRecordsRoutes(
             }
 
             const orderColumn = sortBy === 'created' ? 'r.created_at' : 'r.updated_at'
-            qb = qb.orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC').skip(offset).take(limit)
+            qb = qb
+                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
+                .skip(offset)
+                .take(limit)
 
             const [records, total] = await qb.getManyAndCount()
 

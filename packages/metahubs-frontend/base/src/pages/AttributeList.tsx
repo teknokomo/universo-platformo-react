@@ -314,9 +314,7 @@ const AttributeList = () => {
                     codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
                     dataTypeLabel={t('attributes.dataType', 'Data Type')}
                     requiredLabel={t('attributes.isRequiredLabel', 'Required')}
-                    dataTypeOptions={[
-                        { value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') }
-                    ]}
+                    dataTypeOptions={[{ value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') }]}
                 />
             )
         },
@@ -578,12 +576,7 @@ const AttributeList = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     {/* Tab navigation between Attributes and Records */}
                     <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup
-                            value='attributes'
-                            exclusive
-                            size='small'
-                            sx={{ mb: 1 }}
-                        >
+                        <ToggleButtonGroup value='attributes' exclusive size='small' sx={{ mb: 1 }}>
                             <ToggleButton value='attributes' sx={{ px: 2, py: 0.5 }}>
                                 <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />
                                 {t('attributes.title')}

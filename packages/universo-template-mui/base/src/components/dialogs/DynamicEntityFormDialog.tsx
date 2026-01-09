@@ -206,9 +206,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         type='number'
                         label={field.label}
                         value={typeof value === 'number' ? value : value == null ? '' : Number(value)}
-                        onChange={(event) =>
-                            handleFieldChange(field.id, event.target.value ? parseFloat(event.target.value) : null)
-                        }
+                        onChange={(event) => handleFieldChange(field.id, event.target.value ? parseFloat(event.target.value) : null)}
                         required={field.required}
                         disabled={disabled}
                         placeholder={field.placeholder}
@@ -306,8 +304,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         }
     }
 
-    const isSubmitDisabled =
-        isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || (requireAnyValue && !hasAnyValue)
+    const isSubmitDisabled = isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || (requireAnyValue && !hasAnyValue)
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
