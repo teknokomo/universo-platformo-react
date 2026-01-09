@@ -31,6 +31,36 @@
 
 ---
 
+## 📅 2026-01-08
+
+### Records Form Localization & Validation ✅
+
+- **Summary**: Record fields now render localized labels from attribute VLC, STRING fields use LocalizedInlineField, empty records are blocked, and the records table "Updated" column is localized.
+- **UI**: Record actions now open the correct dialog (no metahub delete copy).
+- **Validation**: `pnpm --filter @universo/metahubs-frontend build`
+
+### Records Backend Validation for VLC ✅
+
+- **Summary**: Record creation/update now accepts VLC objects for STRING attributes and validates required/length rules against primary content.
+- **Validation**: `pnpm --filter @universo/metahubs-backend build`
+
+### Record Edit Hydration ✅
+
+- **Summary**: Record edit now passes full record data through the action menu and fetches a record when missing so fields are pre-filled on first open.
+- **Validation**: `pnpm --filter @universo/metahubs-frontend build`
+
+### Record Edit Initial Render Guard ✅
+
+- **Summary**: Record edit form delays field rendering until initial data hydration completes to avoid empty first paint.
+- **Validation**: `pnpm --filter @universo/metahubs-frontend build`
+
+### Hub Attributes Localization & Codename Fixes ✅
+
+- **Summary**: Migrated hub attributes to the localized field workflow (VLC), added codename auto-fill/editing, removed unused description UI, and aligned backend validation/normalization.
+- **Frontend**: Attribute list now uses localized inline fields, codename validation, and updated i18n strings.
+- **Backend**: Attribute routes now sanitize localized inputs, honor primary locale, and normalize/validate codenames.
+- **Validation**: `pnpm --filter @universo/metahubs-frontend build`, `pnpm --filter @universo/metahubs-backend build`
+
 ## 📅 2026-01-07
 
 ### Diagnostics Logs Cleanup ✅
@@ -38,6 +68,19 @@
 - **Summary**: Removed temporary diagnostic logs from auth/admin flows and restored default backend log level to reduce noise after the incident was resolved.
 - **Files Changed**:
   - `packages/flowise-core-backend/base/src/utils/config.ts`
+
+### Hubs Localized Fields + Codename ✅
+
+- **Summary**: Aligned hub name/description with VLC, added localized create/edit UI with codename auto-fill/validation, and updated backend hub routes to sanitize localized inputs with primary locale handling.
+- **Files Changed**:
+  - `packages/metahubs-frontend/base/src/pages/HubList.tsx`
+  - `packages/metahubs-frontend/base/src/pages/HubActions.tsx`
+  - `packages/metahubs-frontend/base/src/types.ts`
+  - `packages/metahubs-frontend/base/src/api/hubs.ts`
+  - `packages/metahubs-frontend/base/src/hooks/mutations.ts`
+  - `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
+  - `packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
+  - `packages/metahubs-backend/base/src/routes/hubsRoutes.ts`
   - `packages/auth-frontend/base/src/api/client.ts`
   - `packages/auth-backend/base/src/routes/auth.ts`
   - `packages/admin-backend/base/src/services/globalAccessService.ts`

@@ -1,5 +1,5 @@
 import apiClient from './apiClient'
-import { Attribute, AttributeDataType, PaginationParams, PaginatedResponse } from '../types'
+import { Attribute, AttributeDataType, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
 
 /**
  * List attributes for a specific hub
@@ -48,11 +48,7 @@ export const getAttribute = (metahubId: string, hubId: string, attributeId: stri
 export const createAttribute = (
     metahubId: string,
     hubId: string,
-    data: {
-        codename: string
-        dataType: AttributeDataType
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
+    data: AttributeLocalizedPayload & {
         targetHubId?: string
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
@@ -68,11 +64,7 @@ export const updateAttribute = (
     metahubId: string,
     hubId: string,
     attributeId: string,
-    data: {
-        codename?: string
-        dataType?: AttributeDataType
-        name?: { en?: string; ru?: string }
-        description?: { en?: string; ru?: string }
+    data: AttributeLocalizedPayload & {
         targetHubId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
@@ -86,3 +78,13 @@ export const updateAttribute = (
  */
 export const deleteAttribute = (metahubId: string, hubId: string, attributeId: string) =>
     apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}`)
+
+/**
+ * Move attribute within a hub (reorder)
+ */
+export const moveAttribute = (
+    metahubId: string,
+    hubId: string,
+    attributeId: string,
+    direction: 'up' | 'down'
+) => apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}/move`, { direction })

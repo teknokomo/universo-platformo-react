@@ -6,6 +6,10 @@ import { HubRecord } from '../database/entities/Record'
 import { Hub } from '../database/entities/Hub'
 import { Attribute, AttributeDataType, AttributeValidation } from '../database/entities/Attribute'
 import { z } from 'zod'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { filterLocalizedContent, isLocalizedContent } from '@universo/utils'
+import { validateListQuery } from '../schemas/queryParams'
+import { escapeLikeWildcards } from '../utils'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -26,13 +30,47 @@ const resolveUserId = (req: Request): string | undefined => {
 /**
  * Validate record data against hub attributes schema
  */
+const extractLocalizedString = (value: unknown): string | null => {
+    if (typeof value === 'string') return value
+    if (!isLocalizedContent(value)) return null
+    const filtered = filterLocalizedContent(value as VersionedLocalizedContent<string>)
+    if (!filtered) return null
+    const primary = filtered._primary
+    const entry = filtered.locales[primary]
+    return typeof entry?.content === 'string' ? entry.content : null
+}
+
+const hasAnyLocalizedContent = (value: unknown): boolean => {
+    if (!isLocalizedContent(value)) return false
+    const filtered = filterLocalizedContent(value as VersionedLocalizedContent<string>)
+    if (!filtered) return false
+    return Object.values(filtered.locales).some(
+        (entry) => typeof entry?.content === 'string' && entry.content.trim() !== ''
+    )
+}
+
+const hasRequiredValue = (attr: Attribute, value: unknown): boolean => {
+    if (value === undefined || value === null) return false
+    if (attr.dataType === AttributeDataType.STRING) {
+        if (hasAnyLocalizedContent(value)) return true
+        const text = extractLocalizedString(value)
+        if (typeof text === 'string') return text.trim() !== ''
+        if (typeof value === 'string') return value.trim() !== ''
+        return false
+    }
+    if (attr.dataType === AttributeDataType.NUMBER) {
+        return typeof value === 'number' && !isNaN(value)
+    }
+    return value !== ''
+}
+
 function validateRecordData(data: Record<string, unknown>, attributes: Attribute[]): { valid: boolean; errors: string[] } {
     const errors: string[] = []
     const attributeMap = new Map(attributes.map((a) => [a.codename, a]))
 
     // Check required fields
     for (const attr of attributes) {
-        if (attr.isRequired && (data[attr.codename] === undefined || data[attr.codename] === null || data[attr.codename] === '')) {
+        if (attr.isRequired && !hasRequiredValue(attr, data[attr.codename])) {
             errors.push(`Field "${attr.codename}" is required`)
         }
     }
@@ -67,8 +105,8 @@ function validateRecordData(data: Record<string, unknown>, attributes: Attribute
 function validateType(value: unknown, dataType: AttributeDataType): string | null {
     switch (dataType) {
         case AttributeDataType.STRING:
-            if (typeof value !== 'string') return 'Expected string'
-            break
+            if (typeof value === 'string' || isLocalizedContent(value)) break
+            return 'Expected string'
         case AttributeDataType.NUMBER:
             if (typeof value !== 'number' || isNaN(value)) return 'Expected number'
             break
@@ -92,24 +130,26 @@ function validateType(value: unknown, dataType: AttributeDataType): string | nul
 function validateRules(value: unknown, rules: AttributeValidation, fieldName: string): string[] {
     const errors: string[] = []
 
-    if (typeof value === 'string') {
-        if (rules.minLength !== undefined && value.length < rules.minLength) {
+    const stringValue = typeof value === 'string' ? value : extractLocalizedString(value)
+
+    if (typeof stringValue === 'string') {
+        if (rules.minLength !== undefined && stringValue.length < rules.minLength) {
             errors.push(`Field "${fieldName}": minimum length is ${rules.minLength}`)
         }
-        if (rules.maxLength !== undefined && value.length > rules.maxLength) {
+        if (rules.maxLength !== undefined && stringValue.length > rules.maxLength) {
             errors.push(`Field "${fieldName}": maximum length is ${rules.maxLength}`)
         }
         if (rules.pattern) {
             try {
                 const regex = new RegExp(rules.pattern)
-                if (!regex.test(value)) {
+                if (!regex.test(stringValue)) {
                     errors.push(`Field "${fieldName}": does not match pattern`)
                 }
             } catch {
                 // Invalid pattern, skip validation
             }
         }
-        if (rules.options && !rules.options.includes(value)) {
+        if (rules.options && !rules.options.includes(stringValue)) {
             errors.push(`Field "${fieldName}": must be one of [${rules.options.join(', ')}]`)
         }
     }
@@ -171,7 +211,6 @@ export function createRecordsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { hubId } = req.params
-            const { limit = '100', offset = '0' } = req.query
             const { recordRepo, hubRepo } = repos(req)
 
             // Verify hub exists
@@ -180,19 +219,36 @@ export function createRecordsRoutes(
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            const [records, total] = await recordRepo.findAndCount({
-                where: { hubId },
-                order: { sortOrder: 'ASC', createdAt: 'DESC' },
-                take: Math.min(parseInt(limit as string, 10), 1000),
-                skip: parseInt(offset as string, 10)
-            })
+            let validatedQuery
+            try {
+                validatedQuery = validateListQuery(req.query)
+            } catch (error) {
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+                }
+                throw error
+            }
+
+            const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+
+            let qb = recordRepo.createQueryBuilder('r').where('r.hubId = :hubId', { hubId })
+
+            if (search) {
+                const escapedSearch = escapeLikeWildcards(search)
+                qb = qb.andWhere('r.data::text ILIKE :search', { search: `%${escapedSearch}%` })
+            }
+
+            const orderColumn = sortBy === 'created' ? 'r.created_at' : 'r.updated_at'
+            qb = qb.orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC').skip(offset).take(limit)
+
+            const [records, total] = await qb.getManyAndCount()
 
             res.json({
                 items: records,
                 pagination: {
                     total,
-                    limit: parseInt(limit as string, 10),
-                    offset: parseInt(offset as string, 10)
+                    limit,
+                    offset
                 }
             })
         })

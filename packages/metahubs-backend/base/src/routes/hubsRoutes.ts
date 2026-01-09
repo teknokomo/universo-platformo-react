@@ -3,9 +3,15 @@ import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { Hub } from '../database/entities/Hub'
+import { Attribute } from '../database/entities/Attribute'
 import { Metahub } from '../database/entities/Metahub'
+import { HubRecord } from '../database/entities/Record'
 import { z } from 'zod'
+import { validateListQuery } from '../schemas/queryParams'
+import { escapeLikeWildcards } from '../utils'
 import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { isValidLocaleCode } from '@universo/types'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -15,38 +21,82 @@ const getRequestManager = (req: Request, dataSource: DataSource) => {
     return rlsContext?.manager ?? dataSource.manager
 }
 
+const CODENAME_PATTERN = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/
+
+const normalizeCodename = (value: string) =>
+    value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '')
+
+const isValidCodename = (value: string) => CODENAME_PATTERN.test(value)
+
+const sanitizeLocalizedInput = (input: Record<string, string | undefined>) => {
+    const sanitized: Record<string, string> = {}
+    for (const [locale, value] of Object.entries(input)) {
+        if (typeof value !== 'string') continue
+        const trimmedValue = value.trim()
+        if (!trimmedValue) continue
+        const normalized = locale.trim().replace('_', '-')
+        const [lang, region] = normalized.split('-')
+        const normalizedCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : lang.toLowerCase()
+        if (!isValidLocaleCode(normalizedCode)) continue
+        sanitized[normalizedCode] = trimmedValue
+    }
+    return sanitized
+}
+
+const buildLocalizedContent = (
+    input: Record<string, string>,
+    primaryLocale?: string,
+    fallbackPrimary?: string
+): VersionedLocalizedContent<string> | undefined => {
+    const localeCodes = Object.keys(input).sort()
+    if (localeCodes.length === 0) return undefined
+
+    const primaryCandidate =
+        primaryLocale && input[primaryLocale]
+            ? primaryLocale
+            : fallbackPrimary && input[fallbackPrimary]
+            ? fallbackPrimary
+            : undefined
+    const primary = primaryCandidate ?? localeCodes[0]
+    let content = createLocalizedContent(primary, input[primary] ?? '')
+
+    for (const locale of localeCodes) {
+        if (locale === primary) continue
+        const value = input[locale]
+        if (typeof value !== 'string') continue
+        content = updateLocalizedContentLocale(content, locale, value)
+    }
+
+    return content
+}
+
 // Validation schemas
+const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
+const optionalLocalizedInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
 const createHubSchema = z.object({
     codename: z.string().min(1).max(100),
-    name: z
-        .object({
-            en: z.string().optional(),
-            ru: z.string().optional()
-        })
-        .optional(),
-    description: z
-        .object({
-            en: z.string().optional(),
-            ru: z.string().optional()
-        })
-        .optional(),
+    name: localizedInputSchema.optional(),
+    description: optionalLocalizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional(),
     sortOrder: z.number().int().optional()
 })
 
 const updateHubSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
-    name: z
-        .object({
-            en: z.string().optional(),
-            ru: z.string().optional()
-        })
-        .optional(),
-    description: z
-        .object({
-            en: z.string().optional(),
-            ru: z.string().optional()
-        })
-        .optional(),
+    name: localizedInputSchema.optional(),
+    description: optionalLocalizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional(),
     sortOrder: z.number().int().optional()
 })
 
@@ -70,6 +120,8 @@ export function createHubsRoutes(
         const manager = getRequestManager(req, ds)
         return {
             hubRepo: manager.getRepository(Hub),
+            attributeRepo: manager.getRepository(Attribute),
+            recordRepo: manager.getRepository(HubRecord),
             metahubRepo: manager.getRepository(Metahub)
         }
     }
@@ -83,14 +135,46 @@ export function createHubsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { hubRepo } = repos(req)
+            const { hubRepo, attributeRepo, recordRepo } = repos(req)
 
-            const hubs = await hubRepo.find({
-                where: { metahubId },
-                order: { sortOrder: 'ASC', createdAt: 'ASC' }
-            })
+            let validatedQuery
+            try {
+                validatedQuery = validateListQuery(req.query)
+            } catch (error) {
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+                }
+                throw error
+            }
 
-            res.json({ items: hubs, pagination: { total: hubs.length, limit: 100, offset: 0 } })
+            const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+
+            let qb = hubRepo.createQueryBuilder('h').where('h.metahubId = :metahubId', { metahubId })
+
+            if (search) {
+                const escapedSearch = escapeLikeWildcards(search)
+                qb = qb.andWhere(
+                    "(h.name::text ILIKE :search OR COALESCE(h.description::text, '') ILIKE :search OR h.codename ILIKE :search)",
+                    { search: `%${escapedSearch}%` }
+                )
+            }
+
+            const orderColumn = sortBy === 'name' ? "h.name->>'en'" : sortBy === 'created' ? 'h.created_at' : 'h.updated_at'
+            qb = qb.orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC').skip(offset).take(limit)
+
+            const [hubs, total] = await qb.getManyAndCount()
+
+            const hubsWithCounts = await Promise.all(
+                hubs.map(async (hub) => {
+                    const [attributesCount, recordsCount] = await Promise.all([
+                        attributeRepo.count({ where: { hubId: hub.id } }),
+                        recordRepo.count({ where: { hubId: hub.id } })
+                    ])
+                    return { ...hub, attributesCount, recordsCount }
+                })
+            )
+
+            res.json({ items: hubsWithCounts, pagination: { total, limit, offset } })
         })
     )
 
@@ -139,29 +223,51 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder } = parsed.data
+            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+
+            const normalizedCodename = normalizeCodename(codename)
+            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
 
             // Check for duplicate codename
-            const existing = await hubRepo.findOne({ where: { metahubId, codename } })
+            const existing = await hubRepo.findOne({ where: { metahubId, codename: normalizedCodename } })
             if (existing) {
                 return res.status(409).json({ error: 'Hub with this codename already exists' })
             }
 
+            const sanitizedName = sanitizeLocalizedInput(name ?? {})
+            if (Object.keys(sanitizedName).length === 0) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const nameVlc = buildLocalizedContent(sanitizedName, namePrimaryLocale, 'en')
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            let descriptionVlc = undefined
+            if (description) {
+                const sanitizedDescription = sanitizeLocalizedInput(description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    descriptionVlc = buildLocalizedContent(
+                        sanitizedDescription,
+                        descriptionPrimaryLocale,
+                        namePrimaryLocale ?? 'en'
+                    )
+                }
+            }
+
             const hub = hubRepo.create({
                 metahubId,
-                codename,
-                name: name?.en ? createLocalizedContent('en', name.en) : createLocalizedContent('en', codename),
-                description: description?.en ? createLocalizedContent('en', description.en) : undefined,
+                codename: normalizedCodename,
+                name: nameVlc,
+                description: descriptionVlc,
                 sortOrder: sortOrder ?? 0
             })
-
-            // Add Russian locale if provided
-            if (name?.ru && hub.name) {
-                hub.name = updateLocalizedContentLocale(hub.name, 'ru', name.ru)
-            }
-            if (description?.ru && hub.description) {
-                hub.description = updateLocalizedContentLocale(hub.description, 'ru', description.ru)
-            }
 
             const saved = await hubRepo.save(hub)
             res.status(201).json(saved)
@@ -189,27 +295,48 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder } = parsed.data
+            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
 
-            if (codename && codename !== hub.codename) {
-                const existing = await hubRepo.findOne({ where: { metahubId, codename } })
-                if (existing) {
-                    return res.status(409).json({ error: 'Hub with this codename already exists' })
+            if (codename !== undefined) {
+                const normalizedCodename = normalizeCodename(codename)
+                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                    return res.status(400).json({
+                        error: 'Validation failed',
+                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    })
                 }
-                hub.codename = codename
+                if (normalizedCodename !== hub.codename) {
+                    const existing = await hubRepo.findOne({ where: { metahubId, codename: normalizedCodename } })
+                    if (existing) {
+                        return res.status(409).json({ error: 'Hub with this codename already exists' })
+                    }
+                    hub.codename = normalizedCodename
+                }
             }
 
-            if (name) {
-                hub.name = createLocalizedContent('en', name.en || hub.codename)
-                if (name.ru) {
-                    hub.name = updateLocalizedContentLocale(hub.name, 'ru', name.ru)
+            if (name !== undefined) {
+                const sanitizedName = sanitizeLocalizedInput(name)
+                if (Object.keys(sanitizedName).length === 0) {
+                    return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+                }
+                const primary = namePrimaryLocale ?? hub.name?._primary ?? 'en'
+                const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
+                if (nameVlc) {
+                    hub.name = nameVlc
                 }
             }
 
-            if (description) {
-                hub.description = createLocalizedContent('en', description.en || '')
-                if (description.ru) {
-                    hub.description = updateLocalizedContentLocale(hub.description, 'ru', description.ru)
+            if (description !== undefined) {
+                const sanitizedDescription = sanitizeLocalizedInput(description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    const primary =
+                        descriptionPrimaryLocale ?? hub.description?._primary ?? hub.name?._primary ?? namePrimaryLocale ?? 'en'
+                    const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
+                    if (descriptionVlc) {
+                        hub.description = descriptionVlc
+                    }
+                } else {
+                    hub.description = undefined
                 }
             }
 

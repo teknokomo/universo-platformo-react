@@ -6,13 +6,53 @@
 
 ## 🔥 ACTIVE TASKS
 
-- [x] Review PR #633 bot suggestions and apply safe fixes across metahubs-frontend utilities and tests.
-- [x] Make `LocalizedInlineField` locales endpoint configurable and add guidance for stable `onChange` callbacks.
-- [x] Align VLC utilities with `isActive` semantics and validate locale codes in metahubs backend helpers.
+- No active tasks.
 
 ---
 
 ## ✅ RECENTLY COMPLETED
+
+### 2026-01-09: FlowListTable centered sortable column fix ✅
+
+- [x] Replace complex grid-based centering with standard MUI flex approach for TableSortLabel.
+- [x] Use inline-flex + justifyContent: center on TableSortLabel for center-aligned sortable columns.
+- [x] Remove nested Box wrapper with grid layout that caused misalignment.
+- [x] Build entire project to apply changes.
+
+### 2026-01-08: Records UI localization fixes ✅
+
+- [x] Switch record field labels to VLC-aware rendering and fix "1" placeholders.
+- [x] Add localized input for STRING record fields using LocalizedInlineField.
+- [x] Disable record save when all fields are empty and strip empty values before submit.
+- [x] Localize records table "Updated" column.
+- [x] Replace record actions to open the correct record dialogs (fix metahub delete copy).
+- [x] Build metahubs-frontend after changes.
+
+### 2026-01-08: Record save validation (VLC strings) ✅
+
+- [x] Allow record validation to accept VLC objects for STRING fields.
+- [x] Apply required/validation rules against VLC primary content.
+- [x] Build metahubs-backend after changes.
+
+### 2026-01-08: Record edit hydration fix ✅
+
+- [x] Pass raw record data to record actions and fetch full record when missing.
+- [x] Build metahubs-frontend after changes.
+
+### 2026-01-08: Record edit initial render guard ✅
+
+- [x] Delay record edit fields until initial data is hydrated to avoid empty first render.
+- [x] Build metahubs-frontend after changes.
+
+### 2026-01-08: Attributes localization + codename cleanup ✅
+
+- [x] Update Attribute domain types/display to use VLC for name (drop description) and fix attribute table rendering.
+- [x] Implement localized create/edit UI for attributes with codename auto-fill and no description field.
+- [x] Replace Attribute actions dialog to support localized name + codename editing.
+- [x] Align attributes API payloads/mutations with localized inputs + primary locale fields.
+- [x] Update attributes backend routes to use sanitized localized inputs, primary locale handling, and codename normalization/validation.
+- [x] Remove attribute description column/labels from UI and update i18n helper/validation strings.
+- [x] Run package builds/tests relevant to metahubs frontend/backend changes.
 
 ### 2026-01-06: Metahubs localization hardening ✅
 

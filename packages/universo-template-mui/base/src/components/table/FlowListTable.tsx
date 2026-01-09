@@ -62,6 +62,8 @@ export interface TableColumn<T extends FlowListTableData> {
     width?: string | number
     align?: 'inherit' | 'left' | 'center' | 'right' | 'justify'
     render?: (row: T, index: number) => React.ReactNode
+    sortable?: boolean
+    sortAccessor?: (row: T) => string | number | null | undefined
 }
 
 export interface FlowListTableProps<T extends FlowListTableData = FlowListTableData> {
@@ -121,12 +123,27 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
 
     const resolveUpdatedDate = (item: T): string | undefined => item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
 
+    const columnsToRender = !isUnikTable && Array.isArray(customColumns) && customColumns.length > 0 ? customColumns : null
+
     const sortedData = data
         ? [...data].sort((a, b) => {
-              if (orderBy === 'name') {
+              if (columnsToRender) {
+                  const sortableColumn = columnsToRender.find((column) => column.sortable && column.id === orderBy)
+                  if (!sortableColumn) return 0
+                  const rawA = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(a) : (a as any)?.[sortableColumn.id]
+                  const rawB = sortableColumn.sortAccessor ? sortableColumn.sortAccessor(b) : (b as any)?.[sortableColumn.id]
+                  const valueA = typeof rawA === 'string' ? rawA.toLowerCase() : rawA ?? ''
+                  const valueB = typeof rawB === 'string' ? rawB.toLowerCase() : rawB ?? ''
+                  if (valueA < valueB) return order === 'asc' ? -1 : 1
+                  if (valueA > valueB) return order === 'asc' ? 1 : -1
+                  return 0
+              }
+
+              const resolvedOrderBy = orderBy === 'name' || orderBy === 'updatedDate' ? orderBy : 'updatedDate'
+              if (resolvedOrderBy === 'name') {
                   return order === 'asc' ? (a.name || '').localeCompare(b.name || '') : (b.name || '').localeCompare(a.name || '')
               }
-              if (orderBy === 'updatedDate') {
+              if (resolvedOrderBy === 'updatedDate') {
                   const dateA = resolveUpdatedDate(a)
                   const dateB = resolveUpdatedDate(b)
                   const parsedA = dateA ? new Date(dateA).getTime() : 0
@@ -153,8 +170,6 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
 
     const activeFilter = typeof filterFunction === 'function' ? filterFunction : () => true
 
-    const columnsToRender = !isUnikTable && Array.isArray(customColumns) && customColumns.length > 0 ? customColumns : null
-
     return (
         <>
             <TableContainer sx={{ border: 1, borderColor, borderRadius: 1 }} component={Paper}>
@@ -174,11 +189,35 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                             style={{ width: column.width || '25%' }}
                                             align={column.align || 'left'}
                                         >
-                                            {column.label}
+                                            {column.sortable ? (
+                                                <TableSortLabel
+                                                    active={orderBy === column.id}
+                                                    direction={order}
+                                                    onClick={() => handleRequestSort(column.id)}
+                                                    sx={
+                                                        column.align === 'center'
+                                                            ? {
+                                                                  display: 'inline-flex',
+                                                                  alignItems: 'center',
+                                                                  justifyContent: 'center',
+                                                                  width: '100%',
+                                                                  '& .MuiTableSortLabel-icon': {
+                                                                      marginLeft: 0.5,
+                                                                      marginRight: 0
+                                                                  }
+                                                              }
+                                                            : undefined
+                                                    }
+                                                >
+                                                    {column.label}
+                                                </TableSortLabel>
+                                            ) : (
+                                                column.label
+                                            )}
                                         </StyledTableCell>
                                     ))}
                                     {renderActions && (
-                                        <StyledTableCell style={{ width: '10%' }} key='actions'>
+                                        <StyledTableCell style={{ width: '10%' }} key='actions' align='center'>
                                             {t('common:columns.actions')}
                                         </StyledTableCell>
                                     )}
@@ -279,7 +318,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                         </StyledTableCell>
                                                     ))}
                                                     {renderActions && (
-                                                        <StyledTableCell key='actions'>
+                                                        <StyledTableCell key='actions' align='center'>
                                                             <Stack
                                                                 direction={{ xs: 'column', sm: 'row' }}
                                                                 spacing={1}

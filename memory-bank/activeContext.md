@@ -1,6 +1,6 @@
 # Active Context
 
-> **Last Updated**: 2026-01-07
+> **Last Updated**: 2026-01-08
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
@@ -21,6 +21,52 @@ and legacy `flowise-template-mui` themes.
 Removed temporary diagnostic logs and restored the default backend log level after resolving the admin roles reload incident.
 
 Applied PR #633 review fixes: deduped localized helpers, made localized locales endpoint configurable, aligned VLC filtering with isActive, validated locale codes, stabilized VLC primary fallback selection, and documented CSRF shared promise behavior.
+
+---
+
+## Current Focus: Hub Attributes Localization & Codename - 2026-01-08 ✅
+
+- Switched Attribute name to VLC types and updated display helpers.
+- Added localized create/edit UI for attributes with codename auto-fill/validation and no description field.
+- Updated attribute actions dialog to handle localized name + codename.
+- Aligned attribute API payloads to include primary locale and sanitized localized inputs.
+- Backend attributes routes now normalize/validate codenames and build VLC from provided locales.
+
+---
+
+## Current Focus: Records Form Localization - 2026-01-08 ✅
+
+- Record field labels now use VLC-aware rendering (no placeholder "1").
+- STRING fields use LocalizedInlineField; empty records are blocked.
+- Records table "Updated" column localized and delete actions wired to record dialogs.
+
+---
+
+## Current Focus: Record Save Validation - 2026-01-08 ✅
+
+- Backend record validation now accepts VLC for STRING attributes.
+- Required checks and validation rules use primary locale content.
+
+---
+
+## Current Focus: Record Edit Hydration - 2026-01-08 ✅
+
+- Record edit pulls full data via contextExtras or fallback fetch before opening dialog.
+
+---
+
+## Current Focus: Record Edit Initial Render Guard - 2026-01-08 ✅
+
+- Record edit dialog renders fields only after initial data is hydrated to avoid blank first open.
+
+---
+
+## Current Focus: Hubs Localization & Codename - 2026-01-07 ✅
+
+- Switched Hub name/description types to VLC and updated display helpers.
+- Added localized create/edit UI for hubs with codename auto-fill, normalization, and validation.
+- Aligned hubs API payloads to include primary locale fields and server-side sanitization of localized inputs.
+- Codename normalization enforces lowercase URL-safe tokens; underscores are normalized to hyphens for new input.
 
 ---
 
