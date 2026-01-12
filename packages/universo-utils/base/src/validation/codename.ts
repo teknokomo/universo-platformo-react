@@ -3,6 +3,8 @@
  * Used for generating URL-safe, database-friendly identifiers from user input.
  */
 
+import { slugifyCodename } from '../ui-utils/slugify'
+
 /**
  * Pattern for valid codenames: lowercase alphanumeric with hyphens.
  * Examples: "my-hub", "user-profile-2024", "a1b2c3"
@@ -18,7 +20,7 @@ export const CODENAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 /**
  * Normalize a string to valid codename format.
  * This is a basic normalization without transliteration.
- * For user input with non-ASCII characters, use slugifyCodename from ui-utils/slugify.
+ * For user input with non-ASCII characters, use sanitizeCodename instead.
  *
  * Transformations:
  * - Lowercase
@@ -38,6 +40,20 @@ export const normalizeCodename = (value: string): string =>
         .replace(/[^a-z0-9-]/g, '')
         .replace(/-+/g, '-')
         .replace(/^-+|-+$/g, '')
+
+/**
+ * Sanitize user input to valid codename format.
+ * Handles transliteration (e.g., Cyrillic -> Latin) for user-friendly input.
+ * Use this for frontend form fields where users may type in any language.
+ *
+ * @param value - Raw user input string
+ * @returns Sanitized codename string
+ *
+ * @example
+ * sanitizeCodename('Мой Проект') // 'moj-proekt'
+ * sanitizeCodename('Hello World!') // 'hello-world'
+ */
+export const sanitizeCodename = (value: string): string => slugifyCodename(value)
 
 /**
  * Check if a codename matches the valid pattern.

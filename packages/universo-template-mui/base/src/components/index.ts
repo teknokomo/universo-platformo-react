@@ -2,6 +2,8 @@ export { default as ErrorBoundary } from './error/ErrorBoundary'
 export { MarketplaceTable } from './table/MarketplaceTable'
 export { FlowListTable } from './table/FlowListTable'
 export type { FlowListTableData, FlowListTableProps, TableColumn } from './table/FlowListTable'
+export { CompactListTable } from './table/CompactListTable'
+export type { CompactListTableProps, CompactListTableLinkMode } from './table/CompactListTable'
 export { TableViewOnly } from './table/Table'
 export { ToolsTable } from './table/ToolsListTable'
 
@@ -34,3 +36,9 @@ export type { AuthGuardProps, AdminGuardProps, ResourceGuardProps } from './rout
 // Tooltip components
 export { TooltipWithParser } from './tooltips'
 export type { TooltipWithParserProps } from './tooltips'
+
+// Form components
+export { CodenameField } from './forms/CodenameField'
+export type { CodenameFieldProps } from './forms/CodenameField'
+export { LocalizedInlineField } from './forms/LocalizedInlineField'
+export { LocalizedFieldEditor } from './forms/LocalizedFieldEditor'

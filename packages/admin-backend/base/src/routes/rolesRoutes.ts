@@ -1,24 +1,17 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
 import { uuid } from '@universo/utils'
-import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
+import type { IPermissionService } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Role } from '../database/entities/Role'
 import { RolePermission } from '../database/entities/RolePermission'
 import { UserRole } from '../database/entities/UserRole'
 import { CreateRoleSchema, UpdateRoleSchema } from '../schemas'
 import { z } from 'zod'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
 
 /**
  * Validation schema for list query
@@ -143,14 +136,14 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             }
 
             if (search) {
-                const searchLower = search.toLowerCase()
+                const escapedSearch = escapeLikeWildcards(search.toLowerCase())
                 qb.andWhere(
                     `(
                         LOWER(r.codename) LIKE :search OR
                         r.name::text ILIKE :search OR
                         r.description::text ILIKE :search
                     )`,
-                    { search: `%${searchLower}%` }
+                    { search: `%${escapedSearch}%` }
                 )
             }
 
@@ -512,7 +505,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
 
             // Search filter (email via subquery to avoid cross-schema join issues)
             if (search) {
-                const escapedSearch = search.toLowerCase()
+                const escapedSearch = escapeLikeWildcards(search.toLowerCase())
                 qb.andWhere(`EXISTS (SELECT 1 FROM auth.users u WHERE u.id = ur.user_id AND LOWER(u.email) LIKE :search)`, {
                     search: `%${escapedSearch}%`
                 })

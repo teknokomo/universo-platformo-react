@@ -1,10 +1,8 @@
-# Metahubs Frontend
+# @universo/metahubs-frontend
 
-✨ **Modern Package** - Part of the new Universo Platformo architecture
+> 🏗️ **Modern Package** - TypeScript-first architecture with dual build system
 
-## Overview
-
-Frontend application for managing metahubs, sections, and entities in the Universo Platformo ecosystem. The Metahubs Frontend provides comprehensive UI workflows for managing the three-tier architecture of Metahubs → Sections → Entities with complete data isolation and security.
+Frontend application for managing metahubs, hubs, catalogs, attributes, and records in the Universo Platformo ecosystem.
 
 ## Package Information
 
@@ -18,10 +16,16 @@ Frontend application for managing metahubs, sections, and entities in the Univer
 ## Key Features
 
 ### 🌍 Metahub Management
-- **Hierarchical Organization**: Three-tier architecture (Metahubs → Sections → Entities)
-- **Complete Data Isolation**: Entities and sections from different metahubs are completely separated
+- **Hierarchical Organization**: Four-tier architecture (Metahubs → Hubs → Catalogs → Attributes/Records)
+- **Complete Data Isolation**: Data from different metahubs is completely separated
 - **Role-Based Access**: User roles and permissions for metahub access control
 - **Context-Aware Navigation**: Metahub-aware routing with breadcrumbs and sidebar preservation
+
+### 🗂️ Hubs & Catalogs
+- **Hubs**: Data containers that define the structure of your metahub
+- **Catalogs**: Reusable schema definitions with N:M relationship to hubs
+- **Attributes**: Field definitions within catalogs (name, type, validation)
+- **Records**: Data entries conforming to catalog schemas (JSONB storage)
 
 ### 🎨 User Interface
 - **Material-UI Integration**: Consistent UI components with modern design system
@@ -33,7 +37,7 @@ Frontend application for managing metahubs, sections, and entities in the Univer
 - **TypeScript-First**: Full TypeScript implementation with strict typing
 - **React Query Integration**: Advanced data fetching and caching
 - **Internationalization**: English and Russian translations with i18next
-- **Form Validation**: Comprehensive validation with error handling
+- **Form Validation**: Comprehensive validation with Zod schemas
 - **API Integration**: RESTful API client with authentication
 
 ## Installation & Setup
@@ -60,71 +64,53 @@ pnpm --filter @universo/metahubs-frontend dev
 ### Integration
 ```tsx
 // Import components in your React application
-import { MetahubList, MetahubBoard, metahubsDashboard } from '@universo/metahubs-frontend'
+import { 
+  MetahubList, 
+  MetahubBoard, 
+  HubList,
+  CatalogList,
+  AttributeList,
+  RecordList,
+  metahubsDashboard 
+} from '@universo/metahubs-frontend'
 
 // Import i18n resources
 import { metahubsTranslations } from '@universo/metahubs-frontend'
 
 // Use in routes
 <Route path="/metahubs" element={<MetahubList />} />
-<Route path="/metahubs/:id/board" element={<MetahubBoard />} />
+<Route path="/metahub/:id/board" element={<MetahubBoard />} />
+<Route path="/metahub/:id/hubs" element={<HubList />} />
+<Route path="/metahub/:id/hub/:hubId/catalogs" element={<CatalogList />} />
+<Route path="/metahub/:id/catalogs" element={<CatalogList />} />
+<Route path="/metahub/:id/catalogs/:catalogId/attributes" element={<AttributeList />} />
+<Route path="/metahub/:id/catalogs/:catalogId/records" element={<RecordList />} />
 ```
 
 ## Architecture
 
-### Three-Tier Entity Model
+### Four-Tier Entity Model
+```
+Metahub (top-level organizational unit)
+  └── Hub (data container)
+        └── CatalogHub (N:M junction)
+              └── Catalog (schema definition)
+                    ├── Attribute (field definitions)
+                    └── Record (data entries)
+```
+
+### Key Concepts
 - **Metahubs**: Top-level organizational units providing complete data isolation
-- **Sections**: Logical groupings within metahubs (e.g., "Web Services", "Mobile Apps")  
-- **Entities**: Individual assets belonging to specific sections within metahubs
+- **Hubs**: Content containers within metahubs for organizing catalogs
+- **Catalogs**: Reusable schema definitions that can belong to multiple hubs (N:M relationship)
+- **Attributes**: Field definitions within catalogs (name, type, required, order)
+- **Records**: Data entries stored as JSONB conforming to catalog attribute schema
 
 ### Data Isolation Strategy
 - Complete separation between metahubs - no cross-metahub visibility
 - All operations maintain metahub context through URL routing
 - Frontend and backend validation preventing orphaned entities
 - Role-based access control for metahub permissions
-
-## Usage
-
-### Basic Components
-```tsx
-import { MetahubList, MetahubBoard } from '@universo/metahubs-frontend'
-
-// Metahub listing with management capabilities
-function MetahubsPage() {
-  return <MetahubList />
-}
-
-// Metahub dashboard and analytics
-function MetahubBoardPage() {
-  return <MetahubBoard />
-}
-```
-
-### API Integration
-```tsx
-import { useApi } from '@universo/metahubs-frontend/hooks'
-import * as metahubsApi from '@universo/metahubs-frontend/api'
-
-function MetahubData() {
-  const { data: metahubs, isLoading } = useApi(
-    metahubsApi.getMetahubs
-  )
-  
-  if (isLoading) return <div>Loading...</div>
-  return <div>{metahubs?.length} metahubs found</div>
-}
-```
-
-### Menu Integration
-```tsx
-import { metahubsDashboard } from '@universo/metahubs-frontend'
-
-// Add to navigation menu
-const menuItems = [
-  ...otherMenuItems,
-  metahubsDashboard
-]
-```
 
 ## File Structure
 
@@ -133,26 +119,25 @@ packages/metahubs-frontend/base/
 ├── src/
 │   ├── api/              # API client functions
 │   │   ├── metahubs.ts   # Metahub CRUD operations
-│   │   ├── sections.ts     # Section management
-│   │   ├── entities.ts     # Entity operations
-│   │   └── queryKeys.ts    # React Query keys
+│   │   ├── hubs.ts       # Hub management
+│   │   ├── catalogs.ts   # Catalog operations
+│   │   ├── attributes.ts # Attribute operations
+│   │   ├── records.ts    # Record operations
+│   │   └── queryKeys.ts  # React Query keys
 │   ├── hooks/            # Custom React hooks
-│   │   ├── useApi.ts       # API integration hook
-│   │   └── index.ts        # Hook exports
+│   │   ├── mutations.ts  # useMutation hooks
+│   │   └── index.ts      # Hook exports
 │   ├── i18n/             # Internationalization
-│   │   ├── locales/        # Language files (en, ru)
-│   │   │   ├── en.json     # English translations
-│   │   │   └── ru.json     # Russian translations
-│   │   └── index.ts        # i18n configuration
+│   │   └── locales/      # Language files (en, ru)
 │   ├── pages/            # Main page components
-│   │   ├── MetahubList.tsx   # Main listing component
-│   │   ├── MetahubBoard.tsx  # Dashboard component
-│   │   └── MetahubActions.ts # Action definitions
+│   │   ├── MetahubList.tsx
+│   │   ├── MetahubBoard.tsx
+│   │   ├── HubList.tsx
+│   │   ├── CatalogList.tsx
+│   │   ├── AttributeList.tsx
+│   │   └── RecordList.tsx
 │   ├── menu-items/       # Navigation configuration
-│   │   └── metahubDashboard.ts
 │   ├── types/            # TypeScript definitions
-│   │   ├── index.ts        # Main type exports
-│   │   └── types.ts        # Type definitions
 │   ├── utils/            # Utility functions
 │   └── index.ts          # Package exports
 ├── dist/                 # Compiled output (CJS, ESM, types)
@@ -177,10 +162,9 @@ import { MetahubList } from '@universo/metahubs-frontend'
 // - Create, edit, delete operations
 // - Role-based access control
 // - Responsive design with Material-UI
-// - Internationalization support
 ```
 
-### MetahubBoard  
+### MetahubBoard
 Dashboard component for metahub analytics:
 
 ```tsx
@@ -188,9 +172,44 @@ import { MetahubBoard } from '@universo/metahubs-frontend'
 
 // Features:
 // - Metahub-specific dashboard
-// - Analytics and statistics
+// - Statistics cards (hubs, catalogs, members)
 // - Interactive data visualization
-// - Context-aware navigation
+```
+
+### HubList
+Component for managing hubs within a metahub:
+
+```tsx
+import { HubList } from '@universo/metahubs-frontend'
+
+// Features:
+// - Hub CRUD operations
+// - Catalog count display
+// - Codename with transliteration
+```
+
+### CatalogList
+Component for managing catalogs (hub-scoped or global):
+
+```tsx
+import { CatalogList } from '@universo/metahubs-frontend'
+
+// Features:
+// - Dual mode: hub-scoped or metahub-wide
+// - N:M hub relationship management
+// - Attributes and records count display
+```
+
+### AttributeList / RecordList
+Components for managing catalog data:
+
+```tsx
+import { AttributeList, RecordList } from '@universo/metahubs-frontend'
+
+// Features:
+// - Attribute ordering (drag & drop)
+// - Dynamic record forms based on attributes
+// - Data type support (string, with extensibility)
 ```
 
 ## API Integration
@@ -210,24 +229,21 @@ const newMetahub = await metahubsApi.createMetahub({
   name: 'My Metahub',
   description: 'Metahub description'
 })
-
-// Update metahub
-const updated = await metahubsApi.updateMetahub(id, data)
-
-// Delete metahub
-await metahubsApi.deleteMetahub(id)
 ```
 
-### Metahub-Scoped Operations
+### Hub & Catalog Operations
 ```typescript
-// Get sections for specific metahub
-const sections = await metahubsApi.getMetahubSections(metahubId)
+// List hubs in metahub
+const hubs = await metahubsApi.listHubs(metahubId)
 
-// Get entities for specific metahub  
-const entities = await metahubsApi.getMetahubEntities(metahubId)
+// List catalogs (hub-scoped)
+const catalogs = await metahubsApi.listCatalogs(metahubId, hubId)
 
-// Link section to metahub
-await metahubsApi.addSectionToMetahub(metahubId, sectionId)
+// List all catalogs (metahub-wide)
+const allCatalogs = await metahubsApi.listAllCatalogs(metahubId)
+
+// Link catalog to hub
+await metahubsApi.linkCatalogToHub(metahubId, hubId, catalogId)
 ```
 
 ### React Query Integration
@@ -274,54 +290,17 @@ This package uses `tsdown` for dual-build output:
 - **ES Modules**: `dist/index.mjs` (for modern bundlers)
 - **Types**: `dist/index.d.ts` (TypeScript declarations)
 
-### Development Guidelines
-
-#### Architecture Patterns
-- **Three-tier Model**: Metahubs → Sections → Entities
-- **Data Isolation**: Strict context boundaries between metahubs
-- **React Query**: Centralized data fetching and caching
-- **Material-UI**: Consistent component library usage
-
-#### Context Management
-```typescript
-// Always maintain metahub context
-const metahubContext = useMetahubContext()
-const sections = useSections(metahubContext.id)
-```
-
-#### Form Validation
-```typescript
-// Mandatory field validation
-const entitySchema = z.object({
-  name: z.string().min(1),
-  sectionId: z.string().min(1), // Required - no empty option
-  description: z.string().optional()
-})
-```
-
 ## Testing
 
 ### Test Structure
 ```
 src/
 ├── __tests__/
-│   ├── components/
-│   ├── hooks/
-│   ├── api/
-│   └── utils/
-└── vitest.config.ts
-```
-
-### Testing Approach
-```typescript
-// Component testing with React Testing Library
-import { render, screen } from '@testing-library/react'
-import { MetahubList } from '../MetahubList'
-
-test('renders metahub list', () => {
-  render(<MetahubList />)
-  expect(screen.getByText('Metahubs')).toBeInTheDocument()
-})
+│   ├── exports.test.ts
+│   └── ...
+├── api/__tests__/
+├── hooks/__tests__/
+└── pages/__tests__/
 ```
 
 ### Running Tests
@@ -376,9 +355,9 @@ docs(readme): update installation guide
 ```
 
 ## Related Packages
-- [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) - Backend service
-- [`@universo/template-mui`](../universo-template-mui/base/README.md) - UI components
-- [`@universo/types`](../universo-types/base/README.md) - Shared types
+- [`@universo/metahubs-backend`](../../metahubs-backend/base/README.md) - Backend service
+- [`@universo/flowise-template-mui`](../../flowise-template-mui/base/README.md) - UI components
+- [`@universo/types`](../../universo-types/base/README.md) - Shared types
 
 ---
 *Part of [Universo Platformo](../../../README.md) - A comprehensive metahub management platform*

@@ -118,6 +118,8 @@ const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pag
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/HubList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
+const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/CatalogList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/AttributeList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/RecordList')))
@@ -126,6 +128,7 @@ const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend/p
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frontend (package deleted)
+// Removed: AllCatalogsList, CatalogDetailPage (consolidated into CatalogList with isHubScoped pattern)
 
 // Cluster module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
@@ -478,12 +481,30 @@ const MainRoutesMUI = {
                     path: 'hubs',
                     element: <HubList />
                 },
+                // Global catalog routes (all catalogs in metahub, no hub context)
                 {
-                    path: 'hubs/:hubId/attributes',
+                    path: 'catalogs',
+                    element: <CatalogList />
+                },
+                {
+                    path: 'catalogs/:catalogId/attributes',
                     element: <AttributeList />
                 },
                 {
-                    path: 'hubs/:hubId/records',
+                    path: 'catalogs/:catalogId/records',
+                    element: <RecordList />
+                },
+                // Hub-scoped catalog routes
+                {
+                    path: 'hub/:hubId/catalogs',
+                    element: <CatalogList />
+                },
+                {
+                    path: 'hub/:hubId/catalogs/:catalogId/attributes',
+                    element: <AttributeList />
+                },
+                {
+                    path: 'hub/:hubId/catalogs/:catalogId/records',
                     element: <RecordList />
                 },
                 {

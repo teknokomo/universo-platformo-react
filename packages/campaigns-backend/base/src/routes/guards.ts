@@ -1,4 +1,4 @@
-﻿import { DataSource } from 'typeorm'
+﻿import { DataSource, QueryRunner } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { CampaignRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
@@ -15,6 +15,14 @@ const createError = (httpErrors as any).default || httpErrors
 export type { CampaignRole }
 
 // Comments in English only
+
+// Helper to get manager from DataSource or QueryRunner
+const getManager = (ds: DataSource, queryRunner?: QueryRunner) => {
+    if (queryRunner && !queryRunner.isReleased) {
+        return queryRunner.manager
+    }
+    return ds.manager
+}
 
 export const ROLE_PERMISSIONS = {
     owner: {
@@ -60,8 +68,8 @@ const baseGuards = createAccessGuards<CampaignRole, CampaignMember>({
     entityName: 'campaign',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
     permissions: ROLE_PERMISSIONS,
-    getMembership: async (ds: DataSource, userId: string, campaignId: string) => {
-        const repo = ds.getRepository(CampaignMember)
+    getMembership: async (ds: DataSource, userId: string, campaignId: string, queryRunner?: QueryRunner) => {
+        const repo = getManager(ds, queryRunner).getRepository(CampaignMember)
         return repo.findOne({ where: { campaign_id: campaignId, user_id: userId } })
     },
     extractRole: (m) => (m.role || 'member') as CampaignRole,

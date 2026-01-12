@@ -140,6 +140,7 @@ const apiClient = createAuthClient({
 - Apps import feature packages before rendering: `import '@flowise/docstore-frontend/i18n'`
 - `getInstance()` for singleton, `registerNamespace(name, { en, ru })` for setup
 - `useTranslation('[namespace]')` in components
+- If a feature package **consolidates** a namespace by flattening a nested bundle object (e.g., `...(bundle.metahubs ?? {})`), component keys must match the flattened shape (e.g., `table.hubs`, not `metahubs.table.hubs`).
 
 **Detection**: `grep -r "i18next.use" packages/*/src` (antipattern)
 
@@ -217,7 +218,6 @@ const apiClient = createAuthClient({
 ---
 
 ## Service Factory + NodeProvider Pattern (CRITICAL)
-
 **Rule**: Backend services use factory functions with `{ getDataSource, ...providers }` config.
 
 **Pattern**:
@@ -229,6 +229,55 @@ export const createXxxService = (config: {
 ```
 
 **Why**: Testability without full app context, flexible provider injection.
+
+---
+
+## TanStack Query Cache Correctness Pattern (Metahubs)
+
+**Problem**: List queries can use non-trivial `staleTime` (e.g., paginated lists), which keeps data “fresh” while users navigate. Aggregate counters may stay stale unless cache invalidation is done explicitly.
+
+**Rule**: Correctness must come from mutation-driven invalidation, not from hoping navigation triggers refetch.
+
+**Pattern**:
+- After any mutation that changes aggregates/counters, invalidate the list queries that surface these counters.
+- Prefer invalidating via the shared query key factory (avoid ad-hoc keys).
+
+**Example mappings (Metahubs)**:
+- Catalog create/update/delete affects Hub list counters (`catalogsCount`) → invalidate hub list queries.
+- Attribute/Record mutations affect Catalog list counters (`attributesCount`, `recordsCount`) → invalidate catalog list queries (+ global catalogs list when relevant).
+
+---
+
+## Focus-Refetch for Open Dialog Data (No Polling)
+
+**Use case**: A dialog shows derived data that can change in another browser tab (e.g., hub delete “blocking catalogs”). We want freshness when the user returns to the tab, without polling.
+
+**Pattern**:
+- Fetch with `useQuery` guarded by `enabled: open && ...ids`.
+- While open, force refresh on focus: `refetchOnWindowFocus: "always"`.
+- While closed, disable extra work: `refetchOnWindowFocus: false`.
+
+**Why**: This is a low-risk MVP that avoids background polling and updates data when the user re-focuses the tab.
+
+---
+
+## Reusable Compact List Table Pattern (Dialogs)
+
+**Use case**: Confirmation dialogs and “blocking items” panels need a small, scrollable list that matches the main list table styling and supports fast navigation to the affected entities.
+
+**Rule**: Use `CompactListTable` from `@universo/template-mui` for dialog mini-tables instead of bespoke per-dialog MUI table markup.
+
+**Pattern**:
+- Bounded scroll: wrap table in a container with `maxHeight` and `overflow: auto`.
+- Sticky header must be opaque (solid background) so rows can scroll under it without text blending.
+- Preserve rounded corners even with a vertical scrollbar by clipping an outer wrapper (`overflow: hidden`) and letting the inner container scroll.
+- Use the same cell border/divider styling as `FlowListTable` (shared styled table cells) for visual consistency.
+- Make navigation obvious: expose a `getRowLink` and keep link behavior configurable (`linkMode`) so index/name/codename can be clickable.
+
+**Why**: Reuse reduces UI drift between dialogs, improves QA repeatability, and keeps table micro-interactions consistent across the app.
+
+**Example**:
+- Metahubs hub deletion dialog renders “blocking catalogs” via `CompactListTable`.
 
 ---
 
@@ -436,35 +485,15 @@ export const isGlobalRolesEnabled = () => process.env.GLOBAL_ROLES_ENABLED !== '
 **Context**: Multiple packages need to sanitize localized inputs and build VLC structures. Codename validation/normalization is also reused across backend and frontend.
 
 **Shared Modules in `@universo/utils`**:
-
 ```typescript
-// @universo/utils/vlc - VLC sanitization for backend
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-
-// sanitizeLocalizedInput: Filters empty translations, extracts valid content
-// buildLocalizedContent: Creates VLC structure with primary locale and version
-
-// @universo/utils/validation/codename - Codename validation
 import { CODENAME_PATTERN, normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
-
-// CODENAME_PATTERN: /^[a-z][a-z0-9_-]*$/
-// normalizeCodename: Lowercase + replace non-alphanumeric with underscore (NO transliteration)
-// isValidCodename: Validates against CODENAME_PATTERN
 ```
 
 **Frontend Hook in `@universo/template-mui`**:
-
 ```typescript
-// useCodenameAutoFill - Auto-fill codename from localized name
 import { useCodenameAutoFill } from '@universo/template-mui'
-
-useCodenameAutoFill({
-    codename,           // Current codename value
-    codenameTouched,    // Whether user manually edited
-    nextCodename,       // Suggested codename from name
-    nameValue,          // Current name value
-    setValue            // Form setValue function
-})
+useCodenameAutoFill({ codename, codenameTouched, nextCodename, nameValue, setValue })
 ```
 
 **Note**: Backend uses `normalizeCodename()` (no transliteration), frontend uses `slugifyCodename()` from local utils (with `@justrelate/slugify` transliteration) — intentionally different for different use cases (backend preserves existing codenames, frontend helps users create new ones).
@@ -504,6 +533,6 @@ useCodenameAutoFill({
 
 ---
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2026-01-10
 
 **Note**: For full RLS pattern documentation → `rls-integration-pattern.md`. For implementation history → progress.md.

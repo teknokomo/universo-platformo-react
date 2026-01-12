@@ -1,5 +1,24 @@
 import apiClient from './apiClient'
 import { Hub, HubLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
+import type { VersionedLocalizedContent } from '@universo/types'
+
+/**
+ * Blocking catalog info returned by blocking-catalogs endpoint
+ */
+export interface BlockingCatalog {
+    id: string
+    name: VersionedLocalizedContent<string>
+    codename: string
+}
+
+/**
+ * Response from blocking-catalogs endpoint
+ */
+export interface BlockingCatalogsResponse {
+    hubId: string
+    blockingCatalogs: BlockingCatalog[]
+    canDelete: boolean
+}
 
 /**
  * List hubs for a specific metahub
@@ -53,3 +72,12 @@ export const updateHub = (metahubId: string, hubId: string, data: HubLocalizedPa
  * Delete a hub
  */
 export const deleteHub = (metahubId: string, hubId: string) => apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}`)
+
+/**
+ * Get catalogs that would block hub deletion
+ * Returns catalogs with isRequiredHub=true that have this hub as their only association
+ */
+export const getBlockingCatalogs = async (metahubId: string, hubId: string): Promise<BlockingCatalogsResponse> => {
+    const response = await apiClient.get<BlockingCatalogsResponse>(`/metahubs/${metahubId}/hubs/${hubId}/blocking-catalogs`)
+    return response.data
+}

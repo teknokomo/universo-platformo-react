@@ -1,20 +1,13 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
-import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
+import type { IPermissionService } from '@universo/auth-backend'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Instance } from '../database/entities/Instance'
 import { z } from 'zod'
 import { LocalizedStringSchema } from '../schemas'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
 
 /**
  * Validation schemas for instances API
@@ -86,13 +79,13 @@ export function createInstancesRoutes({ globalAccessService, permissionService, 
             const qb = instanceRepo.createQueryBuilder('i')
 
             if (search) {
-                const searchLower = search.toLowerCase()
+                const escapedSearch = escapeLikeWildcards(search.toLowerCase())
                 qb.andWhere(
                     `(
                         LOWER(i.codename) LIKE :search OR
                         i.name::text ILIKE :search
                     )`,
-                    { search: `%${searchLower}%` }
+                    { search: `%${escapedSearch}%` }
                 )
             }
 

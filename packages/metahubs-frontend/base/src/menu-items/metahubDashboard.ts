@@ -37,6 +37,14 @@ const metahubDashboard: MenuItem = {
             breadcrumbs: true
         },
         {
+            id: 'catalogs',
+            title: 'menu:catalogs',
+            type: 'item',
+            url: '/catalogs',
+            icon: icons.IconDatabase,
+            breadcrumbs: true
+        },
+        {
             id: 'access',
             title: 'menu:access',
             type: 'item',

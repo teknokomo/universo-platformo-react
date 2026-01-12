@@ -7,6 +7,7 @@ export type MockRepository<_T> = {
     update: jest.Mock
     delete: jest.Mock
     remove: jest.Mock
+    count: jest.Mock
 }
 
 export const createMockRepository = <T extends object>(): MockRepository<T> => {
@@ -41,7 +42,8 @@ export const createMockRepository = <T extends object>(): MockRepository<T> => {
         save: jest.fn().mockImplementation((entity: any) => Promise.resolve({ ...entity, id: entity.id || 'mock-id' })),
         update: jest.fn().mockResolvedValue({ affected: 1 }),
         delete: jest.fn().mockResolvedValue({ affected: 1 }),
-        remove: jest.fn().mockImplementation((entity: any) => Promise.resolve(entity))
+        remove: jest.fn().mockImplementation((entity: any) => Promise.resolve(entity)),
+        count: jest.fn().mockResolvedValue(0)
     }
 }
 

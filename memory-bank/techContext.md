@@ -25,8 +25,6 @@ if (!userId) return
 **CRITICAL**: All Unik-scoped routes MUST use `ensureUnikMembershipResponse` or `requireUnikRole` middleware.
 
 #### 2. Uniks (Workspace) System
-
-
 -   **Purpose**: Multi-tenant workspace isolation (enterprise feature simulation)
 -   **Implementation**: Schema-isolated entities with TypeORM access control
 -   **Database Schema**: 
@@ -46,8 +44,9 @@ if (!userId) return
 #### 3. Internationalization (i18n)
 
 -   **Languages**: English (base) + Russian (full translation)
--   **Implementation**: Complete UI text extraction and translation
+-   **Implementation**: Complete UI text extraction and translation; feature packages register their own namespaces via `registerNamespace`.
 -   **Files**: `packages/flowise-core-frontend/base/src/i18n/locales/en.json` & `ru.json`
+-   **Gotcha**: Some feature packages consolidate and **flatten** nested translation bundles into a single namespace; component translation keys must match the registered shape (inspect the package `src/i18n/index.ts`).
 
 #### 4. UPDL Nodes & Multi-Technology Export
 
@@ -75,16 +74,14 @@ if (!userId) return
 **Supabase Integration** - Multi-user functionality with Postgres-only database support
 
 ### Authentication Architecture
+**Current**: Passport.js session auth (Express) integrated with Supabase identity; clients use cookie/session + CSRF protection.
 
-**Secure Supabase JWT authentication** with multi-user support:
+- **CSRF contract**: `EBADCSRFTOKEN` → HTTP 419; clients clear cached CSRF token and retry once when safe.
+- **Public routes**: centralized allowlists in `@universo/utils/routes` (`PUBLIC_UI_ROUTES`, `API_WHITELIST_URLS`).
 
--   **Server-side**: JWT validation, secure token handling, HTTP-only cookies
--   **Frontend**: React context with automatic token refresh
--   **Security**: No exposed keys, backend-only Supabase operations
--   **Environment**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
-
-**RLS request context (TypeORM + Supabase)**:
-- `ensureAuthWithRls` creates a per-request QueryRunner, sets session `role='authenticated'` and `request.jwt.claims`, and resets them during cleanup before releasing the pooled connection.
+**RLS request context (TypeORM + Postgres/Supabase)**:
+- `ensureAuthWithRls` uses a per-request QueryRunner and sets `request.jwt.claims` for RLS policies, then resets context on cleanup.
+- No DB role switching (`SET role = ...`) required; see [systemPatterns.md](systemPatterns.md) and [rls-integration-pattern.md](rls-integration-pattern.md).
 
 ## APPs Architecture (v0.21.0-alpha)
 
@@ -153,46 +150,6 @@ if (!userId) return
 **Build System**: TypeScript + React frontend, Node.js + Express backend
 **Base Platform**: Flowise 2.2.8 with enhanced ASSISTANT support
 
-## Technology Stack & Base Platform
-
-**Base Platform**: Universo-platformo-react monorepo built on **Flowise AI 2.2.8** - TypeScript/React frontend with Node.js/Express backend. Flowise provides the visual node editor infrastructure, which we extend with UPDL-specific nodes for 3D/AR/VR development.
-
-**Export Target Technologies**:
-
--   **AR.js** - Lightweight web AR library (production-ready with A-Frame integration)
--   **PlayCanvas Engine** - High-performance WebGL engine for browser-based 3D (ready for deployment)
--   **Babylon.js** - Comprehensive 3D engine with WebGL/WebGPU support (planned)
--   **Three.js** - Popular low-level 3D library serving as baseline for WebGL (planned)
--   **A-Frame** - Declarative WebVR/AR framework for HTML-based scenes (planned)
-
-**Development Environment**:
-
--   **Package Management**: PNPM with workspace architecture
--   **Build System**: Turborepo for efficient monorepo builds
--   **Code Quality**: ESLint, Prettier, TypeScript strict mode
--   **Internationalization**: Modular i18n system with English/Russian support
--   **Version Control**: GitHub with standard PR workflow and CI/CD
-
-**Architecture Principles**:
-
--   Modular APPs structure minimizing core Flowise changes
--   Template-first export system for multi-technology support
--   Workspace packages for backend services (`@universo/package-name`)
--   Open source dual licensing (Apache 2.0 + Omsk Open License)
-
-## Current Development Status (v0.21.0-alpha)
-
-**Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
-
-**Key Achievements:**
-
--   ✅ High-level UPDL nodes (7 core abstract nodes)
--   ✅ Multi-technology export (AR.js production, PlayCanvas ready)
--   ✅ Template-first architecture with reusable components
--   ✅ Enhanced Flowise 2.2.8 platform with TypeScript modernization
-
-**Next Focus**: Advanced UPDL features and Universo MMOOMM expansion
-
 ## Critical Technical Patterns
 
 ### React Performance Optimization
@@ -259,13 +216,7 @@ const newId = uuidv7()
 - Infrastructure migration: `packages/flowise-core-backend/base/src/database/migrations/postgres/1500000000000-InitializeUuidV7Function.ts` (PHASE 0)
 - Migration registry: `packages/flowise-core-backend/base/src/database/migrations/postgres/index.ts` (infrastructure migration first)
 - Backend module: `packages/universo-utils/base/src/uuid/index.ts`
-- Migration count: 75 files across 25 packages (all using uuid_generate_v7)
-- Service count: 24 backend + 7 frontend files
 
-**References:**
-- RFC 9562 (May 2024): UUID Version 7 specification
-- PostgreSQL 18+ docs: Native `gen_uuidv7()` function
-- AWS Best Practices: Time-ordered UUIDs for RDS performance
 
 **TypeORM Compatibility (QA Verified 2025-12-11):**
 - **Entity Decorator Pattern**: `@PrimaryGeneratedColumn('uuid')` is fully compatible with `uuid_generate_v7()`

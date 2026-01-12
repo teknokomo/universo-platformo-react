@@ -77,6 +77,18 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 timestamp: new Date().toISOString()
             })
 
+            // IMPORTANT: Check if RLS context already exists on this request.
+            // This prevents creating multiple QueryRunners when the middleware
+            // is applied at multiple router levels (e.g., parent + child routers).
+            const existingContext = (req as RequestWithDbContext).dbContext
+            if (existingContext?.queryRunner && !existingContext.queryRunner.isReleased) {
+                console.log('[RLS] Context already exists, reusing existing QueryRunner', {
+                    path: req.path
+                })
+                next()
+                return
+            }
+
             const authReq = req as AuthenticatedRequest
             const access = authReq.session?.tokens?.access
 
@@ -101,8 +113,13 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             const ds = getDataSource()
             const runner = ds.createQueryRunner()
 
+            let cleanupStarted = false
+
             // Cleanup function to release resources
             const cleanup = async () => {
+                if (cleanupStarted) return
+                cleanupStarted = true
+
                 if (!runner.isReleased) {
                     try {
                         // Reset request.jwt.claims before releasing the pooled connection.

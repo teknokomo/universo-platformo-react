@@ -1,7 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { Cluster } from '../database/entities/Cluster'
 import { ClusterUser } from '../database/entities/ClusterUser'
@@ -13,14 +12,7 @@ import { Profile } from '@universo/profile-backend'
 import { ensureClusterAccess, ensureDomainAccess, ROLE_PERMISSIONS, ClusterRole, assertNotOwner } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -85,7 +77,7 @@ export function createClustersRoutes(
 
                 // Search by email OR nickname via EXISTS subqueries (no joins)
                 if (search) {
-                    const escapedSearch = search.toLowerCase()
+                    const escapedSearch = escapeLikeWildcards(search.toLowerCase())
                     qb.andWhere(
                         `(
                             EXISTS (SELECT 1 FROM auth.users u WHERE u.id = mu.user_id AND LOWER(u.email) LIKE :search)
@@ -117,9 +109,10 @@ export function createClustersRoutes(
             // Extract email and nickname from joined data
             const userIds = members.map((member) => member.user_id)
 
-            // Load users and profiles data
-            const users = userIds.length ? await ds.manager.find(AuthUser, { where: { id: In(userIds) } }) : []
-            const profiles = userIds.length ? await ds.manager.find(Profile, { where: { user_id: In(userIds) } }) : []
+            // Load users and profiles data using request-scoped manager
+            const manager = getRequestManager(req, ds)
+            const users = userIds.length ? await manager.find(AuthUser, { where: { id: In(userIds) } }) : []
+            const profiles = userIds.length ? await manager.find(Profile, { where: { user_id: In(userIds) } }) : []
 
             const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
             const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
@@ -458,9 +451,10 @@ export function createClustersRoutes(
             })
             const saved = await clusterUserRepo.save(membership)
 
-            // Load nickname from profiles table
+            // Load nickname from profiles table using request-scoped manager
             const ds = getDataSource()
-            const profile = await ds.manager.findOne(Profile, { where: { user_id: targetUser.id } })
+            const manager = getRequestManager(req, ds)
+            const profile = await manager.findOne(Profile, { where: { user_id: targetUser.id } })
 
             res.status(201).json(mapMember(saved, targetUser.email ?? null, profile?.nickname ?? null))
         })
@@ -507,9 +501,10 @@ export function createClustersRoutes(
             const saved = await clusterUserRepo.save(membership)
             const authUser = await authUserRepo.findOne({ where: { id: membership.user_id } })
 
-            // Load nickname from profiles table
+            // Load nickname from profiles table using request-scoped manager
             const ds = getDataSource()
-            const profile = await ds.manager.findOne(Profile, { where: { user_id: membership.user_id } })
+            const manager = getRequestManager(req, ds)
+            const profile = await manager.findOne(Profile, { where: { user_id: membership.user_id } })
 
             res.json(mapMember(saved, authUser?.email ?? null, profile?.nickname ?? null))
         })

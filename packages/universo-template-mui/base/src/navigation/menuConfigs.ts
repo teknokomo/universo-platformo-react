@@ -128,6 +128,12 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         icon: IconHierarchy3
     },
     {
+        id: 'metahub-catalogs',
+        titleKey: 'catalogs',
+        url: `/metahub/${metahubId}/catalogs`,
+        icon: IconDatabase
+    },
+    {
         id: 'metahub-access',
         titleKey: 'access',
         url: `/metahub/${metahubId}/access`,

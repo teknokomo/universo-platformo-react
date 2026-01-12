@@ -7,6 +7,7 @@ import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectP
 import { Metahub } from '../database/entities/Metahub'
 import { MetahubUser } from '../database/entities/MetahubUser'
 import { Hub } from '../database/entities/Hub'
+import { Catalog } from '../database/entities/Catalog'
 import { Attribute } from '../database/entities/Attribute'
 import { Profile } from '@universo/profile-backend'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner } from './guards'
@@ -14,14 +15,10 @@ import type { MetahubRole } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { escapeLikeWildcards } from '../utils'
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
+const getRequestQueryRunner = (req: Request) => {
+    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -52,6 +49,7 @@ export function createMetahubsRoutes(
             metahubRepo: manager.getRepository(Metahub),
             metahubUserRepo: manager.getRepository(MetahubUser),
             hubRepo: manager.getRepository(Hub),
+            catalogRepo: manager.getRepository(Catalog),
             attributeRepo: manager.getRepository(Attribute),
             authUserRepo: manager.getRepository(AuthUser)
         }
@@ -74,6 +72,7 @@ export function createMetahubsRoutes(
     ): Promise<{ members: ReturnType<typeof mapMember>[]; total: number }> => {
         const { metahubUserRepo } = repos(req)
         const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
 
         try {
             const qb = metahubUserRepo.createQueryBuilder('mu').where('mu.metahub_id = :metahubId', { metahubId })
@@ -110,8 +109,8 @@ export function createMetahubsRoutes(
             }
 
             // Load users and profiles data using proper entities (not raw queries)
-            const users = userIds.length ? await ds.manager.find(AuthUser, { where: { id: In(userIds) } }) : []
-            const profiles = userIds.length ? await ds.manager.find(Profile, { where: { user_id: In(userIds) } }) : []
+            const users = userIds.length ? await manager.find(AuthUser, { where: { id: In(userIds) } }) : []
+            const profiles = userIds.length ? await manager.find(Profile, { where: { user_id: In(userIds) } }) : []
 
             const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
             const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
@@ -135,6 +134,7 @@ export function createMetahubsRoutes(
 
             const { metahubRepo, metahubUserRepo } = repos(req)
             const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
 
             let validatedQuery
             try {
@@ -148,8 +148,8 @@ export function createMetahubsRoutes(
             const { limit, offset, sortBy, sortOrder, search, showAll } = validatedQuery
 
             // Check if user has global access
-            const isSuperuser = await isSuperuserByDataSource(ds, userId)
-            const hasGlobalMetahubsAccess = await hasSubjectPermissionByDataSource(ds, userId, 'metahubs')
+            const isSuperuser = await isSuperuserByDataSource(ds, userId, rlsRunner)
+            const hasGlobalMetahubsAccess = await hasSubjectPermissionByDataSource(ds, userId, 'metahubs', 'read', rlsRunner)
 
             let qb = metahubRepo.createQueryBuilder('m')
 
@@ -194,7 +194,7 @@ export function createMetahubsRoutes(
             const membershipMap = new Map(memberships.map((m) => [m.metahub_id, m]))
 
             // Count hubs per metahub
-            const { hubRepo } = repos(req)
+            const { hubRepo, catalogRepo } = repos(req)
             const hubCounts =
                 metahubIds.length > 0
                     ? await hubRepo
@@ -206,6 +206,19 @@ export function createMetahubsRoutes(
                           .getRawMany<{ metahubId: string; count: string }>()
                     : []
             const hubCountMap = new Map(hubCounts.map((c) => [c.metahubId, parseInt(c.count, 10)]))
+
+            // Count catalogs per metahub (catalogs now have direct metahubId)
+            const catalogCounts =
+                metahubIds.length > 0
+                    ? await catalogRepo
+                          .createQueryBuilder('c')
+                          .select('c.metahub_id', 'metahubId')
+                          .addSelect('COUNT(*)', 'count')
+                          .where('c.metahub_id IN (:...ids)', { ids: metahubIds })
+                          .groupBy('c.metahub_id')
+                          .getRawMany<{ metahubId: string; count: string }>()
+                    : []
+            const catalogCountMap = new Map(catalogCounts.map((c) => [c.metahubId, parseInt(c.count, 10)]))
 
             // Count members per metahub
             const memberCounts =
@@ -221,7 +234,8 @@ export function createMetahubsRoutes(
             const memberCountMap = new Map(memberCounts.map((c) => [c.metahubId, parseInt(c.count, 10)]))
 
             // Determine access type for each metahub
-            const globalRoleName = isSuperuser || hasGlobalMetahubsAccess ? await getGlobalRoleCodenameByDataSource(ds, userId) : null
+            const globalRoleName =
+                isSuperuser || hasGlobalMetahubsAccess ? await getGlobalRoleCodenameByDataSource(ds, userId, rlsRunner) : null
 
             const result = metahubs.map((m) => {
                 const membership = membershipMap.get(m.id)
@@ -238,6 +252,7 @@ export function createMetahubsRoutes(
                     createdAt: m.createdAt,
                     updatedAt: m.updatedAt,
                     hubsCount: hubCountMap.get(m.id) ?? 0,
+                    catalogsCount: catalogCountMap.get(m.id) ?? 0,
                     membersCount: memberCountMap.get(m.id) ?? 0,
                     role,
                     accessType,
@@ -260,15 +275,19 @@ export function createMetahubsRoutes(
             const { metahubId } = req.params
             const { metahubRepo } = repos(req)
             const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
 
-            const ctx = await ensureMetahubAccess(ds, userId, metahubId)
+            const ctx = await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
 
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            // Load counts - now counting hubs instead of entities
-            const { hubRepo } = repos(req)
+            // Load counts - counting hubs and catalogs
+            const { hubRepo, catalogRepo } = repos(req)
             const hubsCount = await hubRepo.count({ where: { metahubId } })
+
+            // Count catalogs (catalogs now have direct metahubId)
+            const catalogsCount = await catalogRepo.count({ where: { metahubId } })
 
             const { total: membersCount } = await loadMembers(req, metahubId, { limit: 1 })
 
@@ -284,6 +303,7 @@ export function createMetahubsRoutes(
                 createdAt: metahub.createdAt,
                 updatedAt: metahub.updatedAt,
                 hubsCount,
+                catalogsCount,
                 membersCount,
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
@@ -402,7 +422,9 @@ export function createMetahubsRoutes(
             const ds = getDataSource()
             const { metahubRepo } = repos(req)
 
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub')
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
 
             const localizedInputSchema = z
                 .union([z.string().min(1).max(255), z.record(z.string())])
@@ -501,7 +523,9 @@ export function createMetahubsRoutes(
             const ds = getDataSource()
             const { metahubRepo } = repos(req)
 
-            const ctx = await ensureMetahubAccess(ds, userId, metahubId, 'deleteContent')
+            const rlsRunner = getRequestQueryRunner(req)
+
+            const ctx = await ensureMetahubAccess(ds, userId, metahubId, 'deleteContent', rlsRunner)
             // Only owner can delete
             if (ctx.membership.role !== 'owner' && !ctx.isSynthetic) {
                 return res.status(403).json({ error: 'Only the owner can delete this metahub' })
@@ -523,8 +547,9 @@ export function createMetahubsRoutes(
 
             const { metahubId } = req.params
             const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
 
-            const ctx = await ensureMetahubAccess(ds, userId, metahubId)
+            const ctx = await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
 
             let validatedQuery
             try {
@@ -556,7 +581,9 @@ export function createMetahubsRoutes(
             const ds = getDataSource()
             const { metahubUserRepo, authUserRepo } = repos(req)
 
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers')
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers', rlsRunner)
 
             const schema = z.object({
                 email: z.string().email(),
@@ -626,7 +653,9 @@ export function createMetahubsRoutes(
             const ds = getDataSource()
             const { metahubUserRepo } = repos(req)
 
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers')
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers', rlsRunner)
 
             const membership = await metahubUserRepo.findOne({
                 where: { id: memberId, metahub_id: metahubId }
@@ -679,7 +708,9 @@ export function createMetahubsRoutes(
             const ds = getDataSource()
             const { metahubUserRepo } = repos(req)
 
-            await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers')
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers', rlsRunner)
 
             const membership = await metahubUserRepo.findOne({
                 where: { id: memberId, metahub_id: metahubId }

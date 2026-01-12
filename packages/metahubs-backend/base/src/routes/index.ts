@@ -4,6 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createMetahubsRoutes } from './metahubsRoutes'
 import { createHubsRoutes } from './hubsRoutes'
+import { createCatalogsRoutes } from './catalogsRoutes'
 import { createAttributesRoutes } from './attributesRoutes'
 import { createRecordsRoutes } from './recordsRoutes'
 import { createPublicMetahubsRoutes } from './publicMetahubsRoutes'
@@ -46,6 +47,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
 
     // New metadata-driven routes
     router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createAttributesRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createRecordsRoutes(ensureAuth, getDataSource, read, write))
 
@@ -63,6 +65,7 @@ export function createPublicMetahubsServiceRoutes(getDataSource: () => DataSourc
 
 export { createMetahubsRoutes } from './metahubsRoutes'
 export { createHubsRoutes } from './hubsRoutes'
+export { createCatalogsRoutes } from './catalogsRoutes'
 export { createAttributesRoutes } from './attributesRoutes'
 export { createRecordsRoutes } from './recordsRoutes'
 export { createPublicMetahubsRoutes } from './publicMetahubsRoutes'

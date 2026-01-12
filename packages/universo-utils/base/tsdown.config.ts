@@ -10,7 +10,8 @@ export default defineConfig({
         'captcha/index': './src/captcha/index.ts',
         'auth/index': './src/auth/index.ts',
         'vlc/index': './src/vlc/index.ts',
-        'validation/codename': './src/validation/codename.ts'
+        'validation/codename': './src/validation/codename.ts',
+        'database/index': './src/database/index.ts'
     },
     format: ['esm', 'cjs'],
     dts: true,

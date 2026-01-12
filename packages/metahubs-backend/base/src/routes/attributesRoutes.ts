@@ -1,22 +1,13 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import { Attribute, AttributeDataType } from '../database/entities/Attribute'
-import { Hub } from '../database/entities/Hub'
+import { Catalog } from '../database/entities/Catalog'
 import { z } from 'zod'
 import { ListQuerySchema } from '../schemas/queryParams'
-import { escapeLikeWildcards } from '../utils'
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
 
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
@@ -55,7 +46,7 @@ const createAttributeSchema = z.object({
     dataType: z.nativeEnum(AttributeDataType),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
-    targetHubId: z.string().uuid().optional(),
+    targetCatalogId: z.string().uuid().optional(),
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
@@ -67,7 +58,7 @@ const updateAttributeSchema = z.object({
     dataType: z.nativeEnum(AttributeDataType).optional(),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
-    targetHubId: z.string().uuid().nullable().optional(),
+    targetCatalogId: z.string().uuid().nullable().optional(),
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
@@ -94,13 +85,13 @@ export function createAttributesRoutes(
         const manager = getRequestManager(req, ds)
         return {
             attributeRepo: manager.getRepository(Attribute),
-            hubRepo: manager.getRepository(Hub)
+            catalogRepo: manager.getRepository(Catalog)
         }
     }
 
-    const ensureSequentialSortOrder = async (hubId: string, attributeRepo: ReturnType<typeof repos>['attributeRepo']) => {
+    const ensureSequentialSortOrder = async (catalogId: string, attributeRepo: ReturnType<typeof repos>['attributeRepo']) => {
         const attributes = await attributeRepo.find({
-            where: { hubId },
+            where: { catalogId },
             order: { sortOrder: 'ASC', createdAt: 'ASC' }
         })
         const requiresReset = attributes.some((attribute) => !attribute.sortOrder || attribute.sortOrder <= 0)
@@ -113,14 +104,14 @@ export function createAttributesRoutes(
     }
 
     /**
-     * GET /metahubs/:metahubId/hubs/:hubId/attributes
-     * List all attributes in a hub
+     * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes
+     * List all attributes in a catalog
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/attributes',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId } = req.params
+            const { catalogId } = req.params
             const { attributeRepo } = repos(req)
 
             let validatedQuery
@@ -135,7 +126,7 @@ export function createAttributesRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            let qb = attributeRepo.createQueryBuilder('a').where('a.hubId = :hubId', { hubId })
+            let qb = attributeRepo.createQueryBuilder('a').where('a.catalogId = :catalogId', { catalogId })
 
             if (search) {
                 const escapedSearch = escapeLikeWildcards(search)
@@ -164,18 +155,18 @@ export function createAttributesRoutes(
     )
 
     /**
-     * GET /metahubs/:metahubId/hubs/:hubId/attributes/:attributeId
+     * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId
      * Get a single attribute
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/attributes/:attributeId',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, attributeId } = req.params
+            const { catalogId, attributeId } = req.params
             const { attributeRepo } = repos(req)
 
             const attribute = await attributeRepo.findOne({
-                where: { id: attributeId, hubId }
+                where: { id: attributeId, catalogId }
             })
 
             if (!attribute) {
@@ -187,20 +178,20 @@ export function createAttributesRoutes(
     )
 
     /**
-     * POST /metahubs/:metahubId/hubs/:hubId/attributes
+     * POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes
      * Create a new attribute
      */
     router.post(
-        '/metahubs/:metahubId/hubs/:hubId/attributes',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId } = req.params
-            const { attributeRepo, hubRepo } = repos(req)
+            const { catalogId } = req.params
+            const { attributeRepo, catalogRepo } = repos(req)
 
-            // Verify hub exists
-            const hub = await hubRepo.findOne({ where: { id: hubId } })
-            if (!hub) {
-                return res.status(404).json({ error: 'Hub not found' })
+            // Verify catalog exists
+            const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
             }
 
             const parsed = createAttributeSchema.safeParse(req.body)
@@ -208,7 +199,7 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetHubId, validationRules, uiConfig, isRequired, sortOrder } =
+            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder } =
                 parsed.data
 
             const normalizedCodename = normalizeCodename(codename)
@@ -220,16 +211,16 @@ export function createAttributesRoutes(
             }
 
             // Check for duplicate codename
-            const existing = await attributeRepo.findOne({ where: { hubId, codename: normalizedCodename } })
+            const existing = await attributeRepo.findOne({ where: { catalogId, codename: normalizedCodename } })
             if (existing) {
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
 
-            // For REF type, verify target hub exists
-            if (dataType === AttributeDataType.REF && targetHubId) {
-                const targetHub = await hubRepo.findOne({ where: { id: targetHubId } })
-                if (!targetHub) {
-                    return res.status(400).json({ error: 'Target hub not found' })
+            // For REF type, verify target catalog exists
+            if (dataType === AttributeDataType.REF && targetCatalogId) {
+                const targetCatalog = await catalogRepo.findOne({ where: { id: targetCatalogId } })
+                if (!targetCatalog) {
+                    return res.status(400).json({ error: 'Target catalog not found' })
                 }
             }
 
@@ -243,16 +234,16 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const existingAttributes = await ensureSequentialSortOrder(hubId, attributeRepo)
+            const existingAttributes = await ensureSequentialSortOrder(catalogId, attributeRepo)
             const maxSortOrder = existingAttributes.reduce((max, attribute) => Math.max(max, attribute.sortOrder || 0), 0)
             const resolvedSortOrder = sortOrder ?? maxSortOrder + 1
 
             const attribute = attributeRepo.create({
-                hubId,
+                catalogId,
                 codename: normalizedCodename,
                 dataType,
                 name: nameVlc,
-                targetHubId: dataType === AttributeDataType.REF ? targetHubId : undefined,
+                targetCatalogId: dataType === AttributeDataType.REF ? targetCatalogId : undefined,
                 validationRules: validationRules ?? {},
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
@@ -265,17 +256,17 @@ export function createAttributesRoutes(
     )
 
     /**
-     * PATCH /metahubs/:metahubId/hubs/:hubId/attributes/:attributeId
+     * PATCH /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId
      * Update an attribute
      */
     router.patch(
-        '/metahubs/:metahubId/hubs/:hubId/attributes/:attributeId',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, attributeId } = req.params
-            const { attributeRepo, hubRepo } = repos(req)
+            const { catalogId, attributeId } = req.params
+            const { attributeRepo, catalogRepo } = repos(req)
 
-            const attribute = await attributeRepo.findOne({ where: { id: attributeId, hubId } })
+            const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
             if (!attribute) {
                 return res.status(404).json({ error: 'Attribute not found' })
             }
@@ -285,7 +276,7 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetHubId, validationRules, uiConfig, isRequired, sortOrder } =
+            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder } =
                 parsed.data
 
             if (codename && codename !== attribute.codename) {
@@ -297,7 +288,7 @@ export function createAttributesRoutes(
                     })
                 }
                 if (normalizedCodename !== attribute.codename) {
-                    const existing = await attributeRepo.findOne({ where: { hubId, codename: normalizedCodename } })
+                    const existing = await attributeRepo.findOne({ where: { catalogId, codename: normalizedCodename } })
                     if (existing) {
                         return res.status(409).json({ error: 'Attribute with this codename already exists' })
                     }
@@ -321,15 +312,15 @@ export function createAttributesRoutes(
                 }
             }
 
-            if (targetHubId !== undefined) {
-                if (targetHubId === null) {
-                    attribute.targetHubId = undefined
+            if (targetCatalogId !== undefined) {
+                if (targetCatalogId === null) {
+                    attribute.targetCatalogId = undefined
                 } else if (attribute.dataType === AttributeDataType.REF) {
-                    const targetHub = await hubRepo.findOne({ where: { id: targetHubId } })
-                    if (!targetHub) {
-                        return res.status(400).json({ error: 'Target hub not found' })
+                    const targetCatalog = await catalogRepo.findOne({ where: { id: targetCatalogId } })
+                    if (!targetCatalog) {
+                        return res.status(400).json({ error: 'Target catalog not found' })
                     }
-                    attribute.targetHubId = targetHubId
+                    attribute.targetCatalogId = targetCatalogId
                 }
             }
 
@@ -355,14 +346,14 @@ export function createAttributesRoutes(
     )
 
     /**
-     * PATCH /metahubs/:metahubId/hubs/:hubId/attributes/:attributeId/move
-     * Reorder attributes within a hub
+     * PATCH /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId/move
+     * Reorder attributes within a catalog
      */
     router.patch(
-        '/metahubs/:metahubId/hubs/:hubId/attributes/:attributeId/move',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId/move',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, attributeId } = req.params
+            const { catalogId, attributeId } = req.params
             const manager = getRequestManager(req, getDataSource())
 
             const parsed = z.object({ direction: z.enum(['up', 'down']) }).safeParse(req.body)
@@ -374,14 +365,14 @@ export function createAttributesRoutes(
 
             const result = await manager.transaction(async (transactionalEntityManager) => {
                 const attributeRepo = transactionalEntityManager.getRepository(Attribute)
-                const attribute = await attributeRepo.findOne({ where: { id: attributeId, hubId } })
+                const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
                 if (!attribute) {
                     return { status: 404, payload: { error: 'Attribute not found' } }
                 }
 
-                await ensureSequentialSortOrder(hubId, attributeRepo)
+                await ensureSequentialSortOrder(catalogId, attributeRepo)
 
-                const refreshedAttribute = await attributeRepo.findOne({ where: { id: attributeId, hubId } })
+                const refreshedAttribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
                 if (!refreshedAttribute) {
                     return { status: 404, payload: { error: 'Attribute not found' } }
                 }
@@ -390,7 +381,7 @@ export function createAttributesRoutes(
 
                 const neighbor = await attributeRepo
                     .createQueryBuilder('a')
-                    .where('a.hubId = :hubId', { hubId })
+                    .where('a.catalogId = :catalogId', { catalogId })
                     .andWhere(direction === 'up' ? 'a.sortOrder < :currentOrder' : 'a.sortOrder > :currentOrder', {
                         currentOrder
                     })
@@ -414,17 +405,17 @@ export function createAttributesRoutes(
     )
 
     /**
-     * DELETE /metahubs/:metahubId/hubs/:hubId/attributes/:attributeId
+     * DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId
      * Delete an attribute
      */
     router.delete(
-        '/metahubs/:metahubId/hubs/:hubId/attributes/:attributeId',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, attributeId } = req.params
+            const { catalogId, attributeId } = req.params
             const { attributeRepo } = repos(req)
 
-            const attribute = await attributeRepo.findOne({ where: { id: attributeId, hubId } })
+            const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
             if (!attribute) {
                 return res.status(404).json({ error: 'Attribute not found' })
             }

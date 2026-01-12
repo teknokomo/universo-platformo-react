@@ -28,6 +28,7 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/mutations'
 import * as recordsApi from '../api/records'
 import * as attributesApi from '../api/attributes'
+import { getCatalogById } from '../api/catalogs'
 import { metahubsQueryKeys, invalidateRecordsQueries } from '../api/queryKeys'
 import { HubRecord, HubRecordDisplay, Attribute, getVLCString, toHubRecordDisplay } from '../types'
 import recordActions from './RecordActions'
@@ -35,7 +36,7 @@ import type { DynamicFieldConfig } from '@universo/template-mui/components/dialo
 
 const RecordList = () => {
     const navigate = useNavigate()
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId: string }>()
+    const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
@@ -44,18 +45,41 @@ const RecordList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [editingRecord, setEditingRecord] = useState<HubRecord | null>(null)
 
+    // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
+    // Resolve a stable hubId from the catalog's hub associations.
+    const {
+        data: catalogForHubResolution,
+        isLoading: isCatalogResolutionLoading,
+        error: catalogResolutionError
+    } = useQuery({
+        queryKey:
+            metahubId && catalogId ? metahubsQueryKeys.catalogDetail(metahubId, catalogId) : ['metahubs', 'catalogs', 'detail', 'empty'],
+        queryFn: async () => {
+            if (!metahubId || !catalogId) {
+                throw new Error('metahubId and catalogId are required')
+            }
+            return getCatalogById(metahubId, catalogId)
+        },
+        enabled: !!metahubId && !!catalogId && !hubIdParam
+    })
+
+    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id || ''
+
     // State management for dialog
     const [isSubmitting, setSubmitting] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
 
-    // Fetch attributes for this hub to build dynamic columns and forms
+    // Fetch attributes for this catalog to build dynamic columns and forms
     const { data: attributesData } = useQuery({
-        queryKey: metahubId && hubId ? metahubsQueryKeys.attributesList(metahubId, hubId, { limit: 100 }) : ['empty'],
+        queryKey:
+            metahubId && effectiveHubId && catalogId
+                ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100 })
+                : ['empty'],
         queryFn:
-            metahubId && hubId
-                ? () => attributesApi.listAttributes(metahubId, hubId, { limit: 100 })
+            metahubId && effectiveHubId && catalogId
+                ? () => attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100 })
                 : async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }),
-        enabled: !!metahubId && !!hubId
+        enabled: !!metahubId && !!effectiveHubId && !!catalogId
     })
 
     const attributes = attributesData?.items ?? []
@@ -74,15 +98,18 @@ const RecordList = () => {
 
     // Use paginated hook for records list
     const paginationResult = usePaginated<HubRecord, 'created' | 'updated'>({
-        queryKeyFn: metahubId && hubId ? (params) => metahubsQueryKeys.recordsList(metahubId, hubId, params) : () => ['empty'],
+        queryKeyFn:
+            metahubId && effectiveHubId && catalogId
+                ? (params) => metahubsQueryKeys.recordsList(metahubId, effectiveHubId, catalogId, params)
+                : () => ['empty'],
         queryFn:
-            metahubId && hubId
-                ? (params) => recordsApi.listRecords(metahubId, hubId, params)
+            metahubId && effectiveHubId && catalogId
+                ? (params) => recordsApi.listRecords(metahubId, effectiveHubId, catalogId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc',
-        enabled: !!metahubId && !!hubId
+        enabled: !!metahubId && !!effectiveHubId && !!catalogId
     })
 
     const { data: records, isLoading, error } = paginationResult
@@ -220,18 +247,24 @@ const RecordList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    if (!metahubId || !hubId) return
-                    await updateRecordMutation.mutateAsync({ metahubId, hubId, recordId: id, data: { data: patch } })
+                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    await updateRecordMutation.mutateAsync({
+                        metahubId,
+                        hubId: effectiveHubId,
+                        catalogId,
+                        recordId: id,
+                        data: { data: patch }
+                    })
                 },
                 deleteEntity: async (id: string) => {
-                    if (!metahubId || !hubId) return
-                    await deleteRecordMutation.mutateAsync({ metahubId, hubId, recordId: id })
+                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    await deleteRecordMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, recordId: id })
                 }
             },
             helpers: {
                 refreshList: async () => {
-                    if (metahubId && hubId) {
-                        await invalidateRecordsQueries.all(queryClient, metahubId, hubId)
+                    if (metahubId && effectiveHubId && catalogId) {
+                        await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
                     }
                 },
                 confirm: async (spec: any) => {
@@ -260,14 +293,14 @@ const RecordList = () => {
                     setDeleteDialogState({ open: true, record: fullRecord })
                 },
                 openEditDialog: async (record: HubRecord | HubRecordDisplay) => {
-                    if (!metahubId || !hubId) return
+                    if (!metahubId || !effectiveHubId || !catalogId) return
                     const hasData = typeof (record as HubRecord).data === 'object'
                     const fullRecord =
                         hasData && (record as HubRecord).data
                             ? (record as HubRecord)
                             : recordMap.get(record.id) ||
                               (await recordsApi
-                                  .getRecord(metahubId, hubId, record.id)
+                                  .getRecord(metahubId, effectiveHubId, catalogId, record.id)
                                   .then((res) => res.data)
                                   .catch(() => null))
                     if (fullRecord) {
@@ -278,11 +311,58 @@ const RecordList = () => {
                 }
             }
         }),
-        [confirm, deleteRecordMutation, enqueueSnackbar, hubId, metahubId, queryClient, recordMap, t, updateRecordMutation]
+        [
+            catalogId,
+            confirm,
+            deleteRecordMutation,
+            effectiveHubId,
+            enqueueSnackbar,
+            metahubId,
+            queryClient,
+            recordMap,
+            t,
+            updateRecordMutation
+        ]
     )
 
-    // Validate metahubId and hubId from URL AFTER all hooks
-    if (!metahubId || !hubId) {
+    // Validate metahubId and catalogId from URL AFTER all hooks
+    if (!metahubId || !catalogId) {
+        return (
+            <EmptyListState
+                image={APIEmptySVG}
+                imageAlt='Invalid catalog'
+                title={t('errors.noCatalogId', 'No catalog ID provided')}
+                description={t('errors.pleaseSelectCatalog', 'Please select a catalog')}
+            />
+        )
+    }
+
+    // Hub is required for the underlying API. If it isn't in the URL, we resolve it via catalog detail.
+    if (!effectiveHubId) {
+        if (!hubIdParam) {
+            if (isCatalogResolutionLoading) {
+                return (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Loading'
+                        title={tc('loading', 'Loading')}
+                        description={t('common:loading', 'Loading...')}
+                    />
+                )
+            }
+
+            return (
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Error loading catalog'
+                    title={t('errors.loadingError', 'Error loading catalog')}
+                    description={
+                        catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
+                    }
+                />
+            )
+        }
+
         return (
             <EmptyListState
                 image={APIEmptySVG}
@@ -312,11 +392,12 @@ const RecordList = () => {
         try {
             await createRecordMutation.mutateAsync({
                 metahubId,
-                hubId,
+                hubId: effectiveHubId,
+                catalogId,
                 data: { data }
             })
 
-            await invalidateRecordsQueries.all(queryClient, metahubId, hubId)
+            await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
             handleDialogClose()
         } catch (e: unknown) {
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
@@ -343,12 +424,13 @@ const RecordList = () => {
         try {
             await updateRecordMutation.mutateAsync({
                 metahubId,
-                hubId,
+                hubId: effectiveHubId,
+                catalogId,
                 recordId: editingRecord.id,
                 data: { data }
             })
 
-            await invalidateRecordsQueries.all(queryClient, metahubId, hubId)
+            await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
             handleEditClose()
         } catch (e: unknown) {
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
@@ -398,7 +480,13 @@ const RecordList = () => {
                             <ToggleButton
                                 value='attributes'
                                 sx={{ px: 2, py: 0.5 }}
-                                onClick={() => navigate(`/metahub/${metahubId}/hubs/${hubId}/attributes`)}
+                                onClick={() => {
+                                    if (hubIdParam) {
+                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalogs/${catalogId}/attributes`)
+                                        return
+                                    }
+                                    navigate(`/metahub/${metahubId}/catalogs/${catalogId}/attributes`)
+                                }}
                             >
                                 <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />
                                 {t('attributes.title')}
@@ -538,7 +626,8 @@ const RecordList = () => {
                         try {
                             await deleteRecordMutation.mutateAsync({
                                 metahubId,
-                                hubId,
+                                hubId: effectiveHubId,
+                                catalogId,
                                 recordId: deleteDialogState.record.id
                             })
                             setDeleteDialogState({ open: false, record: null })

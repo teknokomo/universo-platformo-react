@@ -1,6 +1,6 @@
 import { Entity as ORMEntity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { Hub } from './Hub'
+import { Catalog } from './Catalog'
 
 /**
  * Supported data types for dynamic fields
@@ -40,7 +40,7 @@ export interface AttributeUIConfig {
 }
 
 /**
- * Attribute entity - represents a virtual field within a Hub
+ * Attribute entity - represents a virtual field within a Catalog
  *
  * Analogous to a "Requisite" in 1C:Enterprise.
  * Defines the schema for data stored in Records.
@@ -50,12 +50,12 @@ export class Attribute {
     @PrimaryGeneratedColumn('uuid')
     id!: string
 
-    @Column({ type: 'uuid', name: 'hub_id' })
-    hubId!: string
+    @Column({ type: 'uuid', name: 'catalog_id' })
+    catalogId!: string
 
-    @ManyToOne(() => Hub, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'hub_id' })
-    hub!: Hub
+    @ManyToOne(() => Catalog, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'catalog_id' })
+    catalog!: Catalog
 
     /** Localized name */
     @Column({ type: 'jsonb', default: {} })
@@ -69,13 +69,13 @@ export class Attribute {
     @Column({ type: 'varchar', length: 20, name: 'data_type' })
     dataType!: AttributeDataType
 
-    /** For REF type: target hub UUID */
-    @Column({ type: 'uuid', nullable: true, name: 'target_hub_id' })
-    targetHubId?: string
+    /** For REF type: target catalog UUID */
+    @Column({ type: 'uuid', nullable: true, name: 'target_catalog_id' })
+    targetCatalogId?: string
 
-    @ManyToOne(() => Hub, { nullable: true, onDelete: 'SET NULL' })
-    @JoinColumn({ name: 'target_hub_id' })
-    targetHub?: Hub
+    @ManyToOne(() => Catalog, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'target_catalog_id' })
+    targetCatalog?: Catalog
 
     /** Validation rules */
     @Column({ type: 'jsonb', default: {}, name: 'validation_rules' })

@@ -89,43 +89,52 @@ const resolveInlineMetrics = (size?: 'small' | 'medium') => {
     return { buttonHeight, buttonMinWidth, offset }
 }
 
-export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props) => {
+/** Simple non-localized field variant (no hooks needed) */
+const SimpleInlineField: React.FC<SimpleFieldProps> = ({
+    value,
+    onChange,
+    label,
+    required,
+    disabled,
+    error,
+    helperText,
+    multiline,
+    rows,
+    size
+}) => (
+    <TextField
+        fullWidth
+        label={label}
+        required={required}
+        disabled={disabled}
+        error={Boolean(error)}
+        helperText={error || helperText}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        multiline={multiline}
+        rows={rows}
+        size={size}
+    />
+)
+
+/** Localized field variant with full hook logic */
+const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
+    value,
+    onChange,
+    label,
+    required,
+    disabled,
+    error,
+    helperText,
+    multiline,
+    rows,
+    size,
+    uiLocale,
+    autoInitialize = true,
+    localesEndpoint = '/api/v1/locales/content'
+}) => {
     const { t } = useCommonTranslations('localizedField')
     const theme = useTheme()
-    if (props.mode !== 'localized') {
-        const { value, onChange, label, required, disabled, error, helperText, multiline, rows, size } = props
-        return (
-            <TextField
-                fullWidth
-                label={label}
-                required={required}
-                disabled={disabled}
-                error={Boolean(error)}
-                helperText={error || helperText}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                multiline={multiline}
-                rows={rows}
-                size={size}
-            />
-        )
-    }
-
-    const {
-        value,
-        onChange,
-        label,
-        required,
-        disabled,
-        error,
-        helperText,
-        multiline,
-        rows,
-        size,
-        uiLocale,
-        autoInitialize = true,
-        localesEndpoint = '/api/v1/locales/content'
-    } = props
 
     const {
         data: localesData,
@@ -408,6 +417,17 @@ export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props)
             </Menu>
         </Stack>
     )
+}
+
+/**
+ * Unified field component that switches between simple and localized modes.
+ * No hooks are called conditionally - each variant is a separate component.
+ */
+export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props) => {
+    if (props.mode !== 'localized') {
+        return <SimpleInlineField {...props} />
+    }
+    return <LocalizedInlineFieldContent {...props} />
 }
 
 export default LocalizedInlineField

@@ -1,19 +1,12 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import { uuid } from '@universo/utils'
-import type { RequestWithDbContext, IPermissionService } from '@universo/auth-backend'
+import type { IPermissionService } from '@universo/auth-backend'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess } from '../guards/ensureGlobalAccess'
 import { Locale } from '../database/entities/Locale'
 import { CreateLocaleSchema, UpdateLocaleSchema, LocalesListQuerySchema, formatZodError } from '../schemas'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
+import { getRequestManager } from '../utils'
 
 export interface LocalesRoutesConfig {
     globalAccessService: GlobalAccessService

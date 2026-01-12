@@ -9,7 +9,6 @@ import {
     Divider,
     ToggleButtonGroup,
     ToggleButton,
-    TextField,
     FormControl,
     InputLabel,
     Select,
@@ -23,7 +22,7 @@ import TableRowsIcon from '@mui/icons-material/TableRows'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -45,6 +44,7 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 
 import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute, useMoveAttribute } from '../hooks/mutations'
 import * as attributesApi from '../api/attributes'
+import { getCatalogById } from '../api/catalogs'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../api/queryKeys'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Attribute, AttributeDisplay, AttributeDataType, AttributeLocalizedPayload, getVLCString, toAttributeDisplay } from '../types'
@@ -177,7 +177,7 @@ const getDataTypeColor = (dataType: AttributeDataType): 'default' | 'primary' | 
 
 const AttributeList = () => {
     const navigate = useNavigate()
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId: string }>()
+    const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
@@ -185,21 +185,44 @@ const AttributeList = () => {
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
 
+    // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
+    // Resolve a stable hubId from the catalog's hub associations.
+    const {
+        data: catalogForHubResolution,
+        isLoading: isCatalogResolutionLoading,
+        error: catalogResolutionError
+    } = useQuery({
+        queryKey:
+            metahubId && catalogId ? metahubsQueryKeys.catalogDetail(metahubId, catalogId) : ['metahubs', 'catalogs', 'detail', 'empty'],
+        queryFn: async () => {
+            if (!metahubId || !catalogId) {
+                throw new Error('metahubId and catalogId are required')
+            }
+            return getCatalogById(metahubId, catalogId)
+        },
+        enabled: !!metahubId && !!catalogId && !hubIdParam
+    })
+
+    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id || ''
+
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Use paginated hook for attributes list
     const paginationResult = usePaginated<Attribute, 'codename' | 'created' | 'updated' | 'sortOrder'>({
-        queryKeyFn: metahubId && hubId ? (params) => metahubsQueryKeys.attributesList(metahubId, hubId, params) : () => ['empty'],
+        queryKeyFn:
+            metahubId && effectiveHubId && catalogId
+                ? (params) => metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, params)
+                : () => ['empty'],
         queryFn:
-            metahubId && hubId
-                ? (params) => attributesApi.listAttributes(metahubId, hubId, params)
+            metahubId && effectiveHubId && catalogId
+                ? (params) => attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
         sortOrder: 'asc',
-        enabled: !!metahubId && !!hubId
+        enabled: !!metahubId && !!effectiveHubId && !!catalogId
     })
 
     const { data: attributes, isLoading, error } = paginationResult
@@ -319,6 +342,25 @@ const AttributeList = () => {
                 )
             },
             {
+                id: 'name',
+                label: tc('table.name', 'Name'),
+                width: '35%',
+                align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: AttributeDisplay) => row.name || '',
+                render: (row: AttributeDisplay) => (
+                    <Typography
+                        sx={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            wordBreak: 'break-word'
+                        }}
+                    >
+                        {row.name || '—'}
+                    </Typography>
+                )
+            },
+            {
                 id: 'codename',
                 label: t('attributes.codename', 'Codename'),
                 width: '20%',
@@ -335,25 +377,6 @@ const AttributeList = () => {
                         }}
                     >
                         {row.codename || '—'}
-                    </Typography>
-                )
-            },
-            {
-                id: 'name',
-                label: tc('table.name', 'Name'),
-                width: '35%',
-                align: 'left' as const,
-                sortable: true,
-                sortAccessor: (row: AttributeDisplay) => row.name || '',
-                render: (row: AttributeDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.name || '—'}
                     </Typography>
                 )
             },
@@ -389,7 +412,7 @@ const AttributeList = () => {
             uiLocale: i18n.language,
             api: {
                 updateEntity: async (id: string, patch: AttributeLocalizedPayload) => {
-                    if (!metahubId || !hubId) return
+                    if (!metahubId || !effectiveHubId || !catalogId) return
                     const normalizedCodename = sanitizeCodename(patch.codename)
                     if (!normalizedCodename) {
                         throw new Error(t('attributes.validation.codenameRequired', 'Codename is required'))
@@ -397,25 +420,26 @@ const AttributeList = () => {
                     const dataType = patch.dataType ?? 'STRING'
                     await updateAttributeMutation.mutateAsync({
                         metahubId,
-                        hubId,
+                        hubId: effectiveHubId,
+                        catalogId,
                         attributeId: id,
                         data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
                     })
                 },
                 deleteEntity: async (id: string) => {
-                    if (!metahubId || !hubId) return
-                    await deleteAttributeMutation.mutateAsync({ metahubId, hubId, attributeId: id })
+                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    await deleteAttributeMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, attributeId: id })
                 }
             },
             moveAttribute: async (id: string, direction: 'up' | 'down') => {
-                if (!metahubId || !hubId) return
-                await moveAttributeMutation.mutateAsync({ metahubId, hubId, attributeId: id, direction })
-                await invalidateAttributesQueries.all(queryClient, metahubId, hubId)
+                if (!metahubId || !effectiveHubId || !catalogId) return
+                await moveAttributeMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, attributeId: id, direction })
+                await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
             },
             helpers: {
                 refreshList: async () => {
-                    if (metahubId && hubId) {
-                        await invalidateAttributesQueries.all(queryClient, metahubId, hubId)
+                    if (metahubId && effectiveHubId && catalogId) {
+                        await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
                     }
                 },
                 confirm: async (spec: any) => {
@@ -446,10 +470,11 @@ const AttributeList = () => {
         }),
         [
             attributeMap,
+            catalogId,
             confirm,
             deleteAttributeMutation,
             enqueueSnackbar,
-            hubId,
+            effectiveHubId,
             i18n.language,
             metahubId,
             moveAttributeMutation,
@@ -459,12 +484,48 @@ const AttributeList = () => {
         ]
     )
 
-    // Validate metahubId and hubId from URL AFTER all hooks
-    if (!metahubId || !hubId) {
+    // Validate metahubId and catalogId from URL AFTER all hooks
+    if (!metahubId || !catalogId) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt='Invalid hub'
+                imageAlt='Invalid catalog'
+                title={t('errors.noHubId', 'No hub ID provided')}
+                description={t('errors.pleaseSelectHub', 'Please select a hub')}
+            />
+        )
+    }
+
+    // Hub is required for the underlying API. If it isn't in the URL, we resolve it via catalog detail.
+    if (!effectiveHubId) {
+        if (!hubIdParam) {
+            if (isCatalogResolutionLoading) {
+                return (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Loading'
+                        title={tc('loading', 'Loading')}
+                        description={t('common:loading', 'Loading...')}
+                    />
+                )
+            }
+
+            return (
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Invalid catalog'
+                    title={t('errors.loadingError', 'Error loading catalog')}
+                    description={
+                        catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
+                    }
+                />
+            )
+        }
+
+        return (
+            <EmptyListState
+                image={APIEmptySVG}
+                imageAlt='Invalid catalog'
                 title={t('errors.noHubId', 'No hub ID provided')}
                 description={t('errors.pleaseSelectHub', 'Please select a hub')}
             />
@@ -504,7 +565,8 @@ const AttributeList = () => {
 
             await createAttributeMutation.mutateAsync({
                 metahubId,
-                hubId,
+                hubId: effectiveHubId,
+                catalogId,
                 data: {
                     codename: normalizedCodename,
                     dataType,
@@ -514,7 +576,7 @@ const AttributeList = () => {
                 }
             })
 
-            await invalidateAttributesQueries.all(queryClient, metahubId, hubId)
+            await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
             handleDialogSave()
         } catch (e: unknown) {
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
@@ -568,7 +630,13 @@ const AttributeList = () => {
                             <ToggleButton
                                 value='records'
                                 sx={{ px: 2, py: 0.5 }}
-                                onClick={() => navigate(`/metahub/${metahubId}/hubs/${hubId}/records`)}
+                                onClick={() => {
+                                    if (hubIdParam) {
+                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalogs/${catalogId}/records`)
+                                        return
+                                    }
+                                    navigate(`/metahub/${metahubId}/catalogs/${catalogId}/records`)
+                                }}
                             >
                                 <TableRowsIcon sx={{ mr: 1, fontSize: 18 }} />
                                 {t('records.title')}
@@ -679,7 +747,8 @@ const AttributeList = () => {
                         try {
                             await deleteAttributeMutation.mutateAsync({
                                 metahubId,
-                                hubId,
+                                hubId: effectiveHubId,
+                                catalogId,
                                 attributeId: deleteDialogState.attribute.id
                             })
                             setDeleteDialogState({ open: false, attribute: null })

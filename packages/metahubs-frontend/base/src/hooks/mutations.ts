@@ -11,13 +11,18 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import type { AssignableRole } from '@universo/template-mui'
-import type { AttributeLocalizedPayload, HubLocalizedPayload, MetahubLocalizedPayload, SimpleLocalizedInput } from '../types'
+import type {
+    AttributeLocalizedPayload,
+    CatalogLocalizedPayload,
+    HubLocalizedPayload,
+    MetahubLocalizedPayload,
+    SimpleLocalizedInput
+} from '../types'
 import { normalizeLocale } from '../utils/localizedInput'
 
 import * as metahubsApi from '../api/metahubs'
-import * as meta_sectionsApi from '../api/metaSections'
-import * as meta_entitiesApi from '../api/metaEntities'
-import { metahubsQueryKeys, meta_sectionsQueryKeys, meta_entitiesQueryKeys } from '../api/queryKeys'
+import * as catalogsApi from '../api/catalogs'
+import { metahubsQueryKeys } from '../api/queryKeys'
 
 // ============================================================================
 // Types
@@ -28,28 +33,6 @@ type LegacyMetahubInput = { name: string; description?: string }
 interface UpdateMetahubParams {
     id: string
     data: LegacyMetahubInput | MetahubLocalizedPayload
-}
-
-interface UpdateSectionParams {
-    id: string
-    data: { name: string; description?: string }
-}
-
-interface CreateSectionParams {
-    name: string
-    description?: string
-    metahubId: string
-}
-
-interface UpdateEntityParams {
-    id: string
-    data: { name: string; description?: string }
-}
-
-interface CreateEntityParams {
-    name: string
-    description?: string
-    sectionId: string
 }
 
 interface UpdateMemberRoleParams {
@@ -161,150 +144,6 @@ export function useDeleteMetahub() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('deleteError', 'Failed to delete metahub'), { variant: 'error' })
-        }
-    })
-}
-
-// ============================================================================
-// MetaSection Mutations
-// ============================================================================
-
-/**
- * Hook for creating a section
- */
-export function useCreateSection() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        mutationFn: async (data: CreateSectionParams) => {
-            const response = await meta_sectionsApi.createSection(data)
-            return response.data
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: meta_sectionsQueryKeys.lists() })
-            enqueueSnackbar(t('meta_sections.createSuccess', 'MetaSection created'), { variant: 'success' })
-        },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('meta_sections.saveError', 'Failed to create section'), { variant: 'error' })
-        }
-    })
-}
-
-/**
- * Hook for updating a section
- */
-export function useUpdateSection() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        mutationFn: async ({ id, data }: UpdateSectionParams) => {
-            const response = await meta_sectionsApi.updateSection(id, data)
-            return response.data
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: meta_sectionsQueryKeys.lists() })
-            enqueueSnackbar(t('meta_sections.updateSuccess', 'MetaSection updated'), { variant: 'success' })
-        },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('meta_sections.updateError', 'Failed to update section'), { variant: 'error' })
-        }
-    })
-}
-
-/**
- * Hook for deleting a section
- */
-export function useDeleteSection() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        mutationFn: async (id: string) => {
-            await meta_sectionsApi.deleteSection(id)
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: meta_sectionsQueryKeys.lists() })
-            enqueueSnackbar(t('meta_sections.deleteSuccess', 'MetaSection deleted'), { variant: 'success' })
-        },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('meta_sections.deleteError', 'Failed to delete section'), { variant: 'error' })
-        }
-    })
-}
-
-// ============================================================================
-// MetaEntity Mutations
-// ============================================================================
-
-/**
- * Hook for creating an entity
- */
-export function useCreateEntity() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        mutationFn: async (data: CreateEntityParams) => {
-            const response = await meta_entitiesApi.createEntity(data)
-            return response.data
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: meta_entitiesQueryKeys.lists() })
-            enqueueSnackbar(t('meta_entities.createSuccess', 'MetaEntity created'), { variant: 'success' })
-        },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('meta_entities.saveError', 'Failed to create entity'), { variant: 'error' })
-        }
-    })
-}
-
-/**
- * Hook for updating an entity
- */
-export function useUpdateEntity() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        mutationFn: async ({ id, data }: UpdateEntityParams) => {
-            const response = await meta_entitiesApi.updateEntity(id, data)
-            return response.data
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: meta_entitiesQueryKeys.lists() })
-            enqueueSnackbar(t('meta_entities.updateSuccess', 'MetaEntity updated'), { variant: 'success' })
-        },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('meta_entities.updateError', 'Failed to update entity'), { variant: 'error' })
-        }
-    })
-}
-
-/**
- * Hook for deleting an entity
- */
-export function useDeleteEntity() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        mutationFn: async (id: string) => {
-            await meta_entitiesApi.deleteEntity(id)
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: meta_entitiesQueryKeys.lists() })
-            enqueueSnackbar(t('meta_entities.deleteSuccess', 'MetaEntity deleted'), { variant: 'success' })
-        },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('meta_entities.deleteError', 'Failed to delete entity'), { variant: 'error' })
         }
     })
 }
@@ -511,14 +350,202 @@ export function useDeleteHub() {
 }
 
 // ============================================================================
+// NEW ARCHITECTURE: Catalog Mutations
+// ============================================================================
+
+interface CreateCatalogParams {
+    metahubId: string
+    hubId: string
+    data: CatalogLocalizedPayload & { sortOrder?: number }
+}
+
+interface CreateCatalogAtMetahubParams {
+    metahubId: string
+    data: CatalogLocalizedPayload & { sortOrder?: number }
+}
+
+interface UpdateCatalogParams {
+    metahubId: string
+    hubId: string
+    catalogId: string
+    data: CatalogLocalizedPayload & { sortOrder?: number }
+}
+
+interface DeleteCatalogParams {
+    metahubId: string
+    /** Hub ID - optional for catalogs without hub associations */
+    hubId?: string
+    catalogId: string
+    /** If true, deletes catalog completely. If false, only removes from hub (N:M). */
+    force?: boolean
+}
+
+/**
+ * Hook for creating a catalog at metahub level (can have 0+ hubs)
+ * Used when creating from global catalogs list
+ */
+export function useCreateCatalogAtMetahub() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, data }: CreateCatalogAtMetahubParams) => {
+            const response = await catalogsApi.createCatalogAtMetahub(metahubId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            // Invalidate the "all catalogs" list
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            // Hub list counters (e.g., catalogsCount) depend on catalogs state
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.hubs(variables.metahubId) })
+            // If hubIds were provided, also invalidate those hub-specific lists
+            const hubIds = variables.data.hubIds ?? []
+            hubIds.forEach((hubId: string) => {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, hubId) })
+            })
+            enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('catalogs.createError', 'Failed to create catalog'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for creating a catalog within a specific hub context
+ */
+export function useCreateCatalog() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, data }: CreateCatalogParams) => {
+            const response = await catalogsApi.createCatalog(metahubId, hubId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            // Also invalidate the "all catalogs" list so it updates when navigating there
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            // Hub list counters (e.g., catalogsCount) depend on catalogs state
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.hubs(variables.metahubId) })
+            enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('catalogs.createError', 'Failed to create catalog'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for updating a catalog
+ */
+export function useUpdateCatalog() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, data }: UpdateCatalogParams) => {
+            const response = await catalogsApi.updateCatalog(metahubId, hubId, catalogId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            // Also invalidate the "all catalogs" list
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            // Hub list counters (e.g., catalogsCount) depend on catalogs state
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.hubs(variables.metahubId) })
+            enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Update catalog at metahub level params
+ */
+interface UpdateCatalogAtMetahubParams {
+    metahubId: string
+    catalogId: string
+    data: CatalogLocalizedPayload & { sortOrder?: number }
+}
+
+/**
+ * Hook for updating a catalog at metahub level (for catalogs without hub or with multiple hubs)
+ */
+export function useUpdateCatalogAtMetahub() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, catalogId, data }: UpdateCatalogAtMetahubParams) => {
+            const response = await catalogsApi.updateCatalogAtMetahub(metahubId, catalogId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            // Invalidate the "all catalogs" list
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            // Also invalidate hub-scoped queries (catalog lists and hub list counters)
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.hubs(variables.metahubId) })
+            enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for deleting a catalog
+ * Supports both hub-scoped deletion and direct deletion (for catalogs without hubs)
+ */
+export function useDeleteCatalog() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, force }: DeleteCatalogParams) => {
+            if (hubId) {
+                // Use hub-scoped deletion
+                await catalogsApi.deleteCatalog(metahubId, hubId, catalogId, force)
+            } else {
+                // Use direct deletion (for catalogs without hubs)
+                await catalogsApi.deleteCatalogDirect(metahubId, catalogId)
+            }
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            }
+            // Also invalidate the "all catalogs" list
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            // Hub list counters (e.g., catalogsCount) depend on catalogs state
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.hubs(variables.metahubId) })
+            enqueueSnackbar(t('catalogs.deleteSuccess', 'Catalog deleted'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('catalogs.deleteError', 'Failed to delete catalog'), { variant: 'error' })
+        }
+    })
+}
+
+// ============================================================================
 // NEW ARCHITECTURE: Attribute Mutations
 // ============================================================================
 
 interface CreateAttributeParams {
     metahubId: string
     hubId: string
+    catalogId: string
     data: AttributeLocalizedPayload & {
-        targetHubId?: string
+        targetCatalogId?: string
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -529,9 +556,10 @@ interface CreateAttributeParams {
 interface UpdateAttributeParams {
     metahubId: string
     hubId: string
+    catalogId: string
     attributeId: string
     data: AttributeLocalizedPayload & {
-        targetHubId?: string | null
+        targetCatalogId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -542,12 +570,14 @@ interface UpdateAttributeParams {
 interface DeleteAttributeParams {
     metahubId: string
     hubId: string
+    catalogId: string
     attributeId: string
 }
 
 interface MoveAttributeParams {
     metahubId: string
     hubId: string
+    catalogId: string
     attributeId: string
     direction: 'up' | 'down'
 }
@@ -561,16 +591,20 @@ export function useCreateAttribute() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, data }: CreateAttributeParams) => {
+        mutationFn: async ({ metahubId, hubId, catalogId, data }: CreateAttributeParams) => {
             const response = await attributesApi.createAttribute(
                 metahubId,
                 hubId,
-                data as Parameters<typeof attributesApi.createAttribute>[2]
+                catalogId,
+                data as Parameters<typeof attributesApi.createAttribute>[3]
             )
             return response.data
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on attributes
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.createSuccess', 'Attribute created'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -588,17 +622,21 @@ export function useUpdateAttribute() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, attributeId, data }: UpdateAttributeParams) => {
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId, data }: UpdateAttributeParams) => {
             const response = await attributesApi.updateAttribute(
                 metahubId,
                 hubId,
+                catalogId,
                 attributeId,
-                data as Parameters<typeof attributesApi.updateAttribute>[3]
+                data as Parameters<typeof attributesApi.updateAttribute>[4]
             )
             return response.data
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on attributes
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.updateSuccess', 'Attribute updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -616,11 +654,14 @@ export function useDeleteAttribute() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, attributeId }: DeleteAttributeParams) => {
-            await attributesApi.deleteAttribute(metahubId, hubId, attributeId)
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId }: DeleteAttributeParams) => {
+            await attributesApi.deleteAttribute(metahubId, hubId, catalogId, attributeId)
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on attributes
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.deleteSuccess', 'Attribute deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -638,12 +679,15 @@ export function useMoveAttribute() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, attributeId, direction }: MoveAttributeParams) => {
-            const response = await attributesApi.moveAttribute(metahubId, hubId, attributeId, direction)
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId, direction }: MoveAttributeParams) => {
+            const response = await attributesApi.moveAttribute(metahubId, hubId, catalogId, attributeId, direction)
             return response.data
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on attributes
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.moveSuccess', 'Attribute order updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -659,6 +703,7 @@ export function useMoveAttribute() {
 interface CreateRecordParams {
     metahubId: string
     hubId: string
+    catalogId: string
     data: {
         data: Record<string, unknown>
         sortOrder?: number
@@ -668,6 +713,7 @@ interface CreateRecordParams {
 interface UpdateRecordParams {
     metahubId: string
     hubId: string
+    catalogId: string
     recordId: string
     data: {
         data?: Record<string, unknown>
@@ -678,6 +724,7 @@ interface UpdateRecordParams {
 interface DeleteRecordParams {
     metahubId: string
     hubId: string
+    catalogId: string
     recordId: string
 }
 
@@ -690,12 +737,15 @@ export function useCreateRecord() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, data }: CreateRecordParams) => {
-            const response = await recordsApi.createRecord(metahubId, hubId, data)
+        mutationFn: async ({ metahubId, hubId, catalogId, data }: CreateRecordParams) => {
+            const response = await recordsApi.createRecord(metahubId, hubId, catalogId, data)
             return response.data
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on records
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('records.createSuccess', 'Record created'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -713,12 +763,15 @@ export function useUpdateRecord() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, recordId, data }: UpdateRecordParams) => {
-            const response = await recordsApi.updateRecord(metahubId, hubId, recordId, data)
+        mutationFn: async ({ metahubId, hubId, catalogId, recordId, data }: UpdateRecordParams) => {
+            const response = await recordsApi.updateRecord(metahubId, hubId, catalogId, recordId, data)
             return response.data
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on records
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('records.updateSuccess', 'Record updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -736,11 +789,14 @@ export function useDeleteRecord() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ metahubId, hubId, recordId }: DeleteRecordParams) => {
-            await recordsApi.deleteRecord(metahubId, hubId, recordId)
+        mutationFn: async ({ metahubId, hubId, catalogId, recordId }: DeleteRecordParams) => {
+            await recordsApi.deleteRecord(metahubId, hubId, catalogId, recordId)
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
+            // Catalog list counters depend on records
+            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('records.deleteSuccess', 'Record deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {

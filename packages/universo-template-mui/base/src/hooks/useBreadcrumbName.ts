@@ -242,15 +242,15 @@ export function useHubName(metahubId: string | null, hubId: string | null): stri
 }
 
 /**
- * Hook to fetch Attribute name for breadcrumb display.
- * Requires metahubId, hubId, and attributeId since Attribute API is deeply nested.
+ * Hook to fetch Catalog name for breadcrumb display.
+ * Requires metahubId, hubId, and catalogId since Catalog API is nested under Hub.
  */
-export function useAttributeName(metahubId: string | null, hubId: string | null, attributeId: string | null): string | null {
+export function useCatalogName(metahubId: string | null, hubId: string | null, catalogId: string | null): string | null {
     const query = useQuery({
-        queryKey: ['breadcrumb', 'attribute', metahubId, hubId, attributeId],
+        queryKey: ['breadcrumb', 'catalog', metahubId, hubId, catalogId],
         queryFn: async () => {
-            if (!metahubId || !hubId || !attributeId) return null
-            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}`, {
+            if (!metahubId || !hubId || !catalogId) return null
+            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -259,7 +259,66 @@ export function useAttributeName(metahubId: string | null, hubId: string | null,
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
-        enabled: Boolean(metahubId && hubId && attributeId),
+        enabled: Boolean(metahubId && hubId && catalogId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+/**
+ * Hook to fetch Catalog name for breadcrumb display in catalog-centric navigation.
+ * Uses the standalone catalog endpoint (without hub context).
+ */
+export function useCatalogNameStandalone(metahubId: string | null, catalogId: string | null): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId],
+        queryFn: async () => {
+            if (!metahubId || !catalogId) return null
+            const response = await fetch(`/api/v1/metahubs/${metahubId}/catalogs/${catalogId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && catalogId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+/**
+ * Hook to fetch Attribute name for breadcrumb display.
+ * Requires metahubId, hubId, catalogId, and attributeId since Attribute API is deeply nested under Catalog.
+ */
+export function useAttributeName(
+    metahubId: string | null,
+    hubId: string | null,
+    catalogId: string | null,
+    attributeId: string | null
+): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId],
+        queryFn: async () => {
+            if (!metahubId || !hubId || !catalogId || !attributeId) return null
+            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes/${attributeId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && hubId && catalogId && attributeId),
         staleTime: 5 * 60 * 1000,
         retry: 2,
         refetchOnWindowFocus: false
@@ -298,6 +357,9 @@ export const truncateStorageName = createTruncateFunction(30)
 
 /** Truncate hub name with ellipsis (default: 30 chars) */
 export const truncateHubName = createTruncateFunction(30)
+
+/** Truncate catalog name with ellipsis (default: 30 chars) */
+export const truncateCatalogName = createTruncateFunction(30)
 
 /** Truncate attribute name with ellipsis (default: 30 chars) */
 export const truncateAttributeName = createTruncateFunction(30)

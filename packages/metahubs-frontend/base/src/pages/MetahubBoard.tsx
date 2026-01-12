@@ -23,7 +23,7 @@ import { toMetahubDisplay } from '../types'
  * Metahub Board Page
  *
  * Displays analytics dashboard for a metahub with:
- * - Real-time statistics (meta_sections, meta_entities, members)
+ * - Real-time statistics (hubs, catalogs, members)
  * - Documentation resources
  * - Activity and resource charts (demo data)
  *
@@ -85,12 +85,10 @@ const MetahubBoard = () => {
     // Success state with dashboard
     // Demo trend data for SparkLineChart (30 data points)
     // TODO: Replace with real historical data when analytics service is ready
-    const meta_sectionsData = [
-        8, 9, 9, 10, 10, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11
-    ]
-    // Use current entity count as trend data (shows actual value in chart)
-    const meta_entitiesCount = metahubDisplay.meta_entitiesCount ?? 0
-    const meta_entitiesData = Array(30).fill(meta_entitiesCount)
+    const hubsData = [8, 9, 9, 10, 10, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11]
+    // Use current catalog count as trend data (shows actual value in chart)
+    const catalogsCount = metahubDisplay.catalogsCount ?? 0
+    const catalogsData = Array(30).fill(catalogsCount)
 
     const membersData = [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
@@ -115,25 +113,25 @@ const MetahubBoard = () => {
                         </Typography>
                     </Grid>
 
-                    {/* MetaSections Count */}
+                    {/* Hubs Count */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
-                            title={t('board.stats.meta_sections.title')}
-                            value={metahubDisplay.meta_sectionsCount ?? 0}
-                            interval={t('board.stats.meta_sections.interval')}
-                            description={t('board.stats.meta_sections.description')}
-                            data={meta_sectionsData}
+                            title={t('board.stats.hubs.title')}
+                            value={metahubDisplay.hubsCount ?? 0}
+                            interval={t('board.stats.hubs.interval')}
+                            description={t('board.stats.hubs.description')}
+                            data={hubsData}
                         />
                     </Grid>
 
-                    {/* MetaEntities Count */}
+                    {/* Catalogs Count */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
-                            title={t('board.stats.meta_entities.title')}
-                            value={metahubDisplay.meta_entitiesCount ?? 0}
-                            interval={t('board.stats.meta_entities.interval')}
-                            description={t('board.stats.meta_entities.description')}
-                            data={meta_entitiesData}
+                            title={t('board.stats.catalogs.title')}
+                            value={metahubDisplay.catalogsCount ?? 0}
+                            interval={t('board.stats.catalogs.interval')}
+                            description={t('board.stats.catalogs.description')}
+                            data={catalogsData}
                         />
                     </Grid>
 

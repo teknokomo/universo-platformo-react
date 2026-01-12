@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm'
+import { DataSource, QueryRunner } from 'typeorm'
 
 /**
  * Global roles that grant cross-entity access
@@ -16,8 +16,8 @@ export interface AccessGuardsConfig<TRole extends string, TMembership> {
     roles: readonly TRole[]
     /** Permission matrix for each role */
     permissions: Record<TRole, Record<string, boolean>>
-    /** Function to fetch membership from database */
-    getMembership: (ds: DataSource, userId: string, entityId: string) => Promise<TMembership | null>
+    /** Function to fetch membership from database (supports optional QueryRunner for RLS context) */
+    getMembership: (ds: DataSource, userId: string, entityId: string, queryRunner?: QueryRunner) => Promise<TMembership | null>
     /** Extract role from membership */
     extractRole: (membership: TMembership) => TRole
     /** Extract user ID from membership */
@@ -27,19 +27,22 @@ export interface AccessGuardsConfig<TRole extends string, TMembership> {
     /**
      * Optional function to check if user is superuser (bypasses all permissions)
      * If true, user gets access without membership check and full permissions
+     * Supports optional QueryRunner for RLS context
      */
-    isSuperuser?: (ds: DataSource, userId: string) => Promise<boolean>
+    isSuperuser?: (ds: DataSource, userId: string, queryRunner?: QueryRunner) => Promise<boolean>
     /**
      * Optional function to get global role name (for logging/display)
      * Only called if isSuperuser returns true
+     * Supports optional QueryRunner for RLS context
      */
-    getGlobalRoleName?: (ds: DataSource, userId: string) => Promise<string | null>
+    getGlobalRoleName?: (ds: DataSource, userId: string, queryRunner?: QueryRunner) => Promise<string | null>
     /**
      * @deprecated Use isSuperuser instead
      * Optional function to check global role (superadmin/supermoderator)
      * If user has a global role, they get access without membership check
+     * Supports optional QueryRunner for RLS context
      */
-    getGlobalRole?: (ds: DataSource, userId: string) => Promise<GlobalRole>
+    getGlobalRole?: (ds: DataSource, userId: string, queryRunner?: QueryRunner) => Promise<GlobalRole>
     /**
      * Factory to create synthetic membership for superusers
      * Required if isSuperuser or getGlobalRole is provided

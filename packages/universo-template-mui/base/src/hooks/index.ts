@@ -22,6 +22,8 @@ export {
     useUnikName,
     useStorageName,
     useHubName,
+    useCatalogName,
+    useCatalogNameStandalone,
     useAttributeName,
     // Pre-configured truncate functions
     truncateMetaverseName,
@@ -33,6 +35,7 @@ export {
     truncateUnikName,
     truncateStorageName,
     truncateHubName,
+    truncateCatalogName,
     truncateAttributeName
 } from './useBreadcrumbName'
 export type { EntityNameHookConfig, EntityNameFetcher } from './useBreadcrumbName'

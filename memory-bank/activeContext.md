@@ -1,214 +1,55 @@
 # Active Context
 
-> **Last Updated**: 2026-01-10
+> **Last Updated**: 2026-01-11
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Metahubs Code Deduplication - 2026-01-10 ✅
+## Current Focus: QA Fixes Complete (2026-01-11)
 
-Extracted duplicated utility functions from Metahubs module into shared packages to reduce code duplication and improve maintainability.
+**Just Completed**:
+- **Catalog Deletion Bug**: Added direct DELETE endpoint for catalogs without hub association
+  - New endpoint: `DELETE /metahubs/:metahubId/catalogs/:catalogId`
+  - Frontend API + mutation updated to handle optional hubId
+- **SQL Injection Fix**: escapeLikeWildcards applied to loadMembers in campaigns/clusters backends
+- **getRequestManager Centralization**: Removed 19 local definitions across 8 backend packages
+  - All route handlers now import from `../utils` → `@universo/utils/database`
+  - admin-backend tsconfig updated to moduleResolution: node16
+- Full monorepo build: SUCCESS (61 tasks)
 
-**Backend refactoring**:
-- Created `@universo/utils/vlc` module with `sanitizeLocalizedInput()` and `buildLocalizedContent()` functions for VLC handling.
-- Created `@universo/utils/validation/codename` module with `CODENAME_PATTERN`, `normalizeCodename()`, `isValidCodename()` functions.
-- Updated 3 backend routes (attributesRoutes, hubsRoutes, metahubsRoutes) to use shared functions, removing ~112 lines of duplicated code.
+**Files Changed Summary**:
+- `packages/metahubs-backend/base/src/routes/catalogsRoutes.ts` — new DELETE endpoint
+- `packages/metahubs-frontend/base/src/api/catalogs.ts` — deleteCatalogDirect function
+- `packages/metahubs-frontend/base/src/hooks/mutations.ts` — optional hubId
+- `packages/metahubs-frontend/base/src/pages/CatalogList.tsx` — updated deleteEntity
+- `packages/campaigns-backend/base/src/routes/campaignsRoutes.ts` — escapeLikeWildcards
+- `packages/clusters-backend/base/src/routes/clustersRoutes.ts` — escapeLikeWildcards
+- 8 backend packages: parserUtils.ts updated with getRequestManager re-export
+- 19 route files: local getRequestManager replaced with import
 
-**Frontend refactoring**:
-- Created `useCodenameAutoFill` hook in `@universo/template-mui` for automatic codename generation from localized name field.
-- Refactored `HubList.tsx` and `AttributeList.tsx` to use the new hook instead of duplicated useEffect logic.
-- Updated `metahubs-frontend/utils/codename.ts` to re-export shared utilities.
-
-**Note**: Backend uses `normalizeCodename()` (no transliteration), frontend uses `slugifyCodename()` (with transliteration from @justrelate/slugify) — intentionally different behaviors for different use cases.
-
----
-
-## Current Focus: Localized Field UI Rollout - 2026-01-07 ✅
-
-Implemented compact localized field UI (inline language button + menu, primary badge) and wired it into
-metahubs create/edit flows, admin role/locale forms, and shared utilities. Added backend support for
-optional primary locale overrides and dynamic locale keys without deleting data. Added common i18n keys
-and updated tests. Metahubs-frontend tests run; all tests pass but coverage thresholds still fail
-(same suite now reports coverage below 70%).
-
-Applied UI refinements: language button moved into the top-right corner of the field without shrinking
-text width, and multiline input padding aligned with single-line spacing across both `@universo/template-mui`
-and legacy `flowise-template-mui` themes.
-
-Removed temporary diagnostic logs and restored the default backend log level after resolving the admin roles reload incident.
-
-Applied PR #633 review fixes: deduped localized helpers, made localized locales endpoint configurable, aligned VLC filtering with isActive, validated locale codes, stabilized VLC primary fallback selection, and documented CSRF shared promise behavior.
-
-**Update (2026-01-09)**: PR #635 opened for the Metahubs VLC rollout and related UI/backend fixes (includes FlowListTable header center fix); PR is ready for review and CI verification.
+**Next Steps**:
+- [ ] Manual QA: delete catalog without hubs — confirm it works
+- [ ] Manual QA: test search with special characters (%, _) — confirm escaping
+- [ ] Consider QA mode for comprehensive verification
 
 ---
 
-## Current Focus: Hub Attributes Localization & Codename - 2026-01-08 ✅
+## Session Notes
 
-- Switched Attribute name to VLC types and updated display helpers.
-- Added localized create/edit UI for attributes with codename auto-fill/validation and no description field.
-- Updated attribute actions dialog to handle localized name + codename.
-- Aligned attribute API payloads to include primary locale and sanitized localized inputs.
-- Backend attributes routes now normalize/validate codenames and build VLC from provided locales.
+### Data Model (Current State)
 
----
+```
+Hub (container for domain-specific data)
+  └── CatalogHub (junction table for N:M relationship)
+        └── Catalog (reusable data structure, with isRequiredHub/isSingleHub flags)
+              ├── Attribute (field definitions)
+              └── Record (data entries)
+```
 
-## Current Focus: Records Form Localization - 2026-01-08 ✅
+### Key Routes (Catalog-Centric)
 
-- Record field labels now use VLC-aware rendering (no placeholder "1").
-- STRING fields use LocalizedInlineField; empty records are blocked.
-- Records table "Updated" column localized and delete actions wired to record dialogs.
-
----
-
-## Current Focus: Record Save Validation - 2026-01-08 ✅
-
-- Backend record validation now accepts VLC for STRING attributes.
-- Required checks and validation rules use primary locale content.
-
----
-
-## Current Focus: Record Edit Hydration - 2026-01-08 ✅
-
-- Record edit pulls full data via contextExtras or fallback fetch before opening dialog.
-
----
-
-## Current Focus: Record Edit Initial Render Guard - 2026-01-08 ✅
-
-- Record edit dialog renders fields only after initial data is hydrated to avoid blank first open.
-
----
-
-## Current Focus: Hubs Localization & Codename - 2026-01-07 ✅
-
-- Switched Hub name/description types to VLC and updated display helpers.
-- Added localized create/edit UI for hubs with codename auto-fill, normalization, and validation.
-- Aligned hubs API payloads to include primary locale fields and server-side sanitization of localized inputs.
-- Codename normalization enforces lowercase URL-safe tokens; underscores are normalized to hyphens for new input.
-
----
-
-## Previous Focus: Auth Disabled State UX Refinements - 2025-01-10 ✅
-
-Refined UX when auth features are disabled based on QA feedback.
-
-### Key Deliverables
-
-- **Cleaner disabled state**: When registration/login is disabled, the entire form is now hidden (not just button disabled)
-- **Alert message**: Shows only the disabled notification with admin contact email
-- **Mode switcher preserved**: Links to switch between login/register remain visible when feature disabled
-- **i18n updates**: Updated disabled messages with admin contact emails:
-  - RU: `universo.pro@yandex.ru`
-  - EN: `universo.pro@yandex.com`
-- **Legal pages footer**: Fixed sticky positioning with `minHeight: 100vh` and `flexGrow: 1`
-
-### Build Status
-
-- ✅ Full workspace build passed (61 tasks, 4m52s)
-
----
-
-## Previous: Auth Feature Flags & Auth UI Layout - 2026-01-04 ✅
-
-- **Guest Start Page Footer**: Adjusted link hover color for better readability on the hero image (lighter blue on hover; internal pages keep the default blue).
-- **Onboarding Subtitles**: Ensured the "Notice" text renders as a true second paragraph by splitting subtitle strings on blank lines ("\n\n") and rendering paragraphs as separate Typography blocks.
-- **Footer Spacing**: Restored guest cards↔footer vertical spacing to 4 modules (after rollback) by adjusting the testimonials section bottom padding.
-- **Brand Link**: Made AppAppBar brand (logo + "Universo" text) clickable with RouterLink to home route.
-- **Validation**: start-frontend lint + build verified after changes.
-
----
-
-## Previous Focus: SmartCaptcha UX & Cookie Text Improvements - 2026-01-02 ✅
-
-Added optional Yandex SmartCaptcha support for the login form, mirroring the existing registration captcha implementation.
-
-- **Environment Variable**: `SMARTCAPTCHA_LOGIN_ENABLED` (default: false) controls login captcha
-- **Factory Pattern**: New `createLoginCaptchaService()` in shared `@universo/utils/captcha`
-- **UX**: Login button disabled until captcha completed when enabled, widget resets on mode switch
-
----
-
-## Previous Focus: Captcha QA Fixes - 2026-01-02 ✅
-
----
-
-## Reference: Publication Captcha Configuration
-
-- Registration SmartCaptcha integrated end-to-end (auth-backend token validation + auth-frontend widget).
-- Publication SmartCaptcha now appears in published `/p/:slug` AR.js quiz lead forms when enabled via ENV.
-- Global toggles live in backend `.env`:
-  - `SMARTCAPTCHA_REGISTRATION_ENABLED=true/false`
-  - `SMARTCAPTCHA_PUBLICATION_ENABLED=true/false`
-  - `SMARTCAPTCHA_SITE_KEY`, `SMARTCAPTCHA_SERVER_KEY`
-  - `SMARTCAPTCHA_TEST_MODE=true/false`
-- Public endpoints:
-  - `GET /api/v1/auth/captcha-config` (registration UI config)
-  - `GET /api/v1/publish/captcha/config` (publication UI config)
-
-### Key Finding (Yandex docs)
-
-- `test=true` does **not** bypass domain validation; it only forces a challenge for debugging.
-- For local testing, the hostname must be allowlisted in Yandex Cloud SmartCaptcha settings (or use a dev hostname).
-
-### Implementation Notes
-
-- publish-backend exposes publication captcha config via `GET /api/v1/publish/captcha/config`.
-- The endpoint must also be present in `API_WHITELIST_URLS` because flowise-core-backend applies a global `/api/v1` auth middleware.
-- publish-frontend `ARViewPage` fetches that config and passes it into the builder as `publicationCaptchaConfig`.
-- template-quiz `DataHandler.processMultiScene()` merges `publicationCaptchaConfig` into `leadCollection` defaults:
-  - If `leadCollection.captchaEnabled` is explicitly set, it wins.
-  - Otherwise, global `publicationCaptchaConfig.enabled && siteKey` enables captcha.
-  - If captcha is enabled but `leadCollection.captchaSiteKey` is empty, it falls back to the global siteKey.
-- Result: captcha can be globally enabled for publications without requiring per-space captcha fields.
-
-### Publication Test Mode (Follow-up)
-
-- Issue: `/p/:slug` SmartCaptcha widget loaded with `test=false` in iframe URL even when `SMARTCAPTCHA_TEST_MODE=true`.
-- Fix: `template-quiz` lead form now initializes the widget via `window.smartCaptcha.render(..., { test })` and loads captcha script with `?render=onload&onload=__onSmartCaptchaReady` to ensure the `test` flag is applied.
-
-### Verification
-
-- Built `template-quiz` and `publish-frontend` successfully.
-- Full workspace build succeeded after changes.
-- Manual: `/p/:slug` should now show SmartCaptcha in the lead form when publication captcha is enabled.
-
----
-
-## Recent Highlights (last 7 days)
-
-### 2026-01-01: Publication Captcha Wiring ✅
-
-- Issue: published app `/p/:slug` lacked captcha even with `SMARTCAPTCHA_PUBLICATION_ENABLED=true`.
-- Root cause: generated lead form relied only on per-space `leadCollection.captcha*` fields.
-- Fix: publish-frontend fetches global config and passes it into template build; template-quiz merges defaults into `leadCollection`.
-- Reference: progress.md#2026-01-01 (Publication Captcha Wiring)
-
-### 2026-01-01: Registration SmartCaptcha ✅
-
-- Backend: Yandex SmartCaptcha token verification (fail-open in dev/test).
-- Frontend: widget rendered under consent checkboxes; register button blocked until solved.
-- Reference: progress.md#2026-01-01 (Yandex Smart Captcha Integration)
-
-### 2025-12-31: Cookie Consent + Lead Consent ✅
-
-- Cookie consent banner (accept/reject) with rejection dialog; localStorage persistence.
-- Quiz lead consent: Terms/Privacy checkboxes and schema support.
-- Reference: progress.md#2025-12-31
-
-### 2025-12-30: Legal Pages + Profile Fixes ✅
-
-- Legal pages (`/terms`, `/privacy`) and registration consent enforcement.
-- Profile creation bugfix (TypeORM query result parsing) + migration consolidation.
-- Reference: progress.md#2025-12-30
-
-### 2025-12-28: Onboarding Wizard MVP ✅
-
-- Multi-step onboarding flow (Projects/Campaigns/Clusters) with backend persistence.
-- Reference: progress.md#2025-12-28
-
-### 2025-12-26: Auth UX Improvements ✅
-
-- 419 auto-retry after restart; improved logout guest behavior; public endpoints allowlist.
-- Reference: progress.md#2025-12-26
+- `/metahub/:id/catalogs` — Global catalog list
+- `/metahub/:id/catalogs/:catalogId/attributes` — Attributes for catalog
+- `/metahub/:id/catalogs/:catalogId/records` — Records for catalog
+- `/metahub/:id/hub/:hubId/catalogs` — Hub-scoped catalog list

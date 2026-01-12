@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm'
+import { DataSource, QueryRunner } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ClusterRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
@@ -15,6 +15,14 @@ const createError = (httpErrors as any).default || httpErrors
 export type { ClusterRole }
 
 // Comments in English only
+
+// Helper to get manager from DataSource or QueryRunner
+const getManager = (ds: DataSource, queryRunner?: QueryRunner) => {
+    if (queryRunner && !queryRunner.isReleased) {
+        return queryRunner.manager
+    }
+    return ds.manager
+}
 
 export const ROLE_PERMISSIONS = {
     owner: {
@@ -60,8 +68,8 @@ const baseGuards = createAccessGuards<ClusterRole, ClusterUser>({
     entityName: 'cluster',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
     permissions: ROLE_PERMISSIONS,
-    getMembership: async (ds: DataSource, userId: string, clusterId: string) => {
-        const repo = ds.getRepository(ClusterUser)
+    getMembership: async (ds: DataSource, userId: string, clusterId: string, queryRunner?: QueryRunner) => {
+        const repo = getManager(ds, queryRunner).getRepository(ClusterUser)
         return repo.findOne({ where: { cluster_id: clusterId, user_id: userId } })
     },
     extractRole: (m) => (m.role || 'member') as ClusterRole,

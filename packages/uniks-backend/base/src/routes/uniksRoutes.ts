@@ -1,8 +1,8 @@
 import { Router, Request, Response, RequestHandler, NextFunction } from 'express'
 import { DataSource, In } from 'typeorm'
 import { z, ZodError } from 'zod'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
+import { getRequestManager } from '@universo/utils/database'
 import { Unik } from '../database/entities/Unik'
 import { UnikUser } from '../database/entities/UnikUser'
 import { Profile } from '@universo/profile-backend'
@@ -10,14 +10,6 @@ import { removeFolderFromStorage } from 'flowise-components'
 import { purgeSpacesForUnik, cleanupCanvasStorage, createSpacesRoutes, type CreateSpacesRoutesOptions } from '@universo/spaces-backend'
 import { ensureUnikAccess, assertNotOwner, ROLE_PERMISSIONS, type UnikRole } from './guards'
 import { validateListQuery } from '../schemas/queryParams'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -142,9 +134,10 @@ const loadMembers = async (
         // Extract email and nickname from joined data
         const userIds = members.map((member) => member.user_id)
 
-        // Load users and profiles data
-        const users = userIds.length ? await ds.manager.find(AuthUser, { where: { id: In(userIds) } }) : []
-        const profiles = userIds.length ? await ds.manager.find(Profile, { where: { user_id: In(userIds) } }) : []
+        // Load users and profiles data using request-scoped manager
+        const manager = getRequestManager(req, ds)
+        const users = userIds.length ? await manager.find(AuthUser, { where: { id: In(userIds) } }) : []
+        const profiles = userIds.length ? await manager.find(Profile, { where: { user_id: In(userIds) } }) : []
 
         const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
         const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))

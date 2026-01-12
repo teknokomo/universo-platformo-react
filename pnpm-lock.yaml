@@ -5425,6 +5425,9 @@ importers:
       '@universo/start-frontend':
         specifier: workspace:*
         version: link:../../start-frontend/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19

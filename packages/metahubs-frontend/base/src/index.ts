@@ -6,14 +6,11 @@ export { default as MetahubList } from './pages/MetahubList'
 export { default as MetahubBoard } from './pages/MetahubBoard'
 export { default as MetahubMembers } from './pages/MetahubMembers'
 
-// New Hub/Attribute/Record pages
+// New Hub/Catalog/Attribute/Record pages
 export { default as HubList } from './pages/HubList'
+export { default as CatalogList } from './pages/CatalogList'
 export { default as AttributeList } from './pages/AttributeList'
 export { default as RecordList } from './pages/RecordList'
-
-// Legacy exports (deprecated - to be removed)
-export { default as MetaSectionList } from './pages/MetaSectionList'
-export { default as MetaEntityList } from './pages/MetaEntityList'
 
 export { default as metahubsDashboard } from './menu-items/metahubDashboard'
 export { metahubsTranslations } from './i18n'
@@ -22,6 +19,8 @@ export { metahubsTranslations } from './i18n'
 export type {
     Hub,
     HubDisplay,
+    Catalog,
+    CatalogDisplay,
     Attribute,
     AttributeDisplay,
     HubRecord,
@@ -33,4 +32,12 @@ export type {
     SimpleLocalizedInput,
     MetahubLocalizedPayload
 } from './types'
-export { toMetahubDisplay, toHubDisplay, toAttributeDisplay, toHubRecordDisplay, getVLCString, getLocalizedString } from './types'
+export {
+    toMetahubDisplay,
+    toHubDisplay,
+    toCatalogDisplay,
+    toAttributeDisplay,
+    toHubRecordDisplay,
+    getVLCString,
+    getLocalizedString
+} from './types'

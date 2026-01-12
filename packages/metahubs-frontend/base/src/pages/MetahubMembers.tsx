@@ -38,7 +38,7 @@ import { useInviteMember, useRemoveMember, useUpdateMemberRole } from '../hooks/
 import * as metahubsApi from '../api/metahubs'
 import { metahubsQueryKeys } from '../api/queryKeys'
 import { MetahubMember } from '../types'
-import memberActions from './MemberActions'
+import metahubMemberActions from './MetahubMemberActions'
 
 // Re-export MemberFormData as MemberData for backward compatibility
 type MemberData = MemberFormData
@@ -170,6 +170,8 @@ export const MetahubMembers = () => {
             label: tc('members.table.email'),
             width: '25%',
             align: 'left',
+            sortable: true,
+            sortAccessor: (row: MetahubMember) => row.email?.toLowerCase() ?? '',
             render: (row: MetahubMember) => {
                 if (!row.email) return null
                 return <Typography variant='body2'>{row.email}</Typography>
@@ -180,6 +182,8 @@ export const MetahubMembers = () => {
             label: tc('members.table.nickname'),
             width: '20%',
             align: 'left',
+            sortable: true,
+            sortAccessor: (row: MetahubMember) => row.nickname?.toLowerCase() ?? '',
             render: (row: MetahubMember) => {
                 if (!row.nickname) return null
                 return <Typography variant='body2'>{row.nickname}</Typography>
@@ -214,6 +218,8 @@ export const MetahubMembers = () => {
             label: tc('members.table.added'),
             width: '15%',
             align: 'left',
+            sortable: true,
+            sortAccessor: (row: MetahubMember) => (row.createdAt ? new Date(row.createdAt).getTime() : 0),
             render: (row: MetahubMember) => {
                 if (!row.createdAt) return null
                 return <Typography variant='body2'>{new Date(row.createdAt).toLocaleDateString()}</Typography>
@@ -371,7 +377,7 @@ export const MetahubMembers = () => {
                                     }}
                                 >
                                     {members.map((member: MetahubMember) => {
-                                        const descriptors = memberActions.filter((_descriptor) => {
+                                        const descriptors = metahubMemberActions.filter((_descriptor) => {
                                             if (member.role === 'owner') {
                                                 return false
                                             }
@@ -441,7 +447,7 @@ export const MetahubMembers = () => {
                                                 return null
                                             }
 
-                                            const descriptors = memberActions
+                                            const descriptors = metahubMemberActions
 
                                             return (
                                                 <BaseEntityMenu<MetahubMember, MemberFormData>

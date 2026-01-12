@@ -29,8 +29,6 @@ export const mockMetahubData = {
     id: 'test-metahub-id',
     name: 'Test Metahub',
     description: 'A test metahub for unit tests',
-    meta_sectionsCount: 11,
-    meta_entitiesCount: 42,
     membersCount: 4,
     role: 'admin',
     createdAt: CREATED_30_DAYS_AGO,
@@ -43,8 +41,6 @@ export const mockMetahubsList = [
         name: 'Production Metahub',
         description: 'Main production environment',
         role: 'admin',
-        meta_sectionsCount: 10,
-        meta_entitiesCount: 50,
         membersCount: 5,
         createdAt: CREATED_30_DAYS_AGO,
         updatedAt: UPDATED_7_DAYS_AGO
@@ -54,55 +50,7 @@ export const mockMetahubsList = [
         name: 'Testing Metahub',
         description: 'Test environment',
         role: 'editor',
-        meta_sectionsCount: 3,
-        meta_entitiesCount: 10,
         membersCount: 2,
-        createdAt: CREATED_15_DAYS_AGO,
-        updatedAt: UPDATED_1_DAY_AGO
-    }
-]
-
-export const mockMetaSectionsList = [
-    {
-        id: 'section-1',
-        metahubId: 'test-metahub-id',
-        name: 'Main MetaSection',
-        description: 'Primary section for testing',
-        meta_entitiesCount: 10,
-        createdAt: CREATED_30_DAYS_AGO,
-        updatedAt: UPDATED_7_DAYS_AGO
-    },
-    {
-        id: 'section-2',
-        metahubId: 'test-metahub-id',
-        name: 'Secondary MetaSection',
-        description: 'Additional section',
-        meta_entitiesCount: 5,
-        createdAt: CREATED_15_DAYS_AGO,
-        updatedAt: UPDATED_1_DAY_AGO
-    }
-]
-
-export const mockMetaEntitiesList = [
-    {
-        id: 'entity-1',
-        metahubId: 'test-metahub-id',
-        sectionId: 'section-1',
-        name: 'Primary MetaEntity',
-        description: 'Main entity for testing',
-        type: 'text',
-        order: 0,
-        createdAt: CREATED_30_DAYS_AGO,
-        updatedAt: UPDATED_7_DAYS_AGO
-    },
-    {
-        id: 'entity-2',
-        metahubId: 'test-metahub-id',
-        sectionId: 'section-1',
-        name: 'Secondary MetaEntity',
-        description: 'Additional entity',
-        type: 'image',
-        order: 1,
         createdAt: CREATED_15_DAYS_AGO,
         updatedAt: UPDATED_1_DAY_AGO
     }
@@ -185,50 +133,6 @@ export const handlers = [
                 offset,
                 count: paginatedData.length,
                 hasMore: offset + limit < filteredData.length
-            }
-        })
-    }),
-
-    // List sections
-    http.get(`${API_BASE_URL}/metahubs/:metahubId/meta_sections`, async ({ request }) => {
-        await delay(50)
-
-        const url = new URL(request.url)
-        const limit = parseInt(url.searchParams.get('limit') || '20')
-        const offset = parseInt(url.searchParams.get('offset') || '0')
-
-        const paginatedData = mockMetaSectionsList.slice(offset, offset + limit)
-
-        return HttpResponse.json({
-            data: paginatedData,
-            pagination: {
-                total: mockMetaSectionsList.length,
-                limit,
-                offset,
-                count: paginatedData.length,
-                hasMore: offset + limit < mockMetaSectionsList.length
-            }
-        })
-    }),
-
-    // List entities
-    http.get(`${API_BASE_URL}/metahubs/:metahubId/meta_sections/:sectionId/meta_entities`, async ({ request }) => {
-        await delay(50)
-
-        const url = new URL(request.url)
-        const limit = parseInt(url.searchParams.get('limit') || '20')
-        const offset = parseInt(url.searchParams.get('offset') || '0')
-
-        const paginatedData = mockMetaEntitiesList.slice(offset, offset + limit)
-
-        return HttpResponse.json({
-            data: paginatedData,
-            pagination: {
-                total: mockMetaEntitiesList.length,
-                limit,
-                offset,
-                count: paginatedData.length,
-                hasMore: offset + limit < mockMetaEntitiesList.length
             }
         })
     }),

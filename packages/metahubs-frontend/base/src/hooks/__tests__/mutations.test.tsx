@@ -49,21 +49,21 @@ describe('metahubs mutation hooks', () => {
             removeMetahubMember: vi.fn().mockResolvedValue({ data: {} })
         }
 
-        const sectionsApi = {
-            createSection: vi.fn().mockResolvedValue({ data: { id: 's1' } }),
-            updateSection: vi.fn().mockResolvedValue({ data: { id: 's1' } }),
-            deleteSection: vi.fn().mockResolvedValue({ data: {} })
+        const hubsApi = {
+            createHub: vi.fn().mockResolvedValue({ id: 'h1' }),
+            updateHub: vi.fn().mockResolvedValue({ id: 'h1' }),
+            deleteHub: vi.fn().mockResolvedValue({ data: {} })
         }
 
-        const entitiesApi = {
-            createEntity: vi.fn().mockResolvedValue({ data: { id: 'e1' } }),
-            updateEntity: vi.fn().mockResolvedValue({ data: { id: 'e1' } }),
-            deleteEntity: vi.fn().mockResolvedValue({ data: {} })
+        const catalogsApi = {
+            createCatalog: vi.fn().mockResolvedValue({ id: 'c1' }),
+            updateCatalog: vi.fn().mockResolvedValue({ id: 'c1' }),
+            deleteCatalog: vi.fn().mockResolvedValue({ data: {} })
         }
 
         vi.doMock('../../api/metahubs', () => metahubsApi)
-        vi.doMock('../../api/metaSections', () => sectionsApi)
-        vi.doMock('../../api/metaEntities', () => entitiesApi)
+        vi.doMock('../../api/hubs', () => hubsApi)
+        vi.doMock('../../api/catalogs', () => catalogsApi)
 
         const hooks = await import('../mutations')
 
@@ -74,28 +74,12 @@ describe('metahubs mutation hooks', () => {
         let updateMetahub: ReturnType<typeof hooks.useUpdateMetahub> | undefined
         let deleteMetahub: ReturnType<typeof hooks.useDeleteMetahub> | undefined
 
-        let createSection: ReturnType<typeof hooks.useCreateSection> | undefined
-        let updateSection: ReturnType<typeof hooks.useUpdateSection> | undefined
-        let deleteSection: ReturnType<typeof hooks.useDeleteSection> | undefined
-
-        let createEntity: ReturnType<typeof hooks.useCreateEntity> | undefined
-        let updateEntity: ReturnType<typeof hooks.useUpdateEntity> | undefined
-        let deleteEntity: ReturnType<typeof hooks.useDeleteEntity> | undefined
-
         let memberMutations: ReturnType<typeof hooks.useMemberMutations> | undefined
 
         function Probe() {
             createMetahub = hooks.useCreateMetahub()
             updateMetahub = hooks.useUpdateMetahub()
             deleteMetahub = hooks.useDeleteMetahub()
-
-            createSection = hooks.useCreateSection()
-            updateSection = hooks.useUpdateSection()
-            deleteSection = hooks.useDeleteSection()
-
-            createEntity = hooks.useCreateEntity()
-            updateEntity = hooks.useUpdateEntity()
-            deleteEntity = hooks.useDeleteEntity()
 
             memberMutations = hooks.useMemberMutations('m1')
 
@@ -112,14 +96,6 @@ describe('metahubs mutation hooks', () => {
             await createMetahub!.mutateAsync({ name: 'Name', description: 'Desc' })
             await updateMetahub!.mutateAsync({ id: 'm1', data: { name: 'Name2' } })
             await deleteMetahub!.mutateAsync('m1')
-
-            await createSection!.mutateAsync({ name: 'S', metahubId: 'm1', description: 'd' })
-            await updateSection!.mutateAsync({ id: 's1', data: { name: 'S2' } })
-            await deleteSection!.mutateAsync('s1')
-
-            await createEntity!.mutateAsync({ name: 'E', sectionId: 's1', description: 'd' })
-            await updateEntity!.mutateAsync({ id: 'e1', data: { name: 'E2' } })
-            await deleteEntity!.mutateAsync('e1')
 
             await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
             await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
@@ -140,14 +116,6 @@ describe('metahubs mutation hooks', () => {
             descriptionPrimaryLocale: undefined
         })
         expect(metahubsApi.deleteMetahub).toHaveBeenCalledWith('m1')
-
-        expect(sectionsApi.createSection).toHaveBeenCalledTimes(1)
-        expect(sectionsApi.updateSection).toHaveBeenCalledWith('s1', { name: 'S2' })
-        expect(sectionsApi.deleteSection).toHaveBeenCalledWith('s1')
-
-        expect(entitiesApi.createEntity).toHaveBeenCalledTimes(1)
-        expect(entitiesApi.updateEntity).toHaveBeenCalledWith('e1', { name: 'E2' })
-        expect(entitiesApi.deleteEntity).toHaveBeenCalledWith('e1')
 
         expect(metahubsApi.inviteMetahubMember).toHaveBeenCalledWith('m1', { email: 'a@b.c', role: 'viewer' })
         expect(metahubsApi.updateMetahubMemberRole).toHaveBeenCalledWith('m1', 'u1', { role: 'admin' })
@@ -187,15 +155,15 @@ describe('metahubs mutation hooks', () => {
         }
 
         vi.doMock('../../api/metahubs', () => metahubsApi)
-        vi.doMock('../../api/metaSections', () => ({
-            createSection: vi.fn(),
-            updateSection: vi.fn(),
-            deleteSection: vi.fn()
+        vi.doMock('../../api/hubs', () => ({
+            createHub: vi.fn(),
+            updateHub: vi.fn(),
+            deleteHub: vi.fn()
         }))
-        vi.doMock('../../api/metaEntities', () => ({
-            createEntity: vi.fn(),
-            updateEntity: vi.fn(),
-            deleteEntity: vi.fn()
+        vi.doMock('../../api/catalogs', () => ({
+            createCatalog: vi.fn(),
+            updateCatalog: vi.fn(),
+            deleteCatalog: vi.fn()
         }))
 
         const hooks = await import('../mutations')

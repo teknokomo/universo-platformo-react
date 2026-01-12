@@ -7,6 +7,7 @@ import { Profile } from '@universo/profile-backend'
 import { Project, ProjectUser } from '@universo/projects-backend'
 import { Campaign, CampaignMember } from '@universo/campaigns-backend'
 import { Cluster, ClusterUser } from '@universo/clusters-backend'
+import { getRequestManager } from '@universo/utils/database'
 
 /**
  * System admin email - source of truth for onboarding items
@@ -60,16 +61,17 @@ export function createOnboardingRoutes(
         }
 
         const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
 
         try {
             // Check if user has completed onboarding
-            const profile = await ds.manager.findOne(Profile, {
+            const profile = await manager.findOne(Profile, {
                 where: { user_id: userId }
             })
             const onboardingCompleted = profile?.onboarding_completed ?? false
 
             // Find system admin by email (portable across databases)
-            const adminUser = await ds.manager.findOne(AuthUser, {
+            const adminUser = await manager.findOne(AuthUser, {
                 where: { email: SYSTEM_ADMIN_EMAIL }
             })
 
@@ -85,51 +87,51 @@ export function createOnboardingRoutes(
             const adminId = adminUser.id
 
             // Get Projects where admin is owner
-            const adminProjectLinks = await ds.manager.find(ProjectUser, {
+            const adminProjectLinks = await manager.find(ProjectUser, {
                 where: { user_id: adminId, role: 'owner' }
             })
             const projectIds = adminProjectLinks.map((l) => l.project_id)
             const projects =
-                projectIds.length > 0 ? await ds.manager.find(Project, { where: { id: In(projectIds) } }) : []
+                projectIds.length > 0 ? await manager.find(Project, { where: { id: In(projectIds) } }) : []
 
             // Get user's current project memberships
             const userProjectLinks =
                 projectIds.length > 0
-                    ? await ds.manager.find(ProjectUser, {
+                    ? await manager.find(ProjectUser, {
                           where: { user_id: userId, project_id: In(projectIds) }
                       })
                     : []
             const userProjectIds = new Set(userProjectLinks.map((l) => l.project_id))
 
             // Get Campaigns where admin is owner
-            const adminCampaignLinks = await ds.manager.find(CampaignMember, {
+            const adminCampaignLinks = await manager.find(CampaignMember, {
                 where: { user_id: adminId, role: 'owner' }
             })
             const campaignIds = adminCampaignLinks.map((l) => l.campaign_id)
             const campaigns =
-                campaignIds.length > 0 ? await ds.manager.find(Campaign, { where: { id: In(campaignIds) } }) : []
+                campaignIds.length > 0 ? await manager.find(Campaign, { where: { id: In(campaignIds) } }) : []
 
             // Get user's current campaign memberships
             const userCampaignLinks =
                 campaignIds.length > 0
-                    ? await ds.manager.find(CampaignMember, {
+                    ? await manager.find(CampaignMember, {
                           where: { user_id: userId, campaign_id: In(campaignIds) }
                       })
                     : []
             const userCampaignIds = new Set(userCampaignLinks.map((l) => l.campaign_id))
 
             // Get Clusters where admin is owner
-            const adminClusterLinks = await ds.manager.find(ClusterUser, {
+            const adminClusterLinks = await manager.find(ClusterUser, {
                 where: { user_id: adminId, role: 'owner' }
             })
             const clusterIds = adminClusterLinks.map((l) => l.cluster_id)
             const clusters =
-                clusterIds.length > 0 ? await ds.manager.find(Cluster, { where: { id: In(clusterIds) } }) : []
+                clusterIds.length > 0 ? await manager.find(Cluster, { where: { id: In(clusterIds) } }) : []
 
             // Get user's current cluster memberships
             const userClusterLinks =
                 clusterIds.length > 0
-                    ? await ds.manager.find(ClusterUser, {
+                    ? await manager.find(ClusterUser, {
                           where: { user_id: userId, cluster_id: In(clusterIds) }
                       })
                     : []
@@ -187,10 +189,11 @@ export function createOnboardingRoutes(
 
         const { projectIds, campaignIds, clusterIds } = parsed.data
         const ds = getDataSource()
+        const reqManager = getRequestManager(req, ds)
 
         try {
             // Verify system admin exists (security check)
-            const adminUser = await ds.manager.findOne(AuthUser, {
+            const adminUser = await reqManager.findOne(AuthUser, {
                 where: { email: SYSTEM_ADMIN_EMAIL }
             })
 
@@ -205,7 +208,7 @@ export function createOnboardingRoutes(
                 EntityClass: new () => T,
                 idField: keyof T
             ): Promise<Set<string>> => {
-                const links = await ds.manager.find(EntityClass, {
+                const links = await reqManager.find(EntityClass, {
                     where: {
                         user_id: adminId,
                         role: 'owner'

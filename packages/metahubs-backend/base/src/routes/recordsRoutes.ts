@@ -1,23 +1,14 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import { HubRecord } from '../database/entities/Record'
-import { Hub } from '../database/entities/Hub'
+import { Catalog } from '../database/entities/Catalog'
 import { Attribute, AttributeDataType, AttributeValidation } from '../database/entities/Attribute'
 import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { filterLocalizedContent, isLocalizedContent } from '@universo/utils'
 import { validateListQuery } from '../schemas/queryParams'
-import { escapeLikeWildcards } from '../utils'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const resolveUserId = (req: Request): string | undefined => {
@@ -195,26 +186,26 @@ export function createRecordsRoutes(
         const manager = getRequestManager(req, ds)
         return {
             recordRepo: manager.getRepository(HubRecord),
-            hubRepo: manager.getRepository(Hub),
+            catalogRepo: manager.getRepository(Catalog),
             attributeRepo: manager.getRepository(Attribute)
         }
     }
 
     /**
-     * GET /metahubs/:metahubId/hubs/:hubId/records
-     * List all records in a hub with optional filtering
+     * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
+     * List all records in a catalog with optional filtering
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/records',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId } = req.params
-            const { recordRepo, hubRepo } = repos(req)
+            const { catalogId } = req.params
+            const { recordRepo, catalogRepo } = repos(req)
 
-            // Verify hub exists
-            const hub = await hubRepo.findOne({ where: { id: hubId } })
-            if (!hub) {
-                return res.status(404).json({ error: 'Hub not found' })
+            // Verify catalog exists
+            const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
             }
 
             let validatedQuery
@@ -229,7 +220,7 @@ export function createRecordsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            let qb = recordRepo.createQueryBuilder('r').where('r.hubId = :hubId', { hubId })
+            let qb = recordRepo.createQueryBuilder('r').where('r.catalogId = :catalogId', { catalogId })
 
             if (search) {
                 const escapedSearch = escapeLikeWildcards(search)
@@ -256,18 +247,18 @@ export function createRecordsRoutes(
     )
 
     /**
-     * GET /metahubs/:metahubId/hubs/:hubId/records/:recordId
+     * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId
      * Get a single record
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/records/:recordId',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, recordId } = req.params
+            const { catalogId, recordId } = req.params
             const { recordRepo } = repos(req)
 
             const record = await recordRepo.findOne({
-                where: { id: recordId, hubId }
+                where: { id: recordId, catalogId }
             })
 
             if (!record) {
@@ -279,20 +270,20 @@ export function createRecordsRoutes(
     )
 
     /**
-     * POST /metahubs/:metahubId/hubs/:hubId/records
+     * POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
      * Create a new record with JSONB data validation
      */
     router.post(
-        '/metahubs/:metahubId/hubs/:hubId/records',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId } = req.params
-            const { recordRepo, hubRepo, attributeRepo } = repos(req)
+            const { catalogId } = req.params
+            const { recordRepo, catalogRepo, attributeRepo } = repos(req)
 
-            // Verify hub exists
-            const hub = await hubRepo.findOne({ where: { id: hubId } })
-            if (!hub) {
-                return res.status(404).json({ error: 'Hub not found' })
+            // Verify catalog exists
+            const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
             }
 
             const parsed = createRecordSchema.safeParse(req.body)
@@ -302,8 +293,8 @@ export function createRecordsRoutes(
 
             const { data, sortOrder } = parsed.data
 
-            // Get hub attributes for validation
-            const attributes = await attributeRepo.find({ where: { hubId } })
+            // Get catalog attributes for validation
+            const attributes = await attributeRepo.find({ where: { catalogId } })
 
             // Validate data against schema
             const validation = validateRecordData(data, attributes)
@@ -314,7 +305,7 @@ export function createRecordsRoutes(
             const userId = resolveUserId(req)
 
             const record = recordRepo.create({
-                hubId,
+                catalogId,
                 data,
                 ownerId: userId,
                 sortOrder: sortOrder ?? 0
@@ -326,17 +317,17 @@ export function createRecordsRoutes(
     )
 
     /**
-     * PATCH /metahubs/:metahubId/hubs/:hubId/records/:recordId
+     * PATCH /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId
      * Update a record
      */
     router.patch(
-        '/metahubs/:metahubId/hubs/:hubId/records/:recordId',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, recordId } = req.params
+            const { catalogId, recordId } = req.params
             const { recordRepo, attributeRepo } = repos(req)
 
-            const record = await recordRepo.findOne({ where: { id: recordId, hubId } })
+            const record = await recordRepo.findOne({ where: { id: recordId, catalogId } })
             if (!record) {
                 return res.status(404).json({ error: 'Record not found' })
             }
@@ -352,8 +343,8 @@ export function createRecordsRoutes(
                 // Merge new data with existing
                 const mergedData = { ...record.data, ...data }
 
-                // Get hub attributes for validation
-                const attributes = await attributeRepo.find({ where: { hubId } })
+                // Get catalog attributes for validation
+                const attributes = await attributeRepo.find({ where: { catalogId } })
 
                 // Validate merged data
                 const validation = validateRecordData(mergedData, attributes)
@@ -374,17 +365,17 @@ export function createRecordsRoutes(
     )
 
     /**
-     * DELETE /metahubs/:metahubId/hubs/:hubId/records/:recordId
+     * DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId
      * Delete a record
      */
     router.delete(
-        '/metahubs/:metahubId/hubs/:hubId/records/:recordId',
+        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { hubId, recordId } = req.params
+            const { catalogId, recordId } = req.params
             const { recordRepo } = repos(req)
 
-            const record = await recordRepo.findOne({ where: { id: recordId, hubId } })
+            const record = await recordRepo.findOne({ where: { id: recordId, catalogId } })
             if (!record) {
                 return res.status(404).json({ error: 'Record not found' })
             }
