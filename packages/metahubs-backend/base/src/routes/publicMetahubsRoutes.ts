@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { Metahub } from '../database/entities/Metahub'
 import { Hub } from '../database/entities/Hub'
+import { Catalog } from '../database/entities/Catalog'
+import { CatalogHub } from '../database/entities/CatalogHub'
 import { Attribute } from '../database/entities/Attribute'
 import { HubRecord } from '../database/entities/Record'
 
@@ -12,6 +14,8 @@ import { HubRecord } from '../database/entities/Record'
  * These routes do NOT require authentication.
  * Only metahubs with isPublic=true are accessible.
  * All operations are read-only.
+ *
+ * Hierarchy: Metahub → Hub → Catalog → Attributes/Records
  */
 export function createPublicMetahubsRoutes(getDataSource: () => DataSource, readLimiter: RateLimitRequestHandler): Router {
     const router = Router({ mergeParams: true })
@@ -27,6 +31,8 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         return {
             metahubRepo: ds.getRepository(Metahub),
             hubRepo: ds.getRepository(Hub),
+            catalogRepo: ds.getRepository(Catalog),
+            catalogHubRepo: ds.getRepository(CatalogHub),
             attributeRepo: ds.getRepository(Attribute),
             recordRepo: ds.getRepository(HubRecord)
         }
@@ -115,15 +121,15 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
     )
 
     /**
-     * GET /api/public/metahubs/:slug/hubs/:hubCodename/attributes
-     * List all attributes of a hub in a public metahub
+     * GET /api/public/metahubs/:slug/hubs/:hubCodename/catalogs
+     * List all catalogs in a hub of a public metahub
      */
     router.get(
-        '/:slug/hubs/:hubCodename/attributes',
+        '/:slug/hubs/:hubCodename/catalogs',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename } = req.params
-            const { metahubRepo, hubRepo, attributeRepo } = repos()
+            const { metahubRepo, hubRepo, catalogRepo, catalogHubRepo } = repos()
 
             const metahub = await metahubRepo.findOne({
                 where: { slug, isPublic: true }
@@ -141,8 +147,123 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            const attributes = await attributeRepo.find({
+            // Get catalogs associated with this hub via junction table
+            const catalogHubs = await catalogHubRepo.find({
                 where: { hubId: hub.id },
+                order: { sortOrder: 'ASC' }
+            })
+
+            if (catalogHubs.length === 0) {
+                return res.json({ items: [], pagination: { total: 0, limit: 100, offset: 0 } })
+            }
+
+            const catalogIds = catalogHubs.map((ch) => ch.catalogId)
+            const catalogs = await catalogRepo
+                .createQueryBuilder('c')
+                .where('c.id IN (:...catalogIds)', { catalogIds })
+                .orderBy('c.sortOrder', 'ASC')
+                .addOrderBy('c.createdAt', 'ASC')
+                .getMany()
+
+            res.json({ items: catalogs, pagination: { total: catalogs.length, limit: 100, offset: 0 } })
+        })
+    )
+
+    /**
+     * GET /api/public/metahubs/:slug/hubs/:hubCodename/catalogs/:catalogCodename
+     * Get a catalog by codename in a public metahub
+     */
+    router.get(
+        '/:slug/hubs/:hubCodename/catalogs/:catalogCodename',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { slug, hubCodename, catalogCodename } = req.params
+            const { metahubRepo, hubRepo, catalogRepo, catalogHubRepo } = repos()
+
+            const metahub = await metahubRepo.findOne({
+                where: { slug, isPublic: true }
+            })
+
+            if (!metahub) {
+                return res.status(404).json({ error: 'Metahub not found or not public' })
+            }
+
+            const hub = await hubRepo.findOne({
+                where: { metahubId: metahub.id, codename: hubCodename }
+            })
+
+            if (!hub) {
+                return res.status(404).json({ error: 'Hub not found' })
+            }
+
+            // Find catalog by codename within this metahub
+            const catalog = await catalogRepo.findOne({
+                where: { metahubId: metahub.id, codename: catalogCodename }
+            })
+
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            // Verify catalog is associated with this hub
+            const catalogHub = await catalogHubRepo.findOne({
+                where: { catalogId: catalog.id, hubId: hub.id }
+            })
+
+            if (!catalogHub) {
+                return res.status(404).json({ error: 'Catalog not found in this hub' })
+            }
+
+            res.json(catalog)
+        })
+    )
+
+    /**
+     * GET /api/public/metahubs/:slug/hubs/:hubCodename/catalogs/:catalogCodename/attributes
+     * List all attributes of a catalog in a public metahub
+     */
+    router.get(
+        '/:slug/hubs/:hubCodename/catalogs/:catalogCodename/attributes',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { slug, hubCodename, catalogCodename } = req.params
+            const { metahubRepo, hubRepo, catalogRepo, catalogHubRepo, attributeRepo } = repos()
+
+            const metahub = await metahubRepo.findOne({
+                where: { slug, isPublic: true }
+            })
+
+            if (!metahub) {
+                return res.status(404).json({ error: 'Metahub not found or not public' })
+            }
+
+            const hub = await hubRepo.findOne({
+                where: { metahubId: metahub.id, codename: hubCodename }
+            })
+
+            if (!hub) {
+                return res.status(404).json({ error: 'Hub not found' })
+            }
+
+            const catalog = await catalogRepo.findOne({
+                where: { metahubId: metahub.id, codename: catalogCodename }
+            })
+
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            // Verify catalog is associated with this hub
+            const catalogHub = await catalogHubRepo.findOne({
+                where: { catalogId: catalog.id, hubId: hub.id }
+            })
+
+            if (!catalogHub) {
+                return res.status(404).json({ error: 'Catalog not found in this hub' })
+            }
+
+            const attributes = await attributeRepo.find({
+                where: { catalogId: catalog.id },
                 order: { sortOrder: 'ASC', createdAt: 'ASC' }
             })
 
@@ -151,16 +272,16 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
     )
 
     /**
-     * GET /api/public/metahubs/:slug/hubs/:hubCodename/records
-     * List all records in a hub (with pagination)
+     * GET /api/public/metahubs/:slug/hubs/:hubCodename/catalogs/:catalogCodename/records
+     * List all records in a catalog (with pagination)
      */
     router.get(
-        '/:slug/hubs/:hubCodename/records',
+        '/:slug/hubs/:hubCodename/catalogs/:catalogCodename/records',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { slug, hubCodename } = req.params
+            const { slug, hubCodename, catalogCodename } = req.params
             const { limit = '100', offset = '0' } = req.query
-            const { metahubRepo, hubRepo, recordRepo } = repos()
+            const { metahubRepo, hubRepo, catalogRepo, catalogHubRepo, recordRepo } = repos()
 
             const metahub = await metahubRepo.findOne({
                 where: { slug, isPublic: true }
@@ -178,8 +299,25 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
+            const catalog = await catalogRepo.findOne({
+                where: { metahubId: metahub.id, codename: catalogCodename }
+            })
+
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            // Verify catalog is associated with this hub
+            const catalogHub = await catalogHubRepo.findOne({
+                where: { catalogId: catalog.id, hubId: hub.id }
+            })
+
+            if (!catalogHub) {
+                return res.status(404).json({ error: 'Catalog not found in this hub' })
+            }
+
             const [records, total] = await recordRepo.findAndCount({
-                where: { hubId: hub.id },
+                where: { catalogId: catalog.id },
                 order: { sortOrder: 'ASC', createdAt: 'DESC' },
                 take: Math.min(parseInt(limit as string, 10), 1000),
                 skip: parseInt(offset as string, 10)
@@ -197,15 +335,15 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
     )
 
     /**
-     * GET /api/public/metahubs/:slug/hubs/:hubCodename/records/:recordId
+     * GET /api/public/metahubs/:slug/hubs/:hubCodename/catalogs/:catalogCodename/records/:recordId
      * Get a single record by ID
      */
     router.get(
-        '/:slug/hubs/:hubCodename/records/:recordId',
+        '/:slug/hubs/:hubCodename/catalogs/:catalogCodename/records/:recordId',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { slug, hubCodename, recordId } = req.params
-            const { metahubRepo, hubRepo, recordRepo } = repos()
+            const { slug, hubCodename, catalogCodename, recordId } = req.params
+            const { metahubRepo, hubRepo, catalogRepo, catalogHubRepo, recordRepo } = repos()
 
             const metahub = await metahubRepo.findOne({
                 where: { slug, isPublic: true }
@@ -223,8 +361,25 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
+            const catalog = await catalogRepo.findOne({
+                where: { metahubId: metahub.id, codename: catalogCodename }
+            })
+
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            // Verify catalog is associated with this hub
+            const catalogHub = await catalogHubRepo.findOne({
+                where: { catalogId: catalog.id, hubId: hub.id }
+            })
+
+            if (!catalogHub) {
+                return res.status(404).json({ error: 'Catalog not found in this hub' })
+            }
+
             const record = await recordRepo.findOne({
-                where: { id: recordId, hubId: hub.id }
+                where: { id: recordId, catalogId: catalog.id }
             })
 
             if (!record) {

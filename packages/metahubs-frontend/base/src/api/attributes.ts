@@ -2,15 +2,16 @@ import apiClient from './apiClient'
 import { Attribute, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
 
 /**
- * List attributes for a specific hub
+ * List attributes for a specific catalog
  */
 export const listAttributes = async (
     metahubId: string,
     hubId: string,
+    catalogId: string,
     params?: PaginationParams
 ): Promise<PaginatedResponse<Attribute>> => {
     const response = await apiClient.get<{ items: Attribute[]; pagination: { total: number; limit: number; offset: number } }>(
-        `/metahubs/${metahubId}/hubs/${hubId}/attributes`,
+        `/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes`,
         {
             params: {
                 limit: params?.limit,
@@ -39,8 +40,8 @@ export const listAttributes = async (
 /**
  * Get a single attribute
  */
-export const getAttribute = (metahubId: string, hubId: string, attributeId: string) =>
-    apiClient.get<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}`)
+export const getAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string) =>
+    apiClient.get<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes/${attributeId}`)
 
 /**
  * Create a new attribute
@@ -48,14 +49,15 @@ export const getAttribute = (metahubId: string, hubId: string, attributeId: stri
 export const createAttribute = (
     metahubId: string,
     hubId: string,
+    catalogId: string,
     data: AttributeLocalizedPayload & {
-        targetHubId?: string
+        targetCatalogId?: string
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
         sortOrder?: number
     }
-) => apiClient.post<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes`, data)
+) => apiClient.post<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes`, data)
 
 /**
  * Update an attribute
@@ -63,24 +65,25 @@ export const createAttribute = (
 export const updateAttribute = (
     metahubId: string,
     hubId: string,
+    catalogId: string,
     attributeId: string,
     data: AttributeLocalizedPayload & {
-        targetHubId?: string | null
+        targetCatalogId?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
         sortOrder?: number
     }
-) => apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}`, data)
+) => apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes/${attributeId}`, data)
 
 /**
  * Delete an attribute
  */
-export const deleteAttribute = (metahubId: string, hubId: string, attributeId: string) =>
-    apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}`)
+export const deleteAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string) =>
+    apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes/${attributeId}`)
 
 /**
- * Move attribute within a hub (reorder)
+ * Move attribute within a catalog (reorder)
  */
-export const moveAttribute = (metahubId: string, hubId: string, attributeId: string, direction: 'up' | 'down') =>
-    apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/attributes/${attributeId}/move`, { direction })
+export const moveAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string, direction: 'up' | 'down') =>
+    apiClient.patch<Attribute>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes/${attributeId}/move`, { direction })

@@ -51,6 +51,11 @@
             "import": "./dist/validation/codename.mjs",
             "require": "./dist/validation/codename.js",
             "types": "./dist/validation/codename.d.ts"
+        },
+        "./database": {
+            "import": "./dist/database/index.mjs",
+            "require": "./dist/database/index.js",
+            "types": "./dist/database/index.d.ts"
         }
     },
     "sideEffects": false,

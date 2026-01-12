@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, TextField, Divider } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, Divider } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -26,18 +26,20 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
 import { useCreateHub, useUpdateHub, useDeleteHub } from '../hooks/mutations'
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
 import * as hubsApi from '../api/hubs'
 import { metahubsQueryKeys, invalidateHubsQueries } from '../api/queryKeys'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Hub, HubDisplay, HubLocalizedPayload, getVLCString, toHubDisplay } from '../types'
 import { sanitizeCodename, isValidCodename } from '../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
-import { CodenameField } from '../components'
+import { CodenameField, HubDeleteDialog } from '../components'
 import hubActions from './HubActions'
 
 type HubFormValues = {
@@ -134,7 +136,7 @@ const HubList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('metahubsHubDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.HUB_DISPLAY_STYLE)
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -255,30 +257,14 @@ const HubList = () => {
     const hubColumns = useMemo(
         () => [
             {
-                id: 'codename',
-                label: t('hubs.codename', 'Codename'),
-                width: '15%',
-                align: 'left' as const,
-                render: (row: HubDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 600,
-                            fontFamily: 'monospace',
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.codename || '—'}
-                    </Typography>
-                )
-            },
-            {
                 id: 'name',
                 label: tc('table.name', 'Name'),
                 width: '25%',
                 align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: HubDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: HubDisplay) => (
-                    <Link to={`/metahub/${metahubId}/hubs/${row.id}/attributes`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <Link to={`/metahub/${metahubId}/hub/${row.id}/catalogs`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,
@@ -300,6 +286,8 @@ const HubList = () => {
                 label: tc('table.description', 'Description'),
                 width: '30%',
                 align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: HubDisplay) => row.description?.toLowerCase() ?? '',
                 render: (row: HubDisplay) => (
                     <Typography
                         sx={{
@@ -312,21 +300,34 @@ const HubList = () => {
                 )
             },
             {
-                id: 'attributesCount',
-                label: t('hubs.attributesCount', 'Attributes'),
-                width: '10%',
-                align: 'center' as const,
-                render: (row: HubDisplay) => (typeof row.attributesCount === 'number' ? row.attributesCount : '—')
+                id: 'codename',
+                label: t('hubs.codename', 'Codename'),
+                width: '15%',
+                align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: HubDisplay) => row.codename?.toLowerCase() ?? '',
+                render: (row: HubDisplay) => (
+                    <Typography
+                        sx={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            fontFamily: 'monospace',
+                            wordBreak: 'break-word'
+                        }}
+                    >
+                        {row.codename || '—'}
+                    </Typography>
+                )
             },
             {
-                id: 'recordsCount',
-                label: t('hubs.recordsCount', 'Records'),
+                id: 'catalogsCount',
+                label: t('catalogs.title', 'Catalogs'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: HubDisplay) => (typeof row.recordsCount === 'number' ? row.recordsCount : '—')
+                render: (row: HubDisplay) => (typeof row.catalogsCount === 'number' ? row.catalogsCount : '—')
             }
         ],
-        [t, tc]
+        [t, tc, metahubId]
     )
 
     const createHubContext = useCallback(
@@ -379,8 +380,12 @@ const HubList = () => {
                         enqueueSnackbar(payload.message, payload.options)
                     }
                 },
-                openDeleteDialog: (hub: Hub) => {
-                    setDeleteDialogState({ open: true, hub })
+                openDeleteDialog: (hubOrDisplay: Hub | HubDisplay) => {
+                    // Handle both Hub and HubDisplay (from BaseEntityMenu context)
+                    const hub = 'metahubId' in hubOrDisplay ? hubOrDisplay : hubMap.get(hubOrDisplay.id)
+                    if (hub) {
+                        setDeleteDialogState({ open: true, hub })
+                    }
                 }
             }
         }),
@@ -460,13 +465,12 @@ const HubList = () => {
     }
 
     const goToHub = (hub: Hub) => {
-        navigate(`/metahub/${metahubId}/hubs/${hub.id}/attributes`)
+        navigate(`/metahub/${metahubId}/hub/${hub.id}/catalogs`)
     }
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('metahubsHubDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     // Transform Hub data for display (ItemCard and FlowListTable expect string name)
@@ -554,9 +558,9 @@ const HubList = () => {
                                                 images={images[hub.id] || []}
                                                 onClick={() => goToHub(hub)}
                                                 footerEndContent={
-                                                    typeof hub.attributesCount === 'number' ? (
+                                                    typeof hub.catalogsCount === 'number' ? (
                                                         <Typography variant='caption' color='text.secondary'>
-                                                            {hub.attributesCount} {t('hubs.attributesCount', 'Attributes')}
+                                                            {t('hubs.catalogsCount', { count: hub.catalogsCount })}
                                                         </Typography>
                                                     ) : null
                                                 }
@@ -593,7 +597,7 @@ const HubList = () => {
                                         data={hubs.map(getHubCardData)}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: any) => (row?.id ? `/metahub/${metahubId}/hubs/${row.id}/attributes` : undefined)}
+                                        getRowLink={(row: any) => (row?.id ? `/metahub/${metahubId}/hub/${row.id}/catalogs` : undefined)}
                                         customColumns={hubColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: any) => {
@@ -655,39 +659,36 @@ const HubList = () => {
                 canSave={canSaveHubForm}
             />
 
-            {/* Independent ConfirmDeleteDialog */}
-            <ConfirmDeleteDialog
+            {/* Hub delete dialog with blocking catalogs check */}
+            <HubDeleteDialog
                 open={deleteDialogState.open}
-                title={t('hubs.deleteDialog.title')}
-                description={t('hubs.deleteDialog.message')}
-                confirmButtonText={tc('actions.delete', 'Delete')}
-                deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, hub: null })}
-                onConfirm={async () => {
-                    if (deleteDialogState.hub) {
-                        try {
-                            await deleteHubMutation.mutateAsync({
-                                metahubId,
-                                hubId: deleteDialogState.hub.id
-                            })
-                            setDeleteDialogState({ open: false, hub: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('hubs.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, hub: null })
-                        }
+                hub={deleteDialogState.hub}
+                metahubId={metahubId}
+                onClose={() => setDeleteDialogState({ open: false, hub: null })}
+                onConfirm={async (hub) => {
+                    try {
+                        await deleteHubMutation.mutateAsync({
+                            metahubId,
+                            hubId: hub.id
+                        })
+                        setDeleteDialogState({ open: false, hub: null })
+                    } catch (err: unknown) {
+                        const responseMessage =
+                            err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                        const message =
+                            typeof responseMessage === 'string'
+                                ? responseMessage
+                                : err instanceof Error
+                                ? err.message
+                                : typeof err === 'string'
+                                ? err
+                                : t('hubs.deleteError')
+                        enqueueSnackbar(message, { variant: 'error' })
+                        setDeleteDialogState({ open: false, hub: null })
                     }
                 }}
+                isDeleting={deleteHubMutation.isPending}
+                uiLocale={i18n.language}
             />
 
             <ConfirmDialog />

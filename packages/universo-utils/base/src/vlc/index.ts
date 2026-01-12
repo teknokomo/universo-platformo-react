@@ -169,3 +169,13 @@ export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedConte
 
 // Re-export sanitize utilities for backend use
 export { sanitizeLocalizedInput, buildLocalizedContent } from './sanitize'
+
+// Re-export getter utilities for frontend/backend use
+export {
+    getVLCString,
+    getVLCStringWithFallback,
+    getSimpleLocalizedValue,
+    normalizeLocale,
+    type SimpleLocalizedInput,
+    type VersatileLocalizedContent
+} from './getters'

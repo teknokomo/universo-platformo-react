@@ -10,6 +10,7 @@ interface MetahubsBundle {
     meta_entities?: Record<string, unknown>
     members?: Record<string, unknown>
     hubs?: Record<string, unknown>
+    catalogs?: Record<string, unknown>
     attributes?: Record<string, unknown>
     records?: Record<string, unknown>
     common?: Record<string, unknown>
@@ -22,6 +23,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => ({
     meta_entities: bundle?.meta_entities ?? {},
     members: bundle?.members ?? {},
     hubs: bundle?.hubs ?? {},
+    catalogs: bundle?.catalogs ?? {},
     attributes: bundle?.attributes ?? {},
     records: bundle?.records ?? {},
     common: bundle?.common ?? {},

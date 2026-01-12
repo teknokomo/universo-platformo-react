@@ -1,7 +1,6 @@
 ﻿import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import type { CampaignRole } from '@universo/types'
 import { Event } from '../database/entities/Event'
 import { Campaign } from '../database/entities/Campaign'
@@ -12,15 +11,7 @@ import { ActivityEvent } from '../database/entities/ActivityEvent'
 import { ensureEventAccess, ensureCampaignAccess, ensureActivityAccess, ROLE_PERMISSIONS } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
-import { escapeLikeWildcards } from '../utils'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user

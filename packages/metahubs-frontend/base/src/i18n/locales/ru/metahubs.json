@@ -25,15 +25,15 @@
             "defaultDescription": "Аналитика и статистика метахаба",
             "overview": "Обзор",
             "stats": {
-                "meta_sections": {
-                    "title": "Секции",
+                "hubs": {
+                    "title": "Хабы",
                     "interval": "За всё время",
-                    "description": "Всего секций в этом метахабе"
+                    "description": "Всего хабов в этом метахабе"
                 },
-                "meta_entities": {
-                    "title": "Сущности",
+                "catalogs": {
+                    "title": "Каталоги",
                     "interval": "За всё время",
-                    "description": "Всего сущностей во всех секциях"
+                    "description": "Всего каталогов во всех хабах"
                 },
                 "members": {
                     "title": "Участники",
@@ -67,56 +67,8 @@
         "table": {
             "description": "Описание",
             "role": "Роль",
-            "meta_sections": "Секции",
-            "meta_entities": "Сущности"
-        }
-    },
-    "meta_sections": {
-        "title": "Секции",
-        "searchPlaceholder": "Поиск секций...",
-        "noMetaSectionsFound": "Секции не найдены",
-        "createSection": "Создать секцию",
-        "editTitle": "Редактировать секцию",
-        "confirmDelete": "Удалить секцию?",
-        "confirmDeleteDescription": "Вы уверены, что хотите удалить секцию \"{{name}}\"? Все сущности в этой секции также будут удалены.",
-        "deleteSuccess": "Секция успешно удалена",
-        "deleteError": "Не удалось удалить секцию",
-        "saveError": "Не удалось сохранить секцию",
-        "entityCount_one": "{{count}} сущность",
-        "entityCount_few": "{{count}} сущности",
-        "entityCount_many": "{{count}} сущностей",
-        "entityCount_other": "{{count}} сущностей",
-        "actions": {
-            "edit": "Редактировать секцию",
-            "delete": "Удалить секцию"
-        },
-        "table": {
-            "description": "Описание",
-            "meta_entities": "Сущности"
-        }
-    },
-    "meta_entities": {
-        "title": "Сущности",
-        "searchPlaceholder": "Поиск сущностей...",
-        "noMetaEntitiesFound": "Сущности не найдены",
-        "createEntity": "Создать сущность",
-        "editTitle": "Редактировать сущность",
-        "confirmDelete": "Удалить сущность?",
-        "confirmDeleteDescription": "Вы уверены, что хотите удалить сущность \"{{name}}\"?",
-        "deleteSuccess": "Сущность успешно удалена",
-        "deleteError": "Не удалось удалить сущность",
-        "saveError": "Не удалось сохранить сущность",
-        "sectionLabel": "Секция",
-        "noMetaSectionsAvailable": "Нет доступных секций",
-        "errors": {
-            "sectionRequired": "Секция обязательна"
-        },
-        "actions": {
-            "edit": "Редактировать сущность",
-            "delete": "Удалить сущность"
-        },
-        "table": {
-            "description": "Описание"
+            "hubs": "Хабы",
+            "catalogs": "Каталоги"
         }
     },
     "hubs": {
@@ -135,15 +87,22 @@
         },
         "deleteDialog": {
             "title": "Удалить хаб",
-            "message": "Вы уверены, что хотите удалить этот хаб? Все атрибуты и записи будут безвозвратно удалены."
+            "message": "Вы уверены, что хотите удалить этот хаб? Все каталоги, атрибуты и записи будут безвозвратно удалены.",
+            "confirmMessage": "Вы уверены, что хотите удалить этот хаб? Это действие нельзя отменить.",
+            "fetchError": "Не удалось проверить блокирующие каталоги",
+            "hasBlockingCatalogs": "Нельзя удалить хаб. Следующие каталоги требуют хотя бы один хаб и привязаны только к этому:",
+            "resolutionHint": "Чтобы удалить этот хаб, сначала добавьте другой хаб к этим каталогам или отключите опцию «Должен быть хаб»."
         },
         "codename": "Кодовое имя",
         "codenameHelper": "Уникальный идентификатор для URL (латиница, строчные буквы, цифры, дефисы). Формируется из названия с транслитерацией. Можно редактировать вручную.",
         "nameEn": "Название (English)",
         "nameRu": "Название (Русский)",
         "descriptionEn": "Описание (English)",
-        "attributesCount": "Атрибуты",
-        "recordsCount": "Записи",
+        "catalogsCount": "каталоги",
+        "catalogsCount_one": "{{count}} каталог",
+        "catalogsCount_few": "{{count}} каталога",
+        "catalogsCount_many": "{{count}} каталогов",
+        "catalogsCount_other": "{{count}} каталогов",
         "createError": "Не удалось создать хаб",
         "updateError": "Не удалось обновить хаб",
         "deleteError": "Не удалось удалить хаб",
@@ -152,12 +111,80 @@
             "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы"
         }
     },
+    "catalogs": {
+        "title": "Каталоги",
+        "allTitle": "Каталоги",
+        "allDescription": "Все каталоги из всех хабов в этом метахабе",
+        "description": "Каталоги для организации атрибутов и записей в хабе",
+        "searchPlaceholder": "Поиск каталогов...",
+        "empty": "Каталогов пока нет",
+        "emptyDescription": "Создайте первый каталог для организации атрибутов и записей",
+        "emptyHint": "Создавайте каталоги в конкретных хабах",
+        "noSearchResults": "Каталоги не найдены",
+        "noSearchResultsHint": "Попробуйте другие поисковые запросы",
+        "create": "Создать каталог",
+        "editTitle": "Редактировать каталог",
+        "createDialog": {
+            "title": "Создать каталог"
+        },
+        "editDialog": {
+            "title": "Редактировать каталог"
+        },
+        "deleteDialog": {
+            "title": "Удалить каталог",
+            "message": "Вы уверены, что хотите удалить этот каталог? Все атрибуты и записи будут безвозвратно удалены."
+        },
+        "deleted": "Каталог удалён",
+        "deleteTitle": "Удалить каталог",
+        "deleteMessage": "Вы уверены, что хотите удалить этот каталог? Это действие нельзя отменить.",
+        "codename": "Кодовое имя",
+        "codenameHelper": "Уникальный идентификатор для URL (латиница, строчные буквы, цифры, дефисы). Формируется из названия с транслитерацией. Можно редактировать вручную.",
+        "nameEn": "Название (English)",
+        "nameRu": "Название (Русский)",
+        "descriptionEn": "Описание (English)",
+        "attributesHeader": "Атрибуты",
+        "attributesCount_one": "{{count}} атрибут",
+        "attributesCount_few": "{{count}} атрибута",
+        "attributesCount_many": "{{count}} атрибутов",
+        "attributesCount_other": "{{count}} атрибутов",
+        "recordsHeader": "Записи",
+        "recordsCount_one": "{{count}} зап.",
+        "recordsCount_few": "{{count}} зап.",
+        "recordsCount_many": "{{count}} зап.",
+        "recordsCount_other": "{{count}} зап.",
+        "countsHeader": "Элементы",
+        "createError": "Не удалось создать каталог",
+        "updateError": "Не удалось обновить каталог",
+        "deleteError": "Не удалось удалить каталог",
+        "validation": {
+            "codenameRequired": "Кодовое имя обязательно",
+            "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы",
+            "hubRequired": "Выберите хаб"
+        },
+        "tabs": {
+            "general": "Основное",
+            "hubs": "Хабы"
+        },
+        "addHub": "Добавить",
+        "removeHub": "Удалить",
+        "selectHubs": "Выберите хабы",
+        "noHubsSelected": "Хабы не выбраны",
+        "noHubsAvailable": "Нет доступных хабов",
+        "addSelected": "Добавить",
+        "isRequiredHub": "Должен быть хаб",
+        "isRequiredHubEnabled": "Каталог должен иметь хотя бы один хаб",
+        "isRequiredHubDisabled": "Каталог может существовать без хабов",
+        "isSingleHub": "Только один хаб",
+        "isSingleHubEnabled": "Каталог может быть только в одном хабе",
+        "isSingleHubDisabled": "Каталог может отображаться в нескольких хабах",
+        "isSingleHubWarning": "Нельзя включить, пока выбрано несколько хабов"
+    },
     "attributes": {
         "title": "Атрибуты",
-        "description": "Определите поля для этого хаба",
+        "description": "Определите поля для этого каталога",
         "searchPlaceholder": "Поиск атрибутов...",
         "empty": "Атрибутов пока нет",
-        "emptyDescription": "Добавьте атрибуты, чтобы определить структуру данных хаба",
+        "emptyDescription": "Добавьте атрибуты, чтобы определить структуру данных каталога",
         "create": "Добавить атрибут",
         "createDialog": {
             "title": "Добавить атрибут"
@@ -199,12 +226,12 @@
     },
     "records": {
         "title": "Записи",
-        "description": "Данные этого хаба",
+        "description": "Данные этого каталога",
         "searchPlaceholder": "Поиск записей...",
         "empty": "Записей пока нет",
-        "emptyDescription": "Добавьте записи для хранения данных в этом хабе",
-        "addAttributesFirst": "Сначала определите атрибуты для этого хаба",
-        "noAttributes": "Атрибуты для этого хаба не определены. Сначала добавьте атрибуты.",
+        "emptyDescription": "Добавьте записи для хранения данных в этом каталоге",
+        "addAttributesFirst": "Сначала определите атрибуты для этого каталога",
+        "noAttributes": "Атрибуты для этого каталога не определены. Сначала добавьте атрибуты.",
         "create": "Добавить запись",
         "createDialog": {
             "title": "Добавить запись"

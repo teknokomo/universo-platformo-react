@@ -1,2 +1,2 @@
 export { schemas } from './schemas'
-export { CODENAME_PATTERN, normalizeCodename, isValidCodename } from './codename'
+export { CODENAME_PATTERN, normalizeCodename, isValidCodename, sanitizeCodename } from './codename'

@@ -7,6 +7,14 @@ import { isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled } from '@
 import { Role } from '../database/entities/Role'
 import { UserRole } from '../database/entities/UserRole'
 
+// TODO: [RLS-REFACTOR] Several functions in this service use ds.manager directly.
+// This works because admin schema data is not RLS-protected, but for consistency,
+// consider refactoring these functions to accept queryRunner parameter:
+// - listGlobalUsers (lines ~331, 335)
+// - findUserIdByEmail (line ~367)
+// - grantRole (lines ~429, 430)
+// - getAssignment (lines ~530, 531)
+
 /**
  * Raw role row from database
  */
@@ -627,23 +635,37 @@ export function createGlobalAccessService({ getDataSource }: GlobalAccessService
 
 export type GlobalAccessService = ReturnType<typeof createGlobalAccessService>
 
+const runQueryWithOptionalRunner = async <T = unknown>(
+    ds: DataSource,
+    sql: string,
+    params: unknown[],
+    queryRunner?: QueryRunner
+): Promise<T[]> => {
+    if (queryRunner && !queryRunner.isReleased) {
+        return (await queryRunner.query(sql, params)) as T[]
+    }
+    return (await ds.query(sql, params)) as T[]
+}
+
 /**
  * Standalone function to check if user is superuser by DataSource
  * Used by access guards in other modules for superuser bypass
  * Returns false if SUPERUSER_ENABLED=false
  */
-export async function isSuperuserByDataSource(ds: DataSource, userId: string): Promise<boolean> {
+export async function isSuperuserByDataSource(ds: DataSource, userId: string, queryRunner?: QueryRunner): Promise<boolean> {
     // If superuser privileges are disabled, no one has RLS bypass
     if (!isSuperuserEnabled()) {
         return false
     }
 
-    const result = (await ds.query(
+    const result = await runQueryWithOptionalRunner<{ is_super: boolean }>(
+        ds,
         `
         SELECT admin.is_superuser($1::uuid) as is_super
     `,
-        [userId]
-    )) as { is_super: boolean }[]
+        [userId],
+        queryRunner
+    )
     return result[0]?.is_super ?? false
 }
 
@@ -652,7 +674,7 @@ export async function isSuperuserByDataSource(ds: DataSource, userId: string): P
  * Used by access guards and middleware
  * Returns false if ADMIN_PANEL_ENABLED=false or (GLOBAL_ROLES_ENABLED=false AND SUPERUSER_ENABLED=false)
  */
-export async function canAccessAdminByDataSource(ds: DataSource, userId: string): Promise<boolean> {
+export async function canAccessAdminByDataSource(ds: DataSource, userId: string, queryRunner?: QueryRunner): Promise<boolean> {
     // If admin panel is disabled, no admin panel access
     if (!isAdminPanelEnabled()) {
         return false
@@ -664,16 +686,23 @@ export async function canAccessAdminByDataSource(ds: DataSource, userId: string)
             return false
         }
         // Check if user is superuser
-        const superResult = (await ds.query(`SELECT admin.is_superuser($1::uuid) as is_super`, [userId])) as { is_super: boolean }[]
+        const superResult = await runQueryWithOptionalRunner<{ is_super: boolean }>(
+            ds,
+            `SELECT admin.is_superuser($1::uuid) as is_super`,
+            [userId],
+            queryRunner
+        )
         return superResult[0]?.is_super ?? false
     }
 
-    const result = (await ds.query(
+    const result = await runQueryWithOptionalRunner<{ can_access: boolean }>(
+        ds,
         `
         SELECT admin.has_admin_permission($1::uuid) as can_access
     `,
-        [userId]
-    )) as { can_access: boolean }[]
+        [userId],
+        queryRunner
+    )
     return result[0]?.can_access ?? false
 }
 
@@ -681,8 +710,9 @@ export async function canAccessAdminByDataSource(ds: DataSource, userId: string)
  * Standalone function to get global role codename (for backward compatibility)
  * Used by access guards for synthetic membership creation
  */
-export async function getGlobalRoleCodenameByDataSource(ds: DataSource, userId: string): Promise<string | null> {
-    const result = (await ds.query(
+export async function getGlobalRoleCodenameByDataSource(ds: DataSource, userId: string, queryRunner?: QueryRunner): Promise<string | null> {
+    const result = await runQueryWithOptionalRunner<{ role_codename: string }>(
+        ds,
         `
         SELECT r.codename as role_codename
         FROM admin.user_roles ur
@@ -690,8 +720,9 @@ export async function getGlobalRoleCodenameByDataSource(ds: DataSource, userId: 
         WHERE ur.user_id = $1
         LIMIT 1
     `,
-        [userId]
-    )) as { role_codename: string }[]
+        [userId],
+        queryRunner
+    )
     return result[0]?.role_codename ?? null
 }
 
@@ -706,17 +737,26 @@ export async function getGlobalRoleCodenameByDataSource(ds: DataSource, userId: 
  * @param action Action to check (default: 'read')
  * @returns true if user has permission, false otherwise
  */
-export async function hasSubjectPermissionByDataSource(ds: DataSource, userId: string, subject: string, action = 'read'): Promise<boolean> {
+export async function hasSubjectPermissionByDataSource(
+    ds: DataSource,
+    userId: string,
+    subject: string,
+    action = 'read',
+    queryRunner?: QueryRunner
+): Promise<boolean> {
     // If global roles are disabled, no one has subject-based global access
     if (!isGlobalRolesEnabled()) {
         return false
     }
 
-    const result = (await ds.query(
+    const result = await runQueryWithOptionalRunner<{ has_perm: boolean }>(
+        ds,
         `
         SELECT admin.has_permission($1::uuid, $2::varchar, $3::varchar) as has_perm
     `,
-        [userId, subject, action]
-    )) as { has_perm: boolean }[]
+
+        [userId, subject, action],
+        queryRunner
+    )
     return result[0]?.has_perm ?? false
 }

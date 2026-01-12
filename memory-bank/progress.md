@@ -31,7 +31,490 @@
 
 ---
 
+## 📅 2026-01-12
+
+### Catalogs Unit Tests Added — COMPLETE ✅
+
+- **Context**: QA audit identified test coverage gap for Catalogs routes
+- **New Test File**: `packages/metahubs-backend/base/src/tests/routes/catalogsRoutes.test.ts`
+  - 17 test cases covering all CRUD operations
+  - Tests for: GET list, POST create, DELETE direct, DELETE hub-scoped
+  - Validates: empty state, associations, validation errors, 404 cases, cascade delete
+- **Mock Infrastructure**: Extended MockRepository with `count` method in typeormMocks.ts
+- **All tests passing**: 17/17 ✅
+
+---
+
+## 📅 2026-01-11
+
+### QA Fixes: Catalog Deletion + SQL Injection + getRequestManager Centralization — COMPLETE ✅
+
+- **Context**: QA audit (8.5/10) + Bug report "Cannot delete catalog without hub association"
+- **Critical Bug Fix**:
+  - **Catalog Deletion**: Added direct DELETE endpoint `/metahubs/:metahubId/catalogs/:catalogId`
+  - Backend: new route in catalogsRoutes.ts without hubId requirement
+  - Frontend: `deleteCatalogDirect()` API function, updated `useDeleteCatalog` mutation
+  - UI: CatalogList `deleteEntity` updated to handle catalogs without hubs
+- **Security Fix**:
+  - Applied `escapeLikeWildcards()` to loadMembers in campaigns-backend and clusters-backend
+- **Code Consolidation (getRequestManager)**:
+  - Removed 19 local definitions across 8 backend packages
+  - All route handlers now import from `../utils` → `@universo/utils/database`
+  - Packages: campaigns, clusters, metahubs, organizations, metaverses, storages, admin, projects
+  - Created parserUtils.ts for admin-backend, updated tsconfig to moduleResolution: node16
+- **Build**: Full monorepo build successful (61 tasks)
+
+### QA Recommendations: Code Consolidation (Deferred Tasks) — COMPLETE ✅
+
+- **Context**: Completing the 3 low-priority deferred tasks from previous QA session
+- **Completed Tasks**:
+  1. **EntitySelectionPanel**: Generic component in `@universo/template-mui/components/selection/`
+     - Type params: `<T extends SelectableEntity>` with configurable labels, callbacks, columns
+     - HubSelectionPanel refactored to thin wrapper (~90 lines vs 325 original)
+  2. **BlockingEntitiesDeleteDialog**: Generic dialog in `@universo/template-mui/components/dialogs/`
+     - Type params: `<T extends DeletableEntity, B extends BlockingEntity>`
+     - Features: blocking entities check/display, async fetching, CompactListTable
+     - HubDeleteDialog refactored to thin wrapper (~120 lines vs 175 original)
+  3. **ds.manager → getRequestManager**: Applied pattern across all route handlers
+     - uniks-backend (2 calls), storages-backend (4 calls), start-backend (13+ calls)
+     - campaigns-backend (4 calls), clusters-backend (4 calls)
+     - admin-backend globalAccessService: documented as TODO (service layer without request context)
+- **Files Created**:
+  - `packages/universo-template-mui/base/src/components/selection/EntitySelectionPanel.tsx`
+  - `packages/universo-template-mui/base/src/components/selection/index.ts`
+  - `packages/universo-template-mui/base/src/components/dialogs/BlockingEntitiesDeleteDialog.tsx`
+  - `packages/universo-utils/base/src/database/manager.ts`
+- **Build**: Full monorepo build successful (61 tasks)
+
+### QA Recommendations: Code Consolidation — COMPLETE ✅
+
+- **Context**: Follow-up QA audit (8.5/10) identified code duplication and component extraction opportunities
+- **High Priority Fixes**:
+  - **escapeLikeWildcards**: Centralized to `@universo/utils` (was duplicated in 4 backends)
+  - **getVLCString**: Moved to `@universo/utils/vlc` with enhanced utilities (`getVLCStringWithFallback`, `getSimpleLocalizedValue`, `normalizeLocale`)
+- **Medium Priority Fixes**:
+  - **sanitizeCodename**: Added wrapper to `@universo/utils/validation/codename`
+  - **CodenameField**: Extracted to `@universo/template-mui/components/forms`, metahubs-frontend now re-exports
+- **Files Created**:
+  - `packages/universo-utils/base/src/database/escaping.ts`
+  - `packages/universo-utils/base/src/database/index.ts`
+  - `packages/universo-utils/base/src/vlc/getters.ts`
+  - `packages/universo-template-mui/base/src/components/forms/CodenameField.tsx`
+- **Deferred (Low Priority)**:
+  - HubSelectionPanel → EntitySelectionPanel (~4h)
+  - HubDeleteDialog → BlockingEntitiesDeleteDialog (~4h)
+  - ds.manager.* pattern → getRequestManager (~3h)
+- **Build**: Full monorepo build successful (61 tasks)
+
+### QA Fixes: QueryRunner Consistency + escapeLikeWildcards — COMPLETE ✅
+
+- **Context**: QA audit rated codebase 7.5/10, identified 4 critical/recommended issues:
+  1. `ds.query()` calls in admin-backend without QueryRunner
+  2. Missing `escapeLikeWildcards` in admin-backend search endpoints (SQL wildcard injection)
+  3. `createAccessGuards` factory not supporting QueryRunner parameter
+  4. `ds.manager.find()` without request-scoped manager in loadMembers
+- **Fixes Applied**:
+  - **escapeLikeWildcards**: Created utility in `admin-backend/src/utils/index.ts`, applied to 3 search locations (instancesRoutes, rolesRoutes x2)
+  - **createAccessGuards**: Extended `AccessGuardsConfig` interface and factory to accept optional QueryRunner, passed to all callbacks
+  - **8 Backend Modules Updated**: Added `getManager(ds, queryRunner?)` helper to guards in organizations, storages, campaigns, uniks, metaverses, clusters, projects, metahubs backends
+  - **loadMembers Pattern**: Updated 9 places in org/meta/proj backends to use `getRequestManager(req, ds)` instead of `ds.manager`
+- **Pattern Applied**: One request = one QueryRunner = one pool connection for all DB operations
+- **Build**: Full monorepo build successful (61 tasks)
+- **New Rating Target**: 9/10 (all mandatory/recommended fixes applied)
+
+### QueryRunner Pool Fix (Metahubs + Admin) — COMPLETE ✅
+
+- **Problem**: Creating records in Metahubs sometimes caused UI freeze requiring server restart. Similar issues reported in Admin panel.
+- **Root Cause**: Guard/permission checks used `DataSource.query()` which takes a second connection from pool, while request-scoped QueryRunner already held one connection. Under load, this caused pool contention and freezes.
+- **Solution**: Ensure all DB operations within a request use the single request-scoped QueryRunner:
+  - Updated `@universo/admin-backend` exported helpers to accept optional `QueryRunner`:
+    - `isSuperuserByDataSource(ds, userId, queryRunner?)`
+    - `hasSubjectPermissionByDataSource(ds, userId, subject, action, queryRunner?)`
+    - `getGlobalRoleCodenameByDataSource(ds, userId, queryRunner?)`
+    - `canAccessAdminByDataSource(ds, userId, queryRunner?)`
+  - Updated `@universo/metahubs-backend` guards to accept optional `QueryRunner`:
+    - `ensureMetahubAccess(ds, userId, metahubId, permission?, queryRunner?)`
+    - `ensureHubAccess(ds, userId, hubId, permission?, queryRunner?)`
+    - `ensureCatalogAccess(ds, userId, catalogId, permission?, hubId?, queryRunner?)`
+    - `ensureAttributeAccess(ds, userId, attributeId, permission?, hubId?, queryRunner?)`
+  - Updated all metahubs routes to pass `req.dbContext?.queryRunner` into guards/checks
+  - Updated `loadMembers()` to use request-scoped manager
+- **Pattern**: One request = one QueryRunner = one pool connection. All reads/writes go through `queryRunner.manager`.
+- **Build**: Full monorepo build successful
+- **Next**: Manual QA, then apply pattern to other modules if stable
+
+### Metahubs Runtime UX Fixes (Cache + HubDeleteDialog) — COMPLETE ✅
+
+- **Problem**:
+  - Hub/Catalog list counters stayed stale until hard refresh due to query freshness (`staleTime`) and missing invalidations.
+  - Hub delete blocking-catalogs list needed better UX and to update when returning to the tab (cross-tab changes) without polling.
+- **Solution**:
+  - Added mutation-driven cache invalidations for aggregate lists (hub list + catalog lists) so counters update immediately after CRUD.
+  - Refactored HubDeleteDialog to use TanStack Query `useQuery` for blocking catalogs.
+  - MVP cross-tab freshness: `refetchOnWindowFocus: "always"` while the dialog is open (no polling).
+  - Improved blocking catalogs mini-table: index column, sticky header, bounded scroll container, catalog links.
+  - Extracted a reusable dialog mini-table component (`CompactListTable`) into `@universo/template-mui` and documented the reuse pattern in systemPatterns.md.
+  - Follow-up hardening: ensured `ensureAuthWithRls` QueryRunner cleanup runs only once per request to reduce risk of pooled connection stalls.
+- **Verification**: Full `pnpm build` successful (61 tasks).
+
+### Catalog-Hub Relationship Improvements — COMPLETE ✅
+
+- **Problem**: Catalogs without hubs showed "Error loading catalog". Users needed ability to create catalogs without hub associations, plus protection against orphaning catalogs when deleting hubs.
+- **Solution**: Implemented `isRequiredHub` flag (orthogonal to existing `isSingleHub`):
+  - `isRequiredHub: true` — catalog must have at least one hub (min constraint)
+  - `isRequiredHub: false` (default) — catalog can exist without hubs
+  - `isSingleHub: true` — catalog can have at most one hub (max constraint)
+- **Database Changes**:
+  - New migration `1766500000000-AddIsRequiredHubToCatalogs.ts`
+  - Added `is_required_hub BOOLEAN NOT NULL DEFAULT false` column
+  - Partial index on `is_required_hub = true` for efficient blocking catalog queries
+- **Backend Changes**:
+  - Removed hard hub requirement from `catalogsRoutes.ts` (validation now conditional)
+  - Added `GET /metahubs/:metahubId/hubs/:hubId/blocking-catalogs` endpoint
+  - DELETE hub returns 409 Conflict if blocking catalogs exist (catalogs with `isRequiredHub=true` and only this hub)
+- **Frontend Changes**:
+  - New `HubDeleteDialog` component shows blocking catalogs before deletion
+  - Follow-up fix: hub delete menu uses `onSelect`, and blocking catalog names render as localized strings (VLC → string)
+  - `HubSelectionPanel` now has `isRequiredHub` toggle (positioned above `isSingleHub`)
+  - Validation in `CatalogList.tsx` and `CatalogActions.tsx` conditional on `isRequiredHub`
+- **i18n**: Added translations for `isRequiredHub` toggle and hub delete dialog (en/ru)
+- **Files Modified**: 15 files across metahubs-backend and metahubs-frontend packages
+- **Build**: Full project build successful
+
+---
+
+### i18n & Documentation Cleanup — COMPLETE ✅
+
+- **Problem**: Legacy i18n keys (`meta_sections`, `meta_entities`) remained after code cleanup. README files contained outdated 3-tier architecture references.
+- **i18n Changes**:
+  - Removed `meta_sections` section (~25 lines EN / ~28 lines RU)
+  - Removed `meta_entities` section (~22 lines EN / ~25 lines RU)
+  - Removed `metahubs.table.meta_sections` and `metahubs.table.meta_entities`
+  - Files reduced: 327→278 lines (EN), 335→284 lines (RU)
+- **README Changes**:
+  - Complete rewrite with 4-tier architecture (Metahubs → Hubs → Catalogs → Attributes/Records)
+  - Updated all component documentation
+  - Added hub/catalog API examples
+  - Both README.md and README-RU.md have identical structure (363 lines each)
+
+---
+
+### Legacy MetaSection/MetaEntity Code Cleanup — COMPLETE ✅
+
+- **Problem**: QA discovered legacy files (MetaSectionList, MetaEntityList, etc.) that called non-existent backend endpoints `/meta_sections` and `/meta_entities`.
+- **Root Cause**: Backend was refactored from MetaSection/MetaEntity to Hub/Catalog/Attribute/Record, but frontend legacy files (~2500 lines) were never removed.
+- **Additional Fix**: Breadcrumbs linking to empty page when accessing catalog via global list — changed catalog link to go to `/attributes` route.
+- **Files Deleted**:
+  - `MetaSectionList.tsx` (500 lines)
+  - `MetaSectionActions.tsx` (~200 lines)
+  - `MetaEntityList.tsx` (538 lines)
+  - `MetaEntityActions.tsx` (~200 lines)
+  - `metaSections.ts` API (42 lines)
+  - `metaEntities.ts` API (31 lines)
+  - `SectionList.test.tsx`, `EntityList.test.tsx`
+- **Files Modified**:
+  - `NavbarBreadcrumbs.tsx` — Fixed catalog breadcrumb link
+  - `mutations.ts` — Removed Section/Entity mutation hooks
+  - `queryKeys.ts` — Removed meta_sections/meta_entities query keys
+  - `types.ts` — Removed MetaSection, MetaEntity interfaces
+  - `metahubs.ts` — Removed listMetahubMetaEntities, listMetahubMetaSections
+  - `index.ts` — Removed legacy exports
+  - `__mocks__/handlers.ts` — Removed mock data for deleted entities
+  - All related test files updated
+  - `README.md`, `README-RU.md` — Updated data model documentation
+- **Result**: ~2500 lines of dead code removed, documentation aligned with actual data model (Hub/Catalog/Attribute/Record)
+
+---
+
+### Bug Fix: getCatalogById returning AxiosResponse instead of data — COMPLETE ✅
+
+- **Problem**: Accessing catalogs via global route (`/metahub/:id/catalogs/:catalogId/attributes`) showed "Error loading catalog" while hub-scoped route worked fine.
+- **Root Cause**: `getCatalogById()` and `getCatalog()` in `catalogs.ts` were returning the raw Axios Response object instead of `.data`. When `AttributeList` called `catalogForHubResolution?.hubs?.[0]?.id`, it was accessing the Response object which doesn't have `hubs`.
+- **Fix**: Changed both functions to async functions that return `response.data` properly:
+  - `getCatalogById(metahubId, catalogId)` → returns `Promise<CatalogWithHubs>`
+  - `getCatalog(metahubId, hubId, catalogId)` → returns `Promise<Catalog>`
+- **Files Modified**: [catalogs.ts](packages/metahubs-frontend/base/src/api/catalogs.ts)
+- **Affected Components**: `AttributeList.tsx`, `RecordList.tsx` — both use `getCatalogById` for hub resolution when accessed via catalog-centric routes.
+
+---
+
+### CatalogList + AllCatalogsList Consolidation — COMPLETE ✅
+
+- **Summary**: Consolidated two near-identical catalog list components (~70% duplicate code) into a single unified `CatalogList.tsx` using the `isHubScoped` pattern. Removed broken `CatalogDetailPage.tsx` intermediate page.
+- **Key Pattern**: `isHubScoped = Boolean(hubId)` — determines hub-scoped vs global behavior:
+  - Hub-scoped (`/metahub/:id/hub/:hubId/catalogs`): Uses `listCatalogs()`, current hub auto-selected, soft delete
+  - Global (`/metahub/:id/catalogs`): Uses `listAllCatalogs()`, shows Hub column, force delete
+- **Files Deleted** (dead code removal):
+  - `AllCatalogsList.tsx` — 891 lines removed
+  - `CatalogDetailPage.tsx` — 263 lines removed
+  - Total: ~1150 lines of duplicate/dead code eliminated
+- **Files Modified**:
+  - `CatalogList.tsx` — Added `isHubScoped` logic, conditional API/UI/navigation, types from AllCatalogsList
+  - `MainRoutesMUI.tsx` — Updated routes: `/catalogs` now uses `CatalogList`, removed `/catalogs/:catalogId` intermediate route
+  - `index.ts` — Removed exports for deleted components
+- **Route Changes**:
+  - `/metahub/:id/catalogs` → `<CatalogList />` (global mode, no hubId)
+  - `/metahub/:id/catalogs/:catalogId/attributes|records` → Direct to content (no intermediate page)
+  - `/metahub/:id/hub/:hubId/catalogs` → `<CatalogList />` (hub-scoped mode)
+- **Architecture Pattern**: Follows `SectionList.tsx` and `Executions.jsx` patterns for dual-context components
+- **Build**: SUCCESS (61 tasks, 5m26s)
+
+### Catalogs N:M QA Fixes — COMPLETE ✅
+
+- **Summary**: Fixed remaining issues identified during user QA of N:M catalogs implementation, including catalog-centric navigation from the global catalogs list.
+- **Issues Fixed**:
+  1. **Missing Hubs tab in edit dialog (inside Hub)** — CatalogList now passes `hubs` to createCatalogContext
+  2. **No redirect after creation with different hub** — Added navigation to first hub when catalog created with different hub than current
+  3. **Hubs tab empty on edit (no prefill)** — Hub-scoped catalogs list now includes `hubs[]` so edit dialogs can preselect associations
+  4. **Global catalogs list still hub-scoped** — Global list navigation is now catalog-centric (no `/hub/:hubId/...`)
+  5. **Catalog-centric Attributes/Records** — Added `/metahub/:id/catalogs/:catalogId/attributes|records` routes and resolved `hubId` internally
+- **Key changes**:
+  - `CatalogList.tsx` — Added `hubs` to context, redirect logic in handleCreateCatalog
+  - `catalogsRoutes.ts` — New `GET /metahubs/:metahubId/catalogs/:catalogId` endpoint (owner-level)
+  - `catalogsRoutes.ts` — Hub-scoped catalogs list now returns `hubs[]` per catalog (prefill support)
+  - `catalogs.ts` (API) — Added `getCatalogById()` function
+  - `CatalogDetailPage.tsx` — New page for catalog-centric navigation with quick access to attributes/records
+  - `NavbarBreadcrumbs.tsx` — Added `useCatalogNameStandalone` hook and breadcrumb logic for catalog-centric paths
+  - `MainRoutesMUI.tsx` — Added `/catalogs/:catalogId` route
+  - `MainRoutesMUI.tsx` — Added `/catalogs/:catalogId/attributes|records` routes
+  - `AllCatalogsList.tsx` — Switched global navigation to catalog-centric URLs
+  - `AttributeList.tsx`, `RecordList.tsx` — Added internal `hubId` resolution for catalog-centric URLs
+  - `queryKeys.ts` — Renamed `catalogDetail` to `catalogDetailInHub`, added new `catalogDetail` for catalog-centric
+- **Build**: SUCCESS (61 tasks, ~5m)
+
+---
+
 ## 📅 2026-01-10
+
+### Catalogs N:M UI Enhancement — COMPLETE ✅
+
+- **Summary**: Implemented tabbed dialog interface for catalog creation with hub selection panel.
+- **Key changes**:
+  1. **EntityFormDialog tabs extension** — Added `tabs` callback prop for dynamic tabbed layouts with TabPanel helper
+  2. **HubSelectionPanel component** — New component for managing catalog-hub associations:
+     - Table of selected hubs with add/remove functionality
+     - Hub picker dialog with search and multi-select
+     - isSingleHub toggle with validation
+  3. **AllCatalogsList refactored** — Now uses tabbed form:
+     - "Основное" tab: name, description, codename
+     - "Хабы" tab: HubSelectionPanel with isSingleHub toggle
+  4. **i18n keys** — Added translations for tabs, hub selection UI (en/ru)
+- **Build**: SUCCESS (61 tasks, 4m48s)
+- **Deferred**: Catalog-centric routes (without hubId in URL) — requires API changes for hub resolution
+
+### Catalogs Many-to-Many with Hubs (N:M Relationship) — COMPLETE ✅
+
+- **Summary**: Full implementation of N:M relationship between Catalogs and Hubs (like 1C:Enterprise pattern). Catalogs owned by Metahub, visible in multiple Hubs.
+- **All phases completed**:
+  1. **Phase 1: Database Schema** ✅
+     - Created `CatalogHub` junction entity (UUID PK, ManyToOne to Catalog/Hub with CASCADE)
+     - Migration: `catalogs` gets `metahub_id` FK, `is_single_hub` flag
+     - Junction table `catalogs_hubs` with UNIQUE(catalog_id, hub_id)
+     - `Catalog` entity: replaced `hubId` with `metahubId`, added `catalogHubs` OneToMany
+  2. **Phase 2: Backend API** ✅
+     - Rewrote `catalogsRoutes.ts` — junction table queries, N:M hub management
+     - Updated `guards.ts` — hub optional in access contexts
+     - Added `force` param to DELETE (false=remove from hub, true=delete catalog)
+  3. **Phase 5: Frontend Types & API** ✅
+     - Added `HubRef` interface for hub associations
+     - Updated `Catalog`/`CatalogDisplay` types with `metahubId`, `isSingleHub`, `hubs[]`
+     - Multi-select hub dropdown in AllCatalogsList create dialog
+     - "+N" badge for catalogs in multiple hubs
+     - `useDeleteCatalog` hook with `force` parameter
+  4. **Phase 6: Routes & Breadcrumbs** ✅
+     - Updated `MainRoutesMUI.tsx` — new catalog routes under `/hub/:hubId/`
+     - Updated `NavbarBreadcrumbs.tsx` — catalog-aware navigation
+     - Added `useCatalogName`, `truncateCatalogName` hooks
+  5. **Phase 7: i18n & Testing** ✅
+     - Added "catalogs" key to menu.json (en/ru)
+     - Full build verification — SUCCESS (61 tasks, 4m46s)
+- **Deferred phases**: 3-4 (EntityFormDialog tabs, HubSelectionPanel component)
+- **Files created (8)**:
+  - Backend: `Catalog.ts`, `CatalogHub.ts`, `1766400000000-AddCatalogsToMetahubs.ts`, `catalogsRoutes.ts`
+  - Frontend: `catalogs.ts`, `AllCatalogsList.tsx`, `CatalogActions.tsx`, `CatalogList.tsx`, `useViewPreference.ts`, `constants/storage.ts`
+- **Files modified (44)**:
+  - Backend: entities/index, routes (hubs, attributes, records, guards, public), migrations/index
+  - Frontend: types.ts, queryKeys.ts, mutations.ts, menu-items, HubList, AttributeList, RecordList, i18n
+  - Template-MUI: routes, breadcrumbs, hooks/index, hooks/useBreadcrumbName, menuConfigs
+  - i18n: menu.json (spaces-frontend, universo-i18n)
+- **Next steps**:
+  1. Run `pnpm dev` to apply migration (creates `catalogs_hubs` junction table)
+  2. Test catalog CRUD with multiple hub associations
+  3. Verify delete behavior (force vs soft remove)
+
+### Metahubs Code Quality Improvements — N+1 Fix & Centralization ✅
+
+- **Summary**: Implemented performance and code quality improvements identified during comprehensive QA analysis.
+- **Key changes**:
+  1. **Backend N+1 Query Optimization (HIGH priority)**:
+     - Replaced `Promise.all(items.map(async => count query))` pattern with single SQL query
+     - Used LEFT JOINs with COUNT(DISTINCT) and window function `COUNT(*) OVER()` for total
+     - Pattern from Metaverses module (sectionsRoutes.ts) applied to Metahubs
+     - Files: `catalogsRoutes.ts`, `hubsRoutes.ts`
+     - **Performance**: ~2N fewer queries per list request
+  2. **Frontend localStorage Centralization (LOW priority)**:
+     - Created `constants/storage.ts` with typed storage keys
+     - Created `hooks/useViewPreference.ts` hook for view state management
+     - Applied to 6 list pages: MetahubList, HubList, CatalogList, AllCatalogsList, MetaSectionList, MetaEntityList
+     - Eliminates magic strings and ensures type safety
+- **Files created**:
+  - `packages/metahubs-frontend/base/src/constants/storage.ts`
+  - `packages/metahubs-frontend/base/src/constants/index.ts`
+  - `packages/metahubs-frontend/base/src/hooks/useViewPreference.ts`
+- **Files modified**:
+  - `packages/metahubs-backend/base/src/routes/catalogsRoutes.ts` — N+1 fix (2 endpoints)
+  - `packages/metahubs-backend/base/src/routes/hubsRoutes.ts` — N+1 fix (1 endpoint)
+  - `packages/metahubs-frontend/base/src/pages/*.tsx` — useViewPreference applied (6 files)
+- **Build**: SUCCESS (full workspace, 61 tasks)
+- **Deferred**: CatalogList/AllCatalogsList merge — too risky for production without extensive testing
+
+### Catalogs QA Round 9 — Metahubs i18n + Access sorting ✅
+
+- **Summary**: Fixed remaining RU i18n regression in Metahubs list count headers (“Hubs/Catalogs”) and added missing sorting in the Access/Members table.
+- **Key fixes**:
+  1. **Metahubs list headers i18n**: Aligned table header keys with the consolidated `metahubs` namespace shape (flattened `bundle.metahubs` → use `table.hubs` / `table.catalogs`).
+  2. **Access/Members sorting**: Added sorting for Email, Nickname, Added columns.
+- **Files modified**:
+  - `packages/metahubs-frontend/base/src/pages/MetahubList.tsx`
+  - `packages/metahubs-frontend/base/src/pages/MetahubMembers.tsx`
+  - `packages/metahubs-frontend/base/src/i18n/index.ts` (reviewed: consolidation/flattening behavior)
+- **Build**: SUCCESS (full workspace)
+- **Note**: UI may require a hard refresh or dev server restart to pick up updated locale bundles.
+
+### Catalogs QA Round 8 — Sorting & Column Improvements ✅
+
+- **Summary**: Added sorting capability to table columns and replaced legacy MetaSections/MetaEntities with new Hubs/Catalogs.
+- **Key changes**:
+  1. **Sorting added**: Added `sortable: true` + `sortAccessor` to Name, Description, Codename columns in:
+     - MetahubList.tsx (Name, Description only)
+     - HubList.tsx, CatalogList.tsx, AllCatalogsList.tsx (Name, Description, Codename)
+  2. **Table columns replaced**: Changed MetaSections/MetaEntities → Hubs/Catalogs in MetahubList table
+  3. **Dashboard widgets replaced**: Changed Секции/Сущности → Хабы/Каталоги in MetahubBoard stats
+  4. **Backend enhanced**: Added `catalogsCount` to Metahub list/detail endpoints (counts catalogs via hubs JOIN)
+  5. **i18n updated**: Added `hubs`/`catalogs` keys for table headers and dashboard stats in both EN/RU locales
+- **Files modified**:
+  - Backend: `metahubsRoutes.ts` (import Catalog entity, add catalogRepo, count catalogs via JOIN)
+  - Frontend types: `types.ts` (added catalogsCount to Metahub & MetahubDisplay interfaces)
+  - Lists: `MetahubList.tsx`, `HubList.tsx`, `CatalogList.tsx`, `AllCatalogsList.tsx` (sorting + columns)
+  - Dashboard: `MetahubBoard.tsx` (replaced stats cards data source and i18n keys)
+  - i18n: `ru/metahubs.json`, `en/metahubs.json` (table headers + dashboard stats)
+- **Build**: SUCCESS (61 tasks, 4m59s)
+
+### Catalogs QA Round 7 — i18n & URL Fixes ✅
+
+- **Summary**: Fixed column headers translation, changed URLs from /hubs/ to /hub/, fixed column order.
+- **Key fixes**:
+  1. **i18n keys added**: Added `attributesHeader` and `recordsHeader` keys for column headers
+  2. **URL pattern changed**: Changed from plural `/hubs/` to singular `/hub/` for specific hub context
+  3. **Column order fixed**: Reordered to Name → Description → Codename (Description before Codename)
+- **Files modified**: CatalogList, HubList, AllCatalogsList, AttributeList, RecordList, MainRoutesMUI, NavbarBreadcrumbs, metahubs.json (EN/RU)
+- **Build**: SUCCESS (61 tasks, 4m48s)
+
+### Catalogs QA Round 6 — UX Improvements ✅
+
+- **Summary**: Fixed remaining UX issues: removed description text, fixed column order, fixed tab navigation, added breadcrumbs support for catalog-based URLs.
+- **Key fixes**:
+  1. **Description text removed**: Removed `description={t('catalogs.allDescription')}` from AllCatalogs ViewHeader.
+  2. **Column order fixed**: Reordered columns in AllCatalogsList, HubList, CatalogList, AttributeList (Name first, Codename second).
+  3. **Tab navigation fixed**: Added missing `/catalogs/${catalogId}` segment to tab URLs in AttributeList and RecordList.
+  4. **Breadcrumbs support**: 
+     - Added `useCatalogName` hook and `truncateCatalogName` function
+     - Updated `useAttributeName` to accept catalogId (new API path: `/metahubs/:id/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId`)
+     - Updated NavbarBreadcrumbs.tsx with catalog-aware URL parsing and breadcrumb generation
+- **Files modified**: 
+  - `AllCatalogsList.tsx`, `HubList.tsx`, `CatalogList.tsx`, `AttributeList.tsx`, `RecordList.tsx` (column order + navigation)
+  - `useBreadcrumbName.ts` (new useCatalogName hook, updated useAttributeName signature)
+  - `hooks/index.ts` (export new functions)
+  - `NavbarBreadcrumbs.tsx` (catalog-aware breadcrumb logic)
+- **Build**: SUCCESS (61 tasks, 5m26s)
+
+### Catalogs QA Round 5 — All Catalogs Create UX Parity ✅
+
+- **Summary**: Fixed All Catalogs “Add” label i18n regression and aligned the create dialog to the hub-scoped CatalogList multilingual form (plus hub selector).
+- **Key fixes**:
+  1. **i18n label**: Switched toolbar primary action label to an existing common key (`common.addNew`) to avoid rendering raw `crud.add`.
+  2. **Create dialog parity**: Refactored `AllCatalogsList.tsx` to use the same `EntityFormDialog` + localized fields pattern as `CatalogList.tsx` (`LocalizedInlineField` in `mode='localized'`, `useCodenameAutoFill`, `extractLocalizedInput`).
+  3. **Validation + errors**: Added dialog-level error handling and tightened validate/canSave gates to match the standard flow.
+- **Files modified**: `AllCatalogsList.tsx`
+- **Build**: SUCCESS (61 tasks, 5m46s)
+
+### Catalogs QA Round 4 — Add Button & Hub Editing ✅
+
+- **Summary**: Fixed missing "Add" button and added ability to edit hub assignment for catalogs.
+- **Key fixes**:
+  1. **Add button fix**: Changed `addButton` to `primaryAction` prop in `AllCatalogsList.tsx` (ToolbarControls component expects `primaryAction`, not `addButton`).
+  2. **Hub editing backend**: Added `hubId` field to `updateCatalogSchema` in `catalogsRoutes.ts` and implemented logic to move catalog between hubs with codename conflict checking.
+  3. **Hub editing frontend**: 
+     - Extended `CatalogActions.tsx` with `CatalogDisplayWithHub` type and hub selector in edit dialog
+     - Added `showHubSelector` and `hubs` props to `CatalogEditFields` component
+     - Updated validation and payload functions to handle hubId
+     - Updated `AllCatalogsList.tsx` to pass hubs list and updateEntity API to context
+- **Files modified**: 
+  - `catalogsRoutes.ts` (backend schema + hub move logic)
+  - `catalogs.ts` (frontend API type)
+  - `CatalogActions.tsx` (hub selector in edit dialog)
+  - `AllCatalogsList.tsx` (primaryAction fix + context update)
+- **Build**: SUCCESS (61 tasks, 6m59s)
+
+---
+
+### Catalogs QA Round 3 — Menu, Breadcrumbs & i18n Finalization ✅
+
+- **Summary**: Final polish round for Catalogs feature. Fixed 8 remaining issues related to cache invalidation, breadcrumbs navigation, i18n consistency, and UI improvements.
+- **Key fixes**:
+  1. **Cache invalidation**: Added `allCatalogs` cache invalidation to `useCreateCatalog`, `useUpdateCatalog`, `useDeleteCatalog` mutations so new catalogs appear immediately in "All Catalogs" view.
+  2. **Breadcrumbs**: Added `catalogs` menu item with `breadcrumbs: true` in `metahubDashboard.ts` to enable navigation breadcrumbs.
+  3. **Title rename**: Changed `catalogs.allTitle` from "Все каталоги" to "Каталоги" (ru), "All Catalogs" to "Catalogs" (en) for cleaner UI.
+  4. **Add button**: Added EntityFormDialog with hub dropdown selector to AllCatalogsList.tsx, allowing creation of catalogs directly from the global view.
+  5. **Terminology fix**: Changed all remaining "справочник" occurrences to "каталог" in records section (`description`, `emptyDescription`, `addAttributesFirst`, `noAttributes`).
+  6. **Full words**: Changed abbreviated "атр." to full plural forms (`атрибут/атрибута/атрибутов`), "attr" to (`attribute/attributes`).
+  7. **Interpolation fix**: Fixed HubList.tsx to use proper i18n interpolation `{t('hubs.catalogsCount', { count })}`.
+  8. **Table column fix**: Changed HubList table column label from `t('hubs.catalogsCount')` to `t('catalogs.title')` for consistency.
+- **Files modified**: 
+  - `mutations.ts` (cache invalidation)
+  - `metahubDashboard.ts` (menu + breadcrumbs)
+  - `ru/metahubs.json`, `en/metahubs.json` (i18n fixes)
+  - `AllCatalogsList.tsx` (Add button + hub selector)
+  - `HubList.tsx` (interpolation + column label)
+- **Build**: SUCCESS (61 tasks, 7m12s)
+
+---
+
+### Catalogs QA Round 2 — Final Bug Fixes ✅
+
+- **Summary**: Fixed 5 issues discovered during second QA testing round for the Catalogs feature.
+- **Key fixes**:
+  1. **Russian translations**: Changed all "Справочники" to "Каталоги" in `ru/metahubs.json` for consistency with user expectation.
+  2. **i18n interpolation**: Fixed card count display showing raw "0 {{count}} атр" by:
+     - Changing i18n keys to use proper plural format (`attributesCount_one`, `attributesCount_few`, `attributesCount_many`, `attributesCount_other`)
+     - Fixed CatalogList.tsx footerEndContent to use `{t('catalogs.attributesCount', { count })}` instead of concatenation
+  3. **Menu translation**: Added `catalogs` key to `universo-i18n/locales/*/views/menu.json` (the menu loads translations from `universo-i18n` namespace, not from `spaces-frontend`)
+  4. **AllCatalogsList redesign**: Complete rewrite to match HubList.tsx pattern with MainCard, ViewHeader (search + subtitle), ToolbarControls (view toggle), ItemCard grid with Chip showing hub name, FlowListTable with hub column using Chip, PaginationControls, and ConfirmDeleteDialog
+  5. **Database migration**: Added missing `target_catalog_id` column to `1766400000000-AddCatalogsToMetahubs.ts` with FK constraint to catalogs table (required for REF-type attributes)
+- **Files modified**: 
+  - `1766400000000-AddCatalogsToMetahubs.ts` (migration)
+  - `ru/metahubs.json`, `en/metahubs.json` (translations)
+  - `universo-i18n/locales/en/views/menu.json`, `ru/views/menu.json`
+  - `CatalogList.tsx` (i18n interpolation fix)
+  - `AllCatalogsList.tsx` (complete rewrite)
+- **Validation**: Full project build successful (61 tasks, 4m55s).
+
+---
+
+## 📅 2026-01-09
+
+### Add Catalogs Entity to Metahubs (1C-style Справочники) ✅
+
+- **Summary**: Added Catalogs as a new hierarchy level within Metahubs, analogous to "Справочники" in 1C:Enterprise 8.3-8.5. The new architecture is: `Metahub → Hub → Catalog → Attributes + Records`.
+- **Key changes**:
+  - **Backend Database**: Created `catalogs` table migration, `Catalog.ts` TypeORM entity. Updated Attribute and Record entities to reference catalogId instead of hubId.
+  - **Backend API**: Created `catalogsRoutes.ts` with full CRUD. Updated `attributesRoutes.ts` and `recordsRoutes.ts` URLs to include catalogId. Added `ensureCatalogAccess` guard. Updated `hubsRoutes.ts` to return catalogsCount. Updated `publicMetahubsRoutes.ts` with Catalog hierarchy.
+  - **Frontend Types & API**: Added Catalog types and toCatalogDisplay(). Created `api/catalogs.ts`. Updated attributes/records APIs with catalogId parameter. Updated queryKeys and mutations.
+  - **Frontend Pages**: Created `CatalogList.tsx` and `CatalogActions.tsx`. Updated `AttributeList.tsx` and `RecordList.tsx` with catalogId param. Updated `HubList.tsx` to route to catalogs. Added routes in `MainRoutesMUI.tsx`.
+  - **i18n**: Added English and Russian translations for catalogs. Updated hubs/attributes/records descriptions.
+- **Files created**: `Catalog.ts`, `catalogsRoutes.ts`, `api/catalogs.ts`, `CatalogList.tsx`, `CatalogActions.tsx`, migration file.
+- **Files modified**: 20+ files across metahubs-backend, metahubs-frontend, universo-template-mui.
+- **Validation**: Full project build successful (61 tasks).
 
 ### Metahubs Code Deduplication Refactoring ✅
 
@@ -88,119 +571,34 @@
 
 ## 📅 2026-01-07
 
+### Localized Field UI Rollout & Hardening ✅
+
+- **Summary**: Rolled out compact localized field UI (LocalizedInlineField + EntityFormDialog) across metahubs and admin flows, plus backend support for safer VLC parsing and primary-locale handling.
+- **Also**: PR #633 bot-review fixes (VLC filtering, locale validation, deterministic primary fallback, CSRF shared promise docs).
+- **Incident note**: Documented admin roles reload issue (QueryRunner reuse) in READMEs and system patterns.
+- **Validation**: Package builds succeeded; metahubs-frontend tests pass but coverage thresholds are known to fail (existing gate).
+- **Files**: Multiple packages under `universo-template-mui`, `universo-utils`, `universo-i18n`, `metahubs-{frontend,backend}`, `admin-{frontend,backend}`.
+
 ### Diagnostics Logs Cleanup ✅
 
-- **Summary**: Removed temporary diagnostic logs from auth/admin flows and restored default backend log level to reduce noise after the incident was resolved.
-- **Files Changed**:
-  - `packages/flowise-core-backend/base/src/utils/config.ts`
-
-### Hubs Localized Fields + Codename ✅
-
-- **Summary**: Aligned hub name/description with VLC, added localized create/edit UI with codename auto-fill/validation, and updated backend hub routes to sanitize localized inputs with primary locale handling.
-- **Files Changed**:
-  - `packages/metahubs-frontend/base/src/pages/HubList.tsx`
-  - `packages/metahubs-frontend/base/src/pages/HubActions.tsx`
-  - `packages/metahubs-frontend/base/src/types.ts`
-  - `packages/metahubs-frontend/base/src/api/hubs.ts`
-  - `packages/metahubs-frontend/base/src/hooks/mutations.ts`
-  - `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
-  - `packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
-  - `packages/metahubs-backend/base/src/routes/hubsRoutes.ts`
-  - `packages/auth-frontend/base/src/api/client.ts`
-  - `packages/auth-backend/base/src/routes/auth.ts`
-  - `packages/admin-backend/base/src/services/globalAccessService.ts`
-  - `packages/admin-backend/base/src/routes/rolesRoutes.ts`
-  - `packages/admin-backend/base/src/routes/globalUsersRoutes.ts`
-
-### Admin Roles Direct Navigation Incident Notes ✅
-
-- **Summary**: Documented the direct navigation/reload issue for admin roles and the QueryRunner reuse fix in package READMEs and system patterns.
-- **Files Changed**:
-  - `packages/admin-backend/base/README.md`
-  - `packages/admin-backend/base/README-RU.md`
-  - `memory-bank/systemPatterns.md`
-
-### PR #633 Bot Review Fixes ✅
-
-- **Summary**: Applied safe fixes from PR review: deduped localized helpers, configurable locales endpoint, stabilized VLC filtering, locale code validation, deterministic VLC primary fallback, and clarified CSRF shared promise behavior.
-- **Files Changed**:
-  - `packages/metahubs-frontend/base/src/utils/localizedInput.ts`
-  - `packages/metahubs-frontend/base/src/types.ts`
-  - `packages/metahubs-frontend/base/src/__tests__/exports.test.ts`
-  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
-  - `packages/universo-utils/base/src/vlc/index.ts`
-  - `packages/metahubs-backend/base/src/routes/metahubsRoutes.ts`
-  - `packages/auth-frontend/base/src/api/client.ts`
-- **Validation**:
-  - `pnpm --filter @universo/metahubs-frontend test -- --runTestsByPath src/__tests__/exports.test.ts` (fails only on existing coverage thresholds)
-  - `pnpm --filter @universo/template-mui build`
-  - `pnpm --filter @universo/metahubs-backend build`
-  - `pnpm --filter @universo/utils build`
-
-### Localized Field UI Rollout ✅
-
-- **Summary**: Added compact localized field UI (inline language button + menu, primary badge) and wired it into metahubs create/edit flows and admin role/locale forms. Added shared VLC filter helper, common i18n keys, and backend support for optional primary locale overrides.
-- **Files Changed**:
-  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
-  - `packages/universo-template-mui/base/src/components/dialogs/EntityFormDialog.tsx`
-  - `packages/universo-utils/base/src/vlc/index.ts`
-  - `packages/universo-utils/base/src/index.ts`
-  - `packages/universo-utils/base/src/index.browser.ts`
-  - `packages/universo-i18n/base/src/locales/en/core/common.json`
-  - `packages/universo-i18n/base/src/locales/ru/core/common.json`
-  - `packages/admin-frontend/base/src/pages/RoleEdit.tsx`
-  - `packages/admin-frontend/base/src/components/LocaleDialog.tsx`
-  - `packages/metahubs-frontend/base/src/pages/MetahubList.tsx`
-  - `packages/metahubs-frontend/base/src/pages/MetahubActions.tsx`
-  - `packages/metahubs-frontend/base/src/utils/localizedInput.ts`
-  - `packages/metahubs-frontend/base/src/types.ts`
-  - `packages/metahubs-frontend/base/src/api/metahubs.ts`
-  - `packages/metahubs-frontend/base/src/hooks/mutations.ts`
-  - `packages/metahubs-frontend/base/src/pages/__tests__/MetahubList.test.tsx`
-  - `packages/metahubs-frontend/base/src/pages/__tests__/actionsFactories.test.ts`
-  - `packages/metahubs-frontend/base/src/__tests__/exports.test.ts`
-  - `packages/metahubs-backend/base/src/routes/metahubsRoutes.ts`
-- **Validation**: `pnpm --filter @universo/metahubs-frontend test` (tests pass; coverage thresholds fail at ~48–59%, existing suite uses coverage gates).
-
-### Localized Field UI Refinements ✅
-
-- **Summary**: Moved the localized language button into the top-right corner of fields without shrinking text width. Aligned multiline padding with single-line spacing in both `@universo/template-mui` and legacy `flowise-template-mui` themes.
-- **Files Changed**:
-  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
-  - `packages/universo-template-mui/base/src/themes/mui-custom/customizations/inputs.tsx`
-  - `packages/flowise-template-mui/base/src/themes/compStyleOverride.js`
-- **Validation**: Manual review recommended in metahubs/roles/locales dialogs (no automated UI tests).
+- **Summary**: Removed temporary diagnostic logs and restored default backend log level to reduce noise.
+- **Files**: `packages/flowise-core-backend/base/src/utils/config.ts`
 
 ## 📅 2026-01-06
 
 ### Internationalize project metadata and update texts ✅
 
 - **Summary**: Internationalized project metadata and updated translations and documentation across the repository.
-- **Files Changed**:
-  - `packages/universo-i18n/base/src/locales/en/core/meta.json` (new)
-  - `packages/universo-i18n/base/src/locales/ru/core/meta.json` (new)
-  - `packages/start-frontend/base/src/i18n/locales/en/landing.json`
-  - `packages/start-frontend/base/src/i18n/locales/en/onboarding.json`
-  - `packages/start-frontend/base/src/i18n/locales/ru/landing.json`
-  - `packages/start-frontend/base/src/i18n/locales/ru/onboarding.json`
-  - `packages/flowise-core-frontend/base/index.html`
-  - `packages/flowise-core-frontend/base/public/index.html`
-  - `packages/flowise-core-frontend/base/src/App.jsx`
-  - `README.md`, `README-RU.md`, `package.json`
 - **PR / Issue**: PR #631, Issue #630
-- **Follow-up**: Applied bot review recommendations — added `packages/universo-i18n/base/src/supported-languages.json` and `packages/flowise-core-frontend/base/scripts/sync-supported-langs.mjs`, plus small README/vite.config fixes; pushed to `feature/630-i18n-meta-texts` and included in PR #631.
-- **Follow-up 2**: Applied additional improvements per reviewer feedback — fixed `LanguageSwitcher` in `packages/universo-template-mui` and `packages/flowise-template-mui`, updated `packages/universo-i18n/base/package.json`, and tweaked `vite.config.js`; pushed to `feature/630-i18n-meta-texts` and commented on the PR.
-- **Validation**: Verify EN/RU strings on landing and onboarding pages, run `pnpm --filter <package> lint` for affected packages, then `pnpm build` at repo root
+- **Scope**: Added locale metadata (meta.json), updated landing/onboarding translations, updated core-frontend entrypoints, and added scripts to sync supported languages.
+- **Files**: start-frontend, universo-i18n, core-frontend, and repo docs (see PR #631).
+- **Validation**: Recommended: package lints + `pnpm build` at repo root.
 
 ### Metahubs localized fields hardening ✅
 
 - **Summary**: Prevented runtime crashes when metahubs name/description arrive in mixed formats (VLC, SimpleLocalizedInput, or string). Updated metahubs mutations to send localized payloads based on current UI language and adjusted tests to include VLC data.
-- **Files Changed**:
-  - `packages/metahubs-frontend/base/src/types.ts`
-  - `packages/metahubs-frontend/base/src/hooks/mutations.ts`
-  - `packages/metahubs-frontend/base/src/hooks/__tests__/mutations.test.tsx`
-  - `packages/metahubs-frontend/base/src/pages/__tests__/MetahubList.test.tsx`
-- **Validation**: `pnpm --filter @universo/metahubs-frontend test -- --runInBand` (1 existing timeout in `src/__tests__/exports.test.ts`)
+- **Files**: metahubs-frontend types/mutations/tests.
+- **Validation**: `pnpm --filter @universo/metahubs-frontend test -- --runInBand` (known existing timeout in `src/__tests__/exports.test.ts`).
 
 ## 📅 2026-01-05
 
@@ -223,244 +621,44 @@
 
 ## 📅 2026-01-03
 
-### Auth Feature Toggles & Legal Pages Footer ✅
+### Auth toggles + start-frontend i18n cleanup ✅
 
-- **Legal Pages Footer**: Added `StartFooter` component to `LegalPage.tsx` (Terms of Service, Privacy Policy pages)
-- **ENV Variables**: Added 3 new environment toggles in `.env` / `.env.example`:
-  - `AUTH_REGISTRATION_ENABLED` (default: true) - disable new user registration
-  - `AUTH_LOGIN_ENABLED` (default: true) - disable user login (maintenance mode)
-  - `AUTH_EMAIL_CONFIRMATION_REQUIRED` (default: true) - control success message after registration
-- **New Endpoint**: `GET /api/v1/auth/auth-config` returns `AuthFeatureConfig` (separate from captcha-config)
-- **Backend Protection**: Registration/login routes return 403 when disabled
-- **Frontend UX**:
-  - Shows Alert when feature is disabled
-  - Disables form buttons when feature is off
-  - Different success message based on `emailConfirmationRequired` setting
-- **New Package Submodule**: `@universo/utils/auth` with `getAuthFeatureConfig()`, `isRegistrationEnabled()`, `isLoginEnabled()`, `isEmailConfirmationRequired()`
-- **i18n Keys Added**: `registrationDisabled`, `loginDisabled`, `successRegisterNoEmail` (EN/RU)
-- **Build Status**: Full workspace build passed (61 tasks, 4m58s)
-- **Pattern**: Follows captcha-config pattern - separate endpoint, env-driven, defaults to enabled for backwards compatibility
-
-### i18n Migration to registerNamespace() Pattern ✅
-
-- **Pattern Unification**: Migrated `start-frontend` from legacy manual registration to standard `registerNamespace()` pattern
-- **Problem Solved**: `landing` namespace was missing from central registration, forcing components to call `registerLandingI18n(i18n)` in useEffect
-- **Changes**:
-  - Added `landing` namespace to `i18n/index.ts` via `registerNamespace()`
-  - Refactored `Testimonials.tsx`, `Hero.tsx`, `StartFooter.tsx` - removed useEffect, switched to `@universo/i18n`
-  - Refactored `AuthenticatedStartPage.tsx` - removed redundant `registerOnboardingI18n` call
-  - Marked all legacy functions in `register.ts` as `@deprecated`
-  - Marked legacy exports in `index.ts` as `@deprecated`
-- **Benefits**: Cleaner code, no useEffect for i18n, no isReady state, consistent with 20+ other packages
-- **Backwards Compatibility**: Legacy functions preserved with @deprecated notice for any external consumers
-- **Build Status**: Full workspace build passed (61 tasks, 6m8s)
-
-### Start Section Footer & Onboarding Text Updates ✅
-
-- **StartFooter Component**: New reusable footer for start pages
-  - Contact info: Owner name (Telegram link), Email address
-  - Legal links: Terms of Service, Privacy Policy
-  - Responsive: horizontal on desktop, vertical on mobile
-  - i18n support: RU/EN translations
-  - Files: `StartFooter.tsx`, `landing.json` (ru/en)
-- **Footer Integration**: Added to both GuestStartPage and AuthenticatedStartPage
-- **Onboarding Text Updates**:
-  - WelcomeStep: Added description4 about Universo MMOOMM metaverse
-  - Projects step: Updated subtitle with meta-projects clarification
-  - Campaigns step: Changed title to "Определите интересные темы", updated subtitle
-  - Clusters step: Updated subtitle with functionality availability note
-  - Files: `WelcomeStep.tsx`, `onboarding.json` (ru/en)
-- **Build Status**: Full workspace build passed (61 tasks, 8m20s)
-
-### Start Section UI Polish (Footer Hover + Paragraph Rendering) ✅
-
-- **Guest Footer Hover**: Updated guest footer links so hover uses a lighter blue for contrast on the landing hero background (internal pages keep primary blue hover).
-- **Onboarding Subtitles**: Fixed paragraph rendering for step subtitles by splitting translation strings on blank lines ("\n\n") and rendering each paragraph as its own Typography block.
-- **Footer Spacing**: Restored guest cards↔footer vertical spacing to 4 modules after rollback (adjusted testimonials bottom padding).
-- **Brand Link**: Made AppAppBar brand (logo + text) clickable with RouterLink to home route (`/`).
-- **Build Status**: start-frontend lint and build passed.
+- Added `AUTH_*` feature toggles and `GET /api/v1/auth/auth-config` (backend returns 403 when disabled; frontend shows disabled-state UX).
+- Added `StartFooter` to start pages and legal pages; updated onboarding and landing copy (RU/EN).
+- Migrated start-frontend to `registerNamespace()` pattern and deprecated legacy register helpers.
+- UX polish: landing footer hover contrast, onboarding subtitle paragraph rendering, clickable AppBar brand.
+- Validation: Full workspace build passed (61 tasks).
 
 ---
 
 ## 📅 2026-01-02
 
-### SmartCaptcha UX Improvements & Cookie Text Updates ✅
+### SmartCaptcha: Login Support + QA Fixes ✅
 
-- **onNetworkError Handler**: Added `onNetworkError` callback to SmartCaptcha widget
-  - New optional `captchaNetworkError` label in `AuthViewLabels` interface
-  - Shows user-friendly error message when captcha service is unavailable
-  - Default message: "Captcha service is temporarily unavailable. Please try again."
-- **Cookie Consent Text**: Updated rejection dialog text in both languages
-  - Replaced generic "Платформа/Platform" with "Universo Platformo" throughout
-  - Files: `start-frontend/i18n/locales/ru/cookies.json`, `en/cookies.json`
-- **Build Status**: Full workspace build passed (61 tasks, 6m12s)
-
-### SmartCaptcha Mode Switch Fix ✅
-
-- **Bug Fixed**: Captcha widget not resetting after registration → login mode switch
-- **Root Cause**: SmartCaptcha widget visually retained checkmark state while `captchaToken` state was reset
-- **Solution**: Added `key={`captcha-${mode}`}` prop to SmartCaptcha component
-- **Mechanism**: React unmounts/remounts widget on `key` change, forcing fresh state
-- **File Modified**: `packages/auth-frontend/base/src/components/AuthView.tsx`
-- **Build Status**: Full workspace build passed (61 tasks, 6m21s)
-
-### SmartCaptcha Login Form Support ✅
-
-- **Feature**: Added optional SmartCaptcha support for login form (in addition to existing registration captcha)
-- **Environment Variable**: `SMARTCAPTCHA_LOGIN_ENABLED` (default: false) for granular control
-- **Backend Changes**:
-  - Added `createLoginCaptchaService()` factory to `@universo/utils/captcha`
-  - Updated `captchaService.ts`: new exports `getLoginCaptchaConfig`, `isLoginCaptchaRequired`, `validateLoginCaptcha`
-  - Updated `/captcha-config` endpoint: returns both registration and login configs (with legacy format for backwards compatibility)
-  - Added captcha validation to `/login` route (LoginSchema accepts optional `captchaToken`)
-- **Frontend Changes**:
-  - New types: `SingleCaptchaConfig`, updated `CaptchaConfig` with `registration`/`login` fields
-  - `AuthView.tsx`: Mode-specific captcha config resolution, shows widget on both login/register when enabled
-  - `AuthProvider`: `login()` signature accepts optional `captchaToken` parameter
-  - `AuthPage.tsx`: `handleLogin` forwards `captchaToken` to backend
-- **UX**: Login button disabled until captcha completed when enabled (same as registration)
-- **Pattern**: Factory pattern with separate env vars for each captcha use case
-- **Build Status**: Full workspace build passed (61 tasks, 5m46s)
-
-### Captcha QA Fixes — Code Quality & Shared Module ✅
-
-- **QA Issues Fixed**: All 4 issues identified in comprehensive QA analysis resolved
-- **P0 React Hooks Violation**: Moved all useCallback hooks in AuthPage.tsx BEFORE early return statement
-- **P1 Prettier/Linting**: Fixed formatting issues and replaced `err: any` with `err: unknown` + proper type casting
-- **P2 Shared Captcha Module Created**: `@universo/utils/captcha`
-  - Factory functions: `createRegistrationCaptchaService()`, `createPublicationCaptchaService()`
-  - Core exports: `validateCaptchaToken()`, `isCaptchaRequired()`, `getCaptchaConfig()`
-  - Types: `CaptchaValidationResult`, `CaptchaConfig`, `CaptchaServiceOptions`
-- **P2 axios Migration**: Replaced native `https.request` with axios (catalog:1.13.2)
-  - Cleaner promise-based API, built-in timeout support, consistent error handling
-- **Code Deduplication**: ~250 lines duplicated captcha code → 35 lines per service (re-export pattern)
-- **Files Modified**:
-  - `packages/auth-frontend/base/src/pages/AuthPage.tsx` (hooks order, error typing)
-  - `packages/auth-frontend/base/src/components/AuthView.tsx` (error typing)
-  - `packages/universo-utils/base/src/captcha/index.ts` (NEW - shared service)
-  - `packages/auth-backend/base/src/services/captchaService.ts` (refactored to re-export)
-  - `packages/flowise-leads-backend/base/src/services/captchaService.ts` (refactored to re-export)
-  - `packages/flowise-leads-backend/base/tsconfig.json` (moduleResolution: node → node16)
-- **Lint Status**: auth-frontend 0 errors (down from 9), all packages have 0 errors
-- **Build Status**: Full workspace build passed (61 tasks successful, 6m03s)
-
-### SmartCaptcha Fail-Closed Security Hardening ✅
-
-- **Security Pattern Changed**: Changed from fail-open to fail-closed for captcha validation
-- **Files Modified**:
-  - `packages/auth-backend/base/src/services/captchaService.ts`
-  - `packages/flowise-leads-backend/base/src/services/captchaService.ts`
-- **Error Cases Now Return Failure**:
-  - Missing server key: `{ success: false, error: 'Captcha service is not configured' }`
-  - API error (non-200): `{ success: false, error: 'Captcha service unavailable' }`
-  - Parse error: `{ success: false, error: 'Captcha service error' }`
-  - Network error: `{ success: false, error: 'Captcha service unavailable' }`
-  - Timeout: `{ success: false, error: 'Captcha service timeout' }`
-- **Rationale**: When SmartCaptcha is enabled, it MUST work. Users cannot bypass captcha validation due to API unavailability
-- **Lint Status**: Both packages have 0 errors (only warnings remain)
-- **Build Status**: Full workspace build passed (61 tasks successful, 5m46s)
-- **Deferred**: Rate limiting for leads API endpoint (agreed to implement later)
-
----
+- Added optional SmartCaptcha for login (`SMARTCAPTCHA_LOGIN_ENABLED`) end-to-end (widget + backend validation).
+- Refactored captcha logic into shared `@universo/utils/captcha` and re-exported from auth/leads services (axios-based).
+- Security: switched captcha validation to fail-closed when enabled (prevents bypass on API errors).
+- UX: widget resets on mode switch; added user-facing network error message; updated cookie consent text (“Universo Platformo”).
+- Validation: Full workspace build passed (61 tasks).
 
 ## 📅 2026-01-01
 
-### Server-side Captcha Validation for Leads ✅
+### SmartCaptcha: Registration + Publication + Leads Wiring ✅
 
-- **Security Gap Fixed**: QA analysis identified that lead form captcha tokens were NOT being validated server-side
-- **captchaService.ts**: Created in `flowise-leads-backend` mirroring auth-backend pattern
-- **Functions Added**:
-  - `isPublicationCaptchaRequired()` - checks `SMARTCAPTCHA_PUBLICATION_ENABLED` env var
-  - `validatePublicationCaptcha(token, ip)` - validates token via Yandex API
-- **leadsService.ts Update**: Added captcha validation before database insert
-- **Type Update**: Added `captchaToken?: string` to `CreateLeadPayload` in universo-types
-- **Fail-Open Pattern**: Allow on API/network errors (5s timeout) to avoid blocking legitimate users
-- **Server Key Safety**: Verified `SMARTCAPTCHA_SERVER_KEY` (ysc2_...) only used in backend services, never exposed to frontend
-
-### Publication Leads Captcha Token Wiring + Safe Logging ✅
-
-- **Frontend (template-quiz)**: `captchaToken` is now included in `POST /api/v1/leads` payload for both multi-scene and node-based quiz modes
-- **Frontend Logging**: Removed direct logging of full `leadData` objects that may contain PII and captcha tokens (replaced with safe boolean/length summaries)
-- **Backend Logging (leads-backend)**: Sanitized logs to avoid PII and token value leakage; logs only presence/length and consent flags
-- **Error Handling**: Preserved `LeadsServiceError` status codes (e.g., captcha failures return 400 instead of being coerced to 500)
-- **Captcha Validation**: Avoid sending empty `ip` parameter to the SmartCaptcha validation API
-- **Build**: Full workspace build completed successfully (`pnpm build`)
-
-### SmartCaptcha for Quiz Lead Forms ✅
-
-- **Quiz Captcha Support**: Extended Yandex SmartCaptcha to AR.js quiz lead collection forms
-- **UPDL Schema**: Added `captchaEnabled` and `captchaSiteKey` fields to `IUPDLSpace.leadCollection`
-- **Space Node Config**: Added UI inputs in Space Builder for captcha settings
-- **HTML Integration**: SmartCaptcha widget rendered via `class="smart-captcha"` with `data-sitekey`, `data-callback`, `data-expired-callback`
-- **Script Loading**: Dynamic `captcha.js` script injection with success/expired callbacks
-- **Form Validation**: Button disabled until captcha solved; validation on submit for both multi-scene and node-based quiz modes
-- **Consent Text**: Updated lead form checkbox text from "Я принимаю" → "Я ознакомился и принимаю" to match registration form
-
-### Environment Documentation Update ✅
-
-- **Clarified test mode**: Updated `.env` and `.env.example` documentation to explain that `SMARTCAPTCHA_TEST_MODE=true` forces challenge display but does NOT bypass domain validation
-- **Localhost guidance**: Added note about configuring localhost/127.0.0.1 in Yandex Cloud Console allowed domains
-
-### Publication Captcha Wiring ✅
-
-- **Issue**: Published app `/p/:slug` did not show captcha even with `SMARTCAPTCHA_PUBLICATION_ENABLED=true` because generated lead form relied only on per-space `leadCollection.captcha*` fields.
-- **Fix**: Added global publication captcha config fetch in publish-frontend and passed it into template build options; template-quiz merges it into `leadCollection` as default.
-- **Endpoint**: `GET /api/v1/publish/captcha/config` returns `{ enabled, siteKey, testMode }`.
-- **Auth**: Added `GET /api/v1/publish/captcha/config` to `API_WHITELIST_URLS` to prevent 401 from the global `/api/v1` auth middleware in flowise-core-backend.
-- **Result**: SmartCaptcha widget is injected into generated HTML when global publication captcha is enabled and a siteKey is configured.
-
-### Publication Captcha Test Mode Fix ✅
-
-- **Issue**: Published `/p/:slug` SmartCaptcha iframe URL stayed `test=false` even when backend config had `testMode: true`.
-- **Fix**: Switched template-quiz lead form integration to explicit `window.smartCaptcha.render(..., { test })` initialization and loaded captcha script with `?render=onload&onload=__onSmartCaptchaReady`.
-- **Result**: When `SMARTCAPTCHA_TEST_MODE=true`, the widget receives `test=true` and shows the test-mode behavior.
-
-### Publication Captcha Domain Fix ✅
-
-- **Issue**: SmartCaptcha showed "Key cannot be used on domain" inside published `/p/:slug` because AR content was embedded via `iframe.srcdoc`, making the iframe origin `about:srcdoc` (not `localhost`).
-- **Fix**: Switched AR iframe rendering from `srcdoc` to a `blob:` URL created from the generated HTML, preserving the parent origin (e.g., `http://localhost:3000`) for domain allowlisting.
-- **Where**: publish-frontend AR viewer.
-
-### Yandex Smart Captcha Integration ✅
-
-- **Registration Security**: Integrated Yandex Smart Captcha into registration flow
-- **Two-Way Validation**: Frontend widget + Backend API token verification
-- **Fail-Open Design**: Allows registration if captcha keys are missing (Dev/Test mode)
-- **UI/UX**: Added captcha widget below consent checkboxes, disabled register button until solved
-- **i18n**: Added translations for captcha requirements and updated consent checkbox labels
-
-### Captcha Configuration Centralization ✅
-
-- **Centralized ENV**: All captcha settings in `packages/flowise-core-backend/base/.env`:
-  - `SMARTCAPTCHA_REGISTRATION_ENABLED` - registration on/off toggle
-  - `SMARTCAPTCHA_TEST_MODE` - enable test mode for localhost
-  - `SMARTCAPTCHA_SITE_KEY` - client-side key
-  - `SMARTCAPTCHA_SERVER_KEY` - server-side secret
-- **API Config Endpoint**: `/api/v1/auth/captcha-config` serves config to frontend
-- **Removed from Frontend**: Frontend `.env` no longer contains captcha keys
-- **Test Mode**: Added `test={true}` prop support for SmartCaptcha widget (forces challenge; does NOT bypass domain validation)
+- Added server-side captcha validation for leads (prevents unvalidated tokens reaching DB).
+- Wired `captchaToken` from quiz lead forms to backend and sanitized logging to avoid PII/token leaks.
+- Publication support: global captcha config endpoint (`/api/v1/publish/captcha/config`) and allowlisting in `API_WHITELIST_URLS`.
+- Domain/test-mode learnings: `test=true` does not bypass domain allowlisting; `iframe.srcdoc` breaks domain checks → switched integration to preserve origin.
+- Validation: Full workspace build passed.
 
 ## 📅 2025-12-31 (Latest)
 
-### Cookie Consent & Lead Consent Implementation ✅
+### Privacy Consent 🔒 (Cookie + leads + legal pages) ✅
 
-- **Cookie Consent Banner**: GDPR-compliant two-stage flow (accept/decline), non-modal banner, rejection dialog with self-hosting links, localStorage persistence, full i18n (EN/RU)
-- **Lead Consent for Quiz AR.js**: 6 new columns in Lead entity for consent tracking, checkboxes in quiz form, validation before submission
-- **Profile Consent Versioning**: Split `consent_version` into `terms_version` + `privacy_version` for independent document updates
-
-### Profile Creation & Registration Fixes ✅
-
-- Fixed TypeORM result parsing in registration (tuple format `[rows[], rowCount]`)
-- Database trigger `create_user_profile` with `SECURITY DEFINER` for RLS bypass
-- Consent fields extracted from `raw_user_meta_data` during signup
-- Migration consolidation (merged duplicate trigger migrations)
-
-### Legal Pages Implementation ✅
-
-- Created `/terms` and `/privacy` routes with PDF document display
-- Version display format: "Version X.X.X, last updated: DD.MM.YYYY"
-- Registration form consent checkboxes linked to legal pages
-- Public UI whitelist updated for unauthenticated access
+- Implemented cookie consent banner (accept/decline) with i18n + persistence.
+- Added lead consent fields/validation for quiz AR.js submissions.
+- Updated profile consent versioning (`terms_version`, `privacy_version`) and fixed signup/profile creation (TypeORM tuple parsing + RLS-safe trigger/migration consolidation).
+- Added `/terms` and `/privacy` pages (version display, consent links, public UI whitelist updates).
 
 ---
 
@@ -468,195 +666,80 @@
 
 ### Auth & UX Fixes ✅
 
-- **Auth Register 419 Auto-Retry**: Retry-once logic for stale CSRF token on registration
-- **Start Page Spacing**: Fixed desktop padding for completion screen, auth button loading state
-- **Onboarding Tracking**: `onboarding_completed` column in profiles, conditional rendering in AuthenticatedStartPage
+- Added retry-once for registration on HTTP 419 (stale CSRF).
+- Polished start page spacing/loading states and added onboarding completion tracking.
 
 ---
 
 ## 📅 2025-12-26
 
-### Onboarding Wizard & Start Page Enhancement ✅
+### Onboarding wizard + quiz/publication fixes ✅
 
-- **Onboarding Wizard**: 5-step wizard (Welcome → Projects → Campaigns → Clusters → Completion), card selection UI, member sync on selection change
-- **Start Page i18n**: Internationalized Hero, Testimonials, AppAppBar; added language switcher
-- **Content Updates**: Personal intro from Vladimir Levadnij, alpha notice with repo links, testimonial translations
-- **View Migration**: Moved start page views from template-mui to @universo/start-frontend
-
-### Quiz Leads API & Analytics Fixes ✅
-
-- Fixed Leads API 400 error (nullable canvasId, points field added to Zod schema)
-- Fixed Analytics TypeError (normalized canvases response for array/object formats)
-- Created @universo/types leads validation types
-- Added comprehensive unit tests (19 test suites)
-
-### Anonymous Quiz Access Fix ✅
-
-- Added `/api/v1/publish/public/` and `/api/v1/publish/canvas/public/` to API whitelist
-- Updated `createEnsureAuthWithRls` to bypass whitelisted public endpoints
+- Shipped 5-step onboarding wizard and improved start page i18n/content; migrated views to `@universo/start-frontend`.
+- Fixed Leads API/analytics issues (schema + response normalization) and added types/tests.
+- Fixed anonymous quiz access via publish endpoint allowlisting and RLS/auth bypass for whitelisted routes.
 
 ---
 
 ## 📅 2025-12-25
 
-### Auth Flow Improvements ✅
+### Auth flow + routing + shared API client refactor ✅
 
-- **Login After Restart**: Auto-retry on 419 (CSRF expiration), single-click login restored
-- **Logout Fix**: Removed forced redirect, React declarative re-rendering approach
-- **CSRF Handling**: Clear stale token on 419, proper session regeneration handling
-- **Backend**: HTTP 419 for EBADCSRFTOKEN, idempotent logout with cookie cleanup
-
-### Landing Page & Auth Redirect Fixes ✅
-
-- Fixed flash of protected content (AuthGuard wraps MainLayoutMUI)
-- Fixed infinite redirect loop (added /auth to PUBLIC_UI_ROUTES)
-- Landing page UI: RouterLink for buttons, commented out demo data
-
-### API Client Architecture Refactoring ✅
-
-- Created `@universo/utils/routes` with centralized public routes
-- Added `redirectOn401` option to `createAuthClient()` ('auto'|true|false|string[])
-- Eliminated ~500 lines duplicate code across 9 apiClient.ts files
+- Improved auth resilience (419 CSRF auto-retry, logout cleanup, no forced redirect).
+- Fixed auth routing edge cases (AuthGuard flash, redirect loop; `/auth` in public UI routes).
+- Centralized public routes in `@universo/utils/routes` and added `redirectOn401` controls; removed large API client duplication.
 
 ---
 
 ## 📅 2025-12-23-24
 
-### Auth/RLS Architecture Fixes ✅
+### Auth/RLS fixes + Metahubs stability ✅
 
-- **Role Change Fix**: Removed `SET role = 'authenticated'` (lacks admin schema USAGE)
-- **RLS Context Persistence**: Session-scoped JWT claims, proper cleanup on connection release
-- **Critical Pattern**: RLS works from `request.jwt.claims` only, no role switching needed
-
-### Metahubs Fixes ✅
-
-- Fixed VLC rendering (Display types for UI, VLC extraction utilities)
-- Fixed breadcrumb name hook for VLC/SimpleLocalizedInput
-- Fixed pagination data access (`.items` extraction from PaginatedResponse)
-- Added i18n namespace consolidation for hubs/attributes/records
-- Created breadcrumb hooks (useHubName, useAttributeName)
-- Added navigation tabs between Attributes and Records views
+- Fixed RLS/auth architecture (no DB role switching; session-scoped JWT claims + cleanup on release).
+- Hardened Metahubs UI for localization/pagination (VLC display/utilities, breadcrumb hooks, `.items` extraction, hubs/attributes/records i18n consolidation, Attributes↔Records tabs).
 
 ---
 
 ## 📅 2025-12-22
 
-### Metahubs Metadata Platform Transformation ✅
+### Metahubs metadata platform transformation ✅
 
-**Phase 1-2 Backend Complete:**
-- Renamed MetaSection → Hub, MetaEntity → Attribute
-- Created Record.ts (HubRecord) for JSONB data storage
-- New schema: hubs, attributes, records tables with GIN indexes
-- ENUM: attribute_data_type (STRING, NUMBER, BOOLEAN, DATE, DATETIME, REF, JSON)
-- RLS policies with admin bypass and public access
-
-**Phase 3 Frontend Complete:**
-- Types: SimpleLocalizedInput, Hub, Attribute, HubRecord with Display variants
-- API clients: hubs.ts, attributes.ts, records.ts
-- Pages: HubList (~515 lines), AttributeList (~455 lines), RecordList (~670 lines)
-- Mutations: 9 hooks for CRUD operations
-- i18n: EN/RU translations for new terminology
-
-### Metahubs Access & Members Fixes ✅
-
-- Fixed member cards showing "Нет email" (proper AuthUser entity query)
-- Fixed sidebar showing wrong menu (added metahub route detection)
-- UI aligned to Metaverses pattern (ViewHeader, card/list toggle, pagination)
+- Backend: renamed hierarchy (MetaSection→Hub, MetaEntity→Attribute), added JSONB records storage, indexes, enums, and RLS policies.
+- Frontend: added types (incl. display variants), API clients, CRUD pages (hubs/attributes/records), and EN/RU i18n.
+- UX fixes: member cards auth-user lookup, correct sidebar menu detection, aligned list UI to Metaverses pattern.
 
 ---
 
 ## 📅 2025-12-15-21 (Consolidated)
 
-### AgentFlow Features Complete ✅
+### Agents/AgentFlow + dynamic locales (consolidated) ✅
 
-**Node-based Detection**:
-- Universal registry + node-based detection (no URL dependency)
-- `getNodeRenderType(nodeData)` → `agentFlow | stickyNote | customNode`
-- `normalizeNodeTypes(nodes, componentNodes)` → normalizes node.type on flow load
-- Detection rules: StickyNote type → `stickyNote`, `category === 'Agent Flows'` → `agentFlow`, `name` ends with `Agentflow` → `agentFlow`
-
-**Chat popup i18n**:
-- @flowise/chatmessage-frontend i18n infrastructure
-- `onOpenChange` callback prop for coordination with validation UI
-
-**Agents backend/frontend**:
-- Validation service (node connectivity, required params, credentials, hanging edges)
-- ValidationPopUp component with issues list, icons, dark-mode styling
-- API client: `createValidationApi`, `checkValidation(canvasId, unikId?)`
-
-**Config UX Fixes**:
-- Fixed input focus loss (removed value-based remount for `<Input>`)
-- Fixed Start node showing extra fields by default (applied `showHideInputParams`)
-- Fixed missing Messages array section (rehydrated on flow load)
-
-### Agent Executions i18n ✅
-
-- Integrated i18n on executions list/details pages (titles, filters, dialogs, empty states)
-- Registered executions namespace via side-effect import in package entry
-
-### Flowise 3.0.12 Components ✅
-
-- Replaced `packages/flowise-components` with upstream Flowise 3.0.12 version
-- Adapted build to upstream approach (`tsc` + `gulp`)
-- AgentFlow icon rendering (Tabler icons when `node.color && !node.icon`)
-- Upgraded @tabler/icons-react to v3.x for Flowise 3 compatibility
-- Global error handler respects `err.statusCode` (no masking of 404 as 500)
-
-### Dynamic Locales System ✅
-
-- Admin UI for managing content locales (database-driven, not hardcoded `en/ru`)
-- Public API endpoint for localized content (cached, no auth) for editors
-- System locales (`en`, `ru`) protected from deletion
-- Content locales separate from UI i18n namespaces
+- AgentFlow node-type detection/normalization and multiple UX fixes in the editor.
+- Agents validation pipeline (service + UI popup) and chat popup i18n plumbing.
+- Executions pages i18n and namespace registration cleanup.
+- Upgraded `flowise-components` to upstream Flowise 3.0.12 (build alignment + icon rendering fixes).
+- Added dynamic content locales system (DB-driven locales; system locales protected; public cached endpoint).
 
 ---
 
 ## 📅 2025-12-09-14 (Consolidated)
 
-### UUID v7 Migration ✅
+### UUID v7 + infra updates (consolidated) ✅
 
-- Migrated from UUID v4 to UUID v7 for time-ordered IDs
-- Added shared UUID utilities in `@universo/utils` (generate/validate/extract timestamp)
-- Added Postgres `uuid_generate_v7()` function and updated migrations
-- Updated backend code to stop using `crypto.randomUUID()` / `uuid.v4` directly
-
-### Infrastructure Updates ✅
-
-- **ESLint Upgrade**: @typescript-eslint/* v8.x for TypeScript 5.8.x compatibility
-- **Global Roles Access**: Subject-wide permissions checked before membership (synthetic membership pattern)
-- **CASL Terminology**: Refactored `module` → `subject` (CASL/Auth0/OWASP standard alignment)
-- **RBAC Cleanup**: Removed redundant `canAccessAdmin` flag; admin access computed from permissions
-- Updated frontend queries to be context-aware where subject scoping matters
+- Migrated UUID v4 → v7, added shared UUID utilities and Postgres `uuid_generate_v7()`.
+- Upgraded ESLint toolchain for TS 5.8.
+- RBAC/CASL cleanup (module→subject terminology, synthetic membership/global roles, derived admin access, context-aware queries).
 
 ---
 
 ## 📅 2025-12 Early: Metahubs MVP Complete ✅
 
-### Metahubs Copy-Refactor Implementation
+### Metahubs MVP (copy-refactor) ✅
 
-**Scope**: Implemented Metahubs by literal copy of Metaverses packages + systematic refactor.
-
-**Backend Artifacts**:
-- New packages: `@universo/metahubs-backend@0.1.0`, `@universo/metahubs-frontend@0.1.0`
-- Migration: `1766351182000-CreateMetahubsSchema.ts`
-- Tables: metahubs, meta_entities, meta_sections, metahubs_users, junction tables
-- Terminology: Metaverse → Metahub, Entity → MetaEntity, Section → MetaSection
-
-**Pattern Parity with Metaverses**:
-- EntityFormDialog create/edit modal pattern
-- BaseEntityMenu action dropdown
-- ConfirmDeleteDialog reuse
-- usePaginated list fetching
-- TanStack Query queryKeys factory
-- i18n namespace registration
-
-**Navigation Integration**:
-- Menu translations in @universo/i18n
-- Metahubs root entry + helpers in menuConfigs.ts
-- Metahub context detection in MenuContent.tsx
-- Route tree in MainRoutesMUI.tsx
-
-**Test Coverage**: 95/95 tests passing, 78.69% statements, 72.64% functions
+- Implemented Metahubs by copying/refactoring Metaverses packages; created backend/frontend packages and initial schema migration.
+- Preserved list/form/menu patterns (EntityFormDialog, BaseEntityMenu, ConfirmDeleteDialog, usePaginated, queryKeys, i18n namespaces).
+- Integrated navigation/routes and menu translations.
+- Tests: 95/95 passing at the time (coverage noted in CI output).
 
 ---
 

@@ -1,18 +1,12 @@
 import type { VersionedLocalizedContent } from '@universo/types'
 import { createLocalizedContent, filterLocalizedContent } from '@universo/utils'
-import type { SimpleLocalizedInput } from '../types'
 
-export const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
+// Re-export centralized VLC utilities
+export { normalizeLocale, getSimpleLocalizedValue, type SimpleLocalizedInput } from '@universo/utils/vlc'
 
-export const getSimpleLocalizedValue = (field: SimpleLocalizedInput, locale = 'en'): string => {
-    const normalized = normalizeLocale(locale)
-    const localized = field[normalized]
-    if (typeof localized === 'string' && localized.trim() !== '') return localized
-    if (typeof field.en === 'string' && field.en.trim() !== '') return field.en
-    if (typeof field.ru === 'string' && field.ru.trim() !== '') return field.ru
-    const fallback = Object.values(field).find((value) => typeof value === 'string' && value.trim() !== '')
-    return typeof fallback === 'string' ? fallback : ''
-}
+// Import for local use
+import { normalizeLocale as normalize } from '@universo/utils/vlc'
+import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 
 export const extractLocalizedInput = (value?: VersionedLocalizedContent<string> | null) => {
     const filtered = filterLocalizedContent(value)

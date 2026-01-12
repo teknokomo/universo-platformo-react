@@ -1,4 +1,4 @@
-import { TextField, Divider } from '@mui/material'
+import { Divider } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
@@ -207,30 +207,10 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
         icon: <DeleteIcon />,
         order: 100,
         group: 'danger',
-        dialog: {
-            loader: async () => {
-                const module = await import('@universo/template-mui/components/dialogs')
-                return { default: module.ConfirmDeleteDialog }
-            },
-            buildProps: (ctx) => ({
-                open: true,
-                title: ctx.t('hubs.deleteDialog.title', 'Delete Hub'),
-                description: ctx.t('hubs.deleteDialog.message'),
-                confirmButtonText: ctx.t('common:actions.delete'),
-                cancelButtonText: ctx.t('common:actions.cancel'),
-                onCancel: () => {
-                    // BaseEntityMenu handles dialog closing
-                },
-                onConfirm: async () => {
-                    try {
-                        await ctx.api?.deleteEntity?.(ctx.entity.id)
-                        await ctx.helpers?.refreshList?.()
-                    } catch (error: unknown) {
-                        notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                        throw error
-                    }
-                }
-            })
+        // Use custom onSelect to open HubDeleteDialog with blocking catalogs check
+        onSelect: async (ctx) => {
+            // Open the HubDeleteDialog via helper (defined in HubList.tsx)
+            ctx.helpers?.openDeleteDialog?.(ctx.entity)
         }
     }
 ]

@@ -1,7 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import type { ClusterRole } from '@universo/types'
 import { Resource } from '../database/entities/Resource'
 import { Domain } from '../database/entities/Domain'
@@ -13,15 +12,7 @@ import { ResourceCluster } from '../database/entities/ResourceCluster'
 import { ensureClusterAccess, ensureDomainAccess, ensureResourceAccess, ROLE_PERMISSIONS } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
-import { escapeLikeWildcards } from '../utils'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user

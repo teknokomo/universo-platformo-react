@@ -26,6 +26,9 @@ import {
     truncateStorageName,
     useHubName,
     truncateHubName,
+    useCatalogName,
+    useCatalogNameStandalone,
+    truncateCatalogName,
     useAttributeName,
     truncateAttributeName
 } from '../../hooks'
@@ -82,20 +85,35 @@ export default function NavbarBreadcrumbs() {
     const storageName = useStorageName(storageId)
 
     // Extract hubId from URL for dynamic name loading (under metahub context)
-    // Pattern: /metahub/:metahubId/hubs/:hubId/...
-    const hubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hubs\/([^/]+)/)
+    // Pattern: /metahub/:metahubId/hub/:hubId/...
+    const hubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)/)
     const hubParentMetahubId = hubIdMatch ? hubIdMatch[1] : null
     const hubId = hubIdMatch ? hubIdMatch[2] : null
     const hubName = useHubName(hubParentMetahubId, hubId)
 
-    // Extract attributeId from URL for dynamic name loading (under hub context)
-    // Pattern: /metahub/:metahubId/hubs/:hubId/attributes/:attributeId
-    const attributeIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hubs\/([^/]+)\/attributes\/([^/]+)/)
+    // Extract catalogId from URL for dynamic name loading (under hub context)
+    // Pattern: /metahub/:metahubId/hub/:hubId/catalogs/:catalogId/...
+    const catalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs\/([^/]+)/)
+    const catalogParentMetahubId = catalogIdMatch ? catalogIdMatch[1] : null
+    const catalogParentHubId = catalogIdMatch ? catalogIdMatch[2] : null
+    const catalogId = catalogIdMatch ? catalogIdMatch[3] : null
+    const catalogName = useCatalogName(catalogParentMetahubId, catalogParentHubId, catalogId)
+
+    // Extract catalogId from URL for catalog-centric navigation (without hub context)
+    // Pattern: /metahub/:metahubId/catalogs/:catalogId/... (NOT /hub/)
+    const standaloneCatalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalogs\/([^/]+)/)
+    const standaloneCatalogMetahubId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[1] : null
+    const standaloneCatalogId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[2] : null
+    const standaloneCatalogName = useCatalogNameStandalone(standaloneCatalogMetahubId, standaloneCatalogId)
+
+    // Extract attributeId from URL for dynamic name loading (under catalog context)
+    // Pattern: /metahub/:metahubId/hub/:hubId/catalogs/:catalogId/attributes/:attributeId
+    const attributeIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs\/([^/]+)\/attributes\/([^/]+)/)
     const attrParentMetahubId = attributeIdMatch ? attributeIdMatch[1] : null
     const attrParentHubId = attributeIdMatch ? attributeIdMatch[2] : null
-    const attributeId = attributeIdMatch ? attributeIdMatch[3] : null
-    const attributeName = useAttributeName(attrParentMetahubId, attrParentHubId, attributeId)
-
+    const attrParentCatalogId = attributeIdMatch ? attributeIdMatch[3] : null
+    const attributeId = attributeIdMatch ? attributeIdMatch[4] : null
+    const attributeName = useAttributeName(attrParentMetahubId, attrParentHubId, attrParentCatalogId, attributeId)
     // Extract unikId from URL for dynamic name loading
     const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = unikIdMatch ? unikIdMatch[1] : null
@@ -238,35 +256,84 @@ export default function NavbarBreadcrumbs() {
                     to: `/metahub/${segments[1]}`
                 })
 
-                // Sub-pages: hubs, access, members
+                // Sub-pages: hubs, catalogs, access, members
                 if (segments[2] === 'access') {
                     items.push({ label: t('access'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'catalogs') {
+                    // Catalog-centric navigation (without hub context)
+                    items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
+
+                    // If a specific catalog is selected (segments[3])
+                    if (segments[3] && standaloneCatalogName) {
+                        // Link to attributes page (default view for catalog)
+                        items.push({
+                            label: truncateCatalogName(standaloneCatalogName),
+                            to: `/metahub/${segments[1]}/catalogs/${segments[3]}/attributes`
+                        })
+
+                        // Nested under catalog: attributes or records
+                        if (segments[4] === 'attributes') {
+                            items.push({ label: t('attributes'), to: location.pathname })
+                        } else if (segments[4] === 'records') {
+                            items.push({ label: t('records'), to: location.pathname })
+                        }
+                    }
                 } else if (segments[2] === 'hubs') {
-                    // Hubs list or nested hub routes
+                    // Hubs list
+                    items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
+                } else if (segments[2] === 'hub') {
+                    // Specific hub selected - use singular 'hub' in URL
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
 
                     // If we have a specific hub selected (segments[3])
                     if (segments[3] && hubName) {
-                        items.push({
-                            label: truncateHubName(hubName),
-                            to: `/metahub/${segments[1]}/hubs/${segments[3]}/attributes`
-                        })
+                        // Check if we're in catalogs context
+                        if (segments[4] === 'catalogs') {
+                            // Hub name links to catalogs list (as default hub view)
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
 
-                        // Nested under hub: attributes or records
-                        if (segments[4] === 'attributes') {
-                            items.push({ label: t('attributes'), to: location.pathname })
+                            // Catalogs list under hub
+                            items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
 
-                            // If a specific attribute is selected
-                            if (segments[5] && attributeName) {
+                            // If a specific catalog is selected (segments[5])
+                            if (segments[5] && catalogName) {
                                 items.push({
-                                    label: truncateAttributeName(attributeName),
-                                    to: location.pathname
+                                    label: truncateCatalogName(catalogName),
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs/${segments[5]}/attributes`
                                 })
+
+                                // Nested under catalog: attributes or records
+                                if (segments[6] === 'attributes') {
+                                    items.push({ label: t('attributes'), to: location.pathname })
+
+                                    // If a specific attribute is selected
+                                    if (segments[7] && attributeName) {
+                                        items.push({
+                                            label: truncateAttributeName(attributeName),
+                                            to: location.pathname
+                                        })
+                                    }
+                                } else if (segments[6] === 'records') {
+                                    items.push({ label: t('records'), to: location.pathname })
+                                }
                             }
-                        } else if (segments[4] === 'records') {
-                            items.push({ label: t('records'), to: location.pathname })
+                        } else {
+                            // Other hub sub-pages (fallback)
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
+
+                            if (segments[4] === 'attributes') {
+                                items.push({ label: t('attributes'), to: location.pathname })
+                            } else if (segments[4] === 'records') {
+                                items.push({ label: t('records'), to: location.pathname })
+                            }
                         }
                     }
                 }

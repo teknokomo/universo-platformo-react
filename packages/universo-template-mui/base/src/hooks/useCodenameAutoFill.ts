@@ -60,13 +60,7 @@ export interface UseCodenameAutoFillOptions {
  * })
  * ```
  */
-export function useCodenameAutoFill({
-    codename,
-    codenameTouched,
-    nextCodename,
-    nameValue,
-    setValue
-}: UseCodenameAutoFillOptions): void {
+export function useCodenameAutoFill({ codename, codenameTouched, nextCodename, nameValue, setValue }: UseCodenameAutoFillOptions): void {
     // Track if this is the first render to avoid unnecessary updates
     const isFirstRender = useRef(true)
 

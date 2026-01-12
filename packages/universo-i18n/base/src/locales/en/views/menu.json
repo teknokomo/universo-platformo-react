@@ -39,6 +39,7 @@
         "resources": "Resources",
         "domains": "Domains",
         "hubs": "Hubs",
+        "catalogs": "Catalogs",
         "attributes": "Attributes",
         "records": "Records",
         "sections": "Sections",

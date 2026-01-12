@@ -34,6 +34,8 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 import type { TriggerProps } from '@universo/template-mui'
 
 import { useUpdateMetahub, useDeleteMetahub } from '../hooks/mutations'
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
 import * as metahubsApi from '../api/metahubs'
 import { metahubsQueryKeys } from '../api/queryKeys'
 import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay } from '../types'
@@ -55,7 +57,7 @@ const MetahubList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('metahubsMetahubDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.METAHUB_DISPLAY_STYLE)
 
     // Get user settings for showAll preference
     const { settings } = useUserSettings()
@@ -242,8 +244,7 @@ const MetahubList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('metahubsMetahubDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     const metahubColumns = useMemo(
@@ -253,6 +254,8 @@ const MetahubList = () => {
                 label: tc('table.name', 'Name'),
                 width: '20%',
                 align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: MetahubDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: MetahubDisplay) => (
                     <Link to={`/metahub/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
@@ -277,6 +280,8 @@ const MetahubList = () => {
                 label: tc('table.description', 'Description'),
                 width: '26%',
                 align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: MetahubDisplay) => row.description?.toLowerCase() ?? '',
                 render: (row: MetahubDisplay) => (
                     <Typography
                         sx={{
@@ -297,21 +302,21 @@ const MetahubList = () => {
                 render: (row: MetahubDisplay) => (row.role ? <RoleChip role={row.role} accessType={row.accessType} /> : '—')
             },
             {
-                id: 'meta_sections',
-                label: tc('table.meta_sections', 'MetaSections'),
+                id: 'hubs',
+                label: t('table.hubs'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: MetahubDisplay) => (typeof row.meta_sectionsCount === 'number' ? row.meta_sectionsCount : '—')
+                render: (row: MetahubDisplay) => (typeof row.hubsCount === 'number' ? row.hubsCount : '—')
             },
             {
-                id: 'meta_entities',
-                label: tc('table.meta_entities', 'MetaEntities'),
+                id: 'catalogs',
+                label: t('table.catalogs'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: MetahubDisplay) => (typeof row.meta_entitiesCount === 'number' ? row.meta_entitiesCount : '—')
+                render: (row: MetahubDisplay) => (typeof row.catalogsCount === 'number' ? row.catalogsCount : '—')
             }
         ],
-        [tc]
+        [t, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response

@@ -25,15 +25,15 @@
             "defaultDescription": "Metahub analytics and statistics",
             "overview": "Overview",
             "stats": {
-                "meta_sections": {
-                    "title": "Sections",
+                "hubs": {
+                    "title": "Hubs",
                     "interval": "All time",
-                    "description": "Total sections in this metahub"
+                    "description": "Total hubs in this metahub"
                 },
-                "meta_entities": {
-                    "title": "Entities",
+                "catalogs": {
+                    "title": "Catalogs",
                     "interval": "All time",
-                    "description": "Total entities across all sections"
+                    "description": "Total catalogs across all hubs"
                 },
                 "members": {
                     "title": "Members",
@@ -67,54 +67,8 @@
         "table": {
             "description": "Description",
             "role": "Role",
-            "meta_sections": "Sections",
-            "meta_entities": "Entities"
-        }
-    },
-    "meta_sections": {
-        "title": "Sections",
-        "searchPlaceholder": "Search sections...",
-        "noMetaSectionsFound": "No sections found",
-        "createSection": "Create Section",
-        "editTitle": "Edit Section",
-        "confirmDelete": "Delete Section?",
-        "confirmDeleteDescription": "Are you sure you want to delete section \"{{name}}\"? All entities in this section will also be deleted.",
-        "deleteSuccess": "Section successfully deleted",
-        "deleteError": "Failed to delete section",
-        "saveError": "Failed to save section",
-        "entityCount_one": "{{count}} entity",
-        "entityCount_other": "{{count}} entities",
-        "actions": {
-            "edit": "Edit Section",
-            "delete": "Delete Section"
-        },
-        "table": {
-            "description": "Description",
-            "meta_entities": "Entities"
-        }
-    },
-    "meta_entities": {
-        "title": "Entities",
-        "searchPlaceholder": "Search entities...",
-        "noMetaEntitiesFound": "No entities found",
-        "createEntity": "Create Entity",
-        "editTitle": "Edit Entity",
-        "confirmDelete": "Delete Entity?",
-        "confirmDeleteDescription": "Are you sure you want to delete entity \"{{name}}\"?",
-        "deleteSuccess": "Entity successfully deleted",
-        "deleteError": "Failed to delete entity",
-        "saveError": "Failed to save entity",
-        "sectionLabel": "Section",
-        "noMetaSectionsAvailable": "No sections available",
-        "errors": {
-            "sectionRequired": "Section is required"
-        },
-        "actions": {
-            "edit": "Edit Entity",
-            "delete": "Delete Entity"
-        },
-        "table": {
-            "description": "Description"
+            "hubs": "Hubs",
+            "catalogs": "Catalogs"
         }
     },
     "hubs": {
@@ -133,15 +87,20 @@
         },
         "deleteDialog": {
             "title": "Delete Hub",
-            "message": "Are you sure you want to delete this hub? All attributes and records will be permanently removed."
+            "message": "Are you sure you want to delete this hub? All catalogs, attributes and records will be permanently removed.",
+            "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
+            "fetchError": "Failed to check for blocking catalogs",
+            "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
+            "resolutionHint": "To delete this hub, first add another hub to these catalogs or disable the \"Hub required\" option."
         },
         "codename": "Codename",
         "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
         "descriptionEn": "Description (English)",
-        "attributesCount": "Attributes",
-        "recordsCount": "Records",
+        "catalogsCount": "catalogs",
+        "catalogsCount_one": "{{count}} catalog",
+        "catalogsCount_other": "{{count}} catalogs",
         "createError": "Failed to create hub",
         "updateError": "Failed to update hub",
         "deleteError": "Failed to delete hub",
@@ -150,12 +109,76 @@
             "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
         }
     },
+    "catalogs": {
+        "title": "Catalogs",
+        "allTitle": "Catalogs",
+        "allDescription": "All catalogs across all hubs in this metahub",
+        "description": "Directories that organize attributes and records within a hub",
+        "searchPlaceholder": "Search catalogs...",
+        "empty": "No catalogs yet",
+        "emptyDescription": "Create your first catalog to organize attributes and records",
+        "emptyHint": "Create catalogs in specific hubs",
+        "noSearchResults": "No catalogs found",
+        "noSearchResultsHint": "Try different search terms",
+        "create": "Create Catalog",
+        "editTitle": "Edit Catalog",
+        "createDialog": {
+            "title": "Create Catalog"
+        },
+        "editDialog": {
+            "title": "Edit Catalog"
+        },
+        "deleteDialog": {
+            "title": "Delete Catalog",
+            "message": "Are you sure you want to delete this catalog? All attributes and records will be permanently removed."
+        },
+        "deleted": "Catalog deleted",
+        "deleteTitle": "Delete Catalog",
+        "deleteMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
+        "codename": "Codename",
+        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+        "nameEn": "Name (English)",
+        "nameRu": "Name (Russian)",
+        "descriptionEn": "Description (English)",
+        "attributesHeader": "Attributes",
+        "attributesCount_one": "{{count}} attribute",
+        "attributesCount_other": "{{count}} attributes",
+        "recordsHeader": "Records",
+        "recordsCount_one": "{{count}} rec",
+        "recordsCount_other": "{{count}} rec",
+        "countsHeader": "Items",
+        "createError": "Failed to create catalog",
+        "updateError": "Failed to update catalog",
+        "deleteError": "Failed to delete catalog",
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+            "hubRequired": "Please select a hub"
+        },
+        "tabs": {
+            "general": "General",
+            "hubs": "Hubs"
+        },
+        "addHub": "Add",
+        "removeHub": "Remove",
+        "selectHubs": "Select Hubs",
+        "noHubsSelected": "No hubs selected",
+        "noHubsAvailable": "No available hubs",
+        "addSelected": "Add",
+        "isRequiredHub": "Hub required",
+        "isRequiredHubEnabled": "Catalog must have at least one hub",
+        "isRequiredHubDisabled": "Catalog can exist without hubs",
+        "isSingleHub": "Single hub only",
+        "isSingleHubEnabled": "Catalog can only be in one hub",
+        "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
+        "isSingleHubWarning": "Cannot enable while multiple hubs are selected"
+    },
     "attributes": {
         "title": "Attributes",
-        "description": "Define the fields for this hub",
+        "description": "Define the fields for this catalog",
         "searchPlaceholder": "Search attributes...",
         "empty": "No attributes yet",
-        "emptyDescription": "Add attributes to define the structure of your hub data",
+        "emptyDescription": "Add attributes to define the structure of your catalog data",
         "create": "Add Attribute",
         "createDialog": {
             "title": "Add Attribute"
@@ -197,12 +220,12 @@
     },
     "records": {
         "title": "Records",
-        "description": "Data entries for this hub",
+        "description": "Data entries for this catalog",
         "searchPlaceholder": "Search records...",
         "empty": "No records yet",
-        "emptyDescription": "Add records to store data in this hub",
-        "addAttributesFirst": "Define attributes for this hub before adding records",
-        "noAttributes": "No attributes defined for this hub. Add attributes first.",
+        "emptyDescription": "Add records to store data in this catalog",
+        "addAttributesFirst": "Define attributes for this catalog before adding records",
+        "noAttributes": "No attributes defined for this catalog. Add attributes first.",
         "create": "Add Record",
         "createDialog": {
             "title": "Add Record"

@@ -165,8 +165,6 @@ describe('MetahubBoard', () => {
             id: 'test-metahub-id',
             name: 'Test Metahub',
             description: 'A test metahub for unit tests',
-            meta_sectionsCount: 11,
-            meta_entitiesCount: 42,
             membersCount: 4,
             createdAt: '2024-01-01T00:00:00Z',
             updatedAt: '2024-01-15T00:00:00Z'
@@ -187,16 +185,10 @@ describe('MetahubBoard', () => {
             })
         })
 
-        it('should display all stat cards with correct values', async () => {
+        it('should display members stat card with correct value', async () => {
             renderWithProviders(<MetahubBoard />)
 
             await waitFor(() => {
-                // Check meta_sections count
-                expect(screen.getByText('11')).toBeInTheDocument()
-
-                // Check meta_entities count
-                expect(screen.getByText('42')).toBeInTheDocument()
-
                 // Check members count
                 expect(screen.getByText('4')).toBeInTheDocument()
             })
@@ -233,8 +225,6 @@ describe('MetahubBoard', () => {
             id: 'test-metahub-id',
             name: 'Interactive Test',
             description: 'Testing user interactions',
-            meta_sectionsCount: 5,
-            meta_entitiesCount: 10,
             membersCount: 2,
             createdAt: '2024-01-01T00:00:00Z',
             updatedAt: '2024-01-15T00:00:00Z'
@@ -275,8 +265,6 @@ describe('MetahubBoard', () => {
                     id: 'empty-metahub',
                     name: 'Empty Metahub',
                     description: 'No content yet',
-                    meta_sectionsCount: 0,
-                    meta_entitiesCount: 0,
                     membersCount: 0,
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: '2024-01-01T00:00:00Z'
@@ -289,9 +277,9 @@ describe('MetahubBoard', () => {
                 expect(screen.getByText('Empty Metahub')).toBeInTheDocument()
             })
 
-            // Should display zeros correctly
+            // Should display zero correctly for members
             const zeroValues = screen.getAllByText('0')
-            expect(zeroValues.length).toBeGreaterThanOrEqual(3) // At least 3 stat cards with 0
+            expect(zeroValues.length).toBeGreaterThanOrEqual(1)
         })
 
         it('should handle metahub without description', async () => {
@@ -300,8 +288,6 @@ describe('MetahubBoard', () => {
                     id: 'no-desc-metahub',
                     name: 'No Description',
                     description: '', // Empty description
-                    meta_sectionsCount: 1,
-                    meta_entitiesCount: 1,
                     membersCount: 1,
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: '2024-01-01T00:00:00Z'

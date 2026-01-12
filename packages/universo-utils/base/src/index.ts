@@ -12,6 +12,7 @@ export * as uuid from './uuid'
 export * as localizedContent from './vlc'
 export * as routes from './routes'
 export * as auth from './auth'
+export * as database from './database'
 
 // Rate limiting utilities (server-side only)
 // Note: Import from '@universo/utils/rate-limiting' for direct access
@@ -69,8 +70,16 @@ export {
     resolveLocalizedContent,
     getLocalizedContentLocales,
     filterLocalizedContent,
-    isLocalizedContent
+    isLocalizedContent,
+    // Getter utilities for frontend/backend
+    getVLCString,
+    getVLCStringWithFallback,
+    getSimpleLocalizedValue,
+    normalizeLocale
 } from './vlc'
+
+// Database utilities
+export { escapeLikeWildcards } from './database'
 
 // Auth feature toggles utilities
 export { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled, isEmailConfirmationRequired, type AuthFeatureConfig } from './auth'

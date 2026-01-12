@@ -8,16 +8,16 @@ import {
     JoinColumn,
     Index
 } from 'typeorm'
-import { Hub } from './Hub'
+import { Catalog } from './Catalog'
 
 /**
- * HubRecord entity - represents a data row within a Hub
+ * HubRecord entity - represents a data row within a Catalog
  *
  * The `data` column stores dynamic field values as JSONB.
  * Keys correspond to Attribute.codename values.
  *
  * Example:
- * If a Hub "Products" has attributes "name", "price", "inStock":
+ * If a Catalog "Products" has attributes "name", "price", "inStock":
  * {
  *   "name": "Laptop",
  *   "price": 999.99,
@@ -33,12 +33,12 @@ export class HubRecord {
     @PrimaryGeneratedColumn('uuid')
     id!: string
 
-    @Column({ type: 'uuid', name: 'hub_id' })
-    hubId!: string
+    @Column({ type: 'uuid', name: 'catalog_id' })
+    catalogId!: string
 
-    @ManyToOne(() => Hub, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'hub_id' })
-    hub!: Hub
+    @ManyToOne(() => Catalog, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'catalog_id' })
+    catalog!: Catalog
 
     /**
      * Dynamic data storage.

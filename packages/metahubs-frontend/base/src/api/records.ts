@@ -2,11 +2,16 @@ import apiClient from './apiClient'
 import { HubRecord, PaginationParams, PaginatedResponse } from '../types'
 
 /**
- * List records for a specific hub
+ * List records for a specific catalog
  */
-export const listRecords = async (metahubId: string, hubId: string, params?: PaginationParams): Promise<PaginatedResponse<HubRecord>> => {
+export const listRecords = async (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    params?: PaginationParams
+): Promise<PaginatedResponse<HubRecord>> => {
     const response = await apiClient.get<{ items: HubRecord[]; pagination: { total: number; limit: number; offset: number } }>(
-        `/metahubs/${metahubId}/hubs/${hubId}/records`,
+        `/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/records`,
         {
             params: {
                 limit: params?.limit,
@@ -35,8 +40,8 @@ export const listRecords = async (metahubId: string, hubId: string, params?: Pag
 /**
  * Get a single record
  */
-export const getRecord = (metahubId: string, hubId: string, recordId: string) =>
-    apiClient.get<HubRecord>(`/metahubs/${metahubId}/hubs/${hubId}/records/${recordId}`)
+export const getRecord = (metahubId: string, hubId: string, catalogId: string, recordId: string) =>
+    apiClient.get<HubRecord>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/records/${recordId}`)
 
 /**
  * Create a new record
@@ -44,11 +49,12 @@ export const getRecord = (metahubId: string, hubId: string, recordId: string) =>
 export const createRecord = (
     metahubId: string,
     hubId: string,
+    catalogId: string,
     data: {
         data: Record<string, unknown>
         sortOrder?: number
     }
-) => apiClient.post<HubRecord>(`/metahubs/${metahubId}/hubs/${hubId}/records`, data)
+) => apiClient.post<HubRecord>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/records`, data)
 
 /**
  * Update a record
@@ -56,15 +62,16 @@ export const createRecord = (
 export const updateRecord = (
     metahubId: string,
     hubId: string,
+    catalogId: string,
     recordId: string,
     data: {
         data?: Record<string, unknown>
         sortOrder?: number
     }
-) => apiClient.patch<HubRecord>(`/metahubs/${metahubId}/hubs/${hubId}/records/${recordId}`, data)
+) => apiClient.patch<HubRecord>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/records/${recordId}`, data)
 
 /**
  * Delete a record
  */
-export const deleteRecord = (metahubId: string, hubId: string, recordId: string) =>
-    apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}/records/${recordId}`)
+export const deleteRecord = (metahubId: string, hubId: string, catalogId: string, recordId: string) =>
+    apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/records/${recordId}`)

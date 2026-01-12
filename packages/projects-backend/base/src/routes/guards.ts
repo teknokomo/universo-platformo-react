@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm'
+import { DataSource, QueryRunner } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ProjectRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
@@ -15,6 +15,14 @@ const createError = (httpErrors as any).default || httpErrors
 export type { ProjectRole }
 
 // Comments in English only
+
+// Helper to get manager from DataSource or QueryRunner
+const getManager = (ds: DataSource, queryRunner?: QueryRunner) => {
+    if (queryRunner && !queryRunner.isReleased) {
+        return queryRunner.manager
+    }
+    return ds.manager
+}
 
 export const ROLE_PERMISSIONS = {
     owner: {
@@ -60,8 +68,8 @@ const baseGuards = createAccessGuards<ProjectRole, ProjectUser>({
     entityName: 'project',
     roles: ['owner', 'admin', 'editor', 'member'] as const,
     permissions: ROLE_PERMISSIONS,
-    getMembership: async (ds: DataSource, userId: string, projectId: string) => {
-        const repo = ds.getRepository(ProjectUser)
+    getMembership: async (ds: DataSource, userId: string, projectId: string, queryRunner?: QueryRunner) => {
+        const repo = getManager(ds, queryRunner).getRepository(ProjectUser)
         return repo.findOne({ where: { project_id: projectId, user_id: userId } })
     },
     extractRole: (m) => (m.role || 'member') as ProjectRole,

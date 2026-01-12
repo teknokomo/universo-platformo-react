@@ -1,24 +1,15 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import { Hub } from '../database/entities/Hub'
-import { Attribute } from '../database/entities/Attribute'
+import { Catalog } from '../database/entities/Catalog'
+import { CatalogHub } from '../database/entities/CatalogHub'
 import { Metahub } from '../database/entities/Metahub'
-import { HubRecord } from '../database/entities/Record'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
-import { escapeLikeWildcards } from '../utils'
+import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
 
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -64,8 +55,8 @@ export function createHubsRoutes(
         const manager = getRequestManager(req, ds)
         return {
             hubRepo: manager.getRepository(Hub),
-            attributeRepo: manager.getRepository(Attribute),
-            recordRepo: manager.getRepository(HubRecord),
+            catalogRepo: manager.getRepository(Catalog),
+            catalogHubRepo: manager.getRepository(CatalogHub),
             metahubRepo: manager.getRepository(Metahub)
         }
     }
@@ -79,7 +70,7 @@ export function createHubsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { hubRepo, attributeRepo, recordRepo } = repos(req)
+            const { hubRepo } = repos(req)
 
             let validatedQuery
             try {
@@ -93,14 +84,17 @@ export function createHubsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            let qb = hubRepo.createQueryBuilder('h').where('h.metahubId = :metahubId', { metahubId })
+            // Optimized single query with LEFT JOIN via junction table and window function (N+1 → 1 query)
+            const qb = hubRepo
+                .createQueryBuilder('h')
+                .leftJoin(CatalogHub, 'ch', 'ch.hubId = h.id')
+                .where('h.metahubId = :metahubId', { metahubId })
 
             if (search) {
                 const escapedSearch = escapeLikeWildcards(search)
-                qb = qb.andWhere(
-                    "(h.name::text ILIKE :search OR COALESCE(h.description::text, '') ILIKE :search OR h.codename ILIKE :search)",
-                    { search: `%${escapedSearch}%` }
-                )
+                qb.andWhere("(h.name::text ILIKE :search OR COALESCE(h.description::text, '') ILIKE :search OR h.codename ILIKE :search)", {
+                    search: `%${escapedSearch}%`
+                })
             }
 
             const orderColumn =
@@ -109,22 +103,51 @@ export function createHubsRoutes(
                     : sortBy === 'created'
                     ? 'h.created_at'
                     : 'h.updated_at'
-            qb = qb
+
+            qb.select([
+                'h.id as id',
+                'h.metahubId as "metahubId"',
+                'h.codename as codename',
+                'h.name as name',
+                'h.description as description',
+                'h.sortOrder as "sortOrder"',
+                'h.created_at as "createdAt"',
+                'h.updated_at as "updatedAt"'
+            ])
+                .addSelect('COUNT(DISTINCT ch.catalog_id)', 'catalogsCount')
+                .addSelect('COUNT(*) OVER()', 'window_total')
+                .groupBy('h.id')
                 .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-                .skip(offset)
-                .take(limit)
+                .limit(limit)
+                .offset(offset)
 
-            const [hubs, total] = await qb.getManyAndCount()
+            const raw = await qb.getRawMany<{
+                id: string
+                metahubId: string
+                codename: string
+                name: Record<string, string> | null
+                description: Record<string, string> | null
+                sortOrder: number
+                createdAt: Date
+                updatedAt: Date
+                catalogsCount: string
+                window_total?: string
+            }>()
 
-            const hubsWithCounts = await Promise.all(
-                hubs.map(async (hub) => {
-                    const [attributesCount, recordsCount] = await Promise.all([
-                        attributeRepo.count({ where: { hubId: hub.id } }),
-                        recordRepo.count({ where: { hubId: hub.id } })
-                    ])
-                    return { ...hub, attributesCount, recordsCount }
-                })
-            )
+            // Extract total count from window function (same value in all rows)
+            const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
+
+            const hubsWithCounts = raw.map((row) => ({
+                id: row.id,
+                metahubId: row.metahubId,
+                codename: row.codename,
+                name: row.name,
+                description: row.description,
+                sortOrder: row.sortOrder,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+                catalogsCount: parseInt(row.catalogsCount || '0', 10)
+            }))
 
             res.json({ items: hubsWithCounts, pagination: { total, limit, offset } })
         })
@@ -297,19 +320,97 @@ export function createHubsRoutes(
     )
 
     /**
+     * GET /metahubs/:metahubId/hubs/:hubId/blocking-catalogs
+     * Get catalogs that would block this hub's deletion
+     * (catalogs with isRequiredHub=true that have this as their only hub)
+     */
+    router.get(
+        '/metahubs/:metahubId/hubs/:hubId/blocking-catalogs',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, hubId } = req.params
+            const { hubRepo, catalogRepo, catalogHubRepo } = repos(req)
+
+            const hub = await hubRepo.findOne({ where: { id: hubId, metahubId } })
+            if (!hub) {
+                return res.status(404).json({ error: 'Hub not found' })
+            }
+
+            // Find catalogs associated with this hub that have isRequiredHub=true
+            // and this is their ONLY hub association
+            const blockingCatalogs = await catalogRepo
+                .createQueryBuilder('c')
+                .innerJoin('c.catalogHubs', 'ch')
+                .where('ch.hubId = :hubId', { hubId })
+                .andWhere('c.isRequiredHub = true')
+                .andWhere((qb) => {
+                    // Subquery: count of hub associations for this catalog = 1
+                    const subQuery = qb
+                        .subQuery()
+                        .select('COUNT(*)')
+                        .from(CatalogHub, 'ch2')
+                        .where('ch2.catalogId = c.id')
+                        .getQuery()
+                    return `(${subQuery}) = 1`
+                })
+                .select(['c.id', 'c.name', 'c.codename'])
+                .getMany()
+
+            res.json({
+                hubId,
+                blockingCatalogs: blockingCatalogs.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    codename: c.codename
+                })),
+                canDelete: blockingCatalogs.length === 0
+            })
+        })
+    )
+
+    /**
      * DELETE /metahubs/:metahubId/hubs/:hubId
-     * Delete a hub
+     * Delete a hub (blocked if catalogs with isRequiredHub=true would become orphaned)
      */
     router.delete(
         '/metahubs/:metahubId/hubs/:hubId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubRepo } = repos(req)
+            const { hubRepo, catalogRepo } = repos(req)
 
             const hub = await hubRepo.findOne({ where: { id: hubId, metahubId } })
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
+            }
+
+            // Check for blocking catalogs (isRequiredHub=true with only this hub)
+            const blockingCatalogs = await catalogRepo
+                .createQueryBuilder('c')
+                .innerJoin('c.catalogHubs', 'ch')
+                .where('ch.hubId = :hubId', { hubId })
+                .andWhere('c.isRequiredHub = true')
+                .andWhere((qb) => {
+                    const subQuery = qb
+                        .subQuery()
+                        .select('COUNT(*)')
+                        .from(CatalogHub, 'ch2')
+                        .where('ch2.catalogId = c.id')
+                        .getQuery()
+                    return `(${subQuery}) = 1`
+                })
+                .select(['c.id', 'c.name', 'c.codename'])
+                .getMany()
+
+            if (blockingCatalogs.length > 0) {
+                return res.status(409).json({
+                    error: 'Cannot delete hub: catalogs with required hub flag would become orphaned',
+                    blockingCatalogs: blockingCatalogs.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        codename: c.codename
+                    }))
+                })
             }
 
             await hubRepo.remove(hub)

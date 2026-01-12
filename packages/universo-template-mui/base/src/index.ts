@@ -24,6 +24,7 @@ export {
     ErrorBoundary,
     MarketplaceTable,
     FlowListTable,
+    CompactListTable,
     TableViewOnly,
     ToolsTable,
     ToolbarControls,
@@ -52,6 +53,8 @@ export type {
     TableColumn,
     FlowListTableData,
     FlowListTableProps,
+    CompactListTableProps,
+    CompactListTableLinkMode,
     FilterType,
     FilterOption,
     FilterConfig,
@@ -64,10 +67,16 @@ export * from './components/dialogs'
 // Forms
 export { LocalizedFieldEditor } from './components/forms/LocalizedFieldEditor'
 export { LocalizedInlineField } from './components/forms/LocalizedInlineField'
+export { CodenameField } from './components/forms/CodenameField'
+export type { CodenameFieldProps } from './components/forms/CodenameField'
 
 // Chips
 export { RoleChip } from './components/chips'
 export type { RoleChipProps } from './components/chips'
+
+// Selection components
+export { EntitySelectionPanel } from './components/selection'
+export type { EntitySelectionPanelProps, EntitySelectionLabels, SelectableEntity } from './components/selection'
 
 // Confirm system (imperative confirmation dialogs)
 export { ConfirmContext, ConfirmContextProvider } from './contexts'

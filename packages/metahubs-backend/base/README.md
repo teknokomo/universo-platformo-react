@@ -2,7 +2,7 @@
 
 > 🏗️ **Modern Package** - TypeScript-first architecture with Express.js and TypeORM
 
-Backend service for managing metahubs, meta sections, meta entities, and memberships with strict metahub-level isolation.
+Backend service for managing metahubs, hubs, catalogs, attributes, records, and memberships with strict metahub-level isolation.
 
 ## Package Information
 
@@ -15,17 +15,18 @@ Backend service for managing metahubs, meta sections, meta entities, and members
 
 ### Domain Model
 - **Metahubs**: Top-level organizational units with complete data isolation
-- **Meta Sections**: Logical groupings linked to metahubs
-- **Meta Entities**: Individual assets linked to meta sections and metahubs
+- **Hubs**: Content containers within metahubs (N:M relationship with Catalogs)
+- **Catalogs**: Schema definitions for structured data (N:M relationship with Hubs)
+- **Attributes**: Field definitions within catalogs
+- **Records**: Data entries conforming to catalog schemas
 - **Memberships**: User-metahub membership with roles and permissions
-- **Junction Tables**: Many-to-many relationships with CASCADE delete and UNIQUE constraints
 
 ### Data Isolation & Security
 - Complete metahub isolation - no cross-metahub data access
-- Mandatory associations prevent orphaned entities
+- Many-to-many relationship between Hubs and Catalogs (a catalog can belong to multiple hubs)
 - Idempotent operations for relationship management
 - Comprehensive input validation with clear error messages
-- Application-level authorization with metahub/meta section/meta entity guards
+- Application-level authorization with metahub/hub/catalog guards
 - Rate limiting protection against DoS attacks
 
 ### Database Integration
@@ -81,22 +82,44 @@ PATCH  /metahubs/:metahubId/members/:memberId  # Update member
 DELETE /metahubs/:metahubId/members/:memberId  # Remove member
 ```
 
-### Meta Sections Endpoints
+### Hubs Endpoints
 ```http
-GET    /meta-sections                          # List meta sections
-POST   /meta-sections                          # Create meta section (requires metahubId)
-GET    /meta-sections/:id                      # Get meta section details
-PUT    /meta-sections/:id                      # Update meta section
-DELETE /meta-sections/:id                      # Delete meta section
+GET    /metahubs/:metahubId/hubs               # List hubs in metahub
+POST   /metahubs/:metahubId/hubs               # Create hub
+GET    /metahubs/:metahubId/hubs/:hubId        # Get hub details
+PUT    /metahubs/:metahubId/hubs/:hubId        # Update hub
+DELETE /metahubs/:metahubId/hubs/:hubId        # Delete hub
 ```
 
-### Meta Entities Endpoints
+### Catalogs Endpoints
 ```http
-GET    /meta-entities                          # List meta entities
-POST   /meta-entities                          # Create meta entity (requires sectionId, optional metahubId)
-GET    /meta-entities/:id                      # Get meta entity details
-PUT    /meta-entities/:id                      # Update meta entity
-DELETE /meta-entities/:id                      # Delete meta entity
+GET    /metahubs/:metahubId/catalogs           # List all catalogs in metahub
+GET    /metahubs/:metahubId/hubs/:hubId/catalogs                  # List catalogs in hub
+POST   /metahubs/:metahubId/hubs/:hubId/catalogs                  # Create catalog in hub
+GET    /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Get catalog details
+PUT    /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Update catalog
+DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Delete catalog
+
+POST   /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/link  # Link existing catalog to hub
+DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/unlink # Unlink catalog from hub
+```
+
+### Attributes Endpoints
+```http
+GET    /metahubs/:m/hubs/:h/catalogs/:c/attributes                # List attributes
+POST   /metahubs/:m/hubs/:h/catalogs/:c/attributes                # Create attribute
+GET    /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Get attribute
+PUT    /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Update attribute
+DELETE /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Delete attribute
+```
+
+### Records Endpoints
+```http
+GET    /metahubs/:m/hubs/:h/catalogs/:c/records                   # List records
+POST   /metahubs/:m/hubs/:h/catalogs/:c/records                   # Create record
+GET    /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Get record
+PUT    /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Update record
+DELETE /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Delete record
 ```
 
 ### Request/Response Examples
@@ -126,17 +149,14 @@ Response:
 }
 ```
 
-#### Create Meta Entity with Section Association
+#### Create Record
 ```http
-POST /meta-entities
+POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
 Content-Type: application/json
 
 {
-  "name": "Player Avatar",
-  "description": "3D character model",
-  "sectionId": "660e8400-e29b-41d4-a716-446655440001",
-  "metahubId": "550e8400-e29b-41d4-a716-446655440000",
-  "metadata": {
+  "data": {
+    "name": "Player Avatar",
     "model": "character.fbx",
     "animations": ["idle", "walk", "run"]
   }
@@ -147,25 +167,26 @@ Content-Type: application/json
 
 ### Core Entities (high level)
 
-- `Metahub`: top-level container.
-- `MetaSection`: content grouping (linked to metahubs via a junction table).
-- `MetaEntity`: asset/item with optional `metadata` (JSONB).
+- `Metahub`: top-level container (organization/workspace).
+- `Hub`: content container within metahub.
+- `Catalog`: schema definition for structured data (N:M with Hubs via junction table).
+- `Attribute`: field definition within catalog (name, type, constraints).
+- `Record`: data entry conforming to catalog schema (JSONB data).
 - `MetahubUser`: membership with role and permissions.
 
 ### Junction Tables
 
-- `MetaSectionMetahub`: links meta sections to metahubs.
-- `MetaEntityMetahub`: links meta entities to metahubs.
-- `MetaEntityMetaSection`: links meta entities to meta sections.
+- `CatalogHub`: links catalogs to hubs (N:M relationship).
 
 Notes:
 - Junction tables use `UNIQUE` constraints per pair and `ON DELETE CASCADE` for referential integrity.
+- A catalog can belong to multiple hubs within the same metahub.
 
 ## Validation & Business Rules
 
-- `metahubId` is required for creating a meta section.
-- `sectionId` is required for creating a meta entity.
-- `metahubId` is optional for creating a meta entity and is used to link the entity to a metahub.
+- `metahubId` is required for all operations.
+- `hubId` is required for creating catalogs.
+- `catalogId` is required for creating attributes and records.
 - UUID parameters are validated, and access is enforced by guards.
 
 ## Database Schema
@@ -208,7 +229,7 @@ src/
 
 ## Security
 
-- Application-level authorization with `ensureMetahubAccess`, `ensureSectionAccess`, and `ensureEntityAccess`.
+- Application-level authorization with `ensureMetahubAccess`, `ensureHubAccess`, and `ensureCatalogAccess`.
 - Rate limiting is initialized via `initializeRateLimiters()`.
 
 ## Related Packages

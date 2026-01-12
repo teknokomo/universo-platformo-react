@@ -227,8 +227,6 @@ describe('MetahubList', () => {
                     }
                 },
                 role: 'admin',
-                meta_sectionsCount: 5,
-                meta_entitiesCount: 20,
                 membersCount: 3,
                 createdAt: '2024-01-01T00:00:00Z',
                 updatedAt: '2024-01-15T00:00:00Z'
@@ -238,8 +236,6 @@ describe('MetahubList', () => {
                 name: 'Test Metahub 2',
                 description: 'Second test metahub',
                 role: 'editor',
-                meta_sectionsCount: 3,
-                meta_entitiesCount: 10,
                 membersCount: 2,
                 createdAt: '2024-01-02T00:00:00Z',
                 updatedAt: '2024-01-16T00:00:00Z'
@@ -277,26 +273,6 @@ describe('MetahubList', () => {
                 expect(roleElements.length).toBeGreaterThan(0)
             })
         })
-
-        it('should display meta_sections and meta_entities counts', async () => {
-            renderWithProviders(<MetahubList />)
-
-            await waitFor(() => {
-                expect(screen.getByText('Test Metahub 1')).toBeInTheDocument()
-            })
-
-            // Switch to list/table view (ItemCard doesn't show counts)
-            const listViewButton = screen.queryByTitle(/list view/i)
-            if (listViewButton) {
-                await userEvent.setup().click(listViewButton)
-            }
-
-            await waitFor(() => {
-                // Check for count values
-                expect(screen.queryAllByText('5').length).toBeGreaterThan(0)
-                expect(screen.queryAllByText('20').length).toBeGreaterThan(0)
-            })
-        })
     })
 
     describe('Search Functionality', () => {
@@ -306,8 +282,6 @@ describe('MetahubList', () => {
                 name: 'Production Metahub',
                 description: 'Main production environment',
                 role: 'admin',
-                meta_sectionsCount: 10,
-                meta_entitiesCount: 50,
                 membersCount: 5,
                 createdAt: '2024-01-01T00:00:00Z',
                 updatedAt: '2024-01-15T00:00:00Z'
@@ -317,8 +291,6 @@ describe('MetahubList', () => {
                 name: 'Testing Metahub',
                 description: 'Test environment',
                 role: 'editor',
-                meta_sectionsCount: 3,
-                meta_entitiesCount: 10,
                 membersCount: 2,
                 createdAt: '2024-01-02T00:00:00Z',
                 updatedAt: '2024-01-16T00:00:00Z'
@@ -369,8 +341,6 @@ describe('MetahubList', () => {
                 name: `Metahub ${i + 1}`,
                 description: `Description ${i + 1}`,
                 role: 'viewer' as const,
-                meta_sectionsCount: i,
-                meta_entitiesCount: i * 2,
                 membersCount: 1,
                 createdAt: '2024-01-01T00:00:00Z',
                 updatedAt: '2024-01-15T00:00:00Z'
@@ -397,8 +367,6 @@ describe('MetahubList', () => {
                 name: 'New Metahub',
                 description: 'Newly created',
                 role: 'admin',
-                meta_sectionsCount: 0,
-                meta_entitiesCount: 0,
                 membersCount: 1,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -440,8 +408,6 @@ describe('MetahubList', () => {
                             name: 'Test',
                             description: 'Test',
                             role: 'admin',
-                            meta_sectionsCount: 1,
-                            meta_entitiesCount: 1,
                             membersCount: 1,
                             createdAt: '2024-01-01T00:00:00Z',
                             updatedAt: '2024-01-15T00:00:00Z'
@@ -490,8 +456,6 @@ describe('MetahubList', () => {
                             name: 'No Description',
                             description: undefined,
                             role: 'viewer',
-                            meta_sectionsCount: 0,
-                            meta_entitiesCount: 0,
                             membersCount: 1,
                             createdAt: '2024-01-01T00:00:00Z',
                             updatedAt: '2024-01-01T00:00:00Z'
@@ -520,8 +484,6 @@ describe('MetahubList', () => {
                             name: 'No Role',
                             description: 'Test',
                             role: undefined,
-                            meta_sectionsCount: 0,
-                            meta_entitiesCount: 0,
                             membersCount: 1,
                             createdAt: '2024-01-01T00:00:00Z',
                             updatedAt: '2024-01-01T00:00:00Z'
@@ -547,8 +509,6 @@ describe('MetahubList', () => {
                             name: 'Zero Counts',
                             description: 'All zeros',
                             role: 'admin',
-                            meta_sectionsCount: 0,
-                            meta_entitiesCount: 0,
                             membersCount: 0,
                             createdAt: '2024-01-01T00:00:00Z',
                             updatedAt: '2024-01-01T00:00:00Z'

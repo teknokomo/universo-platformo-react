@@ -49,7 +49,7 @@ vi.mock('@tanstack/react-query', async () => {
     }
 })
 
-vi.mock('../MemberActions', () => ({
+vi.mock('../MetahubMemberActions', () => ({
     default: [{ id: 'edit' }, { id: 'remove' }]
 }))
 

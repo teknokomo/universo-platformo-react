@@ -1,14 +1,5 @@
-import apiClient, { extractPaginationMeta } from './apiClient'
-import {
-    Metahub,
-    MetahubMember,
-    MetahubAssignableRole,
-    PaginationParams,
-    PaginatedResponse,
-    MetaEntity,
-    MetaSection,
-    MetahubLocalizedPayload
-} from '../types'
+import apiClient from './apiClient'
+import { Metahub, MetahubMember, MetahubAssignableRole, PaginationParams, PaginatedResponse, MetahubLocalizedPayload } from '../types'
 
 // Input type for creating/updating metahubs with localized content
 export interface MetahubInput extends MetahubLocalizedPayload {
@@ -58,42 +49,6 @@ export const createMetahub = (data: MetahubInput) => apiClient.post<Metahub>('/m
 export const updateMetahub = (id: string, data: Partial<MetahubInput>) => apiClient.put<Metahub>(`/metahubs/${id}`, data)
 
 export const deleteMetahub = (id: string) => apiClient.delete<void>(`/metahubs/${id}`)
-
-// ============ METAHUB CONTENT (SECTIONS / ENTITIES) ============
-
-export const listMetahubMetaEntities = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetaEntity>> => {
-    const response = await apiClient.get<MetaEntity[]>(`/metahubs/${metahubId}/entities`, {
-        params: {
-            limit: params?.limit,
-            offset: params?.offset,
-            sortBy: params?.sortBy,
-            sortOrder: params?.sortOrder,
-            search: params?.search
-        }
-    })
-
-    return {
-        items: response.data,
-        pagination: extractPaginationMeta(response)
-    }
-}
-
-export const listMetahubMetaSections = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetaSection>> => {
-    const response = await apiClient.get<MetaSection[]>(`/metahubs/${metahubId}/sections`, {
-        params: {
-            limit: params?.limit,
-            offset: params?.offset,
-            sortBy: params?.sortBy,
-            sortOrder: params?.sortOrder,
-            search: params?.search
-        }
-    })
-
-    return {
-        items: response.data,
-        pagination: extractPaginationMeta(response)
-    }
-}
 
 // ============ METAHUB MEMBERS ============
 

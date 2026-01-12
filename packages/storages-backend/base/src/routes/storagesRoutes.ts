@@ -1,7 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import type { RequestWithDbContext } from '@universo/auth-backend'
 import { Storage } from '../database/entities/Storage'
 import { StorageUser } from '../database/entities/StorageUser'
 import { Slot } from '../database/entities/Slot'
@@ -10,17 +9,10 @@ import { Container } from '../database/entities/Container'
 import { ContainerStorage } from '../database/entities/ContainerStorage'
 import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
+import { getRequestManager } from '@universo/utils/database'
 import { ensureStorageAccess, ensureContainerAccess, ROLE_PERMISSIONS, StorageRole, assertNotOwner } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
-
-/**
- * Get the appropriate manager for the request (RLS-enabled if available)
- */
-const getRequestManager = (req: Request, dataSource: DataSource) => {
-    const rlsContext = (req as RequestWithDbContext).dbContext
-    return rlsContext?.manager ?? dataSource.manager
-}
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -117,9 +109,10 @@ export function createStoragesRoutes(
             // Extract email and nickname from joined data
             const userIds = members.map((member) => member.user_id)
 
-            // Load users and profiles data
-            const users = userIds.length ? await ds.manager.find(AuthUser, { where: { id: In(userIds) } }) : []
-            const profiles = userIds.length ? await ds.manager.find(Profile, { where: { user_id: In(userIds) } }) : []
+            // Load users and profiles data using request-scoped manager
+            const manager = getRequestManager(req, ds)
+            const users = userIds.length ? await manager.find(AuthUser, { where: { id: In(userIds) } }) : []
+            const profiles = userIds.length ? await manager.find(Profile, { where: { user_id: In(userIds) } }) : []
 
             const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
             const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
@@ -458,9 +451,9 @@ export function createStoragesRoutes(
             })
             const saved = await storageUserRepo.save(membership)
 
-            // Load nickname from profiles table
-            const ds = getDataSource()
-            const profile = await ds.manager.findOne(Profile, { where: { user_id: targetUser.id } })
+            // Load nickname from profiles table using request-scoped manager
+            const manager = getRequestManager(req, getDataSource())
+            const profile = await manager.findOne(Profile, { where: { user_id: targetUser.id } })
 
             res.status(201).json(mapMember(saved, targetUser.email ?? null, profile?.nickname ?? null))
         })
@@ -507,9 +500,9 @@ export function createStoragesRoutes(
             const saved = await storageUserRepo.save(membership)
             const authUser = await authUserRepo.findOne({ where: { id: membership.user_id } })
 
-            // Load nickname from profiles table
-            const ds = getDataSource()
-            const profile = await ds.manager.findOne(Profile, { where: { user_id: membership.user_id } })
+            // Load nickname from profiles table using request-scoped manager
+            const manager = getRequestManager(req, getDataSource())
+            const profile = await manager.findOne(Profile, { where: { user_id: membership.user_id } })
 
             res.json(mapMember(saved, authUser?.email ?? null, profile?.nickname ?? null))
         })
