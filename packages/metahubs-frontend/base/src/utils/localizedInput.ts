@@ -4,8 +4,6 @@ import { createLocalizedContent, filterLocalizedContent } from '@universo/utils'
 // Re-export centralized VLC utilities
 export { normalizeLocale, getSimpleLocalizedValue, type SimpleLocalizedInput } from '@universo/utils/vlc'
 
-// Import for local use
-import { normalizeLocale as normalize } from '@universo/utils/vlc'
 import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 
 export const extractLocalizedInput = (value?: VersionedLocalizedContent<string> | null) => {

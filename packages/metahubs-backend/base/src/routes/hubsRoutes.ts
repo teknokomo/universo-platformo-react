@@ -62,6 +62,29 @@ export function createHubsRoutes(
     }
 
     /**
+     * Helper function to find catalogs that would block hub deletion.
+     * Returns catalogs with isRequiredHub=true that have this as their ONLY hub association.
+     */
+    const findBlockingCatalogs = async (hubId: string, catalogRepo: ReturnType<typeof repos>['catalogRepo']) => {
+        return catalogRepo
+            .createQueryBuilder('c')
+            .innerJoin('c.catalogHubs', 'ch')
+            .where('ch.hubId = :hubId', { hubId })
+            .andWhere('c.isRequiredHub = true')
+            .andWhere((qb) => {
+                const subQuery = qb
+                    .subQuery()
+                    .select('COUNT(*)')
+                    .from(CatalogHub, 'ch2')
+                    .where('ch2.catalogId = c.id')
+                    .getQuery()
+                return `(${subQuery}) = 1`
+            })
+            .select(['c.id', 'c.name', 'c.codename'])
+            .getMany()
+    }
+
+    /**
      * GET /metahubs/:metahubId/hubs
      * List all hubs in a metahub
      */
@@ -329,32 +352,15 @@ export function createHubsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubRepo, catalogRepo, catalogHubRepo } = repos(req)
+            const { hubRepo, catalogRepo } = repos(req)
 
             const hub = await hubRepo.findOne({ where: { id: hubId, metahubId } })
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            // Find catalogs associated with this hub that have isRequiredHub=true
-            // and this is their ONLY hub association
-            const blockingCatalogs = await catalogRepo
-                .createQueryBuilder('c')
-                .innerJoin('c.catalogHubs', 'ch')
-                .where('ch.hubId = :hubId', { hubId })
-                .andWhere('c.isRequiredHub = true')
-                .andWhere((qb) => {
-                    // Subquery: count of hub associations for this catalog = 1
-                    const subQuery = qb
-                        .subQuery()
-                        .select('COUNT(*)')
-                        .from(CatalogHub, 'ch2')
-                        .where('ch2.catalogId = c.id')
-                        .getQuery()
-                    return `(${subQuery}) = 1`
-                })
-                .select(['c.id', 'c.name', 'c.codename'])
-                .getMany()
+            // Use helper function to find blocking catalogs
+            const blockingCatalogs = await findBlockingCatalogs(hubId, catalogRepo)
 
             res.json({
                 hubId,
@@ -384,23 +390,8 @@ export function createHubsRoutes(
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            // Check for blocking catalogs (isRequiredHub=true with only this hub)
-            const blockingCatalogs = await catalogRepo
-                .createQueryBuilder('c')
-                .innerJoin('c.catalogHubs', 'ch')
-                .where('ch.hubId = :hubId', { hubId })
-                .andWhere('c.isRequiredHub = true')
-                .andWhere((qb) => {
-                    const subQuery = qb
-                        .subQuery()
-                        .select('COUNT(*)')
-                        .from(CatalogHub, 'ch2')
-                        .where('ch2.catalogId = c.id')
-                        .getQuery()
-                    return `(${subQuery}) = 1`
-                })
-                .select(['c.id', 'c.name', 'c.codename'])
-                .getMany()
+            // Use helper function to check for blocking catalogs
+            const blockingCatalogs = await findBlockingCatalogs(hubId, catalogRepo)
 
             if (blockingCatalogs.length > 0) {
                 return res.status(409).json({

@@ -502,5 +502,63 @@ describe('Catalogs Routes', () => {
 
             expect(response.body.error).toBe('Catalog not found')
         })
+
+        it('should return 409 when unlinking catalog with isRequiredHub=true from its last hub', async () => {
+            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
+
+            const mockCatalog = {
+                id: 'catalog-1',
+                metahubId: 'test-metahub-id',
+                isRequiredHub: true,
+                codename: 'required-catalog'
+            }
+
+            const mockCatalogHub = {
+                catalogId: 'catalog-1',
+                hubId: 'hub-1'
+            }
+
+            catalogRepo.findOne.mockResolvedValue(mockCatalog)
+            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
+            catalogHubRepo.count.mockResolvedValue(1) // Only 1 hub - would orphan if unlinked
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1')
+                .expect(409)
+
+            expect(response.body.error).toContain('Cannot remove catalog from its last hub')
+            expect(catalogRepo.remove).not.toHaveBeenCalled()
+        })
+
+        it('should delete catalog with isRequiredHub=true from last hub when force=true', async () => {
+            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
+
+            const mockCatalog = {
+                id: 'catalog-1',
+                metahubId: 'test-metahub-id',
+                isRequiredHub: true,
+                codename: 'required-catalog'
+            }
+
+            const mockCatalogHub = {
+                catalogId: 'catalog-1',
+                hubId: 'hub-1'
+            }
+
+            catalogRepo.findOne.mockResolvedValue(mockCatalog)
+            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
+            catalogHubRepo.count.mockResolvedValue(1) // Only 1 hub
+            catalogRepo.remove.mockResolvedValue(mockCatalog)
+
+            const app = buildApp(dataSource)
+
+            await request(app)
+                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1?force=true')
+                .expect(204)
+
+            expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
+        })
     })
 })

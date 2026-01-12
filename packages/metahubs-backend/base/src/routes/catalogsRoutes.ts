@@ -1025,6 +1025,13 @@ export function createCatalogsRoutes(
             // Count total hub associations
             const totalHubs = await catalogHubRepo.count({ where: { catalogId } })
 
+            // Check if this is the last hub and catalog requires at least one hub
+            if (catalog.isRequiredHub && totalHubs === 1 && !forceDelete) {
+                return res.status(409).json({
+                    error: 'Cannot remove catalog from its last hub because it requires at least one hub association. Use force=true to delete the catalog entirely.'
+                })
+            }
+
             if (totalHubs > 1 && !forceDelete) {
                 // Remove only from this hub
                 await catalogHubRepo.remove(catalogHub)
