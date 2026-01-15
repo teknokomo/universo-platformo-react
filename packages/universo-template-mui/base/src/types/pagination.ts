@@ -1,32 +1,18 @@
 /**
- * Universal pagination types for TanStack Query v5 integration
+ * Pagination types for TanStack Query v5 integration
  *
- * Used across all applications requiring server-side pagination.
+ * Core types (PaginationParams, PaginationMeta, PaginatedResponse) are
+ * re-exported from @universo/types for consistency across the monorepo.
+ *
+ * MUI-specific types (PaginationState, PaginationActions) are defined here.
  */
 
-export interface PaginationParams {
-    limit?: number
-    offset?: number
-    sortBy?: string
-    sortOrder?: 'asc' | 'desc'
-    search?: string
-}
-
-export interface PaginationMeta {
-    limit: number
-    offset: number
-    count: number
-    total: number
-    hasMore: boolean
-}
-
-export interface PaginatedResponse<T> {
-    items: T[]
-    pagination: PaginationMeta
-}
+// Re-export core pagination types from canonical source
+export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
 
 /**
  * Generic pagination state returned by usePaginated hook
+ * MUI-specific: used with TanStack Query integration
  */
 export interface PaginationState {
     currentPage: number
@@ -40,6 +26,7 @@ export interface PaginationState {
 
 /**
  * Generic pagination actions returned by usePaginated hook
+ * MUI-specific: used with TanStack Query integration
  */
 export interface PaginationActions {
     goToPage: (page: number) => void

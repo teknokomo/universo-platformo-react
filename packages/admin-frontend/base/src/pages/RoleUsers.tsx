@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, Avatar, Chip } from '@mui/material'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
@@ -6,6 +6,9 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useQuery } from '@tanstack/react-query'
 import { formatDate } from '@universo/utils'
+
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
 
 // Project imports
 import {
@@ -62,8 +65,8 @@ const RoleUsers = () => {
     const { t: tc } = useCommonTranslations()
     const { roleId } = useParams<{ roleId: string; instanceId: string }>()
 
-    // View state (card/list)
-    const [view, setView] = useState(localStorage.getItem('roleUsersDisplayStyle') || 'list')
+    // View state (card/list) with localStorage persistence
+    const [view, setView] = useViewPreference(STORAGE_KEYS.ROLE_USERS_DISPLAY_STYLE)
 
     // Get current language for display names
     const currentLang = i18n.language.split('-')[0] || 'en'
@@ -104,11 +107,13 @@ const RoleUsers = () => {
     }, [role, currentLang])
 
     // View change handler
-    const handleViewChange = useCallback((_event: unknown, nextView: string | null) => {
-        if (nextView === null) return
-        localStorage.setItem('roleUsersDisplayStyle', nextView)
-        setView(nextView)
-    }, [])
+    const handleViewChange = useCallback(
+        (_event: unknown, nextView: string | null) => {
+            if (nextView === null) return
+            setView(nextView as 'card' | 'table' | 'list')
+        },
+        [setView]
+    )
 
     const isLoading = isLoadingRole || isLoadingUsers
 

@@ -56,6 +56,8 @@ export default defineConfig(async ({ mode }) => {
                 '@universo/profile-frontend',
                 '@universo/uniks-frontend',
                 '@universo/metaverses-frontend',
+                '@universo/applications-frontend',
+                '@universo/metahubs-frontend',
                 '@universo/organizations-frontend',
                 '@universo/spaces-frontend',
                 '@universo/space-builder-frontend'

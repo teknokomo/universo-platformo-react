@@ -50,7 +50,7 @@ import audioUploadSVG from '@flowise/template-mui/assets/images/wave-sound.jpg'
 import nextAgentGIF from '@flowise/template-mui/assets/images/next-agent.gif'
 
 // project import
-import { CodeBlock, MemoizedReactMarkdown, SourceDocDialog, ChatFeedbackContentDialog, StarterPromptsCard, CopyToClipboardButton, ThumbsUpButton, ThumbsDownButton } from '@flowise/template-mui'
+import { CodeBlock, MemoizedReactMarkdown, SourceDocDialog, ChatFeedbackContentDialog, StarterPromptsCard, CopyToClipboardButton, ThumbsUpButton, ThumbsDownButton, SafeHTML } from '@flowise/template-mui'
 import { ImageButton, ImageSrc, ImageBackdrop, ImageMarked } from '@flowise/template-mui/ui-components/button/ImageButton'
 import { cancelAudioRecording, startAudioRecording, stopAudioRecording } from './audio-recording'
 import './audio-recording.css'
@@ -1717,7 +1717,7 @@ export const ChatMessage = ({
         } else if (item.type === 'html') {
             return (
                 <div style={{ marginTop: '20px' }}>
-                    <div dangerouslySetInnerHTML={{ __html: item.data }}></div>
+                    <SafeHTML html={item.data} />
                 </div>
             )
         } else {

@@ -203,26 +203,38 @@ const AttributeList = () => {
         enabled: !!metahubId && !!catalogId && !hubIdParam
     })
 
-    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id || ''
+    // Hub ID from URL param, or resolved from catalog (for hub-scoped views)
+    // Note: empty string means no hub - catalog exists without hub association, which is valid
+    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
 
+    // Can load attributes when we have metahubId and catalogId
+    // hubId is optional - attributes belong to catalog directly
+    const canLoadAttributes = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
+
     // Use paginated hook for attributes list
     const paginationResult = usePaginated<Attribute, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn:
-            metahubId && effectiveHubId && catalogId
-                ? (params) => metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, params)
+            metahubId && catalogId
+                ? (params) =>
+                      effectiveHubId
+                          ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, params)
+                          : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, params)
                 : () => ['empty'],
         queryFn:
-            metahubId && effectiveHubId && catalogId
-                ? (params) => attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, params)
+            metahubId && catalogId
+                ? (params) =>
+                      effectiveHubId
+                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, params)
+                          : attributesApi.listAttributesDirect(metahubId, catalogId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
         sortOrder: 'asc',
-        enabled: !!metahubId && !!effectiveHubId && !!catalogId
+        enabled: canLoadAttributes
     })
 
     const { data: attributes, isLoading, error } = paginationResult
@@ -412,7 +424,7 @@ const AttributeList = () => {
             uiLocale: i18n.language,
             api: {
                 updateEntity: async (id: string, patch: AttributeLocalizedPayload) => {
-                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    if (!metahubId || !catalogId) return
                     const normalizedCodename = sanitizeCodename(patch.codename)
                     if (!normalizedCodename) {
                         throw new Error(t('attributes.validation.codenameRequired', 'Codename is required'))
@@ -420,26 +432,48 @@ const AttributeList = () => {
                     const dataType = patch.dataType ?? 'STRING'
                     await updateAttributeMutation.mutateAsync({
                         metahubId,
-                        hubId: effectiveHubId,
+                        hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
                         catalogId,
                         attributeId: id,
                         data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
                     })
                 },
                 deleteEntity: async (id: string) => {
-                    if (!metahubId || !effectiveHubId || !catalogId) return
-                    await deleteAttributeMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, attributeId: id })
+                    if (!metahubId || !catalogId) return
+                    await deleteAttributeMutation.mutateAsync({
+                        metahubId,
+                        hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
+                        catalogId,
+                        attributeId: id
+                    })
                 }
             },
             moveAttribute: async (id: string, direction: 'up' | 'down') => {
-                if (!metahubId || !effectiveHubId || !catalogId) return
-                await moveAttributeMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, attributeId: id, direction })
-                await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                if (!metahubId || !catalogId) return
+                await moveAttributeMutation.mutateAsync({
+                    metahubId,
+                    hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
+                    catalogId,
+                    attributeId: id,
+                    direction
+                })
+                // Invalidate queries - effectiveHubId is optional for direct queries
+                if (effectiveHubId) {
+                    await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                } else {
+                    // Invalidate direct queries for hub-less catalogs
+                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                }
             },
             helpers: {
                 refreshList: async () => {
-                    if (metahubId && effectiveHubId && catalogId) {
-                        await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                    if (metahubId && catalogId) {
+                        if (effectiveHubId) {
+                            await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                        } else {
+                            // Invalidate direct queries for hub-less catalogs
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                        }
                     }
                 },
                 confirm: async (spec: any) => {
@@ -496,38 +530,28 @@ const AttributeList = () => {
         )
     }
 
-    // Hub is required for the underlying API. If it isn't in the URL, we resolve it via catalog detail.
-    if (!effectiveHubId) {
-        if (!hubIdParam) {
-            if (isCatalogResolutionLoading) {
-                return (
-                    <EmptyListState
-                        image={APIEmptySVG}
-                        imageAlt='Loading'
-                        title={tc('loading', 'Loading')}
-                        description={t('common:loading', 'Loading...')}
-                    />
-                )
-            }
-
-            return (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Invalid catalog'
-                    title={t('errors.loadingError', 'Error loading catalog')}
-                    description={
-                        catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
-                    }
-                />
-            )
-        }
-
+    // Show loading while resolving catalog (only when no hubId in URL)
+    if (!hubIdParam && isCatalogResolutionLoading) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt='Invalid catalog'
-                title={t('errors.noHubId', 'No hub ID provided')}
-                description={t('errors.pleaseSelectHub', 'Please select a hub')}
+                imageAlt='Loading'
+                title={tc('loading', 'Loading')}
+                description={t('common:loading', 'Loading...')}
+            />
+        )
+    }
+
+    // Show error if catalog resolution failed
+    if (!hubIdParam && catalogResolutionError) {
+        return (
+            <EmptyListState
+                image={APIEmptySVG}
+                imageAlt='Error loading catalog'
+                title={t('errors.loadingError', 'Error loading catalog')}
+                description={
+                    catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
+                }
             />
         )
     }
@@ -632,10 +656,10 @@ const AttributeList = () => {
                                 sx={{ px: 2, py: 0.5 }}
                                 onClick={() => {
                                     if (hubIdParam) {
-                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalogs/${catalogId}/records`)
+                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/records`)
                                         return
                                     }
-                                    navigate(`/metahub/${metahubId}/catalogs/${catalogId}/records`)
+                                    navigate(`/metahub/${metahubId}/catalog/${catalogId}/records`)
                                 }}
                             >
                                 <TableRowsIcon sx={{ mr: 1, fontSize: 18 }} />

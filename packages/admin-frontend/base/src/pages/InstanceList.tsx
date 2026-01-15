@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton, Alert, Chip } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -12,6 +12,9 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import { resolveLocalizedContent } from '@universo/utils'
 import { isValidLocaleCode } from '@universo/types'
+
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
 
 // project imports
 import {
@@ -107,7 +110,7 @@ const InstanceList = () => {
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const [view, setView] = useState(localStorage.getItem('adminInstanceDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.INSTANCE_DISPLAY_STYLE)
 
     // Use paginated hook for instances list
     const paginationResult = usePaginated<Instance, 'codename' | 'created' | 'status'>({
@@ -144,8 +147,7 @@ const InstanceList = () => {
 
     const handleChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('adminInstanceDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     // Instance table columns

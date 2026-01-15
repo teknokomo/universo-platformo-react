@@ -47,6 +47,7 @@ import { I18nextProvider } from 'react-i18next'
 
 import MetahubMembers from '../MetahubMembers'
 import * as metahubsApi from '../../api/metahubs'
+import { STORAGE_KEYS } from '../../constants/storage'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metahubsEn from '../../i18n/locales/en/metahubs.json'
@@ -428,7 +429,7 @@ describe('MetahubMembers', () => {
             await user.click(listViewToggle!)
 
             await waitFor(() => {
-                expect(localStorage.getItem('metahubMembersDisplayStyle')).toBe('list')
+                expect(localStorage.getItem(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)).toBe('list')
                 expect(screen.getByTestId('flow-list-table')).toBeInTheDocument()
             })
         })

@@ -38,6 +38,7 @@ import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-backend'
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from '@universo/metahubs-backend'
+import { initializeRateLimiters as initializeApplicationsRateLimiters, createApplicationsServiceRoutes } from '@universo/applications-backend'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-backend'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-backend'
 import { createCampaignsServiceRoutes } from '@universo/campaigns-backend'
@@ -425,6 +426,22 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (metahubsRouter) {
         metahubsRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Applications, Connectors
+// Note: Rate limiters initialized via initializeApplicationsRateLimiters() in server startup
+// This mounts: /applications, /applications/:id/connectors
+// Lazy initialization: router created on first request (after initializeApplicationsRateLimiters called)
+let applicationsRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!applicationsRouter) {
+        applicationsRouter = createApplicationsServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (applicationsRouter) {
+        applicationsRouter(req, res, next)
     } else {
         next()
     }

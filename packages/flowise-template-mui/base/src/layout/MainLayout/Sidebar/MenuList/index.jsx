@@ -5,6 +5,7 @@ import NavGroup from './NavGroup'
 import dashboard from '../../../../menu-items/dashboard'
 import unikDashboard from '@universo/uniks-frontend/menu-items/unikDashboard'
 import { metaversesDashboard } from '@universo/metaverses-frontend'
+import { applicationsDashboard } from '@universo/applications-frontend'
 import { metahubsDashboard } from '@universo/metahubs-frontend'
 import { clustersDashboard } from '@universo/clusters-frontend'
 import { campaignsDashboard } from '@universo/campaigns-frontend'
@@ -14,6 +15,8 @@ const MenuList = () => {
     const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = metaverseMatch ? metaverseMatch[1] : null
+    const applicationMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
+    const applicationId = applicationMatch ? applicationMatch[1] : null
     const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
     const metahubId = metahubMatch ? metahubMatch[1] : null
     const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
@@ -21,10 +24,12 @@ const MenuList = () => {
     const campaignMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
     const campaignId = campaignMatch ? campaignMatch[1] : null
     const [metaversePermissions, setMetaversePermissions] = useState({})
+    const [applicationPermissions, setApplicationPermissions] = useState({})
     const [metahubPermissions, setMetahubPermissions] = useState({})
     const [clusterPermissions, setClusterPermissions] = useState({})
     const [campaignPermissions, setCampaignPermissions] = useState({})
     const knownMetaversePermission = metaverseId ? metaversePermissions[metaverseId] : undefined
+    const knownApplicationPermission = applicationId ? applicationPermissions[applicationId] : undefined
     const knownMetahubPermission = metahubId ? metahubPermissions[metahubId] : undefined
     const knownClusterPermission = clusterId ? clusterPermissions[clusterId] : undefined
     const knownCampaignPermission = campaignId ? campaignPermissions[campaignId] : undefined
@@ -71,6 +76,48 @@ const MenuList = () => {
             isActive = false
         }
     }, [metaverseId, knownMetaversePermission])
+
+    useEffect(() => {
+        if (!applicationId) {
+            return
+        }
+        if (knownApplicationPermission !== undefined) {
+            return
+        }
+
+        let isActive = true
+
+        const fetchPermissions = async () => {
+            try {
+                const response = await api.$client.get(`/applications/${applicationId}`)
+
+                if (!isActive) return
+
+                setApplicationPermissions((prev) => ({
+                    ...prev,
+                    [applicationId]: Boolean(response?.data?.permissions?.manageMembers)
+                }))
+            } catch (error) {
+                if (!isActive) return
+
+                console.error('Failed to load application permissions', {
+                    applicationId,
+                    error
+                })
+
+                setApplicationPermissions((prev) => ({
+                    ...prev,
+                    [applicationId]: false
+                }))
+            }
+        }
+
+        fetchPermissions()
+
+        return () => {
+            isActive = false
+        }
+    }, [applicationId, knownApplicationPermission])
 
     useEffect(() => {
         if (!metahubId) {
@@ -228,6 +275,26 @@ const MenuList = () => {
             children: filteredChildren.map((item) => ({
                 ...item,
                 url: `/metaverses/${metaverseId}${item.url}`
+            }))
+        }
+    } else if (applicationMatch && applicationId) {
+        const filteredChildren = applicationsDashboard.children.filter((item) => {
+            if (item.id !== 'access') {
+                return true
+            }
+
+            if (knownApplicationPermission === undefined) {
+                return true
+            }
+
+            return Boolean(knownApplicationPermission)
+        })
+
+        menuItems = {
+            ...applicationsDashboard,
+            children: filteredChildren.map((item) => ({
+                ...item,
+                url: `/application/${applicationId}${item.url}`
             }))
         }
     } else if (metahubMatch && metahubId) {

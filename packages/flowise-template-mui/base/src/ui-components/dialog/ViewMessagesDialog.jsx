@@ -40,6 +40,7 @@ import robotPNG from '../../assets/images/robot.png'
 import userPNG from '../../assets/images/account.png'
 import msgEmptySVG from '../../assets/images/message_empty.svg'
 import multiagent_supervisorPNG from '../../assets/images/multiagent_supervisor.png'
+import { SafeHTML } from '../safe/SafeHTML'
 import multiagent_workerPNG from '../../assets/images/multiagent_worker.png'
 import { IconTool, IconDeviceSdCard, IconFileExport, IconEraser, IconX, IconDownload, IconPaperclip } from '@tabler/icons-react'
 
@@ -827,7 +828,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         } else if (item.type === 'html') {
             return (
                 <div style={{ marginTop: '20px' }}>
-                    <div dangerouslySetInnerHTML={{ __html: item.data }}></div>
+                    <SafeHTML html={item.data} />
                 </div>
             )
         } else {

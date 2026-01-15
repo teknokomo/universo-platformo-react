@@ -8,6 +8,9 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+
 // project imports
 import {
     TemplateMainCard as MainCard,
@@ -51,7 +54,7 @@ const DomainList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('clustersDomainDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.DOMAIN_DISPLAY_STYLE)
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -283,8 +286,7 @@ const DomainList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('clustersDomainDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     return (

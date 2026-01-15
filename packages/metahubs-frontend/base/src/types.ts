@@ -1,19 +1,42 @@
+/**
+ * Metahubs Frontend Types
+ *
+ * Core type definitions for the Metahubs module.
+ * Follows the VLC (Versioned Localized Content) pattern for localized fields.
+ *
+ * @packageDocumentation
+ */
+
 import type { MetahubRole, GlobalRole, VersionedLocalizedContent } from '@universo/types'
-// Re-export centralized VLC utilities
-export { getVLCString, getVLCStringWithFallback, normalizeLocale, type SimpleLocalizedInput, type VersatileLocalizedContent } from '@universo/utils/vlc'
+
+// Re-export centralized VLC utilities for consumers
+export { getVLCString, getVLCStringWithFallback, normalizeLocale } from '@universo/utils/vlc'
+export type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/utils/vlc'
 
 // Import for local use in helper functions
-import { getVLCString, normalizeLocale } from '@universo/utils/vlc'
+import { getVLCString } from '@universo/utils/vlc'
 import type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/utils/vlc'
 
+// Re-export role type
 export type { MetahubRole }
 
-// Access type indicates how user obtained access to the entity
-// 'member' = direct membership, 'superadmin'/'supermoderator' = global admin access
+// ============ PAGINATION TYPES ============
+// Re-export from @universo/types for consistency
+export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
+
+// ============ ACCESS & PERMISSIONS ============
+
+/**
+ * Access type indicates how user obtained access to the entity
+ * - 'member': direct membership
+ * - 'superadmin'/'supermoderator': global admin access
+ */
 export type AccessType = 'member' | GlobalRole
 
+/** Roles that can be assigned to new members (excludes 'owner') */
 export type MetahubAssignableRole = Exclude<MetahubRole, 'owner'>
 
+/** Permission flags for metahub operations */
 export interface MetahubPermissions {
     manageMembers: boolean
     manageMetahub: boolean
@@ -22,6 +45,9 @@ export interface MetahubPermissions {
     deleteContent: boolean
 }
 
+// ============ MEMBER TYPES ============
+
+/** Metahub member representation */
 export interface MetahubMember {
     id: string
     userId: string
@@ -32,37 +58,35 @@ export interface MetahubMember {
     createdAt: string
 }
 
+/** Response for metahub members list */
 export interface MetahubMembersResponse {
     members: MetahubMember[]
     role: MetahubRole
     permissions: MetahubPermissions
 }
 
-// VersatileLocalizedContent is now imported from @universo/utils/vlc
+// ============ METAHUB ENTITY ============
 
+/** Metahub - the root entity containing Hubs and Catalogs */
 export interface Metahub {
     id: string
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
     createdAt: string
     updatedAt: string
-    // Optional aggregated counters provided by backend
+    // Aggregated counters
     meta_sectionsCount?: number
     meta_entitiesCount?: number
     membersCount?: number
-    role?: MetahubRole
-    // accessType indicates how user obtained access: 'member' for direct membership,
-    // 'superadmin'/'supermoderator' for global admin access
-    accessType?: AccessType
-    permissions?: MetahubPermissions
-    // New architecture counters
     hubsCount?: number
     catalogsCount?: number
+    // Access info
+    role?: MetahubRole
+    accessType?: AccessType
+    permissions?: MetahubPermissions
 }
 
-/**
- * Metahub display type for table rendering with localized strings
- */
+/** Metahub with localized strings for table rendering */
 export interface MetahubDisplay {
     id: string
     name: string
@@ -72,46 +96,37 @@ export interface MetahubDisplay {
     meta_sectionsCount?: number
     meta_entitiesCount?: number
     membersCount?: number
+    hubsCount?: number
+    catalogsCount?: number
     role?: MetahubRole
     accessType?: AccessType
     permissions?: MetahubPermissions
-    hubsCount?: number
-    catalogsCount?: number
 }
 
-// ============ NEW ARCHITECTURE TYPES ============
+// ============ PUBLICATION ENTITY ============
 
-// SimpleLocalizedInput is now imported from @universo/utils/vlc
+/**
+ * Schema synchronization status for publications
+ */
+export type PublicationSchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
 
-export interface MetahubLocalizedPayload {
-    name: SimpleLocalizedInput
-    description?: SimpleLocalizedInput
-    namePrimaryLocale?: string
-    descriptionPrimaryLocale?: string
+/**
+ * Publication with localized strings for table rendering
+ */
+export interface PublicationDisplay {
+    id: string
+    name: string
+    description: string
+    schemaName: string
+    schemaStatus: PublicationSchemaStatus
+    schemaSyncedAt?: string | null
 }
 
-export interface HubLocalizedPayload {
-    codename: string
-    name: SimpleLocalizedInput
-    description?: SimpleLocalizedInput
-    namePrimaryLocale?: string
-    descriptionPrimaryLocale?: string
-}
-
-export interface AttributeLocalizedPayload {
-    codename: string
-    dataType: AttributeDataType
-    name: SimpleLocalizedInput
-    namePrimaryLocale?: string
-    isRequired?: boolean
-}
+// ============ HUB ENTITY ============
 
 /**
  * Hub - a subsystem within a Metahub (like 1C Подсистема)
- * Contains Catalogs
- *
- * Note: name/description are stored as VersionedLocalizedContent (VLC).
- * API payloads still use SimpleLocalizedInput for create/update.
+ * Contains Catalogs via N:M relationship
  */
 export interface Hub {
     id: string
@@ -122,16 +137,12 @@ export interface Hub {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    // Optional aggregated counter
     catalogsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/**
- * Hub display type for table rendering
- * Converts localized fields to strings for current locale
- */
+/** Hub with localized strings for table rendering */
 export interface HubDisplay {
     id: string
     metahubId: string
@@ -146,26 +157,22 @@ export interface HubDisplay {
     permissions?: MetahubPermissions
 }
 
-/**
- * Hub reference for catalog associations
- */
+/** Hub reference for catalog associations */
 export interface HubRef {
     id: string
     name: VersionedLocalizedContent<string>
     codename: string
 }
 
+// ============ CATALOG ENTITY ============
+
 /**
  * Catalog - a virtual table within a Metahub (like 1C Справочник)
  * Can be associated with multiple Hubs via junction table.
- * Contains Attributes and Records.
  *
  * Hub association constraints (orthogonal flags):
- * - isSingleHub: controls maximum (true = max 1 hub, false = unlimited)
- * - isRequiredHub: controls minimum (true = min 1 hub required, false = can have 0 hubs)
- *
- * Note: name/description are stored as VersionedLocalizedContent (VLC).
- * API payloads still use SimpleLocalizedInput for create/update.
+ * - isSingleHub: max 1 hub (true) or unlimited (false)
+ * - isRequiredHub: min 1 hub required (true) or can have 0 (false)
  */
 export interface Catalog {
     id: string
@@ -178,19 +185,14 @@ export interface Catalog {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    // Hub associations (N:M relationship)
     hubs?: HubRef[]
-    // Optional aggregated counters
     attributesCount?: number
     recordsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/**
- * Catalog display type for table rendering
- * Converts localized fields to strings for current locale
- */
+/** Catalog with localized strings for table rendering */
 export interface CatalogDisplay {
     id: string
     metahubId: string
@@ -202,7 +204,6 @@ export interface CatalogDisplay {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    // Hub associations (N:M relationship)
     hubs?: Array<{ id: string; name: string; codename: string }>
     attributesCount?: number
     recordsCount?: number
@@ -210,27 +211,14 @@ export interface CatalogDisplay {
     permissions?: MetahubPermissions
 }
 
-export interface CatalogLocalizedPayload {
-    codename: string
-    name: SimpleLocalizedInput
-    description?: SimpleLocalizedInput
-    namePrimaryLocale?: string
-    descriptionPrimaryLocale?: string
-    isSingleHub?: boolean
-    isRequiredHub?: boolean
-    hubIds?: string[]
-}
+// ============ ATTRIBUTE ENTITY ============
 
-/**
- * Attribute data types for dynamic field definitions
- */
+/** Supported data types for dynamic field definitions */
 export type AttributeDataType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'DATETIME' | 'REF' | 'JSON'
 
 /**
  * Attribute - a virtual field within a Catalog
  * Defines the schema for Catalog records
- *
- * Note: name is stored as VersionedLocalizedContent (VLC).
  */
 export interface Attribute {
     id: string
@@ -249,9 +237,7 @@ export interface Attribute {
     permissions?: MetahubPermissions
 }
 
-/**
- * Attribute display type for table rendering
- */
+/** Attribute with localized strings for table rendering */
 export interface AttributeDisplay {
     id: string
     catalogId: string
@@ -269,10 +255,9 @@ export interface AttributeDisplay {
     permissions?: MetahubPermissions
 }
 
-/**
- * HubRecord - a data row within a Catalog
- * Stores actual data as JSONB
- */
+// ============ RECORD ENTITY ============
+
+/** HubRecord - a data row within a Catalog */
 export interface HubRecord {
     id: string
     catalogId: string
@@ -283,10 +268,7 @@ export interface HubRecord {
     updatedAt: string
 }
 
-/**
- * HubRecord display type for table rendering
- * Adds name/description derived from data for FlowListTable compatibility
- */
+/** HubRecord with derived name/description for FlowListTable compatibility */
 export interface HubRecordDisplay {
     id: string
     catalogId: string
@@ -299,50 +281,49 @@ export interface HubRecordDisplay {
     updatedAt: string
 }
 
-/**
- * Localized field structure (VLC pattern) - used internally by backend
- * @deprecated Prefer SimpleLocalizedInput for frontend use
- */
-export interface LocalizedField {
-    _schema: string
-    _primary: string
-    locales: Record<
-        string,
-        {
-            content: string
-            version: number
-            isActive: boolean
-            createdAt: string
-            updatedAt: string
-        }
-    >
+// ============ API PAYLOADS ============
+
+/** Payload for creating/updating Metahub */
+export interface MetahubLocalizedPayload {
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
 }
 
-// getVLCString is now imported from @universo/utils/vlc
-
-/**
- * Helper to extract localized content from SimpleLocalizedInput
- * @deprecated Use getVLCString from @universo/utils/vlc instead
- */
-export function getLocalizedString(field: SimpleLocalizedInput | undefined | null, locale = 'en'): string {
-    if (!field) return ''
-    return getVLCString(field, locale)
+/** Payload for creating/updating Hub */
+export interface HubLocalizedPayload {
+    codename: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
 }
 
-/**
- * Helper to extract localized content from full VLC format
- * @deprecated Use getVLCString from @universo/utils/vlc instead
- */
-export function getLocalizedContent(field: LocalizedField | undefined, locale = 'en'): string {
-    if (!field) return ''
-    const normalized = normalizeLocale(locale)
-    const entry = field.locales[normalized] || field.locales[field._primary]
-    return entry?.content || ''
+/** Payload for creating/updating Catalog */
+export interface CatalogLocalizedPayload {
+    codename: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    isSingleHub?: boolean
+    isRequiredHub?: boolean
+    hubIds?: string[]
 }
 
-/**
- * Convert Metahub to MetahubDisplay for table rendering
- */
+/** Payload for creating/updating Attribute */
+export interface AttributeLocalizedPayload {
+    codename: string
+    dataType: AttributeDataType
+    name: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    isRequired?: boolean
+}
+
+// ============ DISPLAY CONVERTERS ============
+
+/** Convert Metahub to MetahubDisplay for table rendering */
 export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDisplay {
     return {
         ...metahub,
@@ -351,30 +332,23 @@ export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDispla
     }
 }
 
-/**
- * Convert Hub to HubDisplay for table rendering
- */
+/** Convert Hub to HubDisplay for table rendering */
 export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
     const name = getVLCString(hub.name, locale)
     return {
         ...hub,
-        // Fallback to codename if name is empty
         name: name || hub.codename || '',
         description: getVLCString(hub.description, locale)
     }
 }
 
-/**
- * Convert Catalog to CatalogDisplay for table rendering
- */
+/** Convert Catalog to CatalogDisplay for table rendering */
 export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDisplay {
     const name = getVLCString(catalog.name, locale)
     return {
         ...catalog,
-        // Fallback to codename if name is empty
         name: name || catalog.codename || '',
         description: getVLCString(catalog.description, locale),
-        // Convert hub refs to display format
         hubs: catalog.hubs?.map((hub) => ({
             id: hub.id,
             name: getVLCString(hub.name, locale) || hub.codename,
@@ -383,9 +357,7 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
     }
 }
 
-/**
- * Convert Attribute to AttributeDisplay for table rendering
- */
+/** Convert Attribute to AttributeDisplay for table rendering */
 export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
     return {
         ...attr,
@@ -393,12 +365,8 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
     }
 }
 
-/**
- * Convert HubRecord to HubRecordDisplay for table rendering
- * Uses first attribute value as name, or record id as fallback
- */
+/** Convert HubRecord to HubRecordDisplay for table rendering */
 export function toHubRecordDisplay(record: HubRecord, attributes: Attribute[] = [], locale = 'en'): HubRecordDisplay {
-    // Find first string attribute to use as display name
     const firstStringAttr = attributes.find((a) => a.dataType === 'STRING')
     const rawValue = firstStringAttr ? record.data[firstStringAttr.codename] : undefined
     const nameValue =
@@ -411,36 +379,4 @@ export function toHubRecordDisplay(record: HubRecord, attributes: Attribute[] = 
         name: nameValue,
         description: ''
     }
-}
-
-export type UseApi = <T, TArgs extends any[] = any[]>(
-    apiFunc: (...args: TArgs) => Promise<{ data: T }>
-) => {
-    data: T | null
-    error: any
-    loading: boolean
-    request: (...args: TArgs) => Promise<T | null>
-}
-
-// Pagination types - using local declarations to avoid build issues
-// These mirror the types from @universo/template-mui
-export interface PaginationParams {
-    limit?: number
-    offset?: number
-    sortBy?: string
-    sortOrder?: 'asc' | 'desc'
-    search?: string
-}
-
-export interface PaginationMeta {
-    limit: number
-    offset: number
-    count: number
-    total: number
-    hasMore: boolean
-}
-
-export interface PaginatedResponse<T> {
-    items: T[]
-    pagination: PaginationMeta
 }

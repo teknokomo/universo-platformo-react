@@ -120,6 +120,9 @@ catalogs:
     ioredis:
       specifier: ^5.8.2
       version: 5.8.2
+    knex:
+      specifier: ^3.1.0
+      version: 3.1.0
     notistack:
       specifier: ^3.0.1
       version: 3.0.2
@@ -474,6 +477,266 @@ importers:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@20.12.12)(happy-dom@20.0.11)(jsdom@23.2.0(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(msw@2.12.3(@types/node@20.12.12)(typescript@5.8.3))(sass@1.94.2)(terser@5.44.1)
 
+  packages/applications-backend/base:
+    dependencies:
+      '@universo/admin-backend':
+        specifier: workspace:*
+        version: link:../../admin-backend/base
+      '@universo/auth-backend':
+        specifier: workspace:*
+        version: link:../../auth-backend/base
+      '@universo/profile-backend':
+        specifier: workspace:*
+        version: link:../../profile-backend/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
+      express:
+        specifier: ^4.18.2
+        version: 4.22.1
+      http-errors:
+        specifier: 'catalog:'
+        version: 2.0.1
+      typeorm:
+        specifier: 'catalog:'
+        version: 0.3.28(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mongodb@6.21.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/http-errors':
+        specifier: 'catalog:'
+        version: 2.0.5
+      '@types/jest':
+        specifier: ^29.5.12
+        version: 29.5.14
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      express-rate-limit:
+        specifier: 'catalog:'
+        version: 8.2.1(express@4.22.1)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      supertest:
+        specifier: ^6.3.4
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.2
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(jest-util@29.7.0)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.8.3
+
+  packages/applications-frontend/base:
+    dependencies:
+      '@emotion/react':
+        specifier: ^11.14.0
+        version: 11.14.0(@types/react@18.3.27)(react@18.3.1)
+      '@emotion/styled':
+        specifier: ^11.14.1
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1)
+      '@mui/lab':
+        specifier: ^6.0.0-beta.32
+        version: 6.0.0-dev.240424162023-9968b4889d(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/material':
+        specifier: 'catalog:'
+        version: 6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/x-tree-view':
+        specifier: ^7.0.0
+        version: 7.29.10(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tabler/icons-react':
+        specifier: ^3.30.0
+        version: 3.35.0(react@18.3.1)
+      '@universo/auth-frontend':
+        specifier: workspace:*
+        version: link:../../auth-frontend/base
+      '@universo/template-mui':
+        specifier: workspace:*
+        version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../../universo-utils/base
+      axios:
+        specifier: 1.13.2
+        version: 1.13.2(debug@4.4.3)
+      react:
+        specifier: 'catalog:'
+        version: 18.3.1
+      react-dom:
+        specifier: '>=18'
+        version: 18.3.1(react@18.3.1)
+      react-i18next:
+        specifier: 'catalog:'
+        version: 15.5.3(i18next@23.16.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+      uuid:
+        specifier: ^9.0.0
+        version: 9.0.1
+    devDependencies:
+      '@codemirror/lang-javascript':
+        specifier: 'catalog:'
+        version: 6.2.4
+      '@codemirror/lang-json':
+        specifier: 'catalog:'
+        version: 6.0.2
+      '@codemirror/state':
+        specifier: 'catalog:'
+        version: 6.5.2
+      '@codemirror/theme-one-dark':
+        specifier: 'catalog:'
+        version: 6.1.3
+      '@codemirror/view':
+        specifier: 'catalog:'
+        version: 6.38.8
+      '@hookform/resolvers':
+        specifier: 'catalog:'
+        version: 3.10.0(react-hook-form@7.67.0(react@18.3.1))
+      '@mui/icons-material':
+        specifier: 'catalog:'
+        version: 6.5.0(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.27)(react@18.3.1)
+      '@mui/x-charts':
+        specifier: 'catalog:'
+        version: 7.29.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/x-data-grid':
+        specifier: 'catalog:'
+        version: 7.29.12(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/x-data-grid-pro':
+        specifier: 'catalog:'
+        version: 7.29.12(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/x-date-pickers':
+        specifier: 'catalog:'
+        version: 7.29.4(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(date-fns@3.6.0)(dayjs@1.11.19)(luxon@3.7.2)(moment@2.30.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@mui/x-date-pickers-pro':
+        specifier: 'catalog:'
+        version: 7.29.4(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@6.5.0(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(react@18.3.1))(@types/react@18.3.27)(date-fns@3.6.0)(dayjs@1.11.19)(luxon@3.7.2)(moment@2.30.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.90.11(react@18.3.1)
+      '@testing-library/jest-dom':
+        specifier: 'catalog:'
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 14.3.1(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: 'catalog:'
+        version: 14.6.1(@testing-library/dom@9.3.4)
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.27
+      '@uiw/codemirror-theme-sublime':
+        specifier: 'catalog:'
+        version: 4.25.3(@codemirror/language@6.11.3)(@codemirror/state@6.5.2)(@codemirror/view@6.38.8)
+      '@uiw/codemirror-theme-vscode':
+        specifier: 'catalog:'
+        version: 4.25.3(@codemirror/language@6.11.3)(@codemirror/state@6.5.2)(@codemirror/view@6.38.8)
+      '@uiw/react-codemirror':
+        specifier: 'catalog:'
+        version: 4.25.3(@babel/runtime@7.28.4)(@codemirror/autocomplete@6.20.0)(@codemirror/language@6.11.3)(@codemirror/lint@6.9.2)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/theme-one-dark@6.1.3)(@codemirror/view@6.38.8)(codemirror@6.0.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      axe-core:
+        specifier: ^4.8.0
+        version: 4.11.0
+      codemirror:
+        specifier: 'catalog:'
+        version: 6.0.2
+      dayjs:
+        specifier: 'catalog:'
+        version: 1.11.19
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      flowise-react-json-view:
+        specifier: 'catalog:'
+        version: 1.21.7(@types/react@18.3.27)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      framer-motion:
+        specifier: 'catalog:'
+        version: 10.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      html-react-parser:
+        specifier: 'catalog:'
+        version: 5.2.10(@types/react@18.3.27)(react@18.3.1)
+      i18next:
+        specifier: 'catalog:'
+        version: 23.16.8
+      i18next-browser-languagedetector:
+        specifier: 'catalog:'
+        version: 8.2.0
+      jest-axe:
+        specifier: ^9.0.0
+        version: 9.0.0
+      msw:
+        specifier: ^2.0.0
+        version: 2.12.3(@types/node@20.12.12)(typescript@5.8.3)
+      notistack:
+        specifier: 'catalog:'
+        version: 3.0.2(csstype@3.2.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-code-blocks:
+        specifier: 'catalog:'
+        version: 0.1.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-color:
+        specifier: 'catalog:'
+        version: 2.19.3(react@18.3.1)
+      react-datepicker:
+        specifier: 'catalog:'
+        version: 4.25.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-hook-form:
+        specifier: 'catalog:'
+        version: 7.67.0(react@18.3.1)
+      react-markdown:
+        specifier: 'catalog:'
+        version: 8.0.7(@types/react@18.3.27)(react@18.3.1)
+      react-perfect-scrollbar:
+        specifier: 'catalog:'
+        version: 1.5.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-redux:
+        specifier: 'catalog:'
+        version: 8.1.3(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1)
+      react-router-dom:
+        specifier: ^6.0.0
+        version: 6.30.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-syntax-highlighter:
+        specifier: 'catalog:'
+        version: 15.6.6(react@18.3.1)
+      reactflow:
+        specifier: 'catalog:'
+        version: 11.11.4(@types/react@18.3.27)(immer@11.0.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.7(typescript@5.8.3)
+      use-debounce:
+        specifier: 'catalog:'
+        version: 10.0.6(react@18.3.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 2.1.9(@types/node@20.12.12)(happy-dom@20.0.11)(jsdom@23.2.0(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(msw@2.12.3(@types/node@20.12.12)(typescript@5.8.3))(sass@1.94.2)(terser@5.44.1)
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+
   packages/auth-backend/base:
     dependencies:
       '@supabase/supabase-js':
@@ -677,6 +940,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -931,6 +1197,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -1988,6 +2257,9 @@ importers:
       '@universo/admin-backend':
         specifier: workspace:*
         version: link:../../admin-backend/base
+      '@universo/applications-backend':
+        specifier: workspace:*
+        version: link:../../applications-backend/base
       '@universo/auth-backend':
         specifier: workspace:*
         version: link:../../auth-backend/base
@@ -2301,6 +2573,9 @@ importers:
       '@universo/api-client':
         specifier: workspace:*
         version: link:../../universo-api-client/base
+      '@universo/applications-frontend':
+        specifier: workspace:*
+        version: link:../../applications-frontend/base
       '@universo/auth-frontend':
         specifier: workspace:*
         version: link:../../auth-frontend/base
@@ -3264,6 +3539,9 @@ importers:
       '@universo/admin-backend':
         specifier: workspace:*
         version: link:../../admin-backend/base
+      '@universo/applications-backend':
+        specifier: workspace:*
+        version: link:../../applications-backend/base
       '@universo/auth-backend':
         specifier: workspace:*
         version: link:../../auth-backend/base
@@ -3279,6 +3557,9 @@ importers:
       http-errors:
         specifier: 'catalog:'
         version: 2.0.1
+      knex:
+        specifier: 'catalog:'
+        version: 3.1.0(mysql2@3.11.3)(pg@8.11.1)(sqlite3@5.1.6(encoding@0.1.13))
       typeorm:
         specifier: 'catalog:'
         version: 0.3.28(babel-plugin-macros@3.1.0)(ioredis@5.8.2)(mongodb@6.21.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
@@ -3606,6 +3887,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -4123,6 +4407,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -4769,6 +5056,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -5067,6 +5357,9 @@ importers:
       '@universo/template-mui':
         specifier: workspace:*
         version: link:../../universo-template-mui/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -5425,6 +5718,9 @@ importers:
       '@universo/start-frontend':
         specifier: workspace:*
         version: link:../../start-frontend/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -13441,6 +13737,9 @@ packages:
   colorette@1.4.0:
     resolution: {integrity: sha512-Y2oEozpomLn7Q3HFP7dpww7AtMJplbM9lGZP6RDfHqmbeRjiwRg4n6VM6j4KLmRke85uWEI7JqF17f3pqdRA0g==}
 
+  colorette@2.0.19:
+    resolution: {integrity: sha512-3tlv/dIP7FWvj3BsbHrGLJ6l/oKh1O3TcgBqMn+yyCagOxc23fyzDS6HypQbgxWbkpDnf52p1LuR4eWDQ/K9WQ==}
+
   colorette@2.0.20:
     resolution: {integrity: sha512-IfEDxwoWIjkeXL1eXcDiow4UbKjhLdq6/EuSVR9GMN7KVH3r9gQ83e73hsz1Nd1T3ijd5xv1wcWRYO+D6kCI2w==}
 
@@ -15645,6 +15944,9 @@ packages:
     resolution: {integrity: sha512-mKZj9JLQrwMBtj5wxi6MH8Z5eSKaERpAwjg43dPtlGI1ZVEgH/qC7T8/6R2OBSUA+zzHBZgICsVJaEIV2tKTDA==}
     engines: {node: '>=6.0'}
 
+  getopts@2.3.0:
+    resolution: {integrity: sha512-5eDf9fuSXwxBL6q5HX+dhDj+dslFGWzU5thZ9kNKUkcPtaPdatmUFKwHFrLb/uf/WpA4BHET+AX3Scl56cAjpA==}
+
   getos@3.2.1:
     resolution: {integrity: sha512-U56CfOK17OKgTVqozZjUKNdkfEv6jk5WISBJ8SHoagjE6L69zOwl3Z+O8myjY9MEW3i2HPWQBt/LTbCgcC973Q==}
 
@@ -16353,6 +16655,10 @@ packages:
 
   interpret@1.4.0:
     resolution: {integrity: sha512-agE4QfB2Lkp9uICn7BAqoscw4SZP9kTE2hxiFI3jBPmXJfdqiahTbUuKGsMoN2GtqL9AxhYioAcVvgsb1HvRbA==}
+    engines: {node: '>= 0.10'}
+
+  interpret@2.2.0:
+    resolution: {integrity: sha512-Ju0Bz/cEia55xDwUWEa8+olFpCiQoypjnQySseKtmjNrnps3P+xfpUmGr90T7yjlVJmOtybRvPXhKMbHr+fWnw==}
     engines: {node: '>= 0.10'}
 
   invert-kv@1.0.0:
@@ -17333,6 +17639,34 @@ packages:
   klona@2.0.6:
     resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
     engines: {node: '>= 8'}
+
+  knex@3.1.0:
+    resolution: {integrity: sha512-GLoII6hR0c4ti243gMs5/1Rb3B+AjwMOfjYm97pu0FOQa7JH56hgBxYf5WK2525ceSbBY1cjeZ9yk99GPMB6Kw==}
+    engines: {node: '>=16'}
+    hasBin: true
+    peerDependencies:
+      better-sqlite3: '*'
+      mysql: '*'
+      mysql2: '*'
+      pg: '*'
+      pg-native: '*'
+      sqlite3: '*'
+      tedious: '*'
+    peerDependenciesMeta:
+      better-sqlite3:
+        optional: true
+      mysql:
+        optional: true
+      mysql2:
+        optional: true
+      pg:
+        optional: true
+      pg-native:
+        optional: true
+      sqlite3:
+        optional: true
+      tedious:
+        optional: true
 
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
@@ -19323,6 +19657,9 @@ packages:
   pg-cloudflare@1.2.7:
     resolution: {integrity: sha512-YgCtzMH0ptvZJslLM1ffsY4EuGaU0cx4XSdXLRFae8bPP4dS5xL1tNB3k2o/N64cHJpwU7dxKli/nZ2lUa5fLg==}
 
+  pg-connection-string@2.6.2:
+    resolution: {integrity: sha512-ch6OwaeaPYcova4kKZ15sbJ2hKb/VP48ZD2gE7i1J+L4MspCtBMAx8nMgz7bksc7IojCIIWuEhHibSMFH8m8oA==}
+
   pg-connection-string@2.9.1:
     resolution: {integrity: sha512-nkc6NpDcvPVpZXxrreI/FOtX3XemeLl8E0qFr6F2Lrm/I8WOnaWNhIPK2Z7OHpw7gh5XJThi6j6ppgNoaT1w4w==}
 
@@ -20556,6 +20893,10 @@ packages:
   rechoir@0.6.2:
     resolution: {integrity: sha512-HFM8rkZ+i3zrV+4LQjwQ0W+ez98pApMGM3HUrN04j3CqzPOzl9nmP15Y8YXNm8QHGv/eacOVEjqhmWpkRV0NAw==}
     engines: {node: '>= 0.10'}
+
+  rechoir@0.8.0:
+    resolution: {integrity: sha512-/vxpCXddiX8NGfGO/mTafwjq4aFa/71pvamip0++IQk3zG8cbCj0fifNPrjjF1XMXUne91jL9OoxmdykoEtifQ==}
+    engines: {node: '>= 10.13.0'}
 
   recursive-readdir@2.2.3:
     resolution: {integrity: sha512-8HrF5ZsXk5FAH9dgsx3BlUer73nIhuj+9OrQwEbLTPOBzGkL1lsFCR01am+v+0m2Cmbs1nP12hLDl5FA7EszKA==}
@@ -21894,6 +22235,10 @@ packages:
     resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
     engines: {node: '>=10'}
 
+  tarn@3.0.2:
+    resolution: {integrity: sha512-51LAVKUSZSVfI05vjPESNc5vwqqZpbXCsU+/+wxlOrUjk2SnFTt97v9ZgQrD4YmxYW1Px6w2KjaDitCfkvgxMQ==}
+    engines: {node: '>=8.0.0'}
+
   tdigest@0.1.2:
     resolution: {integrity: sha512-+G0LLgjjo9BZX2MfdvPfH+MKLCrxlXSYec5DaPYP1fe6Iyhf0/fSmJ0bFiZ1F8BT6cGXl2LpltQptzjXKWEkKA==}
 
@@ -21992,6 +22337,10 @@ packages:
 
   thunky@1.1.0:
     resolution: {integrity: sha512-eHY7nBftgThBqOyHGVN+l8gF0BucP09fMo0oO/Lb0w1OF80dJv+lDVpXG60WMQvkcxAkNybKsrEIE3ZtKGmPrA==}
+
+  tildify@2.0.0:
+    resolution: {integrity: sha512-Cc+OraorugtXNfs50hU9KS369rFXCfgGLpfCfvlc+Ud5u6VWmUQsOAa9HbTvheQdYnrdJqqv1e5oIqXppMYnSw==}
+    engines: {node: '>=8'}
 
   time-stamp@1.1.0:
     resolution: {integrity: sha512-gLCeArryy2yNTRzTGKbZbloctj64jkZ57hj5zdraXue6aFgd6PmvVtEyiUU+hvU0v7q08oVv8r8ev0tRo6bvgw==}
@@ -34259,6 +34608,8 @@ snapshots:
 
   colorette@1.4.0: {}
 
+  colorette@2.0.19: {}
+
   colorette@2.0.20: {}
 
   colors@1.0.3: {}
@@ -37015,6 +37366,8 @@ snapshots:
     dependencies:
       isobject: 3.0.1
 
+  getopts@2.3.0: {}
+
   getos@3.2.1:
     dependencies:
       async: 3.2.6
@@ -38001,6 +38354,8 @@ snapshots:
   internmap@2.0.3: {}
 
   interpret@1.4.0: {}
+
+  interpret@2.2.0: {}
 
   invert-kv@1.0.0: {}
 
@@ -39565,6 +39920,29 @@ snapshots:
   kleur@4.1.5: {}
 
   klona@2.0.6: {}
+
+  knex@3.1.0(mysql2@3.11.3)(pg@8.11.1)(sqlite3@5.1.6(encoding@0.1.13)):
+    dependencies:
+      colorette: 2.0.19
+      commander: 10.0.1
+      debug: 4.3.4
+      escalade: 3.2.0
+      esm: 3.2.25
+      get-package-type: 0.1.0
+      getopts: 2.3.0
+      interpret: 2.2.0
+      lodash: 4.17.21
+      pg-connection-string: 2.6.2
+      rechoir: 0.8.0
+      resolve-from: 5.0.0
+      tarn: 3.0.2
+      tildify: 2.0.0
+    optionalDependencies:
+      mysql2: 3.11.3
+      pg: 8.11.1
+      sqlite3: 5.1.6(encoding@0.1.13)
+    transitivePeerDependencies:
+      - supports-color
 
   kuler@2.0.0: {}
 
@@ -42306,6 +42684,8 @@ snapshots:
   pg-cloudflare@1.2.7:
     optional: true
 
+  pg-connection-string@2.6.2: {}
+
   pg-connection-string@2.9.1: {}
 
   pg-int8@1.0.1: {}
@@ -43742,6 +44122,10 @@ snapshots:
   readdirp@4.1.2: {}
 
   rechoir@0.6.2:
+    dependencies:
+      resolve: 1.22.11
+
+  rechoir@0.8.0:
     dependencies:
       resolve: 1.22.11
 
@@ -45501,6 +45885,8 @@ snapshots:
       mkdirp: 1.0.4
       yallist: 4.0.0
 
+  tarn@3.0.2: {}
+
   tdigest@0.1.2:
     dependencies:
       bintrees: 1.0.2
@@ -45607,6 +45993,8 @@ snapshots:
   through@2.3.8: {}
 
   thunky@1.1.0: {}
+
+  tildify@2.0.0: {}
 
   time-stamp@1.1.0: {}
 

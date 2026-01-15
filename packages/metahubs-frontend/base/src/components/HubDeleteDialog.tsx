@@ -117,7 +117,7 @@ export const HubDeleteDialog = ({
         return { blockingEntities }
     }
 
-    const getBlockingEntityLink = (catalog: BlockingCatalogRow) => `/metahub/${metahubId}/catalogs/${catalog.id}/attributes`
+    const getBlockingEntityLink = (catalog: BlockingCatalogRow) => `/metahub/${metahubId}/catalog/${catalog.id}/attributes`
 
     return (
         <BlockingEntitiesDeleteDialog<Hub, BlockingCatalogRow>

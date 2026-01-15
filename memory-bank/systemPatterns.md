@@ -1,538 +1,422 @@
 # System Patterns
 
-> **Note**: Reusable architectural patterns and best practices. For completed work → progress.md. For current tasks → tasks.md.
+> **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
 
 ---
 
 ## Public Routes & 401 Redirect Pattern (CRITICAL)
 
-**Rule**: All public routes constants centralized in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.
-
-**Source of Truth**:
+**Rule**: All public route constants live in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.
+**Required**: `API_WHITELIST_URLS`, `PUBLIC_UI_ROUTES`, `isPublicRoute()`.
+**Detection**: `rg "isPublicRoute" packages` (avoid local copies).
+**Symptoms**:
+- 401 loops after token expiry.
+- Public routes redirect to /auth unexpectedly.
+**Fix**:
 ```typescript
-// packages/universo-utils/base/src/routes/index.ts
-export const API_WHITELIST_URLS = [...] // Backend - no JWT required
-export const PUBLIC_UI_ROUTES = ['/', '/p/', '/b/', ...] // Frontend - no auth redirect
-export function isPublicRoute(pathname: string): boolean { ... }
+const apiClient = createAuthClient({ baseURL: '/api/v1', redirectOn401: 'auto' })
 ```
-
-**Usage in API Clients**:
-```typescript
-import { createAuthClient } from '@universo/auth-frontend'
-export { extractPaginationMeta } from '@universo/utils'
-
-const apiClient = createAuthClient({
-    baseURL: '/api/v1',
-    redirectOn401: 'auto'  // Uses isPublicRoute() from @universo/utils
-})
-```
-
-**Options for `redirectOn401`**:
-- `'auto'` (default) - Redirect except on PUBLIC_UI_ROUTES
-- `true` - Always redirect to /auth on 401
-- `false` - Never redirect
-- `string[]` - Custom routes array
-
-**Detection**: `grep -r "const isPublicRoute" packages/*/src` (antipattern - should use @universo/utils)
-
-**Why**: Single source of truth, consistent behavior, ~500 lines of duplicate code eliminated.
-
----
+**Why**: Centralized public routes prevent drift across frontends.
 
 ## CSRF Token Lifecycle + HTTP 419 Contract (CRITICAL)
 
-**Context**: Backend uses `csurf({ cookie: false })` (CSRF secret stored in session). If the server regenerates the session (e.g., `req.session.regenerate()` during login), the CSRF secret changes and any client-cached CSRF token becomes stale.
-
-**Contract**:
-- Backend MUST map `EBADCSRFTOKEN` to HTTP **419** (not 500).
-- Frontend MUST treat 419 as “CSRF expired” and clear the cached token, then retry the request once when safe (e.g., logout).
-
-**Frontend Pattern**:
-- Cache CSRF token (if needed) but clear it after successful login (before any post-login refresh) to avoid using a token from the pre-regenerated session.
-- On HTTP 419: clear cached CSRF and retry exactly once.
-
-**Backend Pattern**:
-- Preserve status codes in the global error handler; do not coerce csurf errors into 500.
-- Make logout idempotent: do not require `ensureAuthenticated`; always attempt Passport logout + session destroy + clear cookie (best-effort Supabase signOut if tokens exist).
-
----
+**Rule**: Backend maps `EBADCSRFTOKEN` -> HTTP 419; frontend retries exactly once.
+**Required**: clear cached CSRF after login; logout is idempotent.
+**Detection**: `rg "419" packages`.
+**Symptoms**:
+- Infinite retry loops.
+- Random 403 after successful login.
+**Fix**: Retry once, then surface error to user.
+**Why**: Consistent contract avoids ghost failures on stale tokens.
 
 ## Backend Status Codes + PII-safe Logging (CRITICAL)
 
-**Rule**: Never log PII or captcha token values for public endpoints. Preserve expected validation status codes (400/403/404) and avoid masking them as 500.
-
-**Required**:
-- If a service throws a domain error (e.g., `LeadsServiceError`), rethrow it as-is so controllers/error middleware can respond with the correct HTTP status.
-- Avoid `console.log(JSON.stringify(req.body))` for endpoints that accept names/emails/phones/captcha tokens.
-- Log only safe diagnostics: `hasField` flags, `tokenLength`, `points`, `termsAccepted`, `privacyAccepted`.
-- Never log captcha server keys. Avoid logging full SmartCaptcha validation URLs/params.
-
-**Why**: Prevents sensitive data leakage in logs while keeping monitoring and debugging viable.
-
----
+**Rule**: Preserve 400/403/404 status codes; never log PII or captcha tokens.
+**Required**: log only `hasField`, `tokenLength`, or booleans.
+**Detection**: `rg "console\.log\(.*token" packages`.
+**Symptoms**:
+- Logs contain emails/tokens.
+- Status code mismatch between backend and frontend.
+**Fix**: Sanitize logs; map errors without altering HTTP status.
 
 ## ENV Feature Flags + Public Config Endpoint Pattern
 
-**Goal**: Centralize auth-related feature toggles in ENV, expose them to the UI via small public endpoints, and keep separate configurations for different concerns.
-
-**Pattern (current implementation)**:
-- Parse feature flags in shared utils (`packages/universo-utils/base/src/auth/index.ts`) so both backend and frontend can share the same semantics.
-- Backend exposes **separate** config endpoints:
-  - `GET /api/v1/auth/auth-config` - returns flat auth feature flags: `{ registrationEnabled, loginEnabled, emailConfirmationRequired }`
-  - `GET /api/v1/auth/captcha-config` - returns captcha settings: `{ enabled, siteKey, testMode }`
-- This separation allows independent evolution and caching of each configuration type.
-
-**Frontend requirement**: Fetch both configs in parallel using `Promise.allSettled` for better performance. Each response is a standalone flat object - treat them independently.
-
-**Pattern (future / v2, recommended)**:
-- For new clients and future API versions, consider consolidating into a nested, versionable response such as `{ features: { ... }, captcha: { ... } }` to reduce HTTP round-trips while allowing config evolution without breaking existing consumers.
-
----
+**Rule**: Parse env flags in `@universo/utils` and expose via dedicated endpoints.
+**Required**: `/auth/auth-config` and `/auth/captcha-config`.
+**Detection**: `rg "AUTH_.*ENABLED" packages`.
+**Symptoms**:
+- Frontend toggles diverge from backend.
+**Fix**: Fetch both configs via `Promise.allSettled`.
 
 ## Source-Only Package PeerDependencies Pattern (CRITICAL)
 
-**Rule**: Source-only packages (no dist/) MUST use peerDependencies, NOT dependencies.
-
-**Required**: `peerDependencies` in package.json for all external imports; parent app has actual `dependencies`.
-
-**Detection**: `find packages/*/base -name "package.json" -exec grep -L '"main":' {} \; | xargs grep '"dependencies":'`
-
-**Why**: Source code imported directly by Vite; parent app resolves dependencies via workspace graph.
-
----
+**Rule**: Source-only packages (no dist/) must use `peerDependencies`.
+**Required**: no `"main"` field in source-only packages.
+**Detection**: `find packages/*/base -name "package.json" -exec rg -L '"main"' {} \; | xargs rg '"dependencies"'`.
+**Symptoms**:
+- Duplicate React instances.
+- PNPM hoist conflicts.
+**Fix**: Move runtime deps to `peerDependencies`.
 
 ## RLS Integration Pattern (CRITICAL)
 
-**Location**: `memory-bank/rls-integration-pattern.md`
-
-**Rule**: All database access via TypeORM Repository pattern with user context for RLS policies.
-
-**Required**:
-- `getDataSource()` for connection
-- `getRepository(Entity)` for CRUD
-- User ID in request context
-- Ensure RLS context persists across queries (session-scoped settings + reset on cleanup, or a single explicit transaction for the whole request)
-
-**Detection**: `grep -r "supabaseClient" packages/*/src --exclude-dir=node_modules` (antipattern)
-
-**Full documentation**: See `rls-integration-pattern.md`
-
----
-
-## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
-
-**Rule**: When admin guards perform permission checks, reuse the request-scoped RLS `QueryRunner` from `req.dbContext` to avoid extra pooled connections and `QueryRunnerAlreadyReleasedError` on direct page reloads.
-
-**Required**:
-- Pass `queryRunner` into `globalAccessService` helpers (e.g., `isSuperuser`, `canAccessAdmin`, `getGlobalAccessInfo`) and permission checks.
-- If the request `QueryRunner` is missing or released, fall back to `getDataSource().query(...)`.
-
-**Why**: Keeps admin access checks in the same RLS session, prevents pending requests after direct navigation, and avoids released-runner errors under pool contention.
-
----
-
-## i18n Architecture (CRITICAL)
-
-**Rule**: Core namespaces in `@universo/i18n`; feature packages ship own translations via `registerNamespace`.
-
-**Required**:
-- Feature packages expose `register<Feature>I18n()` (see `@flowise/docstore-frontend/i18n`)
-- Apps import feature packages before rendering: `import '@flowise/docstore-frontend/i18n'`
-- `getInstance()` for singleton, `registerNamespace(name, { en, ru })` for setup
-- `useTranslation('[namespace]')` in components
-- If a feature package **consolidates** a namespace by flattening a nested bundle object (e.g., `...(bundle.metahubs ?? {})`), component keys must match the flattened shape (e.g., `table.hubs`, not `metahubs.table.hubs`).
-
-**Detection**: `grep -r "i18next.use" packages/*/src` (antipattern)
-
-**Why**: Single source of truth, prevents duplicates, easier testing.
-
----
-
-## RBAC + CASL Authorization Pattern (CRITICAL)
-
-**Rule**: Hybrid RBAC (database) + CASL (application) for flexible, isomorphic permission checks.
-
-**Architecture**:
-1. **Database**: `admin.roles`, `admin.role_permissions`, `admin.user_roles`, SQL functions
-2. **Backend**: `createAbilityMiddleware()`, `req.ability.can('delete', 'Metaverse')`
-3. **Frontend**: `AbilityContextProvider`, `<Can I="create" a="Project">`, `useAbility()`
-
-**Wildcards**: `module='*'` + `action='*'` → CASL `subject='all'` + `action='manage'`
-
-**Key Files**:
-- Types: `@universo/types/abilities`
-- Backend: `@universo/auth-backend` (permissionService, abilityMiddleware)
-- Frontend: `@flowise/store` (AbilityContextProvider, Can, useAbility)
-- Migration: `admin-backend/migrations/1733400000000-CreateAdminSchema.ts`
-
----
-
-## Admin Route Guards Pattern
-
-**Rule**: Database-driven CRUD permission checks instead of hardcoded role names.
-
-**Antipattern**: `if (roleName !== 'superadmin') throw 403` ❌
-
-**Pattern**: `const hasPermission = await permissionService.hasPermission(userId, module, action)` ✅
-
-**Usage**: `router.delete('/:id', ensureGlobalAccess('roles', 'delete'), ...)`
-
----
-
-## Scoped-API Pattern for RLS
-
-**Rule**: Use parent-scoped endpoints for child entities (e.g., `/metaverse/:id/entities` not `/entities`) to ensure RLS works with global permissions.
-
-**Frontend**: Conditionally use scoped API when parent ID in params.
-
-**Backend**: Pass parent context to RLS policies.
-
----
-
-## Public Execution Share Contract Pattern
-
-**Rule**: Shareable execution details must use a stable, cross-package contract.
-
-**Frontend (no-auth route)**:
-- Use Minimal layout route: `/execution/:id`
-
-**Backend (public endpoint)**:
-- Expose: `GET /public-executions/:id`
-
-**API Client**:
-- `getPublicExecutionById(id)` must call `/public-executions/:id`
-
-**Why**: Keeps share links, UI routing, api-client, and server routes aligned and avoids “link opens but API 404/401” regressions.
-
----
-
-## Testing Environment Pattern (CRITICAL)
-
-**Rule**: Tests use Vitest, no Jest. UI tests use Testing Library, E2E uses Playwright.
-
-**Required**:
-- `vitest.config.ts` per package
-- `@testing-library/react` for UI
-- `playwright.config.ts` for E2E
-
----
-
-## Service Factory + NodeProvider Pattern (CRITICAL)
-**Rule**: Backend services use factory functions with `{ getDataSource, ...providers }` config.
-
-**Pattern**:
-```typescript
-export const createXxxService = (config: {
-  getDataSource: GetDataSourceFn
-  telemetryProvider?: ITelemetryProvider
-}) => ({ method1, method2 })
-```
-
-**Why**: Testability without full app context, flexible provider injection.
-
----
-
-## TanStack Query Cache Correctness Pattern (Metahubs)
-
-**Problem**: List queries can use non-trivial `staleTime` (e.g., paginated lists), which keeps data “fresh” while users navigate. Aggregate counters may stay stale unless cache invalidation is done explicitly.
-
-**Rule**: Correctness must come from mutation-driven invalidation, not from hoping navigation triggers refetch.
-
-**Pattern**:
-- After any mutation that changes aggregates/counters, invalidate the list queries that surface these counters.
-- Prefer invalidating via the shared query key factory (avoid ad-hoc keys).
-
-**Example mappings (Metahubs)**:
-- Catalog create/update/delete affects Hub list counters (`catalogsCount`) → invalidate hub list queries.
-- Attribute/Record mutations affect Catalog list counters (`attributesCount`, `recordsCount`) → invalidate catalog list queries (+ global catalogs list when relevant).
-
----
-
-## Focus-Refetch for Open Dialog Data (No Polling)
-
-**Use case**: A dialog shows derived data that can change in another browser tab (e.g., hub delete “blocking catalogs”). We want freshness when the user returns to the tab, without polling.
-
-**Pattern**:
-- Fetch with `useQuery` guarded by `enabled: open && ...ids`.
-- While open, force refresh on focus: `refetchOnWindowFocus: "always"`.
-- While closed, disable extra work: `refetchOnWindowFocus: false`.
-
-**Why**: This is a low-risk MVP that avoids background polling and updates data when the user re-focuses the tab.
-
----
-
-## Reusable Compact List Table Pattern (Dialogs)
-
-**Use case**: Confirmation dialogs and “blocking items” panels need a small, scrollable list that matches the main list table styling and supports fast navigation to the affected entities.
-
-**Rule**: Use `CompactListTable` from `@universo/template-mui` for dialog mini-tables instead of bespoke per-dialog MUI table markup.
-
-**Pattern**:
-- Bounded scroll: wrap table in a container with `maxHeight` and `overflow: auto`.
-- Sticky header must be opaque (solid background) so rows can scroll under it without text blending.
-- Preserve rounded corners even with a vertical scrollbar by clipping an outer wrapper (`overflow: hidden`) and letting the inner container scroll.
-- Use the same cell border/divider styling as `FlowListTable` (shared styled table cells) for visual consistency.
-- Make navigation obvious: expose a `getRowLink` and keep link behavior configurable (`linkMode`) so index/name/codename can be clickable.
-
-**Why**: Reuse reduces UI drift between dialogs, improves QA repeatability, and keeps table micro-interactions consistent across the app.
-
-**Example**:
-- Metahubs hub deletion dialog renders “blocking catalogs” via `CompactListTable`.
-
----
-
-## Universal List Pattern (CRITICAL)
-
-**Rule**: All entity lists use unified pattern: `usePaginated` + `useDebouncedSearch` + `PaginationControls` + card/table toggle.
-
-**Required Components**:
-- `ViewHeader` with search/filters
-- `ItemCard` for card view
-- `FlowListTable` for table view
-- `PaginationControls` at bottom
-- `localStorage` for view persistence
-
-**Key Files**:
-- Hook: `@universo/template-mui/hooks/usePaginated.ts`
-- Components: `@universo/template-mui/components/lists/`
-
----
-
-## React StrictMode Pattern (CRITICAL)
-
-**Rule**: StrictMode ONLY in development (conditional wrapper).
-
-**Pattern**:
-```tsx
-const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragment
-<StrictModeWrapper><App /></StrictModeWrapper>
-```
-
-**Why**: Prevents double-mount issues in production, keeps dev benefits.
-
----
-
-## ReactFlow AgentFlow Node Config Dialog Pattern
-
-**Rule**: Node settings dialogs must be opened from the Canvas (ReactFlow-level events), not from node component DOM handlers.
-
-**Pattern**:
-- Use `onNodeDoubleClick` on the universal canvas (`views/canvas/index.jsx`).
-- Gate behavior by node render type (e.g., `node.type === 'agentFlow'`), and explicitly exclude sticky notes.
-- Open a portal dialog (`EditNodeDialog`) with `{ data: node.data, inputParams: visibleInputParams }`.
-
-**Why**: Matches Flowise 3.x behavior and avoids event bubbling / inconsistent behavior across custom node renderers.
-
----
+**Rule**: All DB access via TypeORM Repository with user context for RLS.
+**Required**: `getDataSource().getRepository(Entity)` and RLS session context.
+**Detection**: `rg "supabaseClient" packages` (antipattern).
+**Fix**: Use repositories + request-scoped context.
+**Why**: Prevents bypassing RLS policies.
 
 ## TypeORM Repository Pattern (CRITICAL)
 
-**Rule**: All database operations via `getDataSource().getRepository(Entity)`.
-
-**Required**:
-- User context for RLS
-- No raw SQL in services
-- Cross-schema JOINs via separate queries + map
-
-**Antipattern**: `ds.query("SELECT ...")` ❌
-
-**Pattern**: `const repo = ds.getRepository(Metaverse); await repo.find({ where: { id } })` ✅
-
----
-
-## TanStack Query v5 Patterns (CRITICAL)
-
-**Rule**: Query key factories for cache invalidation; `useQuery` for fetching; `useMutation` for state changes.
-
-**Query Keys**:
+**Rule**: Do not call raw SQL in services; use repositories.
+**Required**: `getDataSource()` and per-entity repository.
+**Detection**: `rg "\.query\(" packages/*/src`.
+**Symptoms**:
+- RLS bypass.
+- Untracked schema drift.
+**Fix**:
 ```typescript
-export const metaversesQueryKeys = {
-  all: ['metaverses'] as const,
-  lists: () => [...metaversesQueryKeys.all, 'list'] as const,
-  list: (params) => [...metaversesQueryKeys.lists(), params] as const,
-  details: () => [...metaversesQueryKeys.all, 'detail'] as const,
-  detail: (id) => [...metaversesQueryKeys.details(), id] as const,
-}
+const repo = getDataSource().getRepository(MyEntity)
+return repo.find({ where: { ... } })
 ```
 
-**Mutations**:
-```typescript
-const createMutation = useMutation({
-  mutationFn: metaversesApi.createMetaverse,
-  onSuccess: () => queryClient.invalidateQueries({ queryKey: metaversesQueryKeys.lists() })
-})
-```
+## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 
-**Why**: Declarative data fetching, automatic background updates, built-in loading/error states.
+**Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.
+**Required**: pass QueryRunner into guard helpers.
+**Detection**: `rg "req\.dbContext" packages`.
+**Symptoms**:
+- Permission checks outside RLS context.
+**Fix**: fallback to `getDataSource().query()` only if QueryRunner missing.
 
----
+## i18n Architecture (CRITICAL)
 
-## Factory Functions for Actions Pattern (CRITICAL)
+**Rule**: Core namespaces in `@universo/i18n`; feature packages use `registerNamespace()`.
+**Required**: feature registration called before app render.
+**Detection**: `rg "i18next\.use" packages` (antipattern).
+**Symptoms**:
+- Missing translations after lazy load.
+**Fix**: register namespaces in entrypoints and consolidate bundles.
 
-**Rule**: Use `createEntityActions` factory + `createMemberActions` factory for consistent action definitions.
+## Canonical Types Pattern (CRITICAL)
 
-**Pattern**:
-```typescript
-const metaverseActions = createEntityActions({
-  entityType: 'metaverse',
-  showEdit: true,
-  showDelete: (can) => can('delete', 'Metaverse'),
-  navigate: (action, id) => `/metaverse/${id}/${action}`
-})
+**Rule**: Shared types live in `@universo/types` and are re-exported downstream.
+**Required**: pagination/filter types in `@universo/types`, UI packages re-export only.
+**Detection**: `rg "PaginationMeta|FilterType" packages/*/src/types`.
+**Symptoms**:
+- Divergent shapes across frontends.
+**Fix**: replace local types with `@universo/types` imports.
 
-const memberActions = createMemberActions({
-  entityType: 'metaverse',
-  availableRoles: ['owner', 'admin', 'editor', 'member'],
-  getMemberId: (member) => member.user_id
-})
-```
+## Universal List Pattern (CRITICAL)
 
-**Key Files**:
-- `@universo/template-mui/factories/createEntityActions.tsx`
-- `@universo/template-mui/factories/createMemberActions.tsx`
+**Rule**: Entity lists use `usePaginated` + `useDebouncedSearch` + card/table toggle.
+**Required**: ViewHeader, ItemCard, FlowListTable, PaginationControls, localStorage persistence.
+**Detection**: `rg "usePaginated" packages`.
+**Symptoms**:
+- Inconsistent pagination behavior across modules.
+**Fix**: adopt shared list components from template-mui.
 
----
+## React StrictMode Pattern (CRITICAL)
 
-## Route Protection Guards Pattern
-
-**Rule**: Protected routes redirect unauthorized users; no error pages revealing resource structure.
-
-**Guards**:
-| Guard | Checks | Redirect |
-|-------|--------|----------|
-| `AuthGuard` | Authentication | → `/auth` |
-| `AdminGuard` | Admin panel access | → `/` |
-| `ResourceGuard` | Resource ownership (API 403/404) | → `/` |
-
-**Usage**:
+**Rule**: StrictMode enabled only in DEV builds.
+**Fix**:
 ```tsx
-<Route path="admin" element={<AdminGuard><Outlet /></AdminGuard>}>
-  <Route index element={<InstanceList />} />
-</Route>
+const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragment
 ```
+**Why**: Prevent double-render issues in production.
 
-**Specialized Guards**: Create module-specific wrappers (e.g., `MetaverseGuard` wraps `ResourceGuard`).
-
----
-
-## Rate Limiting Pattern
+## Rate Limiting Pattern (CRITICAL)
 
 **Rule**: Redis-based rate limiting for all public API endpoints.
+**Required**: `RATE_LIMIT_ENABLED`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`.
+**Detection**: `rg "rateLimit" packages/*/src`.
+**Symptoms**:
+- 429 missing under load.
+**Fix**: apply middleware per router.
 
-**Pattern**: Middleware applies limits based on IP/user; returns 429 Too Many Requests.
+## Testing Environment Pattern (CRITICAL)
 
-**Config**: `RATE_LIMIT_ENABLED`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`.
+**Rule**: Vitest + Testing Library; Playwright for E2E. No Jest.
+**Required**: use shared test utils packages.
+**Detection**: `rg "jest" packages/*/package.json`.
+**Fix**: migrate Jest tests to Vitest equivalents.
 
----
+## Service Factory + NodeProvider Pattern (CRITICAL)
+
+**Rule**: Services are factories to inject dependencies (DataSource, telemetry, config).
+**Fix**:
+```typescript
+export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... })
+```
+**Why**: keeps services testable and side-effect free.
+
+## TanStack Query Cache Correctness + v5 Patterns (CRITICAL)
+
+**Rule**: Query key factories must be used for invalidation.
+**Required**: `lists()` and `detail(id)` keys; invalidate aggregates explicitly.
+**Detection**: `rg "invalidateQueries\(" packages`.
+**Fix**: call `invalidateQueries(metaversesQueryKeys.lists())` after mutations.
+
+## Focus-Refetch for Open Dialog Data (No Polling)
+
+**Rule**: `useQuery` with `enabled: open` + `refetchOnWindowFocus: 'always'`.
+**Why**: ensures dialog data fresh without polling.
+
+## Reusable Compact List Table Pattern (Dialogs)
+
+**Rule**: Use `CompactListTable` in modal dialogs with sticky header + bounded scroll.
+**Required**: `renderRowAction`, `actionColumnWidth` for action column.
+**Detection**: `rg "<Table" packages/*/dialogs`.
+
+## Applications Config/Data Separation Pattern
+
+**Rule**: Metahubs store configuration; Applications store data (PG schemas).
+**Required**: SchemaGenerator + SchemaMigrator + KnexClient.
+**Naming**:
+- Schema: `app_<uuid32>`
+- Table: `cat_<uuid32>`
+- Column: `attr_<uuid32>`
+- Tabular: `{parent}_tp_<uuid32>`
 
 ## Pagination Pattern
 
 **Backend**:
-- Zod schema: `limit` (default 20, max 100), `offset` (default 0), `sortBy`, `sortOrder`
-- Response headers: `X-Pagination-Limit`, `X-Total-Count`
-- Single query with `getManyAndCount()`
-
+- Zod schema: `limit`, `offset`, `sortBy`, `sortOrder`.
+- Single query with `getManyAndCount()`.
 **Frontend**:
-- `usePaginated<T, SortFields>` hook
-- `PaginationControls` component
-- `rowsPerPageOptions={[10, 20, 50, 100]}`
-
----
+- `usePaginated<T, SortFields>` hook.
+- `PaginationControls` with `rowsPerPageOptions`.
 
 ## Error Handling Pattern
 
-**Backend**:
-- Centralized error handler middleware
-- Custom error classes: `ValidationError`, `NotFoundError`, `ForbiddenError`
-- Consistent error response: `{ error: { message, code, details } }`
-
-**Frontend**:
-- Error boundaries for critical sections
-- Toast notifications for user-facing errors
-- Sentry integration for monitoring
-
----
+**Backend**: central handler, `ValidationError`, `NotFoundError`, `ForbiddenError`.
+**Frontend**: error boundaries + toasts; Sentry for monitoring.
 
 ## Env Configuration Pattern
 
-**Rule**: Use `@universo/utils/env` for centralized env config; type-safe access functions.
-
-**Pattern**:
+**Rule**: Use `@universo/utils/env` for type-safe env access.
+**Fix**:
 ```typescript
-// universo-utils/env/adminConfig.ts
 export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'false'
-export const isGlobalRolesEnabled = () => process.env.GLOBAL_ROLES_ENABLED !== 'false'
 ```
-
-**Why**: Single source of truth, avoids string literals, enables mocking for tests.
-
----
 
 ## Migration Pattern
 
-**Rule**: Single consolidated migration per package; idempotent with `IF NOT EXISTS`; no destructive `down()`.
-
-**Pattern**:
-- Filename: `<timestamp>-<DescriptiveName>.ts`
-- Idempotent: `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`
-- RLS policies included in same migration
-- Seed data in separate `SEED_*.sql` file
-
----
+**Rule**: Single consolidated migration per package; idempotent `IF NOT EXISTS`.
+**Required**: RLS policies in the same migration.
+**Avoid**: destructive `down()`.
 
 ## VLC (Versioned Localized Content) Utilities Pattern
 
-**Context**: Multiple packages need to sanitize localized inputs and build VLC structures. Codename validation/normalization is also reused across backend and frontend.
-
-**Shared Modules in `@universo/utils`**:
-```typescript
-import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { CODENAME_PATTERN, normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
-```
-
-**Frontend Hook in `@universo/template-mui`**:
-```typescript
-import { useCodenameAutoFill } from '@universo/template-mui'
-useCodenameAutoFill({ codename, codenameTouched, nextCodename, nameValue, setValue })
-```
-
-**Note**: Backend uses `normalizeCodename()` (no transliteration), frontend uses `slugifyCodename()` from local utils (with `@justrelate/slugify` transliteration) — intentionally different for different use cases (backend preserves existing codenames, frontend helps users create new ones).
-
----
+**Rule**: Shared sanitize/build helpers in `@universo/utils/vlc`.
+**Required**: `sanitizeLocalizedInput`, `buildLocalizedContent`, `normalizeCodename`.
+**Note**: backend uses `normalizeCodename()`; frontend uses `slugifyCodename()`.
 
 ## Build System Patterns
 
-**tsdown**: Dual output (CJS + ESM), path aliases `@/*`, type declarations.
-
-**pnpm workspace**: Run from root, `--filter <package>` for single package, full `pnpm build` required for cross-deps.
-
-**Performance**: `turbo` for caching, parallel builds where possible.
-
----
+**tsdown**: dual output (CJS + ESM), path aliases `@/*`, type declarations.
+**pnpm**: run from root, `--filter <package>` for single build; full `pnpm build` for cross-deps.
+**turbo**: cache + parallel builds.
 
 ## Naming Conventions
 
-**Files**: `PascalCase` for components, `camelCase` for hooks/utils, `kebab-case` for folders/files.
+**Files**: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
+**Database**: `snake_case` tables/columns, `PascalCase` entities.
+**i18n**: dot notation (`auth.login.button`) with namespace prefixes.
 
-**Database**: `snake_case` for tables/columns, `PascalCase` for TypeORM entities.
+## RBAC + CASL Authorization Pattern (CRITICAL)
 
-**i18n**: Dot notation (`auth.login.button`), namespace prefixes.
+**Rule**: Hybrid RBAC (DB) + CASL (app) for isomorphic permissions.
+**Required**: `module='*'` + `action='*'` maps to `subject='all'`, `action='manage'`.
+**Detection**: `rg "ensureGlobalAccess" packages`.
 
----
+## Admin Route Guards Pattern
+
+**Rule**: Use DB-driven permission checks, not hardcoded roles.
+**Fix**: `ensureGlobalAccess('roles', 'delete')` for route protection.
+
+## Scoped-API Pattern for RLS
+
+**Rule**: Use parent-scoped endpoints to carry RLS context (e.g., `/metaverse/:id/entities`).
+**Why**: ensures correct tenant scoping for permissions and data visibility.
+
+## Public Execution Share Contract Pattern
+
+**Rule**:
+- Frontend route: `/execution/:id` (minimal layout)
+- Backend: `GET /public-executions/:id`
+- Client: `getPublicExecutionById(id)` uses public endpoint
+
+## Route Protection Guards Pattern
+
+**Rule**: Protected routes redirect unauthorized users; no error pages exposing resource structure.
+**Guards**:
+- `AuthGuard` -> `/auth`
+- `AdminGuard` -> `/`
+- `ResourceGuard` -> `/`
+
+## ReactFlow AgentFlow Node Config Dialog Pattern
+
+**Rule**: Open node dialogs from canvas events (`onNodeDoubleClick`), not node DOM.
+**Why**: avoids focus issues and event propagation bugs.
+
+## Public Routes Consistency Pattern
+
+**Rule**: Keep public UI routes and API whitelist in sync across packages.
+**Detection**: `rg "PUBLIC_UI_ROUTES" packages`.
 
 ## Known Antipatterns to Avoid
 
-❌ Direct Supabase client usage (violates RLS pattern)
-❌ Hardcoded role checks (use database permissions)
-❌ `dependencies` in source-only packages (use `peerDependencies`)
-❌ Raw SQL in services (use TypeORM Repository)
-❌ `i18next.use()` in packages (use `registerNamespace`)
-❌ StrictMode in production builds
-❌ Client-side pagination for large datasets
-❌ Duplicate state management (prefer TanStack Query cache)
+- Direct Supabase client usage (violates RLS pattern)
+- Hardcoded role checks (use database permissions)
+- `dependencies` in source-only packages (use `peerDependencies`)
+- Raw SQL in services (use repositories)
+- `i18next.use()` in packages (use `registerNamespace()`)
+- StrictMode in production builds
+- Client-side pagination for large datasets
+- Duplicate state management (prefer TanStack Query cache)
 
----
 
-**Last Updated**: 2026-01-10
+## Operational Checklists
 
-**Note**: For full RLS pattern documentation → `rls-integration-pattern.md`. For implementation history → progress.md.
+### Public Routes & 401 Redirect
+- Verify API_WHITELIST_URLS and PUBLIC_UI_ROUTES are updated together.
+- Confirm API clients use redirectOn401: 'auto'.
+- Add new public paths to both route lists.
+
+### CSRF 419 Contract
+- Ensure EBADCSRFTOKEN maps to HTTP 419 in backend.
+- Confirm frontend retries only once.
+- Clear cached CSRF token after login.
+
+### Status Codes + PII-safe Logging
+- Preserve 400/403/404 without remapping.
+- Strip PII and captcha tokens from logs.
+- Log only boolean or length indicators.
+
+### ENV Feature Flags + Public Config
+- Keep auth-config and captcha-config endpoints separate.
+- Parse flags in @universo/utils.
+- Fetch configs via Promise.allSettled.
+
+### PeerDependencies for Source-only Packages
+- No "main" field in source-only packages.
+- Runtime deps belong in peerDependencies.
+- Run detection command before release.
+
+### RLS Integration
+- Enforce repository access with user context.
+- Avoid direct Supabase client usage.
+- Validate RLS session context on requests.
+
+### TypeORM Repository
+- Replace raw SQL in services with repository calls.
+- Use getDataSource().getRepository(Entity).
+- Keep RLS consistency across repositories.
+
+### QueryRunner Reuse
+- Use req.dbContext QueryRunner for guards.
+- Fallback to getDataSource().query() only if needed.
+- Validate QueryRunner cleanup per request.
+
+### i18n Architecture
+- Register namespaces before app render.
+- Avoid i18next.use() in packages.
+- Consolidate bundles after new keys.
+
+### Canonical Types
+- Centralize pagination/filter types in @universo/types.
+- Replace local duplicates with imports.
+- Re-export only UI-specific types in template packages.
+
+### Universal List Pattern
+- Use usePaginated + useDebouncedSearch.
+- Support card/table toggle with ViewHeader.
+- Persist view preference via storage keys.
+
+### React StrictMode
+- StrictMode only in DEV builds.
+- Keep wrapper pattern in app entry.
+- Validate production build behavior.
+
+### Rate Limiting
+- Enable Redis-backed middleware for public routes.
+- Keep env config consistent across services.
+- Verify 429 responses under load tests.
+
+### Testing Environment
+- Prefer Vitest + Testing Library.
+- Reserve Playwright for E2E.
+- Remove Jest configs when migrating.
+
+### Service Factory Pattern
+- Build services via factories with injected deps.
+- Avoid singleton side effects.
+- Mock dependencies in tests.
+
+### TanStack Query Cache
+- Use query key factories for invalidation.
+- Invalidate lists after mutations.
+- Avoid staleTime workarounds.
+
+### Compact List Table
+- Use CompactListTable in dialogs.
+- Keep sticky headers and scroll bounds.
+- Provide renderRowAction for actions.
+
+### Applications Config/Data Separation
+- Keep config in Metahubs, data in Applications schema.
+- Use SchemaGenerator + SchemaMigrator.
+- Ensure app_*/cat_* naming convention.
+
+### Pagination
+- Enforce limit/offset defaults in backend.
+- Align pagination shape to { items, pagination }.
+- Use PaginationControls in UI.
+
+### Error Handling
+- Use centralized backend error handlers.
+- Show user-friendly toasts in frontend.
+- Capture unexpected errors via Sentry.
+
+### Env Configuration
+- Access env via @universo/utils/env helpers.
+- Avoid string comparisons in feature checks.
+- Keep defaults explicit.
+
+### Migration Discipline
+- One consolidated migration per package.
+- Avoid destructive down() migrations.
+- Bundle RLS policies with schema changes.
+
+### VLC Utilities
+- Use sanitizeLocalizedInput/buildLocalizedContent.
+- Normalize codename in backend only.
+- Keep frontend slugify for user-facing input.
+
+### RBAC + CASL
+- Map module='*' + action='*' to manage/all.
+- Use ensureGlobalAccess for checks.
+- Avoid hardcoded role logic.
+
+### Route Guards
+- Use AuthGuard/AdminGuard/ResourceGuard consistently.
+- Redirect unauthorized users (no info leaks).
+- Validate guard coverage in routes.
+
+### Public Execution Share
+- Keep /execution/:id and /public-executions/:id aligned.
+- Use public client for shared routes.
+- Verify minimal layout for public pages.
+
+### ReactFlow Node Dialogs
+- Open config dialogs on onNodeDoubleClick.
+- Avoid direct DOM event usage.
+- Validate focus behavior after close.
+
+### Public Routes Consistency
+- Sync UI and API public route lists.
+- Update utils routes before adding new public pages.
+- Add tests for new public paths.
+
+**Last Updated**: 2026-01-15

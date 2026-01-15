@@ -1,4 +1,4 @@
-import { IconBuildingStore, IconHierarchy, IconFolder, IconUsersGroup, IconDatabase } from '@tabler/icons-react'
+import { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
 export interface MenuItem {
@@ -11,7 +11,7 @@ export interface MenuItem {
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconFolder, IconUsersGroup, IconDatabase }
+const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps }
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
 
@@ -27,6 +27,14 @@ const metahubDashboard: MenuItem = {
             url: '', // will resolve to /metahub/:metahubId
             icon: icons.IconBuildingStore,
             breadcrumbs: false
+        },
+        {
+            id: 'publications',
+            title: 'menu:publications',
+            type: 'item',
+            url: '/publications',
+            icon: icons.IconApps,
+            breadcrumbs: true
         },
         {
             id: 'hubs',

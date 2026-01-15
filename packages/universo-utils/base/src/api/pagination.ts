@@ -5,18 +5,10 @@
  */
 
 import type { AxiosResponse } from 'axios'
+import type { PaginationMeta } from '@universo/types'
 
-/**
- * Pagination metadata from API responses.
- * Compatible with @universo/types PaginationMeta.
- */
-export interface PaginationMeta {
-    total: number
-    limit: number
-    offset: number
-    count: number
-    hasMore: boolean
-}
+// Re-export PaginationMeta from canonical source
+export type { PaginationMeta }
 
 /**
  * Extract pagination metadata from response headers.

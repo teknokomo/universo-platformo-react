@@ -22,7 +22,8 @@ import {
     IconShield,
     IconUsersGroup,
     IconUserShield,
-    IconLanguage
+    IconLanguage,
+    IconApps
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -122,6 +123,12 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         icon: IconBuildingStore
     },
     {
+        id: 'metahub-publications',
+        titleKey: 'publications',
+        url: `/metahub/${metahubId}/publications`,
+        icon: IconApps
+    },
+    {
         id: 'metahub-hubs',
         titleKey: 'hubs',
         url: `/metahub/${metahubId}/hubs`,
@@ -137,6 +144,28 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         id: 'metahub-access',
         titleKey: 'access',
         url: `/metahub/${metahubId}/access`,
+        icon: IconUsers
+    }
+]
+
+// Function to generate application menu items for a specific application
+export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem[] => [
+    {
+        id: 'application-board',
+        titleKey: 'applicationboard',
+        url: `/application/${applicationId}`,
+        icon: IconBuildingStore
+    },
+    {
+        id: 'application-connectors',
+        titleKey: 'connectors',
+        url: `/application/${applicationId}/connectors`,
+        icon: IconHierarchy3
+    },
+    {
+        id: 'application-access',
+        titleKey: 'access',
+        url: `/application/${applicationId}/access`,
         icon: IconUsers
     }
 ]
@@ -369,6 +398,19 @@ export const rootMenuItems: TemplateMenuItem[] = [
         chip: {
             label: '⧉'
         }
+    }
+]
+
+/**
+ * Applications menu items (shown in a separate section before Metahubs)
+ * Returns single menu item pointing to applications list
+ */
+export const getApplicationsMenuItem = (): TemplateMenuItem[] => [
+    {
+        id: 'applications',
+        titleKey: 'applications',
+        url: '/applications',
+        icon: IconApps
     }
 ]
 

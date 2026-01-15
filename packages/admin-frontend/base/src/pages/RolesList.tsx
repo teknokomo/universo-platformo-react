@@ -12,6 +12,9 @@ import { isValidLocaleCode } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+
 // Project imports
 import {
     TemplateMainCard as MainCard,
@@ -60,8 +63,8 @@ const RolesList = () => {
     const isSuperadmin = useIsSuperadmin()
     const { confirm } = useConfirm()
 
-    // View state (card/list)
-    const [view, setView] = useState(localStorage.getItem('adminRolesDisplayStyle') || 'card')
+    // View state (card/list) with localStorage persistence
+    const [view, setView] = useViewPreference(STORAGE_KEYS.ROLES_DISPLAY_STYLE)
 
     // Delete dialog state
     const [deleteDialogState, setDeleteDialogState] = useState<{
@@ -156,8 +159,7 @@ const RolesList = () => {
 
     const handleViewChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('adminRolesDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     // Table columns

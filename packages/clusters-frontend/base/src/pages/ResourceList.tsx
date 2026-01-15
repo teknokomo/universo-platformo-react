@@ -20,6 +20,9 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+
 // project imports
 import {
     TemplateMainCard as MainCard,
@@ -63,7 +66,7 @@ const ResourceList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('clustersResourceDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.RESOURCE_DISPLAY_STYLE)
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -200,8 +203,7 @@ const ResourceList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('clustersResourceDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     const resourceColumns = useMemo(

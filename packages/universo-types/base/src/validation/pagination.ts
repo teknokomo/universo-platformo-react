@@ -3,6 +3,9 @@
  *
  * Shared validation schemas used across all list endpoints.
  * Provides consistent pagination, query params, and error handling.
+ *
+ * This is the CANONICAL source for pagination types in the monorepo.
+ * All frontend packages should import from here, not define locally.
  */
 
 import { z } from 'zod'
@@ -35,9 +38,9 @@ export const PaginationMetaSchema = z.object({
  * Generic paginated response schema
  * Can be used with any data type
  */
-export const createPaginatedResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+export const createPaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
     z.object({
-        data: z.array(dataSchema),
+        items: z.array(itemSchema),
         pagination: PaginationMetaSchema
     })
 
@@ -51,11 +54,36 @@ export const ApiErrorSchema = z.object({
     status: z.number().int().optional()
 })
 
-// Type inference exports
+// ============ TYPE EXPORTS ============
+
+/**
+ * Pagination query parameters type
+ * Used for API request query parameters
+ */
 export type PaginationQuery = z.infer<typeof PaginationQuerySchema>
+
+/**
+ * Alias for frontend compatibility
+ * Use in components that need pagination params
+ */
+export type PaginationParams = PaginationQuery
+
+/**
+ * Pagination metadata type
+ * Returned in paginated responses
+ */
 export type PaginationMeta = z.infer<typeof PaginationMetaSchema>
+
+/**
+ * Generic paginated response type
+ * Standard format for all list endpoints
+ */
 export type PaginatedResponse<T> = {
-    data: T[]
+    items: T[]
     pagination: PaginationMeta
 }
+
+/**
+ * API error response type
+ */
 export type ApiError = z.infer<typeof ApiErrorSchema>

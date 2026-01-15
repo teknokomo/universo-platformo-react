@@ -75,3 +75,78 @@ export const updateRecord = (
  */
 export const deleteRecord = (metahubId: string, hubId: string, catalogId: string, recordId: string) =>
     apiClient.delete<void>(`/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/records/${recordId}`)
+
+// ============================================================================
+// Direct API (without hub) - for catalogs without hub association
+// ============================================================================
+
+/**
+ * List records for a catalog (direct, without hub)
+ */
+export const listRecordsDirect = async (
+    metahubId: string,
+    catalogId: string,
+    params?: PaginationParams
+): Promise<PaginatedResponse<HubRecord>> => {
+    const response = await apiClient.get<{ items: HubRecord[]; pagination: { total: number; limit: number; offset: number } }>(
+        `/metahubs/${metahubId}/catalogs/${catalogId}/records`,
+        {
+            params: {
+                limit: params?.limit,
+                offset: params?.offset,
+                sortBy: params?.sortBy,
+                sortOrder: params?.sortOrder,
+                search: params?.search
+            }
+        }
+    )
+
+    const backendPagination = response.data.pagination
+    return {
+        items: response.data.items || [],
+        pagination: {
+            limit: backendPagination?.limit ?? 100,
+            offset: backendPagination?.offset ?? 0,
+            count: response.data.items?.length ?? 0,
+            total: backendPagination?.total ?? 0,
+            hasMore: (backendPagination?.offset ?? 0) + (response.data.items?.length ?? 0) < (backendPagination?.total ?? 0)
+        }
+    }
+}
+
+/**
+ * Get a single record (direct, without hub)
+ */
+export const getRecordDirect = (metahubId: string, catalogId: string, recordId: string) =>
+    apiClient.get<HubRecord>(`/metahubs/${metahubId}/catalogs/${catalogId}/records/${recordId}`)
+
+/**
+ * Create a new record (direct, without hub)
+ */
+export const createRecordDirect = (
+    metahubId: string,
+    catalogId: string,
+    data: {
+        data: Record<string, unknown>
+        sortOrder?: number
+    }
+) => apiClient.post<HubRecord>(`/metahubs/${metahubId}/catalogs/${catalogId}/records`, data)
+
+/**
+ * Update a record (direct, without hub)
+ */
+export const updateRecordDirect = (
+    metahubId: string,
+    catalogId: string,
+    recordId: string,
+    data: {
+        data?: Record<string, unknown>
+        sortOrder?: number
+    }
+) => apiClient.patch<HubRecord>(`/metahubs/${metahubId}/catalogs/${catalogId}/records/${recordId}`, data)
+
+/**
+ * Delete a record (direct, without hub)
+ */
+export const deleteRecordDirect = (metahubId: string, catalogId: string, recordId: string) =>
+    apiClient.delete<void>(`/metahubs/${metahubId}/catalogs/${catalogId}/records/${recordId}`)

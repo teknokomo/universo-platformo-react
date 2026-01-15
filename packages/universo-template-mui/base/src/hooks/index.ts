@@ -6,6 +6,8 @@ export { useDebouncedSearch } from './useDebouncedSearch'
 export { usePaginated } from './usePaginated'
 export { useUserSettings, resetUserSettingsCache, getShowAllItemsSetting } from './useUserSettings'
 export type { UserSettingsData } from './useUserSettings'
+export { useViewPreference, DEFAULT_VIEW_STYLE } from './useViewPreference'
+export type { ViewStyle } from './useViewPreference'
 
 // Breadcrumb hooks with React Query (using generic factory)
 export {
@@ -21,6 +23,9 @@ export {
     useCampaignName,
     useUnikName,
     useStorageName,
+    useApplicationName,
+    useMetahubApplicationName,
+    useMetahubPublicationName,
     useHubName,
     useCatalogName,
     useCatalogNameStandalone,
@@ -34,6 +39,8 @@ export {
     truncateCampaignName,
     truncateUnikName,
     truncateStorageName,
+    truncateApplicationName,
+    truncatePublicationName,
     truncateHubName,
     truncateCatalogName,
     truncateAttributeName

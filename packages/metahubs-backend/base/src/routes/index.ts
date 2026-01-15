@@ -8,6 +8,7 @@ import { createCatalogsRoutes } from './catalogsRoutes'
 import { createAttributesRoutes } from './attributesRoutes'
 import { createRecordsRoutes } from './recordsRoutes'
 import { createPublicMetahubsRoutes } from './publicMetahubsRoutes'
+import { createPublicationsRoutes } from './publicationsRoutes'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
@@ -45,6 +46,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     // Core metahubs CRUD
     router.use('/metahubs', createMetahubsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Publications (Information Bases) - imports entities from @universo/applications-backend
+    router.use('/', createPublicationsRoutes(ensureAuth, getDataSource, read, write))
+
     // New metadata-driven routes
     router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
@@ -69,4 +73,5 @@ export { createCatalogsRoutes } from './catalogsRoutes'
 export { createAttributesRoutes } from './attributesRoutes'
 export { createRecordsRoutes } from './recordsRoutes'
 export { createPublicMetahubsRoutes } from './publicMetahubsRoutes'
+export { createPublicationsRoutes } from './publicationsRoutes'
 export * from './guards'

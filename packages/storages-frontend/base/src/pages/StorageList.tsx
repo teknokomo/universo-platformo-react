@@ -8,6 +8,9 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
 import {
@@ -51,7 +54,7 @@ const StorageList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('slotsStorageDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.STORAGE_DISPLAY_STYLE)
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -145,8 +148,7 @@ const StorageList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('slotsStorageDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     const storageColumns = useMemo(

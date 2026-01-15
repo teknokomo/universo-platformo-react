@@ -193,10 +193,11 @@ export function createRecordsRoutes(
 
     /**
      * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
+     * GET /metahubs/:metahubId/catalogs/:catalogId/records (direct, without hub)
      * List all records in a catalog with optional filtering
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records',
+        ['/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records', '/metahubs/:metahubId/catalogs/:catalogId/records'],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId } = req.params
@@ -248,10 +249,14 @@ export function createRecordsRoutes(
 
     /**
      * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId
+     * GET /metahubs/:metahubId/catalogs/:catalogId/records/:recordId (direct, without hub)
      * Get a single record
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
+            '/metahubs/:metahubId/catalogs/:catalogId/records/:recordId'
+        ],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, recordId } = req.params
@@ -271,10 +276,11 @@ export function createRecordsRoutes(
 
     /**
      * POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
+     * POST /metahubs/:metahubId/catalogs/:catalogId/records (direct, without hub)
      * Create a new record with JSONB data validation
      */
     router.post(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records',
+        ['/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records', '/metahubs/:metahubId/catalogs/:catalogId/records'],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId } = req.params
@@ -318,10 +324,14 @@ export function createRecordsRoutes(
 
     /**
      * PATCH /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId
+     * PATCH /metahubs/:metahubId/catalogs/:catalogId/records/:recordId (direct, without hub)
      * Update a record
      */
     router.patch(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
+            '/metahubs/:metahubId/catalogs/:catalogId/records/:recordId'
+        ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, recordId } = req.params
@@ -366,10 +376,14 @@ export function createRecordsRoutes(
 
     /**
      * DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId
+     * DELETE /metahubs/:metahubId/catalogs/:catalogId/records/:recordId (direct, without hub)
      * Delete a record
      */
     router.delete(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records/:recordId',
+            '/metahubs/:metahubId/catalogs/:catalogId/records/:recordId'
+        ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, recordId } = req.params

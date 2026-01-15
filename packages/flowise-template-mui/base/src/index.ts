@@ -56,6 +56,9 @@ export { default as TagDialog } from './ui-components/dialog/TagDialog'
 export { default as ViewLeadsDialog } from './ui-components/dialog/ViewLeadsDialog'
 export { default as ViewMessagesDialog } from './ui-components/dialog/ViewMessagesDialog'
 
+// Safe HTML rendering
+export { SafeHTML } from './ui-components/safe/SafeHTML'
+
 // Dropdown ui-components
 export { AsyncDropdown } from './ui-components/dropdown/AsyncDropdown'
 export { Dropdown } from './ui-components/dropdown/Dropdown'

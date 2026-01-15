@@ -110,11 +110,25 @@ const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-fronte
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const MetaverseGuard = Loadable(lazy(() => import('@universo/metaverses-frontend/components/MetaverseGuard')))
 
+// Applications module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsApplicationList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsApplicationBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMembers')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
+
 // Metahub module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/PublicationList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const PublicationBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/PublicationBoard')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/HubList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
@@ -459,6 +473,36 @@ const MainRoutesMUI = {
                 }
             ]
         },
+        // Applications module routes
+        {
+            path: 'applications',
+            element: <Outlet />,
+            children: [
+                {
+                    index: true,
+                    element: <ApplicationsApplicationList />
+                }
+            ]
+        },
+        {
+            path: 'application/:applicationId',
+            element: <Outlet />,
+            children: [
+                {
+                    index: true,
+                    element: <ApplicationsApplicationBoard />
+                },
+                {
+                    path: 'connectors',
+                    element: <ApplicationsConnectorList />
+                },
+                {
+                    path: 'access',
+                    element: <ApplicationsApplicationMembers />
+                }
+            ]
+        },
+        // Metahubs module routes
         {
             path: 'metahubs',
             element: <Outlet />,
@@ -478,6 +522,14 @@ const MainRoutesMUI = {
                     element: <MetahubBoard />
                 },
                 {
+                    path: 'publications',
+                    element: <PublicationList />
+                },
+                {
+                    path: 'publication/:publicationId',
+                    element: <PublicationBoard />
+                },
+                {
                     path: 'hubs',
                     element: <HubList />
                 },
@@ -487,11 +539,11 @@ const MainRoutesMUI = {
                     element: <CatalogList />
                 },
                 {
-                    path: 'catalogs/:catalogId/attributes',
+                    path: 'catalog/:catalogId/attributes',
                     element: <AttributeList />
                 },
                 {
-                    path: 'catalogs/:catalogId/records',
+                    path: 'catalog/:catalogId/records',
                     element: <RecordList />
                 },
                 // Hub-scoped catalog routes
@@ -500,11 +552,11 @@ const MainRoutesMUI = {
                     element: <CatalogList />
                 },
                 {
-                    path: 'hub/:hubId/catalogs/:catalogId/attributes',
+                    path: 'hub/:hubId/catalog/:catalogId/attributes',
                     element: <AttributeList />
                 },
                 {
-                    path: 'hub/:hubId/catalogs/:catalogId/records',
+                    path: 'hub/:hubId/catalog/:catalogId/records',
                     element: <RecordList />
                 },
                 {

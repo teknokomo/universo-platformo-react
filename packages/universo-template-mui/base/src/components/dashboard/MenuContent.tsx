@@ -15,10 +15,12 @@ import { useHasGlobalAccess } from '@flowise/store'
 import { useMetaverseName } from '../../hooks'
 import {
     rootMenuItems,
-    getAdminMenuItems,
+    getApplicationsMenuItem,
     getMetahubsMenuItem,
+    getAdminMenuItems,
     getMetaverseMenuItems,
     getMetahubMenuItems,
+    getApplicationMenuItems,
     getUnikMenuItems,
     getClusterMenuItems,
     getProjectMenuItems,
@@ -35,10 +37,12 @@ import {
 // ];
 
 export default function MenuContent() {
-    const { t, i18n: i18nInst } = useTranslation('menu', { i18n })
+    const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
-    // Use canAccessAdminPanel which checks both hasGlobalAccess AND adminPanelEnabled
-    const { canAccessAdminPanel } = useHasGlobalAccess()
+
+    // Check if user has admin access (for showing Admin menu in root sidebar)
+    const { isSuperuser, hasAnyGlobalRole } = useHasGlobalAccess()
+    const canAccessAdmin = isSuperuser || hasAnyGlobalRole
 
     // Check if we're in a unik context
     const isUnikContext = location.pathname.match(/^\/unik\/([^/]+)/)
@@ -54,6 +58,10 @@ export default function MenuContent() {
     // Check if we're in a metahub context (/metahub/:id)
     const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
     const metahubId = metahubMatch ? metahubMatch[1] : null
+
+    // Check if we're in an application context (/application/:id)
+    const applicationMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
+    const applicationId = applicationMatch ? applicationMatch[1] : null
 
     // Check if we're in a cluster context (both /cluster/:id and /clusters/:id paths)
     const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
@@ -85,6 +93,8 @@ export default function MenuContent() {
         ? getUnikMenuItems(unikId)
         : metaverseId && metaverseName
         ? getMetaverseMenuItems(metaverseId)
+        : applicationId
+        ? getApplicationMenuItems(applicationId)
         : metahubId
         ? getMetahubMenuItems(metahubId)
         : clusterId
@@ -100,42 +110,6 @@ export default function MenuContent() {
         : instanceId
         ? getInstanceMenuItems(instanceId)
         : rootMenuItems
-
-    // Debug diagnostics for i18n menu resolution
-    try {
-        // eslint-disable-next-line no-console
-        console.log('[MenuContent] i18n status', {
-            lang: i18nInst.language,
-            resolved: i18nInst.resolvedLanguage,
-            hasMenuNs: i18nInst.hasResourceBundle(i18nInst.language, 'menu'),
-            sample_uniks: t('uniks'),
-            sample_metaverses: t('metaverses')
-        })
-        // eslint-disable-next-line no-console
-        console.log('[MenuContent] Admin access check', {
-            canAccessAdminPanel,
-            instanceId,
-            metaverseId,
-            clusterId,
-            projectId,
-            organizationId,
-            storageId,
-            campaignId,
-            unikId,
-            willShowAdmin:
-                canAccessAdminPanel &&
-                !instanceId &&
-                !metaverseId &&
-                !clusterId &&
-                !projectId &&
-                !organizationId &&
-                !storageId &&
-                !campaignId &&
-                !unikId
-        })
-    } catch (e) {
-        // noop
-    }
 
     return (
         <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
@@ -176,6 +150,7 @@ export default function MenuContent() {
                 {/* Metahubs section with divider - only if not in any entity context */}
                 {!instanceId &&
                     !metaverseId &&
+                    !applicationId &&
                     !metahubId &&
                     !clusterId &&
                     !projectId &&
@@ -185,6 +160,24 @@ export default function MenuContent() {
                     !unikId && (
                         <>
                             <Divider sx={{ my: 1 }} />
+                            {/* Applications menu items */}
+                            {getApplicationsMenuItem().map((item) => {
+                                const Icon = item.icon
+                                const isSelected =
+                                    location.pathname === item.url ||
+                                    location.pathname.startsWith('/applications') ||
+                                    location.pathname.startsWith('/application/')
+                                return (
+                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                            <ListItemIcon>
+                                                <Icon size={20} stroke={1.5} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={t(item.titleKey)} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                )
+                            })}
                             {/* Metahubs menu items */}
                             {getMetahubsMenuItem().map((item) => {
                                 const Icon = item.icon
@@ -203,39 +196,27 @@ export default function MenuContent() {
                                     </ListItem>
                                 )
                             })}
-                        </>
-                    )}
-
-                {/* Admin section with divider - only if user can access admin panel and not in any entity context */}
-                {canAccessAdminPanel &&
-                    !instanceId &&
-                    !metaverseId &&
-                    !metahubId &&
-                    !clusterId &&
-                    !projectId &&
-                    !organizationId &&
-                    !storageId &&
-                    !campaignId &&
-                    !unikId && (
-                        <>
-                            <Divider sx={{ my: 1 }} />
-                            {/* Admin menu items */}
-                            {getAdminMenuItems().map((item) => {
-                                const Icon = item.icon
-                                // Intentionally using startsWith('/admin') to keep admin menu highlighted
-                                // for all admin sub-routes (instances, roles, etc.)
-                                const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
-                                return (
-                                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                                        <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
-                                            <ListItemIcon>
-                                                <Icon size={20} stroke={1.5} />
-                                            </ListItemIcon>
-                                            <ListItemText primary={t(item.titleKey)} />
-                                        </ListItemButton>
-                                    </ListItem>
-                                )
-                            })}
+                            {/* Admin menu items - only for users with admin access */}
+                            {canAccessAdmin && (
+                                <>
+                                    <Divider sx={{ my: 1 }} />
+                                    {getAdminMenuItems().map((item) => {
+                                        const Icon = item.icon
+                                        const isSelected =
+                                            location.pathname === item.url || location.pathname.startsWith('/admin')
+                                        return (
+                                            <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
+                                                <ListItemButton component={NavLink} to={item.url} selected={isSelected}>
+                                                    <ListItemIcon>
+                                                        <Icon size={20} stroke={1.5} />
+                                                    </ListItemIcon>
+                                                    <ListItemText primary={t(item.titleKey)} />
+                                                </ListItemButton>
+                                            </ListItem>
+                                        )
+                                    })}
+                                </>
+                            )}
                         </>
                     )}
             </List>

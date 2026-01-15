@@ -422,8 +422,8 @@ const CatalogList = () => {
                     <Link
                         to={
                             isHubScoped
-                                ? `/metahub/${metahubId}/hub/${hubId}/catalogs/${row.id}/attributes`
-                                : `/metahub/${metahubId}/catalogs/${row.id}/attributes`
+                                ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
+                                : `/metahub/${metahubId}/catalog/${row.id}/attributes`
                         }
                         style={{ textDecoration: 'none', color: 'inherit' }}
                     >
@@ -531,8 +531,8 @@ const CatalogList = () => {
                         <Link
                             to={
                                 isHubScoped
-                                    ? `/metahub/${metahubId}/hub/${hubId}/catalogs/${row.id}/attributes`
-                                    : `/metahub/${metahubId}/catalogs/${row.id}/attributes`
+                                    ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
+                                    : `/metahub/${metahubId}/catalog/${row.id}/attributes`
                             }
                             style={{ textDecoration: 'none', color: 'inherit' }}
                         >
@@ -806,9 +806,9 @@ const CatalogList = () => {
     const goToCatalog = (catalog: CatalogWithHubs) => {
         // Navigate based on mode: hub-scoped or catalog-centric
         if (isHubScoped) {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs/${catalog.id}/attributes`)
+            navigate(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalog.id}/attributes`)
         } else {
-            navigate(`/metahub/${metahubId}/catalogs/${catalog.id}/attributes`)
+            navigate(`/metahub/${metahubId}/catalog/${catalog.id}/attributes`)
         }
     }
 
@@ -958,8 +958,8 @@ const CatalogList = () => {
                                         getRowLink={(row: any) =>
                                             row?.id
                                                 ? isHubScoped
-                                                    ? `/metahub/${metahubId}/hub/${hubId}/catalogs/${row.id}/attributes`
-                                                    : `/metahub/${metahubId}/catalogs/${row.id}/attributes`
+                                                    ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
+                                                    : `/metahub/${metahubId}/catalog/${row.id}/attributes`
                                                 : undefined
                                         }
                                         customColumns={catalogColumns}

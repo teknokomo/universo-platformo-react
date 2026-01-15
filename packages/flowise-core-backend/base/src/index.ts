@@ -28,6 +28,7 @@ import flowiseApiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
 import { initializeRateLimiters } from '@universo/metaverses-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
+import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
 import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-backend'
 import { initializeRateLimiters as initializeProjectsRateLimiters } from '@universo/projects-backend'
 import { initializeRateLimiters as initializeCampaignsRateLimiters } from '@universo/campaigns-backend'
@@ -333,6 +334,9 @@ export class App {
 
         // Initialize rate limiters for metahubs service
         await initializeMetahubsRateLimiters()
+
+        // Initialize rate limiters for applications service
+        await initializeApplicationsRateLimiters()
 
         // Initialize rate limiters for clusters service
         await initializeClustersRateLimiters()

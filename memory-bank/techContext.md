@@ -46,7 +46,7 @@ if (!userId) return
 -   **Languages**: English (base) + Russian (full translation)
 -   **Implementation**: Complete UI text extraction and translation; feature packages register their own namespaces via `registerNamespace`.
 -   **Files**: `packages/flowise-core-frontend/base/src/i18n/locales/en.json` & `ru.json`
--   **Gotcha**: Some feature packages consolidate and **flatten** nested translation bundles into a single namespace; component translation keys must match the registered shape (inspect the package `src/i18n/index.ts`).
+-   **Gotcha**: Some feature packages consolidate and **flatten** nested translation bundles into a single namespace; component translation keys must match the registered shape (inspect the package `src/i18n/index.ts`). Also, when an app exports a consolidated namespace bundle, every new top-level block (e.g., `applications`, `actions`) must be included in the merge, or the UI will render raw i18n keys.
 
 #### 4. UPDL Nodes & Multi-Technology Export
 

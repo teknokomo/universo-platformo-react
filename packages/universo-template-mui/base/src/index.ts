@@ -100,6 +100,10 @@ export type { UseDebouncedSearchOptions, UseDebouncedSearchReturn } from './hook
 export { useCodenameAutoFill } from './hooks/useCodenameAutoFill'
 export type { UseCodenameAutoFillOptions } from './hooks/useCodenameAutoFill'
 
+// View preference system (localStorage-backed view modes)
+export { useViewPreference, DEFAULT_VIEW_STYLE } from './hooks/useViewPreference'
+export type { ViewStyle } from './hooks/useViewPreference'
+
 export { PaginationControls } from './components/pagination'
 export type { PaginationControlsProps } from './components/pagination'
 

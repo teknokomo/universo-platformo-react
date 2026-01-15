@@ -82,6 +82,9 @@ catalog:
     # ORM - TypeORM for database operations
     typeorm: ^0.3.28
     
+    # Knex - SQL query builder for runtime DDL (schema generation)
+    knex: ^3.1.0
+    
     # UUID utilities
     uuidv7: ^1.1.0
     

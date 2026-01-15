@@ -23,11 +23,13 @@
     "license": "Omsk Open License",
     "dependencies": {
         "@universo/admin-backend": "workspace:*",
+        "@universo/applications-backend": "workspace:*",
         "@universo/auth-backend": "workspace:*",
         "@universo/profile-backend": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "http-errors": "catalog:",
+        "knex": "catalog:",
         "typeorm": "catalog:",
         "zod": "^3.25.76"
     },
