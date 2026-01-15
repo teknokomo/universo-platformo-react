@@ -24,7 +24,7 @@ export interface MetahubInfoPanelProps {
 /**
  * Panel for displaying locked Metahub info when creating Publication from Metahub context.
  * Uses EntitySelectionPanel for consistent UI with other selection panels (like HubSelectionPanel).
- * 
+ *
  * This panel is read-only because:
  * - The Metahub is determined by the URL context (metahubId)
  * - isSingleMetahub and isRequiredMetahub are temporarily locked to 'true'
@@ -50,24 +50,24 @@ export const MetahubInfoPanel = ({
 
     const labels: EntitySelectionLabels = useMemo(
         () => ({
-            title: t('publications.create.metahubsTitle', 'Метахабы'),
-            addButton: t('common.add', 'Добавить'),
-            dialogTitle: t('publications.create.selectMetahub', 'Выберите метахаб'),
-            emptyMessage: t('publications.create.noMetahubSelected', 'Метахаб не выбран'),
-            noAvailableMessage: t('publications.create.noMetahubsAvailable', 'Нет доступных метахабов'),
-            searchPlaceholder: t('common.search', 'Поиск...'),
-            cancelButton: t('common.cancel', 'Отмена'),
-            confirmButton: t('common.add', 'Добавить'),
-            removeTitle: t('common.remove', 'Удалить'),
-            nameHeader: t('table.name', 'Название'),
-            codenameHeader: t('table.codename', 'Кодовое имя'),
-            requiredLabel: t('publications.create.isRequiredMetahub', 'Обязательно'),
-            requiredEnabledHelp: t('publications.create.isRequiredMetahubEnabled', 'Коннектор должен иметь хотя бы один связанный Метахаб'),
-            requiredDisabledHelp: t('publications.create.isRequiredMetahubDisabled', 'Коннектор может существовать без метахабов'),
-            singleLabel: t('publications.create.isSingleMetahub', 'Один метахаб'),
-            singleEnabledHelp: t('publications.create.isSingleMetahubEnabled', 'Коннектор может быть связан только с одним Метахабом'),
-            singleDisabledHelp: t('publications.create.isSingleMetahubDisabled', 'Коннектор может отображаться в нескольких метахабах'),
-            singleWarning: t('publications.create.isSingleMetahubWarning', 'Нельзя включить, пока выбрано несколько метахабов')
+            title: t('publications.create.metahubsTitle', 'Metahubs'),
+            addButton: t('common.add', 'Add'),
+            dialogTitle: t('publications.create.selectMetahub', 'Select a metahub'),
+            emptyMessage: t('publications.create.noMetahubSelected', 'No metahub selected'),
+            noAvailableMessage: t('publications.create.noMetahubsAvailable', 'No metahubs available'),
+            searchPlaceholder: t('common.search', 'Search...'),
+            cancelButton: t('common.cancel', 'Cancel'),
+            confirmButton: t('common.add', 'Add'),
+            removeTitle: t('common.remove', 'Remove'),
+            nameHeader: t('table.name', 'Name'),
+            codenameHeader: t('table.codename', 'Codename'),
+            requiredLabel: t('publications.create.isRequiredMetahub', 'Required'),
+            requiredEnabledHelp: t('publications.create.isRequiredMetahubEnabled', 'Connector must have at least one linked Metahub'),
+            requiredDisabledHelp: t('publications.create.isRequiredMetahubDisabled', 'Connector can exist without metahubs'),
+            singleLabel: t('publications.create.isSingleMetahub', 'Single metahub'),
+            singleEnabledHelp: t('publications.create.isSingleMetahubEnabled', 'Connector can be linked to only one Metahub'),
+            singleDisabledHelp: t('publications.create.isSingleMetahubDisabled', 'Connector can appear in multiple metahubs'),
+            singleWarning: t('publications.create.isSingleMetahubWarning', 'Cannot enable while multiple metahubs are selected')
         }),
         [t]
     )
@@ -92,8 +92,12 @@ export const MetahubInfoPanel = ({
     return (
         <Stack spacing={2}>
             {/* Info alert about locked settings */}
-            <Alert severity="info" icon={<InfoIcon />}>
-                {infoMessage || t('publications.create.metahubLocked', 'Связи с метахабами и ограничения сейчас заблокированы. Эта функциональность будет доступна в будущем обновлении.')}
+            <Alert severity='info' icon={<InfoIcon />}>
+                {infoMessage ||
+                    t(
+                        'publications.create.metahubLocked',
+                        'Metahub connections and restrictions are currently locked. This functionality will be available in a future update.'
+                    )}
             </Alert>
 
             <EntitySelectionPanel<Metahub>

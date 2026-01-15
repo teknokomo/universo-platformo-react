@@ -89,6 +89,19 @@ export function createAttributesRoutes(
         }
     }
 
+    /**
+     * Checks if sortOrder is sequential (1..N) without modifying data.
+     * Use this in GET requests to maintain idempotency.
+     * @returns true if sortOrder is inconsistent and needs normalization
+     */
+    const checkSortOrderInconsistency = (attributes: Attribute[]): boolean => {
+        return attributes.some((attribute, index) => (attribute.sortOrder ?? 0) !== index + 1)
+    }
+
+    /**
+     * Ensures sortOrder is a contiguous 1..N sequence (no gaps/duplicates).
+     * Only call this in write operations (POST, PATCH, DELETE) to maintain REST idempotency.
+     */
     const ensureSequentialSortOrder = async (catalogId: string, attributeRepo: ReturnType<typeof repos>['attributeRepo']) => {
         const attributes = await attributeRepo.find({
             where: { catalogId },
@@ -96,7 +109,7 @@ export function createAttributesRoutes(
         })
 
         // sortOrder must always be a contiguous 1..N sequence (no gaps/duplicates)
-        const requiresReset = attributes.some((attribute, index) => (attribute.sortOrder ?? 0) !== index + 1)
+        const requiresReset = checkSortOrderInconsistency(attributes)
         if (!requiresReset) return attributes
 
         attributes.forEach((attribute, index) => {
@@ -129,9 +142,17 @@ export function createAttributesRoutes(
                 throw error
             }
 
-            // Defensive: keep sortOrder always contiguous (1..N). This makes existing catalogs
-            // self-heal on next list fetch (e.g., after older deletes that left gaps).
-            await ensureSequentialSortOrder(catalogId, attributeRepo)
+            // Check for sortOrder inconsistency (read-only, no side-effects per REST principles).
+            // Normalization is performed on write operations (POST, PATCH, DELETE).
+            const allAttributes = await attributeRepo.find({
+                where: { catalogId },
+                order: { sortOrder: 'ASC', createdAt: 'ASC' }
+            })
+            if (checkSortOrderInconsistency(allAttributes)) {
+                console.warn(
+                    `[attributesRoutes] Sort order inconsistency detected for catalog ${catalogId}. Will normalize on next write operation.`
+                )
+            }
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 

@@ -336,6 +336,7 @@
             "destructiveChanges": "Destructive Changes (require confirmation)",
             "destructiveWarning": "These changes will delete data. Review carefully before confirming.",
             "confirmSync": "Apply Changes",
+            "applySafeChanges": "Apply Safe Changes Only",
             "confirmDestructive": "Apply Including Destructive"
         },
         "deleteDialog": {
