@@ -12,6 +12,9 @@ import { canManageRole } from '@universo/types'
 import type { OrganizationRole } from '@universo/types'
 import { extractAxiosError, isHttpStatus, isApiError } from '@universo/utils'
 
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+
 // project imports
 import {
     TemplateMainCard as MainCard,
@@ -81,7 +84,7 @@ const OrganizationMembers = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('organizationMembersDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)
 
     // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
@@ -180,8 +183,7 @@ const OrganizationMembers = () => {
 
     const handleChange = (_event: React.MouseEvent<HTMLElement>, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('organizationMembersDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     const memberColumns = [

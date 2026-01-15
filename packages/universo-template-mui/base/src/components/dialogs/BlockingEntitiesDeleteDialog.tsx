@@ -80,7 +80,7 @@ export interface BlockingEntitiesDeleteDialogProps<T extends DeletableEntity, B 
  *   onConfirm={handleDelete}
  *   labels={hubDeleteLabels}
  *   columns={blockingCatalogColumns}
- *   getBlockingEntityLink={(c) => `/metahub/${metahubId}/catalogs/${c.id}`}
+ *   getBlockingEntityLink={(c) => `/metahub/${metahubId}/catalog/${c.id}`}
  * />
  * ```
  */

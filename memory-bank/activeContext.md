@@ -1,55 +1,84 @@
 # Active Context
 
-> **Last Updated**: 2026-01-11
->
-> **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
+> **Last Updated**: 2026-01-15
+> 
+> **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: QA Fixes Complete (2026-01-11)
+## Current Focus: Applications connectors refactor (complete)
 
-**Just Completed**:
-- **Catalog Deletion Bug**: Added direct DELETE endpoint for catalogs without hub association
-  - New endpoint: `DELETE /metahubs/:metahubId/catalogs/:catalogId`
-  - Frontend API + mutation updated to handle optional hubId
-- **SQL Injection Fix**: escapeLikeWildcards applied to loadMembers in campaigns/clusters backends
-- **getRequestManager Centralization**: Removed 19 local definitions across 8 backend packages
-  - All route handlers now import from `../utils` → `@universo/utils/database`
-  - admin-backend tsconfig updated to moduleResolution: node16
-- Full monorepo build: SUCCESS (61 tasks)
+- Renamed Sources -> Connectors across applications-backend/frontend (entities, migrations, routes, guards, tests).
+- Updated metahubs publications integration and UI copy to connector terminology.
+- Updated template-mui routes/menu/breadcrumbs and universo-i18n menu keys.
+- Updated applications READMEs (EN/RU) to connectors and /connectors paths.
+- Tests: applications-backend + applications-frontend suites ran (existing warnings remain).
+- Details: progress.md#2026-01-15.
 
-**Files Changed Summary**:
-- `packages/metahubs-backend/base/src/routes/catalogsRoutes.ts` — new DELETE endpoint
-- `packages/metahubs-frontend/base/src/api/catalogs.ts` — deleteCatalogDirect function
-- `packages/metahubs-frontend/base/src/hooks/mutations.ts` — optional hubId
-- `packages/metahubs-frontend/base/src/pages/CatalogList.tsx` — updated deleteEntity
-- `packages/campaigns-backend/base/src/routes/campaignsRoutes.ts` — escapeLikeWildcards
-- `packages/clusters-backend/base/src/routes/clustersRoutes.ts` — escapeLikeWildcards
-- 8 backend packages: parserUtils.ts updated with getRequestManager re-export
-- 19 route files: local getRequestManager replaced with import
+## Recent Highlights (last 7 days)
 
-**Next Steps**:
-- [ ] Manual QA: delete catalog without hubs — confirm it works
-- [ ] Manual QA: test search with special characters (%, _) — confirm escaping
-- [ ] Consider QA mode for comprehensive verification
+### Publications rename stabilization (2026-01-14)
+- Routes standardized to /publications and /metahubs/:id/publications.
+- Breadcrumbs and diff hook aligned to publication naming.
+- Details: progress.md#2026-01-14.
 
----
+### Metahubs QA fixes (2026-01-15)
+- SchemaMigrator FK naming/length fixes and shared getVLCString reuse.
+- Publications UI cleanup and grammar fixes.
+- Details: progress.md#2026-01-15.
 
-## Session Notes
+### Applications connectors refactor (2026-01-15)
+- Sources renamed to Connectors across applications + metahubs integration.
+- template-mui navigation and universo-i18n menu keys aligned to connectors.
+- Details: progress.md#2026-01-15.
 
-### Data Model (Current State)
+### Connector -> Metahub links UI (2026-01-15)
+- Added MetahubSelectionPanel, connectorMetahubs APIs, and query hooks.
+- Added ConnectorMetahub/MetahubSummary types and i18n keys.
+- Details: progress.md#2026-01-15.
 
-```
-Hub (container for domain-specific data)
-  └── CatalogHub (junction table for N:M relationship)
-        └── Catalog (reusable data structure, with isRequiredHub/isSingleHub flags)
-              ├── Attribute (field definitions)
-              └── Record (data entries)
-```
+### useViewPreference QA improvements (2026-01-15)
+- SSR-safe hook with isLocalStorageAvailable guard.
+- 14 unit tests added; localStorage keys normalized across packages.
+- Details: progress.md#2026-01-15.
 
-### Key Routes (Catalog-Centric)
+## QA Notes
 
-- `/metahub/:id/catalogs` — Global catalog list
-- `/metahub/:id/catalogs/:catalogId/attributes` — Attributes for catalog
-- `/metahub/:id/catalogs/:catalogId/records` — Records for catalog
-- `/metahub/:id/hub/:hubId/catalogs` — Hub-scoped catalog list
+- Pre-existing Prettier deviations remain in metahubs-frontend.
+- No new lint regressions introduced by the QA cleanups.
+- Pending lint cleanup remains out of scope for this pass.
+- Build verification: 63 tasks (latest full run).
+- Applications-frontend tests now mock useHasGlobalAccess and cover connector metahubs MSW handler.
+
+## Active Checks
+
+- Manual QA: publications list/detail/sync/diff endpoints.
+- Manual QA: connector-metahub link/unlink constraints (single/required).
+- Manual QA: useViewPreference storage keys in projects/storages.
+- Confirm publication naming consistency across UI and API.
+- Confirm member role tests remain green after schema changes.
+- Verify SafeHTML usage in chat message rendering.
+
+## Context Snapshot
+
+- Publications endpoints: `/metahubs/:id/publications`, `/publications/:id`, `/publications/:id/diff`, `/publications/:id/sync`.
+- Connector-metahub links: `/applications/:appId/connectors/:connectorId/metahubs`.
+- Query keys: `metahubsQueryKeys.publications*`.
+- Mutation hooks: useCreatePublication/useUpdatePublication/useSyncPublication/useDeletePublication.
+- UI entry points: PublicationList + PublicationBoard.
+- Selection UI: MetahubSelectionPanel (connectors -> metahubs).
+- Canonical types: PaginationParams, PaginationMeta, PaginatedResponse<T>, Filter* (in @universo/types).
+- Pattern: systemPatterns.md#universal-list-pattern-critical.
+- Breadcrumbs: useMetahubPublicationName used in navigation.
+- Schema naming: `app_<uuid32>` remains standard.
+- DB linkage: Connector uses applicationId at DB level (expected).
+
+## Blockers
+
+- None.
+
+## Next Steps
+
+- Await QA verification and close remaining manual checks.
+- If no blockers, switch to reflect mode on request.
+- Review open tasks: tasks.md#planned-tasks.

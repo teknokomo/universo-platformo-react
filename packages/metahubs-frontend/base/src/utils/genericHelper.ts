@@ -1,4 +1,4 @@
-// Minimal utility functions for MetaEntities application
+// Minimal utility functions for MetaEntities module
 export type OperatingSystem = 'windows' | 'macos' | 'linux' | 'ios' | 'android' | null
 
 export const getOS = (): OperatingSystem => {

@@ -33,6 +33,7 @@
         "@uiw/codemirror-theme-vscode": "^4.21.21",
         "@uiw/react-codemirror": "^4.21.21",
         "@universo/api-client": "workspace:*",
+        "@universo/applications-frontend": "workspace:*",
         "@universo/auth-frontend": "workspace:*",
         "@universo/i18n": "workspace:*",
         "@universo/metahubs-frontend": "workspace:*",

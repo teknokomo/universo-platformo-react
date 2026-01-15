@@ -13,6 +13,7 @@ import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
 import { metaversesEntities } from '@universo/metaverses-backend'
 import { metahubsEntities } from '@universo/metahubs-backend'
+import { applicationsEntities } from '@universo/applications-backend'
 import { clustersEntities } from '@universo/clusters-backend'
 import { projectsEntities } from '@universo/projects-backend'
 import { campaignsEntities } from '@universo/campaigns-backend'
@@ -26,6 +27,8 @@ import { adminEntities } from '@universo/admin-backend'
 const metaversesEntitiesObject = Object.fromEntries(metaversesEntities.map((entity) => [entity.name, entity]))
 
 const metahubsEntitiesObject = Object.fromEntries(metahubsEntities.map((entity) => [entity.name, entity]))
+
+const applicationsEntitiesObject = Object.fromEntries(applicationsEntities.map((entity) => [entity.name, entity]))
 
 const clustersEntitiesObject = Object.fromEntries(clustersEntities.map((entity) => [entity.name, entity]))
 
@@ -57,6 +60,8 @@ export const entities = {
     ...metaversesEntitiesObject,
     // Metahubs service entities
     ...metahubsEntitiesObject,
+    // Applications service entities
+    ...applicationsEntitiesObject,
     // Clusters service entities
     ...clustersEntitiesObject,
     // Projects service entities

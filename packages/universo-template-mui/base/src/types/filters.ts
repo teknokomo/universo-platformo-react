@@ -1,49 +1,21 @@
 /**
  * Filter Types for FilterToolbar component
- * Provides type-safe configuration for list filters
+ *
+ * Core types (FilterType, FilterOption, FilterConfig, FilterValues) are
+ * re-exported from @universo/types for consistency across the monorepo.
+ *
+ * MUI-specific component props are defined here.
  */
 
-export type FilterType = 'select' | 'multiselect' | 'toggle'
+// Re-export core filter types from canonical source
+export type { FilterType, FilterOption, FilterConfig, FilterValues } from '@universo/types'
 
-/**
- * Single option for select/multiselect filters
- */
-export interface FilterOption {
-    /** Value to submit to API */
-    value: string
-    /** Display label */
-    label: string
-    /** Optional color indicator (e.g., for role filters) */
-    color?: string
-}
-
-/**
- * Configuration for a single filter
- */
-export interface FilterConfig {
-    /** Unique key for the filter (used in API params) */
-    key: string
-    /** Type of filter control */
-    type: FilterType
-    /** Label for the filter */
-    label: string
-    /** Options for select/multiselect types */
-    options?: FilterOption[]
-    /** Default value */
-    defaultValue?: string | string[] | boolean
-    /** Placeholder text for select */
-    placeholder?: string
-}
-
-/**
- * Current filter values state
- */
-export interface FilterValues {
-    [key: string]: string | string[] | boolean | undefined
-}
+// Import for use in local interface
+import type { FilterConfig, FilterValues } from '@universo/types'
 
 /**
  * Props for FilterToolbar component
+ * MUI-specific: used with MUI Select, Checkbox, Switch components
  */
 export interface FilterToolbarProps {
     /** Array of filter configurations */

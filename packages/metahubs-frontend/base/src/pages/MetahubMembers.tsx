@@ -35,6 +35,8 @@ import { BaseEntityMenu, ViewHeaderMUI as ViewHeader } from '@universo/template-
 import type { MemberFormData } from '@universo/template-mui'
 
 import { useInviteMember, useRemoveMember, useUpdateMemberRole } from '../hooks/mutations'
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
 import * as metahubsApi from '../api/metahubs'
 import { metahubsQueryKeys } from '../api/queryKeys'
 import { MetahubMember } from '../types'
@@ -76,7 +78,7 @@ export const MetahubMembers = () => {
     const queryClient = useQueryClient()
 
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('metahubMembersDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     const paginationResult = usePaginated<MetahubMember, 'email' | 'role' | 'created'>({
@@ -160,8 +162,7 @@ export const MetahubMembers = () => {
 
     const handleChange = (_event: React.MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('metahubMembersDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     const memberColumns = [

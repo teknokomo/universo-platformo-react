@@ -63,23 +63,34 @@ const RecordList = () => {
         enabled: !!metahubId && !!catalogId && !hubIdParam
     })
 
-    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id || ''
+    // Hub ID from URL param, or resolved from catalog (for hub-scoped views)
+    // Note: undefined means no hub - catalog exists without hub association, which is valid
+    const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
 
     // State management for dialog
     const [isSubmitting, setSubmitting] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
 
+    // Can load data when we have metahubId and catalogId
+    // hubId is optional - records/attributes belong to catalog directly
+    const canLoadData = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
+
     // Fetch attributes for this catalog to build dynamic columns and forms
     const { data: attributesData } = useQuery({
         queryKey:
-            metahubId && effectiveHubId && catalogId
-                ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100 })
+            metahubId && catalogId
+                ? effectiveHubId
+                    ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100 })
+                    : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { limit: 100 })
                 : ['empty'],
         queryFn:
-            metahubId && effectiveHubId && catalogId
-                ? () => attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100 })
+            metahubId && catalogId
+                ? () =>
+                      effectiveHubId
+                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100 })
+                          : attributesApi.listAttributesDirect(metahubId, catalogId, { limit: 100 })
                 : async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }),
-        enabled: !!metahubId && !!effectiveHubId && !!catalogId
+        enabled: canLoadData
     })
 
     const attributes = attributesData?.items ?? []
@@ -99,17 +110,23 @@ const RecordList = () => {
     // Use paginated hook for records list
     const paginationResult = usePaginated<HubRecord, 'created' | 'updated'>({
         queryKeyFn:
-            metahubId && effectiveHubId && catalogId
-                ? (params) => metahubsQueryKeys.recordsList(metahubId, effectiveHubId, catalogId, params)
+            metahubId && catalogId
+                ? (params) =>
+                      effectiveHubId
+                          ? metahubsQueryKeys.recordsList(metahubId, effectiveHubId, catalogId, params)
+                          : metahubsQueryKeys.recordsListDirect(metahubId, catalogId, params)
                 : () => ['empty'],
         queryFn:
-            metahubId && effectiveHubId && catalogId
-                ? (params) => recordsApi.listRecords(metahubId, effectiveHubId, catalogId, params)
+            metahubId && catalogId
+                ? (params) =>
+                      effectiveHubId
+                          ? recordsApi.listRecords(metahubId, effectiveHubId, catalogId, params)
+                          : recordsApi.listRecordsDirect(metahubId, catalogId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc',
-        enabled: !!metahubId && !!effectiveHubId && !!catalogId
+        enabled: canLoadData
     })
 
     const { data: records, isLoading, error } = paginationResult
@@ -247,7 +264,7 @@ const RecordList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    if (!metahubId || !catalogId) return
                     await updateRecordMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
@@ -257,14 +274,19 @@ const RecordList = () => {
                     })
                 },
                 deleteEntity: async (id: string) => {
-                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    if (!metahubId || !catalogId) return
                     await deleteRecordMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, recordId: id })
                 }
             },
             helpers: {
                 refreshList: async () => {
-                    if (metahubId && effectiveHubId && catalogId) {
-                        await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                    if (metahubId && catalogId) {
+                        if (effectiveHubId) {
+                            await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                        }
+                        // Also invalidate catalog-level queries
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId) })
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(metahubId, catalogId) })
                     }
                 },
                 confirm: async (spec: any) => {
@@ -293,16 +315,25 @@ const RecordList = () => {
                     setDeleteDialogState({ open: true, record: fullRecord })
                 },
                 openEditDialog: async (record: HubRecord | HubRecordDisplay) => {
-                    if (!metahubId || !effectiveHubId || !catalogId) return
+                    if (!metahubId || !catalogId) return
                     const hasData = typeof (record as HubRecord).data === 'object'
-                    const fullRecord =
-                        hasData && (record as HubRecord).data
-                            ? (record as HubRecord)
-                            : recordMap.get(record.id) ||
-                              (await recordsApi
-                                  .getRecord(metahubId, effectiveHubId, catalogId, record.id)
-                                  .then((res) => res.data)
-                                  .catch(() => null))
+                    let fullRecord: HubRecord | null = null
+                    if (hasData && (record as HubRecord).data) {
+                        fullRecord = record as HubRecord
+                    } else {
+                        fullRecord = recordMap.get(record.id) || null
+                        if (!fullRecord) {
+                            try {
+                                if (effectiveHubId) {
+                                    fullRecord = (await recordsApi.getRecord(metahubId, effectiveHubId, catalogId, record.id)).data
+                                } else {
+                                    fullRecord = (await recordsApi.getRecordDirect(metahubId, catalogId, record.id)).data
+                                }
+                            } catch {
+                                fullRecord = null
+                            }
+                        }
+                    }
                     if (fullRecord) {
                         setEditingRecord(fullRecord)
                     } else {
@@ -337,38 +368,26 @@ const RecordList = () => {
         )
     }
 
-    // Hub is required for the underlying API. If it isn't in the URL, we resolve it via catalog detail.
-    if (!effectiveHubId) {
-        if (!hubIdParam) {
-            if (isCatalogResolutionLoading) {
-                return (
-                    <EmptyListState
-                        image={APIEmptySVG}
-                        imageAlt='Loading'
-                        title={tc('loading', 'Loading')}
-                        description={t('common:loading', 'Loading...')}
-                    />
-                )
-            }
-
-            return (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Error loading catalog'
-                    title={t('errors.loadingError', 'Error loading catalog')}
-                    description={
-                        catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
-                    }
-                />
-            )
-        }
-
+    // Show loading state while resolving catalog (to check for hub association)
+    if (!hubIdParam && isCatalogResolutionLoading) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt='Invalid hub'
-                title={t('errors.noHubId', 'No hub ID provided')}
-                description={t('errors.pleaseSelectHub', 'Please select a hub')}
+                imageAlt='Loading'
+                title={tc('loading', 'Loading')}
+                description={t('common:loading', 'Loading...')}
+            />
+        )
+    }
+
+    // Show error only if there was an actual error fetching catalog details
+    if (!hubIdParam && catalogResolutionError) {
+        return (
+            <EmptyListState
+                image={APIEmptySVG}
+                imageAlt='Error loading catalog'
+                title={t('errors.loadingError', 'Error loading catalog')}
+                description={catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')}
             />
         )
     }
@@ -397,7 +416,7 @@ const RecordList = () => {
                 data: { data }
             })
 
-            await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+            // Invalidation handled by mutation hook
             handleDialogClose()
         } catch (e: unknown) {
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
@@ -430,7 +449,7 @@ const RecordList = () => {
                 data: { data }
             })
 
-            await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+            // Invalidation handled by mutation hook
             handleEditClose()
         } catch (e: unknown) {
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
@@ -482,10 +501,10 @@ const RecordList = () => {
                                 sx={{ px: 2, py: 0.5 }}
                                 onClick={() => {
                                     if (hubIdParam) {
-                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalogs/${catalogId}/attributes`)
+                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/attributes`)
                                         return
                                     }
-                                    navigate(`/metahub/${metahubId}/catalogs/${catalogId}/attributes`)
+                                    navigate(`/metahub/${metahubId}/catalog/${catalogId}/attributes`)
                                 }}
                             >
                                 <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />

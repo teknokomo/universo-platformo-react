@@ -51,7 +51,7 @@ export { formatDate, formatRange } from './ui-utils/formatDate'
 
 // API error handling utilities
 export * from './api/error-handlers'
-export { extractPaginationMeta, type PaginationMeta as UtilsPaginationMeta } from './api/pagination'
+export { extractPaginationMeta, type PaginationMeta } from './api/pagination'
 
 // Public routes utilities
 export {

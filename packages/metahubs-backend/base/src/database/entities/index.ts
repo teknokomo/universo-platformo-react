@@ -18,3 +18,4 @@ export { CatalogHub } from './CatalogHub'
 export { Attribute, AttributeDataType } from './Attribute'
 export type { AttributeValidation, AttributeUIConfig } from './Attribute'
 export { HubRecord } from './Record'
+

@@ -62,26 +62,6 @@ export interface AdminStats {
 }
 
 /**
- * Pagination parameters for API requests
+ * Pagination types - re-exported from @universo/types (canonical source)
  */
-export interface PaginationParams {
-    limit?: number
-    offset?: number
-    sortBy?: 'created' | 'email' | 'role'
-    sortOrder?: 'asc' | 'desc'
-    search?: string
-}
-
-/**
- * Paginated response structure
- */
-export interface PaginatedResponse<T> {
-    items: T[]
-    pagination: {
-        limit: number
-        offset: number
-        count: number
-        total: number
-        hasMore: boolean
-    }
-}
+export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'

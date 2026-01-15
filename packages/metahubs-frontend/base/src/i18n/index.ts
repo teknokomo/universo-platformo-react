@@ -13,12 +13,26 @@ interface MetahubsBundle {
     catalogs?: Record<string, unknown>
     attributes?: Record<string, unknown>
     records?: Record<string, unknown>
+    publications?: Record<string, unknown>
     common?: Record<string, unknown>
+    actions?: Record<string, unknown>
     errors?: Record<string, unknown>
 }
 
-const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => ({
-    ...(bundle?.metahubs ?? {}),
+const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
+    const metahubsRoot = (bundle?.metahubs ?? {}) as Record<string, unknown>
+    const metahubsActions = (metahubsRoot?.actions && typeof metahubsRoot.actions === 'object' ? metahubsRoot.actions : {}) as Record<
+        string,
+        unknown
+    >
+
+    return {
+        ...metahubsRoot,
+        // Merge metahubs-level actions with top-level actions (e.g., generic backToList)
+        actions: {
+            ...metahubsActions,
+            ...(bundle?.actions ?? {})
+        },
     meta_sections: bundle?.meta_sections ?? {},
     meta_entities: bundle?.meta_entities ?? {},
     members: bundle?.members ?? {},
@@ -26,9 +40,11 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => ({
     catalogs: bundle?.catalogs ?? {},
     attributes: bundle?.attributes ?? {},
     records: bundle?.records ?? {},
+    publications: bundle?.publications ?? {},
     common: bundle?.common ?? {},
     errors: bundle?.errors ?? {}
-})
+    }
+}
 
 // Register single consolidated namespace
 registerNamespace('metahubs', {
@@ -43,6 +59,7 @@ interface MetahubsTranslation {
     meta_sections?: Record<string, unknown>
     meta_entities?: Record<string, unknown>
     members?: Record<string, unknown>
+    publications?: Record<string, unknown>
     common?: Record<string, unknown>
     errors?: Record<string, unknown>
 }

@@ -58,6 +58,7 @@
         "@mui/x-date-pickers-pro": "^7.22.2",
         "@mui/x-tree-view": "^7.22.2",
         "@universo/i18n": "workspace:*",
+        "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "@universo/admin-frontend": "workspace:*",
         "@universo/start-frontend": "workspace:*",

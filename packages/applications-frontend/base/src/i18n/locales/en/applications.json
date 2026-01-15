@@ -1,0 +1,174 @@
+{
+    "applications": {
+        "title": "Applications",
+        "searchPlaceholder": "Search applications...",
+        "noApplicationsFound": "No applications found",
+        "createApplication": "Create Application",
+        "editTitle": "Edit Application",
+        "confirmDelete": "Delete Application?",
+        "confirmDeleteDescription": "Are you sure you want to delete application \"{{name}}\"?",
+        "deleteSuccess": "Application successfully deleted",
+        "deleteError": "Failed to delete application",
+        "saveError": "Failed to save application",
+        "actions": {
+            "edit": "Edit",
+            "delete": "Delete",
+            "backToList": "Back to applications"
+        },
+        "board": {
+            "title": "Application Board",
+            "description": "Analytics and statistics for this application (in development)",
+            "defaultDescription": "Application analytics and statistics",
+            "overview": "Overview",
+            "stats": {
+                "connectors": {
+                    "title": "Connectors",
+                    "interval": "All time",
+                    "description": "Total connectors in this application"
+                },
+                "members": {
+                    "title": "Members",
+                    "interval": "All time",
+                    "description": "Users with access to this application"
+                }
+            },
+            "documentation": {
+                "title": "Explore Documentation",
+                "description": "Learn about application features, API and best practices",
+                "button": "Open Documentation"
+            },
+            "charts": {
+                "activity": {
+                    "title": "User Activity",
+                    "interval": "Last 30 days",
+                    "description": "Activity metrics (demo data - in development)"
+                },
+                "resources": {
+                    "title": "Resources",
+                    "interval": "Last 6 months",
+                    "description": "Resource usage (demo data - in development)"
+                }
+            },
+            "loading": "Loading dashboard...",
+            "error": "Failed to load dashboard data"
+        },
+        "detail": {
+            "title": "Application Details"
+        },
+        "table": {
+            "description": "Description",
+            "role": "Role",
+            "connectors": "Connectors"
+        }
+    },
+    "connectors": {
+        "title": "Connectors",
+        "description": "Data containers that define the structure of your application",
+        "searchPlaceholder": "Search connectors...",
+        "empty": "No connectors yet",
+        "emptyDescription": "Create your first connector to start defining data structures",
+        "create": "Create Connector",
+        "editTitle": "Edit Connector",
+        "singleConnectorLimit": "Currently, only one Connector per Application is supported. Also, after creation, a Connector cannot be deleted separately, only together with the entire Application. These limitations will be removed in future versions of Universo Platformo.",
+        "createDialog": {
+            "title": "Create Connector"
+        },
+        "editDialog": {
+            "title": "Edit Connector"
+        },
+        "deleteDialog": {
+            "title": "Delete Connector",
+            "confirmation": "Are you sure you want to delete connector \"{{name}}\"? This action cannot be undone.",
+            "cancel": "Cancel",
+            "confirm": "Delete"
+        },
+        "codename": "Codename",
+        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+        "nameEn": "Name (English)",
+        "nameRu": "Name (Russian)",
+        "descriptionEn": "Description (English)",
+        "createError": "Failed to create connector",
+        "updateError": "Failed to update connector",
+        "deleteError": "Failed to delete connector",
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+        },
+        "metahubs": {
+            "title": "Linked Metahubs",
+            "add": "Add Metahub",
+            "remove": "Remove link",
+            "noLinked": "No metahubs linked yet",
+            "allLinked": "All available metahubs are already linked",
+            "singleLimit": "Single metahub",
+            "required": "Required",
+            "singleModeInfo": "This connector is configured to use a single metahub. Remove the current link to change.",
+            "singleModeHint": "Remove current metahub to link a different one",
+            "cannotRemoveLast": "At least one metahub is required",
+            "linkSuccess": "Metahub linked successfully",
+            "linkError": "Failed to link metahub",
+            "unlinkSuccess": "Metahub unlinked successfully",
+            "unlinkError": "Failed to unlink metahub",
+            "loadError": "Failed to load metahubs"
+        },
+        "metahubInfo": {
+            "locked": "Metahub links and constraints are currently locked. This functionality will be available in a future update.",
+            "constraints": "Connector Constraints",
+            "isSingleLocked": "This setting is currently locked to \"On\"",
+            "isSingleHelp": "Connector can only be linked to one Metahub",
+            "isRequiredLocked": "This setting is currently locked to \"On\"",
+            "isRequiredHelp": "Connector must have at least one Metahub linked"
+        },
+        "tabs": {
+            "general": "General",
+            "metahubs": "Metahubs"
+        }
+    },
+    "members": {
+        "title": "Members",
+        "searchPlaceholder": "Search members...",
+        "noMembersFound": "No members found",
+        "inviteMember": "Invite Member",
+        "editRole": "Change Role",
+        "removeMember": "Remove Member",
+        "inviteSuccess": "Member successfully invited",
+        "inviteError": "Failed to invite member",
+        "updateSuccess": "Member role successfully updated",
+        "updateError": "Failed to update member role",
+        "removeSuccess": "Member successfully removed",
+        "removeError": "Failed to remove member",
+        "confirmRemove": "Remove Member?",
+        "confirmRemoveDescription": "Are you sure you want to remove {{email}} from this application?",
+        "table": {
+            "email": "Email",
+            "nickname": "Nickname",
+            "role": "Role",
+            "joinedAt": "Joined"
+        }
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "save": "Save",
+        "create": "Create",
+        "edit": "Edit",
+        "delete": "Delete",
+        "actions": "Actions",
+        "details": "Details",
+        "updated": "Updated"
+    },
+    "actions": {
+        "backToList": "Back to applications",
+        "retry": "Retry"
+    },
+    "errors": {
+        "invalidApplication": "Invalid application",
+        "pleaseSelectApplication": "Please select an application from the list",
+        "connectionFailed": "Connection Failed",
+        "checkConnection": "Please check your network connection and try again",
+        "pleaseTryLater": "Please try again later",
+        "saveFailed": "Failed to save"
+    }
+}

@@ -54,6 +54,7 @@ export const HubSelectionPanel = ({
             addButton: t('catalogs.addHub', 'Добавить'),
             dialogTitle: t('catalogs.selectHubs', 'Выберите хабы'),
             emptyMessage: t('catalogs.noHubsSelected', 'Хабы не выбраны'),
+            requiredWarningMessage: t('catalogs.requiredHubWarning', 'Необходимо выбрать хотя бы один хаб'),
             noAvailableMessage: t('catalogs.noHubsAvailable', 'Нет доступных хабов'),
             searchPlaceholder: t('common.search', 'Поиск...'),
             cancelButton: t('common.cancel', 'Отмена'),

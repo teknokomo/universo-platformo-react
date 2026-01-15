@@ -60,16 +60,25 @@ describe('roleSchema', () => {
         })
     })
 
-    it('should reject invalid role values', () => {
-        const invalidRoles = ['owner', 'guest', 'moderator', '']
+    it('should accept any non-empty string role (dynamic roles from database)', () => {
+        // roleSchema now accepts any string to support dynamic roles from database
+        const dynamicRoles = ['superadmin', 'supermoderator', 'custom-role', 'team-lead']
 
-        invalidRoles.forEach((role) => {
+        dynamicRoles.forEach((role) => {
             const result = roleSchema.safeParse(role)
-            expect(result.success).toBe(false)
-            if (!result.success) {
-                expect(result.error.errors[0].message).toBe('Please select a valid role')
+            expect(result.success).toBe(true)
+            if (result.success) {
+                expect(result.data).toBe(role)
             }
         })
+    })
+
+    it('should reject empty string role', () => {
+        const result = roleSchema.safeParse('')
+        expect(result.success).toBe(false)
+        if (!result.success) {
+            expect(result.error.errors[0].message).toBe('Please select a role')
+        }
     })
 
     it('should reject non-string role values', () => {
@@ -157,10 +166,26 @@ describe('memberFormSchema', () => {
         }
     })
 
-    it('should reject data with invalid role', () => {
+    it('should accept any non-empty role string (dynamic roles from database)', () => {
+        const validData = {
+            email: 'user@example.com',
+            role: 'custom-dynamic-role'
+        }
+
+        const result = memberFormSchema.safeParse(validData)
+
+        // roleSchema now accepts any string to support dynamic roles
+        expect(result.success).toBe(true)
+        if (result.success) {
+            expect(result.data.role).toBe('custom-dynamic-role')
+            expect(result.data.email).toBe('user@example.com')
+        }
+    })
+
+    it('should reject data with empty role string', () => {
         const invalidData = {
             email: 'user@example.com',
-            role: 'invalid-role'
+            role: ''
         }
 
         const result = memberFormSchema.safeParse(invalidData)
@@ -169,7 +194,7 @@ describe('memberFormSchema', () => {
         if (!result.success) {
             const roleError = result.error.errors.find((err) => err.path[0] === 'role')
             expect(roleError).toBeDefined()
-            expect(roleError?.message).toBe('Please select a valid role')
+            expect(roleError?.message).toBe('Please select a role')
         }
     })
 

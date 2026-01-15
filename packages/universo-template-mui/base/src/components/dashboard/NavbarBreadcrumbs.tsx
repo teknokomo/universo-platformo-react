@@ -24,13 +24,17 @@ import {
     truncateOrganizationName,
     useStorageName,
     truncateStorageName,
+    useApplicationName,
+    truncateApplicationName,
+    useMetahubPublicationName,
     useHubName,
     truncateHubName,
     useCatalogName,
     useCatalogNameStandalone,
     truncateCatalogName,
     useAttributeName,
-    truncateAttributeName
+    truncateAttributeName,
+    truncatePublicationName
 } from '../../hooks'
 import { useInstanceName, truncateInstanceName, useRoleName, truncateRoleName } from '@universo/admin-frontend'
 
@@ -84,6 +88,19 @@ export default function NavbarBreadcrumbs() {
     const storageId = storageIdMatch ? storageIdMatch[1] : null
     const storageName = useStorageName(storageId)
 
+    // Extract applicationId from URL for dynamic name loading (standalone applications module)
+    // Pattern: /application/:applicationId/...
+    const applicationIdMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
+    const applicationId = applicationIdMatch ? applicationIdMatch[1] : null
+    const applicationName = useApplicationName(applicationId)
+
+    // Extract publicationId from URL for dynamic name loading (under metahub context)
+    // Pattern: /metahub/:metahubId/publication/:publicationId/...
+    const metahubPublicationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/(?:application|publication)\/([^/]+)/)
+    const metahubPublicationParentId = metahubPublicationIdMatch ? metahubPublicationIdMatch[1] : null
+    const metahubPublicationId = metahubPublicationIdMatch ? metahubPublicationIdMatch[2] : null
+    const metahubPublicationName = useMetahubPublicationName(metahubPublicationParentId, metahubPublicationId)
+
     // Extract hubId from URL for dynamic name loading (under metahub context)
     // Pattern: /metahub/:metahubId/hub/:hubId/...
     const hubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)/)
@@ -92,16 +109,16 @@ export default function NavbarBreadcrumbs() {
     const hubName = useHubName(hubParentMetahubId, hubId)
 
     // Extract catalogId from URL for dynamic name loading (under hub context)
-    // Pattern: /metahub/:metahubId/hub/:hubId/catalogs/:catalogId/...
-    const catalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs\/([^/]+)/)
+    // Pattern: /metahub/:metahubId/hub/:hubId/catalog/:catalogId/... (singular 'catalog' for specific catalog)
+    const catalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs?\/([^/]+)/)
     const catalogParentMetahubId = catalogIdMatch ? catalogIdMatch[1] : null
     const catalogParentHubId = catalogIdMatch ? catalogIdMatch[2] : null
     const catalogId = catalogIdMatch ? catalogIdMatch[3] : null
     const catalogName = useCatalogName(catalogParentMetahubId, catalogParentHubId, catalogId)
 
     // Extract catalogId from URL for catalog-centric navigation (without hub context)
-    // Pattern: /metahub/:metahubId/catalogs/:catalogId/... (NOT /hub/)
-    const standaloneCatalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalogs\/([^/]+)/)
+    // Pattern: /metahub/:metahubId/catalog/:catalogId/... (NOT /hub/) - singular 'catalog' for specific catalog
+    const standaloneCatalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalogs?\/([^/]+)/)
     const standaloneCatalogMetahubId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[1] : null
     const standaloneCatalogId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[2] : null
     const standaloneCatalogName = useCatalogNameStandalone(standaloneCatalogMetahubId, standaloneCatalogId)
@@ -262,15 +279,34 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
                 } else if (segments[2] === 'catalogs') {
-                    // Catalog-centric navigation (without hub context)
+                    // Catalog list navigation (without hub context)
                     items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
 
-                    // If a specific catalog is selected (segments[3])
+                    // If a specific catalog is selected via list route (segments[3])
                     if (segments[3] && standaloneCatalogName) {
                         // Link to attributes page (default view for catalog)
                         items.push({
                             label: truncateCatalogName(standaloneCatalogName),
-                            to: `/metahub/${segments[1]}/catalogs/${segments[3]}/attributes`
+                            to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
+                        })
+
+                        // Nested under catalog: attributes or records
+                        if (segments[4] === 'attributes') {
+                            items.push({ label: t('attributes'), to: location.pathname })
+                        } else if (segments[4] === 'records') {
+                            items.push({ label: t('records'), to: location.pathname })
+                        }
+                    }
+                } else if (segments[2] === 'catalog') {
+                    // Catalog-centric navigation - singular 'catalog' route for specific catalog view
+                    items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
+
+                    // segments[3] is catalogId
+                    if (segments[3] && standaloneCatalogName) {
+                        // Link to attributes page (default view for catalog)
+                        items.push({
+                            label: truncateCatalogName(standaloneCatalogName),
+                            to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
                         // Nested under catalog: attributes or records
@@ -283,13 +319,26 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'hubs') {
                     // Hubs list
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
+                } else if (segments[2] === 'publications') {
+                    // Publications list
+                    items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
+                } else if (segments[2] === 'publication') {
+                    // Publication details (singular route)
+                    items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
+
+                    if (segments[3] && metahubPublicationName) {
+                        items.push({ label: truncatePublicationName(metahubPublicationName), to: location.pathname })
+                    } else if (segments[3]) {
+                        // Fallback to UUID while loading
+                        items.push({ label: segments[3], to: location.pathname })
+                    }
                 } else if (segments[2] === 'hub') {
                     // Specific hub selected - use singular 'hub' in URL
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
 
                     // If we have a specific hub selected (segments[3])
                     if (segments[3] && hubName) {
-                        // Check if we're in catalogs context
+                        // Check if we're in catalogs context (list view)
                         if (segments[4] === 'catalogs') {
                             // Hub name links to catalogs list (as default hub view)
                             items.push({
@@ -300,11 +349,43 @@ export default function NavbarBreadcrumbs() {
                             // Catalogs list under hub
                             items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
 
-                            // If a specific catalog is selected (segments[5])
+                            // If a specific catalog is selected via list route (segments[5])
                             if (segments[5] && catalogName) {
                                 items.push({
                                     label: truncateCatalogName(catalogName),
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs/${segments[5]}/attributes`
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
+                                })
+
+                                // Nested under catalog: attributes or records
+                                if (segments[6] === 'attributes') {
+                                    items.push({ label: t('attributes'), to: location.pathname })
+
+                                    // If a specific attribute is selected
+                                    if (segments[7] && attributeName) {
+                                        items.push({
+                                            label: truncateAttributeName(attributeName),
+                                            to: location.pathname
+                                        })
+                                    }
+                                } else if (segments[6] === 'records') {
+                                    items.push({ label: t('records'), to: location.pathname })
+                                }
+                            }
+                        } else if (segments[4] === 'catalog') {
+                            // Singular 'catalog' route - specific catalog view
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
+
+                            // Catalogs list link
+                            items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
+
+                            // segments[5] is catalogId
+                            if (segments[5] && catalogName) {
+                                items.push({
+                                    label: truncateCatalogName(catalogName),
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
                                 // Nested under catalog: attributes or records
@@ -542,6 +623,38 @@ export default function NavbarBreadcrumbs() {
                 } else if (segments[2] === 'slots') {
                     items.push({ label: t('slots'), to: location.pathname })
                 }
+            }
+
+            return items
+        }
+
+        // Standalone Applications module (not metahub applications)
+        if (primary === 'applications') {
+            return [{ label: t('applications'), to: '/applications' }]
+        }
+
+        if (primary === 'application') {
+            const items = [{ label: t('applications'), to: '/applications' }]
+
+            if (segments[1] && applicationName) {
+                // Use actual application name with truncation for long names
+                items.push({
+                    label: truncateApplicationName(applicationName),
+                    to: `/application/${segments[1]}`
+                })
+
+                // Sub-pages (connectors, access) - use keys from menu namespace
+                if (segments[2] === 'connectors') {
+                    items.push({ label: t('connectors'), to: location.pathname })
+                } else if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                }
+            } else if (segments[1]) {
+                // Fallback while loading name
+                items.push({
+                    label: '...',
+                    to: `/application/${segments[1]}`
+                })
             }
 
             return items

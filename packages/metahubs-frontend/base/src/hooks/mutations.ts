@@ -542,7 +542,7 @@ export function useDeleteCatalog() {
 
 interface CreateAttributeParams {
     metahubId: string
-    hubId: string
+    hubId?: string // Optional - can create attributes without hub
     catalogId: string
     data: AttributeLocalizedPayload & {
         targetCatalogId?: string
@@ -555,7 +555,7 @@ interface CreateAttributeParams {
 
 interface UpdateAttributeParams {
     metahubId: string
-    hubId: string
+    hubId?: string // Optional - can update attributes without hub
     catalogId: string
     attributeId: string
     data: AttributeLocalizedPayload & {
@@ -569,14 +569,14 @@ interface UpdateAttributeParams {
 
 interface DeleteAttributeParams {
     metahubId: string
-    hubId: string
+    hubId?: string // Optional - can delete attributes without hub
     catalogId: string
     attributeId: string
 }
 
 interface MoveAttributeParams {
     metahubId: string
-    hubId: string
+    hubId?: string // Optional - can move attributes without hub
     catalogId: string
     attributeId: string
     direction: 'up' | 'down'
@@ -592,18 +592,33 @@ export function useCreateAttribute() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, data }: CreateAttributeParams) => {
-            const response = await attributesApi.createAttribute(
-                metahubId,
-                hubId,
-                catalogId,
-                data as Parameters<typeof attributesApi.createAttribute>[3]
-            )
-            return response.data
+            if (hubId) {
+                const response = await attributesApi.createAttribute(
+                    metahubId,
+                    hubId,
+                    catalogId,
+                    data as Parameters<typeof attributesApi.createAttribute>[3]
+                )
+                return response.data
+            } else {
+                const response = await attributesApi.createAttributeDirect(
+                    metahubId,
+                    catalogId,
+                    data as Parameters<typeof attributesApi.createAttributeDirect>[2]
+                )
+                return response.data
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on attributes
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                // Invalidate direct (hub-less) attributes queries
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            // Always invalidate catalog-level queries
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.createSuccess', 'Attribute created'), { variant: 'success' })
         },
@@ -623,19 +638,34 @@ export function useUpdateAttribute() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, attributeId, data }: UpdateAttributeParams) => {
-            const response = await attributesApi.updateAttribute(
-                metahubId,
-                hubId,
-                catalogId,
-                attributeId,
-                data as Parameters<typeof attributesApi.updateAttribute>[4]
-            )
-            return response.data
+            if (hubId) {
+                const response = await attributesApi.updateAttribute(
+                    metahubId,
+                    hubId,
+                    catalogId,
+                    attributeId,
+                    data as Parameters<typeof attributesApi.updateAttribute>[4]
+                )
+                return response.data
+            } else {
+                const response = await attributesApi.updateAttributeDirect(
+                    metahubId,
+                    catalogId,
+                    attributeId,
+                    data as Parameters<typeof attributesApi.updateAttributeDirect>[3]
+                )
+                return response.data
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on attributes
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                // Invalidate direct (hub-less) attributes queries
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.updateSuccess', 'Attribute updated'), { variant: 'success' })
         },
@@ -655,12 +685,21 @@ export function useDeleteAttribute() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, attributeId }: DeleteAttributeParams) => {
-            await attributesApi.deleteAttribute(metahubId, hubId, catalogId, attributeId)
+            if (hubId) {
+                await attributesApi.deleteAttribute(metahubId, hubId, catalogId, attributeId)
+            } else {
+                await attributesApi.deleteAttributeDirect(metahubId, catalogId, attributeId)
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on attributes
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                // Invalidate direct (hub-less) attributes queries
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.deleteSuccess', 'Attribute deleted'), { variant: 'success' })
         },
@@ -680,13 +719,23 @@ export function useMoveAttribute() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, attributeId, direction }: MoveAttributeParams) => {
-            const response = await attributesApi.moveAttribute(metahubId, hubId, catalogId, attributeId, direction)
-            return response.data
+            if (hubId) {
+                const response = await attributesApi.moveAttribute(metahubId, hubId, catalogId, attributeId, direction)
+                return response.data
+            } else {
+                const response = await attributesApi.moveAttributeDirect(metahubId, catalogId, attributeId, direction)
+                return response.data
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on attributes
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                // Invalidate direct (hub-less) attributes queries
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('attributes.moveSuccess', 'Attribute order updated'), { variant: 'success' })
         },
@@ -702,7 +751,7 @@ export function useMoveAttribute() {
 
 interface CreateRecordParams {
     metahubId: string
-    hubId: string
+    hubId?: string
     catalogId: string
     data: {
         data: Record<string, unknown>
@@ -712,7 +761,7 @@ interface CreateRecordParams {
 
 interface UpdateRecordParams {
     metahubId: string
-    hubId: string
+    hubId?: string
     catalogId: string
     recordId: string
     data: {
@@ -723,7 +772,7 @@ interface UpdateRecordParams {
 
 interface DeleteRecordParams {
     metahubId: string
-    hubId: string
+    hubId?: string
     catalogId: string
     recordId: string
 }
@@ -738,13 +787,21 @@ export function useCreateRecord() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, data }: CreateRecordParams) => {
-            const response = await recordsApi.createRecord(metahubId, hubId, catalogId, data)
-            return response.data
+            if (hubId) {
+                const response = await recordsApi.createRecord(metahubId, hubId, catalogId, data)
+                return response.data
+            } else {
+                const response = await recordsApi.createRecordDirect(metahubId, catalogId, data)
+                return response.data
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on records
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(variables.metahubId, variables.catalogId) })
+            }
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('records.createSuccess', 'Record created'), { variant: 'success' })
         },
@@ -764,13 +821,21 @@ export function useUpdateRecord() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, recordId, data }: UpdateRecordParams) => {
-            const response = await recordsApi.updateRecord(metahubId, hubId, catalogId, recordId, data)
-            return response.data
+            if (hubId) {
+                const response = await recordsApi.updateRecord(metahubId, hubId, catalogId, recordId, data)
+                return response.data
+            } else {
+                const response = await recordsApi.updateRecordDirect(metahubId, catalogId, recordId, data)
+                return response.data
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on records
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(variables.metahubId, variables.catalogId) })
+            }
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('records.updateSuccess', 'Record updated'), { variant: 'success' })
         },
@@ -790,17 +855,148 @@ export function useDeleteRecord() {
 
     return useMutation({
         mutationFn: async ({ metahubId, hubId, catalogId, recordId }: DeleteRecordParams) => {
-            await recordsApi.deleteRecord(metahubId, hubId, catalogId, recordId)
+            if (hubId) {
+                await recordsApi.deleteRecord(metahubId, hubId, catalogId, recordId)
+            } else {
+                await recordsApi.deleteRecordDirect(metahubId, catalogId, recordId)
+            }
         },
         onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
-            // Catalog list counters depend on records
-            queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.records(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({ queryKey: hubQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(variables.metahubId, variables.catalogId) })
+            }
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             enqueueSnackbar(t('records.deleteSuccess', 'Record deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('records.deleteError', 'Failed to delete record'), { variant: 'error' })
+        }
+    })
+}
+
+// ============================================================================
+// Publication (Information Base) Mutations
+// ============================================================================
+
+import * as publicationsApi from '../api/publications'
+import type { CreatePublicationPayload, UpdatePublicationPayload } from '../api/publications'
+
+interface CreatePublicationParams {
+    metahubId: string
+    data: CreatePublicationPayload
+}
+
+interface UpdatePublicationParams {
+    metahubId: string
+    publicationId: string
+    data: UpdatePublicationPayload
+}
+
+interface SyncPublicationParams {
+    metahubId: string
+    publicationId: string
+    confirmDestructive?: boolean
+}
+
+interface DeletePublicationParams {
+    metahubId: string
+    publicationId: string
+}
+
+/**
+ * Hook for creating a publication (information base)
+ */
+export function useCreatePublication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, data }: CreatePublicationParams) => {
+            return publicationsApi.createPublication(metahubId, data)
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
+            enqueueSnackbar(t('publications.messages.createSuccess', 'Information base created'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('publications.messages.createError', 'Failed to create information base'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for updating a publication (information base)
+ */
+export function useUpdatePublication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, publicationId, data }: UpdatePublicationParams) => {
+            return publicationsApi.updatePublication(metahubId, publicationId, data)
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publicationDetail(variables.metahubId, variables.publicationId) })
+            enqueueSnackbar(t('publications.messages.updateSuccess', 'Publication updated'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('publications.messages.updateError', 'Failed to update publication'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for syncing publication schema
+ */
+export function useSyncPublication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, publicationId, confirmDestructive = false }: SyncPublicationParams) => {
+            return publicationsApi.syncPublication(metahubId, publicationId, confirmDestructive)
+        },
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publicationDetail(variables.metahubId, variables.publicationId) })
+            
+            if (data.status === 'pending_confirmation') {
+                enqueueSnackbar(t('publications.messages.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })
+            } else {
+                enqueueSnackbar(t('publications.messages.syncSuccess', 'Schema synchronized'), { variant: 'success' })
+            }
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('publications.messages.syncError', 'Schema sync failed'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for deleting a publication
+ */
+export function useDeletePublication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, publicationId }: DeletePublicationParams) => {
+            return publicationsApi.deletePublication(metahubId, publicationId)
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
+            enqueueSnackbar(t('publications.messages.deleteSuccess', 'Information base deleted'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('publications.messages.deleteError', 'Failed to delete information base'), { variant: 'error' })
         }
     })
 }

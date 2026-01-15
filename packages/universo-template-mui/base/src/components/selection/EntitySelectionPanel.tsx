@@ -4,12 +4,6 @@ import {
     Typography,
     Button,
     IconButton,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Paper,
     Dialog,
     DialogTitle,
@@ -32,6 +26,9 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import SearchIcon from '@mui/icons-material/Search'
 
+import { CompactListTable } from '../table/CompactListTable'
+import type { TableColumn, FlowListTableData } from '../table/FlowListTable'
+
 /**
  * Base entity interface required for EntitySelectionPanel.
  * Entities must have at least an id.
@@ -52,6 +49,8 @@ export interface EntitySelectionLabels {
     dialogTitle: string
     /** Empty state message when no entities selected */
     emptyMessage: string
+    /** Warning message when required but no entities selected */
+    requiredWarningMessage?: string
     /** Message when no entities available to select */
     noAvailableMessage: string
     /** Search placeholder */
@@ -269,39 +268,42 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
 
             {/* Selected entities table */}
             {selectedEntities.length > 0 ? (
-                <TableContainer component={Paper} variant='outlined' sx={{ mb: 2 }}>
-                    <Table size='small'>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>{labels.nameHeader}</TableCell>
-                                <TableCell>{labels.codenameHeader}</TableCell>
-                                <TableCell align='right' sx={{ width: 60 }} />
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {selectedEntities.map((entity) => (
-                                <TableRow key={entity.id}>
-                                    <TableCell>{getDisplayName(entity)}</TableCell>
-                                    <TableCell>
-                                        <Typography variant='body2' color='text.secondary' fontFamily='monospace'>
-                                            {getCodename(entity)}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell align='right'>
-                                        <IconButton
-                                            size='small'
-                                            onClick={() => handleRemoveEntity(entity.id)}
-                                            disabled={disabled || (isRequired && selectedIds.length <= 1)}
-                                            title={labels.removeTitle}
-                                        >
-                                            <DeleteOutlineIcon fontSize='small' />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                <Box sx={{ mb: 2 }}>
+                    <CompactListTable<T & FlowListTableData>
+                        data={selectedEntities as (T & FlowListTableData)[]}
+                        columns={[
+                            {
+                                id: 'name',
+                                label: labels.nameHeader,
+                                render: (entity) => getDisplayName(entity)
+                            },
+                            {
+                                id: 'codename',
+                                label: labels.codenameHeader,
+                                render: (entity) => (
+                                    <Typography variant='body2' color='text.secondary' fontFamily='monospace'>
+                                        {getCodename(entity)}
+                                    </Typography>
+                                )
+                            }
+                        ] as TableColumn<T & FlowListTableData>[]}
+                        renderRowAction={(entity) => (
+                            <IconButton
+                                size='small'
+                                onClick={() => handleRemoveEntity(entity.id)}
+                                disabled={disabled}
+                                title={labels.removeTitle}
+                            >
+                                <DeleteOutlineIcon fontSize='small' />
+                            </IconButton>
+                        )}
+                        maxHeight={200}
+                    />
+                </Box>
+            ) : isRequired && labels.requiredWarningMessage ? (
+                <Alert severity='warning' sx={{ mb: 2 }}>
+                    {labels.requiredWarningMessage}
+                </Alert>
             ) : (
                 <Paper variant='outlined' sx={{ p: 3, textAlign: 'center', mb: 2, bgcolor: 'action.hover' }}>
                     <Typography color='text.secondary'>{labels.emptyMessage}</Typography>

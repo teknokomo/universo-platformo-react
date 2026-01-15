@@ -12,6 +12,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frontend'
 import { extractAxiosError, isHttpStatus, isApiError } from '@universo/utils'
 
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+
 // Project imports
 import {
     TemplateMainCard as MainCard,
@@ -86,7 +89,7 @@ const InstanceUsers = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('adminUsersDisplayStyle') || 'card')
+    const [view, setView] = useViewPreference(STORAGE_KEYS.INSTANCE_USERS_DISPLAY_STYLE)
 
     // Filter state
     const [filterValues, setFilterValues] = useState<FilterValues>({
@@ -261,8 +264,7 @@ const InstanceUsers = () => {
 
     const handleChange = (_event: React.MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('adminUsersDisplayStyle', nextView)
-        setView(nextView)
+        setView(nextView as 'card' | 'table')
     }
 
     const memberColumns = [

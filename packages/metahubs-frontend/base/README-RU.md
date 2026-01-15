@@ -83,8 +83,8 @@ import { metahubsTranslations } from '@universo/metahubs-frontend'
 <Route path="/metahub/:id/hubs" element={<HubList />} />
 <Route path="/metahub/:id/hub/:hubId/catalogs" element={<CatalogList />} />
 <Route path="/metahub/:id/catalogs" element={<CatalogList />} />
-<Route path="/metahub/:id/catalogs/:catalogId/attributes" element={<AttributeList />} />
-<Route path="/metahub/:id/catalogs/:catalogId/records" element={<RecordList />} />
+<Route path="/metahub/:id/catalog/:catalogId/attributes" element={<AttributeList />} />
+<Route path="/metahub/:id/catalog/:catalogId/records" element={<RecordList />} />
 ```
 
 ## Архитектура

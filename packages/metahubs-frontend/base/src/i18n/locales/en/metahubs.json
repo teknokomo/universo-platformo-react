@@ -163,6 +163,7 @@
         "removeHub": "Remove",
         "selectHubs": "Select Hubs",
         "noHubsSelected": "No hubs selected",
+        "requiredHubWarning": "At least one hub must be selected",
         "noHubsAvailable": "No available hubs",
         "addSelected": "Add",
         "isRequiredHub": "Hub required",
@@ -266,6 +267,101 @@
             "joinedAt": "Joined"
         }
     },
+    "publications": {
+        "title": "Publications",
+        "editTitle": "Edit Publication",
+        "description": "Runtime instances of this metahub configuration with real database tables",
+        "searchPlaceholder": "Search publications...",
+        "empty": "No publications yet",
+        "emptyDescription": "Create a publication to generate real database tables from your configuration",
+        "noResults": "No results",
+        "noResultsDescription": "Try changing your search query",
+        "create": "Create Publication",
+        "createDialog": {
+            "title": "Create Publication",
+            "description": "A new PostgreSQL schema will be created with tables matching your metahub structure"
+        },
+        "tabs": {
+            "general": "General",
+            "metahubs": "Metahubs"
+        },
+        "create": {
+            "metahubLocked": "Metahub is pre-selected based on the current context. Connector constraints are temporarily locked.",
+            "metahubsTitle": "Metahubs",
+            "linkedMetahub": "Linked Metahub",
+            "selectMetahub": "Select metahub",
+            "noMetahubSelected": "Metahub not selected",
+            "noMetahubsAvailable": "No metahubs available",
+            "metahubNotFound": "Metahub not found",
+            "connectorConstraints": "Connector Constraints",
+            "isSingleMetahub": "Single Metahub only",
+            "isSingleMetahubLocked": "This setting is currently locked to \"On\"",
+            "isSingleMetahubHelp": "Connector can only be linked to one Metahub",
+            "isSingleMetahubEnabled": "Connector can only be linked to one Metahub",
+            "isSingleMetahubDisabled": "Connector can be linked to multiple Metahubs",
+            "isSingleMetahubWarning": "Cannot enable while multiple Metahubs are selected",
+            "isRequiredMetahub": "Metahub is required",
+            "isRequiredMetahubLocked": "This setting is currently locked to \"On\"",
+            "isRequiredMetahubHelp": "Connector must have at least one Metahub linked",
+            "isRequiredMetahubEnabled": "Connector must have at least one Metahub linked",
+            "isRequiredMetahubDisabled": "Connector can exist without linked Metahubs"
+        },
+        "sync": "Sync Schema",
+        "syncDescription": "Update database schema to match current configuration",
+        "viewDiff": "View Changes",
+        "actions": {
+            "edit": "Edit",
+            "view": "View",
+            "sync": "Sync Schema",
+            "delete": "Delete"
+        },
+        "status": {
+            "draft": "Draft",
+            "pending": "Syncing...",
+            "synced": "Synced",
+            "outdated": "Outdated",
+            "error": "Error"
+        },
+        "statusDescription": {
+            "draft": "Schema not yet created",
+            "pending": "Schema synchronization in progress",
+            "synced": "Schema matches current configuration",
+            "outdated": "Configuration changed, sync required",
+            "error": "Schema sync failed"
+        },
+        "diffDialog": {
+            "title": "Schema Changes",
+            "noChanges": "No changes detected",
+            "additiveChanges": "Safe Changes (will be applied)",
+            "destructiveChanges": "Destructive Changes (require confirmation)",
+            "destructiveWarning": "These changes will delete data. Review carefully before confirming.",
+            "confirmSync": "Apply Changes",
+            "confirmDestructive": "Apply Including Destructive"
+        },
+        "deleteDialog": {
+            "title": "Delete Publication",
+            "warning": "This will permanently delete the database schema and ALL DATA stored in it!",
+            "confirmMessage": "Type the schema name to confirm deletion:"
+        },
+        "messages": {
+            "createSuccess": "Publication created successfully",
+            "createError": "Failed to create publication",
+            "updateSuccess": "Publication updated",
+            "updateError": "Failed to update publication",
+            "syncSuccess": "Schema synchronized successfully",
+            "syncPending": "Destructive changes detected. Confirm to proceed.",
+            "syncError": "Schema synchronization failed",
+            "deleteSuccess": "Publication deleted",
+            "deleteError": "Failed to delete publication"
+        },
+        "table": {
+            "name": "Name",
+            "schemaName": "Schema",
+            "status": "Status",
+            "lastSync": "Last Synced",
+            "created": "Created"
+        }
+    },
     "common": {
         "loading": "Loading...",
         "error": "Error",
@@ -275,7 +371,12 @@
         "create": "Create",
         "edit": "Edit",
         "delete": "Delete",
-        "actions": "Actions"
+        "actions": "Actions",
+        "details": "Details",
+        "updated": "Updated"
+    },
+    "actions": {
+        "backToList": "Back to List"
     },
     "errors": {
         "connectionFailed": "Connection Failed",

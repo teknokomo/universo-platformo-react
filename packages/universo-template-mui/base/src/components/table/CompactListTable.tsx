@@ -16,6 +16,12 @@ export interface CompactListTableProps<T extends FlowListTableData = FlowListTab
     linkMode?: CompactListTableLinkMode
     linkColumnIds?: string[]
     maxHeight?: number
+    /** Optional render function for row action (e.g., delete button) */
+    renderRowAction?: (row: T, index: number) => React.ReactNode
+    /** Header for action column when renderRowAction is provided */
+    actionColumnHeader?: string
+    /** Width for action column (default: 60) */
+    actionColumnWidth?: number
 }
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -47,7 +53,10 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
     getRowLink,
     linkMode = 'none',
     linkColumnIds,
-    maxHeight = 240
+    maxHeight = 240,
+    renderRowAction,
+    actionColumnHeader = '',
+    actionColumnWidth = 60
 }: CompactListTableProps<T>): React.ReactElement => {
     const theme = useTheme()
     const customization = useSelector((state: any) => state.customization)
@@ -80,6 +89,11 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
                                     {column.label}
                                 </StyledTableCell>
                             ))}
+                            {renderRowAction && (
+                                <StyledTableCell align='right' style={{ width: actionColumnWidth }}>
+                                    {actionColumnHeader}
+                                </StyledTableCell>
+                            )}
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -119,6 +133,11 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
                                             </StyledTableCell>
                                         )
                                     })}
+                                    {renderRowAction && (
+                                        <StyledTableCell align='right'>
+                                            {renderRowAction(row, index)}
+                                        </StyledTableCell>
+                                    )}
                                 </StyledTableRow>
                             )
                         })}

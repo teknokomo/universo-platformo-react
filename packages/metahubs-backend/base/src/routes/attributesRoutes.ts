@@ -94,8 +94,11 @@ export function createAttributesRoutes(
             where: { catalogId },
             order: { sortOrder: 'ASC', createdAt: 'ASC' }
         })
-        const requiresReset = attributes.some((attribute) => !attribute.sortOrder || attribute.sortOrder <= 0)
+
+        // sortOrder must always be a contiguous 1..N sequence (no gaps/duplicates)
+        const requiresReset = attributes.some((attribute, index) => (attribute.sortOrder ?? 0) !== index + 1)
         if (!requiresReset) return attributes
+
         attributes.forEach((attribute, index) => {
             attribute.sortOrder = index + 1
         })
@@ -105,10 +108,12 @@ export function createAttributesRoutes(
 
     /**
      * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes
+     * GET /metahubs/:metahubId/catalogs/:catalogId/attributes
      * List all attributes in a catalog
+     * Note: hubId is optional - attributes belong to catalog directly
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes',
+        ['/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes', '/metahubs/:metahubId/catalogs/:catalogId/attributes'],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId } = req.params
@@ -123,6 +128,10 @@ export function createAttributesRoutes(
                 }
                 throw error
             }
+
+            // Defensive: keep sortOrder always contiguous (1..N). This makes existing catalogs
+            // self-heal on next list fetch (e.g., after older deletes that left gaps).
+            await ensureSequentialSortOrder(catalogId, attributeRepo)
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
@@ -156,10 +165,14 @@ export function createAttributesRoutes(
 
     /**
      * GET /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId
+     * GET /metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId
      * Get a single attribute
      */
     router.get(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
+            '/metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId'
+        ],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, attributeId } = req.params
@@ -179,10 +192,11 @@ export function createAttributesRoutes(
 
     /**
      * POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes
+     * POST /metahubs/:metahubId/catalogs/:catalogId/attributes
      * Create a new attribute
      */
     router.post(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes',
+        ['/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes', '/metahubs/:metahubId/catalogs/:catalogId/attributes'],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId } = req.params
@@ -257,10 +271,14 @@ export function createAttributesRoutes(
 
     /**
      * PATCH /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId
+     * PATCH /metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId
      * Update an attribute
      */
     router.patch(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
+            '/metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId'
+        ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, attributeId } = req.params
@@ -347,10 +365,14 @@ export function createAttributesRoutes(
 
     /**
      * PATCH /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId/move
+     * PATCH /metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId/move
      * Reorder attributes within a catalog
      */
     router.patch(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId/move',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId/move',
+            '/metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId/move'
+        ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, attributeId } = req.params
@@ -406,22 +428,45 @@ export function createAttributesRoutes(
 
     /**
      * DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId
+     * DELETE /metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId
      * Delete an attribute
      */
     router.delete(
-        '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
+        [
+            '/metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/attributes/:attributeId',
+            '/metahubs/:metahubId/catalogs/:catalogId/attributes/:attributeId'
+        ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { catalogId, attributeId } = req.params
-            const { attributeRepo } = repos(req)
 
-            const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
-            if (!attribute) {
-                return res.status(404).json({ error: 'Attribute not found' })
+            const manager = getRequestManager(req, getDataSource())
+            const result = await manager.transaction(async (transactionalEntityManager) => {
+                const attributeRepo = transactionalEntityManager.getRepository(Attribute)
+
+                const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
+                if (!attribute) {
+                    return { status: 404 as const, payload: { error: 'Attribute not found' } }
+                }
+
+                // Normalize before and after delete to guarantee contiguous 1..N sortOrder sequence.
+                await ensureSequentialSortOrder(catalogId, attributeRepo)
+                const refreshedAttribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
+                if (!refreshedAttribute) {
+                    return { status: 404 as const, payload: { error: 'Attribute not found' } }
+                }
+
+                await attributeRepo.remove(refreshedAttribute)
+                await ensureSequentialSortOrder(catalogId, attributeRepo)
+
+                return { status: 204 as const, payload: null }
+            })
+
+            if (result.status === 204) {
+                return res.status(204).send()
             }
 
-            await attributeRepo.remove(attribute)
-            res.status(204).send()
+            return res.status(result.status).json(result.payload)
         })
     )
 

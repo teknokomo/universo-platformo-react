@@ -215,6 +215,15 @@ export const useStorageName = createEntityNameHook({
 })
 
 /**
+ * Hook to fetch and cache application name by ID for breadcrumb display.
+ * Used for standalone Applications module (not metahub applications).
+ */
+export const useApplicationName = createEntityNameHook({
+    entityType: 'application',
+    apiPath: 'applications'
+})
+
+/**
  * Hook to fetch Hub name for breadcrumb display.
  * Requires both metahubId and hubId since Hub API is nested under Metahub.
  */
@@ -327,6 +336,36 @@ export function useAttributeName(
     return query.isLoading ? null : query.data ?? null
 }
 
+/**
+ * Hook to fetch Publication name within Metahub context for breadcrumb display.
+ * Requires metahubId and publicationId since Publication API is nested under Metahub.
+ */
+export function useMetahubPublicationName(metahubId: string | null, publicationId: string | null): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'metahub-publication', metahubId, publicationId],
+        queryFn: async () => {
+            if (!metahubId || !publicationId) return null
+            const response = await fetch(`/api/v1/metahubs/${metahubId}/publications/${publicationId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && publicationId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+// Backward-compatible alias
+export const useMetahubApplicationName = useMetahubPublicationName
+
 // ============================================================
 // Pre-configured truncate functions
 // ============================================================
@@ -354,6 +393,12 @@ export const truncateUnikName = createTruncateFunction(30)
 
 /** Truncate storage name with ellipsis (default: 30 chars) */
 export const truncateStorageName = createTruncateFunction(30)
+
+/** Truncate application name with ellipsis (default: 30 chars) */
+export const truncateApplicationName = createTruncateFunction(30)
+
+/** Truncate publication name with ellipsis (default: 30 chars) */
+export const truncatePublicationName = truncateApplicationName
 
 /** Truncate hub name with ellipsis (default: 30 chars) */
 export const truncateHubName = createTruncateFunction(30)
