@@ -15,7 +15,7 @@ describe('MetahubGuard', () => {
         }))
 
         const getMetahub = vi.fn().mockResolvedValue({ data: { id: 'm1', name: 'Test' } })
-        vi.doMock('../../api/metahubs', () => ({
+        vi.doMock('../../domains/metahubs', () => ({
             getMetahub
         }))
 

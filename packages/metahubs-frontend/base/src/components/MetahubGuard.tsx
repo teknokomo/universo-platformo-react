@@ -1,7 +1,7 @@
 import React from 'react'
 import { ResourceGuard } from '@universo/template-mui'
-import { getMetahub } from '../api/metahubs'
-import { metahubsQueryKeys } from '../api/queryKeys'
+import { getMetahub } from '../domains/metahubs'
+import { metahubsQueryKeys } from '../domains/shared'
 
 /**
  * Props for MetahubGuard component

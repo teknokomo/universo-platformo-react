@@ -72,54 +72,70 @@ Where:
 ```http
 GET    /metahubs                               # List metahubs
 POST   /metahubs                               # Create metahub
-GET    /metahubs/:metahubId                    # Get metahub details
-PUT    /metahubs/:metahubId                    # Update metahub
-DELETE /metahubs/:metahubId                    # Delete metahub (CASCADE)
+GET    /metahub/:metahubId                     # Get metahub details
+PUT    /metahub/:metahubId                     # Update metahub
+DELETE /metahub/:metahubId                     # Delete metahub (CASCADE)
 
-GET    /metahubs/:metahubId/members            # List metahub members
-POST   /metahubs/:metahubId/members            # Add member
-PATCH  /metahubs/:metahubId/members/:memberId  # Update member
-DELETE /metahubs/:metahubId/members/:memberId  # Remove member
+GET    /metahub/:metahubId/members             # List metahub members
+POST   /metahub/:metahubId/members             # Add member
+PATCH  /metahub/:metahubId/member/:memberId    # Update member
+DELETE /metahub/:metahubId/member/:memberId    # Remove member
 ```
 
 ### Hubs Endpoints
 ```http
-GET    /metahubs/:metahubId/hubs               # List hubs in metahub
-POST   /metahubs/:metahubId/hubs               # Create hub
-GET    /metahubs/:metahubId/hubs/:hubId        # Get hub details
-PUT    /metahubs/:metahubId/hubs/:hubId        # Update hub
-DELETE /metahubs/:metahubId/hubs/:hubId        # Delete hub
+GET    /metahub/:metahubId/hubs                # List hubs in metahub
+POST   /metahub/:metahubId/hubs                # Create hub
+GET    /metahub/:metahubId/hub/:hubId          # Get hub details
+PATCH  /metahub/:metahubId/hub/:hubId          # Update hub
+DELETE /metahub/:metahubId/hub/:hubId          # Delete hub
 ```
 
 ### Catalogs Endpoints
 ```http
-GET    /metahubs/:metahubId/catalogs           # List all catalogs in metahub
-GET    /metahubs/:metahubId/hubs/:hubId/catalogs                  # List catalogs in hub
-POST   /metahubs/:metahubId/hubs/:hubId/catalogs                  # Create catalog in hub
-GET    /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Get catalog details
-PUT    /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Update catalog
-DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Delete catalog
+GET    /metahub/:metahubId/catalogs                               # List all catalogs in metahub
+POST   /metahub/:metahubId/catalogs                               # Create catalog at metahub level
+GET    /metahub/:metahubId/catalog/:catalogId                     # Get catalog (metahub scope)
+PATCH  /metahub/:metahubId/catalog/:catalogId                     # Update catalog (metahub scope)
+DELETE /metahub/:metahubId/catalog/:catalogId                     # Delete catalog (metahub scope)
 
-POST   /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/link  # Link existing catalog to hub
-DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/unlink # Unlink catalog from hub
+GET    /metahub/:metahubId/hub/:hubId/catalogs                     # List catalogs in hub
+POST   /metahub/:metahubId/hub/:hubId/catalogs                     # Create catalog in hub
+GET    /metahub/:metahubId/hub/:hubId/catalog/:catalogId           # Get catalog (hub scope)
+PATCH  /metahub/:metahubId/hub/:hubId/catalog/:catalogId           # Update catalog (hub scope)
+DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId           # Delete catalog (hub scope)
 ```
 
 ### Attributes Endpoints
 ```http
-GET    /metahubs/:m/hubs/:h/catalogs/:c/attributes                # List attributes
-POST   /metahubs/:m/hubs/:h/catalogs/:c/attributes                # Create attribute
-GET    /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Get attribute
-PUT    /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Update attribute
-DELETE /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Delete attribute
+GET    /metahub/:m/hub/:h/catalog/:c/attributes                   # List attributes (hub scope)
+POST   /metahub/:m/hub/:h/catalog/:c/attributes                   # Create attribute (hub scope)
+GET    /metahub/:m/hub/:h/catalog/:c/attribute/:attrId            # Get attribute (hub scope)
+PATCH  /metahub/:m/hub/:h/catalog/:c/attribute/:attrId            # Update attribute (hub scope)
+DELETE /metahub/:m/hub/:h/catalog/:c/attribute/:attrId            # Delete attribute (hub scope)
+PATCH  /metahub/:m/hub/:h/catalog/:c/attribute/:attrId/move       # Reorder attribute (hub scope)
+
+GET    /metahub/:m/catalog/:c/attributes                          # List attributes (direct)
+POST   /metahub/:m/catalog/:c/attributes                          # Create attribute (direct)
+GET    /metahub/:m/catalog/:c/attribute/:attrId                   # Get attribute (direct)
+PATCH  /metahub/:m/catalog/:c/attribute/:attrId                   # Update attribute (direct)
+DELETE /metahub/:m/catalog/:c/attribute/:attrId                   # Delete attribute (direct)
+PATCH  /metahub/:m/catalog/:c/attribute/:attrId/move              # Reorder attribute (direct)
 ```
 
 ### Records Endpoints
 ```http
-GET    /metahubs/:m/hubs/:h/catalogs/:c/records                   # List records
-POST   /metahubs/:m/hubs/:h/catalogs/:c/records                   # Create record
-GET    /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Get record
-PUT    /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Update record
-DELETE /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Delete record
+GET    /metahub/:m/hub/:h/catalog/:c/records                      # List records (hub scope)
+POST   /metahub/:m/hub/:h/catalog/:c/records                      # Create record (hub scope)
+GET    /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Get record (hub scope)
+PATCH  /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Update record (hub scope)
+DELETE /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Delete record (hub scope)
+
+GET    /metahub/:m/catalog/:c/records                             # List records (direct)
+POST   /metahub/:m/catalog/:c/records                             # Create record (direct)
+GET    /metahub/:m/catalog/:c/record/:recordId                    # Get record (direct)
+PATCH  /metahub/:m/catalog/:c/record/:recordId                    # Update record (direct)
+DELETE /metahub/:m/catalog/:c/record/:recordId                    # Delete record (direct)
 ```
 
 ### Request/Response Examples
@@ -151,7 +167,7 @@ Response:
 
 #### Create Record
 ```http
-POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
+POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/records
 Content-Type: application/json
 
 {
@@ -219,8 +235,22 @@ src/
 ├── database/
 │   ├── entities/
 │   └── migrations/
-├── routes/
-├── schemas/
+├── domains/
+│   ├── attributes/
+│   │   └── routes/
+│   ├── catalogs/
+│   │   └── routes/
+│   ├── hubs/
+│   │   └── routes/
+│   ├── metahubs/
+│   │   └── routes/
+│   ├── publications/
+│   │   └── routes/
+│   ├── records/
+│   │   └── routes/
+│   ├── ddl/
+│   │   └── definitions/
+│   └── shared/
 ├── tests/
 ├── types/
 ├── utils/

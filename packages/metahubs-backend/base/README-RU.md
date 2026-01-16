@@ -72,54 +72,70 @@ app.listen(3000)
 ```http
 GET    /metahubs                               # Список метахабов
 POST   /metahubs                               # Создать метахаб
-GET    /metahubs/:metahubId                    # Получить детали метахаба
-PUT    /metahubs/:metahubId                    # Обновить метахаб
-DELETE /metahubs/:metahubId                    # Удалить метахаб (CASCADE)
+GET    /metahub/:metahubId                     # Получить детали метахаба
+PUT    /metahub/:metahubId                     # Обновить метахаб
+DELETE /metahub/:metahubId                     # Удалить метахаб (CASCADE)
 
-GET    /metahubs/:metahubId/members            # Список участников метахаба
-POST   /metahubs/:metahubId/members            # Добавить участника
-PATCH  /metahubs/:metahubId/members/:memberId  # Обновить участника
-DELETE /metahubs/:metahubId/members/:memberId  # Удалить участника
+GET    /metahub/:metahubId/members             # Список участников метахаба
+POST   /metahub/:metahubId/members             # Добавить участника
+PATCH  /metahub/:metahubId/member/:memberId    # Обновить участника
+DELETE /metahub/:metahubId/member/:memberId    # Удалить участника
 ```
 
 ### Эндпоинты хабов
 ```http
-GET    /metahubs/:metahubId/hubs               # Список хабов в метахабе
-POST   /metahubs/:metahubId/hubs               # Создать хаб
-GET    /metahubs/:metahubId/hubs/:hubId        # Получить детали хаба
-PUT    /metahubs/:metahubId/hubs/:hubId        # Обновить хаб
-DELETE /metahubs/:metahubId/hubs/:hubId        # Удалить хаб
+GET    /metahub/:metahubId/hubs                # Список хабов в метахабе
+POST   /metahub/:metahubId/hubs                # Создать хаб
+GET    /metahub/:metahubId/hub/:hubId          # Получить детали хаба
+PATCH  /metahub/:metahubId/hub/:hubId          # Обновить хаб
+DELETE /metahub/:metahubId/hub/:hubId          # Удалить хаб
 ```
 
 ### Эндпоинты каталогов
 ```http
-GET    /metahubs/:metahubId/catalogs           # Список всех каталогов в метахабе
-GET    /metahubs/:metahubId/hubs/:hubId/catalogs                  # Список каталогов в хабе
-POST   /metahubs/:metahubId/hubs/:hubId/catalogs                  # Создать каталог в хабе
-GET    /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Получить детали каталога
-PUT    /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Обновить каталог
-DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId       # Удалить каталог
+GET    /metahub/:metahubId/catalogs                               # Список всех каталогов в метахабе
+POST   /metahub/:metahubId/catalogs                               # Создать каталог на уровне метахаба
+GET    /metahub/:metahubId/catalog/:catalogId                     # Получить каталог (уровень метахаба)
+PATCH  /metahub/:metahubId/catalog/:catalogId                     # Обновить каталог (уровень метахаба)
+DELETE /metahub/:metahubId/catalog/:catalogId                     # Удалить каталог (уровень метахаба)
 
-POST   /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/link  # Привязать существующий каталог к хабу
-DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/unlink # Отвязать каталог от хаба
+GET    /metahub/:metahubId/hub/:hubId/catalogs                     # Список каталогов в хабе
+POST   /metahub/:metahubId/hub/:hubId/catalogs                     # Создать каталог в хабе
+GET    /metahub/:metahubId/hub/:hubId/catalog/:catalogId           # Получить каталог (уровень хаба)
+PATCH  /metahub/:metahubId/hub/:hubId/catalog/:catalogId           # Обновить каталог (уровень хаба)
+DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId           # Удалить каталог (уровень хаба)
 ```
 
 ### Эндпоинты атрибутов
 ```http
-GET    /metahubs/:m/hubs/:h/catalogs/:c/attributes                # Список атрибутов
-POST   /metahubs/:m/hubs/:h/catalogs/:c/attributes                # Создать атрибут
-GET    /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Получить атрибут
-PUT    /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Обновить атрибут
-DELETE /metahubs/:m/hubs/:h/catalogs/:c/attributes/:attrId        # Удалить атрибут
+GET    /metahub/:m/hub/:h/catalog/:c/attributes                   # Список атрибутов (уровень хаба)
+POST   /metahub/:m/hub/:h/catalog/:c/attributes                   # Создать атрибут (уровень хаба)
+GET    /metahub/:m/hub/:h/catalog/:c/attribute/:attrId            # Получить атрибут (уровень хаба)
+PATCH  /metahub/:m/hub/:h/catalog/:c/attribute/:attrId            # Обновить атрибут (уровень хаба)
+DELETE /metahub/:m/hub/:h/catalog/:c/attribute/:attrId            # Удалить атрибут (уровень хаба)
+PATCH  /metahub/:m/hub/:h/catalog/:c/attribute/:attrId/move       # Переместить атрибут (уровень хаба)
+
+GET    /metahub/:m/catalog/:c/attributes                          # Список атрибутов (прямой доступ)
+POST   /metahub/:m/catalog/:c/attributes                          # Создать атрибут (прямой доступ)
+GET    /metahub/:m/catalog/:c/attribute/:attrId                   # Получить атрибут (прямой доступ)
+PATCH  /metahub/:m/catalog/:c/attribute/:attrId                   # Обновить атрибут (прямой доступ)
+DELETE /metahub/:m/catalog/:c/attribute/:attrId                   # Удалить атрибут (прямой доступ)
+PATCH  /metahub/:m/catalog/:c/attribute/:attrId/move              # Переместить атрибут (прямой доступ)
 ```
 
 ### Эндпоинты записей
 ```http
-GET    /metahubs/:m/hubs/:h/catalogs/:c/records                   # Список записей
-POST   /metahubs/:m/hubs/:h/catalogs/:c/records                   # Создать запись
-GET    /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Получить запись
-PUT    /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Обновить запись
-DELETE /metahubs/:m/hubs/:h/catalogs/:c/records/:recordId         # Удалить запись
+GET    /metahub/:m/hub/:h/catalog/:c/records                      # Список записей (уровень хаба)
+POST   /metahub/:m/hub/:h/catalog/:c/records                      # Создать запись (уровень хаба)
+GET    /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Получить запись (уровень хаба)
+PATCH  /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Обновить запись (уровень хаба)
+DELETE /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Удалить запись (уровень хаба)
+
+GET    /metahub/:m/catalog/:c/records                             # Список записей (прямой доступ)
+POST   /metahub/:m/catalog/:c/records                             # Создать запись (прямой доступ)
+GET    /metahub/:m/catalog/:c/record/:recordId                    # Получить запись (прямой доступ)
+PATCH  /metahub/:m/catalog/:c/record/:recordId                    # Обновить запись (прямой доступ)
+DELETE /metahub/:m/catalog/:c/record/:recordId                    # Удалить запись (прямой доступ)
 ```
 
 ### Примеры запросов/ответов
@@ -151,7 +167,7 @@ Content-Type: application/json
 
 #### Создать запись
 ```http
-POST /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId/records
+POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/records
 Content-Type: application/json
 
 {
@@ -219,8 +235,22 @@ src/
 ├── database/
 │   ├── entities/
 │   └── migrations/
-├── routes/
-├── schemas/
+├── domains/
+│   ├── attributes/
+│   │   └── routes/
+│   ├── catalogs/
+│   │   └── routes/
+│   ├── hubs/
+│   │   └── routes/
+│   ├── metahubs/
+│   │   └── routes/
+│   ├── publications/
+│   │   └── routes/
+│   ├── records/
+│   │   └── routes/
+│   ├── ddl/
+│   │   └── definitions/
+│   └── shared/
 ├── tests/
 ├── types/
 ├── utils/

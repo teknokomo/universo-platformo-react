@@ -214,47 +214,29 @@ import { AttributeList, RecordList } from '@universo/metahubs-frontend'
 
 ## Интеграция API
 
-### Базовые операции API
+Этот пакет ориентирован на UI-компоненты и не экспортирует публичный API-клиент.
+Если нужен программный доступ, обращайтесь напрямую к backend-эндпоинтам.
+
+### Example (custom client)
 ```typescript
-import * as metahubsApi from '@universo/metahubs-frontend/api'
+import axios from 'axios'
 
-// Получить все метахабы
-const metahubs = await metahubsApi.getMetahubs()
-
-// Получить конкретный метахаб
-const metahub = await metahubsApi.getMetahub(id)
-
-// Создать новый метахаб
-const newMetahub = await metahubsApi.createMetahub({
-  name: 'Мой метахаб',
-  description: 'Описание метахаба'
-})
+const api = axios.create({ baseURL: '/api/v1' })
+const { data } = await api.get('/metahubs')
+const { data: metahub } = await api.get('/metahub/123')
 ```
 
-### Операции с хабами и каталогами
-```typescript
-// Список хабов в метахабе
-const hubs = await metahubsApi.listHubs(metahubId)
-
-// Список каталогов (в контексте хаба)
-const catalogs = await metahubsApi.listCatalogs(metahubId, hubId)
-
-// Список всех каталогов (весь метахаб)
-const allCatalogs = await metahubsApi.listAllCatalogs(metahubId)
-
-// Привязать каталог к хабу
-await metahubsApi.linkCatalogToHub(metahubId, hubId, catalogId)
-```
-
-### Интеграция React Query
+### React Query Example
 ```typescript
 import { useQuery } from '@tanstack/react-query'
-import { metahubsQueryKeys } from '@universo/metahubs-frontend/api'
+import axios from 'axios'
+
+const api = axios.create({ baseURL: '/api/v1' })
 
 function useMetahubs() {
   return useQuery({
-    queryKey: metahubsQueryKeys.all,
-    queryFn: metahubsApi.getMetahubs
+    queryKey: ['metahubs', 'list'],
+    queryFn: async () => (await api.get('/metahubs')).data
   })
 }
 ```

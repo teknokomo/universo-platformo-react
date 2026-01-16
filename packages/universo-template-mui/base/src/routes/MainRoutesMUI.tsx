@@ -121,24 +121,15 @@ const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo/app
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
 
 // Metahub module components
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubList')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubBoard')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/PublicationList')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const PublicationBoard = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/PublicationBoard')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/HubList')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/CatalogList')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/AttributeList')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/RecordList')))
-// @ts-expect-error - Source-only imports resolved at runtime by bundler
-const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend/pages/MetahubMembers')))
+const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
+const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubBoard }))))
+const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationList }))))
+const PublicationBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationBoard }))))
+const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
+const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
+const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
+const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.RecordList }))))
+const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frontend (package deleted)

@@ -131,7 +131,7 @@ const MenuList = () => {
 
         const fetchPermissions = async () => {
             try {
-                const response = await api.$client.get(`/metahubs/${metahubId}`)
+                const response = await api.$client.get(`/metahub/${metahubId}`)
 
                 if (!isActive) return
 

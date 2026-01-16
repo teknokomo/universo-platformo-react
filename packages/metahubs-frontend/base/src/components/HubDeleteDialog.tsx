@@ -8,8 +8,8 @@ import {
 } from '@universo/template-mui'
 import type { Hub } from '../types'
 import { getVLCString } from '../types'
-import { getBlockingCatalogs, type BlockingCatalog } from '../api/hubs'
-import { metahubsQueryKeys } from '../api/queryKeys'
+import { getBlockingCatalogs, type BlockingCatalog } from '../domains/hubs'
+import { metahubsQueryKeys } from '../domains/shared'
 
 export interface HubDeleteDialogProps {
     /** Whether the dialog is open */

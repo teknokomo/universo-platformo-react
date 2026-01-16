@@ -1,19 +1,6 @@
 import { Entity as ORMEntity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent, AttributeDataType } from '@universo/types'
 import { Catalog } from './Catalog'
-
-/**
- * Supported data types for dynamic fields
- */
-export enum AttributeDataType {
-    STRING = 'STRING',
-    NUMBER = 'NUMBER',
-    BOOLEAN = 'BOOLEAN',
-    DATE = 'DATE',
-    DATETIME = 'DATETIME',
-    REF = 'REF',
-    JSON = 'JSON'
-}
 
 /**
  * Validation rules stored as JSONB
@@ -97,3 +84,5 @@ export class Attribute {
     @UpdateDateColumn({ name: 'updated_at' })
     updatedAt!: Date
 }
+
+export { AttributeDataType } from '@universo/types'

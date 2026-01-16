@@ -2,19 +2,19 @@
 import './i18n'
 
 // Main page exports
-export { default as MetahubList } from './pages/MetahubList'
-export { default as MetahubBoard } from './pages/MetahubBoard'
-export { default as MetahubMembers } from './pages/MetahubMembers'
+export { default as MetahubList } from './domains/metahubs/ui/MetahubList'
+export { default as MetahubBoard } from './domains/metahubs/ui/MetahubBoard'
+export { default as MetahubMembers } from './domains/metahubs/ui/MetahubMembers'
 
 // Publication (Information Base) pages
-export { default as PublicationList } from './pages/PublicationList'
-export { default as PublicationBoard } from './pages/PublicationBoard'
+export { default as PublicationList } from './domains/publications/ui/PublicationList'
+export { default as PublicationBoard } from './domains/publications/ui/PublicationBoard'
 
 // New Hub/Catalog/Attribute/Record pages
-export { default as HubList } from './pages/HubList'
-export { default as CatalogList } from './pages/CatalogList'
-export { default as AttributeList } from './pages/AttributeList'
-export { default as RecordList } from './pages/RecordList'
+export { default as HubList } from './domains/hubs/ui/HubList'
+export { default as CatalogList } from './domains/catalogs/ui/CatalogList'
+export { default as AttributeList } from './domains/attributes/ui/AttributeList'
+export { default as RecordList } from './domains/records/ui/RecordList'
 
 export { default as metahubsDashboard } from './menu-items/metahubDashboard'
 export { metahubsTranslations } from './i18n'

@@ -214,47 +214,29 @@ import { AttributeList, RecordList } from '@universo/metahubs-frontend'
 
 ## API Integration
 
-### Basic API Operations
+This package focuses on UI components and does not expose a public API client.
+If you need programmatic access, call the backend endpoints directly.
+
+### Example (custom client)
 ```typescript
-import * as metahubsApi from '@universo/metahubs-frontend/api'
+import axios from 'axios'
 
-// Get all metahubs
-const metahubs = await metahubsApi.getMetahubs()
-
-// Get specific metahub
-const metahub = await metahubsApi.getMetahub(id)
-
-// Create new metahub
-const newMetahub = await metahubsApi.createMetahub({
-  name: 'My Metahub',
-  description: 'Metahub description'
-})
+const api = axios.create({ baseURL: '/api/v1' })
+const { data } = await api.get('/metahubs')
+const { data: metahub } = await api.get('/metahub/123')
 ```
 
-### Hub & Catalog Operations
-```typescript
-// List hubs in metahub
-const hubs = await metahubsApi.listHubs(metahubId)
-
-// List catalogs (hub-scoped)
-const catalogs = await metahubsApi.listCatalogs(metahubId, hubId)
-
-// List all catalogs (metahub-wide)
-const allCatalogs = await metahubsApi.listAllCatalogs(metahubId)
-
-// Link catalog to hub
-await metahubsApi.linkCatalogToHub(metahubId, hubId, catalogId)
-```
-
-### React Query Integration
+### React Query Example
 ```typescript
 import { useQuery } from '@tanstack/react-query'
-import { metahubsQueryKeys } from '@universo/metahubs-frontend/api'
+import axios from 'axios'
+
+const api = axios.create({ baseURL: '/api/v1' })
 
 function useMetahubs() {
   return useQuery({
-    queryKey: metahubsQueryKeys.all,
-    queryFn: metahubsApi.getMetahubs
+    queryKey: ['metahubs', 'list'],
+    queryFn: async () => (await api.get('/metahubs')).data
   })
 }
 ```

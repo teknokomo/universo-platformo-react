@@ -83,8 +83,20 @@ export const mockMembersList = [
  * MSW request handlers
  */
 export const handlers = [
+    // Profile settings endpoint (required by many components)
+    http.get(`${API_BASE_URL}/profile/settings`, async () => {
+        await delay(10)
+        return HttpResponse.json({
+            data: {
+                locale: 'en',
+                theme: 'light',
+                timezone: 'UTC'
+            }
+        })
+    }),
+
     // Get single metahub
-    http.get(`${API_BASE_URL}/metahubs/:id`, async ({ params }) => {
+    http.get(`${API_BASE_URL}/metahub/:id`, async ({ params }) => {
         await delay(50) // Simulate network delay
 
         const { id } = params
@@ -138,7 +150,7 @@ export const handlers = [
     }),
 
     // List metahub members
-    http.get(`${API_BASE_URL}/metahubs/:metahubId/members`, async ({ request }) => {
+    http.get(`${API_BASE_URL}/metahub/:metahubId/members`, async ({ request }) => {
         await delay(50)
 
         const url = new URL(request.url)
@@ -161,7 +173,7 @@ export const handlers = [
 
     // XSS Test: Metahub with HTML-encoded malicious content for safe testing
     // Tests should verify that this encoded content is NOT executed and displays as text
-    http.get(`${API_BASE_URL}/metahubs/xss-test`, async () => {
+    http.get(`${API_BASE_URL}/metahub/xss-test`, async () => {
         await delay(50)
 
         return HttpResponse.json({
@@ -180,22 +192,22 @@ export const handlers = [
  * Error scenario handlers for specific test cases
  */
 export const errorHandlers = {
-    networkError: http.get(`${API_BASE_URL}/metahubs/:id`, () => {
+    networkError: http.get(`${API_BASE_URL}/metahub/:id`, () => {
         return HttpResponse.error()
     }),
 
-    timeout: http.get(`${API_BASE_URL}/metahubs/:id`, async () => {
+    timeout: http.get(`${API_BASE_URL}/metahub/:id`, async () => {
         // 4 second delay - just under Vitest's default 5s timeout
         // Tests using this handler should increase timeout: test('...', { timeout: 6000 }, async () => {...})
         await delay(4000)
         return HttpResponse.json({ data: mockMetahubData })
     }),
 
-    unauthorized: http.get(`${API_BASE_URL}/metahubs/:id`, () => {
+    unauthorized: http.get(`${API_BASE_URL}/metahub/:id`, () => {
         return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })
     }),
 
-    forbidden: http.get(`${API_BASE_URL}/metahubs/:id`, () => {
+    forbidden: http.get(`${API_BASE_URL}/metahub/:id`, () => {
         return HttpResponse.json({ message: 'Forbidden: Insufficient permissions' }, { status: 403 })
     })
 }

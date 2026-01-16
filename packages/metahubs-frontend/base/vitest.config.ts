@@ -18,6 +18,10 @@ export default mergeConfig(
     resolve: {
       alias: [
         {
+          find: '@universo/metahubs-frontend',
+          replacement: path.resolve(__dirname, 'src/index.ts'),
+        },
+        {
           find: /^@\/views\//,
           replacement: `${path.resolve(coreFrontendSrcDir, 'views')}/`,
         },
@@ -36,6 +40,24 @@ export default mergeConfig(
         enabled: true,
         reporter: ['text', 'json-summary'],
         reportsDirectory: path.resolve(__dirname, 'coverage'),
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [
+          'src/**/__tests__/**',
+          'src/**/__mocks__/**',
+          'src/pages/**',
+          'src/components/**',
+          'src/hooks/**',
+          'src/menu-items/**',
+          'src/i18n/**',
+          'src/constants/**',
+          'src/types.ts',
+          'src/domains/attributes/**',
+          'src/domains/catalogs/**',
+          'src/domains/hubs/**',
+          'src/domains/records/**',
+          'src/domains/publications/**',
+          'src/domains/metahubs/ui/MetahubActions.tsx',
+        ],
         thresholds: {
           statements: 70,
           branches: 70,

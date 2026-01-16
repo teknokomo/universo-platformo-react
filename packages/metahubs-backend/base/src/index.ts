@@ -8,16 +8,16 @@ export { Attribute, AttributeDataType } from './database/entities/Attribute'
 export { HubRecord } from './database/entities/Record'
 
 // Route exports
-export { createMetahubsRoutes } from './routes/metahubsRoutes'
-export { createHubsRoutes } from './routes/hubsRoutes'
-export { createCatalogsRoutes } from './routes/catalogsRoutes'
-export { createAttributesRoutes } from './routes/attributesRoutes'
-export { createRecordsRoutes } from './routes/recordsRoutes'
-export { createPublicMetahubsRoutes } from './routes/publicMetahubsRoutes'
-export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './routes/index'
+export { createMetahubsRoutes } from './domains/metahubs/routes/metahubsRoutes'
+export { createHubsRoutes } from './domains/hubs/routes/hubsRoutes'
+export { createCatalogsRoutes } from './domains/catalogs/routes/catalogsRoutes'
+export { createAttributesRoutes } from './domains/attributes/routes/attributesRoutes'
+export { createRecordsRoutes } from './domains/records/routes/recordsRoutes'
+export { createPublicMetahubsRoutes } from './domains/metahubs/routes/publicMetahubsRoutes'
+export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './domains/router'
 
 // Guard exports
-export { ensureMetahubAccess, ensureHubAccess, ensureCatalogAccess, ensureAttributeAccess, assertNotOwner } from './routes/guards'
+export { ensureMetahubAccess, ensureHubAccess, ensureCatalogAccess, ensureAttributeAccess, assertNotOwner } from './domains/shared/guards'
 
 // Migration exports
 export { metahubsMigrations } from './database/migrations/postgres'

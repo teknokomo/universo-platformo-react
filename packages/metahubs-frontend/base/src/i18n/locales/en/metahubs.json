@@ -202,7 +202,13 @@
         "codenameHelper": "Unique field identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
         "dataType": "Data Type",
         "dataTypeOptions": {
-            "string": "String"
+            "string": "String",
+            "number": "Number",
+            "boolean": "Boolean",
+            "date": "Date",
+            "datetime": "Date/Time",
+            "ref": "Reference",
+            "json": "JSON"
         },
         "isRequiredLabel": "Required",
         "required": "Required",
