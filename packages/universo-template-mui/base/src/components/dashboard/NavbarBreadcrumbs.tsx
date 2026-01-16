@@ -2,6 +2,7 @@ import { styled } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
 import Breadcrumbs, { breadcrumbsClasses } from '@mui/material/Breadcrumbs'
 import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded'
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import Link from '@mui/material/Link'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
@@ -418,6 +419,11 @@ export default function NavbarBreadcrumbs() {
                         }
                     }
                 }
+            } else if (segments[1]) {
+                items.push({
+                    label: '...',
+                    to: `/metahub/${segments[1]}`
+                })
             }
 
             return items
@@ -739,6 +745,25 @@ export default function NavbarBreadcrumbs() {
 
     return (
         <StyledBreadcrumbs aria-label='breadcrumb' separator={<NavigateNextRoundedIcon fontSize='small' />}>
+            <Link
+                component={NavLink}
+                to='/'
+                underline='none'
+                color='text.secondary'
+                sx={{
+                    fontSize: '1rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    lineHeight: 1,
+                    verticalAlign: 'middle',
+                    transform: 'translateY(-0.02rem)',
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'none' }
+                }}
+                aria-label='Home'
+            >
+                 <HomeRoundedIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle', transform: 'translateY(-0.04rem)' }} />
+            </Link>
             {crumbs.map((crumb, index) => {
                 const isLast = index === crumbs.length - 1
                 return isLast ? (

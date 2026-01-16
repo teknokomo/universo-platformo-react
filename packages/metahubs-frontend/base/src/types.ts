@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { MetahubRole, GlobalRole, VersionedLocalizedContent } from '@universo/types'
+import type { MetahubRole, GlobalRole, VersionedLocalizedContent, AttributeDataType } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from '@universo/utils/vlc'
@@ -23,6 +23,7 @@ export type { MetahubRole }
 // ============ PAGINATION TYPES ============
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
+export type { AttributeDataType } from '@universo/types'
 
 // ============ ACCESS & PERMISSIONS ============
 
@@ -212,9 +213,6 @@ export interface CatalogDisplay {
 }
 
 // ============ ATTRIBUTE ENTITY ============
-
-/** Supported data types for dynamic field definitions */
-export type AttributeDataType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'DATETIME' | 'REF' | 'JSON'
 
 /**
  * Attribute - a virtual field within a Catalog

@@ -306,9 +306,9 @@ router.use('/vector', vectorRouter)
 router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
 router.use('/public-executions', publicExecutionsRouter)
-// Universo Platformo | Public Metahubs routes (read-only access to published metahubs)
+// Universo Platformo | Public Metahub routes (read-only access to published metahubs)
 let publicMetahubsRouter: ExpressRouter | null = null
-router.use('/public/metahubs', (req: Request, res: Response, next: NextFunction) => {
+router.use('/public/metahub', (req: Request, res: Response, next: NextFunction) => {
     if (!publicMetahubsRouter) {
         publicMetahubsRouter = createPublicMetahubsServiceRoutes(() => getDataSource())
         console.log('[Metahubs] Public router created')

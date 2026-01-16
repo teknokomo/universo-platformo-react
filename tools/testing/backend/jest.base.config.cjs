@@ -31,8 +31,7 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'cobertura'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: path.join(repoRoot, 'tsconfig.test.json'),
-      isolatedModules: true
+      tsconfig: path.join(repoRoot, 'tsconfig.test.json')
     }]
   },
   transformIgnorePatterns: [

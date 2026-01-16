@@ -1,6 +1,19 @@
 import { setupServer } from 'msw/node'
 import { handlers } from './src/__mocks__/handlers'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterAll, afterEach, beforeAll, vi } from 'vitest'
+
+vi.mock('@flowise/store', () => ({
+    useHasGlobalAccess: () => ({
+        isSuperuser: false,
+        hasAdminAccess: false,
+        hasAnyGlobalRole: false,
+        globalRoles: [],
+        rolesMetadata: {},
+        loading: false,
+        adminConfig: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true },
+        canAccessAdminPanel: false
+    })
+}))
 
 // Export shared setup from base config
 export * from '@testing/frontend/setupTests'

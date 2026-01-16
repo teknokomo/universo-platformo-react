@@ -28,7 +28,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
-import { createCatalogsRoutes } from '../../routes/catalogsRoutes'
+import { createCatalogsRoutes } from '../../domains/catalogs/routes/catalogsRoutes'
 
 describe('Catalogs Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -90,9 +90,9 @@ describe('Catalogs Routes', () => {
     })
 
     // =========================================================================
-    // GET /metahubs/:metahubId/catalogs - List all catalogs
+    // GET /metahub/:metahubId/catalogs - List all catalogs
     // =========================================================================
-    describe('GET /metahubs/:metahubId/catalogs', () => {
+    describe('GET /metahub/:metahubId/catalogs', () => {
         it('should return empty array when no catalogs exist', async () => {
             const { dataSource, catalogRepo, hubRepo } = buildDataSource()
 
@@ -102,7 +102,7 @@ describe('Catalogs Routes', () => {
 
             const app = buildApp(dataSource)
 
-            const response = await request(app).get('/metahubs/test-metahub-id/catalogs').expect(200)
+            const response = await request(app).get('/metahub/test-metahub-id/catalogs').expect(200)
 
             expect(response.body).toMatchObject({
                 items: [],
@@ -145,7 +145,7 @@ describe('Catalogs Routes', () => {
 
             const app = buildApp(dataSource)
 
-            const response = await request(app).get('/metahubs/test-metahub-id/catalogs').expect(200)
+            const response = await request(app).get('/metahub/test-metahub-id/catalogs').expect(200)
 
             expect(response.body.pagination.total).toBe(1)
             expect(response.body.items).toHaveLength(1)
@@ -159,7 +159,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .get('/metahubs/test-metahub-id/catalogs?limit=invalid')
+                .get('/metahub/test-metahub-id/catalogs?limit=invalid')
                 .expect(400)
 
             expect(response.body.error).toBe('Invalid query')
@@ -167,9 +167,9 @@ describe('Catalogs Routes', () => {
     })
 
     // =========================================================================
-    // POST /metahubs/:metahubId/catalogs - Create catalog
+    // POST /metahub/:metahubId/catalogs - Create catalog
     // =========================================================================
-    describe('POST /metahubs/:metahubId/catalogs', () => {
+    describe('POST /metahub/:metahubId/catalogs', () => {
         it('should create a catalog without hub associations', async () => {
             const { dataSource, catalogRepo, catalogHubRepo, hubRepo } = buildDataSource()
 
@@ -186,7 +186,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .post('/metahubs/test-metahub-id/catalogs')
+                .post('/metahub/test-metahub-id/catalogs')
                 .send({
                     codename: 'new-catalog',
                     name: 'New Catalog',
@@ -224,7 +224,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .post('/metahubs/test-metahub-id/catalogs')
+                .post('/metahub/test-metahub-id/catalogs')
                 .send({
                     codename: 'new-catalog',
                     name: 'New Catalog',
@@ -247,7 +247,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .post('/metahubs/test-metahub-id/catalogs')
+                .post('/metahub/test-metahub-id/catalogs')
                 .send({
                     codename: 'existing-catalog',
                     name: 'Duplicate Catalog'
@@ -264,7 +264,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .post('/metahubs/test-metahub-id/catalogs')
+                .post('/metahub/test-metahub-id/catalogs')
                 .send({
                     name: 'No Codename Catalog'
                 })
@@ -283,7 +283,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .post('/metahubs/test-metahub-id/catalogs')
+                .post('/metahub/test-metahub-id/catalogs')
                 .send({
                     codename: 'new-catalog',
                     name: 'New Catalog',
@@ -296,9 +296,9 @@ describe('Catalogs Routes', () => {
     })
 
     // =========================================================================
-    // DELETE /metahubs/:metahubId/catalogs/:catalogId - Direct catalog deletion
+    // DELETE /metahub/:metahubId/catalog/:catalogId - Direct catalog deletion
     // =========================================================================
-    describe('DELETE /metahubs/:metahubId/catalogs/:catalogId', () => {
+    describe('DELETE /metahub/:metahubId/catalog/:catalogId', () => {
         it('should delete catalog and return 204', async () => {
             const { dataSource, catalogRepo } = buildDataSource()
 
@@ -314,7 +314,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             await request(app)
-                .delete('/metahubs/test-metahub-id/catalogs/catalog-to-delete')
+                .delete('/metahub/test-metahub-id/catalog/catalog-to-delete')
                 .expect(204)
 
             expect(catalogRepo.findOne).toHaveBeenCalledWith({
@@ -331,7 +331,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .delete('/metahubs/test-metahub-id/catalogs/non-existent-id')
+                .delete('/metahub/test-metahub-id/catalog/non-existent-id')
                 .expect(404)
 
             expect(response.body.error).toBe('Catalog not found')
@@ -347,7 +347,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .delete('/metahubs/test-metahub-id/catalogs/catalog-from-other-metahub')
+                .delete('/metahub/test-metahub-id/catalog/catalog-from-other-metahub')
                 .expect(404)
 
             expect(response.body.error).toBe('Catalog not found')
@@ -368,7 +368,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             await request(app)
-                .delete('/metahubs/test-metahub-id/catalogs/catalog-with-hubs')
+                .delete('/metahub/test-metahub-id/catalog/catalog-with-hubs')
                 .expect(204)
 
             // Cascade delete is handled by TypeORM entity configuration
@@ -378,9 +378,9 @@ describe('Catalogs Routes', () => {
     })
 
     // =========================================================================
-    // DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId - Hub-scoped deletion
+    // DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId - Hub-scoped deletion
     // =========================================================================
-    describe('DELETE /metahubs/:metahubId/hubs/:hubId/catalogs/:catalogId', () => {
+    describe('DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId', () => {
         it('should delete catalog completely when force=true', async () => {
             const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
 
@@ -404,7 +404,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1?force=true')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1?force=true')
                 .expect(204)
 
             expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
@@ -433,7 +433,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
                 .expect(200) // Returns 200 with message when only removing association
 
             expect(response.body.message).toBe('Catalog removed from hub')
@@ -464,7 +464,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
                 .expect(204)
 
             expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
@@ -483,7 +483,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
                 .expect(404)
 
             expect(response.body.error).toBe('Catalog not found in this hub')
@@ -497,7 +497,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/non-existent')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/non-existent')
                 .expect(404)
 
             expect(response.body.error).toBe('Catalog not found')
@@ -525,7 +525,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             const response = await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
                 .expect(409)
 
             expect(response.body.error).toContain('Cannot remove catalog from its last hub')
@@ -555,7 +555,7 @@ describe('Catalogs Routes', () => {
             const app = buildApp(dataSource)
 
             await request(app)
-                .delete('/metahubs/test-metahub-id/hubs/hub-1/catalogs/catalog-1?force=true')
+                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1?force=true')
                 .expect(204)
 
             expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)

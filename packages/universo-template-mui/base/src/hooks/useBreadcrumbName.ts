@@ -163,7 +163,7 @@ export const useMetaverseName = createEntityNameHook({
  */
 export const useMetahubName = createEntityNameHook({
     entityType: 'metahub',
-    apiPath: 'metahubs'
+    apiPath: 'metahub'
 })
 
 /**
@@ -232,7 +232,7 @@ export function useHubName(metahubId: string | null, hubId: string | null): stri
         queryKey: ['breadcrumb', 'hub', metahubId, hubId],
         queryFn: async () => {
             if (!metahubId || !hubId) return null
-            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}`, {
+            const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -259,7 +259,7 @@ export function useCatalogName(metahubId: string | null, hubId: string | null, c
         queryKey: ['breadcrumb', 'catalog', metahubId, hubId, catalogId],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId) return null
-            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}`, {
+            const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -286,7 +286,7 @@ export function useCatalogNameStandalone(metahubId: string | null, catalogId: st
         queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId],
         queryFn: async () => {
             if (!metahubId || !catalogId) return null
-            const response = await fetch(`/api/v1/metahubs/${metahubId}/catalogs/${catalogId}`, {
+            const response = await fetch(`/api/v1/metahub/${metahubId}/catalog/${catalogId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -318,7 +318,7 @@ export function useAttributeName(
         queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId || !attributeId) return null
-            const response = await fetch(`/api/v1/metahubs/${metahubId}/hubs/${hubId}/catalogs/${catalogId}/attributes/${attributeId}`, {
+            const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -345,7 +345,7 @@ export function useMetahubPublicationName(metahubId: string | null, publicationI
         queryKey: ['breadcrumb', 'metahub-publication', metahubId, publicationId],
         queryFn: async () => {
             if (!metahubId || !publicationId) return null
-            const response = await fetch(`/api/v1/metahubs/${metahubId}/publications/${publicationId}`, {
+            const response = await fetch(`/api/v1/metahub/${metahubId}/publication/${publicationId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'

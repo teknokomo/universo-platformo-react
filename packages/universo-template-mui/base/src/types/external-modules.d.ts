@@ -48,6 +48,19 @@ declare module '@universo/resources-frontend' {
     export const ClusterList: ComponentType<any>
 }
 
+declare module '@universo/metahubs-frontend' {
+    import type { ComponentType } from 'react'
+    export const MetahubList: ComponentType<any>
+    export const MetahubBoard: ComponentType<any>
+    export const MetahubMembers: ComponentType<any>
+    export const PublicationList: ComponentType<any>
+    export const PublicationBoard: ComponentType<any>
+    export const HubList: ComponentType<any>
+    export const CatalogList: ComponentType<any>
+    export const AttributeList: ComponentType<any>
+    export const RecordList: ComponentType<any>
+}
+
 declare module '@flowise/tools-frontend/pages/Tools' {
     import type { ComponentType } from 'react'
     const Component: ComponentType<any>

@@ -33,7 +33,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
-import { createMetahubsRoutes } from '../../routes/metahubsRoutes'
+import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
 
 describe('Metahubs Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -62,10 +62,7 @@ describe('Metahubs Routes', () => {
     const buildApp = (dataSource: any) => {
         const app = express()
         app.use(express.json())
-        app.use(
-            '/metahubs',
-            createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-        )
+        app.use('/', createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
         app.use(errorHandler) // Must be after routes to catch errors from asyncHandler
         return app
     }
@@ -74,6 +71,7 @@ describe('Metahubs Routes', () => {
         const metahubRepo = createMockRepository<any>()
         const metahubUserRepo = createMockRepository<any>()
         const hubRepo = createMockRepository<any>()
+        const catalogRepo = createMockRepository<any>()
         const attributeRepo = createMockRepository<any>()
         const hubRecordRepo = createMockRepository<any>()
         const authUserRepo = createMockRepository<any>()
@@ -83,6 +81,7 @@ describe('Metahubs Routes', () => {
             Metahub: metahubRepo,
             MetahubUser: metahubUserRepo,
             Hub: hubRepo,
+            Catalog: catalogRepo,
             Attribute: attributeRepo,
             HubRecord: hubRecordRepo,
             AuthUser: authUserRepo,
@@ -94,6 +93,7 @@ describe('Metahubs Routes', () => {
             metahubRepo,
             metahubUserRepo,
             hubRepo,
+            catalogRepo,
             attributeRepo,
             hubRecordRepo,
             authUserRepo,
@@ -149,7 +149,8 @@ describe('Metahubs Routes', () => {
                 id: 'metahub-1',
                 name: 'Test Metahub',
                 description: 'Test Description',
-                entitiesCount: 0,
+                hubsCount: 0,
+                catalogsCount: 0,
                 membersCount: 0
             })
             expect(response.body.items[0]).toHaveProperty('createdAt')
@@ -169,7 +170,10 @@ describe('Metahubs Routes', () => {
 
             expect(mockQB.take).toHaveBeenCalledWith(5)
             expect(mockQB.skip).toHaveBeenCalledWith(10)
-            expect(mockQB.orderBy).toHaveBeenCalledWith('m.name', 'ASC')
+            expect(mockQB.orderBy).toHaveBeenCalledWith(
+                "COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')",
+                'ASC'
+            )
         })
 
         it('should validate pagination parameters', async () => {
@@ -219,10 +223,7 @@ describe('Metahubs Routes', () => {
             // Special case: test with noAuthMiddleware
             const app = express()
             app.use(express.json())
-            app.use(
-                '/metahubs',
-                createMetahubsRoutes(noAuthMiddleware, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            app.use('/', createMetahubsRoutes(noAuthMiddleware, () => dataSource, mockRateLimiter, mockRateLimiter))
             app.use(errorHandler)
 
             await request(app).get('/metahubs').expect(401)
@@ -261,9 +262,10 @@ describe('Metahubs Routes', () => {
 
             await request(app).get('/metahubs?search=test').expect(200)
 
-            expect(mockQB.andWhere).toHaveBeenCalledWith('(LOWER(m.name) LIKE :search OR LOWER(m.description) LIKE :search)', {
-                search: '%test%'
-            })
+            expect(mockQB.andWhere).toHaveBeenCalledWith(
+                "(m.name::text ILIKE :search OR COALESCE(m.description::text, '') ILIKE :search OR COALESCE(m.slug, '') ILIKE :search)",
+                { search: '%test%' }
+            )
         })
 
         it('should set correct pagination headers', async () => {
@@ -302,16 +304,13 @@ describe('Metahubs Routes', () => {
             const context = buildDataSource()
             const app = express()
             app.use(express.json())
-            app.use(
-                '/metahubs',
-                createMetahubsRoutes(ensureAuth, () => context.dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            app.use('/', createMetahubsRoutes(ensureAuth, () => context.dataSource, mockRateLimiter, mockRateLimiter))
             app.use(errorHandler) // Add error handler for http-errors
             return { app, ...context }
         }
 
         it('should return members when user has manageMembers permission', async () => {
-            const { app, metahubUserRepo, dataSource, profileRepo } = buildApp()
+            const { app, metahubUserRepo, dataSource } = buildApp()
 
             const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -342,15 +341,14 @@ describe('Metahubs Routes', () => {
             ]
             mockQB.getManyAndCount.mockResolvedValue([membersList, 2])
 
-            const authQb = createMockRepository<any>().createQueryBuilder()
-            authQb.getRawMany.mockResolvedValue([
-                { id: 'owner-id', email: 'owner@example.com' },
-                { id: 'editor-id', email: 'editor@example.com' }
-            ])
-            dataSource.createQueryBuilder.mockReturnValueOnce(authQb)
-            profileRepo.find.mockResolvedValue([])
+            dataSource.manager.find
+                .mockResolvedValueOnce([
+                    { id: 'owner-id', email: 'owner@example.com' },
+                    { id: 'editor-id', email: 'editor@example.com' }
+                ])
+                .mockResolvedValueOnce([])
 
-            const response = await request(app).get('/metahubs/metahub-1/members').expect(200)
+            const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
             expect(response.body).toMatchObject({ total: 2, role: 'admin' })
             expect(Array.isArray(response.body.members)).toBe(true)
@@ -380,7 +378,7 @@ describe('Metahubs Routes', () => {
                 role: 'member'
             })
 
-            const response = await request(app).get('/metahubs/metahub-1/members').expect(200)
+            const response = await request(app).get('/metahub/metahub-1/members').expect(200)
             expect(response.body).toMatchObject({ role: 'member' })
             expect(response.body.permissions?.manageMembers).toBe(false)
         })
@@ -401,7 +399,7 @@ describe('Metahubs Routes', () => {
             qb.getOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
 
             const response = await request(app)
-                .post('/metahubs/metahub-1/members')
+                .post('/metahub/metahub-1/members')
                 .send({ email: 'target@example.com', role: 'editor' })
                 .expect(201)
 
@@ -423,7 +421,7 @@ describe('Metahubs Routes', () => {
                 role: 'editor'
             })
 
-            await request(app).post('/metahubs/metahub-1/members').send({ email: 'target@example.com', role: 'member' }).expect(403)
+            await request(app).post('/metahub/metahub-1/members').send({ email: 'target@example.com', role: 'member' }).expect(403)
 
             expect(authUserRepo.createQueryBuilder).not.toHaveBeenCalled()
         })
@@ -445,7 +443,7 @@ describe('Metahubs Routes', () => {
                     role: 'member'
                 })
 
-            const response = await request(app).patch('/metahubs/metahub-1/members/membership-target').send({ role: 'editor' }).expect(200)
+            const response = await request(app).patch('/metahub/metahub-1/member/membership-target').send({ role: 'editor' }).expect(200)
 
             expect(response.body).toMatchObject({
                 id: 'membership-target',
@@ -464,7 +462,7 @@ describe('Metahubs Routes', () => {
                 role: 'member'
             })
 
-            await request(app).patch('/metahubs/metahub-1/members/membership-target').send({ role: 'editor' }).expect(403)
+            await request(app).patch('/metahub/metahub-1/member/membership-target').send({ role: 'editor' }).expect(403)
         })
 
         it('should delete member when authorized', async () => {
@@ -484,7 +482,7 @@ describe('Metahubs Routes', () => {
                     role: 'member'
                 })
 
-            await request(app).delete('/metahubs/metahub-1/members/membership-target').expect(204)
+            await request(app).delete('/metahub/metahub-1/member/membership-target').expect(204)
             expect(metahubUserRepo.delete).toHaveBeenCalledWith('membership-target')
         })
 
@@ -498,12 +496,12 @@ describe('Metahubs Routes', () => {
                 role: 'member'
             })
 
-            await request(app).delete('/metahubs/metahub-1/members/membership-target').expect(403)
+            await request(app).delete('/metahub/metahub-1/member/membership-target').expect(403)
         })
 
         describe('Members data enrichment', () => {
             it('should fetch nickname from profiles table via batch query', async () => {
-                const { app, metahubUserRepo, dataSource, profileRepo } = buildApp()
+            const { app, metahubUserRepo, dataSource } = buildApp()
 
                 const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -539,18 +537,17 @@ describe('Metahubs Routes', () => {
                     2
                 ])
 
-                const authQb = createMockRepository<any>().createQueryBuilder()
-                authQb.getRawMany.mockResolvedValue([
+            dataSource.manager.find
+                .mockResolvedValueOnce([
                     { id: 'owner-id', email: 'owner@example.com' },
                     { id: 'editor-id', email: 'editor@example.com' }
                 ])
-                dataSource.createQueryBuilder.mockReturnValueOnce(authQb)
-                profileRepo.find.mockResolvedValue([
+                .mockResolvedValueOnce([
                     { user_id: 'owner-id', nickname: 'OwnerNick' },
                     { user_id: 'editor-id', nickname: 'EditorNick' }
                 ])
 
-                const response = await request(app).get('/metahubs/metahub-1/members').expect(200)
+                const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
                 // Verify nickname is fetched from profiles table
                 expect(response.body.members).toEqual(
@@ -573,7 +570,7 @@ describe('Metahubs Routes', () => {
             })
 
             it('should fetch comment from metahubs_users table', async () => {
-                const { app, metahubUserRepo, dataSource, profileRepo } = buildApp()
+            const { app, metahubUserRepo, dataSource } = buildApp()
 
                 const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -599,12 +596,11 @@ describe('Metahubs Routes', () => {
                     1
                 ])
 
-                const authQb = createMockRepository<any>().createQueryBuilder()
-                authQb.getRawMany.mockResolvedValue([{ id: 'editor-id', email: 'editor@example.com' }])
-                dataSource.createQueryBuilder.mockReturnValueOnce(authQb)
-                profileRepo.find.mockResolvedValue([{ user_id: 'editor-id', nickname: 'EditorNick' }])
+            dataSource.manager.find
+                .mockResolvedValueOnce([{ id: 'editor-id', email: 'editor@example.com' }])
+                .mockResolvedValueOnce([{ user_id: 'editor-id', nickname: 'EditorNick' }])
 
-                const response = await request(app).get('/metahubs/metahub-1/members').expect(200)
+                const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
                 // Verify comment is returned from MetahubUser entity
                 expect(response.body.members).toEqual(
@@ -618,7 +614,7 @@ describe('Metahubs Routes', () => {
             })
 
             it('should handle null email and nickname gracefully', async () => {
-                const { app, metahubUserRepo, dataSource, profileRepo } = buildApp()
+            const { app, metahubUserRepo, dataSource } = buildApp()
 
                 const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -644,12 +640,11 @@ describe('Metahubs Routes', () => {
                     1
                 ])
 
-                const authQb = createMockRepository<any>().createQueryBuilder()
-                authQb.getRawMany.mockResolvedValue([{ id: 'orphan-user-id', email: null }])
-                dataSource.createQueryBuilder.mockReturnValueOnce(authQb)
-                profileRepo.find.mockResolvedValue([])
+            dataSource.manager.find
+                .mockResolvedValueOnce([{ id: 'orphan-user-id', email: null }])
+                .mockResolvedValueOnce([])
 
-                const response = await request(app).get('/metahubs/metahub-1/members').expect(200)
+                const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
                 // Should return null for missing email and nickname
                 expect(response.body.members).toEqual(
@@ -690,7 +685,7 @@ describe('Metahubs Routes', () => {
                 const commentWithWhitespace = '   This comment has leading and trailing spaces   '
 
                 const response = await request(app)
-                    .post('/metahubs/metahub-1/members')
+                    .post('/metahub/metahub-1/members')
                     .send({
                         email: 'target@example.com',
                         role: 'editor',
@@ -723,7 +718,7 @@ describe('Metahubs Routes', () => {
                 qb.getOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
 
                 const response = await request(app)
-                    .post('/metahubs/metahub-1/members')
+                    .post('/metahub/metahub-1/members')
                     .send({
                         email: 'target@example.com',
                         role: 'editor',
@@ -751,7 +746,7 @@ describe('Metahubs Routes', () => {
 
                 // Test invalid role
                 let response = await request(app)
-                    .post('/metahubs/metahub-1/members')
+                    .post('/metahub/metahub-1/members')
                     .send({
                         email: 'target@example.com',
                         role: 'invalid-role'
@@ -765,7 +760,7 @@ describe('Metahubs Routes', () => {
 
                 // Test invalid email
                 response = await request(app)
-                    .post('/metahubs/metahub-1/members')
+                    .post('/metahub/metahub-1/members')
                     .send({
                         email: 'not-an-email',
                         role: 'editor'

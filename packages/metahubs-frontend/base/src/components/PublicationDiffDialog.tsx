@@ -19,7 +19,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { useTranslation } from 'react-i18next'
-import { usePublicationDiff, type Publication } from '../api/usePublications'
+import { usePublicationDiff, type Publication } from '../domains/publications'
 import { getVLCString } from '../types'
 
 // ============================================================================

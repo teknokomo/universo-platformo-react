@@ -24,6 +24,82 @@
 
 ---
 
+## IMPLEMENT (2026-01-16): Metahubs API routes standardization + test warnings + coverage
+
+- [x] Remove act/MSW/useHasGlobalAccess warnings in metahubs-frontend tests (setup mocks + test fixes).
+- [x] Add MSW handler for `/api/v1/profile/settings` in metahubs-frontend mocks.
+- [x] Restore shared/utils coverage in metahubs-frontend and add tests to meet thresholds.
+- [x] Refactor metahubs-backend routes to singular detail paths (metahub/hub/catalog/attribute/record/publication) and align public routes.
+- [x] Update metahubs-frontend API clients/tests and template-mui breadcrumb fetches to new backend paths.
+- [x] Update metahubs backend/frontend READMEs (EN/RU) to match new routes and i18n docs rules.
+- [ ] Run full root build (timed out after ~200s; re-run needed).
+- [x] Update progress.md and activeContext.md with route standardization changes.
+
+---
+
+## IMPLEMENT (2026-01-16): Metahubs frontend build-first + docs + tests
+
+- [x] Switch metahubs-frontend to build-first (dist exports + tsdown entry for src/index.ts).
+- [x] Remove src/index.d.ts temporary stub and align package.json exports.
+- [x] Update README.md and README-RU.md to remove /api imports and match i18n-docs rules.
+- [x] Update/add metahubs-frontend tests for entry exports after build-first.
+- [x] Fix failing metahubs-frontend tests (api wrappers mock path, view preference mock shape, actions expectations).
+- [x] Verify metahubs-frontend tests, metahubs-backend tests, and full root build.
+- [x] Update progress.md and activeContext.md with build-first changes.
+
+---
+
+## IMPLEMENT (2026-01-16): Metahubs backend tests + ddl rename
+
+- [x] Rename `domains/runtime-schema` to `domains/ddl` and update imports/docs.
+- [x] Fix metahubsRoutes tests (mocks + expectations for sorting/search/members).
+- [x] Move ts-jest isolatedModules to tsconfig.test.json and update base jest config.
+- [x] Verify metahubs-backend tests/build and note any gaps.
+- [x] Update progress.md and activeContext.md with changes.
+
+---
+
+## IMPLEMENT (2026-01-16): Metahubs backend domain refactor
+
+- [x] Inventory current routes/schema/services usage and monorepo imports.
+- [x] Create domain folders (metahubs, hubs, catalogs, attributes, records, publications, runtime-schema, shared) and move code.
+- [x] Rebuild route composition and exports using domain routers (no legacy paths).
+- [x] Update internal imports, tests, and docs to new domain structure.
+- [x] Remove old folders (src/routes, src/schema, src/services, src/schemas) after migration.
+- [x] Verify builds/tests for metahubs-backend and note any gaps.
+- [x] Update progress.md and activeContext.md with refactor summary.
+
+---
+
+## IMPLEMENT (2026-01-15): Metahubs TS verification
+
+- [x] Run targeted TS builds for metahubs-backend and metahubs-frontend to detect errors.
+- [x] Fix any TS errors uncovered by the builds and re-run the affected build.
+- [x] Update progress.md with results and note any decisions in activeContext.md if needed.
+
+---
+
+## IMPLEMENT (2026-01-16): Metahubs frontend modular refactor
+
+- [x] Introduce domain folders for metahubs frontend and move UI pages/actions into domains with compatibility exports.
+- [x] Move API modules into domain folders and keep stable re-exports for existing imports.
+- [x] Update internal imports and tests to match new structure where needed.
+- [x] Verify targeted builds for metahubs-frontend.
+- [x] Update progress.md with refactor summary.
+
+---
+
+## IMPLEMENT (2026-01-16): Metahubs frontend cleanup + domain barrels
+
+- [x] Inventory and update monorepo imports to remove pages/* usage; switch routes to root exports.
+- [x] Introduce domain barrel exports to reduce relative import depth.
+- [x] Domainize metahubs mutations and shared helpers; update imports.
+- [x] Remove obsolete proxy layers (src/pages, src/api) and update package exports/tests.
+- [x] Verify targeted builds/tests for metahubs-frontend.
+- [x] Update progress.md with cleanup summary.
+
+---
+
 ## ✅ COMPLETED (2026-01-15): QA fixes for types unification
 
 - [x] Update roleSchema/memberFormSchema tests for dynamic roles; add empty role rejection test.

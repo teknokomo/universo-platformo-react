@@ -43,6 +43,53 @@
 
 ---
 
+## 2026-01-16
+
+### Metahubs backend domain refactor
+- Moved backend routes into domain folders (metahubs/hubs/catalogs/attributes/records/publications + shared).
+- Extracted runtime DDL tooling to domains/ddl (SchemaGenerator/SchemaMigrator/KnexClient + diff/naming).
+- Removed legacy folders (routes/schema/schemas/services) and updated tests/imports.
+- Updated README structure to reflect the domain layout.
+- Build: pnpm --filter @universo/metahubs-backend build.
+
+### Metahubs backend tests + ddl rename
+- Renamed runtime-schema folder to `domains/ddl` and updated imports/docs.
+- Fixed metahubsRoutes tests to match sorting/search/members enrichment logic.
+- Moved `isolatedModules` setting into `tsconfig.test.json` (removed ts-jest warning).
+- Tests: pnpm --filter @universo/metahubs-backend test.
+
+### Metahubs frontend modular refactor
+- Introduced domain-based folders (metahubs/hubs/catalogs/attributes/records/publications + shared) in metahubs-frontend.
+- Moved UI pages/actions into domain UI modules; added page/action wrappers for compatibility exports.
+- Moved API and hooks into domain modules; kept stable re-exports via src/api.
+- Updated internal imports to use shared query keys and cross-domain API references.
+- Build: pnpm --filter @universo/metahubs-frontend build.
+
+### Metahubs frontend cleanup + domain barrels
+- Removed pages and api proxy layers; updated package exports and entry mocks.
+- Added domain barrel exports and shared API client; reduced cross-domain import depth.
+- Split mutation hooks into per-domain modules; updated UI imports and tests.
+- Updated template-mui routes to lazy-load from root metahubs-frontend exports.
+- Build: pnpm --filter @universo/metahubs-frontend build.
+
+### Metahubs frontend build-first + docs + tests
+- Switched metahubs-frontend to build-first exports (dist entry for `src/index.ts` + tsdown entry updated).
+- Removed temporary `src/index.d.ts` stub; aligned package.json exports to dist.
+- Updated README.md + README-RU.md to drop `/api` imports and align docs structure.
+- Fixed metahubs-frontend tests (api wrappers mock path, view preference mock shape, action factories/mutations/useMetahubDetails mocks).
+- Adjusted vitest coverage include/exclude to focus on metahubs MVP scope.
+- Tests: pnpm --filter @universo/metahubs-frontend test (warnings remain: act/MSW/useHasGlobalAccess).
+- Tests: pnpm --filter @universo/metahubs-backend test (security warn logs expected).
+- Build: full monorepo `pnpm build` successful (tsdown/import.meta + chunk size warnings pre-existing).
+
+### Metahubs API route standardization + test/coverage cleanup
+- Standardized backend routes to singular detail paths (metahub/hub/catalog/attribute/record/publication) and aligned public routes mount.
+- Updated metahubs-frontend API clients, template-mui breadcrumb fetches, and MSW handlers for new paths.
+- Added MSW handler for `/api/v1/profile/settings` and mocked useHasGlobalAccess to reduce test warnings.
+- Restored shared/utils coverage and added tests for queryKeys/localizedInput.
+- Tests: pnpm --filter @universo/metahubs-frontend test; pnpm --filter @universo/metahubs-backend test (security warn logs expected).
+- Build: `pnpm build` started but timed out after ~200s; needs re-run to confirm full build.
+
 ## 2026-01-15
 
 ### Applications connectors refactor
@@ -374,6 +421,12 @@
 - Stability improvements documented.
 
 ---
+
+## 2026-01-15
+
+### Metahubs TS verification
+- Targeted builds: @universo/metahubs-backend and @universo/metahubs-frontend succeeded.
+- No TypeScript errors detected after full rebuild.
 
 ## 2025-12-17
 
