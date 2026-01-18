@@ -158,7 +158,7 @@ const ConnectorBoard = () => {
     const metahubName = metahub ? getVLCString(metahub.name, i18n.language) : null
 
     // Schema info from application (connector is linked to application schema)
-    const schemaName = application?.schemaName ?? `app_${applicationId?.replace(/-/g, '')}`
+    const schemaName = application?.schemaName ?? (applicationId ? `app_${applicationId.replace(/-/g, '')}` : 'app_unknown')
     const schemaStatus: SchemaStatus = (application?.schemaStatus as SchemaStatus) ?? 'draft'
     const schemaSyncedAt = application?.schemaSyncedAt
     const schemaError = application?.schemaError
@@ -179,6 +179,7 @@ const ConnectorBoard = () => {
             })
             setDiffDialogOpen(false)
         } catch (error) {
+            console.error('[ConnectorBoard] Sync failed:', error)
             // Error handled in mutation
         }
     }

@@ -21,6 +21,7 @@ import { MigrationManager } from '../../ddl/MigrationManager'
 import { SchemaGenerator } from '../../ddl/SchemaGenerator'
 import { KnexClient } from '../../ddl/KnexClient'
 import { ChangeType } from '../../ddl/diff'
+import { buildFkConstraintName } from '../../ddl/naming'
 import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl/types'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -351,7 +352,7 @@ async function applyRollbackChange(schemaName: string, change: MigrationChangeRe
         case ChangeType.ADD_FK:
             // Inverse: drop FK constraint
             if (change.tableName && change.columnName) {
-                const constraintName = `fk_${change.tableName}_${change.columnName}`.slice(0, 63)
+                const constraintName = buildFkConstraintName(change.tableName, change.columnName)
                 await trx.raw(`ALTER TABLE ??.?? DROP CONSTRAINT IF EXISTS ??`, [schemaName, change.tableName, constraintName])
             }
             break
