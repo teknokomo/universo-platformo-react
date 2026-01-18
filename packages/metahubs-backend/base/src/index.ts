@@ -14,6 +14,7 @@ export { createCatalogsRoutes } from './domains/catalogs/routes/catalogsRoutes'
 export { createAttributesRoutes } from './domains/attributes/routes/attributesRoutes'
 export { createRecordsRoutes } from './domains/records/routes/recordsRoutes'
 export { createPublicMetahubsRoutes } from './domains/metahubs/routes/publicMetahubsRoutes'
+export { createApplicationMigrationsRoutes } from './domains/applications/routes/applicationMigrationsRoutes'
 export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './domains/router'
 
 // Guard exports
@@ -21,3 +22,29 @@ export { ensureMetahubAccess, ensureHubAccess, ensureCatalogAccess, ensureAttrib
 
 // Migration exports
 export { metahubsMigrations } from './database/migrations/postgres'
+
+// DDL exports (runtime schema management)
+export {
+    SchemaGenerator,
+    SchemaMigrator,
+    MigrationManager,
+    ChangeType,
+    calculateSchemaDiff,
+    generateSchemaName,
+    generateTableName,
+    generateColumnName,
+    buildCatalogDefinitions,
+} from './domains/ddl'
+export type {
+    EntityDefinition,
+    FieldDefinition,
+    SchemaGenerationResult,
+    SchemaSnapshot,
+    MigrationResult,
+    MigrationMeta,
+    MigrationRecord,
+    MigrationChangeRecord,
+    RollbackAnalysis,
+    SchemaDiff,
+    SchemaChange,
+} from './domains/ddl'

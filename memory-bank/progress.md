@@ -43,6 +43,134 @@
 
 ---
 
+## 2026-01-17
+
+### Add DDL Module Unit Tests
+
+**QA Recommendation**: During QA analysis of Metahub → Application publication functionality, it was identified that the DDL module lacks unit tests.
+
+**Implementation**: Created comprehensive unit tests for the DDL module in `packages/metahubs-backend/base/src/tests/ddl/`:
+
+| Test File | Module | Tests |
+|-----------|--------|-------|
+| `naming.test.ts` | `naming.ts` | 5 pure functions: generateSchemaName, generateTableName, generateColumnName, isValidSchemaName, buildFkConstraintName |
+| `diff.test.ts` | `diff.ts` | calculateSchemaDiff with scenarios: initial deployment, add/drop tables, add/drop columns, entity kind changes, summary generation |
+| `snapshot.test.ts` | `snapshot.ts` | buildSchemaSnapshot with entity mapping, field mapping, FK references |
+| `SchemaGenerator.test.ts` | `SchemaGenerator.ts` | Static methods (mapDataType), instance methods (createSchema, dropSchema, generateFullSchema) with Knex mocking |
+| `MigrationManager.test.ts` | `MigrationManager.ts` | generateMigrationName, recordMigration, listMigrations, getMigration with Knex mocking |
+
+**Test Results**: 7 test suites passed, 127 tests total (5 new DDL test files added).
+
+---
+
+### Fix Migrations Page Not Loading Data
+
+**Issue**: Migrations exist in database (`_sys_migrations` table has 2 records) but UI shows "No migrations yet".
+
+**Root cause**: Frontend API client (`migrations.ts`) used wrong URL prefix `/metahubs/application/...` but routes are mounted directly as `/application/...` in the main router. The `applicationMigrationsRoutes` is registered in `metahubsServiceRoutes` without a path prefix.
+
+**Fix**: Removed `/metahubs/` prefix from all 4 migration API functions:
+- `fetchMigrations()`: `/metahubs/application/.../migrations` → `/application/.../migrations`
+- `fetchMigration()`: `/metahubs/application/.../migration/:id` → `/application/.../migration/:id`
+- `analyzeMigrationRollback()`: `/metahubs/application/.../migration/:id/analyze` → `/application/.../migration/:id/analyze`
+- `rollbackMigration()`: `/metahubs/application/.../migration/:id/rollback` → `/application/.../migration/:id/rollback`
+
+**Files modified**:
+- `packages/applications-frontend/base/src/api/migrations.ts` — removed `/metahubs/` prefix from all URLs
+
+**Build**: 63 tasks, 4m49s — all successful.
+
+---
+
+### Fix Schema Status Display + Initial Migration Recording
+
+**Issue 1: ConnectorBoard shows "Draft" when DB has "Synced"**
+- Root cause: `ConnectorBoard` component received `application` as prop from `MainRoutesMUI`, but the prop was never passed (always `undefined`), causing status fallback to `'draft'`.
+- Fix: Added `useApplicationDetails` hook call inside `ConnectorBoard` to fetch application data directly. Removed unused `application` prop from interface.
+
+**Issue 2: Initial schema creation doesn't record migration**
+- Root cause: `generateFullSchema()` creates schema and tables but never calls `recordMigration()`. Only `applyAllChanges()` (for schema updates) recorded migrations.
+- Fix: Added optional `GenerateFullSchemaOptions` parameter with `recordMigration` and `migrationDescription` options. When enabled, records initial migration in `_sys_migrations` table with `snapshotBefore: null` and current state as `snapshotAfter`. Updated sync endpoint in `publicationsRoutes.ts` to pass options.
+
+**Files modified**:
+- `packages/applications-frontend/base/src/pages/ConnectorBoard.tsx` — added `useApplicationDetails`, removed unused prop
+- `packages/metahubs-backend/base/src/domains/ddl/SchemaGenerator.ts` — added `GenerateFullSchemaOptions` interface and migration recording
+- `packages/metahubs-backend/base/src/domains/ddl/index.ts` — exported `GenerateFullSchemaOptions`
+- `packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts` — pass `recordMigration: true` to `generateFullSchema`
+
+**Build verified**: 63 tasks, 4m50s — all successful.
+
+### Fix ConnectorBoard Issues (Breadcrumbs, URL, i18n)
+
+**Issue 1 (Breadcrumbs)**: Added `useConnectorName` hook in `useBreadcrumbName.ts` and `connector` segment handling in `NavbarBreadcrumbs.tsx`. Now shows "Applications > [App Name] > Connectors > [Connector Name]".
+
+**Issue 2 (URL structure)**: Updated route from `/application/:applicationId/connector` to `/application/:applicationId/connector/:connectorId` for future multi-connector support. Updated:
+- `MainRoutesMUI.tsx` route definition
+- `ConnectorBoard.tsx` to use `connectorId` from params with `useConnectorDetails` hook
+- `PublicationList.tsx` navigation to include connectorId
+- `ConnectorList.tsx` navigation to include connectorId
+- Backend `publicationsRoutes.ts` to return `connectorId` in POST/GET/LIST responses
+
+**Issue 3 (Schema diff investigation)**: Added debug logging to `/metahub/:metahubId/publication/:publicationId/diff` endpoint. Logs: metahubId, catalogDefs.length, oldSnapshot status, hasChanges result. User to check server logs for diagnosis.
+
+**Issue 4 (i18n)**: Added `connectors.diffDialog.schemaUpToDate` key (EN: "Schema matches current configuration", RU: "Схема соответствует текущей конфигурации").
+
+Build: `pnpm build` (63 tasks, 5m37s) - successful.
+
+### Fix Schema Creation When Schema Missing
+- Updated ConnectorDiffDialog to treat `schemaExists=false` or `schemaStatus='draft'` as actionable state.
+- Shows localized "Schema not created yet" message and enables sync to create the schema.
+- Added i18n labels for missing schema title and create action (EN + RU).
+- Build: `pnpm --filter @universo/applications-frontend build`.
+
+### Fix Schema Status Display After Sync
+- Added schema fields (`schemaName`, `schemaStatus`, `schemaSyncedAt`, `schemaError`) to single application response.
+- Updated frontend application types and cleaned up temporary debug logs from sync flow.
+- Full build: `pnpm build`.
+
+### Fix Schema Sync Endpoint Path
+- Root cause: frontend called `/api/v1/metahubs/metahub/.../sync` which returned SPA HTML instead of JSON.
+- Fix: use `/api/v1/metahub/.../sync` (and diff) in applications-frontend connectors API.
+- Cleanup: removed temporary debug logs in applications-frontend sync flow, core-backend API middleware, and metahubs-backend sync/diff routes.
+- Builds: `pnpm --filter @universo/applications-frontend build`, `pnpm --filter @flowise/core-frontend build`, `pnpm --filter @flowise/core-backend build`, `pnpm --filter @universo/metahubs-backend build`.
+
+### Fix Connector Metahub Query Error
+- Fixed 500 error on `/applications/:appId/connectors/:connectorId/metahubs` caused by selecting non-existent `m.codename` column.
+- Updated cross-schema join to use `metahubs.metahubs.slug` and map it into `metahub.codename` in response.
+- Ran the join through request-scoped `manager.query()` to preserve RLS context.
+- Build: `pnpm --filter applications-backend build` and full `pnpm build` (63 tasks, 6m28s).
+
+### Fix Migration Recording + Move Sync UI to Applications
+**Issue 1 (Migrations not recorded on schema sync)**:
+- Root cause: `applyAllChanges()` in `publicationsRoutes.ts` was called without `recordMigration: true`.
+- Fix: Added `{ recordMigration: true, migrationDescription: 'schema_sync' }` to the call.
+
+**Issue 2 (i18n missing migrations namespace)**:
+- Root cause: `consolidateApplicationsNamespace` in `applications-frontend/i18n/index.ts` did not include `migrations` key.
+- Fix: Added `migrations?: Record<string, unknown>` to interface and `migrations: bundle?.migrations ?? {}` to return object.
+
+**Issue 3 (Move sync UI from Metahubs to Applications)**:
+- Created `useFirstConnectorDetails` hook that fetches the first connector for an application (no connectorId needed in URL).
+- Updated `ConnectorBoard` to use `useFirstConnectorDetails` instead of `useConnectorDetails`.
+- Changed route from `/application/:applicationId/connector/:connectorId` to `/application/:applicationId/connector`.
+- Changed `PublicationList.tsx` navigation: now navigates to `/application/{id}/connector` (was `/metahub/{id}/publication/{id}`).
+- Changed `ConnectorList.tsx` navigation: now navigates to `/application/{id}/connector` (was `/metahub/{id}/publication/{id}`).
+- Added i18n keys: `connectors.statusDescription.*` (EN + RU).
+- Full build successful (63 tasks, 7m19s).
+
+### Runtime Migrations System Implementation
+- **Phase 1 (Backend MigrationManager)**: Created `MigrationManager.ts` in `domains/ddl` with methods: `generateMigrationName`, `recordMigration`, `listMigrations`, `getMigration`, `analyzeRollbackPath`, `deleteMigration`, `getLatestMigration`. Added `ApplyChangesOptions` interface to `SchemaMigrator` for migration recording during schema sync. Added DDL exports to `metahubs-backend/src/index.ts`.
+- **Phase 2 (Backend Routes)**: Created `applicationMigrationsRoutes.ts` with 4 endpoints: `GET /application/:applicationId/migrations`, `GET /application/:applicationId/migration/:migrationId`, `GET /application/:applicationId/migration/:migrationId/analyze`, `POST /application/:applicationId/migration/:migrationId/rollback`. Mounted in `domains/router.ts`.
+- **Phase 3 (Frontend UI)**: Created `MigrationsTab.tsx` component with expandable table, rollback dialog, and destructive change warnings. Added `api/migrations.ts` API client, `hooks/useMigrations.ts` React Query hooks, and i18n keys (EN + RU) in `applications-frontend`.
+- **Phase 4 (Navigation)**: Created `ApplicationMigrations.tsx` page. Added route `/application/:applicationId/migrations` in `universo-template-mui`. Added "Migrations" menu item with `IconHistory` to Application sidebar. Added i18n keys for menu item (EN + RU).
+- Full build successful (4m54s, 63 tasks).
+
+### Application system metadata tables (Phase 1)
+- Extended metahubs metadata definitions with presentation and UI/validation configs.
+- Added system tables creation + metadata sync to DDL schema generation and migrations.
+- Snapshot version bumped with hasSystemTables flag; sync refreshes metadata when no DDL changes exist.
+- Builds: pnpm --filter @universo/types build; pnpm --filter @universo/metahubs-backend build.
+
 ## 2026-01-16
 
 ### Metahubs backend domain refactor

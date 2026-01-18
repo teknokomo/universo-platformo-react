@@ -94,6 +94,65 @@
             "codenameRequired": "Codename is required",
             "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
         },
+        "status": {
+            "draft": "Draft",
+            "pending": "Syncing...",
+            "synced": "Synced",
+            "outdated": "Outdated",
+            "error": "Error"
+        },
+        "statusDescription": {
+            "draft": "Schema not yet created",
+            "pending": "Synchronization in progress",
+            "synced": "Schema matches current configuration",
+            "outdated": "Schema has pending changes",
+            "error": "Last sync failed"
+        },
+        "sync": {
+            "button": "Sync Schema",
+            "syncing": "Syncing...",
+            "success": "Schema synchronized successfully",
+            "error": "Failed to sync schema",
+            "noChanges": "Schema is up to date",
+            "confirmDestructive": "Apply changes including destructive ones",
+            "cancel": "Cancel",
+            "apply": "Apply Changes"
+        },
+        "schema": {
+            "title": "Schema",
+            "name": "Schema Name",
+            "status": "Status",
+            "lastSync": "Last Synced",
+            "source": "Source Metahub"
+        },
+        "diffDialog": {
+            "title": "Schema Changes",
+            "loading": "Loading changes...",
+            "loadError": "Failed to load schema changes",
+            "noChanges": "No schema changes detected",
+            "schemaUpToDate": "Schema matches current configuration",
+            "schemaMissingTitle": "Schema not created yet",
+            "schemaNotExists": "Schema does not exist yet. It will be created on first sync.",
+            "additive": "Additions",
+            "destructive": "Destructive Changes",
+            "destructiveWarning": "The following changes may result in data loss:",
+            "confirmSync": "Apply Changes",
+            "createSchema": "Create Schema",
+            "confirmDestructive": "Apply Including Destructive",
+            "cancel": "Cancel"
+        },
+        "board": {
+            "title": "Connector Details",
+            "backToConnectors": "Back to connectors",
+            "schemaInfo": "Schema Information",
+            "schemaName": "Schema Name",
+            "schemaStatus": "Status",
+            "lastSync": "Last Sync",
+            "never": "Never",
+            "linkedMetahub": "Linked Metahub",
+            "noMetahubLinked": "No metahub linked",
+            "viewMigrations": "View Migration History"
+        },
         "metahubs": {
             "title": "Linked Metahubs",
             "add": "Add Metahub",
@@ -162,6 +221,31 @@
     "actions": {
         "backToList": "Back to applications",
         "retry": "Retry"
+    },
+    "migrations": {
+        "title": "Migration History",
+        "description": "Schema changes applied to this application database.",
+        "loading": "Loading migrations...",
+        "noMigrations": "No migrations yet",
+        "noMigrationsHint": "Migrations will appear here after schema synchronization",
+        "name": "Migration",
+        "appliedAt": "Applied",
+        "changes": "Changes",
+        "changesCount": "changes",
+        "latest": "Latest",
+        "destructive": "Destructive",
+        "summary": "Summary",
+        "loadError": "Failed to load migrations",
+        "currentState": "Current schema state",
+        "rollbackTo": "Rollback to this migration",
+        "rollbackConfirm": "Confirm Rollback",
+        "rollbackToMigration": "Rollback to migration:",
+        "cannotRollback": "Cannot rollback",
+        "warnings": "Warnings",
+        "rollbackChanges": "Changes to apply:",
+        "analyzing": "Analyzing rollback path...",
+        "rollback": "Rollback",
+        "rollingBack": "Rolling back..."
     },
     "errors": {
         "invalidApplication": "Invalid application",

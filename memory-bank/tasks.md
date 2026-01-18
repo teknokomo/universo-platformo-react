@@ -4,6 +4,191 @@
 
 ---
 
+## IMPLEMENT (2026-01-17): Add DDL Module Unit Tests ✅
+
+### QA Recommendation: Add unit tests for DDL module
+- [x] Study existing test structure (jest.config.js, typeormMocks.ts)
+- [x] Create tests for `naming.ts` - 5 pure functions (generateSchemaName, generateTableName, generateColumnName, isValidSchemaName, buildFkConstraintName)
+- [x] Create tests for `diff.ts` - calculateSchemaDiff with various scenarios (initial, add/drop tables/columns, kind changes)
+- [x] Create tests for `snapshot.ts` - buildSchemaSnapshot with entities and fields
+- [x] Create tests for `SchemaGenerator` - static methods (mapDataType) and instance methods (createSchema, dropSchema, generateFullSchema)
+- [x] Create tests for `MigrationManager` - generateMigrationName, recordMigration, listMigrations, getMigration
+- [x] Run all tests: 7 passed, 127 total (5 DDL test files added)
+
+---
+
+## IMPLEMENT (2026-01-17): Fix Migrations Page Not Loading Data ✅
+
+### Issue: Migrations exist in DB but UI shows "No migrations yet"
+- **Root cause**: Frontend API client used wrong URL prefix `/metahubs/application/...` but routes are mounted directly as `/application/...`
+- [x] Remove `/metahubs/` prefix from `fetchMigrations()` URL
+- [x] Remove `/metahubs/` prefix from `fetchMigration()` URL
+- [x] Remove `/metahubs/` prefix from `analyzeMigrationRollback()` URL
+- [x] Remove `/metahubs/` prefix from `rollbackMigration()` URL
+- [x] Run pnpm build (63 tasks, 4m49s) — all successful
+
+---
+
+## IMPLEMENT (2026-01-17): Fix Schema Status Display + Initial Migration Recording ✅
+
+### Issue 1: ConnectorBoard shows "Draft" when DB has "Synced"
+- **Root cause**: `ConnectorBoard` received `application` as prop but it was never passed from `MainRoutesMUI`
+- [x] Add `useApplicationDetails` hook call in ConnectorBoard to fetch application data directly
+- [x] Remove unused `application` prop from `ConnectorBoardProps`
+
+### Issue 2: Initial schema creation doesn't record migration
+- **Root cause**: `generateFullSchema()` doesn't call `recordMigration()` — only `applyAllChanges()` does
+- [x] Add `GenerateFullSchemaOptions` interface with `recordMigration` and `migrationDescription` options
+- [x] Update `generateFullSchema()` to record initial migration when `recordMigration: true`
+- [x] Export `GenerateFullSchemaOptions` from ddl/index.ts
+- [x] Update sync endpoint in `publicationsRoutes.ts` to pass `{ recordMigration: true, migrationDescription: 'initial_schema' }`
+
+### Build & Verification
+- [x] Run pnpm build (63 tasks, 4m50s) — all successful
+
+---
+
+## IMPLEMENT (2026-01-17): Fix ConnectorBoard Issues ✅
+
+## IMPLEMENT (2026-01-17): Fix Schema Sync Endpoint Path
+
+### Issue: /sync returns HTML (SPA fallback)
+- [x] Update connectors API endpoints to use `/metahub/...` (remove extra `/metahubs` prefix) for diff + sync.
+- [x] Remove temporary debug logs added during diagnosis (applications-frontend connectors API, core-backend API debug middleware, metahubs-backend schema sync/diff logs if no longer needed).
+- [x] Rebuild affected packages (applications-frontend, core-frontend, core-backend, metahubs-backend) and re-verify sync.
+
+### Issue 1: Breadcrumbs don't show "> Коннекторы > Название коннектора"
+- [x] Create `useConnectorName` hook in useBreadcrumbName.ts.
+- [x] Export `useConnectorName` from hooks/index.ts.
+- [x] Add `connector` segment handling in NavbarBreadcrumbs.tsx.
+
+### Issue 2: URL lacks connectorId (future multi-connector support)
+- [x] Update route from `connector` to `connector/:connectorId` in MainRoutesMUI.tsx.
+- [x] Update ConnectorBoard to use `connectorId` from params.
+- [x] Update PublicationList navigation to include connectorId.
+- [x] Update ConnectorList navigation to include connectorId.
+- [x] Update backend to return connectorId in publication responses (POST, GET, LIST).
+
+### Issue 3: Schema diff shows "No changes detected" for new publication
+- [x] Add debug logging to backend diff endpoint (catalogDefs.length, oldSnapshot, hasChanges).
+- [x] Treat missing schema as actionable diff in ConnectorDiffDialog (use schemaExists to allow create).
+- [x] User to verify schema creation works via sync dialog.
+
+### Issue 4: Missing i18n translation
+- [x] Add `schemaUpToDate` key to EN i18n.
+- [x] Add `schemaUpToDate` key to RU i18n.
+
+### Build & Verification
+- [x] Run pnpm build and verify (63 tasks, 5m37s - all successful).
+- [x] Update memory-bank files.
+
+---
+
+## IMPLEMENT (2026-01-17): Fix Connector Metahub Query Error
+
+### Issue: GET /applications/:appId/connectors/:connectorId/metahubs returns 500
+- [x] Update cross-schema join to use `metahubs.metahubs.slug` (no `codename` column).
+- [x] Build applications-backend.
+- [x] Run full workspace build.
+- [x] Update memory-bank files.
+
+---
+
+## IMPLEMENT (2026-01-17): Fix Sync Button Disabled (Missing Metahub Data) ✅
+
+### Issue: Sync button always disabled for new publications
+- **Root cause**: Backend returned `ConnectorMetahub` links without nested `metahub` object (only `metahubId`).
+- **Frontend expected**: `linkedMetahubs[0].metahub` to contain metahub details, but it was undefined.
+- [x] Update `connectorsRoutes.ts` GET endpoint to use cross-schema SQL join with `metahubs.metahubs` table.
+- [x] Transform response to include nested `metahub` object with id, codename, name, description.
+- [x] Update `ConnectorMetahub` type in `types.ts` to include optional `metahub?: MetahubSummary | null`.
+- [x] Update `useConnectorMetahubs.ts` hooks to handle nullish coalescing (`?? null`).
+- [x] Build and verify (63 tasks, 6m29s) — all successful.
+
+---
+
+## IMPLEMENT (2026-01-17): Fix i18n Keys in ConnectorBoard ✅
+
+### Issue: Non-working Sync button (i18n object error)
+- [x] Fix `t('connectors.sync', ...)` → `t('connectors.sync.button', ...)` and `t('connectors.sync.syncing', ...)`.
+- [x] Fix `t('connectors.viewMigrations', ...)` → `t('connectors.board.viewMigrations', ...)`.
+- [x] Add missing `connectors.schema.*` keys (title, name, status, lastSync, source) to EN i18n.
+- [x] Add missing `connectors.schema.*` keys to RU i18n.
+- [x] Build and verify (63 tasks, 6m42s) — all successful.
+- [x] Update memory-bank files.
+
+---
+
+## IMPLEMENT (2026-01-17): Fix Migration Recording + Move Sync UI to Applications ✅
+
+### Issue 1: Migrations not recorded on schema sync ✅
+- [x] Add `{recordMigration: true, migrationDescription: 'schema_sync'}` to `applyAllChanges()` in publicationsRoutes.ts.
+
+### Issue 2: i18n consolidation missing migrations namespace ✅
+- [x] Add `migrations?: Record<string, unknown>` to ApplicationsBundle interface.
+- [x] Add `migrations: bundle?.migrations ?? {}` to consolidateApplicationsNamespace return.
+
+### Issue 3: Move sync UI from Metahubs to Applications ✅
+- [x] Create sync API functions in applications-frontend/api/connectors.ts.
+- [x] Create useSyncConnector mutation hook.
+- [x] Create useConnectorSync hook for diff fetching.
+- [x] Create useFirstConnectorDetails hook (fetches first connector by applicationId).
+- [x] Create ConnectorDiffDialog component.
+- [x] Create ConnectorBoard page (uses useFirstConnectorDetails, no connectorId in URL).
+- [x] Export ConnectorDiffDialog from components/index.ts.
+- [x] Change route to `/application/:applicationId/connector` (without connectorId).
+- [x] Change PublicationList navigation to `/application/{id}/connector`.
+- [x] Change ConnectorList navigation to `/application/{id}/connector`.
+- [x] Add i18n keys: connectors.status, connectors.statusDescription, connectors.sync, connectors.diffDialog, connectors.board (EN + RU).
+
+### Build & Verification ✅
+- [x] Run pnpm build (63 tasks, 7m19s) — all successful.
+- [x] Update memory-bank files.
+
+---
+
+## IMPLEMENT (2026-01-17): Runtime Migrations with Knex
+
+### Phase 1: Backend - Runtime Migrations Engine ✅
+- [x] Create MigrationManager class in domains/ddl with migration recording and listing.
+- [x] Add recordMigration() method to SchemaGenerator.
+- [x] Implement listMigrations() for retrieving migration history.
+- [x] Implement rollbackMigration() with destructive change blocking.
+- [x] Add analyzeRollbackPath() to check if rollback is safe.
+- [x] Add DDL exports to metahubs-backend/src/index.ts.
+
+### Phase 2: Backend - Application Migration Routes ✅
+- [x] Create applicationMigrationsRoutes.ts in metahubs-backend.
+- [x] Add GET /application/:applicationId/migrations endpoint.
+- [x] Add GET /application/:applicationId/migrations/:id/analyze endpoint.
+- [x] Add POST /application/:applicationId/migrations/:id/rollback endpoint.
+- [x] Mount routes in metahubs-backend router.ts.
+- [x] Update flowise-core-backend to expose new routes (via metahubs-backend index.ts).
+
+### Phase 3: Frontend - Applications UI ✅
+- [x] Create MigrationsTab component in applications-frontend.
+- [x] Add migrations API client and hooks.
+- [x] Move/adapt SchemaSyncPanel from metahubs to applications (migrations tab replaces sync panel).
+- [x] Add rollback UI with destructive change warnings.
+- [x] Add i18n keys for migrations UI (EN + RU).
+
+### Phase 4: Navigation & Integration ✅
+- [x] Add "Migrations" tab to ApplicationBoard tabbed interface (created ApplicationMigrations page).
+- [x] Add route `/application/:applicationId/migrations` in universo-template-mui.
+- [x] Add Migrations menu item to Application sidebar with IconHistory.
+- [x] Add i18n keys for "migrations" menu item (EN + RU).
+- [ ] Add Publications menu item to Application sidebar (navigate to linked Metahubs) — DEFERRED: requires Connector→Metahub API.
+- [ ] Update breadcrumbs for Publications → Metahub → Application path — DEFERRED: complex navigation flow.
+
+### Phase 5: Documentation & Testing
+- [ ] Add unit tests for MigrationManager.
+- [ ] Add integration tests for migration routes.
+- [ ] Update metahubs-backend README (EN/RU).
+- [ ] Update applications-frontend README (EN/RU).
+- [ ] Update memory-bank files.
+
+---
+
 ## In Progress / QA Follow-ups
 
 - [x] QA cleanup: add MSW handler for connectors metahubs requests in applications-frontend tests.
@@ -21,6 +206,19 @@
 - [ ] Manual QA: delete attribute and confirm UI "#" renumbers 1..N (hub + hub-less).
 - [ ] Manual QA: create records repeatedly and confirm UI does not hang.
 - [ ] Confirm server logs show QueryRunner cleanup per request.
+
+---
+
+## IMPLEMENT (2026-01-17): Application system metadata tables (Phase 1)
+
+- [x] Extend @universo/types with MetaPresentation + exports for metahubs metadata.
+- [x] Extend DDL types to include presentation + sys metadata shapes.
+- [x] Populate presentation/validation/uiConfig in buildCatalogDefinitions.
+- [x] Add system tables + DML registration in SchemaGenerator (transaction-safe).
+- [x] Update SchemaMigrator for DML changes + new change types.
+- [x] Bump schema snapshot version and add hasSystemTables/backward-compat logic.
+- [x] Verify builds/tests for @universo/types and @universo/metahubs-backend.
+- [x] Update memory-bank activeContext.md and progress.md.
 
 ---
 

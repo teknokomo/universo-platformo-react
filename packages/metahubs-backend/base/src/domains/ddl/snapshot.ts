@@ -1,12 +1,13 @@
 import type { EntityDefinition, SchemaSnapshot } from './types'
 import { generateColumnName, generateTableName } from './naming'
 
-export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 2
+export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 3
 
 export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapshot => {
     const snapshot: SchemaSnapshot = {
         version: CURRENT_SCHEMA_SNAPSHOT_VERSION,
         generatedAt: new Date().toISOString(),
+        hasSystemTables: true,
         entities: {},
     }
 

@@ -540,7 +540,14 @@ const PublicationList = () => {
     }
 
     const goToPublication = (publication: Publication) => {
-        navigate(`/metahub/${metahubId}/publication/${publication.id}`)
+        // Navigate to Application connector page (Publication ID = Application ID)
+        // Use connectorId if available (new publications), otherwise this will fail gracefully
+        if (publication.connectorId) {
+            navigate(`/application/${publication.id}/connector/${publication.connectorId}`)
+        } else {
+            // Fallback: navigate to connectors list for legacy publications
+            navigate(`/application/${publication.id}/connectors`)
+        }
     }
 
     const handleChange = (_event: any, nextView: string | null) => {
@@ -679,7 +686,14 @@ const PublicationList = () => {
                                         data={visiblePublications.map(getPublicationCardData)}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: any) => (row?.id ? `/metahub/${metahubId}/publication/${row.id}` : undefined)}
+                                        getRowLink={(row: any) => {
+                                            if (!row?.id) return undefined
+                                            const original = publications.find((p) => p.id === row.id)
+                                            if (original?.connectorId) {
+                                                return `/application/${row.id}/connector/${original.connectorId}`
+                                            }
+                                            return `/application/${row.id}/connectors`
+                                        }}
                                         customColumns={publicationColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: any) => {

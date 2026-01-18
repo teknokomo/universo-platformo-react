@@ -29,6 +29,13 @@ Backend service for managing metahubs, hubs, catalogs, attributes, records, and 
 - Application-level authorization with metahub/hub/catalog guards
 - Rate limiting protection against DoS attacks
 
+### DDL & Schema Generation
+- Dynamic PostgreSQL schema generation from Metahub definitions
+- System metadata tables (`_sys_objects`, `_sys_attributes`, `_sys_migrations`) for runtime introspection
+- Transactional DDL+DML operations with automatic rollback on failure
+- Schema diff calculation and incremental migrations
+- Advisory locks for concurrent migration protection
+
 ### Database Integration
 - TypeORM Repository pattern for all data operations
 - PostgreSQL with JSONB support for metadata
@@ -138,6 +145,17 @@ PATCH  /metahub/:m/catalog/:c/record/:recordId                    # Update recor
 DELETE /metahub/:m/catalog/:c/record/:recordId                    # Delete record (direct)
 ```
 
+### Publications Endpoints (Schema Sync)
+```http
+GET    /metahub/:metahubId/publications                           # List publications
+POST   /metahub/:metahubId/publications                           # Create publication
+GET    /metahub/:metahubId/publication/:id                        # Get publication details
+PATCH  /metahub/:metahubId/publication/:id                        # Update publication
+DELETE /metahub/:metahubId/publication/:id                        # Delete publication + schema
+GET    /metahub/:metahubId/publication/:id/diff                   # Get schema diff
+POST   /metahub/:metahubId/publication/:id/sync                   # Sync schema to database
+```
+
 ### Request/Response Examples
 
 #### Create Metahub
@@ -197,6 +215,55 @@ Content-Type: application/json
 Notes:
 - Junction tables use `UNIQUE` constraints per pair and `ON DELETE CASCADE` for referential integrity.
 - A catalog can belong to multiple hubs within the same metahub.
+
+### System Tables (per Application schema)
+
+When a Metahub is published to an Application, the following system tables are created:
+
+- `_sys_objects`: Registry of all metadata objects (catalogs, documents, hubs) with presentation and config.
+- `_sys_attributes`: Field definitions with data types, validation rules, and UI configuration.
+- `_sys_migrations`: History of applied schema migrations.
+
+These tables enable runtime introspection and Server-Driven UI generation.
+
+#### `_sys_objects` — Metadata Object Registry
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key. Matches the source object UUID from Metahub for traceability. |
+| `kind` | VARCHAR(20) | Discriminator column indicating object class: `catalog`, `document`, `hub`. Used by the kernel to determine object behavior. |
+| `codename` | VARCHAR(100) | System name for API/code usage (e.g., `products`, `orders`). |
+| `table_name` | VARCHAR(255) | Physical table name in the schema (e.g., `cat_019bca...`). |
+| `presentation` | JSONB | Localized display name and description using VLC format: `{"name": {"_schema": "1", "locales": {"en": "Products"}}}`. |
+| `config` | JSONB | Type-specific settings. For catalogs: `{"hierarchy": true}`. For documents: `{"posting": "realtime"}`. |
+| `created_at` | TIMESTAMP | Record creation timestamp. |
+| `updated_at` | TIMESTAMP | Last modification timestamp. |
+
+#### `_sys_attributes` — Field Definitions
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key. Matches the source attribute UUID from Metahub. |
+| `object_id` | UUID FK | Reference to `_sys_objects.id` (the owning object). |
+| `codename` | VARCHAR(100) | System field name for API/code (e.g., `article_number`). |
+| `column_name` | VARCHAR(255) | Physical column name in the table (e.g., `attr_019bca...`). |
+| `data_type` | VARCHAR(20) | Logical data type: `STRING`, `NUMBER`, `BOOLEAN`, `DATE`, `DATETIME`, `REF`, `JSON`. |
+| `is_required` | BOOLEAN | Whether the field is mandatory (NOT NULL constraint). |
+| `target_object_id` | UUID FK | For `REF` type only: references `_sys_objects.id` of the target object. Enables UI to render relationship selectors. |
+| `presentation` | JSONB | Localized field label using VLC format. |
+| `validation_rules` | JSONB | Business validation rules beyond basic type: `{"minLength": 3, "maxLength": 100, "pattern": "^[A-Z]+$"}`. |
+| `ui_config` | JSONB | UI widget configuration for Server-Driven UI: `{"widget": "textarea", "rows": 5, "placeholder": "Enter description..."}`. |
+| `created_at` | TIMESTAMP | Record creation timestamp. |
+| `updated_at` | TIMESTAMP | Last modification timestamp. |
+
+#### `_sys_migrations` — Schema Migration History
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key (auto-generated UUID v7). |
+| `name` | VARCHAR(255) | Unique migration identifier (e.g., `v3_add_customer_table`). |
+| `applied_at` | TIMESTAMP | When the migration was applied. |
+| `meta` | JSONB | Additional metadata about the migration (changes applied, source version). |
 
 ## Validation & Business Rules
 

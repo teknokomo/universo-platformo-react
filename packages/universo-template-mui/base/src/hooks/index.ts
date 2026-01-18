@@ -30,6 +30,7 @@ export {
     useCatalogName,
     useCatalogNameStandalone,
     useAttributeName,
+    useConnectorName,
     // Pre-configured truncate functions
     truncateMetaverseName,
     truncateMetahubName,
@@ -43,6 +44,7 @@ export {
     truncatePublicationName,
     truncateHubName,
     truncateCatalogName,
-    truncateAttributeName
+    truncateAttributeName,
+    truncateConnectorName
 } from './useBreadcrumbName'
 export type { EntityNameHookConfig, EntityNameFetcher } from './useBreadcrumbName'

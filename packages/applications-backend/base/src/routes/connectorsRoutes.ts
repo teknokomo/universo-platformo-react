@@ -336,14 +336,16 @@ export function createConnectorsRoutes(
 
     /**
      * GET /applications/:applicationId/connectors/:connectorId/metahubs
-     * List all metahubs linked to a connector
+     * List all metahubs linked to a connector (with metahub details)
      */
     router.get(
         '/applications/:applicationId/connectors/:connectorId/metahubs',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const { connectorRepo, connectorMetahubRepo } = repos(req)
+            const { connectorRepo } = repos(req)
+            const ds = getDataSource()
+            const manager = getRequestManager(req, ds)
 
             // Verify connector belongs to application
             const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
@@ -351,14 +353,42 @@ export function createConnectorsRoutes(
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            const links = await connectorMetahubRepo.find({
-                where: { connectorId },
-                order: { sortOrder: 'ASC' },
-            })
+            // Fetch links with metahub details via cross-schema join
+            const linksWithMetahubs = await manager.query(`
+                SELECT 
+                    cm.id,
+                    cm.connector_id AS "connectorId",
+                    cm.metahub_id AS "metahubId",
+                    cm.sort_order AS "sortOrder",
+                    cm.created_at AS "createdAt",
+                    m.id AS "metahub_id",
+                    m.slug AS "metahub_codename",
+                    m.name AS "metahub_name",
+                    m.description AS "metahub_description"
+                FROM applications.connectors_metahubs cm
+                LEFT JOIN metahubs.metahubs m ON m.id = cm.metahub_id
+                WHERE cm.connector_id = $1
+                ORDER BY cm.sort_order ASC
+            `, [connectorId])
+
+            // Transform to expected format with nested metahub object
+            const items = linksWithMetahubs.map((row: Record<string, unknown>) => ({
+                id: row.id,
+                connectorId: row.connectorId,
+                metahubId: row.metahubId,
+                sortOrder: row.sortOrder,
+                createdAt: row.createdAt,
+                metahub: row.metahub_id ? {
+                    id: row.metahub_id,
+                    codename: row.metahub_codename,
+                    name: row.metahub_name,
+                    description: row.metahub_description
+                } : null
+            }))
 
             return res.json({
-                items: links,
-                total: links.length,
+                items,
+                total: items.length,
                 isSingleMetahub: connector.isSingleMetahub,
                 isRequiredMetahub: connector.isRequiredMetahub,
             })

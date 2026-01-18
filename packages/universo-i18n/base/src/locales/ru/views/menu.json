@@ -43,6 +43,7 @@
         "domains": "Домены",
         "applications": "Приложения",
         "connectors": "Коннекторы",
+        "migrations": "Миграции",
         "hubs": "Хабы",
         "catalogs": "Каталоги",
         "attributes": "Атрибуты",

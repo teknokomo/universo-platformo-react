@@ -48,6 +48,10 @@ if (!userId) return
 -   **Files**: `packages/flowise-core-frontend/base/src/i18n/locales/en.json` & `ru.json`
 -   **Gotcha**: Some feature packages consolidate and **flatten** nested translation bundles into a single namespace; component translation keys must match the registered shape (inspect the package `src/i18n/index.ts`). Also, when an app exports a consolidated namespace bundle, every new top-level block (e.g., `applications`, `actions`) must be included in the merge, or the UI will render raw i18n keys.
 
+#### 3.1 Metahub Identifier Field
+-   **Metahub table**: `metahubs.metahubs` uses `slug` (not `codename`) as the URL-friendly identifier.
+-   **Implication**: Cross-schema joins must select `slug` and map it to frontend `codename` when needed.
+
 #### 4. UPDL Nodes & Multi-Technology Export
 
 -   **Location**: `packages/` directory (custom application layer)
