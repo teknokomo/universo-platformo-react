@@ -80,6 +80,8 @@ const repo = getDataSource().getRepository(MyEntity)
 return repo.find({ where: { ... } })
 ```
 
+**Exception (cross-schema joins)**: When TypeORM cannot model cross-schema relations (e.g., connectors ↔ metahubs), use raw SQL **only** via the request-scoped manager: `getRequestManager(req, ds).query(...)`. This preserves RLS context.
+
 ## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 
 **Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.
@@ -148,6 +150,21 @@ const StrictModeWrapper = import.meta.env.DEV ? React.StrictMode : React.Fragmen
 ```typescript
 export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... })
 ```
+
+## Runtime Migration Pattern (CRITICAL)
+
+**Rule**: All schema changes must be recorded in `_sys_migrations` table within Application schema.
+**Required**: Use `MigrationManager.recordMigration()` after applying DDL changes via `SchemaMigrator`.
+**Migration Format**: `YYYYMMDD_HHMMSS_<description>` (e.g., `20260117_143000_add_products_table`).
+**Components**:
+- `MigrationManager`: CRUD for migrations, rollback analysis.
+- `SchemaMigrator.applyAllChanges({ recordMigration: true, description })`: records migration with snapshot.
+**Rollback Policy**: Block rollback if path contains destructive changes (DROP_TABLE, DROP_COLUMN, destructive ALTER_COLUMN).
+**Detection**: `rg "recordMigration" packages`.
+**Symptoms**:
+- Schema changes not tracked.
+- Rollback fails silently.
+**Fix**: Always pass `recordMigration: true` when applying schema changes that should be reversible.
 **Why**: keeps services testable and side-effect free.
 
 ## TanStack Query Cache Correctness + v5 Patterns (CRITICAL)

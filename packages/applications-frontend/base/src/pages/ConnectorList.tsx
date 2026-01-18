@@ -568,9 +568,9 @@ const ConnectorList = () => {
                                 >
                                     {connectors.map((connector: Connector) => {
                                         const descriptors = [...connectorActions]
-                                        const metahubId = connectorMetahubMap[connector.id]
-                                        const connectorHref = metahubId && applicationId
-                                            ? `/metahub/${metahubId}/publication/${applicationId}`
+                                        // Navigate to connector board within Applications
+                                        const connectorHref = applicationId
+                                            ? `/application/${applicationId}/connector/${connector.id}`
                                             : undefined
 
                                         return (
@@ -613,9 +613,9 @@ const ConnectorList = () => {
                                         images={images}
                                         isLoading={isLoading}
                                         getRowLink={(row: any) => {
-                                            const metahubId = connectorMetahubMap[row.id]
-                                            return metahubId && applicationId
-                                                ? `/metahub/${metahubId}/publication/${applicationId}`
+                                            // Navigate to connector board within Applications
+                                            return applicationId && row?.id
+                                                ? `/application/${applicationId}/connector/${row.id}`
                                                 : undefined
                                         }}
                                         customColumns={connectorColumns}

@@ -53,7 +53,28 @@ export const applicationsQueryKeys = {
     },
 
     connectorDetail: (applicationId: string, connectorId: string) =>
-        [...applicationsQueryKeys.connectors(applicationId), 'detail', connectorId] as const
+        [...applicationsQueryKeys.connectors(applicationId), 'detail', connectorId] as const,
+
+    // Connector schema diff (for sync dialog)
+    connectorDiff: (applicationId: string, connectorId: string) =>
+        [...applicationsQueryKeys.connectorDetail(applicationId, connectorId), 'diff'] as const,
+
+    // Migrations scoped to a specific application
+    migrations: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'migrations'] as const,
+
+    migrationsList: (applicationId: string, params?: { limit?: number; offset?: number }) => {
+        const normalized = {
+            limit: params?.limit ?? 50,
+            offset: params?.offset ?? 0
+        }
+        return [...applicationsQueryKeys.migrations(applicationId), 'list', normalized] as const
+    },
+
+    migrationDetail: (applicationId: string, migrationId: string) =>
+        [...applicationsQueryKeys.migrations(applicationId), 'detail', migrationId] as const,
+
+    migrationAnalysis: (applicationId: string, migrationId: string) =>
+        [...applicationsQueryKeys.migrations(applicationId), 'analysis', migrationId] as const
 }
 
 /**
@@ -80,4 +101,15 @@ export const invalidateConnectorsQueries = {
 
     detail: (queryClient: QueryClient, applicationId: string, connectorId: string) =>
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectorDetail(applicationId, connectorId) })
+}
+
+export const invalidateMigrationsQueries = {
+    all: (queryClient: QueryClient, applicationId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrations(applicationId) }),
+
+    lists: (queryClient: QueryClient, applicationId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrationsList(applicationId, {}) }),
+
+    detail: (queryClient: QueryClient, applicationId: string, migrationId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrationDetail(applicationId, migrationId) })
 }

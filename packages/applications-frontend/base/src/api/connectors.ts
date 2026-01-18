@@ -54,3 +54,66 @@ export const updateConnector = (applicationId: string, connectorId: string, data
  */
 export const deleteConnector = (applicationId: string, connectorId: string) =>
     apiClient.delete<void>(`/applications/${applicationId}/connectors/${connectorId}`)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Schema Sync API (via metahubs endpoints)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Schema diff response
+ */
+export interface SchemaDiffResponse {
+    schemaExists: boolean
+    diff: {
+        hasChanges?: boolean
+        summary: string
+        additive: string[]
+        destructive: string[]
+    }
+}
+
+/**
+ * Sync response
+ */
+export interface SchemaSyncResponse {
+    status: 'created' | 'synced' | 'migrated' | 'pending_confirmation'
+    schemaName?: string
+    tablesCreated?: string[]
+    changesApplied?: number
+    message: string
+    diff?: {
+        summary: string
+        additive: string[]
+        destructive: string[]
+    }
+}
+
+/**
+ * Get schema diff for a connector (via metahubs endpoint)
+ * The connector is linked to a metahub via connector_metahubs junction table
+ */
+export const getConnectorDiff = async (
+    metahubId: string,
+    applicationId: string
+): Promise<SchemaDiffResponse> => {
+    // The publication ID is the same as application ID (Publication = Application alias)
+    const response = await apiClient.get<SchemaDiffResponse>(
+        `/metahub/${metahubId}/publication/${applicationId}/diff`
+    )
+    return response.data
+}
+
+/**
+ * Sync connector schema with metahub configuration
+ */
+export const syncConnector = async (
+    metahubId: string,
+    applicationId: string,
+    confirmDestructive = false
+): Promise<SchemaSyncResponse> => {
+    const response = await apiClient.post<SchemaSyncResponse>(
+        `/metahub/${metahubId}/publication/${applicationId}/sync`,
+        { confirmDestructive }
+    )
+    return response.data
+}

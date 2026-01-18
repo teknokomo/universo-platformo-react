@@ -52,6 +52,10 @@ export interface Application {
     isPublic: boolean
     createdAt: string
     updatedAt: string
+    schemaName?: string | null
+    schemaStatus?: 'draft' | 'pending' | 'synced' | 'outdated' | 'error' | null
+    schemaSyncedAt?: string | null
+    schemaError?: string | null
     connectorsCount?: number
     membersCount?: number
     role?: ApplicationRole
@@ -108,6 +112,7 @@ export interface Connector {
 
 /**
  * ConnectorMetahub - junction table linking Connector to Metahub
+ * When fetched via API, includes nested metahub details
  */
 export interface ConnectorMetahub {
     id: string
@@ -115,6 +120,8 @@ export interface ConnectorMetahub {
     metahubId: string
     sortOrder: number
     createdAt: string
+    /** Metahub details (populated by backend join) */
+    metahub?: MetahubSummary | null
 }
 
 /**

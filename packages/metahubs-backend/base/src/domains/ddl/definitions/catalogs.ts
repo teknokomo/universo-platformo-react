@@ -26,12 +26,21 @@ export const buildCatalogDefinitions = async (
             id: catalog.id,
             kind: MetaEntityKind.CATALOG,
             codename: catalog.codename,
+            presentation: {
+                name: catalog.name,
+                description: catalog.description,
+            },
             fields: attributes.map((attr) => ({
                 id: attr.id,
                 codename: attr.codename,
                 dataType: attr.dataType,
                 isRequired: attr.isRequired,
                 targetEntityId: attr.targetCatalogId ?? null,
+                presentation: {
+                    name: attr.name,
+                },
+                validationRules: attr.validationRules as Record<string, unknown>,
+                uiConfig: attr.uiConfig as Record<string, unknown>,
             })),
         })
     }

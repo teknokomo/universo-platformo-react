@@ -15,3 +15,8 @@ export type { ConnectorMetahubInfoWrapperProps } from './ConnectorMetahubInfoWra
 
 export { ConnectorDeleteDialog } from './ConnectorDeleteDialog'
 export type { ConnectorDeleteDialogProps } from './ConnectorDeleteDialog'
+
+export { ConnectorDiffDialog } from './ConnectorDiffDialog'
+export type { ConnectorDiffDialogProps } from './ConnectorDiffDialog'
+
+export { MigrationsTab } from './MigrationsTab'

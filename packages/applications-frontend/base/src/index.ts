@@ -5,6 +5,7 @@ import './i18n'
 export { default as ApplicationList } from './pages/ApplicationList'
 export { default as ApplicationBoard } from './pages/ApplicationBoard'
 export { default as ApplicationMembers } from './pages/ApplicationMembers'
+export { default as ApplicationMigrations } from './pages/ApplicationMigrations'
 export { default as ApplicationActions } from './pages/ApplicationActions'
 export { default as ApplicationMemberActions } from './pages/ApplicationMemberActions'
 

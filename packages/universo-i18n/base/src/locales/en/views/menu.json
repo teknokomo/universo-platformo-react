@@ -43,6 +43,7 @@
         "domains": "Domains",
         "applications": "Applications",
         "connectors": "Connectors",
+        "migrations": "Migrations",
         "hubs": "Hubs",
         "catalogs": "Catalogs",
         "attributes": "Attributes",

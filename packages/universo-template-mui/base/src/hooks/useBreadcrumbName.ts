@@ -366,6 +366,33 @@ export function useMetahubPublicationName(metahubId: string | null, publicationI
 // Backward-compatible alias
 export const useMetahubApplicationName = useMetahubPublicationName
 
+/**
+ * Hook to fetch Connector name for breadcrumb display.
+ * Requires applicationId and connectorId since Connector API is nested under Application.
+ */
+export function useConnectorName(applicationId: string | null, connectorId: string | null): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'connector', applicationId, connectorId],
+        queryFn: async () => {
+            if (!applicationId || !connectorId) return null
+            const response = await fetch(`/api/v1/applications/${applicationId}/connectors/${connectorId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(applicationId && connectorId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
 // ============================================================
 // Pre-configured truncate functions
 // ============================================================
@@ -408,3 +435,6 @@ export const truncateCatalogName = createTruncateFunction(30)
 
 /** Truncate attribute name with ellipsis (default: 30 chars) */
 export const truncateAttributeName = createTruncateFunction(30)
+
+/** Truncate connector name with ellipsis (default: 30 chars) */
+export const truncateConnectorName = createTruncateFunction(30)

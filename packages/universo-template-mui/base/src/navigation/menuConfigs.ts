@@ -23,7 +23,8 @@ import {
     IconUsersGroup,
     IconUserShield,
     IconLanguage,
-    IconApps
+    IconApps,
+    IconHistory
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -161,6 +162,12 @@ export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem
         titleKey: 'connectors',
         url: `/application/${applicationId}/connectors`,
         icon: IconHierarchy3
+    },
+    {
+        id: 'application-migrations',
+        titleKey: 'migrations',
+        url: `/application/${applicationId}/migrations`,
+        icon: IconHistory
     },
     {
         id: 'application-access',

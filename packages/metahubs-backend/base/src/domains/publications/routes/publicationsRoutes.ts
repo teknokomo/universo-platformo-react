@@ -131,20 +131,27 @@ export function createPublicationsRoutes(
                 return res.json({ items: [], total: 0 })
             }
 
-            // Get unique publication IDs from connectors
-            const publicationIds = [...new Set(
-                connectorMetahubs.map((cm) => cm.connector.applicationId)
-            )]
+            // Get unique publication IDs from connectors and map to first connectorId
+            const publicationConnectorMap = new Map<string, string>()
+            for (const cm of connectorMetahubs) {
+                const pubId = cm.connector.applicationId
+                // Keep first connector for each publication
+                if (!publicationConnectorMap.has(pubId)) {
+                    publicationConnectorMap.set(pubId, cm.connectorId)
+                }
+            }
+            const publicationIds = [...publicationConnectorMap.keys()]
 
             const publications = await publicationRepo.find({
                 where: { id: In(publicationIds) },
                 order: { createdAt: 'DESC' },
             })
 
-            // Enrich with metahubId for backwards compatibility with frontend
+            // Enrich with metahubId and connectorId for navigation
             const enrichedPublications = publications.map((publication) => ({
                 ...publication,
                 metahubId, // Frontend expects this field
+                connectorId: publicationConnectorMap.get(publication.id), // For navigation to connector
             }))
 
             return res.json({
@@ -246,13 +253,14 @@ export function createPublicationsRoutes(
                 })
                 await connectorMetahubRepo.save(connectorMetahub)
 
-                return publication
+                return { publication, connector }
             })
 
-            // Return with metahubId for frontend compatibility
+            // Return with metahubId and connectorId for frontend compatibility
             return res.status(201).json({
-                ...result,
+                ...result.publication,
                 metahubId,
+                connectorId: result.connector.id,
             })
         })
     )
@@ -267,7 +275,7 @@ export function createPublicationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
-            const { publicationRepo, connectorMetahubRepo, metahubRepo } = repos(req)
+            const { publicationRepo, connectorMetahubRepo, metahubRepo, connectorRepo } = repos(req)
 
             // Verify metahub exists
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
@@ -292,9 +300,16 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not linked to this Metahub' })
             }
 
+            // Get the first connector for this publication (for navigation)
+            const connector = await connectorRepo.findOne({
+                where: { applicationId: publicationId },
+                order: { sortOrder: 'ASC' }
+            })
+
             return res.json({
                 ...publication,
                 metahubId,
+                connectorId: connector?.id,
             })
         })
     )
@@ -562,10 +577,11 @@ export function createPublicationsRoutes(
 
             try {
                 if (!schemaExists) {
-                    // Create new schema
+                    // Create new schema with initial migration recording
                     const result = await generator.generateFullSchema(
                         publication.schemaName!,
-                        catalogDefs
+                        catalogDefs,
+                        { recordMigration: true, migrationDescription: 'initial_schema' }
                     )
 
                     if (!result.success) {
@@ -602,7 +618,13 @@ export function createPublicationsRoutes(
                 const diff = migrator.calculateDiff(oldSnapshot, catalogDefs)
 
                 if (!diff.hasChanges) {
+                    await generator.syncSystemMetadata(publication.schemaName!, catalogDefs)
+
+                    const snapshot = generator.generateSnapshot(catalogDefs)
                     publication.schemaStatus = PublicationSchemaStatus.SYNCED
+                    publication.schemaSnapshot = snapshot as unknown as Record<string, unknown>
+                    publication.schemaError = null
+                    publication.schemaSyncedAt = new Date()
                     await publicationRepo.save(publication)
 
                     return res.json({
@@ -627,12 +649,13 @@ export function createPublicationsRoutes(
                     })
                 }
 
-                // Apply migration
+                // Apply migration with recording
                 const migrationResult = await migrator.applyAllChanges(
                     publication.schemaName!,
                     diff,
                     catalogDefs,
-                    confirmDestructive
+                    confirmDestructive,
+                    { recordMigration: true, migrationDescription: 'schema_sync' }
                 )
 
                 if (!migrationResult.success) {

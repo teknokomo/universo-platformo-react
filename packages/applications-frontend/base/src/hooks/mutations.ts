@@ -64,6 +64,12 @@ interface DeleteConnectorParams {
     connectorId: string
 }
 
+interface SyncConnectorParams {
+    metahubId: string
+    applicationId: string
+    confirmDestructive?: boolean
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -345,6 +351,36 @@ export function useDeleteConnector() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('connectors.deleteError', 'Failed to delete connector'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for syncing connector schema with metahub configuration
+ */
+export function useSyncConnector() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('applications')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, applicationId, confirmDestructive = false }: SyncConnectorParams) => {
+            return connectorsApi.syncConnector(metahubId, applicationId, confirmDestructive)
+        },
+        onSuccess: (data, variables) => {
+            // Invalidate connector and migrations queries
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectors(variables.applicationId) })
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrations(variables.applicationId) })
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(variables.applicationId) })
+
+            if (data.status === 'pending_confirmation') {
+                enqueueSnackbar(t('connectors.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })
+            } else {
+                enqueueSnackbar(t('connectors.syncSuccess', 'Schema synchronized'), { variant: 'success' })
+            }
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('connectors.syncError', 'Schema sync failed'), { variant: 'error' })
         }
     })
 }

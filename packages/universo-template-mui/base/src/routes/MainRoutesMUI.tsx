@@ -118,7 +118,11 @@ const ApplicationsApplicationBoard = Loadable(lazy(() => import('@universo/appli
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMembers')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsApplicationMigrations = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMigrations')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorBoard')))
 
 // Metahub module components
 const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
@@ -486,6 +490,14 @@ const MainRoutesMUI = {
                 {
                     path: 'connectors',
                     element: <ApplicationsConnectorList />
+                },
+                {
+                    path: 'connector/:connectorId',
+                    element: <ApplicationsConnectorBoard />
+                },
+                {
+                    path: 'migrations',
+                    element: <ApplicationsApplicationMigrations />
                 },
                 {
                     path: 'access',

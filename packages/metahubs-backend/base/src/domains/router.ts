@@ -9,6 +9,7 @@ import { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 import { createRecordsRoutes } from './records/routes/recordsRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
+import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
@@ -49,6 +50,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     // Publications (Information Bases) - imports entities from @universo/applications-backend
     router.use('/', createPublicationsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Application migrations - runtime schema migration history and rollback
+    router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDataSource, read, write))
+
     // New metadata-driven routes
     router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
@@ -74,4 +78,5 @@ export { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 export { createRecordsRoutes } from './records/routes/recordsRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
+export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 export * from './shared/guards'

@@ -35,7 +35,9 @@ import {
     truncateCatalogName,
     useAttributeName,
     truncateAttributeName,
-    truncatePublicationName
+    truncatePublicationName,
+    useConnectorName,
+    truncateConnectorName
 } from '../../hooks'
 import { useInstanceName, truncateInstanceName, useRoleName, truncateRoleName } from '@universo/admin-frontend'
 
@@ -94,6 +96,13 @@ export default function NavbarBreadcrumbs() {
     const applicationIdMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
     const applicationId = applicationIdMatch ? applicationIdMatch[1] : null
     const applicationName = useApplicationName(applicationId)
+
+    // Extract connectorId from URL for dynamic name loading (under application context)
+    // Pattern: /application/:applicationId/connector/:connectorId
+    const connectorIdMatch = location.pathname.match(/^\/application\/([^/]+)\/connector\/([^/]+)/)
+    const connectorParentApplicationId = connectorIdMatch ? connectorIdMatch[1] : null
+    const connectorId = connectorIdMatch ? connectorIdMatch[2] : null
+    const connectorName = useConnectorName(connectorParentApplicationId, connectorId)
 
     // Extract publicationId from URL for dynamic name loading (under metahub context)
     // Pattern: /metahub/:metahubId/publication/:publicationId/...
@@ -649,11 +658,23 @@ export default function NavbarBreadcrumbs() {
                     to: `/application/${segments[1]}`
                 })
 
-                // Sub-pages (connectors, access) - use keys from menu namespace
+                // Sub-pages (connectors, access, connector) - use keys from menu namespace
                 if (segments[2] === 'connectors') {
                     items.push({ label: t('connectors'), to: location.pathname })
                 } else if (segments[2] === 'access') {
                     items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'connector' && segments[3]) {
+                    // Connector detail page: Application > Connectors > [Connector Name]
+                    items.push({ label: t('connectors'), to: `/application/${segments[1]}/connectors` })
+                    if (connectorName) {
+                        items.push({
+                            label: truncateConnectorName(connectorName),
+                            to: location.pathname
+                        })
+                    } else {
+                        // Fallback while loading connector name
+                        items.push({ label: '...', to: location.pathname })
+                    }
                 }
             } else if (segments[1]) {
                 // Fallback while loading name

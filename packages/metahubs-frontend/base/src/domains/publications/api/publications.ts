@@ -12,6 +12,7 @@ export type { PublicationSchemaStatus }
 export interface Publication {
     id: string
     metahubId: string
+    connectorId?: string // Added when creating publication
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     schemaName: string
