@@ -18,9 +18,15 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 
 8. If the user message starts with DOCS or DOC command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/docs_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-9. If the user message starts with GIT command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/git_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+9. If the user message starts with GIT PULL or PULL command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/git_pull_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-10. All these Custom Modes use the rules that are in .gemini/rules/isolation_rules
+10. If the user message starts with GIT PUSH or PUSH command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/git_push_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+
+11. If the user message starts with MB command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/mb_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+
+12. If the user message starts with DEVOPS or DEPLOY command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/devops_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+
+13. All these Custom Modes use the rules that are in .gemini/rules/custom_modes
 
 # Rules
 
@@ -32,6 +38,52 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 
 4. When you are asked to update Readme files or other documentation files, follow the rule .gemini/rules/i18n-docs.md
 
+5. When compressing Memory Bank files, follow the rule .gemini/rules/memory-bank-compression.md
+
+6. For repository structure and coding guidelines, follow the rule .gemini/rules/repository-guidelines.md
+
+7. For recommendations on working with the project, follow the rule .gemini/rules/recommendations.md
+
+# Repository Guidelines
+
+## Project Structure & Module Organization
+- Monorepo with feature apps under `packages/`.
+  - Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
+  - Each app contains a `base/` directory for the default implementation.
+- Front-end apps include `i18n/` with default locales `en/` and `ru/`.
+- Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
+- Extends Flowise AI with Supabase multi-user features; keep upstream changes minimal and isolated.
+
+## Build, Test, and Development Commands
+- `pnpm install`: Install workspace dependencies.
+- `pnpm dev`: Start development servers (run from the target app directory when applicable). Important: due to repo size and resource usage, only the user should run this locally; agents must not run it automatically.
+- `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
+- `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
+- `pnpm start`: Run production server(s) for built apps.
+- `pnpm lint`: Run ESLint across the workspace.
+
+## Coding Style & Naming Conventions
+- Prefer TypeScript where present; otherwise modern ES modules.
+- Indentation: 2 spaces; avoid trailing whitespace.
+- React: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
+- i18n keys use dot notation (e.g., `auth.login.button`).
+- Keep changes to original Flowise code minimal and well-scoped.
+- Branch names use English only (e.g., `feature/publish-workflow`, `fix/updl-parser`).
+
+## Testing Guidelines
+- Tests live near code in `__tests__/` or `tests/` when present.
+- Write unit tests for utilities and integration tests for API routes.
+- Run via `pnpm test` if configured in the target app; otherwise document manual steps in the PR.
+
+## Commit & Pull Request Guidelines
+- Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
+- PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
+- Small, focused PRs are preferred; include `packages/*/base` paths in the scope when relevant.
+
+## Security & Configuration Tips
+- Never commit secrets. Use `.env`/`.env.local` and keep Supabase keys private.
+- If provided, copy example envs (e.g., `cp .env.example .env`) and update per app.
+
 # Recommendations
 
 ## 1. General Principles
@@ -40,7 +92,7 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 2.  **Adhere to Linters**: Always follow the project's configured linters when writing code to ensure consistency and quality.
 3.  **Language**: Respond to the user in Russian. However, all code comments and all information in the `memory-bank` folder must be written in English only.
 
-## 2. Creating New Packages in `packages/`
+## 2. Creating New Packages in `packages/<package-name>`
 
 ### 2.1. Workspace Imports
 
