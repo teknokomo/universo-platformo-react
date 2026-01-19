@@ -94,6 +94,6 @@ export function createMigrationManager() {
  * @deprecated Use getDDLServices() instead for better dependency management.
  */
 export function createSchemaMigrator() {
-    const { generator, migrator, migrationManager } = getDDLServices()
+    const { migrator } = getDDLServices()
     return migrator
 }

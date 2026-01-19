@@ -32,7 +32,7 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 import type { TriggerProps } from '@universo/template-mui'
 
 import { useCreateConnector, useUpdateConnector, useDeleteConnector } from '../hooks/mutations'
-import { useConnectorPublications, useAvailablePublications } from '../hooks/useConnectorPublications'
+import { useAvailablePublications } from '../hooks/useConnectorPublications'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as connectorsApi from '../api/connectors'
@@ -146,25 +146,9 @@ const ConnectorList = () => {
     const updateConnectorMutation = useUpdateConnector()
     const deleteConnectorMutation = useDeleteConnector()
 
-    // Get first connector ID for publication lookup (currently only one Connector allowed)
-    const firstConnectorId = Array.isArray(connectors) && connectors.length > 0 ? connectors[0].id : ''
-    
-    // Fetch publications for the first connector to enable navigation
-    const { data: connectorPublicationsData } = useConnectorPublications(applicationId ?? '', firstConnectorId)
-
     // Fetch available publications for selection in create dialog
     const { data: availablePublications = [] } = useAvailablePublications()
     
-    // Build a map of connectorId -> publicationId for navigation
-    const connectorPublicationMap = useMemo(() => {
-        const map: Record<string, string> = {}
-        if (firstConnectorId && connectorPublicationsData?.items?.length) {
-            // Use first linked publication
-            map[firstConnectorId] = connectorPublicationsData.items[0].publicationId
-        }
-        return map
-    }, [firstConnectorId, connectorPublicationsData])
-
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}

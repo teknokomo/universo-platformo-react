@@ -155,7 +155,6 @@ const ConnectorBoard = () => {
     const { connector, publication } = connectorData
     const connectorName = getVLCString(connector.name, i18n.language)
     const connectorDescription = getVLCString(connector.description, i18n.language)
-    const publicationName = publication ? getVLCString(publication.name, i18n.language) : null
     const metahubName = publication?.metahub ? getVLCString(publication.metahub.name, i18n.language) : null
 
     // Schema info from Application (each Application has its own schema)

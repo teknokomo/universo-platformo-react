@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Typography, Stack, Alert, FormControlLabel, Switch, Tooltip, Chip, List, ListItem, ListItemText } from '@mui/material'
 import LockIcon from '@mui/icons-material/Lock'
