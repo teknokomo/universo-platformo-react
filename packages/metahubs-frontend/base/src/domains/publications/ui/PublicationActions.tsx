@@ -1,22 +1,23 @@
 import { Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import SyncIcon from '@mui/icons-material/Sync'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
 import { LocalizedInlineField, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
-import type { Publication } from '../api'
-import type { PublicationDisplay, Metahub } from '../../../types'
+import type { Publication, PublicationAccessMode } from '../api'
+import type { PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { MetahubInfoPanel } from '../../../components'
+import { AccessPanel } from './AccessPanel'
+import { ApplicationsPanel } from './ApplicationsPanel'
+
+import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 
 /**
  * Payload for updating publication via API
  */
 interface PublicationLocalizedPayload {
-    name?: { [locale: string]: string }
-    description?: { [locale: string]: string }
+    name?: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
 }
@@ -33,7 +34,8 @@ const buildInitialValues = (ctx: ActionContext<PublicationDisplay, PublicationLo
 
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
-        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback)
+        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
+        accessMode: raw?.accessMode ?? 'full'
     }
 }
 
@@ -124,12 +126,14 @@ const PublicationEditFields = ({
 /**
  * Build tabs configuration for edit dialog
  * Tab 1: General (name, description)
- * Tab 2: Metahubs (read-only metahub info with locked constraints)
+ * Tab 2: Access (access mode configuration)
+ * Tab 3: Applications (linked applications - read-only)
+ * 
+ * Note: Metahubs tab is not shown because Publication belongs to a single Metahub (obvious from context).
  */
 const buildFormTabs = (
     ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>,
-    metahub: Metahub | null,
-    isMetahubLoading: boolean
+    metahubId: string
 ) => {
     return ({
         values,
@@ -158,14 +162,24 @@ const buildFormTabs = (
                 )
             },
             {
-                id: 'metahubs',
-                label: ctx.t('publications.tabs.metahubs', 'Метахабы'),
+                id: 'access',
+                label: ctx.t('publications.tabs.access', 'Доступ'),
                 content: (
-                    <MetahubInfoPanel
-                        metahub={metahub}
-                        isLoading={isMetahubLoading}
-                        isSingleMetahub={true}
-                        isRequiredMetahub={true}
+                    <AccessPanel
+                        accessMode={(values.accessMode as PublicationAccessMode) ?? 'full'}
+                        onChange={(mode) => setValue('accessMode', mode)}
+                        isLoading={isFormLoading}
+                        disabled={isFormLoading}
+                    />
+                )
+            },
+            {
+                id: 'applications',
+                label: ctx.t('publications.tabs.applications', 'Приложения'),
+                content: (
+                    <ApplicationsPanel
+                        metahubId={metahubId}
+                        publicationId={ctx.entity.id}
                         uiLocale={ctx.uiLocale as string}
                     />
                 )
@@ -191,9 +205,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
             },
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
-                // Get metahub from context for Metahubs tab
-                const metahub = (ctx as any).metahub as Metahub | null | undefined
-                const isMetahubLoading = Boolean((ctx as any).isMetahubLoading)
+                const metahubId = (ctx as any).metahubId as string | undefined
 
                 return {
                     open: true,
@@ -206,7 +218,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: buildFormTabs(ctx, metahub ?? null, isMetahubLoading),
+                    tabs: buildFormTabs(ctx, metahubId ?? ''),
                     validate: (values: Record<string, any>) => validatePublicationForm(ctx, values),
                     canSave: canSavePublicationForm,
                     onClose: () => {
@@ -231,50 +243,6 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                         }
                     }
                 }
-            }
-        }
-    },
-    {
-        id: 'view',
-        labelKey: 'publications.actions.view',
-        icon: <OpenInNewIcon />,
-        order: 20,
-        visible: () => true,
-        onSelect: async (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>) => {
-            const metahubId = (ctx as any).metahubId as string | undefined
-            const navigate = (ctx.helpers as any)?.navigate as ((path: string) => void) | undefined
-
-            if (navigate && metahubId) {
-                navigate(`/metahub/${metahubId}/publication/${ctx.entity.id}`)
-            }
-        }
-    },
-    {
-        id: 'sync',
-        labelKey: 'publications.actions.sync',
-        icon: <SyncIcon />,
-        order: 30,
-        visible: () => true,
-        onSelect: async (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>) => {
-            const syncEntity = (ctx.api as any)?.syncEntity as ((id: string, confirmDestructive?: boolean) => Promise<void>) | undefined
-
-            const enqueue = ctx.helpers?.enqueueSnackbar as
-                | ((payload: { message: string; options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' } }) => void)
-                | undefined
-
-            try {
-                await syncEntity?.(ctx.entity.id)
-                enqueue?.({
-                    message: ctx.t('publications.messages.syncSuccess', 'Schema synchronized successfully'),
-                    options: { variant: 'success' }
-                })
-                await ctx.helpers?.refreshList?.()
-            } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : ctx.t('publications.messages.syncError', 'Schema synchronization failed')
-                enqueue?.({
-                    message,
-                    options: { variant: 'error' }
-                })
             }
         }
     },

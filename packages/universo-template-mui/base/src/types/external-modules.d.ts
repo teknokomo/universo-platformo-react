@@ -54,7 +54,6 @@ declare module '@universo/metahubs-frontend' {
     export const MetahubBoard: ComponentType<any>
     export const MetahubMembers: ComponentType<any>
     export const PublicationList: ComponentType<any>
-    export const PublicationBoard: ComponentType<any>
     export const HubList: ComponentType<any>
     export const CatalogList: ComponentType<any>
     export const AttributeList: ComponentType<any>

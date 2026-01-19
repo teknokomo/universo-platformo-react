@@ -1,27 +1,23 @@
-import { Divider, Stack } from '@mui/material'
+import { Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Connector, ConnectorDisplay, ConnectorLocalizedPayload } from '../types'
-import { getVLCString } from '../types'
-import { sanitizeCodename, isValidCodename } from '../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
-import { CodenameField, ConnectorMetahubInfoWrapper } from '../components'
+import { ConnectorMetahubInfoWrapper } from '../components'
 
 const buildInitialValues = (ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>) => {
     const connectorMap = ctx.connectorMap as Map<string, Connector> | undefined
     const raw = connectorMap?.get(ctx.entity.id)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
-    const nameFallback = ctx.entity?.name || ctx.entity?.codename || ''
+    const nameFallback = ctx.entity?.name || ''
     const descriptionFallback = ctx.entity?.description || ''
 
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
-        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        codename: raw?.codename ?? ctx.entity?.codename ?? '',
-        codenameTouched: true
+        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback)
     }
 }
 
@@ -31,21 +27,12 @@ const validateConnectorForm = (ctx: ActionContext<ConnectorDisplay, ConnectorLoc
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
-    if (!normalizedCodename) {
-        errors.codename = ctx.t('connectors.validation.codenameRequired', 'Codename is required')
-    } else if (!isValidCodename(normalizedCodename)) {
-        errors.codename = ctx.t('connectors.validation.codenameInvalid', 'Codename contains invalid characters')
-    }
     return Object.keys(errors).length > 0 ? errors : null
 }
 
 const canSaveConnectorForm = (values: Record<string, any>) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
-    return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    return hasPrimaryContent(nameVlc)
 }
 
 const toPayload = (values: Record<string, any>): ConnectorLocalizedPayload => {
@@ -53,10 +40,8 @@ const toPayload = (values: Record<string, any>): ConnectorLocalizedPayload => {
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codename = sanitizeCodename(String(values.codename || ''))
 
     return {
-        codename,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
@@ -80,21 +65,7 @@ const ConnectorEditFields = ({
     uiLocale?: string
 }) => {
     const fieldErrors = errors ?? {}
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = typeof values.codename === 'string' ? values.codename : ''
-    const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
-
-    useCodenameAutoFill({
-        codename,
-        codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
 
     return (
         <Stack spacing={2}>
@@ -119,25 +90,13 @@ const ConnectorEditFields = ({
                 multiline
                 rows={2}
             />
-            <Divider />
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
-                label={t('connectors.codename', 'Codename')}
-                helperText={t('connectors.codenameHelper', 'Unique identifier')}
-                error={fieldErrors.codename}
-                disabled={isLoading}
-                required
-            />
         </Stack>
     )
 }
 
 /**
  * Build tabs configuration for edit dialog
- * Tab 1: General (name, description, codename)
+ * Tab 1: General (name, description)
  * Tab 2: Metahubs (read-only display of linked metahubs with locked constraints)
  */
 const buildFormTabs = (

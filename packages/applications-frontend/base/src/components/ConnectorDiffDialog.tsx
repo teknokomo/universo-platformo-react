@@ -27,6 +27,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { useTranslation } from 'react-i18next'
 import { useConnectorDiff } from '../hooks/useConnectorSync'
+import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector } from '../types'
 import { getVLCString } from '../types'
 
@@ -37,7 +38,6 @@ import { getVLCString } from '../types'
 export interface ConnectorDiffDialogProps {
     open: boolean
     connector?: Connector | null
-    metahubId: string
     applicationId: string
     onClose: () => void
     onSync: (confirmDestructive: boolean) => Promise<void>
@@ -55,7 +55,6 @@ type SchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
 export function ConnectorDiffDialog({
     open,
     connector,
-    metahubId,
     applicationId,
     onClose,
     onSync,
@@ -65,22 +64,22 @@ export function ConnectorDiffDialog({
 }: ConnectorDiffDialogProps) {
     const { t } = useTranslation('applications')
 
-    // Fetch diff when dialog opens
+    // Fetch diff when dialog opens - use applicationId
     const {
         data: diffData,
         isLoading: isDiffLoading,
         error: diffError,
         refetch: refetchDiff
-    } = useConnectorDiff(metahubId, applicationId, connector?.id ?? '', {
-        enabled: open && Boolean(connector?.id) && Boolean(metahubId) && Boolean(applicationId)
+    } = useApplicationDiff(applicationId, {
+        enabled: open && Boolean(applicationId)
     })
 
     // Refetch diff when dialog opens
     useEffect(() => {
-        if (open && connector?.id) {
+        if (open && applicationId) {
             refetchDiff()
         }
-    }, [open, connector?.id, refetchDiff])
+    }, [open, applicationId, refetchDiff])
 
     const hasDestructiveChanges = (diffData?.diff?.destructive?.length ?? 0) > 0
     const hasAdditiveChanges = (diffData?.diff?.additive?.length ?? 0) > 0

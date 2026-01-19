@@ -8,7 +8,6 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
 
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -17,16 +16,15 @@ const optionalLocalizedInputSchema = z
     .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
 const createConnectorSchema = z.object({
-    codename: z.string().min(1).max(100),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    metahubId: z.string().uuid().optional() // Optional metahub to link on creation
 })
 
 const updateConnectorSchema = z.object({
-    codename: z.string().min(1).max(100).optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -86,7 +84,7 @@ export function createConnectorsRoutes(
 
             if (search) {
                 const escapedSearch = escapeLikeWildcards(search)
-                qb.andWhere("(s.name::text ILIKE :search OR COALESCE(s.description::text, '') ILIKE :search OR s.codename ILIKE :search)", {
+                qb.andWhere("(s.name::text ILIKE :search OR COALESCE(s.description::text, '') ILIKE :search)", {
                     search: `%${escapedSearch}%`
                 })
             }
@@ -101,7 +99,6 @@ export function createConnectorsRoutes(
             qb.select([
                 's.id as id',
                 's.applicationId as "applicationId"',
-                's.codename as codename',
                 's.name as name',
                 's.description as description',
                 's.sortOrder as "sortOrder"',
@@ -116,7 +113,6 @@ export function createConnectorsRoutes(
             const raw = await qb.getRawMany<{
                 id: string
                 applicationId: string
-                codename: string
                 name: Record<string, string> | null
                 description: Record<string, string> | null
                 sortOrder: number
@@ -130,7 +126,6 @@ export function createConnectorsRoutes(
             const connectors = raw.map((row) => ({
                 id: row.id,
                 applicationId: row.applicationId,
-                codename: row.codename,
                 name: row.name,
                 description: row.description,
                 sortOrder: row.sortOrder,
@@ -187,21 +182,7 @@ export function createConnectorsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
-
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
-                return res.status(400).json({
-                    error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
-                })
-            }
-
-            // Check for duplicate codename
-            const existing = await connectorRepo.findOne({ where: { applicationId, codename: normalizedCodename } })
-            if (existing) {
-                return res.status(409).json({ error: 'Connector with this codename already exists' })
-            }
+            const { name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, metahubId } = parsed.data
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
             if (Object.keys(sanitizedName).length === 0) {
@@ -223,13 +204,29 @@ export function createConnectorsRoutes(
 
             const connector = connectorRepo.create({
                 applicationId,
-                codename: normalizedCodename,
                 name: nameVlc,
                 description: descriptionVlc,
                 sortOrder: sortOrder ?? 0
             })
 
-            const saved = await connectorRepo.save(connector)
+            // Wrap connector creation and optional metahub link in a transaction
+            const ds = getDataSource()
+            const saved = await ds.transaction(async (manager) => {
+                const savedConnector = await manager.save(connector)
+
+                // If metahubId provided, create the link
+                if (metahubId) {
+                    const link = manager.getRepository(ConnectorMetahub).create({
+                        connectorId: savedConnector.id,
+                        metahubId,
+                        sortOrder: 0
+                    })
+                    await manager.save(link)
+                }
+
+                return savedConnector
+            })
+
             res.status(201).json(saved)
         })
     )
@@ -255,24 +252,7 @@ export function createConnectorsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
-
-            if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
-                    return res.status(400).json({
-                        error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
-                    })
-                }
-                if (normalizedCodename !== connector.codename) {
-                    const existing = await connectorRepo.findOne({ where: { applicationId, codename: normalizedCodename } })
-                    if (existing) {
-                        return res.status(409).json({ error: 'Connector with this codename already exists' })
-                    }
-                    connector.codename = normalizedCodename
-                }
-            }
+            const { name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
 
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)

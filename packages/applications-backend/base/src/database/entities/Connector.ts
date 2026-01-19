@@ -33,10 +33,6 @@ export class Connector {
     @Column({ type: 'jsonb', nullable: true })
     description?: VersionedLocalizedContent<string>
 
-    /** System identifier for API access */
-    @Column({ type: 'varchar', length: 100 })
-    codename!: string
-
     @Column({ type: 'integer', default: 0, name: 'sort_order' })
     sortOrder!: number
 

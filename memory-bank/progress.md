@@ -43,6 +43,119 @@
 
 ---
 
+## 2026-01-18
+
+### Publication/Connector QA Fixes (Round 3) — Major Sync Refactoring
+
+**Issues Fixed**:
+
+1. **MetahubSelectionPanel TypeError** — Fixed missing `useAvailableMetahubs` hook import and corrected component props.
+
+2. **Toggle Switches Disabled in Connector Create Dialog** — Added `togglesDisabled` prop to `EntitySelectionPanel` and `MetahubSelectionPanel` components, preventing entity toggles from being changed during create (when no entities exist yet).
+
+3. **schemaName Generation for Manual Applications** — Fixed schemaName to be generated from Application UUID instead of being copied from Publication.
+
+4. **Major: Application-Centric Sync Architecture** — Root cause: sync endpoints required `publicationId`, but manually created Applications have no Publication. Completely refactored to Application-centric approach.
+
+**New Architecture**:
+- Schema belongs to Application entity, generated as `app_<applicationId>` (dashes removed)
+- Sync chain: Application → Connector → ConnectorMetahub → Metahub → Catalogs → Attributes
+- Works for both auto-created (via Publication) and manually created Applications
+
+**New Backend Endpoints** (applicationsRoutes.ts):
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/:applicationId/diff` | GET | Calculate schema diff without applying |
+| `/:applicationId/sync` | POST | Create/migrate schema from linked Metahub structure |
+
+**New Frontend API** (connectors.ts):
+- `getApplicationDiff(applicationId)` — fetch diff preview
+- `syncApplication(applicationId, confirmDestructive)` — apply schema changes
+
+**New Hooks** (useConnectorSync.ts):
+- `useApplicationDiff(applicationId, options)` — React Query hook for diff data
+
+**Updated Components**:
+- `ConnectorBoard.tsx` — uses applicationId for sync, removed publication dependency
+- `ConnectorDiffDialog.tsx` — accepts applicationId prop instead of metahubId/publicationId
+- `mutations.ts` — `SyncConnectorParams` now uses applicationId
+
+**Key Imports Added to applicationsRoutes.ts**:
+```typescript
+import { SchemaGenerator, SchemaMigrator, Catalog, Attribute, 
+         buildCatalogDefinitions, generateSchemaName } from '@universo/metahubs-backend'
+import { ApplicationSchemaStatus } from '../database/entities/Application'
+```
+
+**Build Result**: 63 tasks successful, 4m52s.
+
+---
+
+### Publication as Separate Entity
+
+**Change**: Publication is now a standalone entity in `metahubs` schema, replacing the previous architecture where Publication was an alias for Application from `applications-backend`.
+
+**New Database Structure**:
+| Table | Schema | Purpose |
+|-------|--------|---------|
+| `publications` | `metahubs` | Main Publication entity with direct FK to Metahub |
+| `publications_users` | `metahubs` | User-publication membership tracking |
+
+**New TypeORM Entities**:
+- `Publication` — main entity with fields: metahubId, name, description, accessMode, accessConfig, schemaName, schemaStatus, schemaError, schemaSyncedAt, schemaSnapshot, autoCreateApplication
+- `PublicationUser` — user membership with publicationId, userId, role, comment
+
+**New Enums**:
+- `PublicationAccessMode` — 'full' | 'restricted'
+- `PublicationSchemaStatus` — 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
+
+**Backend Changes**:
+- `publicationsRoutes.ts` fully refactored to use new Publication entity
+- All queries now use direct `metahubId` FK instead of Connector → ConnectorMetahub traversal
+- New endpoint `/metahub/:metahubId/publication/:publicationId/applications` for linked applications
+
+**Frontend Changes**:
+- Added `AccessPanel` component for access mode configuration
+- Added `ApplicationsPanel` component for viewing linked applications
+- Updated edit dialog with 4 tabs: General, Metahubs, Access, Applications
+- Updated create dialog with 3 tabs: General, Metahubs, Access
+- Added API types: `PublicationAccessMode`, `LinkedApplication`, `getPublicationApplications()`
+
+**i18n Updates**: Added translation keys for access and applications tabs in EN and RU.
+
+**Build Result**: 63 tasks successful, 6m48s.
+
+---
+
+### Publication/Connector QA Fixes (Round 2)
+
+**Issues Fixed**:
+
+1. **Auto-create Application Logic** — Implemented backend logic in `publicationsRoutes.ts` that when `autoCreateApplication` checkbox is set during Publication creation, automatically creates:
+   - `Application` (name/description from Publication)
+   - `ApplicationUser` (owner role)
+   - `Connector` (name/description from Metahub)
+   - `ConnectorMetahub` (link between Connector and Metahub)
+
+2. **Removed Broken Menu Items** — Deleted 'view' and 'sync' actions from `PublicationActions.tsx`, removed obsolete `PublicationBoard.tsx` component and all its exports/routes.
+
+3. **Fixed Connector Create Dialog** — Removed non-existent `codename` field from frontend and backend, replaced garbage `ConnectorMetahubSelectPanel` with proper `MetahubSelectionPanel` component.
+
+4. **Removed Redundant Table** — Deleted `ConnectorPublication` entity and migration. Connections now go through existing `connectors_metahubs` table only.
+
+**Files Deleted**:
+- `packages/applications-frontend/base/src/components/ConnectorMetahubSelectPanel.tsx`
+- `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationBoard.tsx`
+- `packages/applications-backend/base/src/database/entities/ConnectorPublication.ts` (previous session)
+- `packages/applications-backend/base/src/database/migrations/postgres/1800100000000-AddConnectorsPublications.ts` (previous session)
+
+**Updated Database Structure** (removed):
+- ~~`connectors_publications`~~ table no longer created
+
+**Build Result**: 63 tasks successful, 6m10s.
+
+---
+
 ## 2026-01-17
 
 ### Add DDL Module Unit Tests

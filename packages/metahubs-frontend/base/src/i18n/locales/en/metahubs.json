@@ -289,7 +289,23 @@
         },
         "tabs": {
             "general": "General",
-            "metahubs": "Metahubs"
+            "metahubs": "Metahubs",
+            "access": "Access",
+            "applications": "Applications"
+        },
+        "access": {
+            "modeLabel": "Access Mode",
+            "modeFull": "Full Access",
+            "modeFullDescription": "All Metahub data is accessible through the Publication",
+            "modeRestricted": "Restricted Access",
+            "modeRestrictedDescription": "Access is controlled by configuration (coming soon)",
+            "configPlaceholder": "Restricted access configuration will be available in future versions."
+        },
+        "applications": {
+            "empty": "No linked applications",
+            "emptyHint": "Applications are linked to publications via connectors.",
+            "count": "Linked applications",
+            "noDescription": "No description"
         },
         "create": {
             "metahubLocked": "Metahub is pre-selected based on the current context. Connector constraints are temporarily locked.",
@@ -363,10 +379,11 @@
         },
         "table": {
             "name": "Name",
-            "schemaName": "Schema",
-            "status": "Status",
-            "lastSync": "Last Synced",
-            "created": "Created"
+            "accessMode": "Access"
+        },
+        "accessMode": {
+            "full": "Full Access",
+            "restricted": "Restricted"
         }
     },
     "common": {

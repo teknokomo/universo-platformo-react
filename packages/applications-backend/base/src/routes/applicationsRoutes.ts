@@ -15,6 +15,15 @@ import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
+// Schema name generator
+// NOTE: This duplicates the logic from @universo/metahubs-backend/ddl/naming.ts
+// to avoid circular dependency (metahubs-backend depends on applications-backend)
+const SCHEMA_PREFIX = 'app'
+const generateSchemaName = (applicationId: string): string => {
+    const cleanId = applicationId.replace(/-/g, '')
+    return `${SCHEMA_PREFIX}_${cleanId}`
+}
+
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner
 }
@@ -359,6 +368,10 @@ export function createApplicationsRoutes(
             })
 
             const saved = await applicationRepo.save(application)
+
+            // Generate schemaName based on Application UUID
+            saved.schemaName = generateSchemaName(saved.id)
+            await applicationRepo.save(saved)
 
             // Add creator as owner
             const member = applicationUserRepo.create({

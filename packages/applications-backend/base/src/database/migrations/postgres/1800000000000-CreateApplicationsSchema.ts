@@ -70,15 +70,13 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 application_id UUID NOT NULL,
                 name JSONB NOT NULL DEFAULT '{}',
                 description JSONB DEFAULT '{}',
-                codename VARCHAR(100) NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 0,
                 -- Metahub constraint flags
                 is_single_metahub BOOLEAN NOT NULL DEFAULT true,
                 is_required_metahub BOOLEAN NOT NULL DEFAULT true,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
                 updated_at TIMESTAMP NOT NULL DEFAULT now(),
-                FOREIGN KEY (application_id) REFERENCES applications.applications(id) ON DELETE CASCADE,
-                UNIQUE(application_id, codename)
+                FOREIGN KEY (application_id) REFERENCES applications.applications(id) ON DELETE CASCADE
             )
         `)
 
@@ -154,7 +152,6 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_au_application ON applications.applications_users(application_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_au_user ON applications.applications_users(user_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_connectors_application ON applications.connectors(application_id)`)
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_connectors_codename ON applications.connectors(codename)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_application_slug ON applications.applications(slug)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_application_schema_name ON applications.applications(schema_name)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_application_schema_status ON applications.applications(schema_status)`)
@@ -280,7 +277,6 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_schema_status`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_schema_name`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_slug`)
-        await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_connectors_codename`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_connectors_application`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_au_user`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_au_application`)

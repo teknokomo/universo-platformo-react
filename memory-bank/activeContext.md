@@ -1,14 +1,50 @@
 # Active Context
 
-> **Last Updated**: 2026-01-17
+> **Last Updated**: 2025-01-18
 > 
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: DDL Module Unit Tests Implemented ✅
+## Current Focus: Publication/Connector QA Fixes (Round 3) ✅
 
-### Implementation Completed (2026-01-17)
+### Implementation Completed (2025-01-18)
+
+**Issues Fixed**:
+
+1. **MetahubSelectionPanel TypeError** — Fixed missing hook import and corrected component props.
+
+2. **Toggle Switches Disabled in Create Dialog** — Added `togglesDisabled` prop to EntitySelectionPanel/MetahubSelectionPanel.
+
+3. **schemaName Generation** — Fixed to generate from Application UUID (not copy from Publication).
+
+4. **Major: Application-Centric Sync Architecture** — Complete refactoring:
+   - Root cause: sync used publicationId, but manual Applications have no Publication
+   - New endpoints: `GET /:applicationId/diff`, `POST /:applicationId/sync`
+   - Chain: Application → Connector → ConnectorMetahub → Metahub → Catalogs → Attributes
+   - Works for both auto-created and manually created Applications
+
+**New Files/Changes**:
+- `applicationsRoutes.ts`: +2 new endpoints (diff, sync)
+- `connectors.ts`: +2 new API functions (getApplicationDiff, syncApplication)
+- `useConnectorSync.ts`: +useApplicationDiff hook
+- `mutations.ts`: SyncConnectorParams uses applicationId
+- `ConnectorBoard.tsx`: uses applicationId for sync
+- `ConnectorDiffDialog.tsx`: accepts applicationId prop
+
+**Build Result**: 63 tasks successful, 4m52s.
+
+**Status**: Ready for user testing. User should:
+1. Create Application manually
+2. Create Connector linked to Metahub
+3. Click "Синхронизировать схему" → "Создать схему"
+4. Verify schema created as `app_<applicationId>`
+
+---
+
+## Previous: Publication/Connector QA Fixes (Round 2) ✅
+
+### Implementation Completed (2025-01-18)
 
 **QA Recommendation**: Add unit tests for DDL module to improve test coverage.
 

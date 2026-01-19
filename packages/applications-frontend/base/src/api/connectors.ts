@@ -89,31 +89,66 @@ export interface SchemaSyncResponse {
 }
 
 /**
- * Get schema diff for a connector (via metahubs endpoint)
- * The connector is linked to a metahub via connector_metahubs junction table
+ * Publication summary for schema sync operations
  */
-export const getConnectorDiff = async (
-    metahubId: string,
-    applicationId: string
-): Promise<SchemaDiffResponse> => {
-    // The publication ID is the same as application ID (Publication = Application alias)
-    const response = await apiClient.get<SchemaDiffResponse>(
-        `/metahub/${metahubId}/publication/${applicationId}/diff`
+export interface PublicationSummary {
+    id: string
+    metahubId: string
+    name: Record<string, string>
+    schemaName: string
+    schemaStatus: string
+}
+
+/**
+ * Get publications for a metahub (to find publication ID for sync operations)
+ */
+export const getMetahubPublications = async (
+    metahubId: string
+): Promise<{ items: PublicationSummary[]; total: number }> => {
+    const response = await apiClient.get<{ items: PublicationSummary[]; total: number }>(
+        `/metahub/${metahubId}/publications`
     )
     return response.data
 }
 
 /**
- * Sync connector schema with metahub configuration
+ * Get schema diff for an application
+ * Uses the Application's linked Metahub via Connector
  */
-export const syncConnector = async (
-    metahubId: string,
+export const getApplicationDiff = async (
+    applicationId: string
+): Promise<SchemaDiffResponse> => {
+    const response = await apiClient.get<SchemaDiffResponse>(
+        `/application/${applicationId}/diff`
+    )
+    return response.data
+}
+
+/**
+ * Sync application schema with linked Metahub configuration
+ */
+export const syncApplication = async (
     applicationId: string,
     confirmDestructive = false
 ): Promise<SchemaSyncResponse> => {
     const response = await apiClient.post<SchemaSyncResponse>(
-        `/metahub/${metahubId}/publication/${applicationId}/sync`,
+        `/application/${applicationId}/sync`,
         { confirmDestructive }
     )
     return response.data
+}
+
+// Legacy exports for backward compatibility (deprecated)
+export const getConnectorDiff = getApplicationDiff
+/**
+ * @deprecated Use syncApplication instead
+ */
+export const syncConnector = (
+    _metahubId: string,
+    _publicationId: string,
+    confirmDestructive: boolean,
+    applicationId: string
+): Promise<SchemaSyncResponse> => {
+    console.warn('syncConnector is deprecated. Use syncApplication instead.')
+    return syncApplication(applicationId, confirmDestructive)
 }

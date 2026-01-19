@@ -21,6 +21,8 @@ export interface MetahubSelectionPanelProps {
     onSingleMetahubChange: (value: boolean) => void
     /** Disable all interactions */
     disabled?: boolean
+    /** Disable only toggle switches while keeping selection active */
+    togglesDisabled?: boolean
     /** Error message to display */
     error?: string
     /** Current UI locale for metahub name display */
@@ -43,6 +45,7 @@ export const MetahubSelectionPanel = ({
     isSingleMetahub,
     onSingleMetahubChange,
     disabled = false,
+    togglesDisabled = false,
     error,
     uiLocale = 'en'
 }: MetahubSelectionPanelProps) => {
@@ -89,6 +92,7 @@ export const MetahubSelectionPanel = ({
             getCodename={getCodename}
             labels={labels}
             disabled={disabled}
+            togglesDisabled={togglesDisabled}
             error={error}
             isRequired={isRequiredMetahub}
             onRequiredChange={onRequiredMetahubChange}

@@ -2,25 +2,20 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 
 # Custom Modes
 
-1. If the user message starts with VAN command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/van_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+1. If the user message starts with **VAN** command → `.gemini/rules/custom_modes/van_mode.md`
+2. If the user message starts with **PLAN** command → `.gemini/rules/custom_modes/plan_mode.md`
+3. If the user message starts with **CREATIVE** or **DESIGN** command → `.gemini/rules/custom_modes/creative_mode.md`
+4. If the user message starts with **IMPLEMENT** or **IMP** command → `.gemini/rules/custom_modes/implement_mode.md`
+5. If the user message starts with **QA** command → `.gemini/rules/custom_modes/qa_mode.md`
+6. If the user message starts with **REFLECT** or **REF** command → `.gemini/rules/custom_modes/reflect_mode.md`
+7. If the user message starts with **ARCHIVE** or **ARC** or **ARH** command → `.gemini/rules/custom_modes/archive_mode.md`
+8. If the user message starts with **DOCS** or **DOC** command → `.gemini/rules/custom_modes/docs_mode.md`
+9. If the user message starts with **GIT PULL** or **PULL** command → `.gemini/rules/custom_modes/git_pull_mode.md`
+10. If the user message starts with **GIT PUSH** or **PUSH** command → `.gemini/rules/custom_modes/git_push_mode.md`
+11. If the user message starts with **MB** command → `.gemini/rules/custom_modes/mb_mode.md`
+12. If the user message starts with **DEVOPS** or **DEPLOY** command → `.gemini/rules/custom_modes/devops_mode.md`
 
-2. If the user message starts with PLAN command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/plan_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-3. If the user message starts with CREATIVE or DESIGN command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/creative_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-4. If the user message starts with IMPLEMENT or IMP command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/implement_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-5. If the user message starts with QA command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/qa_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-6. If the user message starts with REFLECT or REF command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/reflect_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-7. If the user message starts with ARCHIVE or ARC or ARH command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/archive_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-8. If the user message starts with DOCS or DOC command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/docs_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-9. If the user message starts with GIT command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/git_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
-
-10. All these Custom Modes use the rules that are in .gemini/rules/custom_modes
+All these Custom Modes use the rules that are in `.gemini/rules/`
 
 # Repository Guidelines
 
@@ -38,7 +33,7 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 - `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
 - `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
 - `pnpm start`: Run production server(s) for built apps.
-- `pnpm lint`: Run ESLint across the workspace.
+- `pnpm lint`: Run ESLint across the workspace. For checking specific packages, use `pnpm --filter <package> lint` (e.g., `pnpm --filter publish-frontend lint`) to avoid long execution times. Run global lint only when necessary and with user approval.
 
 ## Coding Style & Naming Conventions
 - Prefer TypeScript where present; otherwise modern ES modules.
@@ -67,7 +62,7 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 ## 1. General Principles
 
 1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/profile-frontend/base/README.md`).
-2.  **Adhere to Linters**: Always follow the project's configured linters when writing code to ensure consistency and quality.
+2.  **Adhere to Linters**: Always follow the project's configured linters when writing code to ensure consistency and quality. For linting, use `pnpm --filter <package> lint` instead of global `pnpm lint` to optimize execution time in the large workspace.
 3.  **Language**: Respond to the user in Russian. However, all code comments and all information in the `memory-bank` folder must be written in English only.
 
 ## 2. Creating New Packages in `packages/<package-name>`

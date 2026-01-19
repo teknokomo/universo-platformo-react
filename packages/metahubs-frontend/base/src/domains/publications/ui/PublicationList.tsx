@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton, Chip } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -34,22 +34,14 @@ import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import { usePublicationsList } from '../hooks/usePublications'
 import { useMetahubDetails } from '../../metahubs'
-import type { Publication } from '../api'
+import type { Publication, PublicationAccessMode } from '../api'
 import { invalidatePublicationsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { getVLCString, type PublicationDisplay, type PublicationSchemaStatus } from '../../../types'
+import { getVLCString, type PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
-import { MetahubInfoPanel } from '../../../components'
 import publicationActions from './PublicationActions'
-
-// Status chip colors
-const statusColors: Record<PublicationSchemaStatus, 'default' | 'primary' | 'success' | 'warning' | 'error'> = {
-    draft: 'default',
-    pending: 'primary',
-    synced: 'success',
-    outdated: 'warning',
-    error: 'error'
-}
+import { AccessPanel } from './AccessPanel'
+import { ApplicationsCreatePanel } from './ApplicationsCreatePanel'
 
 type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -274,7 +266,10 @@ const PublicationList = () => {
     /**
      * Build tabs configuration for create dialog.
      * Tab 1: General (name, description)
-     * Tab 2: Metahubs (read-only metahub info with locked constraints)
+     * Tab 2: Access (access mode configuration)
+     * Tab 3: Applications (auto-create application option)
+     * 
+     * Note: Metahubs tab is not shown because Publication is created within a Metahub context.
      */
     const buildCreateTabs = useCallback(
         ({
@@ -307,52 +302,63 @@ const PublicationList = () => {
                     )
                 },
                 {
-                    id: 'metahubs',
-                    label: t('publications.tabs.metahubs', 'Метахабы'),
+                    id: 'access',
+                    label: t('publications.tabs.access', 'Доступ'),
                     content: (
-                        <MetahubInfoPanel
-                            metahub={metahub ?? null}
-                            isLoading={isMetahubLoading}
-                            isSingleMetahub={true}
-                            isRequiredMetahub={true}
-                            uiLocale={i18n.language}
+                        <AccessPanel
+                            accessMode={(values.accessMode as PublicationAccessMode) ?? 'full'}
+                            onChange={(mode) => setValue('accessMode', mode)}
+                            isLoading={isFormLoading}
+                            disabled={isFormLoading}
+                        />
+                    )
+                },
+                {
+                    id: 'applications',
+                    label: t('publications.tabs.applications', 'Приложения'),
+                    content: (
+                        <ApplicationsCreatePanel
+                            autoCreateApplication={Boolean(values.autoCreateApplication)}
+                            onChange={(autoCreate) => setValue('autoCreateApplication', autoCreate)}
+                            isLoading={isFormLoading}
+                            disabled={isFormLoading}
                         />
                     )
                 }
             ]
         },
-        [i18n.language, isMetahubLoading, metahub, t, tc]
+        [i18n.language, t, tc]
     )
+
+    // Access mode chip colors
+    const accessModeColors: Record<'full' | 'restricted', 'success' | 'warning'> = {
+        full: 'success',
+        restricted: 'warning'
+    }
 
     const publicationColumns = useMemo(
         () => [
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '25%',
+                width: '35%',
                 align: 'left' as const,
                 render: (row: PublicationDisplay) => (
-                    <Link to={`/metahub/${metahubId}/publication/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <Typography
-                            sx={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                wordBreak: 'break-word',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                    color: 'primary.main'
-                                }
-                            }}
-                        >
-                            {row.name || '—'}
-                        </Typography>
-                    </Link>
+                    <Typography
+                        sx={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            wordBreak: 'break-word'
+                        }}
+                    >
+                        {row.name || '—'}
+                    </Typography>
                 )
             },
             {
                 id: 'description',
                 label: tc('table.description', 'Description'),
-                width: '25%',
+                width: '45%',
                 align: 'left' as const,
                 render: (row: PublicationDisplay) => (
                     <Typography
@@ -366,49 +372,20 @@ const PublicationList = () => {
                 )
             },
             {
-                id: 'schemaName',
-                label: t('publications.table.schemaName', 'Schema'),
+                id: 'accessMode',
+                label: t('publications.table.accessMode', 'Access'),
                 width: '20%',
-                align: 'left' as const,
-                render: (row: PublicationDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 600,
-                            fontFamily: 'monospace',
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.schemaName || '—'}
-                    </Typography>
-                )
-            },
-            {
-                id: 'status',
-                label: t('publications.table.status', 'Status'),
-                width: '15%',
                 align: 'center' as const,
                 render: (row: PublicationDisplay) => (
                     <Chip
-                        label={t(`publications.status.${row.schemaStatus}`, row.schemaStatus)}
-                        color={statusColors[row.schemaStatus]}
+                        label={t(`publications.accessMode.${row.accessMode}`, row.accessMode === 'full' ? 'Full Access' : 'Restricted')}
+                        color={accessModeColors[row.accessMode]}
                         size="small"
                     />
                 )
-            },
-            {
-                id: 'lastSync',
-                label: t('publications.table.lastSync', 'Last Synced'),
-                width: '15%',
-                align: 'left' as const,
-                render: (row: PublicationDisplay) => (
-                    <Typography sx={{ fontSize: 14 }}>
-                        {row.schemaSyncedAt ? new Date(row.schemaSyncedAt).toLocaleDateString() : '—'}
-                    </Typography>
-                )
             }
         ],
-        [t, tc, metahubId]
+        [t, tc]
     )
 
     const createPublicationContext = useCallback(
@@ -516,7 +493,8 @@ const PublicationList = () => {
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
-                    descriptionPrimaryLocale
+                    descriptionPrimaryLocale,
+                    autoCreateApplication: Boolean(data.autoCreateApplication)
                 }
             })
 
@@ -539,17 +517,6 @@ const PublicationList = () => {
         }
     }
 
-    const goToPublication = (publication: Publication) => {
-        // Navigate to Application connector page (Publication ID = Application ID)
-        // Use connectorId if available (new publications), otherwise this will fail gracefully
-        if (publication.connectorId) {
-            navigate(`/application/${publication.id}/connector/${publication.connectorId}`)
-        } else {
-            // Fallback: navigate to connectors list for legacy publications
-            navigate(`/application/${publication.id}/connectors`)
-        }
-    }
-
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
@@ -560,9 +527,7 @@ const PublicationList = () => {
         id: publication.id,
         name: getVLCString(publication.name, i18n.language) || '',
         description: getVLCString(publication.description, i18n.language) || '',
-        schemaName: publication.schemaName,
-        schemaStatus: publication.schemaStatus,
-        schemaSyncedAt: publication.schemaSyncedAt
+        accessMode: publication.accessMode ?? 'full'
     })
 
     return (
@@ -639,17 +604,17 @@ const PublicationList = () => {
                                 >
                                     {visiblePublications.map((publication: Publication) => {
                                         const descriptors = [...publicationActions]
+                                        const cardData = getPublicationCardData(publication)
 
                                         return (
                                             <ItemCard
                                                 key={publication.id}
-                                                data={getPublicationCardData(publication)}
+                                                data={cardData}
                                                 images={images[publication.id] || []}
-                                                onClick={() => goToPublication(publication)}
                                                 footerEndContent={
                                                     <Chip
-                                                        label={t(`publications.status.${publication.schemaStatus}`, publication.schemaStatus)}
-                                                        color={statusColors[publication.schemaStatus]}
+                                                        label={t(`publications.accessMode.${cardData.accessMode}`, cardData.accessMode === 'full' ? 'Full Access' : 'Restricted')}
+                                                        color={cardData.accessMode === 'full' ? 'success' : 'warning'}
                                                         size="small"
                                                     />
                                                 }
@@ -657,7 +622,7 @@ const PublicationList = () => {
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
                                                             <BaseEntityMenu<PublicationDisplay, Record<string, any>>
-                                                                entity={getPublicationCardData(publication)}
+                                                                entity={cardData}
                                                                 entityKind='publication'
                                                                 descriptors={descriptors}
                                                                 namespace='metahubs'
@@ -686,14 +651,6 @@ const PublicationList = () => {
                                         data={visiblePublications.map(getPublicationCardData)}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: any) => {
-                                            if (!row?.id) return undefined
-                                            const original = publications.find((p) => p.id === row.id)
-                                            if (original?.connectorId) {
-                                                return `/application/${row.id}/connector/${original.connectorId}`
-                                            }
-                                            return `/application/${row.id}/connectors`
-                                        }}
                                         customColumns={publicationColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: any) => {

@@ -112,15 +112,13 @@ export interface MetahubDisplay {
 export type PublicationSchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
 
 /**
- * Publication with localized strings for table rendering
+ * Publication with localized strings for display (cards/tables)
  */
 export interface PublicationDisplay {
     id: string
     name: string
     description: string
-    schemaName: string
-    schemaStatus: PublicationSchemaStatus
-    schemaSyncedAt?: string | null
+    accessMode: 'full' | 'restricted'
 }
 
 // ============ HUB ENTITY ============

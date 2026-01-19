@@ -106,6 +106,8 @@ export interface EntitySelectionPanelProps<T extends SelectableEntity> {
     isSingle?: boolean
     /** Callback when isSingle changes */
     onSingleChange?: (value: boolean) => void
+    /** Disable only the toggle switches (required/single) while keeping selection active */
+    togglesDisabled?: boolean
     /** Optional filter function for search */
     filterEntity?: (entity: T, query: string) => boolean
 }
@@ -140,6 +142,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
     onRequiredChange,
     isSingle,
     onSingleChange,
+    togglesDisabled = false,
     filterEntity
 }: EntitySelectionPanelProps<T>) => {
     const [pickerOpen, setPickerOpen] = useState(false)
@@ -315,7 +318,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 <Box sx={{ mt: 2 }}>
                     <FormControlLabel
                         control={
-                            <Switch checked={!!isRequired} onChange={(e) => onRequiredChange?.(e.target.checked)} disabled={disabled} />
+                            <Switch checked={!!isRequired} onChange={(e) => onRequiredChange?.(e.target.checked)} disabled={disabled || togglesDisabled} />
                         }
                         label={labels.requiredLabel}
                     />
@@ -333,7 +336,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                             <Switch
                                 checked={!!isSingle}
                                 onChange={(e) => handleSingleToggle(e.target.checked)}
-                                disabled={disabled || selectedIds.length > 1}
+                                disabled={disabled || togglesDisabled || selectedIds.length > 1}
                             />
                         }
                         label={labels.singleLabel}

@@ -96,7 +96,6 @@ export interface ApplicationLocalizedPayload {
 export interface Connector {
     id: string
     applicationId: string
-    codename: string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
@@ -151,7 +150,6 @@ export interface ConnectorMetahubsResponse {
 export interface ConnectorDisplay {
     id: string
     applicationId: string
-    codename: string
     name: string
     description: string
     sortOrder: number
@@ -162,12 +160,12 @@ export interface ConnectorDisplay {
 }
 
 export interface ConnectorLocalizedPayload {
-    codename: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     sortOrder?: number
+    metahubId?: string // Optional metahub to link on creation
 }
 
 // ============ HELPER FUNCTIONS ============
@@ -199,7 +197,6 @@ export function toConnectorDisplay(connector: Connector, locale = 'en'): Connect
     return {
         id: connector.id,
         applicationId: connector.applicationId,
-        codename: connector.codename,
         name: getVLCString(connector.name, normalizeLocale(locale)),
         description: getVLCString(connector.description, normalizeLocale(locale)),
         sortOrder: connector.sortOrder,

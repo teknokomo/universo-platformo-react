@@ -4,6 +4,208 @@
 
 ---
 
+## IMPLEMENT (2025-01-19): PR #646 Bot Review Fixes
+
+### Code Quality Fixes (Copilot + Gemini recommendations)
+- [x] Keep `generateSchemaName` in applicationsRoutes.ts with comment explaining duplication reason (avoid circular dependency)
+- [x] Remove unused imports `ApplicationSchemaStatus`, `ConnectorMetahub` from applicationsRoutes.ts
+- [x] Make `applicationId` required parameter in `syncConnector` legacy function (connectors.ts)
+- [x] Add console.warn to `useConnectorDiff` before throwing error for better debugging
+- [x] Add validation for multiple roles in applicationSyncRoutes.ts access check
+- [x] Add validation for multiple connectors/publications in applicationMigrationsRoutes.ts helper
+- [x] Wrap connector creation with metahub link in transaction (connectorsRoutes.ts)
+
+### Migration Fixes
+- [x] UNIQUE constraint on nullable schema_name is OK - PostgreSQL allows multiple NULLs with UNIQUE (documented behavior)
+
+### Skipped Recommendations (with reasons)
+- [ ] Remove autoCreateApplication from Publication entity - **SKIP**: Field is useful for future auditing/cascading deletes
+- [ ] Import generateSchemaName from metahubs-backend - **SKIP**: Would create circular dependency
+
+### Build & Verification
+- [x] Run pnpm build to verify changes - SUCCESS (63 tasks, 5m35s)
+
+---
+
+## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 3) ✅
+
+### Issue 1: Migration codename index error
+- [x] Remove `idx_connectors_codename` from CreateApplicationsSchema migration (up/down methods)
+
+### Issue 2: Applications endpoint 500 error
+- [x] Fix SQL query to use connectors_metahubs instead of deleted connectors_publications
+
+### Issue 3: Auto-create Application checkbox doesn't work
+- [x] Pass autoCreateApplication field to API in handleCreatePublication
+
+### Issue 4: Connector sync 404 error
+- [x] Refactor sync to use publicationId instead of applicationId
+- [x] Add useMetahubPublication hook
+- [x] Update connectors.ts API to use publicationId
+- [x] Update mutations.ts SyncConnectorParams
+- [x] Update ConnectorDiffDialog and ConnectorBoard
+
+### Issue 5: Migrations page 400 error
+- [x] Add getApplicationWithSchema helper that finds schemaName via Publication chain
+
+### Issue 6: MetahubSelectionPanel TypeError in Connector create dialog
+- [x] Import useAvailableMetahubs hook
+- [x] Add hook call to fetch available metahubs
+- [x] Fix MetahubSelectionPanel props (use correct prop names)
+
+### Issue 7: Toggle switches should be disabled in Connector create dialog
+- [x] Add `togglesDisabled` prop to EntitySelectionPanel
+- [x] Add `togglesDisabled` prop to MetahubSelectionPanel (pass through)
+- [x] Pass `togglesDisabled={true}` in ConnectorList.tsx buildCreateTabs
+
+### Issue 8: schemaName generated incorrectly for Application (used Publication UUID)
+- [x] Fix auto-create logic to generate schemaName based on Application UUID, not copy from Publication
+- [x] Add schemaName generation when creating Application manually (applicationsRoutes.ts)
+- [x] Fix ConnectorBoard to use Application's schemaName instead of Publication's
+
+### Issue 9: Schema sync not working for manually created Applications (major refactoring)
+- [x] Identify root cause: sync used publicationId, but manually created Apps have no Publication
+- [x] Create new POST `/:applicationId/sync` endpoint in applicationsRoutes.ts
+- [x] Create new GET `/:applicationId/diff` endpoint in applicationsRoutes.ts
+- [x] Both endpoints traverse Application → Connector → ConnectorMetahub → Metahub to get catalog definitions
+- [x] Add `syncApplication(applicationId, confirmDestructive)` to connectors.ts API
+- [x] Add `getApplicationDiff(applicationId)` to connectors.ts API
+- [x] Add `useApplicationDiff(applicationId, options)` hook in useConnectorSync.ts
+- [x] Update `useSyncConnector` mutation to use applicationId instead of metahubId/publicationId
+- [x] Update ConnectorBoard.tsx to use applicationId for sync
+- [x] Update ConnectorDiffDialog.tsx to accept applicationId prop
+- [x] Add `applicationDiff()` query key factory in queryKeys.ts
+- [x] Fix TypeScript errors:
+  - Use `ApplicationSchemaStatus` enum instead of string literals
+  - Fix `diff.hasDestructiveChanges` to `diff.destructive.length > 0`
+  - Fix `applyMigration()` to `applyAllChanges()`
+  - Fix role `'viewer'` to `'member'`
+
+### Build & Verification
+- [x] Run applications-backend build - SUCCESS
+- [x] Run applications-frontend build - SUCCESS
+- [x] Run full pnpm build - SUCCESS (63 tasks, 4m52s)
+
+---
+
+## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 2) ✅
+
+### Issue 1: Auto-create Application checkbox doesn't work
+- [x] Add imports for Application, ApplicationUser, Connector, ConnectorMetahub entities in publicationsRoutes.ts
+- [x] Implement auto-create logic in POST handler (inside transaction)
+- [x] Create Application with name/description from Publication
+- [x] Create ApplicationUser as owner (snake_case fields: application_id, user_id)
+- [x] Create Connector with name/description from Metahub
+- [x] Create ConnectorMetahub link
+
+### Issue 2: Remove broken "Открыть" and "Синхронизировать" menu items
+- [x] Remove 'view' and 'sync' action descriptors from PublicationActions.tsx
+- [x] Remove OpenInNewIcon and SyncIcon imports
+- [x] Delete PublicationBoard.tsx file
+- [x] Remove PublicationBoard export from metahubs-frontend index.ts
+- [x] Remove PublicationBoard export from publications/index.ts
+- [x] Remove PublicationBoard route from MainRoutesMUI.tsx
+- [x] Update external-modules.d.ts (remove PublicationBoard)
+- [x] Update exports.test.ts (remove PublicationBoard)
+
+### Issue 3: Fix Connector create dialog (remove codename, use proper Metahubs panel)
+- [x] Remove codename from Connector types (Connector, ConnectorDisplay, ConnectorLocalizedPayload)
+- [x] Remove codename from toConnectorDisplay function
+- [x] Remove codename from ConnectorActions.tsx
+- [x] Remove codename from ConnectorList.tsx (localizedFormDefaults, validation, columns)
+- [x] Remove codename from backend connectorsRoutes.ts (schemas, handlers, queries)
+- [x] Delete ConnectorMetahubSelectPanel.tsx (garbage component)
+- [x] Remove ConnectorMetahubSelectPanel export from components/index.ts
+- [x] Replace with MetahubSelectionPanel in buildCreateTabs
+- [x] Update state to use metahubIds: [] array instead of metahubId: null
+
+### Issue 4: Remove redundant connectors_publications table
+- [x] Delete migration 1800100000000-AddConnectorsPublications.ts (done in previous session)
+- [x] Delete ConnectorPublication entity (done in previous session)
+- [x] Remove ConnectorPublication export from applications-backend index.ts
+
+### Build & Verification
+- [x] Fix import path for applications entities (use '@universo/applications-backend')
+- [x] Fix ApplicationUser entity field names (snake_case: application_id, user_id)
+- [x] Fix extra closing parenthesis in MainRoutesMUI.tsx
+- [x] Run full pnpm build - SUCCESS (63 tasks, 6m10s)
+
+---
+
+## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 1) ✅
+
+### Issue 1: Publication dialog tabs wrong order
+- [x] Create ApplicationsCreatePanel.tsx for auto-create Application checkbox
+- [x] Update PublicationList.tsx buildCreateTabs (General → Access → Applications)
+- [x] Update PublicationActions.tsx buildFormTabs (remove Metahubs tab)
+- [x] Remove unused imports (MetahubInfoPanel, Metahub type, statusColors)
+
+### Issue 2: Remove broken links from Publication cards/table
+- [x] Remove Link wrapper from name column in publicationColumns
+- [x] Remove onClick from ItemCard
+- [x] Remove getRowLink from FlowListTable
+- [x] Remove goToPublication function
+
+### Issue 3: Fix Publication display data
+- [x] Update PublicationDisplay type (remove schema/status, add accessMode)
+- [x] Update getPublicationCardData function
+- [x] Update publicationColumns (name, description, accessMode)
+- [x] Update ItemCard footerEndContent (accessMode chip)
+- [x] Add i18n keys for accessMode (EN + RU)
+
+### Issue 4: Add Metahubs tab to Connector create dialog
+- [x] Create ConnectorMetahubSelectPanel.tsx component
+- [x] Add export in components/index.ts
+- [x] Update backend schema (add metahubId to createConnectorSchema)
+- [x] Update backend POST handler to create ConnectorMetahub link
+- [x] Update frontend ConnectorLocalizedPayload type (add metahubId)
+- [x] Update ConnectorList.tsx - add tabs with General + Metahubs
+- [x] Add state for availableMetahubs, useEffect to load them
+- [x] Update validateConnectorForm and canSaveConnectorForm
+- [x] Update handleCreateConnector to pass metahubId
+- [x] Add i18n keys for connector tabs and validation (EN + RU)
+
+### Phase 5: Build & Verification
+- [x] Run full pnpm build - SUCCESS (63 tasks, 4m40s)
+- [x] Update memory-bank files
+
+---
+
+## IMPLEMENT (2026-01-18): Publication as Separate Entity
+
+### Phase 1: Database Migrations
+- [x] Create migration `AddPublicationsTable` in metahubs-backend (publications + publications_users)
+- [x] Create migration `AddConnectorsPublications` in applications-backend (junction table)
+- [x] Register migrations in respective index.ts files
+
+### Phase 2: TypeORM Entities
+- [x] Create `Publication` entity in metahubs-backend
+- [x] Create `PublicationUser` entity in metahubs-backend
+- [x] Create `ConnectorPublication` entity in applications-backend
+- [x] Update `Connector` entity with new relation
+- [x] Update entity exports in both packages
+
+### Phase 3: Backend Routes Refactoring
+- [x] Refactor `publicationsRoutes.ts` to use new Publication entity
+- [x] Add endpoint for linked applications
+
+### Phase 4: Frontend Changes
+- [x] Update Publication tabs (Access + Applications)
+- [x] Add AccessPanel and ApplicationsPanel components
+- [x] Update API types in publications.ts (accessMode, accessConfig, LinkedApplication)
+
+### Phase 5: i18n
+- [x] Add new translation keys (EN + RU)
+
+### Phase 6: Build & Verification
+- [x] Build metahubs-backend - SUCCESS
+- [x] Build applications-backend - SUCCESS
+- [x] Build metahubs-frontend - SUCCESS
+- [x] Run full pnpm build - SUCCESS (63 tasks, 6m48s)
+- [x] Update memory-bank files
+
+---
+
 ## IMPLEMENT (2026-01-17): Add DDL Module Unit Tests ✅
 
 ### QA Recommendation: Add unit tests for DDL module

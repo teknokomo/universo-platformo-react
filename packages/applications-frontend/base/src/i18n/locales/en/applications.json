@@ -90,9 +90,21 @@
         "createError": "Failed to create connector",
         "updateError": "Failed to update connector",
         "deleteError": "Failed to delete connector",
+        "tabs": {
+            "general": "General",
+            "metahubs": "Metahubs"
+        },
         "validation": {
             "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+            "metahubRequired": "Please select a Metahub"
+        },
+        "create": {
+            "metahubInfo": "Select a Metahub to link this connector to. The connector will sync data from the selected Metahub schema.",
+            "selectMetahub": "Select Metahub",
+            "noMetahubsAvailable": "No metahubs available",
+            "metahubSelected": "Metahub selected. After creation, the connector will be linked to this Metahub.",
+            "metahubRequired": "Please select a Metahub. A connector must be linked to exactly one Metahub."
         },
         "status": {
             "draft": "Draft",

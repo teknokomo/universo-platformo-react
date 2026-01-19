@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Alert, Box, Skeleton, Stack, Typography, IconButton, Divider } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, Alert } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
@@ -24,31 +24,30 @@ import {
     gridSpacing,
     ConfirmDialog,
     useConfirm,
-    LocalizedInlineField,
-    useCodenameAutoFill
+    LocalizedInlineField
 } from '@universo/template-mui'
 import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
 import { useCreateConnector, useUpdateConnector, useDeleteConnector } from '../hooks/mutations'
-import { useConnectorMetahubs } from '../hooks/useConnectorMetahubs'
+import { useConnectorMetahubs, useAvailableMetahubs } from '../hooks/useConnectorMetahubs'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as connectorsApi from '../api/connectors'
 import { applicationsQueryKeys, invalidateConnectorsQueries } from '../api/queryKeys'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Connector, ConnectorDisplay, ConnectorLocalizedPayload, getVLCString, toConnectorDisplay } from '../types'
-import { sanitizeCodename, isValidCodename } from '../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
-import { CodenameField, ConnectorDeleteDialog } from '../components'
+import { ConnectorDeleteDialog, MetahubSelectionPanel } from '../components'
 import connectorActions from './ConnectorActions'
 
 type ConnectorFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    codename: string
-    codenameTouched?: boolean
+    /** Selected metahub IDs (array for EntitySelectionPanel) */
+    metahubIds: string[]
 }
 
 type ConnectorFormFieldsProps = {
@@ -59,8 +58,6 @@ type ConnectorFormFieldsProps = {
     uiLocale: string
     nameLabel: string
     descriptionLabel: string
-    codenameLabel: string
-    codenameHelper: string
 }
 
 const ConnectorFormFields = ({
@@ -70,28 +67,13 @@ const ConnectorFormFields = ({
     errors,
     uiLocale,
     nameLabel,
-    descriptionLabel,
-    codenameLabel,
-    codenameHelper
+    descriptionLabel
 }: ConnectorFormFieldsProps) => {
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
-    const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
-
-    useCodenameAutoFill({
-        codename,
-        codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
 
     return (
-        <>
+        <Stack spacing={2}>
             <LocalizedInlineField
                 mode='localized'
                 label={nameLabel}
@@ -113,19 +95,7 @@ const ConnectorFormFields = ({
                 multiline
                 rows={2}
             />
-            <Divider />
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
-                label={codenameLabel}
-                helperText={codenameHelper}
-                error={errors.codename}
-                disabled={isLoading}
-                required
-            />
-        </>
+        </Stack>
     )
 }
 
@@ -144,7 +114,7 @@ const ConnectorList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Use paginated hook for connectors list
-    const paginationResult = usePaginated<Connector, 'codename' | 'created' | 'updated'>({
+    const paginationResult = usePaginated<Connector, 'created' | 'updated'>({
         queryKeyFn: applicationId ? (params) => applicationsQueryKeys.connectorsList(applicationId, params) : () => ['empty'],
         queryFn: applicationId
             ? (params) => connectorsApi.listConnectors(applicationId, params)
@@ -181,6 +151,9 @@ const ConnectorList = () => {
     
     // Fetch metahubs for the first connector to enable navigation
     const { data: connectorMetahubsData } = useConnectorMetahubs(applicationId ?? '', firstConnectorId)
+
+    // Fetch available metahubs for selection in create dialog
+    const { data: availableMetahubs = [] } = useAvailableMetahubs()
     
     // Build a map of connectorId -> metahubId for navigation
     const connectorMetahubMap = useMemo(() => {
@@ -211,7 +184,7 @@ const ConnectorList = () => {
     }, [connectors])
 
     const localizedFormDefaults = useMemo<ConnectorFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, codename: '', codenameTouched: false }),
+        () => ({ nameVlc: null, descriptionVlc: null, metahubIds: [] }),
         []
     )
 
@@ -222,12 +195,10 @@ const ConnectorList = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-            const normalizedCodename = sanitizeCodename(rawCodename)
-            if (!normalizedCodename) {
-                errors.codename = t('connectors.validation.codenameRequired', 'Codename is required')
-            } else if (!isValidCodename(normalizedCodename)) {
-                errors.codename = t('connectors.validation.codenameInvalid', 'Codename contains invalid characters')
+            // metahubIds is required for creating a connector
+            const metahubIds = values.metahubIds as string[] | undefined
+            if (!metahubIds || metahubIds.length === 0) {
+                errors.metahubIds = t('connectors.validation.metahubRequired', 'Please select a Metahub')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -236,9 +207,8 @@ const ConnectorList = () => {
 
     const canSaveConnectorForm = useCallback((values: Record<string, any>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+        const metahubIds = values.metahubIds as string[] | undefined
+        return hasPrimaryContent(nameVlc) && metahubIds && metahubIds.length > 0
     }, [])
 
     const renderLocalizedFields = useCallback(
@@ -263,12 +233,62 @@ const ConnectorList = () => {
                     uiLocale={i18n.language}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
-                    codenameLabel={t('connectors.codename', 'Codename')}
-                    codenameHelper={t('connectors.codenameHelper', 'Unique identifier')}
                 />
             )
         },
-        [i18n.language, t, tc]
+        [i18n.language, tc]
+    )
+
+    // Build tabs for create dialog
+    const buildCreateTabs = useCallback(
+        ({
+            values,
+            setValue,
+            isLoading: isFormLoading,
+            errors
+        }: {
+            values: Record<string, any>
+            setValue: (name: string, value: any) => void
+            isLoading: boolean
+            errors: Record<string, string>
+        }): TabConfig[] => {
+            return [
+                {
+                    id: 'general',
+                    label: t('connectors.tabs.general', 'General'),
+                    content: (
+                        <ConnectorFormFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isFormLoading}
+                            errors={errors}
+                            uiLocale={i18n.language}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                        />
+                    )
+                },
+                {
+                    id: 'metahubs',
+                    label: t('connectors.tabs.metahubs', 'Metahubs'),
+                    content: (
+                        <MetahubSelectionPanel
+                            availableMetahubs={availableMetahubs}
+                            selectedMetahubIds={(values.metahubIds as string[]) || []}
+                            onSelectionChange={(ids) => setValue('metahubIds', ids)}
+                            isRequiredMetahub={true}
+                            onRequiredMetahubChange={() => {}}
+                            isSingleMetahub={true}
+                            onSingleMetahubChange={() => {}}
+                            disabled={isFormLoading}
+                            togglesDisabled={true}
+                            uiLocale={i18n.language}
+                        />
+                    )
+                }
+            ]
+        },
+        [availableMetahubs, i18n.language, t, tc]
     )
 
     const connectorColumns = useMemo(
@@ -276,7 +296,7 @@ const ConnectorList = () => {
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '25%',
+                width: '35%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: ConnectorDisplay) => row.name?.toLowerCase() ?? '',
@@ -295,7 +315,7 @@ const ConnectorList = () => {
             {
                 id: 'description',
                 label: tc('table.description', 'Description'),
-                width: '30%',
+                width: '45%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: ConnectorDisplay) => row.description?.toLowerCase() ?? '',
@@ -307,26 +327,6 @@ const ConnectorList = () => {
                         }}
                     >
                         {row.description || '—'}
-                    </Typography>
-                )
-            },
-            {
-                id: 'codename',
-                label: t('connectors.codename', 'Codename'),
-                width: '15%',
-                align: 'left' as const,
-                sortable: true,
-                sortAccessor: (row: ConnectorDisplay) => row.codename?.toLowerCase() ?? '',
-                render: (row: ConnectorDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 600,
-                            fontFamily: 'monospace',
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.codename || '—'}
                     </Typography>
                 )
             }
@@ -343,14 +343,10 @@ const ConnectorList = () => {
             api: {
                 updateEntity: async (id: string, patch: ConnectorLocalizedPayload) => {
                     if (!applicationId) return
-                    const normalizedCodename = sanitizeCodename(patch.codename)
-                    if (!normalizedCodename) {
-                        throw new Error(t('connectors.validation.codenameRequired', 'Codename is required'))
-                    }
                     await updateConnectorMutation.mutateAsync({
                         applicationId,
                         connectorId: id,
-                        data: { ...patch, codename: normalizedCodename }
+                        data: patch
                     })
                 },
                 deleteEntity: async (id: string) => {
@@ -434,20 +430,23 @@ const ConnectorList = () => {
                 return
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
-            if (!normalizedCodename) {
-                setDialogError(t('connectors.validation.codenameRequired', 'Codename is required'))
+
+            // Get metahubIds from form data (single selection for now)
+            const metahubIds = data.metahubIds as string[] | undefined
+            if (!metahubIds || metahubIds.length === 0) {
+                setDialogError(t('connectors.validation.metahubRequired', 'Please select a Metahub'))
                 return
             }
+            const metahubId = metahubIds[0] // Use first selected metahub
 
             await createConnectorMutation.mutateAsync({
                 applicationId,
                 data: {
-                    codename: normalizedCodename,
                     name: nameInput,
                     description: descriptionInput,
                     namePrimaryLocale,
-                    descriptionPrimaryLocale
+                    descriptionPrimaryLocale,
+                    metahubId // Pass metahubId to create the link
                 }
             })
 
@@ -674,7 +673,7 @@ const ConnectorList = () => {
                 onSave={handleCreateConnector}
                 hideDefaultFields
                 initialExtraValues={localizedFormDefaults}
-                extraFields={renderLocalizedFields}
+                tabs={buildCreateTabs}
                 validate={validateConnectorForm}
                 canSave={canSaveConnectorForm}
             />
