@@ -68,6 +68,7 @@ export function useConnectorDiff(
 ) {
     // This is kept for backward compatibility but now requires applicationId
     // Real implementation should use useApplicationDiff
+    console.warn('useConnectorDiff is deprecated. Use useApplicationDiff instead.')
     return useQuery<SchemaDiffResponse, Error>({
         queryKey: ['deprecated-connector-diff'],
         queryFn: async () => {

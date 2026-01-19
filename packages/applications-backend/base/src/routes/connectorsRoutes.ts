@@ -209,18 +209,23 @@ export function createConnectorsRoutes(
                 sortOrder: sortOrder ?? 0
             })
 
-            const saved = await connectorRepo.save(connector)
+            // Wrap connector creation and optional metahub link in a transaction
+            const ds = getDataSource()
+            const saved = await ds.transaction(async (manager) => {
+                const savedConnector = await manager.save(connector)
 
-            // If metahubId provided, create the link
-            if (metahubId) {
-                const { connectorMetahubRepo } = repos(req)
-                const link = connectorMetahubRepo.create({
-                    connectorId: saved.id,
-                    metahubId,
-                    sortOrder: 0
-                })
-                await connectorMetahubRepo.save(link)
-            }
+                // If metahubId provided, create the link
+                if (metahubId) {
+                    const link = manager.getRepository(ConnectorMetahub).create({
+                        connectorId: savedConnector.id,
+                        metahubId,
+                        sortOrder: 0
+                    })
+                    await manager.save(link)
+                }
+
+                return savedConnector
+            })
 
             res.status(201).json(saved)
         })

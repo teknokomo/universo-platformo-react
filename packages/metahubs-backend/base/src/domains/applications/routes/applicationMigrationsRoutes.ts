@@ -80,21 +80,42 @@ export function createApplicationMigrationsRoutes(
         const connectorMetahubRepo = ds.getRepository(ConnectorMetahub)
         const publicationRepo = ds.getRepository(Publication)
 
-        // Find first connector for this application
-        const connector = await connectorRepo.findOne({ where: { applicationId } })
-        if (!connector) {
+        // Find connectors for this application – must be exactly one
+        const connectors = await connectorRepo.find({ where: { applicationId } })
+        if (connectors.length === 0) {
             return res.status(400).json({ error: 'Application has no connectors configured' })
         }
+        if (connectors.length > 1) {
+            return res
+                .status(400)
+                .json({ error: 'Application has multiple connectors; schemaName must be set explicitly on the application' })
+        }
+        const connector = connectors[0]
 
-        // Find linked metahub
-        const connectorMetahub = await connectorMetahubRepo.findOne({ where: { connectorId: connector.id } })
-        if (!connectorMetahub) {
+        // Find linked metahub – must be exactly one
+        const connectorMetahubs = await connectorMetahubRepo.find({ where: { connectorId: connector.id } })
+        if (connectorMetahubs.length === 0) {
             return res.status(400).json({ error: 'Connector has no metahub linked' })
         }
+        if (connectorMetahubs.length > 1) {
+            return res
+                .status(400)
+                .json({ error: 'Connector is linked to multiple metahubs; schemaName must be set explicitly on the application' })
+        }
+        const connectorMetahub = connectorMetahubs[0]
 
-        // Find publication for this metahub
-        const publication = await publicationRepo.findOne({ where: { metahubId: connectorMetahub.metahubId } })
-        if (!publication || !publication.schemaName) {
+        // Find publication for this metahub – must be exactly one with a schemaName
+        const publications = await publicationRepo.find({ where: { metahubId: connectorMetahub.metahubId } })
+        if (publications.length === 0) {
+            return res.status(400).json({ error: 'No publication with schema found for this application' })
+        }
+        if (publications.length > 1) {
+            return res
+                .status(400)
+                .json({ error: 'Multiple publications found for metahub; schemaName must be set explicitly on the application' })
+        }
+        const publication = publications[0]
+        if (!publication.schemaName) {
             return res.status(400).json({ error: 'No publication with schema found for this application' })
         }
 

@@ -5,7 +5,6 @@ import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
 import { Application } from '../database/entities/Application'
-import { ApplicationSchemaStatus } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
 import { Connector } from '../database/entities/Connector'
 import { Profile } from '@universo/profile-backend'
@@ -14,13 +13,15 @@ import type { ApplicationRole } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { ConnectorMetahub } from '../database/entities/ConnectorMetahub'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
-// Helper to generate schema name for Application
+// Schema name generator
+// NOTE: This duplicates the logic from @universo/metahubs-backend/ddl/naming.ts
+// to avoid circular dependency (metahubs-backend depends on applications-backend)
+const SCHEMA_PREFIX = 'app'
 const generateSchemaName = (applicationId: string): string => {
     const cleanId = applicationId.replace(/-/g, '')
-    return `app_${cleanId}`
+    return `${SCHEMA_PREFIX}_${cleanId}`
 }
 
 const getRequestQueryRunner = (req: Request) => {

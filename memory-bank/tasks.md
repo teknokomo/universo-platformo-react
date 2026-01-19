@@ -4,6 +4,29 @@
 
 ---
 
+## IMPLEMENT (2025-01-19): PR #646 Bot Review Fixes
+
+### Code Quality Fixes (Copilot + Gemini recommendations)
+- [x] Keep `generateSchemaName` in applicationsRoutes.ts with comment explaining duplication reason (avoid circular dependency)
+- [x] Remove unused imports `ApplicationSchemaStatus`, `ConnectorMetahub` from applicationsRoutes.ts
+- [x] Make `applicationId` required parameter in `syncConnector` legacy function (connectors.ts)
+- [x] Add console.warn to `useConnectorDiff` before throwing error for better debugging
+- [x] Add validation for multiple roles in applicationSyncRoutes.ts access check
+- [x] Add validation for multiple connectors/publications in applicationMigrationsRoutes.ts helper
+- [x] Wrap connector creation with metahub link in transaction (connectorsRoutes.ts)
+
+### Migration Fixes
+- [x] UNIQUE constraint on nullable schema_name is OK - PostgreSQL allows multiple NULLs with UNIQUE (documented behavior)
+
+### Skipped Recommendations (with reasons)
+- [ ] Remove autoCreateApplication from Publication entity - **SKIP**: Field is useful for future auditing/cascading deletes
+- [ ] Import generateSchemaName from metahubs-backend - **SKIP**: Would create circular dependency
+
+### Build & Verification
+- [x] Run pnpm build to verify changes - SUCCESS (63 tasks, 5m35s)
+
+---
+
 ## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 3) ✅
 
 ### Issue 1: Migration codename index error

@@ -66,9 +66,18 @@ async function ensureApplicationAccess(
         [applicationId, userId]
     )
 
-    if (result.length === 0 || !allowedRoles.includes(result[0].role)) {
-        const error = new Error('Access denied')
-        ;(error as NodeJS.ErrnoException).code = 'FORBIDDEN'
+    const error = new Error('Access denied')
+    ;(error as NodeJS.ErrnoException).code = 'FORBIDDEN'
+
+    if (result.length === 0) {
+        throw error
+    }
+
+    if (result.length > 1) {
+        console.warn(`Multiple roles found for user ${userId} in application ${applicationId}`)
+    }
+
+    if (!allowedRoles.includes(result[0].role)) {
         throw error
     }
 }

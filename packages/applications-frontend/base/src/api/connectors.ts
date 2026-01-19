@@ -140,14 +140,15 @@ export const syncApplication = async (
 
 // Legacy exports for backward compatibility (deprecated)
 export const getConnectorDiff = getApplicationDiff
+/**
+ * @deprecated Use syncApplication instead
+ */
 export const syncConnector = (
     _metahubId: string,
     _publicationId: string,
-    confirmDestructive = false,
-    applicationId?: string
+    confirmDestructive: boolean,
+    applicationId: string
 ): Promise<SchemaSyncResponse> => {
-    if (!applicationId) {
-        throw new Error('applicationId is required for sync operations')
-    }
+    console.warn('syncConnector is deprecated. Use syncApplication instead.')
     return syncApplication(applicationId, confirmDestructive)
 }
