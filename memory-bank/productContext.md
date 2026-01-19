@@ -9,6 +9,7 @@ Expanding Flowise AI with multi‑user capabilities for collaborative workflows 
 -   Minimal changes to the original codebase
 -   Backwards compatibility
 -   Simplicity over complexity
+-   Shared runtime DDL logic lives in a dedicated package (`@universo/schema-ddl`) to avoid cross-package coupling
 
 ## 3D/AR/VR
 

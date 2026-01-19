@@ -1,12 +1,95 @@
 # Active Context
 
-> **Last Updated**: 2025-01-18
+> **Last Updated**: 2026-01-19
 > 
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Publication/Connector QA Fixes (Round 3) ✅
+## Current Focus: Refactor Connector-Publication Link
+
+### Implementation In Progress (2025-01-20)
+
+**Original Problem**:
+1. `connectors_metahubs` table linked connectors directly to metahubs
+2. This allowed connectors to metahubs without publications, breaking sync logic
+3. UI showed "Sync Schema" button always, should show "Create Schema" when schema doesn't exist
+
+**Solution**: Link connectors to Publications instead of Metahubs:
+- Table renamed: `connectors_metahubs` → `connectors_publications`
+- Column renamed: `metahub_id` → `publication_id`
+- FK changed: References `metahubs.publications(id)`
+
+**UI/UX Refinement** (latest update):
+- Connectors show "Metahubs" tab (not "Publications") for user-friendly terminology
+- PublicationSelectionPanel displays Metahub names but returns publication IDs internally
+- Only metahubs with publications appear in the selection list
+- Single publication limit: One Publication per Metahub (similar to Connector limit)
+
+**Completed Work**:
+- ✅ Database migration updated
+- ✅ Backend entities and routes updated (applications-backend, metahubs-backend)
+- ✅ Frontend types, API, hooks, components updated (applications-frontend)
+- ✅ Dynamic button text: "Create Schema" vs "Sync Schema"
+- ✅ ConnectorDiffDialog shows tables to be created
+- ✅ UI shows "Metahubs" but internally links to Publications
+- ✅ Single publication limit (frontend + backend)
+- ✅ i18n keys added (English + Russian)
+- ✅ Build successful (64 tasks)
+
+**Pending**:
+- ⏳ Manual testing of schema creation flow
+
+**Recent Fixes (2026-01-19)**:
+- Fixed `/publications/available` query: use `metahubs_users` membership, map metahub `slug` as codename, and publication `schema_name` as codename.
+- Removed `publications_users` dependency from backend and migration (see progress.md for details).
+- Fixed Connector UI localization issues:
+  - Added missing `common.search` translation for search placeholder
+  - Added `table.name`, `table.codename` top-level i18n keys
+  - Added `connectors.table.created` for "Created" label on connector page
+  - Included `table` in applications i18n consolidation for `table.codename` resolution
+  - Updated `connectors.metahubInfo.locked` notification text as per user request
+  - Changed tab id/label from 'publications' to 'metahubs' in ConnectorActions.tsx
+  - Removed Publication info row from ConnectorBoard.tsx (internal detail)
+  - Updated admin instances MVP notice text and moved the alert to top of InstanceList
+  - Adjusted admin notice spacing to match connector list banner
+  - Added "Связь" column and Metahub chip to connector list (table + card)
+  - Made connector name a link in table view with hover effect matching ApplicationList pattern
+  - Cleaned schema-ddl utilities: parameterized statement_timeout, removed deprecated static wrappers, updated tests; schema-ddl tests and full build successful
+
+**Testing Instructions**:
+1. Drop and recreate test database (migration is breaking change)
+2. Create Metahub
+3. Create Publication in Metahub (verify only one allowed)
+4. Create Application with Connector linked to the Metahub
+5. Verify "Create Schema" button appears
+6. Click button and verify tables are created
+7. Verify button changes to "Sync Schema"
+
+---
+
+## Previous: @universo/schema-ddl Package Extraction ✅
+
+### Implementation Completed (2025-01-19)
+
+**Problem Solved**: Circular dependency between metahubs-backend and applications-backend.
+
+**Solution**: Created new package `@universo/schema-ddl` with Dependency Injection pattern:
+- All DDL classes (SchemaGenerator, SchemaMigrator, MigrationManager) receive `Knex` via constructor
+- Factory function `createDDLServices(knex)` instantiates all services
+- Pure functions extracted to modules: `locking.ts`, `naming.ts`
+
+**Integration**:
+- `metahubs-backend`: Re-exports from schema-ddl + `getDDLServices()` wrapper
+- `applications-backend`: Imports `generateSchemaName` directly from `@universo/schema-ddl`
+
+**Build Result**: 64 tasks successful, 4m36s.
+
+**Status**: Ready for commit.
+
+---
+
+## Previous: Publication/Connector QA Fixes (Round 3) ✅
 
 ### Implementation Completed (2025-01-18)
 

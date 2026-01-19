@@ -58,7 +58,8 @@
         "table": {
             "description": "Description",
             "role": "Role",
-            "connectors": "Connectors"
+            "connectors": "Connectors",
+            "created": "Created"
         }
     },
     "connectors": {
@@ -92,19 +93,33 @@
         "deleteError": "Failed to delete connector",
         "tabs": {
             "general": "General",
-            "metahubs": "Metahubs"
+            "metahubs": "Metahubs",
+            "publications": "Publications"
+        },
+        "table": {
+            "created": "Created",
+            "relation": "Relation"
+        },
+        "relation": {
+            "metahub": "Metahub"
         },
         "validation": {
             "codenameRequired": "Codename is required",
             "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
-            "metahubRequired": "Please select a Metahub"
+            "metahubRequired": "Please select a Metahub",
+            "publicationRequired": "Please select a Publication"
         },
         "create": {
             "metahubInfo": "Select a Metahub to link this connector to. The connector will sync data from the selected Metahub schema.",
             "selectMetahub": "Select Metahub",
             "noMetahubsAvailable": "No metahubs available",
             "metahubSelected": "Metahub selected. After creation, the connector will be linked to this Metahub.",
-            "metahubRequired": "Please select a Metahub. A connector must be linked to exactly one Metahub."
+            "metahubRequired": "Please select a Metahub. A connector must be linked to exactly one Metahub.",
+            "publicationInfo": "Select a Publication to link this connector to. The connector will sync data from the selected Publication schema.",
+            "selectPublication": "Select Publication",
+            "noPublicationsAvailable": "No publications available",
+            "publicationSelected": "Publication selected. After creation, the connector will be linked to this Publication.",
+            "publicationRequired": "Please select a Publication. A connector must be linked to exactly one Publication."
         },
         "status": {
             "draft": "Draft",
@@ -122,9 +137,13 @@
         },
         "sync": {
             "button": "Sync Schema",
+            "createButton": "Create Schema",
             "syncing": "Syncing...",
+            "creating": "Creating...",
             "success": "Schema synchronized successfully",
+            "createSuccess": "Schema created successfully",
             "error": "Failed to sync schema",
+            "createError": "Failed to create schema",
             "noChanges": "Schema is up to date",
             "confirmDestructive": "Apply changes including destructive ones",
             "cancel": "Cancel",
@@ -135,16 +154,20 @@
             "name": "Schema Name",
             "status": "Status",
             "lastSync": "Last Synced",
-            "source": "Source Metahub"
+            "source": "Source Metahub",
+            "sourcePublication": "Source Publication"
         },
         "diffDialog": {
             "title": "Schema Changes",
+            "createTitle": "Create Schema",
             "loading": "Loading changes...",
             "loadError": "Failed to load schema changes",
             "noChanges": "No schema changes detected",
             "schemaUpToDate": "Schema matches current configuration",
             "schemaMissingTitle": "Schema not created yet",
             "schemaNotExists": "Schema does not exist yet. It will be created on first sync.",
+            "schemaWillBeCreated": "The following schema will be created:",
+            "tablesWillBeCreated": "Tables to be created",
             "additive": "Additions",
             "destructive": "Destructive Changes",
             "destructiveWarning": "The following changes may result in data loss:",
@@ -183,16 +206,53 @@
             "loadError": "Failed to load metahubs"
         },
         "metahubInfo": {
-            "locked": "Metahub links and constraints are currently locked. This functionality will be available in a future update.",
+            "locked": "Changing metahub links and settings is currently locked. This will be available in future versions.",
             "constraints": "Connector Constraints",
             "isSingleLocked": "This setting is currently locked to \"On\"",
             "isSingleHelp": "Connector can only be linked to one Metahub",
             "isRequiredLocked": "This setting is currently locked to \"On\"",
             "isRequiredHelp": "Connector must have at least one Metahub linked"
         },
-        "tabs": {
-            "general": "General",
-            "metahubs": "Metahubs"
+        "publications": {
+            "title": "Linked Publications",
+            "panelTitle": "Publication",
+            "add": "Add Publication",
+            "addButton": "Link Publication",
+            "addSelected": "Add",
+            "remove": "Remove link",
+            "noLinked": "No publications linked yet",
+            "noSelected": "No publications selected",
+            "noAvailable": "No available publications",
+            "allLinked": "All available publications are already linked",
+            "selectDialog": "Select a Publication",
+            "singleLimit": "Single publication",
+            "required": "Required",
+            "isRequired": "Required",
+            "isRequiredEnabled": "Connector must have at least one linked Publication",
+            "isRequiredDisabled": "Connector can exist without publications",
+            "isSingle": "Single publication",
+            "isSingleEnabled": "Connector can only be linked to one Publication",
+            "isSingleDisabled": "Connector can be linked to multiple publications",
+            "isSingleWarning": "Cannot enable while multiple publications are selected",
+            "singleModeInfo": "This connector is configured to use a single publication. Remove the current link to change.",
+            "singleModeHint": "Remove current publication to link a different one",
+            "cannotRemoveLast": "At least one publication is required",
+            "linkSuccess": "Publication linked successfully",
+            "linkError": "Failed to link publication",
+            "unlinkSuccess": "Publication unlinked successfully",
+            "unlinkError": "Failed to unlink publication",
+            "loadError": "Failed to load publications",
+            "selectPlaceholder": "Select a publication...",
+            "emptyState": "No publications available. Create a publication in a Metahub first."
+        },
+        "publicationInfo": {
+            "locked": "Publication links and constraints are currently locked. This functionality will be available in a future update.",
+            "constraints": "Connector Constraints",
+            "isSingleLocked": "This setting is currently locked to \"On\"",
+            "isSingleHelp": "Connector can only be linked to one Publication",
+            "isRequiredLocked": "This setting is currently locked to \"On\"",
+            "isRequiredHelp": "Connector must have at least one Publication linked",
+            "metahubLabel": "Metahub"
         }
     },
     "members": {
@@ -228,7 +288,12 @@
         "delete": "Delete",
         "actions": "Actions",
         "details": "Details",
-        "updated": "Updated"
+        "updated": "Updated",
+        "search": "Search..."
+    },
+    "table": {
+        "name": "Name",
+        "codename": "Codename"
     },
     "actions": {
         "backToList": "Back to applications",

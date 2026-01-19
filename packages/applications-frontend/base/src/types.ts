@@ -99,10 +99,10 @@ export interface Connector {
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
-    /** If true, connector can only be linked to one metahub */
-    isSingleMetahub?: boolean
-    /** If true, connector must have at least one metahub */
-    isRequiredMetahub?: boolean
+    /** If true, connector can only be linked to one publication */
+    isSinglePublication?: boolean
+    /** If true, connector must have at least one publication */
+    isRequiredPublication?: boolean
     createdAt: string
     updatedAt: string
     role?: ApplicationRole
@@ -110,16 +110,30 @@ export interface Connector {
 }
 
 /**
- * ConnectorMetahub - junction table linking Connector to Metahub
- * When fetched via API, includes nested metahub details
+ * ConnectorPublication - junction table linking Connector to Publication
+ * When fetched via API, includes nested publication details
  */
-export interface ConnectorMetahub {
+export interface ConnectorPublication {
     id: string
     connectorId: string
-    metahubId: string
+    publicationId: string
     sortOrder: number
     createdAt: string
-    /** Metahub details (populated by backend join) */
+    /** Publication details (populated by backend join) */
+    publication?: PublicationSummary | null
+}
+
+/**
+ * Publication summary for selection panels
+ * This is a minimal representation loaded from metahubs-backend
+ */
+export interface PublicationSummary {
+    id: string
+    codename: string
+    schemaName?: string | null
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    /** Parent metahub info */
     metahub?: MetahubSummary | null
 }
 
@@ -135,13 +149,13 @@ export interface MetahubSummary {
 }
 
 /**
- * Response for connector metahubs list
+ * Response for connector publications list
  */
-export interface ConnectorMetahubsResponse {
-    items: ConnectorMetahub[]
+export interface ConnectorPublicationsResponse {
+    items: ConnectorPublication[]
     total: number
-    isSingleMetahub: boolean
-    isRequiredMetahub: boolean
+    isSinglePublication: boolean
+    isRequiredPublication: boolean
 }
 
 /**
@@ -165,7 +179,7 @@ export interface ConnectorLocalizedPayload {
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     sortOrder?: number
-    metahubId?: string // Optional metahub to link on creation
+    publicationId?: string // Optional publication to link on creation
 }
 
 // ============ HELPER FUNCTIONS ============

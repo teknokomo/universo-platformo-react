@@ -3,7 +3,7 @@ export { applicationsEntities, ApplicationSchemaStatus } from './database/entiti
 export { Application } from './database/entities/Application'
 export { ApplicationUser } from './database/entities/ApplicationUser'
 export { Connector } from './database/entities/Connector'
-export { ConnectorMetahub } from './database/entities/ConnectorMetahub'
+export { ConnectorPublication } from './database/entities/ConnectorPublication'
 
 // Route exports
 export { createApplicationsRoutes } from './routes/applicationsRoutes'

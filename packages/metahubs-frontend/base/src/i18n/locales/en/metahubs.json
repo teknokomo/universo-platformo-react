@@ -282,6 +282,7 @@
         "emptyDescription": "Create a publication to generate real database tables from your configuration",
         "noResults": "No results",
         "noResultsDescription": "Try changing your search query",
+        "singlePublicationLimit": "Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions of Universo Platformo.",
         "create": "Create Publication",
         "createDialog": {
             "title": "Create Publication",

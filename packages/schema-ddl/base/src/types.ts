@@ -1,10 +1,4 @@
-import type {
-    AttributeDataType,
-    MetaEntityDefinition,
-    MetaEntityKind,
-    MetaFieldDefinition,
-    MetaPresentation,
-} from '@universo/types'
+import type { AttributeDataType, MetaEntityDefinition, MetaEntityKind, MetaFieldDefinition, MetaPresentation } from '@universo/types'
 
 export type EntityDefinition = MetaEntityDefinition
 export type FieldDefinition = MetaFieldDefinition
@@ -119,4 +113,3 @@ export interface RollbackAnalysis {
     warnings: string[]
     rollbackChanges: MigrationChangeRecord[]
 }
-

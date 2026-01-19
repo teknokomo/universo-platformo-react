@@ -52,6 +52,11 @@ if (!userId) return
 -   **Metahub table**: `metahubs.metahubs` uses `slug` (not `codename`) as the URL-friendly identifier.
 -   **Implication**: Cross-schema joins must select `slug` and map it to frontend `codename` when needed.
 
+#### 3.2 Runtime DDL Utilities (schema-ddl)
+-   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
+-   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
+-   **Safety**: All `knex.raw` calls must use parameterized queries (including `SET LOCAL statement_timeout`).
+
 #### 4. UPDL Nodes & Multi-Technology Export
 
 -   **Location**: `packages/` directory (custom application layer)

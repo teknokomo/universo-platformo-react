@@ -3,7 +3,7 @@ import type { MetaEntityKind } from '@universo/types'
 const ENTITY_TABLE_PREFIX: Record<MetaEntityKind, string> = {
     catalog: 'cat',
     hub: 'hub',
-    document: 'doc',
+    document: 'doc'
 }
 
 const SCHEMA_PREFIX = 'app'
@@ -26,5 +26,4 @@ export const generateColumnName = (fieldId: string): string => {
 
 export const isValidSchemaName = (schemaName: string): boolean => /^app_[a-f0-9]+$/.test(schemaName)
 
-export const buildFkConstraintName = (tableName: string, columnName: string): string =>
-    `fk_${tableName}_${columnName}`.substring(0, 63)
+export const buildFkConstraintName = (tableName: string, columnName: string): string => `fk_${tableName}_${columnName}`.substring(0, 63)

@@ -14,7 +14,7 @@
         "confirmDeleteDescription": "Are you sure you want to delete instance \"{{name}}\"?",
         "updateSuccess": "Instance updated",
         "updateError": "Failed to update instance",
-        "mvpNotice": "Remote instances management will be available in future versions.",
+        "mvpNotice": "Currently, only one local Universo Platformo instance is supported. These limitations will be removed in future versions of Universo Platformo.",
         "searchPlaceholder": "Search instances...",
         "status": {
             "active": "Active",

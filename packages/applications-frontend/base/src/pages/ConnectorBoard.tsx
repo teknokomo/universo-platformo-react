@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next'
 
 // project imports
 import { ViewHeaderMUI as ViewHeader, EmptyListState, APIEmptySVG } from '@universo/template-mui'
-import { useConnectorDetails } from '../hooks/useConnectorMetahubs'
+import { useConnectorDetails } from '../hooks/useConnectorPublications'
 import { useSyncConnector } from '../hooks/mutations'
 import { ConnectorDiffDialog } from '../components'
 import { useApplicationDetails } from '../api/useApplicationDetails'
@@ -152,10 +152,10 @@ const ConnectorBoard = () => {
         )
     }
 
-    const { connector, metahub } = connectorData
+    const { connector, publication } = connectorData
     const connectorName = getVLCString(connector.name, i18n.language)
     const connectorDescription = getVLCString(connector.description, i18n.language)
-    const metahubName = metahub ? getVLCString(metahub.name, i18n.language) : null
+    const metahubName = publication?.metahub ? getVLCString(publication.metahub.name, i18n.language) : null
 
     // Schema info from Application (each Application has its own schema)
     const schemaName = application?.schemaName ?? (applicationId ? `app_${applicationId.replace(/-/g, '')}` : 'app_unknown')
@@ -255,11 +255,13 @@ const ConnectorBoard = () => {
                                         color="primary"
                                         startIcon={<SyncIcon />}
                                         onClick={handleSyncClick}
-                                        disabled={schemaStatus === 'pending' || syncMutation.isPending || !metahub}
+                                        disabled={schemaStatus === 'pending' || syncMutation.isPending || !publication}
                                         fullWidth
                                     >
                                         {syncMutation.isPending
                                             ? t('connectors.sync.syncing', 'Syncing...')
+                                            : schemaStatus === 'draft'
+                                            ? t('connectors.sync.createButton', 'Create Schema')
                                             : t('connectors.sync.button', 'Sync Schema')}
                                     </Button>
                                 </Box>

@@ -3,14 +3,12 @@ import {
     PrimaryGeneratedColumn,
     Column,
     ManyToOne,
-    OneToMany,
     JoinColumn,
     CreateDateColumn,
     UpdateDateColumn
 } from 'typeorm'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Metahub } from './Metahub'
-import { PublicationUser } from './PublicationUser'
 
 /**
  * Access mode for Publication API
@@ -98,9 +96,6 @@ export class Publication {
 
     @Column({ name: 'auto_create_application', type: 'boolean', default: false })
     autoCreateApplication!: boolean
-
-    @OneToMany(() => PublicationUser, (pu) => pu.publication)
-    publicationUsers!: PublicationUser[]
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date

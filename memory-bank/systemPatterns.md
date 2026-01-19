@@ -82,6 +82,13 @@ return repo.find({ where: { ... } })
 
 **Exception (cross-schema joins)**: When TypeORM cannot model cross-schema relations (e.g., connectors ↔ metahubs), use raw SQL **only** via the request-scoped manager: `getRequestManager(req, ds).query(...)`. This preserves RLS context.
 
+## DDL Utilities Pattern (schema-ddl)
+
+**Rule**: Runtime schema operations must use `@universo/schema-ddl` with DI-created services.
+**Required**: Instantiate via `createDDLServices(knex)` or backend wrapper `getDDLServices()`.
+**Avoid**: Deprecated static wrappers (use naming utilities directly) and raw string interpolation in `knex.raw`.
+**Why**: Consistent DI simplifies testing and reduces SQL injection risk.
+
 ## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 
 **Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.

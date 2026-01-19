@@ -1,6 +1,5 @@
 import type { Knex } from 'knex'
 import { AttributeDataType } from '@universo/types'
-import { KnexClient } from './KnexClient'
 import { buildSchemaSnapshot } from './snapshot'
 import {
     buildFkConstraintName,
@@ -9,7 +8,8 @@ import {
     generateTableName,
     isValidSchemaName,
 } from './naming'
-import { MigrationManager } from './MigrationManager'
+import { generateMigrationName } from './MigrationManager'
+import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
 
@@ -21,28 +21,21 @@ export interface GenerateFullSchemaOptions {
     recordMigration?: boolean
     /** Description for migration name generation */
     migrationDescription?: string
+    /** MigrationManager instance for recording migrations (required if recordMigration is true) */
+    migrationManager?: MigrationManager
 }
 
 /**
  * SchemaGenerator - Creates PostgreSQL schemas and tables from Metahub configuration.
+ * 
+ * Uses Dependency Injection pattern: receives Knex instance via constructor
+ * instead of using a singleton.
  */
 export class SchemaGenerator {
     private knex: Knex
 
-    constructor() {
-        this.knex = KnexClient.getInstance()
-    }
-
-    public static generateSchemaName(applicationId: string): string {
-        return generateSchemaName(applicationId)
-    }
-
-    public static generateTableName(entityId: string, kind: EntityDefinition['kind']): string {
-        return generateTableName(entityId, kind)
-    }
-
-    public static generateColumnName(fieldId: string): string {
-        return generateColumnName(fieldId)
+    constructor(knex: Knex) {
+        this.knex = knex
     }
 
     public static mapDataType(dataType: AttributeDataType): string {
@@ -124,10 +117,13 @@ export class SchemaGenerator {
 
                 // Record initial migration if requested
                 if (options?.recordMigration) {
-                    const migrationManager = new MigrationManager()
+                    if (!options.migrationManager) {
+                        throw new Error('migrationManager is required when recordMigration is true')
+                    }
+                    const migrationManager = options.migrationManager
                     const snapshot = this.generateSnapshot(entities)
                     const description = options.migrationDescription || 'initial_schema'
-                    const migrationName = MigrationManager.generateMigrationName(description)
+                    const migrationName = generateMigrationName(description)
 
                     // Initial migration: snapshotBefore is null, snapshotAfter is current state
                     const initialDiff: SchemaDiff = {

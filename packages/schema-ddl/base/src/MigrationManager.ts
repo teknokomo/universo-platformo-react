@@ -1,8 +1,25 @@
 import type { Knex } from 'knex'
-import { KnexClient } from './KnexClient'
 import { ChangeType } from './diff'
 import type { SchemaChange, SchemaDiff } from './diff'
 import type { MigrationMeta, MigrationRecord, MigrationChangeRecord, RollbackAnalysis, SchemaSnapshot } from './types'
+
+/**
+ * Generate migration name from description
+ * Format: YYYYMMDD_HHMMSS_<description>
+ * 
+ * Exported as standalone function for use without MigrationManager instance.
+ */
+export function generateMigrationName(description: string): string {
+    const now = new Date()
+    const date = now.toISOString().slice(0, 10).replace(/-/g, '')
+    const time = now.toTimeString().slice(0, 8).replace(/:/g, '')
+    const sanitized = description
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 50)
+    return `${date}_${time}_${sanitized}`
+}
 
 /**
  * MigrationManager - Handles migration history recording, listing, and rollback analysis.
@@ -15,28 +32,14 @@ import type { MigrationMeta, MigrationRecord, MigrationChangeRecord, RollbackAna
  * - snapshotAfter: Schema state after migration
  * - changes: List of applied changes
  * - hasDestructive: Whether migration contains DROP operations
+ * 
+ * Uses Dependency Injection pattern: receives Knex instance via constructor.
  */
 export class MigrationManager {
     private knex: Knex
 
-    constructor() {
-        this.knex = KnexClient.getInstance()
-    }
-
-    /**
-     * Generate migration name from description
-     * Format: YYYYMMDD_HHMMSS_<description>
-     */
-    public static generateMigrationName(description: string): string {
-        const now = new Date()
-        const date = now.toISOString().slice(0, 10).replace(/-/g, '')
-        const time = now.toTimeString().slice(0, 8).replace(/:/g, '')
-        const sanitized = description
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '')
-            .slice(0, 50)
-        return `${date}_${time}_${sanitized}`
+    constructor(knex: Knex) {
+        this.knex = knex
     }
 
     /**

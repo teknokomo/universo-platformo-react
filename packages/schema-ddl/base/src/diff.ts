@@ -10,7 +10,7 @@ export enum ChangeType {
     DROP_COLUMN = 'DROP_COLUMN',
     ALTER_COLUMN = 'ALTER_COLUMN',
     ADD_FK = 'ADD_FK',
-    DROP_FK = 'DROP_FK',
+    DROP_FK = 'DROP_FK'
 }
 
 export interface SchemaChange {
@@ -46,15 +46,12 @@ const buildSummary = (diff: SchemaDiff): string => {
     return parts.length === 0 ? 'No changes' : parts.join(', ')
 }
 
-export const calculateSchemaDiff = (
-    oldSnapshot: SchemaSnapshot | null,
-    newEntities: EntityDefinition[]
-): SchemaDiff => {
+export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntities: EntityDefinition[]): SchemaDiff => {
     const diff: SchemaDiff = {
         hasChanges: false,
         additive: [],
         destructive: [],
-        summary: '',
+        summary: ''
     }
 
     if (!oldSnapshot) {
@@ -66,7 +63,7 @@ export const calculateSchemaDiff = (
                 entityCodename: entity.codename,
                 tableName: generateTableName(entity.id, entity.kind),
                 isDestructive: false,
-                description: `Create table "${entity.codename}"`,
+                description: `Create table "${entity.codename}"`
             })
         }
         diff.hasChanges = diff.additive.length > 0
@@ -86,7 +83,7 @@ export const calculateSchemaDiff = (
                 entityCodename: entity.codename,
                 tableName: generateTableName(entity.id, entity.kind),
                 isDestructive: false,
-                description: `Create table "${entity.codename}"`,
+                description: `Create table "${entity.codename}"`
             })
         }
     }
@@ -101,7 +98,7 @@ export const calculateSchemaDiff = (
                 entityCodename: oldEntity.codename,
                 tableName: oldEntity.tableName,
                 isDestructive: true,
-                description: `Drop table "${oldEntity.codename}" (DATA WILL BE LOST)`,
+                description: `Drop table "${oldEntity.codename}" (DATA WILL BE LOST)`
             })
         }
     }
@@ -139,7 +136,7 @@ export const calculateSchemaDiff = (
         if (oldEntity.codename !== entity.codename) {
             console.info(
                 `[SchemaDiff] Entity codename changed from "${oldEntity.codename}" to "${entity.codename}". ` +
-                `Table name "${tableName}" remains unchanged (UUID-based naming).`
+                    `Table name "${tableName}" remains unchanged (UUID-based naming).`
             )
         }
 
@@ -156,7 +153,7 @@ export const calculateSchemaDiff = (
                     columnName: generateColumnName(field.id),
                     newValue: field.dataType,
                     isDestructive: false,
-                    description: `Add column "${field.codename}" (${field.dataType}) to "${entity.codename}"`,
+                    description: `Add column "${field.codename}" (${field.dataType}) to "${entity.codename}"`
                 })
             }
         }
@@ -174,7 +171,7 @@ export const calculateSchemaDiff = (
                     fieldCodename: oldField.codename,
                     columnName: oldField.columnName,
                     isDestructive: true,
-                    description: `Drop column "${oldField.codename}" from "${entity.codename}" (DATA WILL BE LOST)`,
+                    description: `Drop column "${oldField.codename}" from "${entity.codename}" (DATA WILL BE LOST)`
                 })
             }
         }
@@ -197,7 +194,7 @@ export const calculateSchemaDiff = (
                     oldValue: oldField.dataType,
                     newValue: field.dataType,
                     isDestructive: true,
-                    description: `Change type of "${field.codename}" from ${oldField.dataType} to ${field.dataType}`,
+                    description: `Change type of "${field.codename}" from ${oldField.dataType} to ${field.dataType}`
                 })
             }
 
@@ -214,7 +211,7 @@ export const calculateSchemaDiff = (
                     oldValue: 'nullable',
                     newValue: 'required',
                     isDestructive: true,
-                    description: `Make "${field.codename}" required (may fail if NULLs exist)`,
+                    description: `Make "${field.codename}" required (may fail if NULLs exist)`
                 })
             } else if (oldField.isRequired && !field.isRequired) {
                 diff.additive.push({
@@ -229,7 +226,7 @@ export const calculateSchemaDiff = (
                     oldValue: 'required',
                     newValue: 'nullable',
                     isDestructive: false,
-                    description: `Make "${field.codename}" optional`,
+                    description: `Make "${field.codename}" optional`
                 })
             }
 
@@ -245,7 +242,7 @@ export const calculateSchemaDiff = (
                         columnName: oldField.columnName,
                         oldValue: oldField.targetEntityId,
                         isDestructive: true,
-                        description: `Drop FK on "${field.codename}"`,
+                        description: `Drop FK on "${field.codename}"`
                     })
                 }
                 if (field.targetEntityId) {
@@ -259,7 +256,7 @@ export const calculateSchemaDiff = (
                         columnName: generateColumnName(field.id),
                         newValue: field.targetEntityId,
                         isDestructive: false,
-                        description: `Add FK on "${field.codename}"`,
+                        description: `Add FK on "${field.codename}"`
                     })
                 }
             }

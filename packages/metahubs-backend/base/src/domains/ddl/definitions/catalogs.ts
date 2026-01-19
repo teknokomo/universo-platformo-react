@@ -1,6 +1,6 @@
 import type { Repository } from 'typeorm'
 import { MetaEntityKind } from '@universo/types'
-import type { EntityDefinition } from '../types'
+import type { EntityDefinition } from '@universo/schema-ddl'
 import { Catalog } from '../../../database/entities/Catalog'
 import { Attribute } from '../../../database/entities/Attribute'
 

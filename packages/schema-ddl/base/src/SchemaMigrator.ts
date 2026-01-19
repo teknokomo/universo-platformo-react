@@ -1,12 +1,12 @@
 import type { Knex } from 'knex'
 import { AttributeDataType } from '@universo/types'
-import { KnexClient } from './KnexClient'
 import { buildFkConstraintName, generateColumnName, generateTableName } from './naming'
+import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
 import { calculateSchemaDiff, ChangeType } from './diff'
 import type { SchemaDiff, SchemaChange } from './diff'
 import type { EntityDefinition, FieldDefinition, MigrationResult, SchemaSnapshot } from './types'
 import { SchemaGenerator } from './SchemaGenerator'
-import { MigrationManager } from './MigrationManager'
+import { MigrationManager, generateMigrationName } from './MigrationManager'
 
 /**
  * Options for applying changes with migration recording
@@ -18,34 +18,36 @@ export interface ApplyChangesOptions {
     migrationDescription?: string
 }
 
+/**
+ * SchemaMigrator - Applies schema changes (additive and destructive) to PostgreSQL schemas.
+ *
+ * Uses Dependency Injection pattern: receives Knex, SchemaGenerator, and MigrationManager
+ * via constructor instead of creating them internally.
+ */
 export class SchemaMigrator {
     private knex: Knex
     private generator: SchemaGenerator
     private migrationManager: MigrationManager
 
-    constructor() {
-        this.knex = KnexClient.getInstance()
-        this.generator = new SchemaGenerator()
-        this.migrationManager = new MigrationManager()
+    constructor(knex: Knex, generator: SchemaGenerator, migrationManager: MigrationManager) {
+        this.knex = knex
+        this.generator = generator
+        this.migrationManager = migrationManager
     }
 
     public calculateDiff(oldSnapshot: SchemaSnapshot | null, newEntities: EntityDefinition[]): SchemaDiff {
         return calculateSchemaDiff(oldSnapshot, newEntities)
     }
 
-    public async applyAdditiveChanges(
-        schemaName: string,
-        diff: SchemaDiff,
-        entities: EntityDefinition[]
-    ): Promise<MigrationResult> {
+    public async applyAdditiveChanges(schemaName: string, diff: SchemaDiff, entities: EntityDefinition[]): Promise<MigrationResult> {
         const result: MigrationResult = {
             success: false,
             changesApplied: 0,
-            errors: [],
+            errors: []
         }
 
-        const lockKey = KnexClient.uuidToLockKey(schemaName)
-        const lockAcquired = await KnexClient.acquireAdvisoryLock(lockKey)
+        const lockKey = uuidToLockKey(schemaName)
+        const lockAcquired = await acquireAdvisoryLock(this.knex, lockKey)
 
         if (!lockAcquired) {
             result.errors.push('Could not acquire advisory lock. Another migration may be in progress.')
@@ -74,7 +76,7 @@ export class SchemaMigrator {
             result.errors.push(message)
             result.success = false
         } finally {
-            await KnexClient.releaseAdvisoryLock(lockKey)
+            await releaseAdvisoryLock(this.knex, lockKey)
         }
 
         return result
@@ -93,19 +95,19 @@ export class SchemaMigrator {
                 changesApplied: 0,
                 errors: [
                     'Destructive changes require explicit confirmation. ' +
-                    `Changes: ${diff.destructive.map((c) => c.description).join('; ')}`,
-                ],
+                        `Changes: ${diff.destructive.map((c) => c.description).join('; ')}`
+                ]
             }
         }
 
         const result: MigrationResult = {
             success: false,
             changesApplied: 0,
-            errors: [],
+            errors: []
         }
 
-        const lockKey = KnexClient.uuidToLockKey(schemaName)
-        const lockAcquired = await KnexClient.acquireAdvisoryLock(lockKey)
+        const lockKey = uuidToLockKey(schemaName)
+        const lockAcquired = await acquireAdvisoryLock(this.knex, lockKey)
 
         if (!lockAcquired) {
             result.errors.push('Could not acquire advisory lock.')
@@ -139,23 +141,16 @@ export class SchemaMigrator {
 
                 await this.generator.syncSystemMetadata(schemaName, entities, {
                     trx,
-                    removeMissing: diff.destructive.length > 0,
+                    removeMissing: diff.destructive.length > 0
                 })
 
                 // Record migration if requested
                 if (options?.recordMigration && result.changesApplied > 0) {
                     const snapshotAfter = this.generator.generateSnapshot(entities)
                     const description = options.migrationDescription || 'schema_sync'
-                    const migrationName = MigrationManager.generateMigrationName(description)
+                    const migrationName = generateMigrationName(description)
 
-                    await this.migrationManager.recordMigration(
-                        schemaName,
-                        migrationName,
-                        snapshotBefore,
-                        snapshotAfter,
-                        diff,
-                        trx
-                    )
+                    await this.migrationManager.recordMigration(schemaName, migrationName, snapshotBefore, snapshotAfter, diff, trx)
                 }
             })
 
@@ -166,7 +161,7 @@ export class SchemaMigrator {
             result.errors.push(message)
             result.success = false
         } finally {
-            await KnexClient.releaseAdvisoryLock(lockKey)
+            await releaseAdvisoryLock(this.knex, lockKey)
         }
 
         return result
@@ -224,10 +219,7 @@ export class SchemaMigrator {
                 })
 
                 if (field.isRequired) {
-                    await trx.raw(
-                        `ALTER TABLE ??.?? ALTER COLUMN ?? SET NOT NULL`,
-                        [schemaName, change.tableName, columnName]
-                    )
+                    await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? SET NOT NULL`, [schemaName, change.tableName, columnName])
                 }
                 break
             }
@@ -241,21 +233,17 @@ export class SchemaMigrator {
 
             case ChangeType.ALTER_COLUMN: {
                 if (change.oldValue === 'nullable' && change.newValue === 'required') {
-                    await trx.raw(
-                        `ALTER TABLE ??.?? ALTER COLUMN ?? SET NOT NULL`,
-                        [schemaName, change.tableName, change.columnName]
-                    )
+                    await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? SET NOT NULL`, [schemaName, change.tableName, change.columnName])
                 } else if (change.oldValue === 'required' && change.newValue === 'nullable') {
-                    await trx.raw(
-                        `ALTER TABLE ??.?? ALTER COLUMN ?? DROP NOT NULL`,
-                        [schemaName, change.tableName, change.columnName]
-                    )
+                    await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? DROP NOT NULL`, [schemaName, change.tableName, change.columnName])
                 } else {
                     const newType = SchemaGenerator.mapDataType(change.newValue as AttributeDataType)
-                    await trx.raw(
-                        `ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`,
-                        [schemaName, change.tableName, change.columnName, change.columnName]
-                    )
+                    await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
+                        schemaName,
+                        change.tableName,
+                        change.columnName,
+                        change.columnName
+                    ])
                 }
                 break
             }
@@ -269,19 +257,20 @@ export class SchemaMigrator {
                 const columnName = change.columnName ?? generateColumnName(change.fieldId!)
                 const constraintName = buildFkConstraintName(change.tableName!, columnName)
                 const targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
-                await trx.raw(
-                    `ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL`,
-                    [schemaName, change.tableName, constraintName, columnName, schemaName, targetTableName]
-                )
+                await trx.raw(`ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL`, [
+                    schemaName,
+                    change.tableName,
+                    constraintName,
+                    columnName,
+                    schemaName,
+                    targetTableName
+                ])
                 break
             }
 
             case ChangeType.DROP_FK: {
                 const constraintName = buildFkConstraintName(change.tableName!, change.columnName!)
-                await trx.raw(
-                    `ALTER TABLE ??.?? DROP CONSTRAINT IF EXISTS ??`,
-                    [schemaName, change.tableName, constraintName]
-                )
+                await trx.raw(`ALTER TABLE ??.?? DROP CONSTRAINT IF EXISTS ??`, [schemaName, change.tableName, constraintName])
                 break
             }
 

@@ -1,19 +1,6 @@
 import { AttributeDataType } from '@universo/types'
-import { SchemaGenerator } from '../../domains/ddl/SchemaGenerator'
-
-// Mock KnexClient
-jest.mock('../../domains/ddl/KnexClient', () => ({
-    KnexClient: {
-        getInstance: jest.fn(() => mockKnex),
-    },
-}))
-
-// Mock MigrationManager
-jest.mock('../../domains/ddl/MigrationManager', () => ({
-    MigrationManager: jest.fn().mockImplementation(() => ({
-        recordMigration: jest.fn().mockResolvedValue(undefined),
-    })),
-}))
+import { SchemaGenerator } from '../SchemaGenerator'
+import { generateSchemaName, generateTableName, generateColumnName } from '../naming'
 
 // Create mock Knex instance
 const mockTableBuilder = {
@@ -61,37 +48,38 @@ describe('SchemaGenerator', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
-        generator = new SchemaGenerator()
+        // Pass mock Knex directly to constructor (Dependency Injection)
+        generator = new SchemaGenerator(mockKnex as unknown as import('knex').Knex)
     })
 
     describe('static methods', () => {
         describe('generateSchemaName', () => {
             it('should generate schema name with app_ prefix', () => {
-                const result = SchemaGenerator.generateSchemaName('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+                const result = generateSchemaName('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
                 expect(result).toBe('app_a1b2c3d4e5f67890abcdef1234567890')
             })
         })
 
         describe('generateTableName', () => {
             it('should generate table name with correct prefix for catalog', () => {
-                const result = SchemaGenerator.generateTableName('e1-0000-0000-0000-000000000001', 'catalog')
+                const result = generateTableName('e1-0000-0000-0000-000000000001', 'catalog')
                 expect(result).toMatch(/^cat_/)
             })
 
             it('should generate table name with correct prefix for hub', () => {
-                const result = SchemaGenerator.generateTableName('e1-0000-0000-0000-000000000001', 'hub')
+                const result = generateTableName('e1-0000-0000-0000-000000000001', 'hub')
                 expect(result).toMatch(/^hub_/)
             })
 
             it('should generate table name with correct prefix for document', () => {
-                const result = SchemaGenerator.generateTableName('e1-0000-0000-0000-000000000001', 'document')
+                const result = generateTableName('e1-0000-0000-0000-000000000001', 'document')
                 expect(result).toMatch(/^doc_/)
             })
         })
 
         describe('generateColumnName', () => {
             it('should generate column name with attr_ prefix', () => {
-                const result = SchemaGenerator.generateColumnName('f1-0000-0000-0000-000000000001')
+                const result = generateColumnName('f1-0000-0000-0000-000000000001')
                 expect(result).toMatch(/^attr_/)
             })
         })

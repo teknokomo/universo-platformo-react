@@ -6,7 +6,6 @@ import { CatalogHub } from './CatalogHub'
 import { Attribute } from './Attribute'
 import { HubRecord } from './Record'
 import { Publication } from './Publication'
-import { PublicationUser } from './PublicationUser'
 
 // Export all metahubs entities as array for TypeORM registration
 export const metahubsEntities = [
@@ -17,8 +16,7 @@ export const metahubsEntities = [
     CatalogHub,
     Attribute,
     HubRecord,
-    Publication,
-    PublicationUser
+    Publication
 ]
 
 // Re-export individual entities
@@ -31,5 +29,4 @@ export { Attribute, AttributeDataType } from './Attribute'
 export type { AttributeValidation, AttributeUIConfig } from './Attribute'
 export { HubRecord } from './Record'
 export { Publication, PublicationAccessMode, PublicationSchemaStatus } from './Publication'
-export { PublicationUser } from './PublicationUser'
 

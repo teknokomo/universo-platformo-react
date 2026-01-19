@@ -13,3 +13,12 @@
 ### Current hypothesis
 - The freeze is likely caused by pooled connection contention (too many concurrent requests each holding a per-request QueryRunner) or an edge-case where cleanup/release does not run.
 - The middleware cleanup is now guarded to run once per request to reduce cleanup races.
+
+---
+
+## schema-ddl cleanup follow-up (2026-01-19)
+
+### Notes
+- Parameterized statement_timeout in `@universo/schema-ddl` locking helper to avoid raw interpolation
+- Removed deprecated static wrapper methods in `SchemaGenerator` and `MigrationManager`
+- Updated tests to use naming utilities directly

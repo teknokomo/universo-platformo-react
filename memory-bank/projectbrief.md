@@ -9,6 +9,7 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 -   **Universal UPDL System**: Visual node-based development for cross-platform 3D applications
 -   **Universo MMOOMM**: Space MMO with production chains, territorial control, and real-world integration
 -   **Kiberplano Integration**: Digital planning → robotic implementation → real world deployment
+-   **Shared Runtime DDL**: Extracted schema generation/migration into `@universo/schema-ddl` to avoid backend coupling
 
 > **Detailed Functionality:**  
 > • [Universo MMOOMM Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-MMOOMM)  

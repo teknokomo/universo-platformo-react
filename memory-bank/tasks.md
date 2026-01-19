@@ -4,7 +4,201 @@
 
 ---
 
-## IMPLEMENT (2025-01-19): PR #646 Bot Review Fixes
+## COMPLETED (2026-01-19): QA Fixes - RLS bypass, validation key, unused import
+
+- [x] Fix RLS bypass in `/publications/available` endpoint: Use `getRequestManager(req, ds)` instead of raw `ds.query()`
+- [x] Fix validation key mismatch in ConnectorList.tsx: Use `publicationRequired` instead of `metahubRequired`
+- [x] Remove unused import `useConnectorDiff` in ConnectorDiffDialog.tsx
+- [x] Build affected packages (19 tasks, 1m39s)
+
+---
+
+## COMPLETED (2026-01-19): schema-ddl cleanup
+
+- [x] Fix statement_timeout interpolation in schema-ddl locking helper
+- [x] Remove deprecated static wrapper methods in SchemaGenerator and MigrationManager
+- [x] Run schema-ddl tests and full workspace build
+- [x] Update memory-bank (activeContext.md, progress.md, systemPatterns.md, techContext.md, productContext.md, projectbrief.md, currentResearch.md)
+
+## COMPLETED (2026-01-19): Connector Name Link Styling Fix
+
+- [x] Change connector name link color from blue (`primary.main`) to inherit
+- [x] Add hover effect (underline + blue color) matching ApplicationList pattern
+- [x] Build successful (64 tasks, 4m38s)
+
+---
+
+## COMPLETED (2026-01-19): Connector List Relation + Admin Notice Layout
+
+- [x] Align admin instances notice spacing with connector list banner
+- [x] Add connector relation chip on card view (Metahub)
+- [x] Add "Связь" column with "Метахаб" in connector table view
+- [x] Make connector name column a link in table view
+- [x] Build project to validate changes
+- [x] Update memory-bank files (activeContext.md, progress.md)
+
+---
+
+## COMPLETED (2026-01-19): Connector UI + Admin Notice Fixes
+
+- [x] Fix missing "Codename" translation in connector Metahub selection
+- [x] Fix "Created" translation on connector details card
+- [x] Move admin instances notice to top and update text (ru/en)
+- [x] Build project to validate changes
+- [x] Update memory-bank files (activeContext.md, progress.md)
+
+---
+
+## COMPLETED (2026-01-19): Connector UI Localization Fixes
+
+Fixed missing translations and UI issues in connector management.
+
+### Changes
+- [x] Add `common.search` key for search placeholder translation (en/ru)
+- [x] Add `table.name` and `table.codename` top-level keys (en/ru)
+- [x] Add `connectors.table.created` key for created date translation (en/ru)
+- [x] Update `connectors.metahubInfo.locked` text to user-requested wording (en/ru)
+- [x] Change tab id and label from 'publications' to 'metahubs' in ConnectorActions.tsx
+- [x] Remove Publication row from ConnectorBoard.tsx (internal info not needed)
+- [x] Build successful (64 tasks)
+
+---
+
+## COMPLETED (2026-01-19): Remove publications_users Table
+
+Architectural cleanup: removed unnecessary publications_users table. Access to publications is controlled via parent metahub membership (metahubs_users).
+
+### Changes
+- [x] Delete PublicationUser.ts entity file
+- [x] Remove PublicationUser from entities/index.ts and main index.ts exports
+- [x] Remove publicationUsers relation from Publication.ts entity
+- [x] Update publicationsRoutes.ts - remove PublicationUser import and usage
+- [x] Update /publications/available query to use metahubs_users instead
+- [x] Fix /publications/available codename mapping (metahub slug, publication schema_name)
+- [x] Rewrite migration to remove publications_users table
+- [x] Update RLS policy to use metahubs_users for access control
+- [x] Build successful (64 tasks)
+
+---
+
+## COMPLETED (2025-01-20): Refactor Connector-Publication Link
+
+Refactor connector links from Metahubs to Publications for proper schema sync.
+
+### Database Migration
+- [x] Update migration to rename connectors_metahubs → connectors_publications
+- [x] Change metahub_id → publication_id with FK to metahubs.publications
+
+### Backend (applications-backend)
+- [x] Create ConnectorPublication entity (new)
+- [x] Delete ConnectorMetahub entity (old)
+- [x] Update Connector entity relation
+- [x] Update connectorsRoutes.ts (metahubId → publicationId)
+- [x] Update exports in index.ts
+
+### Backend (metahubs-backend)
+- [x] Update publicationsRoutes.ts (auto-create uses publicationId)
+- [x] Update applicationMigrationsRoutes.ts
+- [x] Update applicationSyncRoutes.ts
+- [x] Add /publications/available endpoint
+- [x] Add single publication limit (400 error if metahub already has publication)
+
+### Frontend (applications-frontend)
+- [x] Update types.ts (ConnectorMetahub → ConnectorPublication)
+- [x] Create connectorPublications.ts API file (new)
+- [x] Delete connectorMetahubs.ts API file (old)
+- [x] Create useConnectorPublications.ts hook (new)
+- [x] Delete useConnectorMetahubs.ts hook (old)
+- [x] Create PublicationSelectionPanel component (shows Metahub names, returns publication IDs)
+- [x] Create ConnectorPublicationInfoPanel component
+- [x] Create ConnectorPublicationInfoWrapper component
+- [x] Update ConnectorList.tsx (tabs show "Metahubs")
+- [x] Update ConnectorBoard.tsx (metahub → publication)
+- [x] Update ConnectorActions.tsx (metahub → publication)
+- [x] Update components/index.ts exports
+
+### Frontend (metahubs-frontend)
+- [x] Add single publication limit to PublicationList (disabled Add button + info banner)
+- [x] Add i18n key singlePublicationLimit (en + ru) - updated to shorter text
+
+### UI Improvements
+- [x] ConnectorBoard: Dynamic button text (Create/Sync Schema)
+- [x] ConnectorDiffDialog: Show changes on schema creation
+- [x] Connectors UI shows "Metahubs" but internally links to Publications
+
+### Verification
+- [x] Build all packages (64 tasks successful)
+- [ ] Test schema creation flow (manual testing required)
+
+---
+
+## COMPLETED (2025-01-20): QA Fixes for @universo/schema-ddl Package
+
+Implemented QA recommendations from package review.
+
+### Prettier Formatting
+- [x] Run eslint --fix on schema-ddl src/ to fix ~40 prettier errors
+
+### Test Migration
+- [x] Copy SchemaGenerator.test.ts from metahubs-backend to schema-ddl
+- [x] Copy MigrationManager.test.ts from metahubs-backend to schema-ddl
+- [x] Update test imports to use local paths (../SchemaGenerator, ../MigrationManager)
+- [x] Delete duplicate tests from metahubs-backend/tests/ddl/
+
+### Code Quality
+- [x] Replace require() with static imports in index.ts createDDLServices()
+- [x] Add explicit imports for SchemaGenerator, SchemaMigrator, MigrationManager
+
+### Verification
+- [x] Run tests in schema-ddl: 80 tests passed
+- [x] Full workspace build: 64 tasks successful
+
+---
+
+## COMPLETED (2025-01-19): Create @universo/schema-ddl Package
+
+Extracted DDL utilities from metahubs-backend to solve circular dependency issue with applications-backend.
+
+### Package Creation
+- [x] Create package directory structure (packages/schema-ddl/base/)
+- [x] Create package.json with @universo/types and knex dependencies
+- [x] Create tsconfig.json (Node16 module)
+- [x] Create jest.config.js
+
+### Code Migration with Dependency Injection
+- [x] Copy DDL files: naming.ts, types.ts, snapshot.ts, diff.ts
+- [x] Copy and refactor SchemaGenerator.ts (constructor accepts Knex)
+- [x] Copy and refactor SchemaMigrator.ts (constructor accepts Knex, SchemaGenerator, MigrationManager)
+- [x] Copy and refactor MigrationManager.ts (constructor accepts Knex)
+- [x] Create locking.ts with pure functions (uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock)
+- [x] Export generateMigrationName as standalone function
+- [x] Create createDDLServices(knex) factory function
+- [x] Create index.ts with all exports
+
+### Integration
+- [x] Add @universo/schema-ddl dependency to metahubs-backend
+- [x] Add @universo/schema-ddl dependency to applications-backend
+- [x] Update metahubs-backend DDL index.ts to re-export from @universo/schema-ddl
+- [x] Add getDDLServices() function for pre-configured services
+- [x] Update all route files to use getDDLServices() instead of new Class()
+- [x] Update definitions/catalogs.ts import to @universo/schema-ddl
+- [x] Delete duplicate generateSchemaName from applications-backend
+- [x] Delete old DDL files from metahubs-backend (except KnexClient.ts, definitions/)
+
+### Tests
+- [x] Copy and update tests to use new imports
+- [x] Update SchemaGenerator.test.ts (DI pattern, no mocks for KnexClient)
+- [x] Update MigrationManager.test.ts (DI pattern, use generateMigrationName function)
+
+### Verification
+- [x] Build @universo/schema-ddl - SUCCESS
+- [x] Build @universo/applications-backend - SUCCESS
+- [x] Build @universo/metahubs-backend - SUCCESS
+- [x] Full workspace build - SUCCESS (64 tasks, 4m36s)
+
+---
+
+## COMPLETED (2025-01-19): PR #646 Bot Review Fixes
 
 ### Code Quality Fixes (Copilot + Gemini recommendations)
 - [x] Keep `generateSchemaName` in applicationsRoutes.ts with comment explaining duplication reason (avoid circular dependency)

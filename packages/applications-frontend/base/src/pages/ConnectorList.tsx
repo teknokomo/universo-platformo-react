@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Alert } from '@mui/material'
+import { Link, useParams } from 'react-router-dom'
+import { Box, Skeleton, Stack, Typography, IconButton, Alert, Chip } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
@@ -32,7 +32,7 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 import type { TriggerProps } from '@universo/template-mui'
 
 import { useCreateConnector, useUpdateConnector, useDeleteConnector } from '../hooks/mutations'
-import { useConnectorMetahubs, useAvailableMetahubs } from '../hooks/useConnectorMetahubs'
+import { useAvailablePublications } from '../hooks/useConnectorPublications'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as connectorsApi from '../api/connectors'
@@ -40,14 +40,14 @@ import { applicationsQueryKeys, invalidateConnectorsQueries } from '../api/query
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Connector, ConnectorDisplay, ConnectorLocalizedPayload, getVLCString, toConnectorDisplay } from '../types'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
-import { ConnectorDeleteDialog, MetahubSelectionPanel } from '../components'
+import { ConnectorDeleteDialog, PublicationSelectionPanel } from '../components'
 import connectorActions from './ConnectorActions'
 
 type ConnectorFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
-    /** Selected metahub IDs (array for EntitySelectionPanel) */
-    metahubIds: string[]
+    /** Selected publication IDs (array for EntitySelectionPanel) */
+    publicationIds: string[]
 }
 
 type ConnectorFormFieldsProps = {
@@ -146,25 +146,9 @@ const ConnectorList = () => {
     const updateConnectorMutation = useUpdateConnector()
     const deleteConnectorMutation = useDeleteConnector()
 
-    // Get first connector ID for metahub lookup (currently only one Connector allowed)
-    const firstConnectorId = Array.isArray(connectors) && connectors.length > 0 ? connectors[0].id : ''
+    // Fetch available publications for selection in create dialog
+    const { data: availablePublications = [] } = useAvailablePublications()
     
-    // Fetch metahubs for the first connector to enable navigation
-    const { data: connectorMetahubsData } = useConnectorMetahubs(applicationId ?? '', firstConnectorId)
-
-    // Fetch available metahubs for selection in create dialog
-    const { data: availableMetahubs = [] } = useAvailableMetahubs()
-    
-    // Build a map of connectorId -> metahubId for navigation
-    const connectorMetahubMap = useMemo(() => {
-        const map: Record<string, string> = {}
-        if (firstConnectorId && connectorMetahubsData?.items?.length) {
-            // Use first linked metahub
-            map[firstConnectorId] = connectorMetahubsData.items[0].metahubId
-        }
-        return map
-    }, [firstConnectorId, connectorMetahubsData])
-
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
@@ -184,7 +168,7 @@ const ConnectorList = () => {
     }, [connectors])
 
     const localizedFormDefaults = useMemo<ConnectorFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, metahubIds: [] }),
+        () => ({ nameVlc: null, descriptionVlc: null, publicationIds: [] }),
         []
     )
 
@@ -195,10 +179,10 @@ const ConnectorList = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            // metahubIds is required for creating a connector
-            const metahubIds = values.metahubIds as string[] | undefined
-            if (!metahubIds || metahubIds.length === 0) {
-                errors.metahubIds = t('connectors.validation.metahubRequired', 'Please select a Metahub')
+            // publicationIds is required for creating a connector (links to metahub via publication)
+            const publicationIds = values.publicationIds as string[] | undefined
+            if (!publicationIds || publicationIds.length === 0) {
+                errors.publicationIds = t('connectors.validation.publicationRequired', 'Please select a Publication')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -207,8 +191,8 @@ const ConnectorList = () => {
 
     const canSaveConnectorForm = useCallback((values: Record<string, any>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const metahubIds = values.metahubIds as string[] | undefined
-        return hasPrimaryContent(nameVlc) && metahubIds && metahubIds.length > 0
+        const publicationIds = values.publicationIds as string[] | undefined
+        return hasPrimaryContent(nameVlc) && publicationIds && publicationIds.length > 0
     }, [])
 
     const renderLocalizedFields = useCallback(
@@ -272,14 +256,14 @@ const ConnectorList = () => {
                     id: 'metahubs',
                     label: t('connectors.tabs.metahubs', 'Metahubs'),
                     content: (
-                        <MetahubSelectionPanel
-                            availableMetahubs={availableMetahubs}
-                            selectedMetahubIds={(values.metahubIds as string[]) || []}
-                            onSelectionChange={(ids) => setValue('metahubIds', ids)}
-                            isRequiredMetahub={true}
-                            onRequiredMetahubChange={() => {}}
-                            isSingleMetahub={true}
-                            onSingleMetahubChange={() => {}}
+                        <PublicationSelectionPanel
+                            availablePublications={availablePublications}
+                            selectedPublicationIds={(values.publicationIds as string[]) || []}
+                            onSelectionChange={(ids) => setValue('publicationIds', ids)}
+                            isRequiredPublication={true}
+                            onRequiredPublicationChange={() => {}}
+                            isSinglePublication={true}
+                            onSinglePublicationChange={() => {}}
                             disabled={isFormLoading}
                             togglesDisabled={true}
                             uiLocale={i18n.language}
@@ -288,7 +272,7 @@ const ConnectorList = () => {
                 }
             ]
         },
-        [availableMetahubs, i18n.language, t, tc]
+        [availablePublications, i18n.language, t, tc]
     )
 
     const connectorColumns = useMemo(
@@ -296,21 +280,41 @@ const ConnectorList = () => {
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '35%',
+                width: '30%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: ConnectorDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: ConnectorDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.name || '—'}
-                    </Typography>
-                )
+                render: (row: ConnectorDisplay) => {
+                    const href = applicationId ? `/application/${applicationId}/connector/${row.id}` : undefined
+                    return href ? (
+                        <Link to={href} style={{ textDecoration: 'none', color: 'inherit' }} onClick={(event) => event.stopPropagation()}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                        color: 'primary.main'
+                                    }
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Link>
+                    ) : (
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word'
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
+                    )
+                }
             },
             {
                 id: 'description',
@@ -328,6 +332,20 @@ const ConnectorList = () => {
                     >
                         {row.description || '—'}
                     </Typography>
+                )
+            },
+            {
+                id: 'relation',
+                label: t('connectors.table.relation', 'Relation'),
+                width: '25%',
+                align: 'center' as const,
+                render: () => (
+                    <Chip
+                        label={t('connectors.relation.metahub', 'Metahub')}
+                        color='primary'
+                        size='small'
+                        variant='outlined'
+                    />
                 )
             }
         ],
@@ -431,13 +449,13 @@ const ConnectorList = () => {
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
 
-            // Get metahubIds from form data (single selection for now)
-            const metahubIds = data.metahubIds as string[] | undefined
-            if (!metahubIds || metahubIds.length === 0) {
-                setDialogError(t('connectors.validation.metahubRequired', 'Please select a Metahub'))
+            // Get publicationIds from form data (single selection for now)
+            const publicationIds = data.publicationIds as string[] | undefined
+            if (!publicationIds || publicationIds.length === 0) {
+                setDialogError(t('connectors.validation.publicationRequired', 'Please select a Publication'))
                 return
             }
-            const metahubId = metahubIds[0] // Use first selected metahub
+            const publicationId = publicationIds[0] // Use first selected publication
 
             await createConnectorMutation.mutateAsync({
                 applicationId,
@@ -446,7 +464,7 @@ const ConnectorList = () => {
                     description: descriptionInput,
                     namePrimaryLocale,
                     descriptionPrimaryLocale,
-                    metahubId // Pass metahubId to create the link
+                    publicationId // Pass publicationId to create the link
                 }
             })
 
@@ -578,6 +596,14 @@ const ConnectorList = () => {
                                                 data={getConnectorCardData(connector)}
                                                 images={images[connector.id] || []}
                                                 href={connectorHref}
+                                                footerEndContent={
+                                                    <Chip
+                                                        label={t('connectors.relation.metahub', 'Metahub')}
+                                                        color='primary'
+                                                        size='small'
+                                                        variant='outlined'
+                                                    />
+                                                }
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
