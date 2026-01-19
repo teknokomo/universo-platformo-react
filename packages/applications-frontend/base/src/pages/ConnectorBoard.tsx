@@ -157,23 +157,22 @@ const ConnectorBoard = () => {
     const connectorDescription = getVLCString(connector.description, i18n.language)
     const metahubName = metahub ? getVLCString(metahub.name, i18n.language) : null
 
-    // Schema info from application (connector is linked to application schema)
+    // Schema info from Application (each Application has its own schema)
     const schemaName = application?.schemaName ?? (applicationId ? `app_${applicationId.replace(/-/g, '')}` : 'app_unknown')
     const schemaStatus: SchemaStatus = (application?.schemaStatus as SchemaStatus) ?? 'draft'
-    const schemaSyncedAt = application?.schemaSyncedAt
-    const schemaError = application?.schemaError
+    const schemaSyncedAt = application?.schemaSyncedAt // Still from application for now
+    const schemaError = application?.schemaError // Still from application for now
 
     const handleSyncClick = () => {
         setDiffDialogOpen(true)
     }
 
     const handleSyncConfirm = async (confirmDestructive: boolean) => {
-        if (!metahub?.id || !applicationId) {
+        if (!applicationId) {
             return
         }
         try {
             await syncMutation.mutateAsync({
-                metahubId: metahub.id,
                 applicationId,
                 confirmDestructive
             })
@@ -328,12 +327,11 @@ const ConnectorBoard = () => {
             </Box>
 
             {/* Diff Dialog */}
-            {metahub && (
+            {applicationId && (
                 <ConnectorDiffDialog
                     open={diffDialogOpen}
                     connector={connector}
-                    metahubId={metahub.id}
-                    applicationId={applicationId ?? ''}
+                    applicationId={applicationId}
                     onClose={() => setDiffDialogOpen(false)}
                     onSync={handleSyncConfirm}
                     isSyncing={syncMutation.isPending}

@@ -10,6 +10,7 @@ import { createRecordsRoutes } from './records/routes/recordsRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
+import { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
@@ -53,6 +54,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     // Application migrations - runtime schema migration history and rollback
     router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Application sync - schema creation and synchronization
+    router.use('/', createApplicationSyncRoutes(ensureAuth, getDataSource, read, write))
+
     // New metadata-driven routes
     router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
@@ -79,4 +83,5 @@ export { createRecordsRoutes } from './records/routes/recordsRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
+export { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
 export * from './shared/guards'

@@ -1,5 +1,10 @@
 import { CreateMetahubsSchema1766351182000 } from './1766351182000-CreateMetahubsSchema'
 import { AddCatalogsToMetahubs1766400000000 } from './1766400000000-AddCatalogsToMetahubs'
+import { AddPublicationsTable1768720000000 } from './1768720000000-AddPublicationsTable'
 
 // Export all metahubs migrations in order
-export const metahubsMigrations = [CreateMetahubsSchema1766351182000, AddCatalogsToMetahubs1766400000000]
+export const metahubsMigrations = [
+    CreateMetahubsSchema1766351182000,
+    AddCatalogsToMetahubs1766400000000,
+    AddPublicationsTable1768720000000
+]

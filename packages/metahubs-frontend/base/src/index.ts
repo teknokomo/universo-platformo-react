@@ -8,7 +8,6 @@ export { default as MetahubMembers } from './domains/metahubs/ui/MetahubMembers'
 
 // Publication (Information Base) pages
 export { default as PublicationList } from './domains/publications/ui/PublicationList'
-export { default as PublicationBoard } from './domains/publications/ui/PublicationBoard'
 
 // New Hub/Catalog/Attribute/Record pages
 export { default as HubList } from './domains/hubs/ui/HubList'

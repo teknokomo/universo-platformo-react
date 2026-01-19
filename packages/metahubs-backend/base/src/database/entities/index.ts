@@ -5,9 +5,21 @@ import { Catalog } from './Catalog'
 import { CatalogHub } from './CatalogHub'
 import { Attribute } from './Attribute'
 import { HubRecord } from './Record'
+import { Publication } from './Publication'
+import { PublicationUser } from './PublicationUser'
 
 // Export all metahubs entities as array for TypeORM registration
-export const metahubsEntities = [Metahub, MetahubUser, Hub, Catalog, CatalogHub, Attribute, HubRecord]
+export const metahubsEntities = [
+    Metahub,
+    MetahubUser,
+    Hub,
+    Catalog,
+    CatalogHub,
+    Attribute,
+    HubRecord,
+    Publication,
+    PublicationUser
+]
 
 // Re-export individual entities
 export { Metahub } from './Metahub'
@@ -18,4 +30,6 @@ export { CatalogHub } from './CatalogHub'
 export { Attribute, AttributeDataType } from './Attribute'
 export type { AttributeValidation, AttributeUIConfig } from './Attribute'
 export { HubRecord } from './Record'
+export { Publication, PublicationAccessMode, PublicationSchemaStatus } from './Publication'
+export { PublicationUser } from './PublicationUser'
 

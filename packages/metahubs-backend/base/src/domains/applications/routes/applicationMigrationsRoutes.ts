@@ -16,7 +16,8 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { Application } from '@universo/applications-backend'
+import { Application, Connector, ConnectorMetahub } from '@universo/applications-backend'
+import { Publication } from '../../../database/entities/Publication'
 import { MigrationManager } from '../../ddl/MigrationManager'
 import { SchemaGenerator } from '../../ddl/SchemaGenerator'
 import { KnexClient } from '../../ddl/KnexClient'
@@ -58,8 +59,9 @@ export function createApplicationMigrationsRoutes(
 
     const migrationManager = new MigrationManager()
 
-    // Helper to get application and verify access
-    const getApplicationOrFail = async (req: Request, res: Response, applicationId: string) => {
+    // Helper to get application with schema name
+    // If application.schemaName is not set, try to find it via Connector → Metahub → Publication chain
+    const getApplicationWithSchema = async (req: Request, res: Response, applicationId: string): Promise<{ application: Application; schemaName: string } | Response> => {
         const ds = getDataSource()
         const applicationRepo = ds.getRepository(Application)
         const application = await applicationRepo.findOneBy({ id: applicationId })
@@ -68,11 +70,35 @@ export function createApplicationMigrationsRoutes(
             return res.status(404).json({ error: 'Application not found' })
         }
 
-        if (!application.schemaName) {
-            return res.status(400).json({ error: 'Application has no schema configured' })
+        // If application has schemaName, use it
+        if (application.schemaName) {
+            return { application, schemaName: application.schemaName }
         }
 
-        return application
+        // Otherwise, try to find schemaName via Connector → ConnectorMetahub → Publication
+        const connectorRepo = ds.getRepository(Connector)
+        const connectorMetahubRepo = ds.getRepository(ConnectorMetahub)
+        const publicationRepo = ds.getRepository(Publication)
+
+        // Find first connector for this application
+        const connector = await connectorRepo.findOne({ where: { applicationId } })
+        if (!connector) {
+            return res.status(400).json({ error: 'Application has no connectors configured' })
+        }
+
+        // Find linked metahub
+        const connectorMetahub = await connectorMetahubRepo.findOne({ where: { connectorId: connector.id } })
+        if (!connectorMetahub) {
+            return res.status(400).json({ error: 'Connector has no metahub linked' })
+        }
+
+        // Find publication for this metahub
+        const publication = await publicationRepo.findOne({ where: { metahubId: connectorMetahub.metahubId } })
+        if (!publication || !publication.schemaName) {
+            return res.status(400).json({ error: 'No publication with schema found for this application' })
+        }
+
+        return { application, schemaName: publication.schemaName }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -96,10 +122,11 @@ export function createApplicationMigrationsRoutes(
 
             const { limit, offset } = queryParsed.data
 
-            const application = await getApplicationOrFail(req, res, applicationId)
-            if (!application || 'statusCode' in application) return
+            const result = await getApplicationWithSchema(req, res, applicationId)
+            if (!result || 'statusCode' in result) return
+            const { schemaName } = result
 
-            const { migrations, total } = await migrationManager.listMigrations(application.schemaName!, { limit, offset })
+            const { migrations, total } = await migrationManager.listMigrations(schemaName, { limit, offset })
 
             // Transform for API response (omit large snapshots for list view)
             const items = migrations.map((m) => ({
@@ -131,10 +158,11 @@ export function createApplicationMigrationsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, migrationId } = req.params
 
-            const application = await getApplicationOrFail(req, res, applicationId)
-            if (!application || 'statusCode' in application) return
+            const result = await getApplicationWithSchema(req, res, applicationId)
+            if (!result || 'statusCode' in result) return
+            const { schemaName } = result
 
-            const migration = await migrationManager.getMigration(application.schemaName!, migrationId)
+            const migration = await migrationManager.getMigration(schemaName, migrationId)
 
             if (!migration) {
                 return res.status(404).json({ error: 'Migration not found' })
@@ -165,16 +193,17 @@ export function createApplicationMigrationsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, migrationId } = req.params
 
-            const application = await getApplicationOrFail(req, res, applicationId)
-            if (!application || 'statusCode' in application) return
+            const result = await getApplicationWithSchema(req, res, applicationId)
+            if (!result || 'statusCode' in result) return
+            const { schemaName } = result
 
-            const migration = await migrationManager.getMigration(application.schemaName!, migrationId)
+            const migration = await migrationManager.getMigration(schemaName, migrationId)
 
             if (!migration) {
                 return res.status(404).json({ error: 'Migration not found' })
             }
 
-            const analysis = await migrationManager.analyzeRollbackPath(application.schemaName!, migrationId)
+            const analysis = await migrationManager.analyzeRollbackPath(schemaName, migrationId)
 
             return res.json({
                 migrationId,
@@ -208,10 +237,9 @@ export function createApplicationMigrationsRoutes(
 
             const { confirmDestructive } = parsed.data
 
-            const application = await getApplicationOrFail(req, res, applicationId)
-            if (!application || 'statusCode' in application) return
-
-            const schemaName = application.schemaName!
+            const result = await getApplicationWithSchema(req, res, applicationId)
+            if (!result || 'statusCode' in result) return
+            const { schemaName } = result
 
             // Get target migration
             const targetMigration = await migrationManager.getMigration(schemaName, migrationId)
@@ -285,12 +313,15 @@ export function createApplicationMigrationsRoutes(
                     }
                 })
 
-                // Update application schema status
+                // Update application schema status (if application has schemaName)
                 const ds = getDataSource()
                 const applicationRepo = ds.getRepository(Application)
-                application.schemaSnapshot = targetMigration.meta.snapshotAfter as unknown as Record<string, unknown>
-                application.schemaSyncedAt = new Date()
-                await applicationRepo.save(application)
+                const app = await applicationRepo.findOneBy({ id: applicationId })
+                if (app && app.schemaName) {
+                    app.schemaSnapshot = targetMigration.meta.snapshotAfter as unknown as Record<string, unknown>
+                    app.schemaSyncedAt = new Date()
+                    await applicationRepo.save(app)
+                }
 
                 return res.json({
                     status: 'rolled_back',

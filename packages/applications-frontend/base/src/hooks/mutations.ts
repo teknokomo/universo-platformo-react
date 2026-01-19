@@ -65,7 +65,6 @@ interface DeleteConnectorParams {
 }
 
 interface SyncConnectorParams {
-    metahubId: string
     applicationId: string
     confirmDestructive?: boolean
 }
@@ -356,7 +355,7 @@ export function useDeleteConnector() {
 }
 
 /**
- * Hook for syncing connector schema with metahub configuration
+ * Hook for syncing application schema with linked Metahub configuration
  */
 export function useSyncConnector() {
     const queryClient = useQueryClient()
@@ -364,14 +363,13 @@ export function useSyncConnector() {
     const { t } = useTranslation('applications')
 
     return useMutation({
-        mutationFn: async ({ metahubId, applicationId, confirmDestructive = false }: SyncConnectorParams) => {
-            return connectorsApi.syncConnector(metahubId, applicationId, confirmDestructive)
+        mutationFn: async ({ applicationId, confirmDestructive = false }: SyncConnectorParams) => {
+            return connectorsApi.syncApplication(applicationId, confirmDestructive)
         },
         onSuccess: (data, variables) => {
-            // Invalidate connector and migrations queries
-            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectors(variables.applicationId) })
-            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrations(variables.applicationId) })
+            // Invalidate application-related queries
             queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(variables.applicationId) })
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.applicationDiff(variables.applicationId) })
 
             if (data.status === 'pending_confirmation') {
                 enqueueSnackbar(t('connectors.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })

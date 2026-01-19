@@ -128,7 +128,6 @@ const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applica
 const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
 const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubBoard }))))
 const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationList }))))
-const PublicationBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationBoard }))))
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
 const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
@@ -527,10 +526,6 @@ const MainRoutesMUI = {
                 {
                     path: 'publications',
                     element: <PublicationList />
-                },
-                {
-                    path: 'publication/:publicationId',
-                    element: <PublicationBoard />
                 },
                 {
                     path: 'hubs',

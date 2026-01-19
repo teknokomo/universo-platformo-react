@@ -7,18 +7,26 @@ import type { PublicationSchemaStatus } from '../../../types'
 export type { PublicationSchemaStatus }
 
 /**
+ * Access mode for publication
+ */
+export type PublicationAccessMode = 'full' | 'restricted'
+
+/**
  * Publication (Information Base) entity
  */
 export interface Publication {
     id: string
     metahubId: string
-    connectorId?: string // Added when creating publication
+    connectorId?: string // Legacy field, kept for backwards compatibility
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
+    accessMode?: PublicationAccessMode
+    accessConfig?: Record<string, unknown> | null
     schemaName: string
     schemaStatus: PublicationSchemaStatus
     schemaError?: string | null
     schemaSyncedAt?: string | null
+    autoCreateApplication?: boolean
     createdAt: string
     updatedAt: string
 }
@@ -169,6 +177,38 @@ export const deletePublication = async (
     const response = await apiClient.delete<{ success: boolean; message: string }>(
         `/metahub/${metahubId}/publication/${publicationId}`,
         { params: { confirm: 'true' } }
+    )
+    return response.data
+}
+
+/**
+ * Linked application (via connectors_metahubs junction)
+ */
+export interface LinkedApplication {
+    id: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    slug: string
+    createdAt: string
+}
+
+/**
+ * Response for linked applications
+ */
+export interface LinkedApplicationsResponse {
+    items: LinkedApplication[]
+    total: number
+}
+
+/**
+ * Get applications linked to this publication via connectors
+ */
+export const getPublicationApplications = async (
+    metahubId: string,
+    publicationId: string
+): Promise<LinkedApplicationsResponse> => {
+    const response = await apiClient.get<LinkedApplicationsResponse>(
+        `/metahub/${metahubId}/publication/${publicationId}/applications`
     )
     return response.data
 }

@@ -55,7 +55,11 @@ export const applicationsQueryKeys = {
     connectorDetail: (applicationId: string, connectorId: string) =>
         [...applicationsQueryKeys.connectors(applicationId), 'detail', connectorId] as const,
 
-    // Connector schema diff (for sync dialog)
+    // Application schema diff (for sync dialog)
+    applicationDiff: (applicationId: string) =>
+        [...applicationsQueryKeys.detail(applicationId), 'diff'] as const,
+
+    // @deprecated Use applicationDiff instead
     connectorDiff: (applicationId: string, connectorId: string) =>
         [...applicationsQueryKeys.connectorDetail(applicationId, connectorId), 'diff'] as const,
 
