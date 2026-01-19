@@ -1,5 +1,5 @@
-import { buildSchemaSnapshot, CURRENT_SCHEMA_SNAPSHOT_VERSION } from '../../domains/ddl/snapshot'
-import type { EntityDefinition } from '../../domains/ddl/types'
+import { buildSchemaSnapshot, CURRENT_SCHEMA_SNAPSHOT_VERSION } from '../snapshot'
+import type { EntityDefinition } from '../types'
 
 describe('DDL Snapshot Utilities', () => {
     describe('CURRENT_SCHEMA_SNAPSHOT_VERSION', () => {
@@ -15,7 +15,7 @@ describe('DDL Snapshot Utilities', () => {
             codename: 'test_entity',
             kind: 'catalog',
             fields: [],
-            ...overrides,
+            ...overrides
         })
 
         it('should create snapshot with correct version', () => {
@@ -47,7 +47,7 @@ describe('DDL Snapshot Utilities', () => {
             const entity = createTestEntity({
                 id: 'e1-0000-0000-0000-000000000001',
                 codename: 'my_catalog',
-                kind: 'catalog',
+                kind: 'catalog'
             })
 
             const snapshot = buildSchemaSnapshot([entity])
@@ -64,7 +64,7 @@ describe('DDL Snapshot Utilities', () => {
             const entities: EntityDefinition[] = [
                 createTestEntity({ id: 'cat-0000-0000-0000-000000000001', kind: 'catalog' }),
                 createTestEntity({ id: 'hub-0000-0000-0000-000000000002', kind: 'hub' }),
-                createTestEntity({ id: 'doc-0000-0000-0000-000000000003', kind: 'document' }),
+                createTestEntity({ id: 'doc-0000-0000-0000-000000000003', kind: 'document' })
             ]
 
             const snapshot = buildSchemaSnapshot(entities)
@@ -81,15 +81,15 @@ describe('DDL Snapshot Utilities', () => {
                         id: 'field-1111-2222-3333-444455556666',
                         codename: 'title',
                         dataType: 'text',
-                        isRequired: true,
+                        isRequired: true
                     },
                     {
                         id: 'field-2222-3333-4444-555566667777',
                         codename: 'count',
                         dataType: 'integer',
-                        isRequired: false,
-                    },
-                ],
+                        isRequired: false
+                    }
+                ]
             })
 
             const snapshot = buildSchemaSnapshot([entity])
@@ -117,9 +117,9 @@ describe('DDL Snapshot Utilities', () => {
                         id: 'fk-field-1111-2222-333344445555',
                         codename: 'parent_ref',
                         dataType: 'reference',
-                        targetEntityId: 'target-entity-1111-222233334444',
-                    },
-                ],
+                        targetEntityId: 'target-entity-1111-222233334444'
+                    }
+                ]
             })
 
             const snapshot = buildSchemaSnapshot([entity])
@@ -134,9 +134,9 @@ describe('DDL Snapshot Utilities', () => {
                     {
                         id: 'regular-field-1111-22223333444455',
                         codename: 'description',
-                        dataType: 'text',
-                    },
-                ],
+                        dataType: 'text'
+                    }
+                ]
             })
 
             const snapshot = buildSchemaSnapshot([entity])
@@ -153,17 +153,15 @@ describe('DDL Snapshot Utilities', () => {
                     kind: 'catalog',
                     fields: [
                         { id: 'field-a1', codename: 'a1', dataType: 'text' },
-                        { id: 'field-a2', codename: 'a2', dataType: 'integer' },
-                    ],
+                        { id: 'field-a2', codename: 'a2', dataType: 'integer' }
+                    ]
                 }),
                 createTestEntity({
                     id: 'entity-b-0000-0000-000000000002',
                     codename: 'entity_b',
                     kind: 'hub',
-                    fields: [
-                        { id: 'field-b1', codename: 'b1', dataType: 'boolean' },
-                    ],
-                }),
+                    fields: [{ id: 'field-b1', codename: 'b1', dataType: 'boolean' }]
+                })
             ]
 
             const snapshot = buildSchemaSnapshot(entities)

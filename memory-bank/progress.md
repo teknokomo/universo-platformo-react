@@ -43,6 +43,226 @@
 
 ---
 
+## 2026-01-19
+
+### Removed publications_users Table (Architectural Cleanup)
+
+**Goal**: Remove unnecessary `publications_users` table. Access to Publications should be controlled through parent Metahub membership.
+
+**Changes Made**:
+1. **Deleted PublicationUser.ts entity file**
+2. **Updated entities/index.ts** - removed PublicationUser from imports and exports
+3. **Updated main index.ts** - removed PublicationUser export
+4. **Updated Publication.ts entity** - removed OneToMany relation to PublicationUser
+5. **Updated publicationsRoutes.ts**:
+   - Removed PublicationUser import
+   - Removed publicationUserRepo from repos helper
+   - Removed PublicationUser creation in publication create transaction
+   - Fixed `/publications/available` query to use `metahubs_users` for access control
+   - Fixed codename mapping: metahub uses `slug`, publication uses `schema_name`
+6. **Rewrote migration 1768720000000-AddPublicationsTable.ts**:
+   - Removed `publications_users` table creation
+   - Removed indexes for `publications_users`
+   - Removed RLS enable for `publications_users`
+   - Removed RLS policy `pub_users_manage_own`
+   - Updated RLS policy for `publications` to use `metahubs_users` instead
+
+**Rationale**: Access rights are managed at the Metahub level. In the future, limited access through Publication will be implemented differently, not through user-level association.
+
+**Build**: ✅ 64 tasks successful
+
+---
+
+### Fixed singlePublicationLimit Text
+
+**Changed i18n keys**:
+- **EN**: "Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions of Universo Platformo."
+- **RU**: "В данный момент поддерживается только одна Публикация на Метахаб. В будущих версиях Universo Platformo эти ограничения будут сняты."
+
+---
+
+### Connector UI + Admin Notice Fixes
+
+**Connector UI**:
+- Added `table` namespace to applications i18n consolidation for `table.codename`
+- Added `connectors.table.created` translation and fixed "Created" label
+- Ensured `table.codename` is translated for Metahub selection headers
+
+**Admin Instances Page**:
+- Updated MVP notice text to reflect single local instance limitation (ru/en)
+- Moved notice alert to the top of the Instances list page
+
+**Build**: ✅ 64 tasks successful
+
+---
+
+### Connector List Relation + Admin Notice Layout
+
+**UI Enhancements**:
+- Adjusted admin instances notice spacing: `sx={{ mx: { xs: -1.5, md: -2 }, mt: 0, mb: 2 }}` to match connector list banner spacing
+- Added "Связь" (Relation) column to connector table view (25% width, center-aligned)
+- Added Metahub relation chip (`Chip` component) to:
+  - Connector table rows (inside Relation column)
+  - Connector card footerEndContent (card view)
+- Made connector name column clickable link in table view
+- Added i18n keys: `connectors.table.relation`, `connectors.relation.metahub`
+
+**Build**: ✅ 64 tasks successful
+
+---
+
+### Connector Name Link Styling Fix
+
+**Goal**: Make connector name links match ApplicationList pattern - inherit text color, show blue on hover.
+
+**Changes**:
+- Updated `ConnectorList.tsx` name column render:
+  - Changed Link `style`: `color: 'inherit'` (was `color: 'primary.main'`)
+  - Added `overflowWrap: 'break-word'` to Typography sx
+  - Added hover effect to Typography: `'&:hover': { textDecoration: 'underline', color: 'primary.main' }`
+- Pattern copied from ApplicationList.tsx for consistency across all list views
+
+**Rationale**: Connector names should not be blue by default, only on hover, matching the pattern used for Application names in table view.
+
+**Build**: ✅ 64 tasks successful (4m38s)
+
+---
+
+### schema-ddl cleanup
+
+**Changes**:
+- Parameterized `SET LOCAL statement_timeout` to avoid raw interpolation
+- Removed deprecated static wrapper methods from `SchemaGenerator` and `MigrationManager`
+- Updated schema-ddl tests to use naming utilities directly
+
+**Tests**:
+- `pnpm --filter @universo/schema-ddl test` (5 suites, 80 tests)
+
+**Build**: ✅ 64 tasks successful (5m08s)
+
+---
+
+**Connector List**:
+- Added Metahub relation chip in card view
+- Added "Связь" column in table view with Metahub relation label
+- Made connector name in table view a link to the connector page
+
+**Admin Instances Page**:
+- Aligned notice banner spacing to match connector list banner styling
+
+**Build**: ✅ 64 tasks successful
+
+(Removed mention of inability to delete publications since they can be deleted)
+
+---
+
+## 2026-01-20
+
+### Refactor Connector-Publication Link (In Progress)
+
+**Goal**: Refactor connector links from Metahubs to Publications for proper schema sync.
+
+**Problem**: 
+- `connectors_metahubs` table linked connectors directly to metahubs
+- This allowed connectors to metahubs without publications, breaking sync logic
+- UI showed "Sync Schema" button always, should show "Create Schema" when schema doesn't exist
+
+**Database Changes**:
+- Table renamed: `connectors_metahubs` → `connectors_publications`
+- Column renamed: `metahub_id` → `publication_id`
+- FK changed: References `metahubs.publications(id)` instead of `metahubs.metahubs(id)`
+
+**Backend Updates**:
+- Created `ConnectorPublication` entity (replaced `ConnectorMetahub`)
+- Updated `connectorsRoutes.ts` to use publicationId
+- Updated `applicationMigrationsRoutes.ts` and `applicationSyncRoutes.ts`
+- Added `GET /publications/available` endpoint with metahub info
+
+**Frontend Updates**:
+- New types: `ConnectorPublication`, `PublicationSummary`
+- New API: `connectorPublications.ts` (list, link, unlink, listAvailable)
+- New hooks: `useConnectorPublications.ts`
+- New components: `PublicationSelectionPanel`, `ConnectorPublicationInfoPanel`, `ConnectorPublicationInfoWrapper`
+- Updated: `ConnectorList`, `ConnectorBoard`, `ConnectorActions`, `ConnectorDiffDialog`
+
+**UI/UX Refinements (2025-01-20 update)**:
+- Connectors UI shows "Metahubs" tab instead of "Publications" (user-facing terminology)
+- PublicationSelectionPanel displays Metahub names but returns publication IDs internally
+- Dynamic button text: "Create Schema" vs "Sync Schema" based on schemaStatus
+- ConnectorDiffDialog shows tables to be created when schema doesn't exist
+- Single publication limit: Metahub can only have one Publication (like Connector limit)
+- PublicationList: Disabled "Add" button when publication exists + info banner
+
+**Backend Limit**:
+- Added 400 error when trying to create second publication in a metahub
+- Error message: "Currently, only one Publication per Metahub is supported"
+
+**i18n**: Added keys in English and Russian for both features
+
+**Build**: 64 tasks successful
+
+**Pending**: Manual testing of schema creation flow
+
+---
+
+### @universo/schema-ddl QA Fixes
+
+**Fixed Issues**:
+1. **Prettier formatting**: Fixed ~40 prettier errors in source files via `eslint --fix`
+2. **Test migration**: Moved SchemaGenerator.test.ts and MigrationManager.test.ts from metahubs-backend to schema-ddl
+3. **Code quality**: Replaced dynamic `require()` calls with static imports in `createDDLServices()` factory
+
+**Test Results**: 80 tests passed (naming, diff, snapshot, SchemaGenerator, MigrationManager)
+
+**Build**: 64 tasks successful
+
+**Duplication Check**: No duplication found. metahubs-backend correctly re-exports from @universo/schema-ddl and only keeps domain-specific code (KnexClient, definitions/catalogs).
+
+---
+
+## 2026-01-19
+
+### @universo/schema-ddl Package Extraction (PR #646 Continuation)
+
+**Problem Solved**: Circular dependency between `metahubs-backend` and `applications-backend`.
+- `applications-backend` needed `generateSchemaName` function
+- Function was in `metahubs-backend/domains/ddl/`
+- `metahubs-backend` depends on `applications-backend` for Application entity
+
+**Solution**: Extracted DDL utilities to new standalone package `@universo/schema-ddl`.
+
+**New Package Location**: `packages/schema-ddl/base/`
+
+**Architecture Pattern**: Dependency Injection
+- All classes receive `Knex` instance via constructor instead of using `KnexClient.getInstance()`
+- Factory function `createDDLServices(knex)` instantiates all services together
+- Pure functions extracted to separate modules (`locking.ts`, `naming.ts`)
+
+**Files Created**:
+| File | Purpose |
+|------|---------|
+| `src/index.ts` | Main exports + `createDDLServices()` factory |
+| `src/locking.ts` | Advisory lock pure functions (extracted from KnexClient) |
+| `src/naming.ts` | Schema/table naming utilities |
+| `src/types.ts` | DDL type definitions |
+| `src/snapshot.ts` | EntitySnapshot type for diffing |
+| `src/diff.ts` | Schema diff calculation |
+| `src/SchemaGenerator.ts` | Schema/table creation (DI refactored) |
+| `src/SchemaMigrator.ts` | Migration execution with locking (DI refactored) |
+| `src/MigrationManager.ts` | Migration history tracking (DI refactored) |
+
+**Integration Points**:
+- `metahubs-backend`: Added `getDDLServices()` wrapper using local `KnexClient`
+- `applications-backend`: Imports `generateSchemaName` directly from `@universo/schema-ddl`
+
+**Files Deleted from metahubs-backend**:
+- `domains/ddl/naming.ts`, `types.ts`, `snapshot.ts`, `diff.ts`
+- `domains/ddl/SchemaGenerator.ts`, `SchemaMigrator.ts`, `MigrationManager.ts`
+
+**Build Result**: 64 tasks successful, 4m36s.
+
+---
+
 ## 2026-01-18
 
 ### Publication/Connector QA Fixes (Round 3) — Major Sync Refactoring

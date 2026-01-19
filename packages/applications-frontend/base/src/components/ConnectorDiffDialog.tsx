@@ -26,7 +26,6 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { useTranslation } from 'react-i18next'
-import { useConnectorDiff } from '../hooks/useConnectorSync'
 import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector } from '../types'
 import { getVLCString } from '../types'
@@ -119,17 +118,45 @@ export function ConnectorDiffDialog({
                         {t('errors.connectionFailed', 'Failed to load schema changes')}
                     </Alert>
                 ) : needsCreate ? (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                        <AddCircleOutlineIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
-                        <Typography variant="h6">
-                            {t('connectors.diffDialog.schemaMissingTitle', 'Schema not created yet')}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {t(
-                                'connectors.diffDialog.schemaNotExists',
-                                'Schema does not exist yet. It will be created on first sync.'
-                            )}
-                        </Typography>
+                    <Box>
+                        {/* Schema creation header */}
+                        <Box sx={{ textAlign: 'center', py: 2, mb: 2 }}>
+                            <AddCircleOutlineIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                            <Typography variant="h6">
+                                {t('connectors.diffDialog.schemaWillBeCreated', 'Schema will be created')}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {diffData?.diff?.summary || t(
+                                    'connectors.diffDialog.schemaNotExists',
+                                    'Schema does not exist yet. It will be created on first sync.'
+                                )}
+                            </Typography>
+                        </Box>
+
+                        {/* Show what will be created */}
+                        {hasAdditiveChanges && (
+                            <Box sx={{ mb: 2 }}>
+                                <Typography
+                                    variant="subtitle1"
+                                    sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}
+                                >
+                                    {t('connectors.diffDialog.tablesWillBeCreated', 'Tables to be created')}
+                                </Typography>
+                                <List dense>
+                                    {diffData?.diff?.additive?.map((change, index) => (
+                                        <ListItem key={`additive-${index}`}>
+                                            <ListItemIcon sx={{ minWidth: 36 }}>
+                                                <AddCircleOutlineIcon color="success" />
+                                            </ListItemIcon>
+                                            <ListItemText
+                                                primary={change}
+                                                primaryTypographyProps={{ fontFamily: 'monospace', fontSize: 13 }}
+                                            />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </Box>
+                        )}
                     </Box>
                 ) : !hasChanges ? (
                     <Box sx={{ textAlign: 'center', py: 4 }}>

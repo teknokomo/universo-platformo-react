@@ -8,7 +8,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
         version: CURRENT_SCHEMA_SNAPSHOT_VERSION,
         generatedAt: new Date().toISOString(),
         hasSystemTables: true,
-        entities: {},
+        entities: {}
     }
 
     for (const entity of entities) {
@@ -16,7 +16,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
             kind: entity.kind,
             codename: entity.codename,
             tableName: generateTableName(entity.id, entity.kind),
-            fields: {},
+            fields: {}
         }
 
         for (const field of entity.fields) {
@@ -25,7 +25,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
                 columnName: generateColumnName(field.id),
                 dataType: field.dataType,
                 isRequired: field.isRequired,
-                targetEntityId: field.targetEntityId ?? null,
+                targetEntityId: field.targetEntityId ?? null
             }
         }
     }

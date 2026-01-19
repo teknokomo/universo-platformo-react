@@ -328,6 +328,17 @@ const InstanceList = () => {
                         />
                     </ViewHeader>
 
+                    <Alert
+                        severity='info'
+                        sx={{
+                            mx: { xs: -1.5, md: -2 },
+                            mt: 0,
+                            mb: 2
+                        }}
+                    >
+                        {t('instances.mvpNotice', 'Remote instances management will be available in future versions.')}
+                    </Alert>
+
                     {isLoading && instances.length === 0 ? (
                         view === 'card' ? (
                             <SkeletonGrid />
@@ -438,15 +449,6 @@ const InstanceList = () => {
                                 </Box>
                             )}
                         </>
-                    )}
-
-                    {/* MVP Notice - shown above pagination only when data exists */}
-                    {!isLoading && instances.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <Alert severity='info'>
-                                {t('instances.mvpNotice', 'Remote instances management will be available in future versions.')}
-                            </Alert>
-                        </Box>
                     )}
 
                     {/* Table Pagination at bottom - only show when there's data */}

@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Chip } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, Chip, Alert } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -567,10 +568,26 @@ const PublicationList = () => {
                             primaryAction={{
                                 label: tc('addNew'),
                                 onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
+                                startIcon: <AddRoundedIcon />,
+                                disabled: publications.length > 0
                             }}
                         />
                     </ViewHeader>
+
+                    {/* Info banner: temporary single-publication limit - shown below header, above content */}
+                    {publications.length > 0 && (
+                        <Alert
+                            severity="info"
+                            icon={<InfoIcon />}
+                            sx={{
+                                mx: { xs: -1.5, md: -2 },
+                                mt: 0,
+                                mb: 2
+                            }}
+                        >
+                            {t('publications.singlePublicationLimit', 'Currently, only one Publication per Metahub is supported. Also, after creating a Publication, it cannot be deleted separately, only together with the entire Metahub. In future versions of Universo Platformo, these restrictions will be removed.')}
+                        </Alert>
+                    )}
 
                     {isLoading && publications.length === 0 ? (
                         view === 'card' ? (

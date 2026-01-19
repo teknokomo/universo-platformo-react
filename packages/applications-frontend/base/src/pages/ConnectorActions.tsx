@@ -6,7 +6,7 @@ import { LocalizedInlineField, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Connector, ConnectorDisplay, ConnectorLocalizedPayload } from '../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
-import { ConnectorMetahubInfoWrapper } from '../components'
+import { ConnectorPublicationInfoWrapper } from '../components'
 
 const buildInitialValues = (ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>) => {
     const connectorMap = ctx.connectorMap as Map<string, Connector> | undefined
@@ -97,7 +97,7 @@ const ConnectorEditFields = ({
 /**
  * Build tabs configuration for edit dialog
  * Tab 1: General (name, description)
- * Tab 2: Metahubs (read-only display of linked metahubs with locked constraints)
+ * Tab 2: Publications (read-only display of linked publications with locked constraints)
  */
 const buildFormTabs = (
     ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>,
@@ -118,7 +118,7 @@ const buildFormTabs = (
         const tabs: TabConfig[] = [
             {
                 id: 'general',
-                label: ctx.t('connectors.tabs.general', 'Основное'),
+                label: ctx.t('connectors.tabs.general', 'General'),
                 content: (
                     <ConnectorEditFields
                         values={values}
@@ -132,9 +132,9 @@ const buildFormTabs = (
             },
             {
                 id: 'metahubs',
-                label: ctx.t('connectors.tabs.metahubs', 'Метахабы'),
+                label: ctx.t('connectors.tabs.metahubs', 'Metahubs'),
                 content: (
-                    <ConnectorMetahubInfoWrapper
+                    <ConnectorPublicationInfoWrapper
                         applicationId={applicationId}
                         connectorId={connectorId}
                         uiLocale={ctx.uiLocale as string}

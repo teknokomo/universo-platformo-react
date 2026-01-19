@@ -1,14 +1,7 @@
-import { MigrationManager } from '../../domains/ddl/MigrationManager'
-import { ChangeType } from '../../domains/ddl/diff'
-import type { SchemaDiff, SchemaChange } from '../../domains/ddl/diff'
-import type { SchemaSnapshot } from '../../domains/ddl/types'
-
-// Mock KnexClient
-jest.mock('../../domains/ddl/KnexClient', () => ({
-    KnexClient: {
-        getInstance: jest.fn(() => mockKnex),
-    },
-}))
+import { MigrationManager, generateMigrationName } from '../MigrationManager'
+import { ChangeType } from '../diff'
+import type { SchemaDiff, SchemaSnapshot } from '../types'
+import type { SchemaChange } from '../diff'
 
 // Create mock Knex instance
 const mockSchemaBuilder = {
@@ -44,7 +37,8 @@ describe('MigrationManager', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
-        manager = new MigrationManager()
+        // Pass mock Knex directly to constructor (Dependency Injection)
+        manager = new MigrationManager(mockKnex as unknown as import('knex').Knex)
 
         // Reset mock implementations
         mockQueryBuilder.withSchema.mockReturnThis()
@@ -64,27 +58,27 @@ describe('MigrationManager', () => {
 
     describe('generateMigrationName', () => {
         it('should generate migration name with timestamp prefix', () => {
-            const name = MigrationManager.generateMigrationName('add products table')
+            const name = generateMigrationName('add products table')
 
             // Format: YYYYMMDD_HHMMSS_description
             expect(name).toMatch(/^\d{8}_\d{6}_add_products_table$/)
         })
 
         it('should sanitize description (lowercase, underscores)', () => {
-            const name = MigrationManager.generateMigrationName('Add NEW Products-Table!')
+            const name = generateMigrationName('Add NEW Products-Table!')
 
             expect(name).toMatch(/_add_new_products_table$/)
         })
 
         it('should remove leading/trailing underscores from description', () => {
-            const name = MigrationManager.generateMigrationName('___test___')
+            const name = generateMigrationName('___test___')
 
             expect(name).toMatch(/_test$/)
         })
 
         it('should truncate long descriptions to 50 chars', () => {
             const longDescription = 'a'.repeat(100)
-            const name = MigrationManager.generateMigrationName(longDescription)
+            const name = generateMigrationName(longDescription)
 
             // Timestamp is 15 chars (YYYYMMDD_HHMMSS_), description max 50
             const descriptionPart = name.split('_').slice(2).join('_')
@@ -92,13 +86,13 @@ describe('MigrationManager', () => {
         })
 
         it('should handle special characters', () => {
-            const name = MigrationManager.generateMigrationName('add@field#with$special%chars')
+            const name = generateMigrationName('add@field#with$special%chars')
 
             expect(name).toMatch(/_add_field_with_special_chars$/)
         })
 
         it('should handle empty description', () => {
-            const name = MigrationManager.generateMigrationName('')
+            const name = generateMigrationName('')
 
             // Should be timestamp with trailing underscore (sanitization leaves empty after strip)
             expect(name).toMatch(/^\d{8}_\d{6}_$/)

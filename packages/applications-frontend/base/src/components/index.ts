@@ -4,14 +4,17 @@ export type { ApplicationGuardProps } from './ApplicationGuard'
 export { CodenameField } from './CodenameField'
 export type { CodenameFieldProps } from './CodenameField'
 
+export { PublicationSelectionPanel } from './PublicationSelectionPanel'
+export type { PublicationSelectionPanelProps } from './PublicationSelectionPanel'
+
 export { MetahubSelectionPanel } from './MetahubSelectionPanel'
 export type { MetahubSelectionPanelProps } from './MetahubSelectionPanel'
 
-export { ConnectorMetahubInfoPanel } from './ConnectorMetahubInfoPanel'
-export type { ConnectorMetahubInfoPanelProps } from './ConnectorMetahubInfoPanel'
+export { ConnectorPublicationInfoPanel } from './ConnectorPublicationInfoPanel'
+export type { ConnectorPublicationInfoPanelProps } from './ConnectorPublicationInfoPanel'
 
-export { ConnectorMetahubInfoWrapper } from './ConnectorMetahubInfoWrapper'
-export type { ConnectorMetahubInfoWrapperProps } from './ConnectorMetahubInfoWrapper'
+export { ConnectorPublicationInfoWrapper } from './ConnectorPublicationInfoWrapper'
+export type { ConnectorPublicationInfoWrapperProps } from './ConnectorPublicationInfoWrapper'
 
 export { ConnectorDeleteDialog } from './ConnectorDeleteDialog'
 export type { ConnectorDeleteDialogProps } from './ConnectorDeleteDialog'

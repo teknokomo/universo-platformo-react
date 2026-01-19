@@ -4,6 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
+import { generateSchemaName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
 import { Connector } from '../database/entities/Connector'
@@ -14,15 +15,6 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
-
-// Schema name generator
-// NOTE: This duplicates the logic from @universo/metahubs-backend/ddl/naming.ts
-// to avoid circular dependency (metahubs-backend depends on applications-backend)
-const SCHEMA_PREFIX = 'app'
-const generateSchemaName = (applicationId: string): string => {
-    const cleanId = applicationId.replace(/-/g, '')
-    return `${SCHEMA_PREFIX}_${cleanId}`
-}
 
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner

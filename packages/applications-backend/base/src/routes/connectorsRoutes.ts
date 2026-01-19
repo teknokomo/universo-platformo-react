@@ -2,7 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { Connector } from '../database/entities/Connector'
-import { ConnectorMetahub } from '../database/entities/ConnectorMetahub'
+import { ConnectorPublication } from '../database/entities/ConnectorPublication'
 import { Application } from '../database/entities/Application'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
@@ -21,7 +21,7 @@ const createConnectorSchema = z.object({
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
     sortOrder: z.number().int().optional(),
-    metahubId: z.string().uuid().optional() // Optional metahub to link on creation
+    publicationId: z.string().uuid().optional() // Optional publication to link on creation
 })
 
 const updateConnectorSchema = z.object({
@@ -52,7 +52,7 @@ export function createConnectorsRoutes(
         const manager = getRequestManager(req, ds)
         return {
             connectorRepo: manager.getRepository(Connector),
-            connectorMetahubRepo: manager.getRepository(ConnectorMetahub),
+            connectorPublicationRepo: manager.getRepository(ConnectorPublication),
             applicationRepo: manager.getRepository(Application)
         }
     }
@@ -182,7 +182,7 @@ export function createConnectorsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, metahubId } = parsed.data
+            const { name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, publicationId } = parsed.data
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
             if (Object.keys(sanitizedName).length === 0) {
@@ -209,16 +209,16 @@ export function createConnectorsRoutes(
                 sortOrder: sortOrder ?? 0
             })
 
-            // Wrap connector creation and optional metahub link in a transaction
+            // Wrap connector creation and optional publication link in a transaction
             const ds = getDataSource()
             const saved = await ds.transaction(async (manager) => {
                 const savedConnector = await manager.save(connector)
 
-                // If metahubId provided, create the link
-                if (metahubId) {
-                    const link = manager.getRepository(ConnectorMetahub).create({
+                // If publicationId provided, create the link
+                if (publicationId) {
+                    const link = manager.getRepository(ConnectorPublication).create({
                         connectorId: savedConnector.id,
-                        metahubId,
+                        publicationId,
                         sortOrder: 0
                     })
                     await manager.save(link)
@@ -311,15 +311,15 @@ export function createConnectorsRoutes(
     )
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Connector ↔ Metahub link management
+    // Connector ↔ Publication link management
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * GET /applications/:applicationId/connectors/:connectorId/metahubs
-     * List all metahubs linked to a connector (with metahub details)
+     * GET /applications/:applicationId/connectors/:connectorId/publications
+     * List all publications linked to a connector (with publication and metahub details)
      */
     router.get(
-        '/applications/:applicationId/connectors/:connectorId/metahubs',
+        '/applications/:applicationId/connectors/:connectorId/publications',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
@@ -333,73 +333,86 @@ export function createConnectorsRoutes(
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            // Fetch links with metahub details via cross-schema join
-            const linksWithMetahubs = await manager.query(`
+            // Fetch links with publication and metahub details via cross-schema join
+            const linksWithPublications = await manager.query(
+                `
                 SELECT 
-                    cm.id,
-                    cm.connector_id AS "connectorId",
-                    cm.metahub_id AS "metahubId",
-                    cm.sort_order AS "sortOrder",
-                    cm.created_at AS "createdAt",
-                    m.id AS "metahub_id",
+                    cp.id,
+                    cp.connector_id AS "connectorId",
+                    cp.publication_id AS "publicationId",
+                    cp.sort_order AS "sortOrder",
+                    cp.created_at AS "createdAt",
+                    p.id AS "publication_id",
+                    p.name AS "publication_name",
+                    p.description AS "publication_description",
+                    p.metahub_id AS "metahubId",
                     m.slug AS "metahub_codename",
-                    m.name AS "metahub_name",
-                    m.description AS "metahub_description"
-                FROM applications.connectors_metahubs cm
-                LEFT JOIN metahubs.metahubs m ON m.id = cm.metahub_id
-                WHERE cm.connector_id = $1
-                ORDER BY cm.sort_order ASC
-            `, [connectorId])
+                    m.name AS "metahub_name"
+                FROM applications.connectors_publications cp
+                LEFT JOIN metahubs.publications p ON p.id = cp.publication_id
+                LEFT JOIN metahubs.metahubs m ON m.id = p.metahub_id
+                WHERE cp.connector_id = $1
+                ORDER BY cp.sort_order ASC
+            `,
+                [connectorId]
+            )
 
-            // Transform to expected format with nested metahub object
-            const items = linksWithMetahubs.map((row: Record<string, unknown>) => ({
+            // Transform to expected format with nested publication object
+            const items = linksWithPublications.map((row: Record<string, unknown>) => ({
                 id: row.id,
                 connectorId: row.connectorId,
-                metahubId: row.metahubId,
+                publicationId: row.publicationId,
                 sortOrder: row.sortOrder,
                 createdAt: row.createdAt,
-                metahub: row.metahub_id ? {
-                    id: row.metahub_id,
-                    codename: row.metahub_codename,
-                    name: row.metahub_name,
-                    description: row.metahub_description
-                } : null
+                publication: row.publication_id
+                    ? {
+                          id: row.publication_id,
+                          name: row.publication_name,
+                          description: row.publication_description,
+                          metahubId: row.metahubId,
+                          metahub: {
+                              id: row.metahubId,
+                              codename: row.metahub_codename,
+                              name: row.metahub_name
+                          }
+                      }
+                    : null
             }))
 
             return res.json({
                 items,
                 total: items.length,
-                isSingleMetahub: connector.isSingleMetahub,
-                isRequiredMetahub: connector.isRequiredMetahub,
+                isSinglePublication: connector.isSingleMetahub,
+                isRequiredPublication: connector.isRequiredMetahub
             })
         })
     )
 
     /**
-     * POST /applications/:applicationId/connectors/:connectorId/metahubs
-     * Link a metahub to a connector
+     * POST /applications/:applicationId/connectors/:connectorId/publications
+     * Link a publication to a connector
      */
     router.post(
-        '/applications/:applicationId/connectors/:connectorId/metahubs',
+        '/applications/:applicationId/connectors/:connectorId/publications',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
-            const { connectorRepo, connectorMetahubRepo } = repos(req)
+            const { connectorRepo, connectorPublicationRepo } = repos(req)
 
             const bodySchema = z.object({
-                metahubId: z.string().uuid(),
-                sortOrder: z.number().int().optional().default(0),
+                publicationId: z.string().uuid(),
+                sortOrder: z.number().int().optional().default(0)
             })
 
             const parsed = bodySchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: parsed.error.flatten(),
+                    details: parsed.error.flatten()
                 })
             }
 
-            const { metahubId, sortOrder } = parsed.data
+            const { publicationId, sortOrder } = parsed.data
 
             // Verify connector belongs to application
             const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
@@ -409,46 +422,46 @@ export function createConnectorsRoutes(
 
             // Check isSingleMetahub constraint
             if (connector.isSingleMetahub) {
-                const existingLinks = await connectorMetahubRepo.count({ where: { connectorId } })
+                const existingLinks = await connectorPublicationRepo.count({ where: { connectorId } })
                 if (existingLinks > 0) {
                     return res.status(400).json({
-                        error: 'Single metahub constraint',
-                        message: 'This connector can only have one metahub. Remove existing link first.',
+                        error: 'Single publication constraint',
+                        message: 'This connector can only have one publication. Remove existing link first.'
                     })
                 }
             }
 
             // Check for duplicate link
-            const existingLink = await connectorMetahubRepo.findOne({ where: { connectorId, metahubId } })
+            const existingLink = await connectorPublicationRepo.findOne({ where: { connectorId, publicationId } })
             if (existingLink) {
                 return res.status(400).json({
                     error: 'Duplicate link',
-                    message: 'This metahub is already linked to this connector.',
+                    message: 'This publication is already linked to this connector.'
                 })
             }
 
             // Create link
-            const link = connectorMetahubRepo.create({
+            const link = connectorPublicationRepo.create({
                 connectorId,
-                metahubId,
-                sortOrder,
+                publicationId,
+                sortOrder
             })
-            await connectorMetahubRepo.save(link)
+            await connectorPublicationRepo.save(link)
 
             return res.status(201).json(link)
         })
     )
 
     /**
-     * DELETE /applications/:applicationId/connectors/:connectorId/metahubs/:linkId
-     * Remove a metahub link from a connector
+     * DELETE /applications/:applicationId/connectors/:connectorId/publications/:linkId
+     * Remove a publication link from a connector
      */
     router.delete(
-        '/applications/:applicationId/connectors/:connectorId/metahubs/:linkId',
+        '/applications/:applicationId/connectors/:connectorId/publications/:linkId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId, linkId } = req.params
-            const { connectorRepo, connectorMetahubRepo } = repos(req)
+            const { connectorRepo, connectorPublicationRepo } = repos(req)
 
             // Verify connector belongs to application
             const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
@@ -456,8 +469,8 @@ export function createConnectorsRoutes(
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            const link = await connectorMetahubRepo.findOne({
-                where: { id: linkId, connectorId },
+            const link = await connectorPublicationRepo.findOne({
+                where: { id: linkId, connectorId }
             })
             if (!link) {
                 return res.status(404).json({ error: 'Link not found' })
@@ -465,16 +478,16 @@ export function createConnectorsRoutes(
 
             // Check isRequiredMetahub constraint
             if (connector.isRequiredMetahub) {
-                const linksCount = await connectorMetahubRepo.count({ where: { connectorId } })
+                const linksCount = await connectorPublicationRepo.count({ where: { connectorId } })
                 if (linksCount <= 1) {
                     return res.status(400).json({
-                        error: 'Required metahub constraint',
-                        message: 'This connector requires at least one metahub. Add another before removing.',
+                        error: 'Required publication constraint',
+                        message: 'This connector requires at least one publication. Add another before removing.'
                     })
                 }
             }
 
-            await connectorMetahubRepo.remove(link)
+            await connectorPublicationRepo.remove(link)
             return res.status(204).send()
         })
     )

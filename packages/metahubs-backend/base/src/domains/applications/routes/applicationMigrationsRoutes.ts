@@ -16,14 +16,10 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { Application, Connector, ConnectorMetahub } from '@universo/applications-backend'
+import { Application, Connector, ConnectorPublication } from '@universo/applications-backend'
 import { Publication } from '../../../database/entities/Publication'
-import { MigrationManager } from '../../ddl/MigrationManager'
-import { SchemaGenerator } from '../../ddl/SchemaGenerator'
-import { KnexClient } from '../../ddl/KnexClient'
-import { ChangeType } from '../../ddl/diff'
-import { buildFkConstraintName } from '../../ddl/naming'
-import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl/types'
+import { getDDLServices, KnexClient, ChangeType, buildFkConstraintName } from '../../ddl'
+import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Validation Schemas
@@ -57,10 +53,10 @@ export function createApplicationMigrationsRoutes(
             fn(req, res).catch(next)
         }
 
-    const migrationManager = new MigrationManager()
+    const { generator, migrationManager } = getDDLServices()
 
     // Helper to get application with schema name
-    // If application.schemaName is not set, try to find it via Connector → Metahub → Publication chain
+    // If application.schemaName is not set, try to find it via Connector → ConnectorPublication → Publication chain
     const getApplicationWithSchema = async (req: Request, res: Response, applicationId: string): Promise<{ application: Application; schemaName: string } | Response> => {
         const ds = getDataSource()
         const applicationRepo = ds.getRepository(Application)
@@ -75,9 +71,9 @@ export function createApplicationMigrationsRoutes(
             return { application, schemaName: application.schemaName }
         }
 
-        // Otherwise, try to find schemaName via Connector → ConnectorMetahub → Publication
+        // Otherwise, try to find schemaName via Connector → ConnectorPublication → Publication
         const connectorRepo = ds.getRepository(Connector)
-        const connectorMetahubRepo = ds.getRepository(ConnectorMetahub)
+        const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
         const publicationRepo = ds.getRepository(Publication)
 
         // Find connectors for this application – must be exactly one
@@ -92,31 +88,25 @@ export function createApplicationMigrationsRoutes(
         }
         const connector = connectors[0]
 
-        // Find linked metahub – must be exactly one
-        const connectorMetahubs = await connectorMetahubRepo.find({ where: { connectorId: connector.id } })
-        if (connectorMetahubs.length === 0) {
-            return res.status(400).json({ error: 'Connector has no metahub linked' })
+        // Find linked publications – must be exactly one
+        const connectorPublications = await connectorPublicationRepo.find({ where: { connectorId: connector.id } })
+        if (connectorPublications.length === 0) {
+            return res.status(400).json({ error: 'Connector has no publication linked' })
         }
-        if (connectorMetahubs.length > 1) {
+        if (connectorPublications.length > 1) {
             return res
                 .status(400)
-                .json({ error: 'Connector is linked to multiple metahubs; schemaName must be set explicitly on the application' })
+                .json({ error: 'Connector is linked to multiple publications; schemaName must be set explicitly on the application' })
         }
-        const connectorMetahub = connectorMetahubs[0]
+        const connectorPublication = connectorPublications[0]
 
-        // Find publication for this metahub – must be exactly one with a schemaName
-        const publications = await publicationRepo.find({ where: { metahubId: connectorMetahub.metahubId } })
-        if (publications.length === 0) {
-            return res.status(400).json({ error: 'No publication with schema found for this application' })
+        // Get publication by ID (direct link now)
+        const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+        if (!publication) {
+            return res.status(400).json({ error: 'Linked publication not found' })
         }
-        if (publications.length > 1) {
-            return res
-                .status(400)
-                .json({ error: 'Multiple publications found for metahub; schemaName must be set explicitly on the application' })
-        }
-        const publication = publications[0]
         if (!publication.schemaName) {
-            return res.status(400).json({ error: 'No publication with schema found for this application' })
+            return res.status(400).json({ error: 'Publication does not have a schema configured' })
         }
 
         return { application, schemaName: publication.schemaName }
@@ -300,7 +290,6 @@ export function createApplicationMigrationsRoutes(
 
             try {
                 const knex = KnexClient.getInstance()
-                const generator = new SchemaGenerator()
 
                 // Get all migrations to rollback
                 const { migrations } = await migrationManager.listMigrations(schemaName, { limit: 1000 })
@@ -425,8 +414,8 @@ async function applyRollbackChange(schemaName: string, change: MigrationChangeRe
  * Convert snapshot to entity definitions for metadata sync
  * This is a simplified conversion for rollback purposes
  */
-function snapshotToEntities(snapshot: SchemaSnapshot): import('../../ddl/types').EntityDefinition[] {
-    const entities: import('../../ddl/types').EntityDefinition[] = []
+function snapshotToEntities(snapshot: SchemaSnapshot): import('@universo/schema-ddl').EntityDefinition[] {
+    const entities: import('@universo/schema-ddl').EntityDefinition[] = []
     const now = new Date().toISOString()
 
     // Create empty presentation structure that matches MetaPresentation
@@ -447,7 +436,7 @@ function snapshotToEntities(snapshot: SchemaSnapshot): import('../../ddl/types')
     })
 
     for (const [entityId, entity] of Object.entries(snapshot.entities)) {
-        const fields: import('../../ddl/types').FieldDefinition[] = []
+        const fields: import('@universo/schema-ddl').FieldDefinition[] = []
 
         for (const [fieldId, field] of Object.entries(entity.fields)) {
             fields.push({

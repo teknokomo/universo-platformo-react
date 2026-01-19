@@ -2,7 +2,7 @@
  * Application Schema Sync Routes
  *
  * These routes handle schema creation, synchronization and diff calculation
- * for Applications. They use the Application → Connector → ConnectorMetahub → Metahub
+ * for Applications. They use the Application → Connector → ConnectorPublication → Publication
  * chain to determine the structure.
  *
  * Endpoints:
@@ -14,15 +14,12 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { Application, Connector, ConnectorMetahub, ApplicationSchemaStatus } from '@universo/applications-backend'
+import { Application, Connector, ConnectorPublication, ApplicationSchemaStatus } from '@universo/applications-backend'
+import { Publication } from '../../../database/entities/Publication'
 import { Catalog } from '../../../database/entities/Catalog'
 import { Attribute } from '../../../database/entities/Attribute'
-import { SchemaGenerator } from '../../ddl/SchemaGenerator'
-import { SchemaMigrator } from '../../ddl/SchemaMigrator'
-import { buildCatalogDefinitions } from '../../ddl/definitions/catalogs'
-import { generateSchemaName } from '../../ddl/naming'
-import type { SchemaSnapshot } from '../../ddl/types'
-import type { SchemaChange } from '../../ddl/diff'
+import { getDDLServices, buildCatalogDefinitions, generateSchemaName } from '../../ddl'
+import type { SchemaSnapshot, SchemaChange } from '../../ddl'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -144,24 +141,30 @@ export function createApplicationSyncRoutes(
                 return res.status(400).json({ error: 'No connector found for this application. Create a connector first.' })
             }
 
-            // Find linked metahub through ConnectorMetahub
-            const connectorMetahubRepo = ds.getRepository(ConnectorMetahub)
-            const connectorMetahub = await connectorMetahubRepo.findOne({
+            // Find linked publication through ConnectorPublication
+            const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
+            const connectorPublication = await connectorPublicationRepo.findOne({
                 where: { connectorId: connector.id }
             })
-            if (!connectorMetahub) {
-                return res.status(400).json({ error: 'Connector is not linked to any Metahub. Link a Metahub first.' })
+            if (!connectorPublication) {
+                return res.status(400).json({ error: 'Connector is not linked to any Publication. Link a Publication first.' })
             }
 
-            const metahubId = connectorMetahub.metahubId
+            // Get publication to find metahubId for catalog definitions
+            const publicationRepo = ds.getRepository(Publication)
+            const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+            if (!publication) {
+                return res.status(400).json({ error: 'Linked publication not found' })
+            }
+
+            const metahubId = publication.metahubId
 
             // Build catalog definitions from the linked Metahub
             const catalogRepo = ds.getRepository(Catalog)
             const attributeRepo = ds.getRepository(Attribute)
             const catalogDefs = await buildCatalogDefinitions(catalogRepo, attributeRepo, metahubId)
 
-            const generator = new SchemaGenerator()
-            const migrator = new SchemaMigrator()
+            const { generator, migrator, migrationManager } = getDDLServices()
 
             // Ensure schemaName exists
             if (!application.schemaName) {
@@ -181,7 +184,8 @@ export function createApplicationSyncRoutes(
                     // Create new schema with initial migration recording
                     const result = await generator.generateFullSchema(application.schemaName!, catalogDefs, {
                         recordMigration: true,
-                        migrationDescription: 'initial_schema'
+                        migrationDescription: 'initial_schema',
+                        migrationManager
                     })
 
                     if (!result.success) {
@@ -332,35 +336,54 @@ export function createApplicationSyncRoutes(
                 return res.status(400).json({ error: 'No connector found' })
             }
 
-            // Find linked metahub
-            const connectorMetahubRepo = ds.getRepository(ConnectorMetahub)
-            const connectorMetahub = await connectorMetahubRepo.findOne({
+            // Find linked publication
+            const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
+            const connectorPublication = await connectorPublicationRepo.findOne({
                 where: { connectorId: connector.id }
             })
-            if (!connectorMetahub) {
-                return res.status(400).json({ error: 'Connector not linked to Metahub' })
+            if (!connectorPublication) {
+                return res.status(400).json({ error: 'Connector not linked to Publication' })
             }
 
-            const metahubId = connectorMetahub.metahubId
+            // Get publication to find metahubId
+            const publicationRepo = ds.getRepository(Publication)
+            const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+            if (!publication) {
+                return res.status(400).json({ error: 'Linked publication not found' })
+            }
+
+            const metahubId = publication.metahubId
 
             // Build catalog definitions
             const catalogRepo = ds.getRepository(Catalog)
             const attributeRepo = ds.getRepository(Attribute)
             const catalogDefs = await buildCatalogDefinitions(catalogRepo, attributeRepo, metahubId)
 
-            const generator = new SchemaGenerator()
-            const migrator = new SchemaMigrator()
+            const { generator, migrator } = getDDLServices()
 
             // Check if schema exists
             const schemaName = application.schemaName || generateSchemaName(application.id)
             const schemaExists = await generator.schemaExists(schemaName)
 
             if (!schemaExists) {
+                // Schema doesn't exist - show what will be created
+                // Generate a "diff" from empty to full catalog definitions
+                const additive = catalogDefs.map((cat) => {
+                    const fieldCount = cat.fields?.length ?? 0
+                    return `Create table "${cat.codename}" with ${fieldCount} field(s)`
+                })
+
                 return res.json({
                     schemaExists: false,
                     schemaName,
-                    diff: null,
-                    message: 'Schema does not exist yet'
+                    diff: {
+                        hasChanges: true,
+                        hasDestructiveChanges: false,
+                        additive,
+                        destructive: [],
+                        summary: `Create ${catalogDefs.length} table(s) in new schema`
+                    },
+                    message: 'Schema does not exist yet. These tables will be created.'
                 })
             }
 

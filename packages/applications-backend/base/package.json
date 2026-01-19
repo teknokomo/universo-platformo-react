@@ -25,6 +25,7 @@
         "@universo/admin-backend": "workspace:*",
         "@universo/auth-backend": "workspace:*",
         "@universo/profile-backend": "workspace:*",
+        "@universo/schema-ddl": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "http-errors": "catalog:",

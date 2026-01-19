@@ -25,10 +25,10 @@ import { Metahub } from '../../../database/entities/Metahub'
 import { Catalog } from '../../../database/entities/Catalog'
 import { Attribute } from '../../../database/entities/Attribute'
 import { Publication, PublicationSchemaStatus } from '../../../database/entities/Publication'
-import { PublicationUser } from '../../../database/entities/PublicationUser'
-import { SchemaGenerator, SchemaSnapshot, SchemaMigrator, SchemaDiff, buildCatalogDefinitions } from '../../ddl'
+import { getDDLServices, buildCatalogDefinitions, generateSchemaName } from '../../ddl'
+import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 // Import applications entities for auto-create feature
-import { Application, ApplicationUser, Connector, ConnectorMetahub } from '@universo/applications-backend'
+import { Application, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helper: Resolve user ID from request
@@ -92,12 +92,86 @@ export function createPublicationsRoutes(
         const manager = getRequestManager(req, ds)
         return {
             publicationRepo: manager.getRepository(Publication),
-            publicationUserRepo: manager.getRepository(PublicationUser),
             metahubRepo: manager.getRepository(Metahub),
             catalogRepo: manager.getRepository(Catalog),
             attributeRepo: manager.getRepository(Attribute)
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GET /publications/available
+    // List all publications available for linking to Connectors
+    // Returns publications with their parent metahub info
+    // Access is determined via metahubs_users (not publications_users)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    router.get(
+        '/publications/available',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const ds = getDataSource()
+            const userId = resolveUserId(req)
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' })
+            }
+
+            // Parse pagination params
+            const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 100)
+            const offset = Math.max(parseInt(req.query.offset as string) || 0, 0)
+
+            // Get all publications user has access to via metahub membership
+            // User has access to publication if they are a member of the parent metahub
+            // Use request-scoped manager to preserve RLS context
+            const manager = getRequestManager(req, ds)
+            const publications = await manager.query(`
+                SELECT 
+                    p.id,
+                    p.schema_name as "codename",
+                    p.schema_name as "schemaName",
+                    p.name,
+                    p.description,
+                    p.created_at as "createdAt",
+                    m.id as "metahubId",
+                    COALESCE(m.slug, m.id::text) as "metahubCodename",
+                    m.name as "metahubName"
+                FROM metahubs.publications p
+                JOIN metahubs.metahubs m ON m.id = p.metahub_id
+                JOIN metahubs.metahubs_users mu ON mu.metahub_id = m.id
+                WHERE mu.user_id = $1
+                ORDER BY p.created_at DESC
+                LIMIT $2 OFFSET $3
+            `, [userId, limit, offset])
+
+            // Transform to expected format with nested metahub
+            const items = publications.map((pub: any) => ({
+                id: pub.id,
+                codename: pub.codename,
+                schemaName: pub.schemaName,
+                name: pub.name,
+                description: pub.description,
+                createdAt: pub.createdAt,
+                metahub: {
+                    id: pub.metahubId,
+                    codename: pub.metahubCodename,
+                    name: pub.metahubName
+                }
+            }))
+
+            // Get total count
+            const countResult = await manager.query(`
+                SELECT COUNT(*) as total
+                FROM metahubs.publications p
+                JOIN metahubs.metahubs m ON m.id = p.metahub_id
+                JOIN metahubs.metahubs_users mu ON mu.metahub_id = m.id
+                WHERE mu.user_id = $1
+            `, [userId])
+
+            return res.json({
+                items,
+                total: parseInt(countResult[0]?.total || '0', 10)
+            })
+        })
+    )
 
     // ═══════════════════════════════════════════════════════════════════════
     // GET /metahub/:metahubId/publications
@@ -171,13 +245,22 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Metahub not found' })
             }
 
-            // Create Publication and PublicationUser in a single transaction
+            // Check if metahub already has a publication (single publication limit)
+            const publicationRepo = ds.getRepository(Publication)
+            const existingPublicationsCount = await publicationRepo.count({ where: { metahubId } })
+            if (existingPublicationsCount > 0) {
+                return res.status(400).json({
+                    error: 'Single publication limit reached',
+                    message: 'Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions.'
+                })
+            }
+
+            // Create Publication in a transaction
             const result = await ds.transaction(async (manager) => {
-                const publicationRepo = manager.getRepository(Publication)
-                const publicationUserRepo = manager.getRepository(PublicationUser)
+                const publicationRepoTx = manager.getRepository(Publication)
 
                 // 1. Create Publication with direct metahubId reference
-                const publication = publicationRepo.create({
+                const publication = publicationRepoTx.create({
                     metahubId,
                     name: buildLocalizedContent(sanitizeLocalizedInput(name || {}), namePrimaryLocale || 'en'),
                     description: description
@@ -186,29 +269,21 @@ export function createPublicationsRoutes(
                     schemaStatus: PublicationSchemaStatus.DRAFT,
                     autoCreateApplication: autoCreateApplication ?? false
                 })
-                await publicationRepo.save(publication)
+                await publicationRepoTx.save(publication)
 
                 // 2. Generate schema name
-                const schemaName = SchemaGenerator.generateSchemaName(publication.id)
+                const schemaName = generateSchemaName(publication.id)
                 publication.schemaName = schemaName
-                await publicationRepo.save(publication)
+                await publicationRepoTx.save(publication)
 
-                // 3. Create PublicationUser as owner
-                const publicationUser = publicationUserRepo.create({
-                    publicationId: publication.id,
-                    userId,
-                    role: 'owner'
-                })
-                await publicationUserRepo.save(publicationUser)
-
-                // 4. Auto-create Application if flag is set
+                // 3. Auto-create Application if flag is set
                 if (autoCreateApplication && metahub) {
                     const applicationRepo = manager.getRepository(Application)
                     const appUserRepo = manager.getRepository(ApplicationUser)
                     const connectorRepo = manager.getRepository(Connector)
-                    const connectorMetahubRepo = manager.getRepository(ConnectorMetahub)
+                    const connectorPublicationRepo = manager.getRepository(ConnectorPublication)
 
-                    // 4a. Create Application with name/description from Publication
+                    // 3a. Create Application with name/description from Publication
                     const application = applicationRepo.create({
                         name: publication.name!, // Copy VLC name from Publication
                         description: publication.description ?? undefined, // Copy VLC description from Publication
@@ -218,11 +293,11 @@ export function createPublicationsRoutes(
                     })
                     await applicationRepo.save(application)
 
-                    // 4a2. Generate schemaName based on Application's UUID (not Publication's!)
-                    application.schemaName = SchemaGenerator.generateSchemaName(application.id)
+                    // 3a2. Generate schemaName based on Application's UUID (not Publication's!)
+                    application.schemaName = generateSchemaName(application.id)
                     await applicationRepo.save(application)
 
-                    // 4b. Create ApplicationUser as owner
+                    // 3b. Create ApplicationUser as owner
                     const appUser = appUserRepo.create({
                         application_id: application.id, // snake_case as per entity definition
                         user_id: userId,
@@ -230,7 +305,7 @@ export function createPublicationsRoutes(
                     })
                     await appUserRepo.save(appUser)
 
-                    // 4c. Create Connector with name/description from Metahub
+                    // 3c. Create Connector with name/description from Metahub
                     const connector = connectorRepo.create({
                         applicationId: application.id,
                         name: metahub.name, // Copy VLC name from Metahub
@@ -239,13 +314,13 @@ export function createPublicationsRoutes(
                     })
                     await connectorRepo.save(connector)
 
-                    // 4d. Link Connector to Metahub
-                    const connectorMetahub = connectorMetahubRepo.create({
+                    // 3d. Link Connector to Publication (not Metahub!)
+                    const connectorPublication = connectorPublicationRepo.create({
                         connectorId: connector.id,
-                        metahubId: metahub.id,
+                        publicationId: publication.id, // Link to Publication, not Metahub
                         sortOrder: 0
                     })
-                    await connectorMetahubRepo.save(connectorMetahub)
+                    await connectorPublicationRepo.save(connectorPublication)
                 }
 
                 return publication
@@ -396,7 +471,7 @@ export function createPublicationsRoutes(
             // Drop schema if it exists
             if (publication.schemaName) {
                 try {
-                    const generator = new SchemaGenerator()
+                    const { generator } = getDDLServices()
                     await generator.dropSchema(publication.schemaName)
                 } catch (err) {
                     console.warn(`[Publications] Failed to drop schema ${publication.schemaName}:`, err)
@@ -404,7 +479,7 @@ export function createPublicationsRoutes(
                 }
             }
 
-            // Delete publication (cascades to publications_users)
+            // Delete publication
             await publicationRepo.remove(publication)
 
             return res.json({
@@ -445,17 +520,17 @@ export function createPublicationsRoutes(
             }
 
             // Cross-schema join to get linked applications
-            // Applications are linked via: Application → Connector → ConnectorMetahub → Metahub ← Publication
+            // Applications are linked via: Application → Connector → ConnectorPublication → Publication
             const linkedApps = await ds.query(
                 `
                 SELECT DISTINCT a.id, a.name, a.description, a.slug, a.created_at as "createdAt"
                 FROM applications.applications a
                 JOIN applications.connectors c ON c.application_id = a.id
-                JOIN applications.connectors_metahubs cm ON cm.connector_id = c.id
-                WHERE cm.metahub_id = $1
+                JOIN applications.connectors_publications cp ON cp.connector_id = c.id
+                WHERE cp.publication_id = $1
                 ORDER BY a.created_at DESC
             `,
-                [metahubId]
+                [publicationId]
             )
 
             return res.json({
@@ -500,11 +575,10 @@ export function createPublicationsRoutes(
             const oldSnapshot = publication.schemaSnapshot as SchemaSnapshot | null
 
             // Calculate diff
-            const migrator = new SchemaMigrator()
+            const { generator, migrator } = getDDLServices()
             const diff: SchemaDiff = migrator.calculateDiff(oldSnapshot, catalogDefs)
 
             // Check if schema exists
-            const generator = new SchemaGenerator()
             const schemaExists = await generator.schemaExists(publication.schemaName || '')
 
             return res.json({
@@ -564,8 +638,7 @@ export function createPublicationsRoutes(
             const attributeRepo = ds.getRepository(Attribute)
             const catalogDefs = await buildCatalogDefinitions(catalogRepo, attributeRepo, metahubId)
 
-            const generator = new SchemaGenerator()
-            const migrator = new SchemaMigrator()
+            const { generator, migrator, migrationManager } = getDDLServices()
 
             // Check if schema exists
             const schemaExists = await generator.schemaExists(publication.schemaName || '')
@@ -579,7 +652,8 @@ export function createPublicationsRoutes(
                     // Create new schema with initial migration recording
                     const result = await generator.generateFullSchema(publication.schemaName!, catalogDefs, {
                         recordMigration: true,
-                        migrationDescription: 'initial_schema'
+                        migrationDescription: 'initial_schema',
+                        migrationManager
                     })
 
                     if (!result.success) {

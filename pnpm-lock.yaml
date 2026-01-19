@@ -488,6 +488,9 @@ importers:
       '@universo/profile-backend':
         specifier: workspace:*
         version: link:../../profile-backend/base
+      '@universo/schema-ddl':
+        specifier: workspace:*
+        version: link:../../schema-ddl/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -3548,6 +3551,9 @@ importers:
       '@universo/profile-backend':
         specifier: workspace:*
         version: link:../../profile-backend/base
+      '@universo/schema-ddl':
+        specifier: workspace:*
+        version: link:../../schema-ddl/base
       '@universo/utils':
         specifier: workspace:*
         version: link:../../universo-utils/base
@@ -4629,6 +4635,37 @@ importers:
       vitest:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@20.12.12)(happy-dom@20.0.11)(jsdom@23.2.0(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(msw@2.12.3(@types/node@20.12.12)(typescript@5.8.3))(sass@1.94.2)(terser@5.44.1)
+
+  packages/schema-ddl/base:
+    dependencies:
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
+      knex:
+        specifier: 'catalog:'
+        version: 3.1.0(mysql2@3.11.3)(pg@8.11.1)(sqlite3@5.1.6(encoding@0.1.13))
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.5.12
+        version: 29.5.14
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      ts-jest:
+        specifier: ^29.1.2
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(jest-util@29.7.0)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.3(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.8.3
 
   packages/space-builder-backend/base:
     dependencies:

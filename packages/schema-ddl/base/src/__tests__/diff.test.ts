@@ -1,5 +1,5 @@
-import { calculateSchemaDiff, ChangeType } from '../../domains/ddl/diff'
-import type { EntityDefinition, SchemaSnapshot } from '../../domains/ddl/types'
+import { calculateSchemaDiff, ChangeType } from '../diff'
+import type { EntityDefinition, SchemaSnapshot } from '../types'
 
 describe('DDL Diff Utilities', () => {
     describe('calculateSchemaDiff', () => {
@@ -8,12 +8,10 @@ describe('DDL Diff Utilities', () => {
             codename: 'test_entity',
             kind: 'catalog',
             fields: [],
-            ...overrides,
+            ...overrides
         })
 
-        const createTestSnapshot = (
-            entities: Partial<Record<string, SchemaSnapshot['entities'][string]>> = {}
-        ): SchemaSnapshot => ({
+        const createTestSnapshot = (entities: Partial<Record<string, SchemaSnapshot['entities'][string]>> = {}): SchemaSnapshot => ({
             applicationId: 'app-1111-2222-3333-444455556666',
             schemaName: 'app_test',
             snapshotVersion: 1,
@@ -23,17 +21,17 @@ describe('DDL Diff Utilities', () => {
                     codename: 'test_entity',
                     kind: 'catalog',
                     tableName: 'cat_entity1111222233334444',
-                    fields: {},
+                    fields: {}
                 },
-                ...entities,
-            },
+                ...entities
+            }
         })
 
         describe('when oldSnapshot is null (initial deployment)', () => {
             it('should return all entities as ADD_TABLE changes', () => {
                 const entities: EntityDefinition[] = [
                     createTestEntity({ id: 'e1-0000-0000-0000-000000000001', codename: 'entity_a', kind: 'catalog' }),
-                    createTestEntity({ id: 'e2-0000-0000-0000-000000000002', codename: 'entity_b', kind: 'hub' }),
+                    createTestEntity({ id: 'e2-0000-0000-0000-000000000002', codename: 'entity_b', kind: 'hub' })
                 ]
 
                 const diff = calculateSchemaDiff(null, entities)
@@ -63,8 +61,8 @@ describe('DDL Diff Utilities', () => {
                     createTestEntity({
                         id: 'new-entity-1111-2222-333344445555',
                         codename: 'new_entity',
-                        kind: 'hub',
-                    }),
+                        kind: 'hub'
+                    })
                 ]
 
                 const diff = calculateSchemaDiff(snapshot, entities)
@@ -82,8 +80,8 @@ describe('DDL Diff Utilities', () => {
                         codename: 'old_entity',
                         kind: 'document',
                         tableName: 'doc_entitytodelete2222333344445555',
-                        fields: {},
-                    },
+                        fields: {}
+                    }
                 })
                 const entities: EntityDefinition[] = [createTestEntity()] // only existing, missing old_entity
 
@@ -104,10 +102,10 @@ describe('DDL Diff Utilities', () => {
                             {
                                 id: 'field-1111-2222-3333-444455556666',
                                 codename: 'new_field',
-                                dataType: 'text',
-                            },
-                        ],
-                    }),
+                                dataType: 'text'
+                            }
+                        ]
+                    })
                 ]
 
                 const diff = calculateSchemaDiff(snapshot, entities)
@@ -124,8 +122,8 @@ describe('DDL Diff Utilities', () => {
                     'field-to-delete-1111-222233334444': {
                         codename: 'old_field',
                         columnName: 'attr_fieldtodelete1111222233334444',
-                        dataType: 'text',
-                    },
+                        dataType: 'text'
+                    }
                 }
 
                 const entities: EntityDefinition[] = [createTestEntity({ fields: [] })] // field removed
@@ -142,7 +140,7 @@ describe('DDL Diff Utilities', () => {
             it('should handle entity kind change (destructive drop + additive create)', () => {
                 const snapshot = createTestSnapshot()
                 const entities: EntityDefinition[] = [
-                    createTestEntity({ kind: 'hub' }), // changed from 'catalog' to 'hub'
+                    createTestEntity({ kind: 'hub' }) // changed from 'catalog' to 'hub'
                 ]
 
                 const diff = calculateSchemaDiff(snapshot, entities)
@@ -179,15 +177,15 @@ describe('DDL Diff Utilities', () => {
                         codename: 'old_entity',
                         kind: 'document',
                         tableName: 'doc_entitytodelete',
-                        fields: {},
-                    },
+                        fields: {}
+                    }
                 })
                 const entities: EntityDefinition[] = [
                     createTestEntity(),
                     createTestEntity({
                         id: 'new-entity-1111-2222-333344445555',
-                        codename: 'new_entity',
-                    }),
+                        codename: 'new_entity'
+                    })
                 ]
 
                 const diff = calculateSchemaDiff(snapshot, entities)

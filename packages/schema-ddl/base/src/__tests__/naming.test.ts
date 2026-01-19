@@ -1,10 +1,4 @@
-import {
-    generateSchemaName,
-    generateTableName,
-    generateColumnName,
-    isValidSchemaName,
-    buildFkConstraintName,
-} from '../../domains/ddl/naming'
+import { generateSchemaName, generateTableName, generateColumnName, isValidSchemaName, buildFkConstraintName } from '../naming'
 
 describe('DDL Naming Utilities', () => {
     describe('generateSchemaName', () => {

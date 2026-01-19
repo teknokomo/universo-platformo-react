@@ -12,6 +12,7 @@ interface ApplicationsBundle {
     connectors?: Record<string, unknown>
     migrations?: Record<string, unknown>
     common?: Record<string, unknown>
+    table?: Record<string, unknown>
     actions?: Record<string, unknown>
     errors?: Record<string, unknown>
 }
@@ -36,6 +37,7 @@ const consolidateApplicationsNamespace = (bundle: ApplicationsBundle) => {
         migrations: bundle?.migrations ?? {},
         members: bundle?.members ?? {},
         common: bundle?.common ?? {},
+        table: bundle?.table ?? {},
         errors: bundle?.errors ?? {}
     }
 }
