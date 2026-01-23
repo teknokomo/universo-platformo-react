@@ -46,6 +46,14 @@
 
 ## 2026-01-23
 
+### Metahub Codename + Migration Squash + Menu Order
+- **Migrations**: Squashed metahubs migrations into `1766351182000-CreateMetahubsSchema.ts` (publications, versions, schema_name, codename). Removed later migration files and updated registry.
+- **Metahub Codename**: Added `metahubs.metahubs.codename` (unique) with backend validation/search; responses now include codename.
+- **Connectors/Publications**: `/publications/available` and connector publication joins now use Metahub codename (not UUID/slug).
+- **Metahub UI**: Create/edit dialogs include codename with auto-fill and validation; i18n keys added (EN/RU); tests updated.
+- **Side Menu**: Added divider support in template-mui and reordered Metahub menu: Board → Publications → Access | Hubs → Catalogs.
+- **Build/Test**: `@universo/metahubs-backend`, `@universo/applications-backend`, `@universo/metahubs-frontend`, `@universo/template-mui` builds successful.
+
 ### Publication Snapshots + App System Tables
 - **System Tables Renamed**: `_sys_*` → `_app_*` for app schemas; schema-ddl updated with tests.
 - **Snapshot Versioning**: Publication versions now store full MetahubSnapshot (incl. all metahub records and hubs) with stable SHA-256 hash and normalized snapshot format version `1`.
@@ -60,6 +68,20 @@
 - **Frontend**: Versions UI warns on duplicate snapshots (i18n added).
 - **Docs**: Metahubs backend README updated to `_app_*` tables.
 - **Build/Test**: schema-ddl tests + builds, metahubs-backend build, metahubs-frontend build successful.
+
+### Metahub UI Tweaks + Attribute Search + Record Ordering
+- **Metahub Forms**: Added divider before codename field in create/edit dialogs to match Catalog layout.
+- **Metahub List**: Removed Catalogs column; added sortable Codename column (backend and frontend sortBy support).
+- **Attribute Search**: Attributes search now matches localized name content in addition to codename.
+- **Record Columns**: Record list columns now follow attribute `sortOrder` left-to-right.
+- **Build/Test**: metahubs-backend and metahubs-frontend builds successful.
+
+### Attributes Limit + Locale Sort + Pagination Banner
+- **Limit Enforcement**: Backend blocks attribute creation after 100 per catalog (409 with code).
+- **Locale Sort**: Attributes list sorting by name uses current locale with VLC fallbacks.
+- **Limit UX**: Attributes list shows info banner when limit reached; Add button disabled at 100.
+- **Queries**: Attribute list requests include locale; count query added for limitReached detection.
+- **Build/Test**: metahubs-backend and metahubs-frontend builds successful.
 
 ---
 

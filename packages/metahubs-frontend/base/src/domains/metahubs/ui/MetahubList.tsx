@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, RadioGroup, Radio, FormControlLabel } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, RadioGroup, Radio, FormControlLabel, Divider } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -27,7 +27,8 @@ import {
     useConfirm,
     RoleChip,
     useUserSettings,
-    LocalizedInlineField
+    LocalizedInlineField,
+    useCodenameAutoFill
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -38,15 +39,98 @@ import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as metahubsApi from '../api'
 import { metahubsQueryKeys } from '../../shared'
-import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay } from '../../../types'
+import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay, getVLCString } from '../../../types'
 import metahubActions from './MetahubActions'
-import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
+import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { CodenameField } from '../../../components'
 
 // Type for metahub update/create data
 type MetahubFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
+    codename?: string
+    codenameTouched?: boolean
     storageMode?: 'main_db' | 'external_db'
+}
+
+type GeneralTabFieldsProps = {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    errors?: Record<string, string>
+    uiLocale: string
+    nameLabel: string
+    descriptionLabel: string
+    codenameLabel: string
+    codenameHelper: string
+}
+
+const GeneralTabFields = ({
+    values,
+    setValue,
+    isLoading,
+    errors,
+    uiLocale,
+    nameLabel,
+    descriptionLabel,
+    codenameLabel,
+    codenameHelper
+}: GeneralTabFieldsProps) => {
+    const fieldErrors = errors ?? {}
+    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameTouched = Boolean(values.codenameTouched)
+    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
+    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
+    const nextCodename = sanitizeCodename(nameValue)
+
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    return (
+        <Stack spacing={2}>
+            <LocalizedInlineField
+                mode='localized'
+                label={nameLabel}
+                required
+                disabled={isLoading}
+                value={nameVlc}
+                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('nameVlc', next)}
+                error={fieldErrors.nameVlc || null}
+                helperText={fieldErrors.nameVlc}
+                uiLocale={uiLocale}
+            />
+            <LocalizedInlineField
+                mode='localized'
+                label={descriptionLabel}
+                disabled={isLoading}
+                value={descriptionVlc}
+                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('descriptionVlc', next)}
+                uiLocale={uiLocale}
+                multiline
+                rows={2}
+            />
+            <Divider />
+            <CodenameField
+                value={codename}
+                onChange={(value: string) => setValue('codename', value)}
+                touched={codenameTouched}
+                onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
+                label={codenameLabel}
+                helperText={codenameHelper}
+                error={fieldErrors.codename}
+                disabled={isLoading}
+                required
+            />
+        </Stack>
+    )
 }
 
 const MetahubList = () => {
@@ -72,7 +156,7 @@ const MetahubList = () => {
     const queryFnWithShowAll = useCallback((params: any) => metahubsApi.listMetahubs({ ...params, showAll }), [showAll])
 
     // Use paginated hook for metahubs list
-    const paginationResult = usePaginated<Metahub, 'name' | 'created' | 'updated'>({
+    const paginationResult = usePaginated<Metahub, 'name' | 'codename' | 'created' | 'updated'>({
         queryKeyFn: (params) => [...metahubsQueryKeys.list(params), { showAll }],
         queryFn: queryFnWithShowAll,
         initialLimit: 20,
@@ -125,7 +209,7 @@ const MetahubList = () => {
     }, [metahubsDisplay])
 
     const localizedFormDefaults = useMemo<MetahubFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, storageMode: 'main_db' }),
+        () => ({ nameVlc: null, descriptionVlc: null, codename: '', codenameTouched: false, storageMode: 'main_db' }),
         []
     )
 
@@ -142,8 +226,6 @@ const MetahubList = () => {
             errors?: Record<string, string>
         }) => {
             const fieldErrors = errors ?? {}
-            const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-            const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const storageMode = values.storageMode ?? 'main_db'
 
             return [
@@ -151,29 +233,17 @@ const MetahubList = () => {
                     id: 'general',
                     label: t('tabs.general'),
                     content: (
-                        <Stack spacing={2}>
-                            <LocalizedInlineField
-                                mode='localized'
-                                label={tc('fields.name', 'Name')}
-                                required
-                                disabled={isLoading}
-                                value={nameVlc}
-                                onChange={(next) => setValue('nameVlc', next)}
-                                error={fieldErrors.nameVlc || null}
-                                helperText={fieldErrors.nameVlc}
-                                uiLocale={i18n.language}
-                            />
-                            <LocalizedInlineField
-                                mode='localized'
-                                label={tc('fields.description', 'Description')}
-                                disabled={isLoading}
-                                value={descriptionVlc}
-                                onChange={(next) => setValue('descriptionVlc', next)}
-                                uiLocale={i18n.language}
-                                multiline
-                                rows={2}
-                            />
-                        </Stack>
+                        <GeneralTabFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            errors={fieldErrors}
+                            uiLocale={i18n.language}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            codenameLabel={t('codename', 'Codename')}
+                            codenameHelper={t('codenameHelper', 'Unique identifier')}
+                        />
                     )
                 },
                 {
@@ -215,19 +285,29 @@ const MetahubList = () => {
 
     const validateMetahubForm = useCallback(
         (values: Record<string, any>) => {
+            const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
-                return { nameVlc: tc('crud.nameRequired', 'Name is required') }
+                errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
-            return null
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = sanitizeCodename(rawCodename)
+            if (!normalizedCodename) {
+                errors.codename = t('validation.codenameRequired', 'Codename is required')
+            } else if (!isValidCodename(normalizedCodename)) {
+                errors.codename = t('validation.codenameInvalid', 'Codename contains invalid characters')
+            }
+            return Object.keys(errors).length > 0 ? errors : null
         },
-        [tc]
+        [t, tc]
     )
 
     const canSaveMetahubForm = useCallback((values: Record<string, any>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+        const normalizedCodename = sanitizeCodename(rawCodename)
         // Storage mode is always valid as it defaults to main_db and external is disabled
-        return hasPrimaryContent(nameVlc)
+        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
     }, [])
 
     const handleAddNew = () => {
@@ -254,9 +334,19 @@ const MetahubList = () => {
                 setDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
+            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            if (!normalizedCodename) {
+                setDialogError(t('validation.codenameRequired', 'Codename is required'))
+                return
+            }
+            if (!isValidCodename(normalizedCodename)) {
+                setDialogError(t('validation.codenameInvalid', 'Codename contains invalid characters'))
+                return
+            }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
 
             await metahubsApi.createMetahub({
+                codename: normalizedCodename,
                 name: nameInput,
                 description: descriptionInput,
                 namePrimaryLocale,
@@ -342,6 +432,26 @@ const MetahubList = () => {
                 )
             },
             {
+                id: 'codename',
+                label: t('codename', 'Codename'),
+                width: '14%',
+                align: 'left' as const,
+                sortable: true,
+                sortAccessor: (row: MetahubDisplay) => row.codename?.toLowerCase() ?? '',
+                render: (row: MetahubDisplay) => (
+                    <Typography
+                        sx={{
+                            fontSize: 14,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            fontFamily: 'monospace'
+                        }}
+                    >
+                        {row.codename || '—'}
+                    </Typography>
+                )
+            },
+            {
                 id: 'role',
                 label: tc('table.role', 'Role'),
                 width: '10%',
@@ -354,13 +464,6 @@ const MetahubList = () => {
                 width: '10%',
                 align: 'center' as const,
                 render: (row: MetahubDisplay) => (typeof row.hubsCount === 'number' ? row.hubsCount : '—')
-            },
-            {
-                id: 'catalogs',
-                label: t('table.catalogs'),
-                width: '10%',
-                align: 'center' as const,
-                render: (row: MetahubDisplay) => (typeof row.catalogsCount === 'number' ? row.catalogsCount : '—')
             }
         ],
         [t, tc]

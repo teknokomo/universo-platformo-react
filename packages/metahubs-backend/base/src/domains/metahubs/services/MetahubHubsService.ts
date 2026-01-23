@@ -67,6 +67,8 @@ export class MetahubHubsService {
         const sortOrder = options.sortOrder || 'asc'
         if (options.sortBy === 'name') {
             query = query.orderByRaw(`presentation->'name'->>'en' ${sortOrder}`)
+        } else if (options.sortBy === 'codename') {
+            query = query.orderBy('codename', sortOrder)
         } else if (options.sortBy === 'created') {
             query = query.orderBy('created_at', sortOrder)
         } else if (options.sortBy === 'updated') {

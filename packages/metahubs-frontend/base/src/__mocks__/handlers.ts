@@ -27,6 +27,7 @@ const UPDATED_1_DAY_AGO = daysAgo(1) // Updated yesterday
  */
 export const mockMetahubData = {
     id: 'test-metahub-id',
+    codename: 'test-metahub',
     name: 'Test Metahub',
     description: 'A test metahub for unit tests',
     membersCount: 4,
@@ -38,6 +39,7 @@ export const mockMetahubData = {
 export const mockMetahubsList = [
     {
         id: 'metahub-1',
+        codename: 'production-metahub',
         name: 'Production Metahub',
         description: 'Main production environment',
         role: 'admin',
@@ -47,6 +49,7 @@ export const mockMetahubsList = [
     },
     {
         id: 'metahub-2',
+        codename: 'testing-metahub',
         name: 'Testing Metahub',
         description: 'Test environment',
         role: 'editor',

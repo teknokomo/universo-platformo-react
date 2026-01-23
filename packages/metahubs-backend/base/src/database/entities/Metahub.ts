@@ -20,6 +20,10 @@ export class Metahub {
     @Column({ type: 'jsonb', nullable: true })
     description?: VersionedLocalizedContent<string>
 
+    /** Unique codename for internal references (e.g., "crm-core") */
+    @Column({ type: 'varchar', length: 100, unique: true })
+    codename!: string
+
     /** URL-friendly identifier for public access (e.g., "ideas", "products") */
     @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
     slug?: string

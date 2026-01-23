@@ -68,8 +68,8 @@ describe('metahubs-frontend api wrappers', () => {
         api.getMetahub('m1')
         expect(get).toHaveBeenCalledWith('/metahub/m1')
 
-        api.createMetahub({ name: { en: 'Name' }, description: { en: 'Desc' } })
-        expect(post).toHaveBeenCalledWith('/metahubs', { name: { en: 'Name' }, description: { en: 'Desc' } })
+        api.createMetahub({ codename: 'test-metahub', name: { en: 'Name' }, description: { en: 'Desc' } })
+        expect(post).toHaveBeenCalledWith('/metahubs', { codename: 'test-metahub', name: { en: 'Name' }, description: { en: 'Desc' } })
 
         api.updateMetahub('m1', { name: { en: 'N2' } })
         expect(put).toHaveBeenCalledWith('/metahub/m1', { name: { en: 'N2' } })

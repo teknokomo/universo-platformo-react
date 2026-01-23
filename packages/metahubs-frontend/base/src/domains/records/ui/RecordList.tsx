@@ -30,7 +30,7 @@ import * as recordsApi from '../api'
 import * as attributesApi from '../../attributes'
 import { getCatalogById } from '../../catalogs'
 import { metahubsQueryKeys, invalidateRecordsQueries } from '../../shared'
-import { HubRecord, HubRecordDisplay, Attribute, getVLCString, toHubRecordDisplay } from '../../../types'
+import { HubRecord, HubRecordDisplay, getVLCString, toHubRecordDisplay } from '../../../types'
 import recordActions from './RecordActions'
 import type { DynamicFieldConfig } from '@universo/template-mui/components/dialogs'
 
@@ -80,31 +80,44 @@ const RecordList = () => {
         queryKey:
             metahubId && catalogId
                 ? effectiveHubId
-                    ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100 })
-                    : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { limit: 100 })
+                    ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100, locale: i18n.language })
+                    : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { limit: 100, locale: i18n.language })
                 : ['empty'],
         queryFn:
             metahubId && catalogId
                 ? () =>
                       effectiveHubId
-                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100 })
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, { limit: 100 })
+                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100, locale: i18n.language })
+                          : attributesApi.listAttributesDirect(metahubId, catalogId, { limit: 100, locale: i18n.language })
                 : async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }),
         enabled: canLoadData
     })
 
     const attributes = attributesData?.items ?? []
 
+    const orderedAttributes = useMemo(
+        () =>
+            attributes
+                .map((attr, index) => ({ attr, index }))
+                .sort((a, b) => {
+                    const orderA = a.attr.sortOrder ?? 0
+                    const orderB = b.attr.sortOrder ?? 0
+                    return orderA - orderB || a.index - b.index
+                })
+                .map((item) => item.attr),
+        [attributes]
+    )
+
     const recordFields = useMemo<DynamicFieldConfig[]>(
         () =>
-            attributes.map((attribute) => ({
+            orderedAttributes.map((attribute) => ({
                 id: attribute.codename,
                 label: getVLCString(attribute.name, i18n.language) || attribute.codename,
                 type: attribute.dataType as DynamicFieldConfig['type'],
                 required: attribute.isRequired,
                 localized: attribute.dataType === 'STRING'
             })),
-        [attributes, i18n.language]
+        [orderedAttributes, i18n.language]
     )
 
     // Use paginated hook for records list
@@ -168,27 +181,7 @@ const RecordList = () => {
         return new Map(records.map((record) => [record.id, record]))
     }, [records])
 
-    const orderedAttributes = useMemo(() => {
-        const normalizedName = tc('fields.name', 'Name').trim().toLowerCase()
-        const normalizedDescription = tc('fields.description', 'Description').trim().toLowerCase()
-        const nameTokens = new Set(['name', 'title', 'название', normalizedName])
-        const descriptionTokens = new Set(['description', 'desc', 'описание', normalizedDescription])
-
-        const normalizeValue = (value: string) => value.trim().toLowerCase()
-
-        const getRank = (attr: Attribute) => {
-            const codename = normalizeValue(attr.codename || '')
-            const label = normalizeValue(getVLCString(attr.name, i18n.language) || '')
-            if (nameTokens.has(codename) || nameTokens.has(label)) return 0
-            if (descriptionTokens.has(codename) || descriptionTokens.has(label)) return 1
-            return 2
-        }
-
-        return attributes
-            .map((attr, index) => ({ attr, index, rank: getRank(attr) }))
-            .sort((a, b) => a.rank - b.rank || a.index - b.index)
-            .map((item) => item.attr)
-    }, [attributes, i18n.language, tc])
+    const orderedAttributesForColumns = orderedAttributes
 
     // Build dynamic columns based on attributes
     const recordColumns = useMemo(() => {
@@ -201,7 +194,7 @@ const RecordList = () => {
         }> = []
 
         // Add columns for first 4 attributes
-        const visibleAttrs = orderedAttributes.slice(0, 4)
+        const visibleAttrs = orderedAttributesForColumns.slice(0, 4)
         visibleAttrs.forEach((attr) => {
             cols.push({
                 id: attr.codename,

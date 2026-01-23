@@ -10,6 +10,7 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
+import Divider from '@mui/material/Divider'
 import { useTranslation } from 'react-i18next'
 
 import type { TemplateMenuItem } from '../../navigation/menuConfigs'
@@ -37,6 +38,7 @@ const TemplateSideMenu: React.FC<TemplateSideMenuProps> = ({ items }) => {
 
     const isActive = React.useCallback(
         (item: TemplateMenuItem) => {
+            if (item.type === 'divider') return false
             if (item.external) return false
             if (!item.url) return false
             return location.pathname === item.url || location.pathname.startsWith(`${item.url}/`)
@@ -54,6 +56,9 @@ const TemplateSideMenu: React.FC<TemplateSideMenuProps> = ({ items }) => {
             <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 1 }}>
                 <List sx={{ flexGrow: 1 }}>
                     {items.map((item) => {
+                        if (item.type === 'divider') {
+                            return <Divider key={item.id} sx={{ my: 1 }} />
+                        }
                         const Icon = item.icon
                         const selected = isActive(item)
                         const buttonProps = item.external

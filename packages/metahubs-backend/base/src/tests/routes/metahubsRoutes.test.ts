@@ -263,7 +263,7 @@ describe('Metahubs Routes', () => {
             await request(app).get('/metahubs?search=test').expect(200)
 
             expect(mockQB.andWhere).toHaveBeenCalledWith(
-                "(m.name::text ILIKE :search OR COALESCE(m.description::text, '') ILIKE :search OR COALESCE(m.slug, '') ILIKE :search)",
+                "(m.name::text ILIKE :search OR COALESCE(m.description::text, '') ILIKE :search OR COALESCE(m.slug, '') ILIKE :search OR COALESCE(m.codename, '') ILIKE :search)",
                 { search: '%test%' }
             )
         })
@@ -825,7 +825,10 @@ describe('Metahubs Routes', () => {
             }
 
             // POST should still work (separate write counter)
-            await request(app).post('/metahubs').send({ name: 'test', description: 'test' }).expect(201)
+            await request(app)
+                .post('/metahubs')
+                .send({ name: 'test', description: 'test', codename: 'test-metahub' })
+                .expect(201)
         })
 
         it.skip('should include rate limit headers in response (requires real Redis)', async () => {

@@ -6,7 +6,51 @@
 
 ---
 
-## Current Focus: Publication Snapshots + App System Tables (Completed)
+## Current Focus: Attributes Limit + Locale Sort + Pagination Banner (Completed)
+
+**Status**: Implementation complete, builds verified.
+
+### Scope Summary
+- Enforce 100-attribute limit per catalog with backend guard.
+- Add locale-aware sorting for attribute names.
+- Show info banner and disable Add button at limit.
+- Keep attribute list pagination and pass locale in queries.
+
+### Recent Accomplishments (2026-01-23)
+- **Limit Enforcement**: Backend blocks attribute creation after 100 per catalog.
+- **Locale Sort**: Attributes list sorting uses current locale with VLC fallbacks.
+- **Limit UX**: Info banner shown and Add disabled when limit reached.
+- **Queries**: Attribute list includes locale param; count query added for limitReached.
+
+### Build / Test Status
+- `pnpm --filter @universo/metahubs-backend build` ✅
+- `pnpm --filter @universo/metahubs-frontend build` ✅
+
+---
+
+## Current Focus: Metahub UI Tweaks + Attribute Search + Records Ordering (Completed)
+
+**Status**: Implementation complete, builds verified.
+
+### Scope Summary
+- Add divider above Metahub codename field (create/edit dialogs).
+- Metahub list table: replace “Catalogs” with sortable “Codename”.
+- Attribute search should match localized name and codename.
+- Records table columns should follow attribute sortOrder.
+
+### Recent Accomplishments (2026-01-23)
+- **Metahub UI**: Divider added above codename field in create/edit dialogs.
+- **Metahub List**: “Catalogs” column removed; “Codename” added as third sortable column.
+- **Attributes Search**: Backend filter now matches localized name content (VLC locales) + codename.
+- **Records Columns**: UI columns now follow attribute `sortOrder` left-to-right.
+
+### Build / Test Status
+- `pnpm --filter @universo/metahubs-backend build` ✅
+- `pnpm --filter @universo/metahubs-frontend build` ✅
+
+---
+
+## Current Focus: Metahub Codename + Migration Squash + Menu Order (Completed)
 
 **Status**: Implementation complete, schema-ddl tests and metahubs builds verified.
 

@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe('useMetahubDetails', () => {
     it('wires useQuery with metahub detail key and fetcher', async () => {
-        mocks.getMetahub.mockResolvedValue({ data: { id: 'm1' } })
+        mocks.getMetahub.mockResolvedValue({ data: { id: 'm1', codename: 'metahub-1' } })
         useMetahubDetails('m1', { enabled: true, staleTime: 123, retry: 0 })
 
         expect(mocks.useQuery).toHaveBeenCalledTimes(1)
