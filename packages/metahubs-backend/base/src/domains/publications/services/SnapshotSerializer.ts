@@ -143,17 +143,35 @@ export class SnapshotSerializer {
         if (!this.hubsService) return []
 
         const limit = 1000
+        const maxIterations = 100 // Safety limit: max 100k items
         let offset = 0
+        let iteration = 0
         const all: Record<string, unknown>[] = []
+        const seenIds = new Set<string>()
 
-        while (true) {
+        while (iteration < maxIterations) {
             const { items, total } = await this.hubsService.findAll(metahubId, { limit, offset })
-            all.push(...items)
+            
+            // Detect duplicate items (service bug protection)
+            const newItems = items.filter(item => {
+                const id = item.id as string
+                if (seenIds.has(id)) return false
+                seenIds.add(id)
+                return true
+            })
+            
+            if (newItems.length === 0) break // No new items, stop
+            all.push(...newItems)
 
             if (items.length < limit) break
             if (typeof total === 'number' && all.length >= total) break
 
             offset += items.length
+            iteration++
+        }
+        
+        if (iteration >= maxIterations) {
+            console.warn(`[SnapshotSerializer] Hit max iterations (${maxIterations}) fetching hubs for metahub ${metahubId}`)
         }
 
         return all

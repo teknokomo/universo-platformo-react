@@ -3,7 +3,6 @@ import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
@@ -19,13 +18,6 @@ const updateRecordSchema = z.object({
     data: z.record(z.unknown()).optional(),
     sortOrder: z.number().int().optional()
 })
-
-const resolveUserId = (req: Request): string | undefined => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const user = (req as any).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
 
 export function createRecordsRoutes(
     ensureAuth: RequestHandler,

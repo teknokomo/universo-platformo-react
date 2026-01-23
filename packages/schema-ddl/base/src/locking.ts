@@ -32,9 +32,15 @@ export async function acquireAdvisoryLock(
     lockKey: number,
     timeoutMs = 30000
 ): Promise<boolean> {
+    // Validate timeout is a positive integer to prevent SQL injection
+    const timeout = Number(timeoutMs)
+    if (!Number.isInteger(timeout) || timeout <= 0 || timeout > 300000) {
+        throw new Error('Invalid timeout value: must be a positive integer <= 300000ms')
+    }
+    
     // Set statement timeout for this session
-    // Note: SET commands do not support parameter binding ($1), so we interpolate the number directly.
-    await knex.raw(`SET LOCAL statement_timeout = ${Number(timeoutMs)}`)
+    // Note: SET commands do not support parameter binding ($1), so we interpolate the validated number directly.
+    await knex.raw(`SET LOCAL statement_timeout = ${timeout}`)
 
     try {
         // Try to acquire exclusive session-level advisory lock
