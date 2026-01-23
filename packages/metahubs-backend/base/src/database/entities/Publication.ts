@@ -5,10 +5,12 @@ import {
     ManyToOne,
     JoinColumn,
     CreateDateColumn,
-    UpdateDateColumn
+    UpdateDateColumn,
+    OneToMany
 } from 'typeorm'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Metahub } from './Metahub'
+import { PublicationVersion } from './PublicationVersion'
 
 /**
  * Access mode for Publication API
@@ -102,4 +104,11 @@ export class Publication {
 
     @UpdateDateColumn({ name: 'updated_at' })
     updatedAt!: Date
+
+    /** Reference to active version */
+    @Column({ name: 'active_version_id', type: 'uuid', nullable: true })
+    activeVersionId!: string | null
+
+    @OneToMany(() => PublicationVersion, (version) => version.publication)
+    versions!: PublicationVersion[]
 }

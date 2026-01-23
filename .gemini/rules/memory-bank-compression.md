@@ -14,15 +14,15 @@ description: 'Compression strategies and validation rules for Memory Bank files'
 4. **Structural Integrity**: Maintain file-specific focus per memory-bank.md
 5. **Traceability**: Always provide links to detailed sources
 
-**Target Sizes:**
+**Target Ranges:**
 
--   `activeContext.md`: ≤100 lines (focus: current work only)
--   `tasks.md`: ≤500 lines (focus: active + recent tasks)
--   `progress.md`: ≤500 lines (focus: version table + 3-month history)
--   `systemPatterns.md`: ≤500 lines (focus: reusable patterns)
--   `techContext.md`: ≤300 lines (usually within limit)
--   `productContext.md`: ≤300 lines (usually within limit)
--   `projectbrief.md`: ≤300 lines (usually within limit)
+-   `activeContext.md`: 100-150 lines (focus: current work only)
+-   `tasks.md`: 500-600 lines (focus: active + recent tasks)
+-   `progress.md`: 600-700 lines (focus: version table + 3-month history)
+-   `systemPatterns.md`: 600-700 lines (focus: reusable patterns)
+-   `techContext.md`: 300-400 lines (usually within range)
+-   `productContext.md`: 300-400 lines (usually within range)
+-   `projectbrief.md`: 300-400 lines (usually within range)
 
 ---
 
@@ -34,27 +34,28 @@ description: 'Compression strategies and validation rules for Memory Bank files'
 
 **DO Compress**:
 
--   File exceeds its target size limit (see Target Sizes above)
+-   File exceeds its target range upper bound (see Target Ranges above)
 -   User explicitly requests compression
 
 **DO NOT Compress**:
 
--   File is already WITHIN the target size limit
--   Example: `tasks.md` at 441 lines with 500-line limit → NO compression needed
+-   File is already WITHIN the target range (at or below the upper bound)
+-   If a file does not exceed the maximum values above, do NOT compress it
+-   Example: `tasks.md` at 541 lines with 600-line max → NO compression needed
 
 ### Minimum Size After Compression
 
-**Rule**: After compression, file size must be at least **80% of the target limit**.
+**Rule**: After compression, file size must be at least **80% of the target range upper bound**.
 
-| File                | Target Limit | Minimum After Compression |
+| File                | Target Range | Minimum After Compression |
 | ------------------- | ------------ | ------------------------- |
-| `activeContext.md`  | ≤100 lines   | ≥80 lines                 |
-| `tasks.md`          | ≤500 lines   | ≥400 lines                |
-| `progress.md`       | ≤500 lines   | ≥400 lines                |
-| `systemPatterns.md` | ≤500 lines   | ≥400 lines                |
-| `techContext.md`    | ≤300 lines   | ≥240 lines                |
-| `productContext.md` | ≤300 lines   | ≥240 lines                |
-| `projectbrief.md`   | ≤300 lines   | ≥240 lines                |
+| `activeContext.md`  | 100-150      | ≥120 lines                |
+| `tasks.md`          | 500-600      | ≥480 lines                |
+| `progress.md`       | 600-700      | ≥560 lines                |
+| `systemPatterns.md` | 600-700      | ≥560 lines                |
+| `techContext.md`    | 300-400      | ≥320 lines                |
+| `productContext.md` | 300-400      | ≥320 lines                |
+| `projectbrief.md`   | 300-400      | ≥320 lines                |
 
 **Rationale**: Over-compression loses valuable historical context. Memory Bank should retain enough detail to be useful for future AI sessions.
 
@@ -63,13 +64,13 @@ description: 'Compression strategies and validation rules for Memory Bank files'
 ```
 1. Check file size
    ↓
-2. Is file > target limit?
+2. Is file > upper bound?
    ├─ NO → Skip compression (file is healthy)
    └─ YES → Continue to step 3
    ↓
 3. Calculate compression target:
-   - Upper bound: target limit (e.g., 500)
-   - Lower bound: 80% of limit (e.g., 400)
+   - Upper bound: target range max (e.g., 600)
+   - Lower bound: 80% of upper bound (e.g., 480)
    ↓
 4. Compress to fit within [lower bound, upper bound]
    - Prioritize keeping recent content (last 3 months)
@@ -87,8 +88,8 @@ wc -l memory-bank/{activeContext,tasks,progress,systemPatterns}.md
 
 Report which files need compression:
 
--   ✅ Within limit → "No compression needed"
--   ⚠️ Exceeds limit → "Compression required (current: X, limit: Y)"
+-   ✅ Within range → "No compression needed"
+-   ⚠️ Exceeds max → "Compression required (current: X, max: Y)"
 
 ---
 
@@ -132,7 +133,7 @@ If API fails (rate limit, network error, authentication):
 
 ## File-Specific Compression Strategies
 
-### 1. activeContext.md (Target: ≤100 lines)
+### 1. activeContext.md (Target: 100-150 lines)
 
 **Purpose**: Track ONLY current focus (what AI is working on RIGHT NOW)
 
@@ -172,7 +173,7 @@ If API fails (rate limit, network error, authentication):
 
 ---
 
-### 2. tasks.md (Target: ≤500 lines)
+### 2. tasks.md (Target: 500-600 lines)
 
 **Purpose**: Track active tasks and recent completions (working document)
 
@@ -217,7 +218,7 @@ If API fails (rate limit, network error, authentication):
 
 ---
 
-### 3. progress.md (Target: ≤500 lines)
+### 3. progress.md (Target: 600-700 lines)
 
 **Purpose**: Chronological log of completed work (permanent record)
 
@@ -265,7 +266,7 @@ If API fails (rate limit, network error, authentication):
 
 ---
 
-### 4. systemPatterns.md (Target: ≤500 lines)
+### 4. systemPatterns.md (Target: 600-700 lines)
 
 **Purpose**: Reusable architectural patterns and best practices
 
@@ -331,20 +332,20 @@ If API fails (rate limit, network error, authentication):
 
 ✅ **2 points**: All criteria met:
 
--   Files within target limits (upper bound)
--   Compressed files ≥80% of limit (lower bound) — no over-compression
--   Files already within limit were NOT unnecessarily compressed
+-   Files within target ranges (at or below upper bound)
+-   Compressed files ≥80% of upper bound (lower bound) — no over-compression
+-   Files already within range were NOT unnecessarily compressed
 
 ⚠️ **1 point**:
 
--   1 file slightly over limit (<20% over) OR
--   1 file over-compressed (<80% of limit but >60%)
+-   1 file slightly over upper bound (<20% over) OR
+-   1 file over-compressed (<80% of upper bound but >60%)
 
 ❌ **0 points**:
 
--   2+ files over limit OR any file >20% over OR
--   Any file over-compressed to <60% of limit OR
--   Unnecessary compression of files already within limits
+-   2+ files over upper bound OR any file >20% over OR
+-   Any file over-compressed to <60% of upper bound OR
+-   Unnecessary compression of files already within ranges
 
 ---
 

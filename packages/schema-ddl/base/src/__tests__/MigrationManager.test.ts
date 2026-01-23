@@ -147,7 +147,7 @@ describe('MigrationManager', () => {
             expect(migrationId).toBe('migration-id-123')
             // Knex.withSchema is called on the knex instance
             expect(mockKnex.withSchema).toHaveBeenCalledWith('app_test123')
-            expect(mockQueryBuilder.table).toHaveBeenCalledWith('_sys_migrations')
+            expect(mockQueryBuilder.table).toHaveBeenCalledWith('_app_migrations')
             expect(mockQueryBuilder.insert).toHaveBeenCalled()
         })
 
@@ -199,7 +199,7 @@ describe('MigrationManager', () => {
             expect(result.total).toBe(0)
         })
 
-        it('should return empty array when _sys_migrations table does not exist', async () => {
+        it('should return empty array when _app_migrations table does not exist', async () => {
             mockSchemaBuilder.hasTable.mockResolvedValueOnce(false)
 
             const result = await manager.listMigrations('app_test123')

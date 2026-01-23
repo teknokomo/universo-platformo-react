@@ -9,6 +9,7 @@ import type { PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { AccessPanel } from './AccessPanel'
 import { ApplicationsPanel } from './ApplicationsPanel'
+import { VersionsPanel } from './VersionsPanel'
 
 import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 
@@ -158,6 +159,16 @@ const buildFormTabs = (
                         errors={errors}
                         t={ctx.t}
                         uiLocale={ctx.uiLocale as string}
+                    />
+                )
+            },
+            {
+                id: 'versions',
+                label: ctx.t('publications.versions.title', 'Versions'),
+                content: (
+                    <VersionsPanel
+                        metahubId={metahubId}
+                        publicationId={ctx.entity.id}
                     />
                 )
             },

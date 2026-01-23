@@ -33,7 +33,8 @@ export async function acquireAdvisoryLock(
     timeoutMs = 30000
 ): Promise<boolean> {
     // Set statement timeout for this session
-    await knex.raw('SET LOCAL statement_timeout = ?', [timeoutMs])
+    // Note: SET commands do not support parameter binding ($1), so we interpolate the number directly.
+    await knex.raw(`SET LOCAL statement_timeout = ${Number(timeoutMs)}`)
 
     try {
         // Try to acquire exclusive session-level advisory lock

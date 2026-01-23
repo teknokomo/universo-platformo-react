@@ -17,6 +17,7 @@ export interface MigrationListItem {
     hasDestructive: boolean
     summary: string
     changesCount: number
+    hasSeedWarnings?: boolean
 }
 
 export interface MigrationChangeRecord {
@@ -38,6 +39,7 @@ export interface MigrationDetail {
     changes: MigrationChangeRecord[]
     snapshotBefore: Record<string, unknown> | null
     snapshotAfter: Record<string, unknown>
+    seedWarnings?: string[]
 }
 
 export interface MigrationsListResponse {

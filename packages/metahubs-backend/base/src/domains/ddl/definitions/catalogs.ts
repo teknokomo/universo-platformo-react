@@ -1,47 +1,57 @@
-import type { Repository } from 'typeorm'
-import { MetaEntityKind } from '@universo/types'
+import { MetaEntityKind, AttributeDataType } from '@universo/types'
 import type { EntityDefinition } from '@universo/schema-ddl'
-import { Catalog } from '../../../database/entities/Catalog'
-import { Attribute } from '../../../database/entities/Attribute'
+import { localizedContent } from '@universo/utils'
 
-export const buildCatalogDefinitions = async (
-    catalogRepo: Repository<Catalog>,
-    attributeRepo: Repository<Attribute>,
-    metahubId: string
-): Promise<EntityDefinition[]> => {
-    const catalogs = await catalogRepo.find({
-        where: { metahubId },
-        order: { sortOrder: 'ASC' },
+export const buildCatalogDefinitions = (
+    catalogs: any[],
+    allAttributes: any[]
+): EntityDefinition[] => {
+    // Sort catalogs by sortOrder if present in config
+    const sortedCatalogs = [...catalogs].sort((a, b) => {
+        const orderA = a.config?.sortOrder ?? 0
+        const orderB = b.config?.sortOrder ?? 0
+        return orderA - orderB
     })
 
     const definitions: EntityDefinition[] = []
 
-    for (const catalog of catalogs) {
-        const attributes = await attributeRepo.find({
-            where: { catalogId: catalog.id },
-            order: { sortOrder: 'ASC' },
-        })
+    for (const catalog of sortedCatalogs) {
+        const catalogId = catalog.id
+        // Filter attributes for this catalog
+        const attributes = allAttributes.filter((attr) => (attr.catalogId || attr.object_id) === catalogId)
 
         definitions.push({
-            id: catalog.id,
+            id: catalogId,
             kind: MetaEntityKind.CATALOG,
             codename: catalog.codename,
             presentation: {
-                name: catalog.name,
-                description: catalog.description,
+                name: (catalog.presentation?.name || localizedContent.buildLocalizedContent({ en: catalog.codename || 'Catalog' }, 'en')) as any,
+                description: catalog.presentation?.description,
             },
-            fields: attributes.map((attr) => ({
-                id: attr.id,
-                codename: attr.codename,
-                dataType: attr.dataType,
-                isRequired: attr.isRequired,
-                targetEntityId: attr.targetCatalogId ?? null,
-                presentation: {
-                    name: attr.name,
-                },
-                validationRules: attr.validationRules as Record<string, unknown>,
-                uiConfig: attr.uiConfig as Record<string, unknown>,
-            })),
+            fields: [
+                ...attributes.map((attr) => ({
+                    id: attr.id,
+                    codename: attr.codename,
+                    dataType: attr.data_type || attr.dataType,
+                    isRequired: attr.is_required || attr.isRequired || false,
+                    targetEntityId: attr.target_object_id || attr.targetCatalogId || null,
+                    presentation: {
+                        name: (attr.presentation?.name || localizedContent.buildLocalizedContent({ en: (typeof attr.name === 'string' ? attr.name : attr.codename) || 'Attribute' }, 'en')) as any,
+                    },
+                    validationRules: (attr.validation_rules || attr.validationRules || {}) as Record<string, unknown>,
+                    uiConfig: (attr.ui_config || attr.uiConfig || {}) as Record<string, unknown>,
+                })),
+                // System field: data (JSONB storage for record data)
+                {
+                    id: 'sys_data',
+                    codename: 'data',
+                    dataType: AttributeDataType.JSON,
+                    isRequired: false,
+                    presentation: { name: localizedContent.buildLocalizedContent({ en: 'Data' }, 'en') as any },
+                    validationRules: {},
+                    uiConfig: { hidden: true }
+                }
+            ]
         })
     }
 

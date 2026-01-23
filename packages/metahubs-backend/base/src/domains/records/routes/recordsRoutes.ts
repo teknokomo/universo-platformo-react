@@ -1,160 +1,13 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { HubRecord } from '../../../database/entities/Record'
-import { Catalog } from '../../../database/entities/Catalog'
-import { Attribute, AttributeValidation } from '../../../database/entities/Attribute'
-import { AttributeDataType } from '@universo/types'
 import { z } from 'zod'
-import type { VersionedLocalizedContent } from '@universo/types'
-import { filterLocalizedContent, isLocalizedContent } from '@universo/utils'
 import { validateListQuery } from '../../shared/queryParams'
-import { escapeLikeWildcards, getRequestManager } from '../../../utils'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const resolveUserId = (req: Request): string | undefined => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const user = (req as any).user
-    if (!user) return undefined
-    return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-/**
- * Validate record data against hub attributes schema
- */
-const extractLocalizedString = (value: unknown): string | null => {
-    if (typeof value === 'string') return value
-    if (!isLocalizedContent(value)) return null
-    const filtered = filterLocalizedContent(value as VersionedLocalizedContent<string>)
-    if (!filtered) return null
-    const primary = filtered._primary
-    const entry = filtered.locales[primary]
-    return typeof entry?.content === 'string' ? entry.content : null
-}
-
-const hasAnyLocalizedContent = (value: unknown): boolean => {
-    if (!isLocalizedContent(value)) return false
-    const filtered = filterLocalizedContent(value as VersionedLocalizedContent<string>)
-    if (!filtered) return false
-    return Object.values(filtered.locales).some((entry) => typeof entry?.content === 'string' && entry.content.trim() !== '')
-}
-
-const hasRequiredValue = (attr: Attribute, value: unknown): boolean => {
-    if (value === undefined || value === null) return false
-    if (attr.dataType === AttributeDataType.STRING) {
-        if (hasAnyLocalizedContent(value)) return true
-        const text = extractLocalizedString(value)
-        if (typeof text === 'string') return text.trim() !== ''
-        if (typeof value === 'string') return value.trim() !== ''
-        return false
-    }
-    if (attr.dataType === AttributeDataType.NUMBER) {
-        return typeof value === 'number' && !isNaN(value)
-    }
-    return value !== ''
-}
-
-function validateRecordData(data: Record<string, unknown>, attributes: Attribute[]): { valid: boolean; errors: string[] } {
-    const errors: string[] = []
-    const attributeMap = new Map(attributes.map((a) => [a.codename, a]))
-
-    // Check required fields
-    for (const attr of attributes) {
-        if (attr.isRequired && !hasRequiredValue(attr, data[attr.codename])) {
-            errors.push(`Field "${attr.codename}" is required`)
-        }
-    }
-
-    // Validate each field
-    for (const [key, value] of Object.entries(data)) {
-        const attr = attributeMap.get(key)
-        if (!attr) {
-            // Unknown field - allow it (flexible schema)
-            continue
-        }
-
-        if (value === null || value === undefined) {
-            continue // Skip null/undefined values
-        }
-
-        // Type validation
-        const typeError = validateType(value, attr.dataType)
-        if (typeError) {
-            errors.push(`Field "${key}": ${typeError}`)
-            continue
-        }
-
-        // Validation rules
-        const ruleErrors = validateRules(value, attr.validationRules, key)
-        errors.push(...ruleErrors)
-    }
-
-    return { valid: errors.length === 0, errors }
-}
-
-function validateType(value: unknown, dataType: AttributeDataType): string | null {
-    switch (dataType) {
-        case AttributeDataType.STRING:
-            if (typeof value === 'string' || isLocalizedContent(value)) break
-            return 'Expected string'
-        case AttributeDataType.NUMBER:
-            if (typeof value !== 'number' || isNaN(value)) return 'Expected number'
-            break
-        case AttributeDataType.BOOLEAN:
-            if (typeof value !== 'boolean') return 'Expected boolean'
-            break
-        case AttributeDataType.DATE:
-        case AttributeDataType.DATETIME:
-            if (typeof value !== 'string' || isNaN(Date.parse(value))) return 'Expected valid date string'
-            break
-        case AttributeDataType.REF:
-            if (typeof value !== 'string') return 'Expected UUID string'
-            break
-        case AttributeDataType.JSON:
-            // Any value is valid for JSON type
-            break
-    }
-    return null
-}
-
-function validateRules(value: unknown, rules: AttributeValidation, fieldName: string): string[] {
-    const errors: string[] = []
-
-    const stringValue = typeof value === 'string' ? value : extractLocalizedString(value)
-
-    if (typeof stringValue === 'string') {
-        if (rules.minLength !== undefined && stringValue.length < rules.minLength) {
-            errors.push(`Field "${fieldName}": minimum length is ${rules.minLength}`)
-        }
-        if (rules.maxLength !== undefined && stringValue.length > rules.maxLength) {
-            errors.push(`Field "${fieldName}": maximum length is ${rules.maxLength}`)
-        }
-        if (rules.pattern) {
-            try {
-                const regex = new RegExp(rules.pattern)
-                if (!regex.test(stringValue)) {
-                    errors.push(`Field "${fieldName}": does not match pattern`)
-                }
-            } catch {
-                // Invalid pattern, skip validation
-            }
-        }
-        if (rules.options && !rules.options.includes(stringValue)) {
-            errors.push(`Field "${fieldName}": must be one of [${rules.options.join(', ')}]`)
-        }
-    }
-
-    if (typeof value === 'number') {
-        if (rules.min !== undefined && value < rules.min) {
-            errors.push(`Field "${fieldName}": minimum value is ${rules.min}`)
-        }
-        if (rules.max !== undefined && value > rules.max) {
-            errors.push(`Field "${fieldName}": maximum value is ${rules.max}`)
-        }
-    }
-
-    return errors
-}
+import { getRequestManager } from '../../../utils'
+import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
+import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
+import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
 
 // Request body schemas
 const createRecordSchema = z.object({
@@ -167,6 +20,13 @@ const updateRecordSchema = z.object({
     sortOrder: z.number().int().optional()
 })
 
+const resolveUserId = (req: Request): string | undefined => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 export function createRecordsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -178,17 +38,18 @@ export function createRecordsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-        (req, res, next) => {
-            fn(req, res).catch(next)
-        }
+            (req, res, next) => {
+                fn(req, res).catch(next)
+            }
 
-    const repos = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
+    const services = (req: Request) => {
+        const schemaService = new MetahubSchemaService(getDataSource())
+        const objectsService = new MetahubObjectsService(schemaService)
+        const attributesService = new MetahubAttributesService(schemaService)
+        const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+
         return {
-            recordRepo: manager.getRepository(HubRecord),
-            catalogRepo: manager.getRepository(Catalog),
-            attributeRepo: manager.getRepository(Attribute)
+            recordsService
         }
     }
 
@@ -201,14 +62,8 @@ export function createRecordsRoutes(
         ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/records', '/metahub/:metahubId/catalog/:catalogId/records'],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId } = req.params
-            const { recordRepo, catalogRepo } = repos(req)
-
-            // Verify catalog exists
-            const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
-            if (!catalog) {
-                return res.status(404).json({ error: 'Catalog not found' })
-            }
+            const { metahubId, catalogId } = req.params
+            const { recordsService } = services(req)
 
             let validatedQuery
             try {
@@ -222,23 +77,16 @@ export function createRecordsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            let qb = recordRepo.createQueryBuilder('r').where('r.catalogId = :catalogId', { catalogId })
-
-            if (search) {
-                const escapedSearch = escapeLikeWildcards(search)
-                qb = qb.andWhere('r.data::text ILIKE :search', { search: `%${escapedSearch}%` })
-            }
-
-            const orderColumn = sortBy === 'created' ? 'r.created_at' : 'r.updated_at'
-            qb = qb
-                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-                .skip(offset)
-                .take(limit)
-
-            const [records, total] = await qb.getManyAndCount()
+            const { items, total } = await recordsService.findAllAndCount(metahubId, catalogId, {
+                limit,
+                offset,
+                sortBy,
+                sortOrder,
+                search
+            })
 
             res.json({
-                items: records,
+                items,
                 pagination: {
                     total,
                     limit,
@@ -260,12 +108,10 @@ export function createRecordsRoutes(
         ],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, recordId } = req.params
-            const { recordRepo } = repos(req)
+            const { metahubId, catalogId, recordId } = req.params
+            const { recordsService } = services(req)
 
-            const record = await recordRepo.findOne({
-                where: { id: recordId, catalogId }
-            })
+            const record = await recordsService.findById(metahubId, catalogId, recordId)
 
             if (!record) {
                 return res.status(404).json({ error: 'Record not found' })
@@ -284,14 +130,8 @@ export function createRecordsRoutes(
         ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/records', '/metahub/:metahubId/catalog/:catalogId/records'],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId } = req.params
-            const { recordRepo, catalogRepo, attributeRepo } = repos(req)
-
-            // Verify catalog exists
-            const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
-            if (!catalog) {
-                return res.status(404).json({ error: 'Catalog not found' })
-            }
+            const { metahubId, catalogId } = req.params
+            const { recordsService } = services(req)
 
             const parsed = createRecordSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -300,26 +140,21 @@ export function createRecordsRoutes(
 
             const { data, sortOrder } = parsed.data
 
-            // Get catalog attributes for validation
-            const attributes = await attributeRepo.find({ where: { catalogId } })
-
-            // Validate data against schema
-            const validation = validateRecordData(data, attributes)
-            if (!validation.valid) {
-                return res.status(400).json({ error: 'Data validation failed', details: validation.errors })
+            try {
+                const record = await recordsService.create(metahubId, catalogId, {
+                    data,
+                    sortOrder
+                })
+                res.status(201).json(record)
+            } catch (error: any) {
+                if (error.message.includes('Catalog not found')) {
+                    return res.status(404).json({ error: 'Catalog not found' })
+                }
+                if (error.message.includes('Validation failed')) {
+                    return res.status(400).json({ error: error.message })
+                }
+                throw error
             }
-
-            const userId = resolveUserId(req)
-
-            const record = recordRepo.create({
-                catalogId,
-                data,
-                ownerId: userId,
-                sortOrder: sortOrder ?? 0
-            })
-
-            const saved = await recordRepo.save(record)
-            res.status(201).json(saved)
         })
     )
 
@@ -335,13 +170,8 @@ export function createRecordsRoutes(
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, recordId } = req.params
-            const { recordRepo, attributeRepo } = repos(req)
-
-            const record = await recordRepo.findOne({ where: { id: recordId, catalogId } })
-            if (!record) {
-                return res.status(404).json({ error: 'Record not found' })
-            }
+            const { metahubId, catalogId, recordId } = req.params
+            const { recordsService } = services(req)
 
             const parsed = updateRecordSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -350,28 +180,21 @@ export function createRecordsRoutes(
 
             const { data, sortOrder } = parsed.data
 
-            if (data) {
-                // Merge new data with existing
-                const mergedData = { ...record.data, ...data }
-
-                // Get catalog attributes for validation
-                const attributes = await attributeRepo.find({ where: { catalogId } })
-
-                // Validate merged data
-                const validation = validateRecordData(mergedData, attributes)
-                if (!validation.valid) {
-                    return res.status(400).json({ error: 'Data validation failed', details: validation.errors })
+            try {
+                const record = await recordsService.update(metahubId, catalogId, recordId, {
+                    data,
+                    sortOrder
+                })
+                res.json(record)
+            } catch (error: any) {
+                if (error.message.includes('Catalog not found') || error.message.includes('Record not found')) {
+                    return res.status(404).json({ error: error.message })
                 }
-
-                record.data = mergedData
+                if (error.message.includes('Validation failed')) {
+                    return res.status(400).json({ error: error.message })
+                }
+                throw error
             }
-
-            if (sortOrder !== undefined) {
-                record.sortOrder = sortOrder
-            }
-
-            const saved = await recordRepo.save(record)
-            res.json(saved)
         })
     )
 
@@ -387,16 +210,18 @@ export function createRecordsRoutes(
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, recordId } = req.params
-            const { recordRepo } = repos(req)
+            const { metahubId, catalogId, recordId } = req.params
+            const { recordsService } = services(req)
 
-            const record = await recordRepo.findOne({ where: { id: recordId, catalogId } })
-            if (!record) {
-                return res.status(404).json({ error: 'Record not found' })
+            try {
+                await recordsService.delete(metahubId, catalogId, recordId)
+                res.status(204).send()
+            } catch (error: any) {
+                if (error.message.includes('Catalog not found') || error.message.includes('Record not found')) {
+                    return res.status(404).json({ error: error.message })
+                }
+                throw error
             }
-
-            await recordRepo.remove(record)
-            res.status(204).send()
         })
     )
 

@@ -1,8 +1,67 @@
 # Tasks
-
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
+## IMPLEMENT (2026-01-23): Publication Snapshots + App System Tables
 
----
+- [x] Replace `_sys_*` with `_app_*` in schema-ddl (generator/migrator/manager/types/tests).
+- [x] Remove `_predefined_data` creation and unused `MetahubPredefinedDataService`.
+- [x] Extend SnapshotSerializer with predefined records + stable hash (exclude generatedAt).
+- [x] Fix publication version creation/activation to store snapshot + hash and set `activeVersionId`.
+- [x] Use active version snapshot for application sync + skip diff by hash when possible.
+- [x] Persist full MetahubSnapshot in `_app_migrations.meta` (publication* fields).
+- [x] Seed predefined records into app tables during create/sync.
+- [x] Update versions UI to show duplicate snapshot warning (i18n).
+- [x] Update README docs (EN/RU) for `_app_*` tables and snapshots.
+
+## IMPLEMENT (2026-01-23): Snapshot v1 + Hubs + Predefined Records
+
+- [x] Include HUB entities in snapshots and application schemas (hub tables + _app_objects entries).
+- [x] Treat all metahub records as predefined (owner_id NULL) and include all records in snapshot.
+- [x] Set snapshot_json.version to 1 (format version) and keep stable hash.
+
+## IMPLEMENT (2026-01-23): Stable JSON Stringify Library
+
+- [x] Add json-stable-stringify dependency to metahubs-backend (workspace).
+- [x] Replace SnapshotSerializer.stableStringify with json-stable-stringify usage.
+- [x] Update/remove custom stableStringify helper if unused.
+- [x] Run metahubs-backend build and schema-ddl tests.
+- [x] Update memory-bank (activeContext.md, progress.md).
+
+## IMPLEMENT (2026-01-23): Metahubs QoL Fixes (Attributes, Records, Hubs, Migrations)
+
+- [x] Append new attributes to the end by default (max sort_order + 1).
+- [x] Return record timestamps in camelCase for UI (updatedAt/createdAt).
+- [x] Persist hub table_name in _mhb_objects for new hubs.
+- [x] Reorder snapshot JSON sections (metahubId, generatedAt, version, entities, records).
+- [x] Move publication snapshot out of _app_migrations.meta into a dedicated column.
+- [x] Run metahubs-backend build and schema-ddl tests.
+- [x] Update memory-bank (activeContext.md, progress.md).
+
+## IMPLEMENT (2026-01-23): QA Fixes (Snapshots + Records + Defaults)
+
+- [x] Remove hub snapshot limit (fetch all hubs for snapshot).
+- [x] Preserve full catalog.config in snapshot (not only isSingleHub/isRequiredHub).
+- [x] Prevent seedPredefinedRecords from failing on new NOT NULL fields (skip invalid rows with warning).
+- [x] Align records API with "all records predefined" (remove ownerId input, keep owner_id null).
+- [x] Update @universo/utils stableStringify to use json-stable-stringify (dependency added).
+- [x] Run metahubs-backend build and schema-ddl tests.
+- [x] Update memory-bank (activeContext.md, progress.md).
+
+## IMPLEMENT (2026-01-23): QA Follow-ups (Records + Seed Warnings)
+
+- [x] Fix HubRecord ownerId type (string | null) in frontend types.
+- [x] Persist seed warnings to latest migration meta.
+- [x] Run metahubs-backend build and schema-ddl tests.
+- [x] Update memory-bank (activeContext.md, progress.md).
+
+## IMPLEMENT (2026-01-23): UI Seed Warnings
+
+- [x] Expose seedWarnings in migration detail API response.
+- [x] Render seedWarnings in Application Migrations UI.
+- [x] Add seedWarnings indicator in migrations list.
+- [x] Include seedWarnings in /application/:id/sync response when present.
+- [x] Update i18n keys for seed warnings (EN/RU).
+- [x] Run applications-frontend build (if needed) and schema-ddl tests.
+- [x] Update memory-bank (activeContext.md, progress.md).
 
 ## COMPLETED (2026-01-19): QA Fixes - RLS bypass, validation key, unused import
 
@@ -10,35 +69,25 @@
 - [x] Fix validation key mismatch in ConnectorList.tsx: Use `publicationRequired` instead of `metahubRequired`
 - [x] Remove unused import `useConnectorDiff` in ConnectorDiffDialog.tsx
 - [x] Build affected packages (19 tasks, 1m39s)
-
----
-
 ## COMPLETED (2026-01-19): schema-ddl cleanup
 
 - [x] Fix statement_timeout interpolation in schema-ddl locking helper
 - [x] Remove deprecated static wrapper methods in SchemaGenerator and MigrationManager
 - [x] Run schema-ddl tests and full workspace build
 - [x] Update memory-bank (activeContext.md, progress.md, systemPatterns.md, techContext.md, productContext.md, projectbrief.md, currentResearch.md)
-
 ## COMPLETED (2026-01-19): Connector Name Link Styling Fix
 
 - [x] Change connector name link color from blue (`primary.main`) to inherit
 - [x] Add hover effect (underline + blue color) matching ApplicationList pattern
 - [x] Build successful (64 tasks, 4m38s)
-
----
-
 ## COMPLETED (2026-01-19): Connector List Relation + Admin Notice Layout
 
 - [x] Align admin instances notice spacing with connector list banner
 - [x] Add connector relation chip on card view (Metahub)
-- [x] Add "Связь" column with "Метахаб" in connector table view
+- [x] Add "Relation" column with "Metahub" in connector table view
 - [x] Make connector name column a link in table view
 - [x] Build project to validate changes
 - [x] Update memory-bank files (activeContext.md, progress.md)
-
----
-
 ## COMPLETED (2026-01-19): Connector UI + Admin Notice Fixes
 
 - [x] Fix missing "Codename" translation in connector Metahub selection
@@ -46,14 +95,8 @@
 - [x] Move admin instances notice to top and update text (ru/en)
 - [x] Build project to validate changes
 - [x] Update memory-bank files (activeContext.md, progress.md)
-
----
-
 ## COMPLETED (2026-01-19): Connector UI Localization Fixes
 
-Fixed missing translations and UI issues in connector management.
-
-### Changes
 - [x] Add `common.search` key for search placeholder translation (en/ru)
 - [x] Add `table.name` and `table.codename` top-level keys (en/ru)
 - [x] Add `connectors.table.created` key for created date translation (en/ru)
@@ -61,14 +104,8 @@ Fixed missing translations and UI issues in connector management.
 - [x] Change tab id and label from 'publications' to 'metahubs' in ConnectorActions.tsx
 - [x] Remove Publication row from ConnectorBoard.tsx (internal info not needed)
 - [x] Build successful (64 tasks)
-
----
-
 ## COMPLETED (2026-01-19): Remove publications_users Table
 
-Architectural cleanup: removed unnecessary publications_users table. Access to publications is controlled via parent metahub membership (metahubs_users).
-
-### Changes
 - [x] Delete PublicationUser.ts entity file
 - [x] Remove PublicationUser from entities/index.ts and main index.ts exports
 - [x] Remove publicationUsers relation from Publication.ts entity
@@ -78,331 +115,33 @@ Architectural cleanup: removed unnecessary publications_users table. Access to p
 - [x] Rewrite migration to remove publications_users table
 - [x] Update RLS policy to use metahubs_users for access control
 - [x] Build successful (64 tasks)
+## 2025-01 Historical Completed Tasks ✅
 
----
-
-## COMPLETED (2025-01-20): Refactor Connector-Publication Link
-
-Refactor connector links from Metahubs to Publications for proper schema sync.
-
-### Database Migration
-- [x] Update migration to rename connectors_metahubs → connectors_publications
-- [x] Change metahub_id → publication_id with FK to metahubs.publications
-
-### Backend (applications-backend)
-- [x] Create ConnectorPublication entity (new)
-- [x] Delete ConnectorMetahub entity (old)
-- [x] Update Connector entity relation
-- [x] Update connectorsRoutes.ts (metahubId → publicationId)
-- [x] Update exports in index.ts
-
-### Backend (metahubs-backend)
-- [x] Update publicationsRoutes.ts (auto-create uses publicationId)
-- [x] Update applicationMigrationsRoutes.ts
-- [x] Update applicationSyncRoutes.ts
-- [x] Add /publications/available endpoint
-- [x] Add single publication limit (400 error if metahub already has publication)
-
-### Frontend (applications-frontend)
-- [x] Update types.ts (ConnectorMetahub → ConnectorPublication)
-- [x] Create connectorPublications.ts API file (new)
-- [x] Delete connectorMetahubs.ts API file (old)
-- [x] Create useConnectorPublications.ts hook (new)
-- [x] Delete useConnectorMetahubs.ts hook (old)
-- [x] Create PublicationSelectionPanel component (shows Metahub names, returns publication IDs)
-- [x] Create ConnectorPublicationInfoPanel component
-- [x] Create ConnectorPublicationInfoWrapper component
-- [x] Update ConnectorList.tsx (tabs show "Metahubs")
-- [x] Update ConnectorBoard.tsx (metahub → publication)
-- [x] Update ConnectorActions.tsx (metahub → publication)
-- [x] Update components/index.ts exports
-
-### Frontend (metahubs-frontend)
-- [x] Add single publication limit to PublicationList (disabled Add button + info banner)
-- [x] Add i18n key singlePublicationLimit (en + ru) - updated to shorter text
-
-### UI Improvements
-- [x] ConnectorBoard: Dynamic button text (Create/Sync Schema)
-- [x] ConnectorDiffDialog: Show changes on schema creation
-- [x] Connectors UI shows "Metahubs" but internally links to Publications
-
-### Verification
-- [x] Build all packages (64 tasks successful)
-- [ ] Test schema creation flow (manual testing required)
-
----
-
-## COMPLETED (2025-01-20): QA Fixes for @universo/schema-ddl Package
-
-Implemented QA recommendations from package review.
-
-### Prettier Formatting
-- [x] Run eslint --fix on schema-ddl src/ to fix ~40 prettier errors
-
-### Test Migration
-- [x] Copy SchemaGenerator.test.ts from metahubs-backend to schema-ddl
-- [x] Copy MigrationManager.test.ts from metahubs-backend to schema-ddl
-- [x] Update test imports to use local paths (../SchemaGenerator, ../MigrationManager)
-- [x] Delete duplicate tests from metahubs-backend/tests/ddl/
-
-### Code Quality
-- [x] Replace require() with static imports in index.ts createDDLServices()
-- [x] Add explicit imports for SchemaGenerator, SchemaMigrator, MigrationManager
-
-### Verification
-- [x] Run tests in schema-ddl: 80 tests passed
-- [x] Full workspace build: 64 tasks successful
-
----
-
-## COMPLETED (2025-01-19): Create @universo/schema-ddl Package
-
-Extracted DDL utilities from metahubs-backend to solve circular dependency issue with applications-backend.
-
-### Package Creation
-- [x] Create package directory structure (packages/schema-ddl/base/)
-- [x] Create package.json with @universo/types and knex dependencies
-- [x] Create tsconfig.json (Node16 module)
-- [x] Create jest.config.js
-
-### Code Migration with Dependency Injection
-- [x] Copy DDL files: naming.ts, types.ts, snapshot.ts, diff.ts
-- [x] Copy and refactor SchemaGenerator.ts (constructor accepts Knex)
-- [x] Copy and refactor SchemaMigrator.ts (constructor accepts Knex, SchemaGenerator, MigrationManager)
-- [x] Copy and refactor MigrationManager.ts (constructor accepts Knex)
-- [x] Create locking.ts with pure functions (uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock)
-- [x] Export generateMigrationName as standalone function
-- [x] Create createDDLServices(knex) factory function
-- [x] Create index.ts with all exports
-
-### Integration
-- [x] Add @universo/schema-ddl dependency to metahubs-backend
-- [x] Add @universo/schema-ddl dependency to applications-backend
-- [x] Update metahubs-backend DDL index.ts to re-export from @universo/schema-ddl
-- [x] Add getDDLServices() function for pre-configured services
-- [x] Update all route files to use getDDLServices() instead of new Class()
-- [x] Update definitions/catalogs.ts import to @universo/schema-ddl
-- [x] Delete duplicate generateSchemaName from applications-backend
-- [x] Delete old DDL files from metahubs-backend (except KnexClient.ts, definitions/)
-
-### Tests
-- [x] Copy and update tests to use new imports
-- [x] Update SchemaGenerator.test.ts (DI pattern, no mocks for KnexClient)
-- [x] Update MigrationManager.test.ts (DI pattern, use generateMigrationName function)
-
-### Verification
-- [x] Build @universo/schema-ddl - SUCCESS
-- [x] Build @universo/applications-backend - SUCCESS
-- [x] Build @universo/metahubs-backend - SUCCESS
-- [x] Full workspace build - SUCCESS (64 tasks, 4m36s)
-
----
-
-## COMPLETED (2025-01-19): PR #646 Bot Review Fixes
-
-### Code Quality Fixes (Copilot + Gemini recommendations)
-- [x] Keep `generateSchemaName` in applicationsRoutes.ts with comment explaining duplication reason (avoid circular dependency)
-- [x] Remove unused imports `ApplicationSchemaStatus`, `ConnectorMetahub` from applicationsRoutes.ts
-- [x] Make `applicationId` required parameter in `syncConnector` legacy function (connectors.ts)
-- [x] Add console.warn to `useConnectorDiff` before throwing error for better debugging
-- [x] Add validation for multiple roles in applicationSyncRoutes.ts access check
-- [x] Add validation for multiple connectors/publications in applicationMigrationsRoutes.ts helper
-- [x] Wrap connector creation with metahub link in transaction (connectorsRoutes.ts)
-
-### Migration Fixes
-- [x] UNIQUE constraint on nullable schema_name is OK - PostgreSQL allows multiple NULLs with UNIQUE (documented behavior)
-
-### Skipped Recommendations (with reasons)
-- [ ] Remove autoCreateApplication from Publication entity - **SKIP**: Field is useful for future auditing/cascading deletes
-- [ ] Import generateSchemaName from metahubs-backend - **SKIP**: Would create circular dependency
-
-### Build & Verification
-- [x] Run pnpm build to verify changes - SUCCESS (63 tasks, 5m35s)
-
----
-
-## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 3) ✅
-
-### Issue 1: Migration codename index error
-- [x] Remove `idx_connectors_codename` from CreateApplicationsSchema migration (up/down methods)
-
-### Issue 2: Applications endpoint 500 error
-- [x] Fix SQL query to use connectors_metahubs instead of deleted connectors_publications
-
-### Issue 3: Auto-create Application checkbox doesn't work
-- [x] Pass autoCreateApplication field to API in handleCreatePublication
-
-### Issue 4: Connector sync 404 error
-- [x] Refactor sync to use publicationId instead of applicationId
-- [x] Add useMetahubPublication hook
-- [x] Update connectors.ts API to use publicationId
-- [x] Update mutations.ts SyncConnectorParams
-- [x] Update ConnectorDiffDialog and ConnectorBoard
-
-### Issue 5: Migrations page 400 error
-- [x] Add getApplicationWithSchema helper that finds schemaName via Publication chain
-
-### Issue 6: MetahubSelectionPanel TypeError in Connector create dialog
-- [x] Import useAvailableMetahubs hook
-- [x] Add hook call to fetch available metahubs
-- [x] Fix MetahubSelectionPanel props (use correct prop names)
-
-### Issue 7: Toggle switches should be disabled in Connector create dialog
-- [x] Add `togglesDisabled` prop to EntitySelectionPanel
-- [x] Add `togglesDisabled` prop to MetahubSelectionPanel (pass through)
-- [x] Pass `togglesDisabled={true}` in ConnectorList.tsx buildCreateTabs
-
-### Issue 8: schemaName generated incorrectly for Application (used Publication UUID)
-- [x] Fix auto-create logic to generate schemaName based on Application UUID, not copy from Publication
-- [x] Add schemaName generation when creating Application manually (applicationsRoutes.ts)
-- [x] Fix ConnectorBoard to use Application's schemaName instead of Publication's
-
-### Issue 9: Schema sync not working for manually created Applications (major refactoring)
-- [x] Identify root cause: sync used publicationId, but manually created Apps have no Publication
-- [x] Create new POST `/:applicationId/sync` endpoint in applicationsRoutes.ts
-- [x] Create new GET `/:applicationId/diff` endpoint in applicationsRoutes.ts
-- [x] Both endpoints traverse Application → Connector → ConnectorMetahub → Metahub to get catalog definitions
-- [x] Add `syncApplication(applicationId, confirmDestructive)` to connectors.ts API
-- [x] Add `getApplicationDiff(applicationId)` to connectors.ts API
-- [x] Add `useApplicationDiff(applicationId, options)` hook in useConnectorSync.ts
-- [x] Update `useSyncConnector` mutation to use applicationId instead of metahubId/publicationId
-- [x] Update ConnectorBoard.tsx to use applicationId for sync
-- [x] Update ConnectorDiffDialog.tsx to accept applicationId prop
-- [x] Add `applicationDiff()` query key factory in queryKeys.ts
-- [x] Fix TypeScript errors:
-  - Use `ApplicationSchemaStatus` enum instead of string literals
-  - Fix `diff.hasDestructiveChanges` to `diff.destructive.length > 0`
-  - Fix `applyMigration()` to `applyAllChanges()`
-  - Fix role `'viewer'` to `'member'`
-
-### Build & Verification
-- [x] Run applications-backend build - SUCCESS
-- [x] Run applications-frontend build - SUCCESS
-- [x] Run full pnpm build - SUCCESS (63 tasks, 4m52s)
-
----
-
-## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 2) ✅
-
-### Issue 1: Auto-create Application checkbox doesn't work
-- [x] Add imports for Application, ApplicationUser, Connector, ConnectorMetahub entities in publicationsRoutes.ts
-- [x] Implement auto-create logic in POST handler (inside transaction)
-- [x] Create Application with name/description from Publication
-- [x] Create ApplicationUser as owner (snake_case fields: application_id, user_id)
-- [x] Create Connector with name/description from Metahub
-- [x] Create ConnectorMetahub link
-
-### Issue 2: Remove broken "Открыть" and "Синхронизировать" menu items
-- [x] Remove 'view' and 'sync' action descriptors from PublicationActions.tsx
-- [x] Remove OpenInNewIcon and SyncIcon imports
-- [x] Delete PublicationBoard.tsx file
-- [x] Remove PublicationBoard export from metahubs-frontend index.ts
-- [x] Remove PublicationBoard export from publications/index.ts
-- [x] Remove PublicationBoard route from MainRoutesMUI.tsx
-- [x] Update external-modules.d.ts (remove PublicationBoard)
-- [x] Update exports.test.ts (remove PublicationBoard)
-
-### Issue 3: Fix Connector create dialog (remove codename, use proper Metahubs panel)
-- [x] Remove codename from Connector types (Connector, ConnectorDisplay, ConnectorLocalizedPayload)
-- [x] Remove codename from toConnectorDisplay function
-- [x] Remove codename from ConnectorActions.tsx
-- [x] Remove codename from ConnectorList.tsx (localizedFormDefaults, validation, columns)
-- [x] Remove codename from backend connectorsRoutes.ts (schemas, handlers, queries)
-- [x] Delete ConnectorMetahubSelectPanel.tsx (garbage component)
-- [x] Remove ConnectorMetahubSelectPanel export from components/index.ts
-- [x] Replace with MetahubSelectionPanel in buildCreateTabs
-- [x] Update state to use metahubIds: [] array instead of metahubId: null
-
-### Issue 4: Remove redundant connectors_publications table
-- [x] Delete migration 1800100000000-AddConnectorsPublications.ts (done in previous session)
-- [x] Delete ConnectorPublication entity (done in previous session)
-- [x] Remove ConnectorPublication export from applications-backend index.ts
-
-### Build & Verification
-- [x] Fix import path for applications entities (use '@universo/applications-backend')
-- [x] Fix ApplicationUser entity field names (snake_case: application_id, user_id)
-- [x] Fix extra closing parenthesis in MainRoutesMUI.tsx
-- [x] Run full pnpm build - SUCCESS (63 tasks, 6m10s)
-
----
-
-## IMPLEMENT (2025-01-18): Publication/Connector QA Fixes (Round 1) ✅
-
-### Issue 1: Publication dialog tabs wrong order
-- [x] Create ApplicationsCreatePanel.tsx for auto-create Application checkbox
-- [x] Update PublicationList.tsx buildCreateTabs (General → Access → Applications)
-- [x] Update PublicationActions.tsx buildFormTabs (remove Metahubs tab)
-- [x] Remove unused imports (MetahubInfoPanel, Metahub type, statusColors)
-
-### Issue 2: Remove broken links from Publication cards/table
-- [x] Remove Link wrapper from name column in publicationColumns
-- [x] Remove onClick from ItemCard
-- [x] Remove getRowLink from FlowListTable
-- [x] Remove goToPublication function
-
-### Issue 3: Fix Publication display data
-- [x] Update PublicationDisplay type (remove schema/status, add accessMode)
-- [x] Update getPublicationCardData function
-- [x] Update publicationColumns (name, description, accessMode)
-- [x] Update ItemCard footerEndContent (accessMode chip)
-- [x] Add i18n keys for accessMode (EN + RU)
-
-### Issue 4: Add Metahubs tab to Connector create dialog
-- [x] Create ConnectorMetahubSelectPanel.tsx component
-- [x] Add export in components/index.ts
-- [x] Update backend schema (add metahubId to createConnectorSchema)
-- [x] Update backend POST handler to create ConnectorMetahub link
-- [x] Update frontend ConnectorLocalizedPayload type (add metahubId)
-- [x] Update ConnectorList.tsx - add tabs with General + Metahubs
-- [x] Add state for availableMetahubs, useEffect to load them
-- [x] Update validateConnectorForm and canSaveConnectorForm
-- [x] Update handleCreateConnector to pass metahubId
-- [x] Add i18n keys for connector tabs and validation (EN + RU)
-
-### Phase 5: Build & Verification
-- [x] Run full pnpm build - SUCCESS (63 tasks, 4m40s)
-- [x] Update memory-bank files
-
----
-
+- [x] Connector/publication refactor, schema-ddl extraction, and related QA fixes completed.
+- [x] Details archived in progress.md (2025-01 entries).
 ## IMPLEMENT (2026-01-18): Publication as Separate Entity
 
-### Phase 1: Database Migrations
 - [x] Create migration `AddPublicationsTable` in metahubs-backend (publications + publications_users)
 - [x] Create migration `AddConnectorsPublications` in applications-backend (junction table)
 - [x] Register migrations in respective index.ts files
-
-### Phase 2: TypeORM Entities
 - [x] Create `Publication` entity in metahubs-backend
 - [x] Create `PublicationUser` entity in metahubs-backend
 - [x] Create `ConnectorPublication` entity in applications-backend
 - [x] Update `Connector` entity with new relation
 - [x] Update entity exports in both packages
-
-### Phase 3: Backend Routes Refactoring
 - [x] Refactor `publicationsRoutes.ts` to use new Publication entity
 - [x] Add endpoint for linked applications
-
-### Phase 4: Frontend Changes
 - [x] Update Publication tabs (Access + Applications)
 - [x] Add AccessPanel and ApplicationsPanel components
 - [x] Update API types in publications.ts (accessMode, accessConfig, LinkedApplication)
-
-### Phase 5: i18n
 - [x] Add new translation keys (EN + RU)
-
-### Phase 6: Build & Verification
 - [x] Build metahubs-backend - SUCCESS
 - [x] Build applications-backend - SUCCESS
 - [x] Build metahubs-frontend - SUCCESS
 - [x] Run full pnpm build - SUCCESS (63 tasks, 6m48s)
 - [x] Update memory-bank files
-
----
-
 ## IMPLEMENT (2026-01-17): Add DDL Module Unit Tests ✅
 
-### QA Recommendation: Add unit tests for DDL module
 - [x] Study existing test structure (jest.config.js, typeormMocks.ts)
 - [x] Create tests for `naming.ts` - 5 pure functions (generateSchemaName, generateTableName, generateColumnName, isValidSchemaName, buildFkConstraintName)
 - [x] Create tests for `diff.ts` - calculateSchemaDiff with various scenarios (initial, add/drop tables/columns, kind changes)
@@ -410,89 +149,55 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Create tests for `SchemaGenerator` - static methods (mapDataType) and instance methods (createSchema, dropSchema, generateFullSchema)
 - [x] Create tests for `MigrationManager` - generateMigrationName, recordMigration, listMigrations, getMigration
 - [x] Run all tests: 7 passed, 127 total (5 DDL test files added)
-
----
-
 ## IMPLEMENT (2026-01-17): Fix Migrations Page Not Loading Data ✅
 
-### Issue: Migrations exist in DB but UI shows "No migrations yet"
 - **Root cause**: Frontend API client used wrong URL prefix `/metahubs/application/...` but routes are mounted directly as `/application/...`
 - [x] Remove `/metahubs/` prefix from `fetchMigrations()` URL
 - [x] Remove `/metahubs/` prefix from `fetchMigration()` URL
 - [x] Remove `/metahubs/` prefix from `analyzeMigrationRollback()` URL
 - [x] Remove `/metahubs/` prefix from `rollbackMigration()` URL
 - [x] Run pnpm build (63 tasks, 4m49s) — all successful
-
----
-
 ## IMPLEMENT (2026-01-17): Fix Schema Status Display + Initial Migration Recording ✅
 
-### Issue 1: ConnectorBoard shows "Draft" when DB has "Synced"
 - **Root cause**: `ConnectorBoard` received `application` as prop but it was never passed from `MainRoutesMUI`
 - [x] Add `useApplicationDetails` hook call in ConnectorBoard to fetch application data directly
 - [x] Remove unused `application` prop from `ConnectorBoardProps`
-
-### Issue 2: Initial schema creation doesn't record migration
 - **Root cause**: `generateFullSchema()` doesn't call `recordMigration()` — only `applyAllChanges()` does
 - [x] Add `GenerateFullSchemaOptions` interface with `recordMigration` and `migrationDescription` options
 - [x] Update `generateFullSchema()` to record initial migration when `recordMigration: true`
 - [x] Export `GenerateFullSchemaOptions` from ddl/index.ts
 - [x] Update sync endpoint in `publicationsRoutes.ts` to pass `{ recordMigration: true, migrationDescription: 'initial_schema' }`
-
-### Build & Verification
 - [x] Run pnpm build (63 tasks, 4m50s) — all successful
-
----
-
 ## IMPLEMENT (2026-01-17): Fix ConnectorBoard Issues ✅
 
 ## IMPLEMENT (2026-01-17): Fix Schema Sync Endpoint Path
 
-### Issue: /sync returns HTML (SPA fallback)
 - [x] Update connectors API endpoints to use `/metahub/...` (remove extra `/metahubs` prefix) for diff + sync.
 - [x] Remove temporary debug logs added during diagnosis (applications-frontend connectors API, core-backend API debug middleware, metahubs-backend schema sync/diff logs if no longer needed).
 - [x] Rebuild affected packages (applications-frontend, core-frontend, core-backend, metahubs-backend) and re-verify sync.
-
-### Issue 1: Breadcrumbs don't show "> Коннекторы > Название коннектора"
 - [x] Create `useConnectorName` hook in useBreadcrumbName.ts.
 - [x] Export `useConnectorName` from hooks/index.ts.
 - [x] Add `connector` segment handling in NavbarBreadcrumbs.tsx.
-
-### Issue 2: URL lacks connectorId (future multi-connector support)
 - [x] Update route from `connector` to `connector/:connectorId` in MainRoutesMUI.tsx.
 - [x] Update ConnectorBoard to use `connectorId` from params.
 - [x] Update PublicationList navigation to include connectorId.
 - [x] Update ConnectorList navigation to include connectorId.
 - [x] Update backend to return connectorId in publication responses (POST, GET, LIST).
-
-### Issue 3: Schema diff shows "No changes detected" for new publication
 - [x] Add debug logging to backend diff endpoint (catalogDefs.length, oldSnapshot, hasChanges).
 - [x] Treat missing schema as actionable diff in ConnectorDiffDialog (use schemaExists to allow create).
 - [x] User to verify schema creation works via sync dialog.
-
-### Issue 4: Missing i18n translation
 - [x] Add `schemaUpToDate` key to EN i18n.
 - [x] Add `schemaUpToDate` key to RU i18n.
-
-### Build & Verification
 - [x] Run pnpm build and verify (63 tasks, 5m37s - all successful).
 - [x] Update memory-bank files.
-
----
-
 ## IMPLEMENT (2026-01-17): Fix Connector Metahub Query Error
 
-### Issue: GET /applications/:appId/connectors/:connectorId/metahubs returns 500
 - [x] Update cross-schema join to use `metahubs.metahubs.slug` (no `codename` column).
 - [x] Build applications-backend.
 - [x] Run full workspace build.
 - [x] Update memory-bank files.
-
----
-
 ## IMPLEMENT (2026-01-17): Fix Sync Button Disabled (Missing Metahub Data) ✅
 
-### Issue: Sync button always disabled for new publications
 - **Root cause**: Backend returned `ConnectorMetahub` links without nested `metahub` object (only `metahubId`).
 - **Frontend expected**: `linkedMetahubs[0].metahub` to contain metahub details, but it was undefined.
 - [x] Update `connectorsRoutes.ts` GET endpoint to use cross-schema SQL join with `metahubs.metahubs` table.
@@ -500,31 +205,19 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Update `ConnectorMetahub` type in `types.ts` to include optional `metahub?: MetahubSummary | null`.
 - [x] Update `useConnectorMetahubs.ts` hooks to handle nullish coalescing (`?? null`).
 - [x] Build and verify (63 tasks, 6m29s) — all successful.
-
----
-
 ## IMPLEMENT (2026-01-17): Fix i18n Keys in ConnectorBoard ✅
 
-### Issue: Non-working Sync button (i18n object error)
 - [x] Fix `t('connectors.sync', ...)` → `t('connectors.sync.button', ...)` and `t('connectors.sync.syncing', ...)`.
 - [x] Fix `t('connectors.viewMigrations', ...)` → `t('connectors.board.viewMigrations', ...)`.
 - [x] Add missing `connectors.schema.*` keys (title, name, status, lastSync, source) to EN i18n.
 - [x] Add missing `connectors.schema.*` keys to RU i18n.
 - [x] Build and verify (63 tasks, 6m42s) — all successful.
 - [x] Update memory-bank files.
-
----
-
 ## IMPLEMENT (2026-01-17): Fix Migration Recording + Move Sync UI to Applications ✅
 
-### Issue 1: Migrations not recorded on schema sync ✅
 - [x] Add `{recordMigration: true, migrationDescription: 'schema_sync'}` to `applyAllChanges()` in publicationsRoutes.ts.
-
-### Issue 2: i18n consolidation missing migrations namespace ✅
 - [x] Add `migrations?: Record<string, unknown>` to ApplicationsBundle interface.
 - [x] Add `migrations: bundle?.migrations ?? {}` to consolidateApplicationsNamespace return.
-
-### Issue 3: Move sync UI from Metahubs to Applications ✅
 - [x] Create sync API functions in applications-frontend/api/connectors.ts.
 - [x] Create useSyncConnector mutation hook.
 - [x] Create useConnectorSync hook for diff fetching.
@@ -536,55 +229,38 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Change PublicationList navigation to `/application/{id}/connector`.
 - [x] Change ConnectorList navigation to `/application/{id}/connector`.
 - [x] Add i18n keys: connectors.status, connectors.statusDescription, connectors.sync, connectors.diffDialog, connectors.board (EN + RU).
-
-### Build & Verification ✅
 - [x] Run pnpm build (63 tasks, 7m19s) — all successful.
 - [x] Update memory-bank files.
-
----
-
 ## IMPLEMENT (2026-01-17): Runtime Migrations with Knex
 
-### Phase 1: Backend - Runtime Migrations Engine ✅
 - [x] Create MigrationManager class in domains/ddl with migration recording and listing.
 - [x] Add recordMigration() method to SchemaGenerator.
 - [x] Implement listMigrations() for retrieving migration history.
 - [x] Implement rollbackMigration() with destructive change blocking.
 - [x] Add analyzeRollbackPath() to check if rollback is safe.
 - [x] Add DDL exports to metahubs-backend/src/index.ts.
-
-### Phase 2: Backend - Application Migration Routes ✅
 - [x] Create applicationMigrationsRoutes.ts in metahubs-backend.
 - [x] Add GET /application/:applicationId/migrations endpoint.
 - [x] Add GET /application/:applicationId/migrations/:id/analyze endpoint.
 - [x] Add POST /application/:applicationId/migrations/:id/rollback endpoint.
 - [x] Mount routes in metahubs-backend router.ts.
 - [x] Update flowise-core-backend to expose new routes (via metahubs-backend index.ts).
-
-### Phase 3: Frontend - Applications UI ✅
 - [x] Create MigrationsTab component in applications-frontend.
 - [x] Add migrations API client and hooks.
 - [x] Move/adapt SchemaSyncPanel from metahubs to applications (migrations tab replaces sync panel).
 - [x] Add rollback UI with destructive change warnings.
 - [x] Add i18n keys for migrations UI (EN + RU).
-
-### Phase 4: Navigation & Integration ✅
 - [x] Add "Migrations" tab to ApplicationBoard tabbed interface (created ApplicationMigrations page).
 - [x] Add route `/application/:applicationId/migrations` in universo-template-mui.
 - [x] Add Migrations menu item to Application sidebar with IconHistory.
 - [x] Add i18n keys for "migrations" menu item (EN + RU).
 - [ ] Add Publications menu item to Application sidebar (navigate to linked Metahubs) — DEFERRED: requires Connector→Metahub API.
 - [ ] Update breadcrumbs for Publications → Metahub → Application path — DEFERRED: complex navigation flow.
-
-### Phase 5: Documentation & Testing
 - [ ] Add unit tests for MigrationManager.
 - [ ] Add integration tests for migration routes.
 - [ ] Update metahubs-backend README (EN/RU).
 - [ ] Update applications-frontend README (EN/RU).
 - [ ] Update memory-bank files.
-
----
-
 ## In Progress / QA Follow-ups
 
 - [x] QA cleanup: add MSW handler for connectors metahubs requests in applications-frontend tests.
@@ -602,9 +278,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [ ] Manual QA: delete attribute and confirm UI "#" renumbers 1..N (hub + hub-less).
 - [ ] Manual QA: create records repeatedly and confirm UI does not hang.
 - [ ] Confirm server logs show QueryRunner cleanup per request.
-
----
-
 ## IMPLEMENT (2026-01-17): Application system metadata tables (Phase 1)
 
 - [x] Extend @universo/types with MetaPresentation + exports for metahubs metadata.
@@ -615,9 +288,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Bump schema snapshot version and add hasSystemTables/backward-compat logic.
 - [x] Verify builds/tests for @universo/types and @universo/metahubs-backend.
 - [x] Update memory-bank activeContext.md and progress.md.
-
----
-
 ## IMPLEMENT (2026-01-16): Metahubs API routes standardization + test warnings + coverage
 
 - [x] Remove act/MSW/useHasGlobalAccess warnings in metahubs-frontend tests (setup mocks + test fixes).
@@ -628,9 +298,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Update metahubs backend/frontend READMEs (EN/RU) to match new routes and i18n docs rules.
 - [ ] Run full root build (timed out after ~200s; re-run needed).
 - [x] Update progress.md and activeContext.md with route standardization changes.
-
----
-
 ## IMPLEMENT (2026-01-16): Metahubs frontend build-first + docs + tests
 
 - [x] Switch metahubs-frontend to build-first (dist exports + tsdown entry for src/index.ts).
@@ -640,9 +307,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Fix failing metahubs-frontend tests (api wrappers mock path, view preference mock shape, actions expectations).
 - [x] Verify metahubs-frontend tests, metahubs-backend tests, and full root build.
 - [x] Update progress.md and activeContext.md with build-first changes.
-
----
-
 ## IMPLEMENT (2026-01-16): Metahubs backend tests + ddl rename
 
 - [x] Rename `domains/runtime-schema` to `domains/ddl` and update imports/docs.
@@ -650,9 +314,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Move ts-jest isolatedModules to tsconfig.test.json and update base jest config.
 - [x] Verify metahubs-backend tests/build and note any gaps.
 - [x] Update progress.md and activeContext.md with changes.
-
----
-
 ## IMPLEMENT (2026-01-16): Metahubs backend domain refactor
 
 - [x] Inventory current routes/schema/services usage and monorepo imports.
@@ -662,17 +323,11 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Remove old folders (src/routes, src/schema, src/services, src/schemas) after migration.
 - [x] Verify builds/tests for metahubs-backend and note any gaps.
 - [x] Update progress.md and activeContext.md with refactor summary.
-
----
-
 ## IMPLEMENT (2026-01-15): Metahubs TS verification
 
 - [x] Run targeted TS builds for metahubs-backend and metahubs-frontend to detect errors.
 - [x] Fix any TS errors uncovered by the builds and re-run the affected build.
 - [x] Update progress.md with results and note any decisions in activeContext.md if needed.
-
----
-
 ## IMPLEMENT (2026-01-16): Metahubs frontend modular refactor
 
 - [x] Introduce domain folders for metahubs frontend and move UI pages/actions into domains with compatibility exports.
@@ -680,9 +335,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Update internal imports and tests to match new structure where needed.
 - [x] Verify targeted builds for metahubs-frontend.
 - [x] Update progress.md with refactor summary.
-
----
-
 ## IMPLEMENT (2026-01-16): Metahubs frontend cleanup + domain barrels
 
 - [x] Inventory and update monorepo imports to remove pages/* usage; switch routes to root exports.
@@ -691,9 +343,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Remove obsolete proxy layers (src/pages, src/api) and update package exports/tests.
 - [x] Verify targeted builds/tests for metahubs-frontend.
 - [x] Update progress.md with cleanup summary.
-
----
-
 ## ✅ COMPLETED (2026-01-15): QA fixes for types unification
 
 - [x] Update roleSchema/memberFormSchema tests for dynamic roles; add empty role rejection test.
@@ -701,9 +350,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Replace dangerouslySetInnerHTML with SafeHTML in chat UI.
 - [x] All tests passing.
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-15): Monorepo-wide types unification
 
 - [x] Canonical types in @universo/types: PaginatedResponse items, PaginationParams alias, Filter types.
@@ -713,9 +359,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Remove UseApi from 7 frontends (campaigns, projects, storages, organizations, clusters, metaverses, uniks).
 - [x] Full build passed; systemPatterns updated.
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-15): Metahubs types refactor + cleanup
 
 - [x] Remove dead/legacy types (gulp.d.ts, ui.d.ts, LocalizedField, getLocalizedContent, UseApi).
@@ -723,9 +366,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Reorganize types.ts with JSDoc and grouped exports.
 - [x] Build metahubs-frontend and full monorepo passed.
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-15): Metahubs QA fixes
 
 - [x] SchemaMigrator FK naming + constraint length fixes.
@@ -733,9 +373,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Publications UI naming cleanup + EN grammar fix.
 - [x] Lint re-run (pre-existing warnings remain).
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-15): Publications refactor + sync fixes
 
 - [x] Backend routes: `/metahubs/:id/publications` (list/detail/sync/diff/delete).
@@ -744,9 +381,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Sync action wired to create/update/sync/delete publication APIs.
 - [x] Build verified (63 tasks).
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-15): Source -> Metahub links UI (Phase 5-6)
 
 - [x] MetahubSelectionPanel component.
@@ -756,9 +390,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] EN/RU translations for sources.metahubs.*.
 - [x] Build @universo/applications-frontend success.
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-15): useViewPreference QA improvements
 
 - [x] SSR-safe hook in @universo/template-mui with isLocalStorageAvailable guard.
@@ -766,9 +397,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] 14 unit tests added; keys normalized (projects/storages).
 - [x] Lint and build verification completed.
 - [x] Details: progress.md#2026-01-15.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Publications rename stabilization
 
 - [x] Rename Application* -> Publication* in metahubs UI and types.
@@ -777,9 +405,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Backend routes factory renamed to createPublicationsRoutes.
 - [x] Build verified (63 tasks).
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Publications page fixes
 
 - [x] Add missing publications i18n keys + labels (EN/RU).
@@ -787,9 +412,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Update breadcrumbs for publication routes.
 - [x] Build verified.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Source deletion & table unification
 
 - [x] Disable Source delete actions and hide Delete button.
@@ -797,9 +419,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Extend CompactListTable action column props.
 - [x] Unify selection panels via EntitySelectionPanel.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Application/Source UX fixes
 
 - [x] Add Stack spacing and tabs to Application/Source dialogs.
@@ -808,9 +427,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Move Source list alert below ViewHeader and keep Add button disabled/visible.
 - [x] Add clickable Source cards + row navigation links.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Application creation from Metahubs fixes
 
 - [x] Add Application creation tabs with MetahubInfoPanel.
@@ -819,9 +435,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Add Source edit dialog Metahubs tab; single Source limit.
 - [x] Add translations for singleSourceLimit.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Link Applications and Metahubs via Sources
 
 - [x] Extend applications schema with schema sync fields.
@@ -829,9 +442,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Create applicationsRoutes in metahubs-backend (CRUD/diff/sync).
 - [x] Add source-metahub link endpoints and build verification.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Applications packages QA fixes
 
 - [x] Rename tests and remove obsolete backend tests.
@@ -839,9 +449,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Clean Metahubs/Catalogs comments in sources.
 - [x] useViewPreference in ApplicationMembers; build/tests verified.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-14): Applications backend tests + localStorage improvements
 
 - [x] Add applicationsRoutes/sourcesRoutes test suites.
@@ -849,9 +456,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Add MSW handler for profile settings.
 - [x] Apply useViewPreference to MetahubMembers + tests.
 - [x] Details: progress.md#2026-01-14.
-
----
-
 ## ✅ COMPLETED (2026-01-13): Applications packages creation
 
 - [x] Clone metahubs packages -> applications-frontend/backend.
@@ -860,9 +464,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Register entities, migrations, routes, i18n, and menu entries.
 - [x] Full build verification.
 - [x] Details: progress.md#2026-01-13.
-
----
-
 ## ✅ COMPLETED (2026-01-13): Catalogs/attributes improvements
 
 - [x] Normalize Attribute.sortOrder after delete (1..N).
@@ -870,18 +471,12 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Hub-less record endpoints + direct query keys.
 - [x] Routes refactor `/catalogs/:id` -> `/catalog/:id`.
 - [x] Details: progress.md#2026-01-13.
-
----
-
 ## ✅ COMPLETED (2026-01-13): Schema sync UUID naming
 
 - [x] Use UUID-based `cat_<uuid32>` and `app_<uuid32>` naming.
 - [x] SchemaMigrator diff uses UUID names consistently.
 - [x] Build verification.
 - [x] Details: progress.md#2026-01-13.
-
----
-
 ## ✅ COMPLETED (2026-01-13): Applications UI & diff fixes
 
 - [x] Save VLC structure for comparisons and primaryLocale fields.
@@ -889,9 +484,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Add edit action + PATCH endpoint + i18n keys.
 - [x] Add search/pagination and fix Options menu crash.
 - [x] Build verification.
-
----
-
 ## ✅ COMPLETED (2026-01-13): Applications config/data separation
 
 - [x] Add Application entity + schema status fields.
@@ -900,18 +492,12 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Register menu, routes, i18n, storage keys.
 - [x] Build verification.
 - [x] Details: progress.md#2026-01-13.
-
----
-
 ## ✅ COMPLETED (2026-01-12): Catalogs endpoint tests
 
 - [x] Add catalogsRoutes tests (17 cases).
 - [x] Extend MockRepository count.
 - [x] Document UUID validation in routes.
 - [x] Details: progress.md#2026-01-12.
-
----
-
 ## ✅ COMPLETED (2026-01-11): Catalogs + QueryRunner QA fixes
 
 - [x] Hub-less catalog DELETE endpoint and deleteCatalogDirect API.
@@ -922,9 +508,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] isRequiredHub migration + documentation.
 - [x] Full build verification.
 - [x] Details: progress.md#2026-01-11.
-
----
-
 ## ✅ COMPLETED (2026-01-10): Catalogs QA rounds + code quality
 
 - [x] Sorting, columns, catalogsCount, dashboard widget updates.
@@ -934,36 +517,24 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Centralize localStorage keys + useViewPreference hook in list pages.
 - [x] Full project rebuilds.
 - [x] Details: progress.md#2026-01-10.
-
----
-
 ## ✅ COMPLETED (2026-01-09): Metahubs VLC rollout + FlowListTable fix
 
 - [x] VLC rendering fixes in metahubs lists.
 - [x] FlowListTable listView rendering fixed.
 - [x] Build verification.
 - [x] Details: progress.md#2026-01-09.
-
----
-
 ## ✅ COMPLETED (2026-01-08): Record edit fixes
 
 - [x] Pass raw record data to actions; fetch full record when missing.
 - [x] Delay record edit fields until hydration completes.
 - [x] Build metahubs-frontend verified.
 - [x] Details: progress.md#2026-01-08.
-
----
-
 ## ✅ COMPLETED (2026-01-06): Attributes localization hardening
 
 - [x] Localized name + codename auto-fill; remove description field.
 - [x] Align API payloads/mutations and backend validation.
 - [x] Update tests and builds for metahubs frontend/backend.
 - [x] Details: progress.md#2026-01-06.
-
----
-
 ## ✅ COMPLETED (2026-01-05): Project metadata i18n + login UX
 
 - [x] Add locale metadata files and update landing/onboarding translations.
@@ -971,17 +542,11 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Improve login error messages and i18n keys; security-safe copy.
 - [x] Full build and lint verification.
 - [x] Details: progress.md#2026-01-05.
-
----
-
 ## ✅ COMPLETED (2026-01-04): Auth bot review fixes
 
 - [x] Refactor AuthView/AuthPage per review (mode switcher + useEffect).
 - [x] Align systemPatterns docs to flat config.
 - [x] Details: progress.md#2026-01-04.
-
----
-
 ## ✅ COMPLETED (2026-01-03): Auth feature toggles + i18n migration
 
 - [x] Add auth feature toggles and /auth-config endpoint.
@@ -989,18 +554,12 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Migrate start page i18n to registerNamespace(); add StartFooter.
 - [x] Full build verification.
 - [x] Details: progress.md#2026-01-03.
-
----
-
 ## ✅ COMPLETED (2026-01-02): SmartCaptcha improvements
 
 - [x] Add login captcha support and shared captcha module.
 - [x] Fail-closed behavior for captcha services.
 - [x] Lint and full build passed.
 - [x] Details: progress.md#2026-01-02.
-
----
-
 ## ✅ COMPLETED (2026-01-01): SmartCaptcha + lead forms
 
 - [x] Server-side captcha validation for leads.
@@ -1008,9 +567,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Quiz lead forms support (captchaEnabled, captchaSiteKey, submit guard).
 - [x] Auth captcha integration and i18n updates.
 - [x] Details: progress.md#2026-01-01.
-
----
-
 ## ✅ COMPLETED (2025-12-31 to 2025-12-14): Condensed log
 
 - [x] Cookie/lead consent, legal pages, onboarding/auth fixes, start page MVP.
@@ -1019,28 +575,14 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [x] Flowise 3.0.12 components refresh.
 - [x] Details: progress.md#2025-12-31.
 - [x] Also see progress.md#2025-12-30 for legal/profile updates.
-
----
-
 ## 📋 PLANNED TASKS
 
-### Session Persistence on Server Restart
-
 - Status: Deferred until production deployment pattern is clear; currently using MemoryStore.
-
-### Future Auth Improvements
-
 - [ ] Evaluate session persistence strategies (PostgreSQL, Redis, JWT).
 - [ ] Review auth architecture for scalability.
-
-### Admin Module Enhancements
-
 - [ ] Role cloning, templates, permission inheritance.
 - [ ] Audit log for role/permission changes.
 - [ ] Multi-instance support (remote instances).
-
-### Frontend UX
-
 - [ ] Dark mode theme.
 - [ ] Keyboard shortcuts.
 - [ ] Mobile responsiveness improvements.
@@ -1049,9 +591,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [ ] Bundle size optimization.
 - [ ] Complete API documentation (OpenAPI).
 - [ ] Architecture decision records (ADR).
-
----
-
 ## 🧪 TECHNICAL DEBT
 
 - [ ] Refactor remaining useApi -> useMutation.
@@ -1059,9 +598,6 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [ ] Add unit/E2E tests for critical flows.
 - [ ] Resolve Template MUI CommonJS/ESM conflict.
 - [ ] Database connection pooling optimization.
-
----
-
 ## 🔒 SECURITY TASKS
 
 - [ ] Rate limiting for all API endpoints.
@@ -1070,13 +606,8 @@ Extracted DDL utilities from metahubs-backend to solve circular dependency issue
 - [ ] Security headers (HSTS, CSP).
 - [ ] Security audit.
 - [ ] 2FA/MFA system.
-
----
-
 ## 📚 HISTORICAL TASKS
 
-For tasks completed before 2025-12, see progress.md.
-Main achievements:
 - v0.40.0: Tools/Credentials/Variables/ApiKey/Assistants/Leads/ChatMessage/DocStore/CustomTemplates extraction, Admin Instances MVP, RBAC Global Roles.
 - v0.39.0: Campaigns, Storages modules, useMutation refactor.
 - v0.38.0: Organizations, Projects, AR.js Quiz Nodes.

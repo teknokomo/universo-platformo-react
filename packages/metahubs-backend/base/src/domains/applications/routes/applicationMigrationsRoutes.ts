@@ -146,7 +146,8 @@ export function createApplicationMigrationsRoutes(
                 appliedAt: m.appliedAt.toISOString(),
                 hasDestructive: m.meta.hasDestructive,
                 summary: m.meta.summary,
-                changesCount: m.meta.changes?.length ?? 0
+                changesCount: m.meta.changes?.length ?? 0,
+                hasSeedWarnings: Array.isArray(m.meta.seedWarnings) && m.meta.seedWarnings.length > 0
             }))
 
             return res.json({
@@ -188,7 +189,12 @@ export function createApplicationMigrationsRoutes(
                 changes: migration.meta.changes,
                 // Include snapshots for detailed view
                 snapshotBefore: migration.meta.snapshotBefore,
-                snapshotAfter: migration.meta.snapshotAfter
+                snapshotAfter: migration.meta.snapshotAfter,
+                publicationSnapshot: migration.publicationSnapshot,
+                publicationSnapshotHash: migration.meta.publicationSnapshotHash,
+                publicationId: migration.meta.publicationId,
+                publicationVersionId: migration.meta.publicationVersionId,
+                seedWarnings: migration.meta.seedWarnings
             })
         })
     )

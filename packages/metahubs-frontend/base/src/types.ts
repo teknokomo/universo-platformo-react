@@ -258,7 +258,7 @@ export interface HubRecord {
     id: string
     catalogId: string
     data: Record<string, unknown>
-    ownerId: string
+    ownerId: string | null
     sortOrder: number
     createdAt: string
     updatedAt: string
@@ -271,7 +271,7 @@ export interface HubRecordDisplay {
     name: string
     description: string
     data: Record<string, unknown>
-    ownerId: string
+    ownerId: string | null
     sortOrder: number
     createdAt: string
     updatedAt: string

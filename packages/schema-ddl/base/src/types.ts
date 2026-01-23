@@ -66,7 +66,7 @@ export interface MigrationResult {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Metadata stored in _sys_migrations.meta JSONB column
+ * Metadata stored in _app_migrations.meta JSONB column
  */
 export interface MigrationMeta {
     /** Snapshot of schema state BEFORE this migration was applied */
@@ -79,6 +79,14 @@ export interface MigrationMeta {
     hasDestructive: boolean
     /** Description of changes for display */
     summary: string
+    /** Hash of Metahub snapshot (optional, for fast comparisons) */
+    publicationSnapshotHash?: string
+    /** Publication ID used for this migration (optional) */
+    publicationId?: string
+    /** Publication version ID used for this migration (optional) */
+    publicationVersionId?: string
+    /** Seed warnings recorded during predefined records import (optional) */
+    seedWarnings?: string[]
 }
 
 /**
@@ -95,13 +103,14 @@ export interface MigrationChangeRecord {
 }
 
 /**
- * Migration record as stored in _sys_migrations table
+ * Migration record as stored in _app_migrations table
  */
 export interface MigrationRecord {
     id: string
     name: string
     appliedAt: Date
     meta: MigrationMeta
+    publicationSnapshot?: Record<string, unknown> | null
 }
 
 /**

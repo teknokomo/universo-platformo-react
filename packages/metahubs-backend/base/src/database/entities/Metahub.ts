@@ -24,6 +24,10 @@ export class Metahub {
     @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
     slug?: string
 
+    /** Isolated PostgreSQL schema name for Design-Time data (e.g., "mhb_...") */
+    @Column({ name: 'schema_name', type: 'varchar', length: 63, nullable: true, unique: true })
+    schemaName!: string | null
+
     /** Whether this metahub is publicly accessible via API */
     @Column({ type: 'boolean', default: false, name: 'is_public' })
     isPublic!: boolean

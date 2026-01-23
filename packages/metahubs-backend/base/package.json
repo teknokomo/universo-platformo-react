@@ -30,6 +30,7 @@
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "http-errors": "catalog:",
+        "json-stable-stringify": "catalog:",
         "knex": "catalog:",
         "typeorm": "catalog:",
         "zod": "^3.25.76"

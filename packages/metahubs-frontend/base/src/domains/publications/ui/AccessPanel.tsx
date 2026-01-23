@@ -62,7 +62,7 @@ export const AccessPanel = ({
                                     {t('publications.access.modeFull', 'Полный доступ')}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                    {t('publications.access.modeFullDescription', 'Все данные Метахаба доступны через Publication')}
+                                    {t('publications.access.modeFullDescription', 'Все данные Метахаба доступны через Публикацию')}
                                 </Typography>
                             </Box>
                         }

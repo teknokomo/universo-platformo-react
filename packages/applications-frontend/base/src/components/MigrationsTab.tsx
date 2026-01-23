@@ -43,7 +43,7 @@ import {
     ExpandLess as ExpandLessIcon,
     CheckCircle as CheckCircleIcon
 } from '@mui/icons-material'
-import { useMigrations, useMigrationRollbackAnalysis, useRollbackMigration } from '../hooks/useMigrations'
+import { useMigrations, useMigrationDetail, useMigrationRollbackAnalysis, useRollbackMigration } from '../hooks/useMigrations'
 import type { MigrationListItem, RollbackAnalysis } from '../api/migrations'
 
 interface MigrationsTabProps {
@@ -159,6 +159,7 @@ export function MigrationsTab({ applicationId }: MigrationsTabProps) {
                         {migrations.map((migration, index) => (
                             <MigrationRow
                                 key={migration.id}
+                                applicationId={applicationId}
                                 migration={migration}
                                 isLatest={index === 0}
                                 isExpanded={expandedMigration === migration.id}
@@ -191,6 +192,7 @@ export function MigrationsTab({ applicationId }: MigrationsTabProps) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface MigrationRowProps {
+    applicationId: string
     migration: MigrationListItem
     isLatest: boolean
     isExpanded: boolean
@@ -200,6 +202,7 @@ interface MigrationRowProps {
 }
 
 function MigrationRow({
+    applicationId,
     migration,
     isLatest,
     isExpanded,
@@ -207,6 +210,10 @@ function MigrationRow({
     onRollbackClick,
     t
 }: MigrationRowProps) {
+    const { data: migrationDetail } = useMigrationDetail(applicationId, migration.id, {
+        enabled: isExpanded
+    })
+
     const formattedDate = useMemo(() => {
         return new Date(migration.appliedAt).toLocaleString()
     }, [migration.appliedAt])
@@ -231,6 +238,11 @@ function MigrationRow({
                                 color="primary"
                                 variant="outlined"
                             />
+                        )}
+                        {migration.hasSeedWarnings && (
+                            <Tooltip title={t('migrations.seedWarningsIndicator', 'Seed warnings detected')}>
+                                <WarningIcon fontSize="small" color="warning" />
+                            </Tooltip>
                         )}
                         {migration.hasDestructive && (
                             <Chip
@@ -277,6 +289,20 @@ function MigrationRow({
                             <Typography variant="body2" color="text.secondary">
                                 {migration.summary}
                             </Typography>
+                            {migrationDetail?.seedWarnings && migrationDetail.seedWarnings.length > 0 && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        {t('migrations.seedWarningsTitle', 'Seed warnings')}
+                                    </Typography>
+                                    <Alert severity="warning" sx={{ mt: 1 }}>
+                                        {migrationDetail.seedWarnings.map((warning, index) => (
+                                            <Typography key={`${migration.id}-seed-${index}`} variant="body2">
+                                                {warning}
+                                            </Typography>
+                                        ))}
+                                    </Alert>
+                                </Box>
+                            )}
                         </Box>
                     </Collapse>
                 </TableCell>

@@ -66,7 +66,12 @@ export class MigrationManager {
         snapshotBefore: SchemaSnapshot | null,
         snapshotAfter: SchemaSnapshot,
         diff: SchemaDiff,
-        trx?: Knex.Transaction
+        trx?: Knex.Transaction,
+        extraMeta?: Pick<
+            MigrationMeta,
+            'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
+        >,
+        publicationSnapshot?: Record<string, unknown> | null
     ): Promise<string> {
         const knex = trx ?? this.knex
 
@@ -78,15 +83,17 @@ export class MigrationManager {
             snapshotAfter,
             changes: changeRecords,
             hasDestructive: diff.destructive.length > 0,
-            summary: diff.summary
+            summary: diff.summary,
+            ...extraMeta
         }
 
         const result = await knex
             .withSchema(schemaName)
-            .table('_sys_migrations')
+            .table('_app_migrations')
             .insert({
                 name,
-                meta: JSON.stringify(meta)
+                meta: JSON.stringify(meta),
+                publication_snapshot: publicationSnapshot ? JSON.stringify(publicationSnapshot) : null
             })
             .returning('id')
 
@@ -114,21 +121,21 @@ export class MigrationManager {
             return { migrations: [], total: 0 }
         }
 
-        // Check if _sys_migrations table exists
-        const tableExists = await this.knex.schema.withSchema(schemaName).hasTable('_sys_migrations')
+        // Check if _app_migrations table exists
+        const tableExists = await this.knex.schema.withSchema(schemaName).hasTable('_app_migrations')
         if (!tableExists) {
             return { migrations: [], total: 0 }
         }
 
         // Get total count
-        const countResult = await this.knex.withSchema(schemaName).table('_sys_migrations').count('* as count').first()
+        const countResult = await this.knex.withSchema(schemaName).table('_app_migrations').count('* as count').first()
         const total = Number(countResult?.count ?? 0)
 
         // Get migrations
         const rows = await this.knex
             .withSchema(schemaName)
-            .table('_sys_migrations')
-            .select('id', 'name', 'applied_at', 'meta')
+            .table('_app_migrations')
+            .select('id', 'name', 'applied_at', 'meta', 'publication_snapshot')
             .orderBy('applied_at', 'desc')
             .limit(limit)
             .offset(offset)
@@ -137,7 +144,11 @@ export class MigrationManager {
             id: row.id,
             name: row.name,
             appliedAt: new Date(row.applied_at),
-            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta
+            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta,
+            publicationSnapshot:
+                typeof row.publication_snapshot === 'string'
+                    ? JSON.parse(row.publication_snapshot)
+                    : row.publication_snapshot ?? null
         }))
 
         return { migrations, total }
@@ -147,12 +158,16 @@ export class MigrationManager {
      * Get a single migration by ID
      */
     public async getMigration(schemaName: string, migrationId: string): Promise<MigrationRecord | null> {
-        const tableExists = await this.knex.schema.withSchema(schemaName).hasTable('_sys_migrations')
+        const tableExists = await this.knex.schema.withSchema(schemaName).hasTable('_app_migrations')
         if (!tableExists) {
             return null
         }
 
-        const row = await this.knex.withSchema(schemaName).table('_sys_migrations').where('id', migrationId).first()
+        const row = await this.knex
+            .withSchema(schemaName)
+            .table('_app_migrations')
+            .where('id', migrationId)
+            .first()
 
         if (!row) {
             return null
@@ -162,7 +177,11 @@ export class MigrationManager {
             id: row.id,
             name: row.name,
             appliedAt: new Date(row.applied_at),
-            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta
+            meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta,
+            publicationSnapshot:
+                typeof row.publication_snapshot === 'string'
+                    ? JSON.parse(row.publication_snapshot)
+                    : row.publication_snapshot ?? null
         }
     }
 
@@ -284,7 +303,7 @@ export class MigrationManager {
      */
     public async deleteMigration(schemaName: string, migrationId: string, trx?: Knex.Transaction): Promise<void> {
         const knex = trx ?? this.knex
-        await knex.withSchema(schemaName).table('_sys_migrations').where('id', migrationId).del()
+        await knex.withSchema(schemaName).table('_app_migrations').where('id', migrationId).del()
         console.log(`[MigrationManager] Deleted migration record: ${migrationId}`)
     }
 

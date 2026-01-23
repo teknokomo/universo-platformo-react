@@ -31,7 +31,7 @@ Backend service for managing metahubs, hubs, catalogs, attributes, records, and 
 
 ### DDL & Schema Generation
 - Dynamic PostgreSQL schema generation from Metahub definitions
-- System metadata tables (`_sys_objects`, `_sys_attributes`, `_sys_migrations`) for runtime introspection
+- System metadata tables (`_app_objects`, `_app_attributes`, `_app_migrations`) for runtime introspection
 - Transactional DDL+DML operations with automatic rollback on failure
 - Schema diff calculation and incremental migrations
 - Advisory locks for concurrent migration protection
@@ -220,13 +220,13 @@ Notes:
 
 When a Metahub is published to an Application, the following system tables are created:
 
-- `_sys_objects`: Registry of all metadata objects (catalogs, documents, hubs) with presentation and config.
-- `_sys_attributes`: Field definitions with data types, validation rules, and UI configuration.
-- `_sys_migrations`: History of applied schema migrations.
+- `_app_objects`: Registry of all metadata objects (catalogs, documents, hubs) with presentation and config.
+- `_app_attributes`: Field definitions with data types, validation rules, and UI configuration.
+- `_app_migrations`: History of applied schema migrations.
 
 These tables enable runtime introspection and Server-Driven UI generation.
 
-#### `_sys_objects` — Metadata Object Registry
+#### `_app_objects` — Metadata Object Registry
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -239,24 +239,24 @@ These tables enable runtime introspection and Server-Driven UI generation.
 | `created_at` | TIMESTAMP | Record creation timestamp. |
 | `updated_at` | TIMESTAMP | Last modification timestamp. |
 
-#### `_sys_attributes` — Field Definitions
+#### `_app_attributes` — Field Definitions
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key. Matches the source attribute UUID from Metahub. |
-| `object_id` | UUID FK | Reference to `_sys_objects.id` (the owning object). |
+| `object_id` | UUID FK | Reference to `_app_objects.id` (the owning object). |
 | `codename` | VARCHAR(100) | System field name for API/code (e.g., `article_number`). |
 | `column_name` | VARCHAR(255) | Physical column name in the table (e.g., `attr_019bca...`). |
 | `data_type` | VARCHAR(20) | Logical data type: `STRING`, `NUMBER`, `BOOLEAN`, `DATE`, `DATETIME`, `REF`, `JSON`. |
 | `is_required` | BOOLEAN | Whether the field is mandatory (NOT NULL constraint). |
-| `target_object_id` | UUID FK | For `REF` type only: references `_sys_objects.id` of the target object. Enables UI to render relationship selectors. |
+| `target_object_id` | UUID FK | For `REF` type only: references `_app_objects.id` of the target object. Enables UI to render relationship selectors. |
 | `presentation` | JSONB | Localized field label using VLC format. |
 | `validation_rules` | JSONB | Business validation rules beyond basic type: `{"minLength": 3, "maxLength": 100, "pattern": "^[A-Z]+$"}`. |
 | `ui_config` | JSONB | UI widget configuration for Server-Driven UI: `{"widget": "textarea", "rows": 5, "placeholder": "Enter description..."}`. |
 | `created_at` | TIMESTAMP | Record creation timestamp. |
 | `updated_at` | TIMESTAMP | Last modification timestamp. |
 
-#### `_sys_migrations` — Schema Migration History
+#### `_app_migrations` — Schema Migration History
 
 | Column | Type | Description |
 |--------|------|-------------|

@@ -12,10 +12,17 @@ import { MigrationManager, generateMigrationName } from './MigrationManager'
  * Options for applying changes with migration recording
  */
 export interface ApplyChangesOptions {
-    /** Record migration in _sys_migrations table */
+    /** Record migration in _app_migrations table */
     recordMigration?: boolean
     /** Description for migration name generation */
     migrationDescription?: string
+    /** Optional metadata to store in migration record */
+    migrationMeta?: Pick<
+        import('./types').MigrationMeta,
+        'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
+    >
+    /** Optional Metahub snapshot stored separately from meta */
+    publicationSnapshot?: Record<string, unknown> | null
 }
 
 /**
@@ -150,7 +157,16 @@ export class SchemaMigrator {
                     const description = options.migrationDescription || 'schema_sync'
                     const migrationName = generateMigrationName(description)
 
-                    await this.migrationManager.recordMigration(schemaName, migrationName, snapshotBefore, snapshotAfter, diff, trx)
+                    await this.migrationManager.recordMigration(
+                        schemaName,
+                        migrationName,
+                        snapshotBefore,
+                        snapshotAfter,
+                        diff,
+                        trx,
+                        options.migrationMeta,
+                        options.publicationSnapshot ?? null
+                    )
                 }
             })
 
@@ -168,7 +184,7 @@ export class SchemaMigrator {
     }
 
     /**
-     * Get current snapshot from _sys_migrations (latest migration's snapshotAfter)
+     * Get current snapshot from _app_migrations (latest migration's snapshotAfter)
      * Returns null if no migrations exist
      */
     private async getCurrentSnapshot(schemaName: string): Promise<SchemaSnapshot | null> {

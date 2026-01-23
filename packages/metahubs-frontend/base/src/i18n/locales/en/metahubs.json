@@ -69,6 +69,15 @@
             "role": "Role",
             "hubs": "Hubs",
             "catalogs": "Catalogs"
+        },
+        "tabs": {
+            "general": "General",
+            "storage": "Storage"
+        },
+        "storage": {
+            "mainDb": "Create schema in main database",
+            "externalDb": "Create schema in external database",
+            "externalDbDisabled": "Coming soon"
         }
     },
     "hubs": {
@@ -385,6 +394,24 @@
         "accessMode": {
             "full": "Full Access",
             "restricted": "Restricted"
+        },
+        "versions": {
+            "title": "Versions",
+            "create": "Create Version",
+            "createSuccess": "Version created successfully",
+            "duplicateWarning": "This version matches the previous snapshot",
+            "activate": "Activate",
+            "activateConfirm": "Are you sure you want to activate this version? It will be used for all future syncs.",
+            "activateSuccess": "Version activated successfully",
+            "active": "Active",
+            "list": {
+                "version": "Version",
+                "date": "Date",
+                "status": "Status",
+                "hash": "Hash",
+                "actions": "Actions"
+            },
+            "empty": "No versions found. Create a snapshot to start versioning."
         }
     },
     "common": {
