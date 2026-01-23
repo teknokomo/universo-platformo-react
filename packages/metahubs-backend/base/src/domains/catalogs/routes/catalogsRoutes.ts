@@ -142,6 +142,9 @@ export function createCatalogsRoutes(
                 if (sortBy === 'name') {
                     valA = a.name['en'] || a.codename
                     valB = b.name['en'] || b.codename
+                } else if (sortBy === 'codename') {
+                    valA = a.codename
+                    valB = b.codename
                 } else if (sortBy === 'updated') {
                     valA = new Date(a.updatedAt).getTime()
                     valB = new Date(b.updatedAt).getTime()
@@ -516,6 +519,9 @@ export function createCatalogsRoutes(
                 if (sortBy === 'name') {
                     valA = a.name['en'] || a.codename
                     valB = b.name['en'] || b.codename
+                } else if (sortBy === 'codename') {
+                    valA = a.codename
+                    valB = b.codename
                 } else if (sortBy === 'updated') {
                     valA = new Date(a.updatedAt).getTime()
                     valB = new Date(b.updatedAt).getTime()

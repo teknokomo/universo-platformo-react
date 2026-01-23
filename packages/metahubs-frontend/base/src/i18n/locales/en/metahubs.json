@@ -19,6 +19,12 @@
             "delete": "Delete",
             "backToList": "Back to metahubs"
         },
+        "codename": "Codename",
+        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+        },
         "board": {
             "title": "Metahub Board",
             "description": "Analytics and statistics for this metahub (in development)",
@@ -189,6 +195,7 @@
         "searchPlaceholder": "Search attributes...",
         "empty": "No attributes yet",
         "emptyDescription": "Add attributes to define the structure of your catalog data",
+        "limitReached": "Limit reached: maximum {{limit}} attributes per catalog. Remove an attribute to add a new one.",
         "create": "Add Attribute",
         "createDialog": {
             "title": "Add Attribute"

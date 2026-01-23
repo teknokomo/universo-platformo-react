@@ -15,7 +15,8 @@ import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
-    sortOrder: z.enum(['asc', 'desc']).default('asc')
+    sortOrder: z.enum(['asc', 'desc']).default('asc'),
+    locale: z.string().trim().min(2).max(10).optional()
 })
 
 const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
@@ -73,6 +74,8 @@ const moveAttributeSchema = z.object({
     direction: z.enum(['up', 'down'])
 })
 
+const ATTRIBUTE_LIMIT = 100
+
 export function createAttributesRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -119,10 +122,13 @@ export function createAttributesRoutes(
                 throw error
             }
 
-            const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+            const { limit, offset, sortBy, sortOrder, search, locale } = validatedQuery
 
             // Fetch all attributes for the catalog (usually small number < 100)
             let items = await attributesService.findAll(metahubId, catalogId)
+
+            const totalAll = items.length
+            const limitReached = totalAll >= ATTRIBUTE_LIMIT
 
             // Calculate total before filtering? Or after?
             // Usually search filters total.
@@ -130,13 +136,53 @@ export function createAttributesRoutes(
             // Search filter
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter(item =>
-                    item.codename.toLowerCase().includes(searchLower) ||
-                    Object.values(item.name || {}).some((v: any) => String(v).toLowerCase().includes(searchLower))
-                )
+                const matchesName = (name: any) => {
+                    if (!name) return false
+                    if (typeof name === 'string') return name.toLowerCase().includes(searchLower)
+                    if (typeof name === 'object') {
+                        if ('locales' in name && name.locales && typeof name.locales === 'object') {
+                            return Object.values(name.locales).some((entry: any) =>
+                                String(entry?.content ?? '').toLowerCase().includes(searchLower)
+                            )
+                        }
+                        return Object.values(name).some((value: any) => String(value ?? '').toLowerCase().includes(searchLower))
+                    }
+                    return false
+                }
+                items = items.filter((item) => item.codename.toLowerCase().includes(searchLower) || matchesName(item.name))
             }
 
             const total = items.length
+
+            const getNameValue = (name: any) => {
+                if (!name) return ''
+                if (typeof name === 'string') return name
+                if (typeof name !== 'object') return String(name)
+
+                const locales = name.locales && typeof name.locales === 'object' ? name.locales : null
+                const primary = typeof name._primary === 'string' ? name._primary : undefined
+
+                const pick = (key?: string) => {
+                    if (!key || !locales) return undefined
+                    const entry = (locales as Record<string, any>)[key]
+                    if (!entry) return undefined
+                    return typeof entry === 'string' ? entry : entry?.content
+                }
+
+                const byLocale = pick(locale)
+                const byPrimary = pick(primary)
+                if (byLocale) return String(byLocale)
+                if (byPrimary) return String(byPrimary)
+
+                if (locales) {
+                    for (const entry of Object.values(locales)) {
+                        const content = typeof entry === 'string' ? entry : (entry as any)?.content
+                        if (content) return String(content)
+                    }
+                }
+
+                return ''
+            }
 
             // Sort
             items.sort((a, b) => {
@@ -144,9 +190,8 @@ export function createAttributesRoutes(
                 let valB: any = b[sortBy as keyof typeof b]
 
                 if (sortBy === 'name') {
-                    // Primitive localization sort
-                    valA = a.name?.['en'] || ''
-                    valB = b.name?.['en'] || ''
+                    valA = getNameValue(a.name)
+                    valB = getNameValue(b.name)
                 } else if (sortBy === 'created') {
                     valA = a.createdAt
                     valB = b.createdAt
@@ -163,7 +208,11 @@ export function createAttributesRoutes(
             // Pagination
             const paginatedItems = items.slice(offset, offset + limit)
 
-            res.json({ items: paginatedItems, pagination: { total, limit, offset } })
+            res.json({
+                items: paginatedItems,
+                pagination: { total, limit, offset },
+                meta: { totalAll, limit: ATTRIBUTE_LIMIT, limitReached }
+            })
         })
     )
 
@@ -208,6 +257,15 @@ export function createAttributesRoutes(
             const catalog = await objectsService.findById(metahubId, catalogId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            const totalAll = await attributesService.countByObjectId(metahubId, catalogId)
+            if (totalAll >= ATTRIBUTE_LIMIT) {
+                return res.status(409).json({
+                    error: 'Attribute limit reached',
+                    code: 'ATTRIBUTE_LIMIT_REACHED',
+                    limit: ATTRIBUTE_LIMIT
+                })
             }
 
             const parsed = createAttributeSchema.safeParse(req.body)

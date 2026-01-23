@@ -115,6 +115,9 @@ export default function MenuContent() {
         <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
             <List dense>
                 {menuItems.map((item, index) => {
+                    if (item.type === 'divider') {
+                        return <Divider key={item.id} sx={{ my: 1 }} />
+                    }
                     const Icon = item.icon
                     const buttonProps = item.external
                         ? { component: 'a', href: item.url, target: item.target ?? '_blank', rel: 'noopener noreferrer' }
@@ -162,6 +165,7 @@ export default function MenuContent() {
                             <Divider sx={{ my: 1 }} />
                             {/* Applications menu items */}
                             {getApplicationsMenuItem().map((item) => {
+                                if (item.type === 'divider') return null
                                 const Icon = item.icon
                                 const isSelected =
                                     location.pathname === item.url ||
@@ -180,6 +184,7 @@ export default function MenuContent() {
                             })}
                             {/* Metahubs menu items */}
                             {getMetahubsMenuItem().map((item) => {
+                                if (item.type === 'divider') return null
                                 const Icon = item.icon
                                 const isSelected =
                                     location.pathname === item.url ||
@@ -201,6 +206,7 @@ export default function MenuContent() {
                                 <>
                                     <Divider sx={{ my: 1 }} />
                                     {getAdminMenuItems().map((item) => {
+                                        if (item.type === 'divider') return null
                                         const Icon = item.icon
                                         const isSelected =
                                             location.pathname === item.url || location.pathname.startsWith('/admin')

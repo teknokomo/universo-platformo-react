@@ -27,16 +27,24 @@ import {
     IconHistory
 } from '@tabler/icons-react'
 
-export interface TemplateMenuItem {
+export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
+
+export interface TemplateMenuEntry {
     id: string
     titleKey: string
     url: string
     icon: ElementType
+    type?: 'item'
     external?: boolean
     target?: string
     chip?: {
         label: string
     }
+}
+
+export interface TemplateMenuDivider {
+    id: string
+    type: 'divider'
 }
 
 // Function to generate unik menu items for a specific unik
@@ -121,31 +129,40 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         id: 'metahub-board',
         titleKey: 'metahubboard',
         url: `/metahub/${metahubId}`,
-        icon: IconBuildingStore
+        icon: IconBuildingStore,
+        type: 'item'
     },
     {
         id: 'metahub-publications',
         titleKey: 'publications',
         url: `/metahub/${metahubId}/publications`,
-        icon: IconApps
-    },
-    {
-        id: 'metahub-hubs',
-        titleKey: 'hubs',
-        url: `/metahub/${metahubId}/hubs`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'metahub-catalogs',
-        titleKey: 'catalogs',
-        url: `/metahub/${metahubId}/catalogs`,
-        icon: IconDatabase
+        icon: IconApps,
+        type: 'item'
     },
     {
         id: 'metahub-access',
         titleKey: 'access',
         url: `/metahub/${metahubId}/access`,
-        icon: IconUsers
+        icon: IconUsers,
+        type: 'item'
+    },
+    {
+        id: 'metahub-divider',
+        type: 'divider'
+    },
+    {
+        id: 'metahub-hubs',
+        titleKey: 'hubs',
+        url: `/metahub/${metahubId}/hubs`,
+        icon: IconHierarchy3,
+        type: 'item'
+    },
+    {
+        id: 'metahub-catalogs',
+        titleKey: 'catalogs',
+        url: `/metahub/${metahubId}/catalogs`,
+        icon: IconDatabase,
+        type: 'item'
     }
 ]
 

@@ -5,6 +5,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import type { AssignableRole } from '@universo/template-mui'
 import type { MetahubLocalizedPayload, SimpleLocalizedInput } from '../../../types'
 import { normalizeLocale } from '../../../utils/localizedInput'
+import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { metahubsQueryKeys } from '../../shared'
 import * as metahubsApi from '../api'
 
@@ -47,6 +48,13 @@ export function useCreateMetahub() {
             const payload: MetahubLocalizedPayload =
                 typeof data.name === 'string'
                     ? {
+                          codename: (() => {
+                              const normalized = sanitizeCodename(data.name)
+                              if (!normalized || !isValidCodename(normalized)) {
+                                  throw new Error(t('validation.codenameInvalid', 'Codename contains invalid characters'))
+                              }
+                              return normalized
+                          })(),
                           name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
                           description: buildLocalizedInput(data.description, locale),
                           namePrimaryLocale: locale,
@@ -77,6 +85,13 @@ export function useUpdateMetahub() {
             const payload: MetahubLocalizedPayload =
                 typeof data.name === 'string'
                     ? {
+                          codename: (() => {
+                              const normalized = sanitizeCodename(data.name)
+                              if (!normalized || !isValidCodename(normalized)) {
+                                  throw new Error(t('validation.codenameInvalid', 'Codename contains invalid characters'))
+                              }
+                              return normalized
+                          })(),
                           name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
                           description: buildLocalizedInput(data.description, locale),
                           namePrimaryLocale: locale,

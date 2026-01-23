@@ -104,12 +104,14 @@ describe('metahubs mutation hooks', () => {
 
         expect(mocks.metahubsApi.createMetahub).toHaveBeenCalledTimes(1)
         expect(mocks.metahubsApi.createMetahub).toHaveBeenCalledWith({
+            codename: 'name',
             name: { en: 'Name' },
             description: { en: 'Desc' },
             namePrimaryLocale: 'en',
             descriptionPrimaryLocale: 'en'
         })
         expect(mocks.metahubsApi.updateMetahub).toHaveBeenCalledWith('m1', {
+            codename: 'name2',
             name: { en: 'Name2' },
             description: undefined,
             namePrimaryLocale: 'en',

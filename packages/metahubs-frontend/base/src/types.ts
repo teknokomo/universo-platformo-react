@@ -71,8 +71,11 @@ export interface MetahubMembersResponse {
 /** Metahub - the root entity containing Hubs and Catalogs */
 export interface Metahub {
     id: string
+    codename: string
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
+    slug?: string
+    isPublic?: boolean
     createdAt: string
     updatedAt: string
     // Aggregated counters
@@ -90,8 +93,11 @@ export interface Metahub {
 /** Metahub with localized strings for table rendering */
 export interface MetahubDisplay {
     id: string
+    codename: string
     name: string
     description: string
+    slug?: string
+    isPublic?: boolean
     createdAt: string
     updatedAt: string
     meta_sectionsCount?: number
@@ -281,6 +287,7 @@ export interface HubRecordDisplay {
 
 /** Payload for creating/updating Metahub */
 export interface MetahubLocalizedPayload {
+    codename: string
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string

@@ -14,7 +14,7 @@ describe('MetahubGuard', () => {
             ResourceGuard
         }))
 
-        const getMetahub = vi.fn().mockResolvedValue({ data: { id: 'm1', name: 'Test' } })
+        const getMetahub = vi.fn().mockResolvedValue({ data: { id: 'm1', codename: 'test', name: 'Test' } })
         vi.doMock('../../domains/metahubs', () => ({
             getMetahub
         }))
@@ -35,7 +35,7 @@ describe('MetahubGuard', () => {
         expect(props.resourceIdParam).toBe('metahubId')
         expect(props.accessDeniedRedirectTo).toBe('/x')
 
-        await expect(props.fetchResource('m1')).resolves.toEqual({ id: 'm1', name: 'Test' })
+        await expect(props.fetchResource('m1')).resolves.toEqual({ id: 'm1', codename: 'test', name: 'Test' })
         expect(getMetahub).toHaveBeenCalledWith('m1')
     })
 })

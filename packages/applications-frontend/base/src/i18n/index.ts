@@ -26,6 +26,10 @@ const consolidateApplicationsNamespace = (bundle: ApplicationsBundle) => {
 
     // Return FLAT structure: spread applicationsRoot at top level
     // This allows t('title') to resolve to 'Applications', not requiring t('applications.title')
+    const applicationsTable = (
+        applicationsRoot?.table && typeof applicationsRoot.table === 'object' ? applicationsRoot.table : {}
+    ) as Record<string, unknown>
+
     return {
         ...applicationsRoot,
         // Merge applications-level actions with top-level actions (e.g., generic backToList)
@@ -33,11 +37,14 @@ const consolidateApplicationsNamespace = (bundle: ApplicationsBundle) => {
             ...applicationsActions,
             ...(bundle?.actions ?? {})
         },
+        table: {
+            ...applicationsTable,
+            ...(bundle?.table ?? {})
+        },
         connectors: bundle?.connectors ?? {},
         migrations: bundle?.migrations ?? {},
         members: bundle?.members ?? {},
         common: bundle?.common ?? {},
-        table: bundle?.table ?? {},
         errors: bundle?.errors ?? {}
     }
 }

@@ -1,10 +1,14 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { Stack, Divider } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Metahub, MetahubDisplay, MetahubLocalizedPayload } from '../../../types'
+import { getVLCString } from '../../../types'
+import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { CodenameField } from '../../../components'
 
 const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>) => {
     const metahubMap = ctx.metahubMap as Map<string, Metahub> | undefined
@@ -15,36 +19,121 @@ const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedP
 
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
-        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback)
+        descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
+        codename: raw?.codename ?? ctx.entity?.codename ?? '',
+        codenameTouched: true
     }
 }
 
 const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>, values: Record<string, any>) => {
+    const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
-        return { nameVlc: ctx.t('common:crud.nameRequired', 'Name is required') }
+        errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
-    return null
+    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const normalizedCodename = sanitizeCodename(rawCodename)
+    if (!normalizedCodename) {
+        errors.codename = ctx.t('validation.codenameRequired', 'Codename is required')
+    } else if (!isValidCodename(normalizedCodename)) {
+        errors.codename = ctx.t('validation.codenameInvalid', 'Codename contains invalid characters')
+    }
+    return Object.keys(errors).length > 0 ? errors : null
 }
 
 const canSaveMetahubForm = (values: Record<string, any>) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    return hasPrimaryContent(nameVlc)
+    const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+    const normalizedCodename = sanitizeCodename(rawCodename)
+    return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
 }
 
 const toPayload = (values: Record<string, any>): MetahubLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+    const codename = sanitizeCodename(String(values.codename || ''))
 
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
 
     return {
+        codename,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
         descriptionPrimaryLocale
     }
+}
+
+const MetahubEditFields = ({
+    values,
+    setValue,
+    isLoading,
+    errors,
+    t,
+    uiLocale
+}: {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    errors?: Record<string, string>
+    t: ActionContext<MetahubDisplay, MetahubLocalizedPayload>['t']
+    uiLocale?: string
+}) => {
+    const fieldErrors = errors ?? {}
+    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+    const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+    const codename = typeof values.codename === 'string' ? values.codename : ''
+    const codenameTouched = Boolean(values.codenameTouched)
+    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
+    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
+    const nextCodename = sanitizeCodename(nameValue)
+
+    useCodenameAutoFill({
+        codename,
+        codenameTouched,
+        nextCodename,
+        nameValue,
+        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    return (
+        <Stack spacing={2}>
+            <LocalizedInlineField
+                mode='localized'
+                label={t('common:fields.name')}
+                required
+                disabled={isLoading}
+                value={values.nameVlc ?? null}
+                onChange={(next) => setValue('nameVlc', next)}
+                error={fieldErrors.nameVlc || null}
+                helperText={fieldErrors.nameVlc}
+                uiLocale={uiLocale as string}
+            />
+            <LocalizedInlineField
+                mode='localized'
+                label={t('common:fields.description')}
+                disabled={isLoading}
+                value={descriptionVlc}
+                onChange={(next) => setValue('descriptionVlc', next)}
+                uiLocale={uiLocale as string}
+                multiline
+                rows={2}
+            />
+            <Divider />
+            <CodenameField
+                value={codename}
+                onChange={(value) => setValue('codename', value)}
+                touched={codenameTouched}
+                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                label={t('codename', 'Codename')}
+                helperText={t('codenameHelper', 'Unique identifier')}
+                error={fieldErrors.codename}
+                disabled={isLoading}
+                required
+            />
+        </Stack>
+    )
 }
 
 const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalizedPayload>[] = [
@@ -72,32 +161,15 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     hideDefaultFields: true,
                     initialExtraValues: initial,
                     extraFields: ({ values, setValue, isLoading, errors }: any) => {
-                        const fieldErrors = errors ?? {}
-                        const Stack = require('@mui/material').Stack
                         return (
-                            <Stack spacing={2}>
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={ctx.t('common:fields.name')}
-                                    required
-                                    disabled={isLoading}
-                                    value={values.nameVlc ?? null}
-                                    onChange={(next) => setValue('nameVlc', next)}
-                                    error={fieldErrors.nameVlc || null}
-                                    helperText={fieldErrors.nameVlc}
-                                    uiLocale={ctx.uiLocale as string}
-                                />
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={ctx.t('common:fields.description')}
-                                    disabled={isLoading}
-                                    value={values.descriptionVlc ?? null}
-                                    onChange={(next) => setValue('descriptionVlc', next)}
-                                    uiLocale={ctx.uiLocale as string}
-                                    multiline
-                                    rows={2}
-                                />
-                            </Stack>
+                            <MetahubEditFields
+                                values={values}
+                                setValue={setValue}
+                                isLoading={isLoading}
+                                errors={errors}
+                                t={ctx.t}
+                                uiLocale={ctx.uiLocale as string}
+                            />
                         )
                     },
                     validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),

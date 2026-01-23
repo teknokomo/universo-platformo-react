@@ -346,7 +346,7 @@ export function createConnectorsRoutes(
                     p.name AS "publication_name",
                     p.description AS "publication_description",
                     p.metahub_id AS "metahubId",
-                    m.slug AS "metahub_codename",
+                    m.codename AS "metahub_codename",
                     m.name AS "metahub_name"
                 FROM applications.connectors_publications cp
                 LEFT JOIN metahubs.publications p ON p.id = cp.publication_id

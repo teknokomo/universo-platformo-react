@@ -98,13 +98,14 @@ export const metahubsQueryKeys = {
     attributes: (metahubId: string, hubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId), 'attributes'] as const,
 
-    attributesList: (metahubId: string, hubId: string, catalogId: string, params?: PaginationParams) => {
+    attributesList: (metahubId: string, hubId: string, catalogId: string, params?: (PaginationParams & { locale?: string })) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            locale: params?.locale
         }
         return [...metahubsQueryKeys.attributes(metahubId, hubId, catalogId), 'list', normalized] as const
     },
@@ -113,13 +114,14 @@ export const metahubsQueryKeys = {
     attributesDirect: (metahubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogDetail(metahubId, catalogId), 'attributes'] as const,
 
-    attributesListDirect: (metahubId: string, catalogId: string, params?: PaginationParams) => {
+    attributesListDirect: (metahubId: string, catalogId: string, params?: (PaginationParams & { locale?: string })) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            locale: params?.locale
         }
         return [...metahubsQueryKeys.attributesDirect(metahubId, catalogId), 'list', normalized] as const
     },

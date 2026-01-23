@@ -1,5 +1,39 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
+## IMPLEMENT (2026-01-23): Metahub Codename + Migration Squash + Menu Order
+
+- [x] Merge metahubs migrations into 1766351182000 (publications, versions, schema_name, codename).
+- [x] Update metahubs-backend for codename (entity, CRUD validation, search, responses) and use metahub codename in publications/available + connectors joins.
+- [x] Update metahubs-frontend for codename (types, create/edit UI, validation, i18n).
+- [x] Add divider support in template-mui side menu and reorder metahub menu sections.
+- [x] Update applications UI/backend display to show metahub codename where UUID was shown.
+- [x] Run targeted builds/tests and update memory-bank progress/active context.
+
+## IMPLEMENT (2026-01-23): Metahub UI Tweaks + Attribute Search + Records Ordering
+
+- [x] Add divider above Metahub codename field in create/edit dialogs (match Catalog UI).
+- [x] Metahub list table: remove "Catalogs" column, add sortable "Codename" as 3rd column.
+- [x] Attribute search should match localized name as well as codename.
+- [x] Records table columns should follow attribute sortOrder left-to-right.
+- [x] Run targeted builds/tests and update memory-bank progress/active context.
+
+## IMPLEMENT (2026-01-23): Attributes Limit + Locale Sort + Pagination Banner
+
+- [x] Enforce 100-attribute limit per catalog in backend create endpoint.
+- [x] Add attributes list meta (totalAll/limit/limitReached) and locale-aware name sorting.
+- [x] Pass locale to attribute list queries and include in query keys.
+- [x] Add attribute count query for limitReached and disable Add button at 100.
+- [x] Render info banner when limit reached; add i18n keys (EN/RU).
+- [x] Run metahubs-backend and metahubs-frontend builds.
+
+## IMPLEMENT (2026-01-23): PR Review Fixes (Attributes + RLS + Memory Bank)
+
+- [x] Remove extra attributes count query by exposing meta in usePaginated.
+- [x] Pass limit param in limitReached error and use meta limit in banner.
+- [x] Avoid extra COUNT in attributes list (use items length for totalAll).
+- [x] Add WITH CHECK to publication_versions RLS policy.
+- [x] Normalize activeContext.md to single Current Focus block.
+- [x] Run template-mui, metahubs-backend, metahubs-frontend builds.
 ## IMPLEMENT (2026-01-23): Publication Snapshots + App System Tables
 
 - [x] Replace `_sys_*` with `_app_*` in schema-ddl (generator/migrator/manager/types/tests).

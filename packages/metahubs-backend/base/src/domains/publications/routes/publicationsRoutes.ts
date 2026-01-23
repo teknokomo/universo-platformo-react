@@ -115,7 +115,7 @@ export function createPublicationsRoutes(
                     p.description,
                     p.created_at as "createdAt",
                     m.id as "metahubId",
-                    COALESCE(m.slug, m.id::text) as "metahubCodename",
+                    COALESCE(m.codename, m.slug, m.id::text) as "metahubCodename",
                     m.name as "metahubName"
                 FROM metahubs.publications p
                 JOIN metahubs.metahubs m ON m.id = p.metahub_id

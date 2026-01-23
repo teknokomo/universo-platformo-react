@@ -11,6 +11,7 @@ import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } fr
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
@@ -164,7 +165,7 @@ export function createMetahubsRoutes(
             // Search - search in JSONB name and description fields
             if (search) {
                 qb = qb.andWhere(
-                    "(m.name::text ILIKE :search OR COALESCE(m.description::text, '') ILIKE :search OR COALESCE(m.slug, '') ILIKE :search)",
+                    "(m.name::text ILIKE :search OR COALESCE(m.description::text, '') ILIKE :search OR COALESCE(m.slug, '') ILIKE :search OR COALESCE(m.codename, '') ILIKE :search)",
                     { search: `%${search}%` }
                 )
             }
@@ -173,9 +174,11 @@ export function createMetahubsRoutes(
             const orderColumn =
                 sortBy === 'name'
                     ? "COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')"
-                    : sortBy === 'created'
-                        ? 'm.created_at'
-                        : 'm.updated_at'
+                    : sortBy === 'codename'
+                        ? 'm.codename'
+                        : sortBy === 'created'
+                            ? 'm.created_at'
+                            : 'm.updated_at'
             qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
             // Pagination
@@ -225,6 +228,7 @@ export function createMetahubsRoutes(
                     id: m.id,
                     name: m.name,
                     description: m.description,
+                    codename: m.codename,
                     slug: m.slug,
                     isPublic: m.isPublic,
                     createdAt: m.createdAt,
@@ -284,6 +288,7 @@ export function createMetahubsRoutes(
                 id: metahub.id,
                 name: metahub.name,
                 description: metahub.description,
+                codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 createdAt: metahub.createdAt,
@@ -319,6 +324,7 @@ export function createMetahubsRoutes(
                 description: optionalLocalizedInputSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
+                codename: z.string().min(1).max(100),
                 slug: z
                     .string()
                     .min(1)
@@ -334,6 +340,19 @@ export function createMetahubsRoutes(
             }
 
             const { metahubRepo, metahubUserRepo, schemaService } = repos(req)
+
+            const normalizedCodename = normalizeCodename(result.data.codename)
+            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                return res.status(400).json({
+                    error: 'Invalid input',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
+
+            const existingCodename = await metahubRepo.findOne({ where: { codename: normalizedCodename } })
+            if (existingCodename) {
+                return res.status(409).json({ error: 'Codename already in use' })
+            }
 
             // Check slug uniqueness if provided
             if (result.data.slug) {
@@ -368,6 +387,7 @@ export function createMetahubsRoutes(
             const metahub = metahubRepo.create({
                 name: nameVlc,
                 description: descriptionVlc,
+                codename: normalizedCodename,
                 slug: result.data.slug,
                 isPublic: result.data.isPublic ?? false
             })
@@ -388,6 +408,7 @@ export function createMetahubsRoutes(
                 id: metahub.id,
                 name: metahub.name,
                 description: metahub.description,
+                codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 createdAt: metahub.createdAt,
@@ -428,6 +449,7 @@ export function createMetahubsRoutes(
                 description: optionalLocalizedInputSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
+                codename: z.string().min(1).max(100).optional(),
                 slug: z
                     .string()
                     .min(1)
@@ -445,6 +467,21 @@ export function createMetahubsRoutes(
 
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
+
+            if (result.data.codename !== undefined && result.data.codename !== metahub.codename) {
+                const normalizedCodename = normalizeCodename(result.data.codename)
+                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                    return res.status(400).json({
+                        error: 'Invalid input',
+                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    })
+                }
+                const existingCodename = await metahubRepo.findOne({ where: { codename: normalizedCodename } })
+                if (existingCodename && existingCodename.id !== metahubId) {
+                    return res.status(409).json({ error: 'Codename already in use' })
+                }
+                metahub.codename = normalizedCodename
+            }
 
             // Check slug uniqueness if changing
             if (result.data.slug !== undefined && result.data.slug !== metahub.slug) {
@@ -492,6 +529,7 @@ export function createMetahubsRoutes(
                 id: metahub.id,
                 name: metahub.name,
                 description: metahub.description,
+                codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 createdAt: metahub.createdAt,

@@ -7,6 +7,7 @@ import {
     Typography,
     Chip,
     Divider,
+    Alert,
     ToggleButtonGroup,
     ToggleButton,
     FormControl,
@@ -19,6 +20,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
+import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -215,21 +217,29 @@ const AttributeList = () => {
     // hubId is optional - attributes belong to catalog directly
     const canLoadAttributes = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
 
+    const attributesLimit = 100
+
     // Use paginated hook for attributes list
     const paginationResult = usePaginated<Attribute, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn:
             metahubId && catalogId
                 ? (params) =>
                       effectiveHubId
-                          ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, params)
-                          : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, params)
+                          ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, {
+                                ...params,
+                                locale: i18n.language
+                            })
+                          : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { ...params, locale: i18n.language })
                 : () => ['empty'],
         queryFn:
             metahubId && catalogId
                 ? (params) =>
                       effectiveHubId
-                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, params)
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, params)
+                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, {
+                                ...params,
+                                locale: i18n.language
+                            })
+                          : attributesApi.listAttributesDirect(metahubId, catalogId, { ...params, locale: i18n.language })
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
@@ -239,6 +249,11 @@ const AttributeList = () => {
 
     const { data: attributes, isLoading, error } = paginationResult
     // usePaginated already extracts items array, so data IS the array
+
+    const attributesMeta = paginationResult.meta as { totalAll?: number; limit?: number; limitReached?: boolean } | undefined
+    const limitValue = attributesMeta?.limit ?? attributesLimit
+    const totalAttributes = attributesMeta?.totalAll ?? paginationResult.pagination.totalItems
+    const limitReached = attributesMeta?.limitReached ?? totalAttributes >= limitValue
 
     // Instant search for better UX
     const { searchValue, handleSearchChange } = useDebouncedSearch({
@@ -611,9 +626,13 @@ const AttributeList = () => {
             await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
             handleDialogSave()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseData =
+                e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data : undefined
+            const responseMessage = responseData?.message
             const message =
-                typeof responseMessage === 'string'
+                responseData?.code === 'ATTRIBUTE_LIMIT_REACHED'
+                    ? t('attributes.limitReached', { limit: responseData?.limit ?? limitValue })
+                    : typeof responseMessage === 'string'
                     ? responseMessage
                     : e instanceof Error
                     ? e.message
@@ -686,10 +705,25 @@ const AttributeList = () => {
                             primaryAction={{
                                 label: tc('addNew'),
                                 onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
+                                startIcon: <AddRoundedIcon />,
+                                disabled: limitReached
                             }}
                         />
                     </ViewHeader>
+
+                    {limitReached && (
+                        <Alert
+                            severity='info'
+                            icon={<InfoIcon />}
+                            sx={{
+                                mx: { xs: -1.5, md: -2 },
+                                mt: 0,
+                                mb: 2
+                            }}
+                        >
+                            {t('attributes.limitReached', { limit: limitValue })}
+                        </Alert>
+                    )}
 
                     {isLoading && attributes.length === 0 ? (
                         <Skeleton variant='rectangular' height={120} />

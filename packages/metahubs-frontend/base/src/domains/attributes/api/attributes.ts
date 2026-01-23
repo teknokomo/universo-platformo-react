@@ -1,6 +1,10 @@
 import { apiClient } from '../../shared'
 import { Attribute, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../../../types'
 
+type AttributesListParams = PaginationParams & { locale?: string }
+type AttributesListMeta = { totalAll?: number; limit?: number; limitReached?: boolean }
+type AttributesListResponse = PaginatedResponse<Attribute> & { meta?: AttributesListMeta }
+
 /**
  * List attributes for a specific catalog
  */
@@ -8,9 +12,13 @@ export const listAttributes = async (
     metahubId: string,
     hubId: string,
     catalogId: string,
-    params?: PaginationParams
-): Promise<PaginatedResponse<Attribute>> => {
-    const response = await apiClient.get<{ items: Attribute[]; pagination: { total: number; limit: number; offset: number } }>(
+    params?: AttributesListParams
+): Promise<AttributesListResponse> => {
+    const response = await apiClient.get<{
+        items: Attribute[]
+        pagination: { total: number; limit: number; offset: number }
+        meta?: AttributesListMeta
+    }>(
         `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attributes`,
         {
             params: {
@@ -18,7 +26,8 @@ export const listAttributes = async (
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                locale: params?.locale
             }
         }
     )
@@ -33,7 +42,8 @@ export const listAttributes = async (
             count: response.data.items?.length ?? 0,
             total: backendPagination?.total ?? 0,
             hasMore: (backendPagination?.offset ?? 0) + (response.data.items?.length ?? 0) < (backendPagination?.total ?? 0)
-        }
+        },
+        meta: response.data.meta
     }
 }
 
@@ -96,9 +106,13 @@ export const moveAttribute = (metahubId: string, hubId: string, catalogId: strin
 export const listAttributesDirect = async (
     metahubId: string,
     catalogId: string,
-    params?: PaginationParams
-): Promise<PaginatedResponse<Attribute>> => {
-    const response = await apiClient.get<{ items: Attribute[]; pagination: { total: number; limit: number; offset: number } }>(
+    params?: AttributesListParams
+): Promise<AttributesListResponse> => {
+    const response = await apiClient.get<{
+        items: Attribute[]
+        pagination: { total: number; limit: number; offset: number }
+        meta?: AttributesListMeta
+    }>(
         `/metahub/${metahubId}/catalog/${catalogId}/attributes`,
         {
             params: {
@@ -106,7 +120,8 @@ export const listAttributesDirect = async (
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                locale: params?.locale
             }
         }
     )
@@ -120,7 +135,8 @@ export const listAttributesDirect = async (
             count: response.data.items?.length ?? 0,
             total: backendPagination?.total ?? 0,
             hasMore: (backendPagination?.offset ?? 0) + (response.data.items?.length ?? 0) < (backendPagination?.total ?? 0)
-        }
+        },
+        meta: response.data.meta
     }
 }
 
