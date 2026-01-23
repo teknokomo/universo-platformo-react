@@ -26,6 +26,7 @@ export {
     generateColumnName,
     buildFkConstraintName,
     isValidSchemaName,
+    generateMetahubSchemaName,
 } from './naming'
 
 // Locking utilities

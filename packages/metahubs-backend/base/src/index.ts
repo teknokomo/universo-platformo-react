@@ -2,10 +2,6 @@
 export { metahubsEntities } from './database/entities/index'
 export { Metahub } from './database/entities/Metahub'
 export { MetahubUser } from './database/entities/MetahubUser'
-export { Hub } from './database/entities/Hub'
-export { Catalog } from './database/entities/Catalog'
-export { Attribute, AttributeDataType } from './database/entities/Attribute'
-export { HubRecord } from './database/entities/Record'
 export { Publication, PublicationAccessMode, PublicationSchemaStatus } from './database/entities/Publication'
 
 // Route exports
@@ -19,7 +15,7 @@ export { createApplicationMigrationsRoutes } from './domains/applications/routes
 export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './domains/router'
 
 // Guard exports
-export { ensureMetahubAccess, ensureHubAccess, ensureCatalogAccess, ensureAttributeAccess, assertNotOwner } from './domains/shared/guards'
+export { ensureMetahubAccess, ensureHubAccess, assertNotOwner } from './domains/shared/guards'
 
 // Migration exports
 export { metahubsMigrations } from './database/migrations/postgres'

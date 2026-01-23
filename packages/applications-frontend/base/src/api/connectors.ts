@@ -76,7 +76,7 @@ export interface SchemaDiffResponse {
  * Sync response
  */
 export interface SchemaSyncResponse {
-    status: 'created' | 'synced' | 'migrated' | 'pending_confirmation'
+    status: 'created' | 'synced' | 'migrated' | 'pending_confirmation' | 'no_changes'
     schemaName?: string
     tablesCreated?: string[]
     changesApplied?: number

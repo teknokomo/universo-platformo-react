@@ -312,6 +312,8 @@
         "latest": "Latest",
         "destructive": "Destructive",
         "summary": "Summary",
+        "seedWarningsTitle": "Seed warnings",
+        "seedWarningsIndicator": "Seed warnings detected",
         "loadError": "Failed to load migrations",
         "currentState": "Current schema state",
         "rollbackTo": "Rollback to this migration",

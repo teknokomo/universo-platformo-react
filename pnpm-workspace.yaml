@@ -72,6 +72,7 @@ catalog:
     dayjs: ^1.11.18
     axios: 1.13.2
     '@justrelate/slugify': ^1.0.1
+    json-stable-stringify: ^1.0.0
     
     # Rate limiting - updated to latest stable
     express-rate-limit: ^8.2.0

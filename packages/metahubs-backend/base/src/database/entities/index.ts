@@ -1,32 +1,22 @@
 import { Metahub } from './Metahub'
 import { MetahubUser } from './MetahubUser'
-import { Hub } from './Hub'
-import { Catalog } from './Catalog'
-import { CatalogHub } from './CatalogHub'
-import { Attribute } from './Attribute'
-import { HubRecord } from './Record'
 import { Publication } from './Publication'
+import { PublicationVersion } from './PublicationVersion'
 
-// Export all metahubs entities as array for TypeORM registration
+export * from './Metahub'
+export * from './MetahubUser'
+export * from './Publication'
+export * from './PublicationVersion'
+
+/**
+ * TypeORM entities for the metahubs schema.
+ *
+ * Note: Hub entity was removed. Hubs are now stored in isolated schemas
+ * as records in _mhb_objects table with kind='HUB'.
+ */
 export const metahubsEntities = [
     Metahub,
     MetahubUser,
-    Hub,
-    Catalog,
-    CatalogHub,
-    Attribute,
-    HubRecord,
-    Publication
+    Publication,
+    PublicationVersion
 ]
-
-// Re-export individual entities
-export { Metahub } from './Metahub'
-export { MetahubUser } from './MetahubUser'
-export { Hub } from './Hub'
-export { Catalog } from './Catalog'
-export { CatalogHub } from './CatalogHub'
-export { Attribute, AttributeDataType } from './Attribute'
-export type { AttributeValidation, AttributeUIConfig } from './Attribute'
-export { HubRecord } from './Record'
-export { Publication, PublicationAccessMode, PublicationSchemaStatus } from './Publication'
-

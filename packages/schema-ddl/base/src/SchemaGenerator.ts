@@ -17,12 +17,19 @@ import type { SchemaDiff } from './diff'
  * Options for generateFullSchema method
  */
 export interface GenerateFullSchemaOptions {
-    /** Record initial migration in _sys_migrations table */
+    /** Record initial migration in _app_migrations table */
     recordMigration?: boolean
     /** Description for migration name generation */
     migrationDescription?: string
     /** MigrationManager instance for recording migrations (required if recordMigration is true) */
     migrationManager?: MigrationManager
+    /** Optional metadata to store in migration record */
+    migrationMeta?: Pick<
+        import('./types').MigrationMeta,
+        'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
+    >
+    /** Optional Metahub snapshot stored separately from meta */
+    publicationSnapshot?: Record<string, unknown> | null
 }
 
 /**
@@ -139,7 +146,9 @@ export class SchemaGenerator {
                         null, // snapshotBefore
                         snapshot,
                         initialDiff,
-                        trx
+                        trx,
+                        options.migrationMeta,
+                        options.publicationSnapshot ?? null
                     )
                 }
             })
@@ -224,8 +233,8 @@ export class SchemaGenerator {
 
     public async systemTablesExist(schemaName: string): Promise<boolean> {
         const knex = this.knex
-        const hasObjects = await knex.schema.withSchema(schemaName).hasTable('_sys_objects')
-        const hasAttributes = await knex.schema.withSchema(schemaName).hasTable('_sys_attributes')
+        const hasObjects = await knex.schema.withSchema(schemaName).hasTable('_app_objects')
+        const hasAttributes = await knex.schema.withSchema(schemaName).hasTable('_app_attributes')
         return hasObjects && hasAttributes
     }
 
@@ -236,12 +245,12 @@ export class SchemaGenerator {
 
         // IMPORTANT: Do NOT reuse SchemaBuilder object - create fresh one for each operation
         // Knex SchemaBuilder accumulates state and can cause "relation already exists" errors
-        const hasObjects = await knex.schema.withSchema(schemaName).hasTable('_sys_objects')
-        console.log(`[SchemaGenerator] _sys_objects exists: ${hasObjects}`)
+        const hasObjects = await knex.schema.withSchema(schemaName).hasTable('_app_objects')
+        console.log(`[SchemaGenerator] _app_objects exists: ${hasObjects}`)
 
         if (!hasObjects) {
-            console.log(`[SchemaGenerator] Creating _sys_objects...`)
-            await knex.schema.withSchema(schemaName).createTable('_sys_objects', (table) => {
+            console.log(`[SchemaGenerator] Creating _app_objects...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_objects', (table) => {
                 table.uuid('id').primary()
                 table.string('kind', 20).notNullable()
                 table.string('codename', 100).notNullable()
@@ -253,15 +262,15 @@ export class SchemaGenerator {
                 table.unique(['kind', 'codename'])
                 table.unique(['table_name'])
             })
-            console.log(`[SchemaGenerator] _sys_objects created`)
+            console.log(`[SchemaGenerator] _app_objects created`)
         }
 
-        const hasAttributes = await knex.schema.withSchema(schemaName).hasTable('_sys_attributes')
-        console.log(`[SchemaGenerator] _sys_attributes exists: ${hasAttributes}`)
+        const hasAttributes = await knex.schema.withSchema(schemaName).hasTable('_app_attributes')
+        console.log(`[SchemaGenerator] _app_attributes exists: ${hasAttributes}`)
 
         if (!hasAttributes) {
-            console.log(`[SchemaGenerator] Creating _sys_attributes...`)
-            await knex.schema.withSchema(schemaName).createTable('_sys_attributes', (table) => {
+            console.log(`[SchemaGenerator] Creating _app_attributes...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_attributes', (table) => {
                 table.uuid('id').primary()
                 table.uuid('object_id').notNullable()
                 table.string('codename', 100).notNullable()
@@ -278,32 +287,33 @@ export class SchemaGenerator {
                 table
                     .foreign('object_id')
                     .references('id')
-                    .inTable(`${schemaName}._sys_objects`)
+                    .inTable(`${schemaName}._app_objects`)
                     .onDelete('CASCADE')
                 table
                     .foreign('target_object_id')
                     .references('id')
-                    .inTable(`${schemaName}._sys_objects`)
+                    .inTable(`${schemaName}._app_objects`)
                     .onDelete('SET NULL')
                 table.unique(['object_id', 'codename'])
                 table.unique(['object_id', 'column_name'])
             })
-            console.log(`[SchemaGenerator] _sys_attributes created`)
+            console.log(`[SchemaGenerator] _app_attributes created`)
         }
 
-        const hasMigrations = await knex.schema.withSchema(schemaName).hasTable('_sys_migrations')
-        console.log(`[SchemaGenerator] _sys_migrations exists: ${hasMigrations}`)
+        const hasMigrations = await knex.schema.withSchema(schemaName).hasTable('_app_migrations')
+        console.log(`[SchemaGenerator] _app_migrations exists: ${hasMigrations}`)
 
         if (!hasMigrations) {
-            console.log(`[SchemaGenerator] Creating _sys_migrations...`)
-            await knex.schema.withSchema(schemaName).createTable('_sys_migrations', (table) => {
+            console.log(`[SchemaGenerator] Creating _app_migrations...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_migrations', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
                 table.string('name', 255).notNullable()
                 table.timestamp('applied_at').notNullable().defaultTo(knex.fn.now())
                 table.jsonb('meta').notNullable().defaultTo('{}')
+                table.jsonb('publication_snapshot').nullable()
                 table.unique(['name'])
             })
-            console.log(`[SchemaGenerator] _sys_migrations created`)
+            console.log(`[SchemaGenerator] _app_migrations created`)
         }
 
         console.log(`[SchemaGenerator] System tables ensured in schema: ${schemaName}`)
@@ -334,7 +344,7 @@ export class SchemaGenerator {
         if (objectRows.length > 0) {
             await knex
                 .withSchema(schemaName)
-                .table('_sys_objects')
+                .table('_app_objects')
                 .insert(objectRows)
                 .onConflict('id')
                 .merge(['kind', 'codename', 'table_name', 'presentation', 'config', 'updated_at'])
@@ -360,7 +370,7 @@ export class SchemaGenerator {
         if (attributeRows.length > 0) {
             await knex
                 .withSchema(schemaName)
-                .table('_sys_attributes')
+                .table('_app_attributes')
                 .insert(attributeRows)
                 .onConflict('id')
                 .merge([
@@ -381,14 +391,14 @@ export class SchemaGenerator {
             const entityIds = entities.map((entity) => entity.id)
             const attributeIds = entities.flatMap((entity) => entity.fields.map((field) => field.id))
 
-            const attributesTable = knex.withSchema(schemaName).table('_sys_attributes')
+            const attributesTable = knex.withSchema(schemaName).table('_app_attributes')
             if (attributeIds.length > 0) {
                 await attributesTable.whereNotIn('id', attributeIds).del()
             } else {
                 await attributesTable.del()
             }
 
-            const objectsTable = knex.withSchema(schemaName).table('_sys_objects')
+            const objectsTable = knex.withSchema(schemaName).table('_app_objects')
             if (entityIds.length > 0) {
                 await objectsTable.whereNotIn('id', entityIds).del()
             } else {

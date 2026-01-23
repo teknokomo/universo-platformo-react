@@ -4,10 +4,7 @@ import { MetahubRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
 import { MetahubUser } from '../../database/entities/MetahubUser'
-import { Hub } from '../../database/entities/Hub'
-import { Catalog } from '../../database/entities/Catalog'
-import { CatalogHub } from '../../database/entities/CatalogHub'
-import { Attribute } from '../../database/entities/Attribute'
+// Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
 
 // Handle both ESM and CJS imports
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,12 +78,12 @@ const baseGuards = createAccessGuards<MetahubRole, MetahubUser>({
     isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleCodenameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
-        ({
-            user_id: userId,
-            metahub_id: entityId,
-            role: 'owner', // Global admins get owner-level access
-            created_at: new Date()
-        } as MetahubUser)
+    ({
+        user_id: userId,
+        metahub_id: entityId,
+        role: 'owner', // Global admins get owner-level access
+        created_at: new Date()
+    } as MetahubUser)
 })
 
 // Re-export base guards
@@ -160,27 +157,53 @@ export function assertNotOwner(membership: MetahubUser, operation: 'modify' | 'r
     }
 }
 
-// ============ HUB & ATTRIBUTE ACCESS GUARDS ============
+// ============ HUB ACCESS GUARDS ============
+
+/**
+ * Hub data shape returned from _mhb_objects table with kind='HUB'
+ */
+export interface HubData {
+    id: string
+    codename: string
+    name: Record<string, unknown>
+    description: Record<string, unknown> | null
+    sort_order: number
+    created_at: Date
+    updated_at: Date
+}
 
 export interface HubAccessContext extends MetahubMembershipContext {
-    hub: Hub
+    hub: HubData
 }
 
 /**
- * Ensure user has access to a Hub through its parent Metahub
- * In the new model, Hub directly belongs to one Metahub via FK
+ * Ensure user has access to a Hub through its parent Metahub.
+ *
+ * NOTE: This function requires knowning the metahubId in advance.
+ * For routes that receive hubId without metahubId, the route handler
+ * should use MetahubHubsService directly after ensureMetahubAccess.
  */
 export async function ensureHubAccess(
     ds: DataSource,
     userId: string,
+    metahubId: string,
     hubId: string,
     permission?: RolePermission,
     queryRunner?: QueryRunner
 ): Promise<HubAccessContext> {
-    const hubRepo = getManager(ds, queryRunner).getRepository(Hub)
-    const hub = await hubRepo.findOne({ where: { id: hubId } })
+    // First check metahub access
+    const context = await ensureMetahubAccess(ds, userId, metahubId, permission, queryRunner)
 
-    if (!hub) {
+    // Import dynamically to avoid circular dependencies
+    const { MetahubSchemaService } = await import('../metahubs/services/MetahubSchemaService.js')
+    const { MetahubHubsService } = await import('../metahubs/services/MetahubHubsService.js')
+
+    const schemaService = new MetahubSchemaService(ds)
+    const hubsService = new MetahubHubsService(schemaService)
+
+    const hubData = await hubsService.findById(metahubId, hubId)
+
+    if (!hubData) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
             userId,
@@ -191,114 +214,24 @@ export async function ensureHubAccess(
         throw createError(404, 'Hub not found')
     }
 
-    // Check access to the parent metahub
-    const context = await ensureMetahubAccess(ds, userId, hub.metahubId, permission, queryRunner)
+    // Map service response to HubData interface
+    const hub: HubData = {
+        id: hubData.id as string,
+        codename: hubData.codename as string,
+        name: hubData.name as Record<string, unknown>,
+        description: hubData.description as Record<string, unknown> | null,
+        sort_order: hubData.sort_order as number,
+        created_at: hubData.created_at as Date,
+        updated_at: hubData.updated_at as Date
+    }
 
     return { ...context, hub }
 }
 
-export interface CatalogAccessContext extends MetahubMembershipContext {
-    catalog: Catalog
-    hub?: Hub
-}
-
-/**
- * Ensure user has access to a Catalog through its parent Metahub
- * In the new model, Catalog → Metahub (with optional Hub association)
- */
-export async function ensureCatalogAccess(
-    ds: DataSource,
-    userId: string,
-    catalogId: string,
-    permission?: RolePermission,
-    hubId?: string,
-    queryRunner?: QueryRunner
-): Promise<CatalogAccessContext> {
-    const manager = getManager(ds, queryRunner)
-    const catalogRepo = manager.getRepository(Catalog)
-    const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
-
-    if (!catalog) {
-        console.warn('[SECURITY] Permission denied', {
-            timestamp: new Date().toISOString(),
-            userId,
-            catalogId,
-            action: permission || 'access',
-            reason: 'catalog_not_found'
-        })
-        throw createError(404, 'Catalog not found')
-    }
-
-    // If hubId is provided, verify the catalog is associated with that hub
-    if (hubId) {
-        const catalogHubRepo = manager.getRepository(CatalogHub)
-        const catalogHub = await catalogHubRepo.findOne({ where: { catalogId, hubId } })
-        if (!catalogHub) {
-            console.warn('[SECURITY] Permission denied', {
-                timestamp: new Date().toISOString(),
-                userId,
-                catalogId,
-                hubId,
-                action: permission || 'access',
-                reason: 'catalog_not_in_hub'
-            })
-            throw createError(404, 'Catalog not found in this hub')
-        }
-    }
-
-    // Check access through metahub
-    const metahubContext = await ensureMetahubAccess(ds, userId, catalog.metahubId, permission, queryRunner)
-
-    // Optionally load hub if provided
-    let hub: Hub | undefined
-    if (hubId) {
-        const hubRepo = manager.getRepository(Hub)
-        const foundHub = await hubRepo.findOne({ where: { id: hubId } })
-        if (foundHub) {
-            hub = foundHub
-        }
-    }
-
-    return { ...metahubContext, catalog, hub }
-}
-
-export interface AttributeAccessContext extends MetahubMembershipContext {
-    attribute: Attribute
-    catalog: Catalog
-    hub?: Hub
-}
-
-/**
- * Ensure user has access to an Attribute through its parent Catalog → Metahub chain
- * In the new model, Attribute → Catalog → Metahub
- */
-export async function ensureAttributeAccess(
-    ds: DataSource,
-    userId: string,
-    attributeId: string,
-    permission?: RolePermission,
-    hubId?: string,
-    queryRunner?: QueryRunner
-): Promise<AttributeAccessContext> {
-    const attributeRepo = getManager(ds, queryRunner).getRepository(Attribute)
-    const attribute = await attributeRepo.findOne({ where: { id: attributeId } })
-
-    if (!attribute) {
-        console.warn('[SECURITY] Permission denied', {
-            timestamp: new Date().toISOString(),
-            userId,
-            attributeId,
-            action: permission || 'access',
-            reason: 'attribute_not_found'
-        })
-        throw createError(404, 'Attribute not found')
-    }
-
-    // Check access through catalog
-    const catalogContext = await ensureCatalogAccess(ds, userId, attribute.catalogId, permission, hubId, queryRunner)
-
-    return { ...catalogContext, attribute, catalog: catalogContext.catalog, hub: catalogContext.hub }
-}
+// REMOVED Catalog / Attribute guards as they depended on removed entities.
+// Access control for dynamic schema objects is handled by MetahubObjectsService logic (using ensureMetahubAccess + manual checks if needed)
+// Or by route handlers using ensureMetahubAccess and then checking association.
 
 // Suppress unused variable warning for createError (used in assertNotOwner)
 void createError
+

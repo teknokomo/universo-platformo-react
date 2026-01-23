@@ -27,6 +27,7 @@ export {
     calculateSchemaDiff,
     ChangeType,
     generateMigrationName,
+    generateMetahubSchemaName,
 } from '@universo/schema-ddl'
 
 // Re-export types from @universo/schema-ddl

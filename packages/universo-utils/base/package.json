@@ -77,6 +77,7 @@
         "rate-limit-redis": "catalog:",
         "ioredis": "catalog:",
         "async-mutex": "catalog:",
+        "json-stable-stringify": "catalog:",
         "zod": "3.25.76",
         "uuidv7": "catalog:"
     },

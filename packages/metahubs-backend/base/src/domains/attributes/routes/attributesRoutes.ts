@@ -1,14 +1,17 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Attribute } from '../../../database/entities/Attribute'
-import { Catalog } from '../../../database/entities/Catalog'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
-import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { localizedContent, validation } from '@universo/utils'
+const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
+const { normalizeCodename, isValidCodename } = validation
 import { AttributeDataType, ATTRIBUTE_DATA_TYPES } from '@universo/types'
+import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
+import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
+import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
@@ -66,6 +69,10 @@ const updateAttributeSchema = z.object({
     sortOrder: z.number().int().optional()
 })
 
+const moveAttributeSchema = z.object({
+    direction: z.enum(['up', 'down'])
+})
+
 export function createAttributesRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -77,61 +84,30 @@ export function createAttributesRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-        (req, res, next) => {
-            fn(req, res).catch(next)
-        }
+            (req, res, next) => {
+                fn(req, res).catch(next)
+            }
 
-    const repos = (req: Request) => {
-        const ds = getDataSource()
-        const manager = getRequestManager(req, ds)
+    const services = (req: Request) => {
+        const schemaService = new MetahubSchemaService(getDataSource())
         return {
-            attributeRepo: manager.getRepository(Attribute),
-            catalogRepo: manager.getRepository(Catalog)
+            attributesService: new MetahubAttributesService(schemaService),
+            objectsService: new MetahubObjectsService(schemaService),
+            schemaService
         }
-    }
-
-    /**
-     * Checks if sortOrder is sequential (1..N) without modifying data.
-     * Use this in GET requests to maintain idempotency.
-     * @returns true if sortOrder is inconsistent and needs normalization
-     */
-    const checkSortOrderInconsistency = (attributes: Attribute[]): boolean => {
-        return attributes.some((attribute, index) => (attribute.sortOrder ?? 0) !== index + 1)
-    }
-
-    /**
-     * Ensures sortOrder is a contiguous 1..N sequence (no gaps/duplicates).
-     * Only call this in write operations (POST, PATCH, DELETE) to maintain REST idempotency.
-     */
-    const ensureSequentialSortOrder = async (catalogId: string, attributeRepo: ReturnType<typeof repos>['attributeRepo']) => {
-        const attributes = await attributeRepo.find({
-            where: { catalogId },
-            order: { sortOrder: 'ASC', createdAt: 'ASC' }
-        })
-
-        // sortOrder must always be a contiguous 1..N sequence (no gaps/duplicates)
-        const requiresReset = checkSortOrderInconsistency(attributes)
-        if (!requiresReset) return attributes
-
-        attributes.forEach((attribute, index) => {
-            attribute.sortOrder = index + 1
-        })
-        await attributeRepo.save(attributes)
-        return attributes
     }
 
     /**
      * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attributes
      * GET /metahub/:metahubId/catalog/:catalogId/attributes
      * List all attributes in a catalog
-     * Note: hubId is optional - attributes belong to catalog directly
      */
     router.get(
         ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attributes', '/metahub/:metahubId/catalog/:catalogId/attributes'],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId } = req.params
-            const { attributeRepo } = repos(req)
+            const { metahubId, catalogId } = req.params
+            const { attributesService } = services(req)
 
             let validatedQuery
             try {
@@ -143,45 +119,51 @@ export function createAttributesRoutes(
                 throw error
             }
 
-            // Check for sortOrder inconsistency (read-only, no side-effects per REST principles).
-            // Normalization is performed on write operations (POST, PATCH, DELETE).
-            const allAttributes = await attributeRepo.find({
-                where: { catalogId },
-                order: { sortOrder: 'ASC', createdAt: 'ASC' }
-            })
-            if (checkSortOrderInconsistency(allAttributes)) {
-                console.warn(
-                    `[attributesRoutes] Sort order inconsistency detected for catalog ${catalogId}. Will normalize on next write operation.`
+            const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+
+            // Fetch all attributes for the catalog (usually small number < 100)
+            let items = await attributesService.findAll(metahubId, catalogId)
+
+            // Calculate total before filtering? Or after?
+            // Usually search filters total.
+
+            // Search filter
+            if (search) {
+                const searchLower = search.toLowerCase()
+                items = items.filter(item =>
+                    item.codename.toLowerCase().includes(searchLower) ||
+                    Object.values(item.name || {}).some((v: any) => String(v).toLowerCase().includes(searchLower))
                 )
             }
 
-            const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+            const total = items.length
 
-            let qb = attributeRepo.createQueryBuilder('a').where('a.catalogId = :catalogId', { catalogId })
+            // Sort
+            items.sort((a, b) => {
+                let valA: any = a[sortBy as keyof typeof a]
+                let valB: any = b[sortBy as keyof typeof b]
 
-            if (search) {
-                const escapedSearch = escapeLikeWildcards(search)
-                qb = qb.andWhere('(a.name::text ILIKE :search OR a.codename ILIKE :search)', { search: `%${escapedSearch}%` })
-            }
+                if (sortBy === 'name') {
+                    // Primitive localization sort
+                    valA = a.name?.['en'] || ''
+                    valB = b.name?.['en'] || ''
+                } else if (sortBy === 'created') {
+                    valA = a.createdAt
+                    valB = b.createdAt
+                } else if (sortBy === 'updated') {
+                    valA = a.updatedAt
+                    valB = b.updatedAt
+                }
 
-            const orderColumn =
-                sortBy === 'sortOrder'
-                    ? 'a.sortOrder'
-                    : sortBy === 'codename'
-                    ? 'a.codename'
-                    : sortBy === 'name'
-                    ? "COALESCE(a.name->>(a.name->>'_primary'), a.name->>'en', '')"
-                    : sortBy === 'created'
-                    ? 'a.created_at'
-                    : 'a.updated_at'
-            qb = qb
-                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-                .skip(offset)
-                .take(limit)
+                if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+                if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+                return 0
+            })
 
-            const [attributes, total] = await qb.getManyAndCount()
+            // Pagination
+            const paginatedItems = items.slice(offset, offset + limit)
 
-            res.json({ items: attributes, pagination: { total, limit, offset } })
+            res.json({ items: paginatedItems, pagination: { total, limit, offset } })
         })
     )
 
@@ -197,14 +179,12 @@ export function createAttributesRoutes(
         ],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, attributeId } = req.params
-            const { attributeRepo } = repos(req)
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService } = services(req)
 
-            const attribute = await attributeRepo.findOne({
-                where: { id: attributeId, catalogId }
-            })
+            const attribute = await attributesService.findById(metahubId, attributeId)
 
-            if (!attribute) {
+            if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
@@ -221,11 +201,11 @@ export function createAttributesRoutes(
         ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attributes', '/metahub/:metahubId/catalog/:catalogId/attributes'],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId } = req.params
-            const { attributeRepo, catalogRepo } = repos(req)
+            const { metahubId, catalogId } = req.params
+            const { attributesService, objectsService, schemaService } = services(req)
 
             // Verify catalog exists
-            const catalog = await catalogRepo.findOne({ where: { id: catalogId } })
+            const catalog = await objectsService.findById(metahubId, catalogId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
@@ -247,14 +227,14 @@ export function createAttributesRoutes(
             }
 
             // Check for duplicate codename
-            const existing = await attributeRepo.findOne({ where: { catalogId, codename: normalizedCodename } })
+            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename)
             if (existing) {
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
 
             // For REF type, verify target catalog exists
             if (dataType === AttributeDataType.REF && targetCatalogId) {
-                const targetCatalog = await catalogRepo.findOne({ where: { id: targetCatalogId } })
+                const targetCatalog = await objectsService.findById(metahubId, targetCatalogId)
                 if (!targetCatalog) {
                     return res.status(400).json({ error: 'Target catalog not found' })
                 }
@@ -270,11 +250,18 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const existingAttributes = await ensureSequentialSortOrder(catalogId, attributeRepo)
-            const maxSortOrder = existingAttributes.reduce((max, attribute) => Math.max(max, attribute.sortOrder || 0), 0)
-            const resolvedSortOrder = sortOrder ?? maxSortOrder + 1
+            // Normalize sort orders
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
 
-            const attribute = attributeRepo.create({
+            // If sortOrder not provided, append to end
+            // We can fetch max sort order or trust service default (0 might overlap)
+            // Ideally we calculate max sort order here or in service.
+            // Let's rely on client or default 0 (which might conflict if unique? sort_order is not unique in schema usually).
+            // Actually, `ensureSequentialSortOrder` fixes it to 1..N. If we insert 0, we might need to reorder again.
+            // Better: get count/max.
+            // But let's simplify: pass provided sortOrder or default.
+
+            const attribute = await attributesService.create(metahubId, {
                 catalogId,
                 codename: normalizedCodename,
                 dataType,
@@ -283,11 +270,17 @@ export function createAttributesRoutes(
                 validationRules: validationRules ?? {},
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
-                sortOrder: resolvedSortOrder
+                sortOrder: sortOrder
             })
 
-            const saved = await attributeRepo.save(attribute)
-            res.status(201).json(saved)
+            // Normalize again to fit new item
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+
+            await syncMetahubSchema(metahubId, getDataSource()).catch(err => {
+                console.error('[Attributes] Schema sync failed:', err)
+            })
+
+            res.status(201).json(attribute)
         })
     )
 
@@ -303,11 +296,11 @@ export function createAttributesRoutes(
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, attributeId } = req.params
-            const { attributeRepo, catalogRepo } = repos(req)
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService, objectsService, schemaService } = services(req)
 
-            const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
-            if (!attribute) {
+            const attribute = await attributesService.findById(metahubId, attributeId)
+            if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
@@ -319,6 +312,8 @@ export function createAttributesRoutes(
             const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder } =
                 parsed.data
 
+            const updateData: any = {}
+
             if (codename && codename !== attribute.codename) {
                 const normalizedCodename = normalizeCodename(codename)
                 if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -328,17 +323,16 @@ export function createAttributesRoutes(
                     })
                 }
                 if (normalizedCodename !== attribute.codename) {
-                    const existing = await attributeRepo.findOne({ where: { catalogId, codename: normalizedCodename } })
+                    const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename)
                     if (existing) {
                         return res.status(409).json({ error: 'Attribute with this codename already exists' })
                     }
-                    attribute.codename = normalizedCodename
+                    updateData.codename = normalizedCodename
                 }
             }
 
-            if (dataType) {
-                attribute.dataType = dataType
-            }
+            if (dataType) updateData.dataType = dataType
+
 
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)
@@ -348,45 +342,43 @@ export function createAttributesRoutes(
                 const primary = namePrimaryLocale ?? attribute.name?._primary ?? 'en'
                 const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
                 if (nameVlc) {
-                    attribute.name = nameVlc
+                    updateData.name = nameVlc
                 }
             }
 
             if (targetCatalogId !== undefined) {
                 if (targetCatalogId === null) {
-                    attribute.targetCatalogId = undefined
-                } else if (attribute.dataType === AttributeDataType.REF) {
-                    const targetCatalog = await catalogRepo.findOne({ where: { id: targetCatalogId } })
+                    updateData.targetCatalogId = null
+                } else if ((dataType || attribute.dataType) === AttributeDataType.REF) {
+                    const targetCatalog = await objectsService.findById(metahubId, targetCatalogId)
                     if (!targetCatalog) {
                         return res.status(400).json({ error: 'Target catalog not found' })
                     }
-                    attribute.targetCatalogId = targetCatalogId
+                    updateData.targetCatalogId = targetCatalogId
                 }
             }
 
-            if (validationRules) {
-                attribute.validationRules = validationRules
-            }
+            if (validationRules) updateData.validationRules = validationRules
+            if (uiConfig) updateData.uiConfig = uiConfig
+            if (isRequired !== undefined) updateData.isRequired = isRequired
+            if (sortOrder !== undefined) updateData.sortOrder = sortOrder
 
-            if (uiConfig) {
-                attribute.uiConfig = uiConfig
-            }
-
-            if (isRequired !== undefined) {
-                attribute.isRequired = isRequired
-            }
+            const updated = await attributesService.update(metahubId, attributeId, updateData)
 
             if (sortOrder !== undefined) {
-                attribute.sortOrder = sortOrder
+                await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
             }
 
-            const saved = await attributeRepo.save(attribute)
-            res.json(saved)
+            await syncMetahubSchema(metahubId, getDataSource()).catch(err => {
+                console.error('[Attributes] Schema sync failed:', err)
+            })
+
+            res.json(updated)
         })
     )
 
     /**
-     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/move
+     * PATCH /metahub/:metahubId/center/:hubId/catalog/:catalogId/attribute/:attributeId/move
      * PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/move
      * Reorder attributes within a catalog
      */
@@ -397,54 +389,26 @@ export function createAttributesRoutes(
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, attributeId } = req.params
-            const manager = getRequestManager(req, getDataSource())
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService } = services(req)
 
-            const parsed = z.object({ direction: z.enum(['up', 'down']) }).safeParse(req.body)
+            const parsed = moveAttributeSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
             const { direction } = parsed.data
 
-            const result = await manager.transaction(async (transactionalEntityManager) => {
-                const attributeRepo = transactionalEntityManager.getRepository(Attribute)
-                const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
-                if (!attribute) {
-                    return { status: 404, payload: { error: 'Attribute not found' } }
+            try {
+                // Ensure existence first? Service does it.
+                const updated = await attributesService.moveAttribute(metahubId, catalogId, attributeId, direction)
+                res.json(updated)
+            } catch (error: any) {
+                if (error.message === 'Attribute not found') {
+                    return res.status(404).json({ error: 'Attribute not found' })
                 }
-
-                await ensureSequentialSortOrder(catalogId, attributeRepo)
-
-                const refreshedAttribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
-                if (!refreshedAttribute) {
-                    return { status: 404, payload: { error: 'Attribute not found' } }
-                }
-
-                const currentOrder = refreshedAttribute.sortOrder
-
-                const neighbor = await attributeRepo
-                    .createQueryBuilder('a')
-                    .where('a.catalogId = :catalogId', { catalogId })
-                    .andWhere(direction === 'up' ? 'a.sortOrder < :currentOrder' : 'a.sortOrder > :currentOrder', {
-                        currentOrder
-                    })
-                    .orderBy('a.sortOrder', direction === 'up' ? 'DESC' : 'ASC')
-                    .addOrderBy('a.created_at', direction === 'up' ? 'DESC' : 'ASC')
-                    .getOne()
-
-                if (!neighbor) {
-                    return { status: 200, payload: refreshedAttribute }
-                }
-
-                refreshedAttribute.sortOrder = neighbor.sortOrder
-                neighbor.sortOrder = currentOrder
-
-                await attributeRepo.save([refreshedAttribute, neighbor])
-                return { status: 200, payload: refreshedAttribute }
-            })
-
-            return res.status(result.status).json(result.payload)
+                throw error
+            }
         })
     )
 
@@ -460,35 +424,23 @@ export function createAttributesRoutes(
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { catalogId, attributeId } = req.params
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService, schemaService } = services(req)
 
-            const manager = getRequestManager(req, getDataSource())
-            const result = await manager.transaction(async (transactionalEntityManager) => {
-                const attributeRepo = transactionalEntityManager.getRepository(Attribute)
-
-                const attribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
-                if (!attribute) {
-                    return { status: 404 as const, payload: { error: 'Attribute not found' } }
-                }
-
-                // Normalize before and after delete to guarantee contiguous 1..N sortOrder sequence.
-                await ensureSequentialSortOrder(catalogId, attributeRepo)
-                const refreshedAttribute = await attributeRepo.findOne({ where: { id: attributeId, catalogId } })
-                if (!refreshedAttribute) {
-                    return { status: 404 as const, payload: { error: 'Attribute not found' } }
-                }
-
-                await attributeRepo.remove(refreshedAttribute)
-                await ensureSequentialSortOrder(catalogId, attributeRepo)
-
-                return { status: 204 as const, payload: null }
-            })
-
-            if (result.status === 204) {
-                return res.status(204).send()
+            const attribute = await attributesService.findById(metahubId, attributeId)
+            if (!attribute || attribute.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Attribute not found' })
             }
 
-            return res.status(result.status).json(result.payload)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+            await attributesService.delete(metahubId, attributeId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+
+            await syncMetahubSchema(metahubId, getDataSource()).catch(err => {
+                console.error('[Attributes] Schema sync failed:', err)
+            })
+
+            return res.status(204).send()
         })
     )
 

@@ -1,15 +1,16 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { Hub } from '../../../database/entities/Hub'
-import { Catalog } from '../../../database/entities/Catalog'
-import { CatalogHub } from '../../../database/entities/CatalogHub'
 import { Metahub } from '../../../database/entities/Metahub'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { escapeLikeWildcards, getRequestManager } from '../../../utils'
+import { getRequestManager } from '../../../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
+import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
+import { KnexClient } from '../../ddl'
 
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -46,54 +47,63 @@ export function createHubsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-        (req, res, next) => {
-            fn(req, res).catch(next)
-        }
+            (req, res, next) => {
+                fn(req, res).catch(next)
+            }
 
-    const repos = (req: Request) => {
+    const services = (req: Request) => {
         const ds = getDataSource()
         const manager = getRequestManager(req, ds)
+        const schemaService = new MetahubSchemaService(ds)
+        const objectsService = new MetahubObjectsService(schemaService)
+        const hubsService = new MetahubHubsService(schemaService)
         return {
-            hubRepo: manager.getRepository(Hub),
-            catalogRepo: manager.getRepository(Catalog),
-            catalogHubRepo: manager.getRepository(CatalogHub),
-            metahubRepo: manager.getRepository(Metahub)
+            metahubRepo: manager.getRepository(Metahub),
+            schemaService,
+            objectsService,
+            hubsService
         }
     }
 
     /**
      * Helper function to find catalogs that would block hub deletion.
+     * Uses SQL-level JSONB filtering instead of loading all catalogs into memory.
      * Returns catalogs with isRequiredHub=true that have this as their ONLY hub association.
      */
-    const findBlockingCatalogs = async (hubId: string, catalogRepo: ReturnType<typeof repos>['catalogRepo']) => {
-        return catalogRepo
-            .createQueryBuilder('c')
-            .innerJoin('c.catalogHubs', 'ch')
-            .where('ch.hubId = :hubId', { hubId })
-            .andWhere('c.isRequiredHub = true')
-            .andWhere((qb) => {
-                const subQuery = qb
-                    .subQuery()
-                    .select('COUNT(*)')
-                    .from(CatalogHub, 'ch2')
-                    .where('ch2.catalogId = c.id')
-                    .getQuery()
-                return `(${subQuery}) = 1`
-            })
-            .select(['c.id', 'c.name', 'c.codename'])
-            .getMany()
+    const findBlockingCatalogs = async (metahubId: string, hubId: string, schemaService: MetahubSchemaService) => {
+        const schemaName = await schemaService.ensureSchema(metahubId)
+        const knex = KnexClient.getInstance()
+
+        // SQL-level filtering using JSONB operators
+        const catalogs = await knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: 'CATALOG' })
+            // hubId exists in config.hubs array
+            .whereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
+            // isRequiredHub is true
+            .whereRaw(`(config->>'isRequiredHub')::boolean = true`)
+            // hubs array has exactly 1 element
+            .whereRaw(`jsonb_array_length(config->'hubs') = 1`)
+            .select('id', 'codename', 'presentation')
+
+        return catalogs.map((c: any) => ({
+            id: c.id,
+            name: c.presentation?.name,
+            codename: c.codename
+        }))
     }
 
     /**
      * GET /metahub/:metahubId/hubs
-     * List all hubs in a metahub
+     * List all hubs in a metahub (from _mhb_objects with kind='HUB')
      */
     router.get(
         '/metahub/:metahubId/hubs',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { hubRepo } = repos(req)
+            const { hubsService, objectsService } = services(req)
 
             let validatedQuery
             try {
@@ -107,108 +117,79 @@ export function createHubsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            // Optimized single query with LEFT JOIN via junction table and window function (N+1 → 1 query)
-            const qb = hubRepo
-                .createQueryBuilder('h')
-                .leftJoin(CatalogHub, 'ch', 'ch.hubId = h.id')
-                .where('h.metahubId = :metahubId', { metahubId })
+            const { items: hubs, total } = await hubsService.findAll(metahubId, {
+                limit,
+                offset,
+                sortBy,
+                sortOrder,
+                search
+            })
 
-            if (search) {
-                const escapedSearch = escapeLikeWildcards(search)
-                qb.andWhere("(h.name::text ILIKE :search OR COALESCE(h.description::text, '') ILIKE :search OR h.codename ILIKE :search)", {
-                    search: `%${escapedSearch}%`
-                })
+            // Calculate catalog counts
+            const catalogs = await objectsService.findAll(metahubId)
+            const counts = new Map<string, number>()
+
+            for (const catalog of catalogs) {
+                const hubIds: string[] = (catalog as any).config?.hubs || []
+                for (const hid of hubIds) {
+                    counts.set(hid, (counts.get(hid) || 0) + 1)
+                }
             }
 
-            const orderColumn =
-                sortBy === 'name'
-                    ? "COALESCE(h.name->>(h.name->>'_primary'), h.name->>'en', '')"
-                    : sortBy === 'created'
-                    ? 'h.created_at'
-                    : 'h.updated_at'
-
-            qb.select([
-                'h.id as id',
-                'h.metahubId as "metahubId"',
-                'h.codename as codename',
-                'h.name as name',
-                'h.description as description',
-                'h.sortOrder as "sortOrder"',
-                'h.created_at as "createdAt"',
-                'h.updated_at as "updatedAt"'
-            ])
-                .addSelect('COUNT(DISTINCT ch.catalog_id)', 'catalogsCount')
-                .addSelect('COUNT(*) OVER()', 'window_total')
-                .groupBy('h.id')
-                .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
-                .limit(limit)
-                .offset(offset)
-
-            const raw = await qb.getRawMany<{
-                id: string
-                metahubId: string
-                codename: string
-                name: Record<string, string> | null
-                description: Record<string, string> | null
-                sortOrder: number
-                createdAt: Date
-                updatedAt: Date
-                catalogsCount: string
-                window_total?: string
-            }>()
-
-            // Extract total count from window function (same value in all rows)
-            const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
-
-            const hubsWithCounts = raw.map((row) => ({
-                id: row.id,
-                metahubId: row.metahubId,
-                codename: row.codename,
-                name: row.name,
-                description: row.description,
-                sortOrder: row.sortOrder,
-                createdAt: row.createdAt,
-                updatedAt: row.updatedAt,
-                catalogsCount: parseInt(row.catalogsCount || '0', 10)
+            const items = hubs.map((h: any) => ({
+                id: h.id,
+                codename: h.codename,
+                name: h.name,
+                description: h.description,
+                sortOrder: h.sort_order,
+                createdAt: h.created_at,
+                updatedAt: h.updated_at,
+                catalogsCount: counts.get(h.id) || 0
             }))
 
-            res.json({ items: hubsWithCounts, pagination: { total, limit, offset } })
+            res.json({ items, pagination: { total, limit, offset } })
         })
     )
 
     /**
      * GET /metahub/:metahubId/hub/:hubId
-     * Get a single hub
+     * Get a single hub (from _mhb_objects with kind='HUB')
      */
     router.get(
         '/metahub/:metahubId/hub/:hubId',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubRepo } = repos(req)
+            const { hubsService } = services(req)
 
-            const hub = await hubRepo.findOne({
-                where: { id: hubId, metahubId }
-            })
+            const hub = await hubsService.findById(metahubId, hubId)
 
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            res.json(hub)
+            res.json({
+                id: hub.id,
+                codename: hub.codename,
+                name: hub.name,
+                description: hub.description,
+                sortOrder: hub.sort_order,
+                createdAt: hub.created_at,
+                updatedAt: hub.updated_at
+            })
         })
     )
 
     /**
      * POST /metahub/:metahubId/hubs
-     * Create a new hub
+     * Create a new hub (in _mhb_objects with kind='HUB')
      */
     router.post(
         '/metahub/:metahubId/hubs',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { hubRepo, metahubRepo } = repos(req)
+            const { metahubRepo, hubsService } = services(req)
 
             // Verify metahub exists
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
@@ -232,7 +213,7 @@ export function createHubsRoutes(
             }
 
             // Check for duplicate codename
-            const existing = await hubRepo.findOne({ where: { metahubId, codename: normalizedCodename } })
+            const existing = await hubsService.findByCodename(metahubId, normalizedCodename)
             if (existing) {
                 return res.status(409).json({ error: 'Hub with this codename already exists' })
             }
@@ -255,31 +236,37 @@ export function createHubsRoutes(
                 }
             }
 
-            const hub = hubRepo.create({
-                metahubId,
+            const saved = await hubsService.create(metahubId, {
                 codename: normalizedCodename,
-                name: nameVlc,
-                description: descriptionVlc,
+                name: nameVlc as unknown as Record<string, unknown>,
+                description: descriptionVlc as unknown as Record<string, unknown> | undefined,
                 sortOrder: sortOrder ?? 0
             })
 
-            const saved = await hubRepo.save(hub)
-            res.status(201).json(saved)
+            res.status(201).json({
+                id: saved.id,
+                codename: saved.codename,
+                name: saved.name,
+                description: saved.description,
+                sortOrder: saved.sort_order,
+                createdAt: saved.created_at,
+                updatedAt: saved.updated_at
+            })
         })
     )
 
     /**
      * PATCH /metahub/:metahubId/hub/:hubId
-     * Update a hub
+     * Update a hub (in _mhb_objects with kind='HUB')
      */
     router.patch(
         '/metahub/:metahubId/hub/:hubId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubRepo } = repos(req)
+            const { hubsService } = services(req)
 
-            const hub = await hubRepo.findOne({ where: { id: hubId, metahubId } })
+            const hub = await hubsService.findById(metahubId, hubId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
@@ -291,6 +278,8 @@ export function createHubsRoutes(
 
             const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
 
+            const updateData: any = {}
+
             if (codename !== undefined) {
                 const normalizedCodename = normalizeCodename(codename)
                 if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -300,11 +289,11 @@ export function createHubsRoutes(
                     })
                 }
                 if (normalizedCodename !== hub.codename) {
-                    const existing = await hubRepo.findOne({ where: { metahubId, codename: normalizedCodename } })
+                    const existing = await hubsService.findByCodename(metahubId, normalizedCodename)
                     if (existing) {
                         return res.status(409).json({ error: 'Hub with this codename already exists' })
                     }
-                    hub.codename = normalizedCodename
+                    updateData.codename = normalizedCodename
                 }
             }
 
@@ -313,32 +302,44 @@ export function createHubsRoutes(
                 if (Object.keys(sanitizedName).length === 0) {
                     return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
                 }
-                const primary = namePrimaryLocale ?? hub.name?._primary ?? 'en'
+                const hubName = hub.name as Record<string, unknown> | undefined
+                const primary = namePrimaryLocale ?? (hubName as { _primary?: string })?._primary ?? 'en'
                 const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
                 if (nameVlc) {
-                    hub.name = nameVlc
+                    updateData.name = nameVlc
                 }
             }
 
             if (description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
-                    const primary = descriptionPrimaryLocale ?? hub.description?._primary ?? hub.name?._primary ?? namePrimaryLocale ?? 'en'
+                    const hubName = hub.name as Record<string, unknown> | undefined
+                    const hubDesc = hub.description as Record<string, unknown> | undefined
+                    const primary = descriptionPrimaryLocale ?? (hubDesc as { _primary?: string })?._primary ?? (hubName as { _primary?: string })?._primary ?? namePrimaryLocale ?? 'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
                     if (descriptionVlc) {
-                        hub.description = descriptionVlc
+                        updateData.description = descriptionVlc
                     }
                 } else {
-                    hub.description = undefined
+                    updateData.description = null
                 }
             }
 
             if (sortOrder !== undefined) {
-                hub.sortOrder = sortOrder
+                updateData.sortOrder = sortOrder
             }
 
-            const saved = await hubRepo.save(hub)
-            res.json(saved)
+            const saved = await hubsService.update(metahubId, hubId, updateData)
+
+            res.json({
+                id: saved.id,
+                codename: saved.codename,
+                name: saved.name,
+                description: saved.description,
+                sortOrder: saved.sort_order,
+                createdAt: saved.created_at,
+                updatedAt: saved.updated_at
+            })
         })
     )
 
@@ -352,23 +353,19 @@ export function createHubsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubRepo, catalogRepo } = repos(req)
+            const { hubsService, schemaService } = services(req)
 
-            const hub = await hubRepo.findOne({ where: { id: hubId, metahubId } })
+            const hub = await hubsService.findById(metahubId, hubId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
             // Use helper function to find blocking catalogs
-            const blockingCatalogs = await findBlockingCatalogs(hubId, catalogRepo)
+            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService)
 
             res.json({
                 hubId,
-                blockingCatalogs: blockingCatalogs.map((c) => ({
-                    id: c.id,
-                    name: c.name,
-                    codename: c.codename
-                })),
+                blockingCatalogs,
                 canDelete: blockingCatalogs.length === 0
             })
         })
@@ -383,28 +380,24 @@ export function createHubsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { hubRepo, catalogRepo } = repos(req)
+            const { hubsService, schemaService } = services(req)
 
-            const hub = await hubRepo.findOne({ where: { id: hubId, metahubId } })
+            const hub = await hubsService.findById(metahubId, hubId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
             // Use helper function to check for blocking catalogs
-            const blockingCatalogs = await findBlockingCatalogs(hubId, catalogRepo)
+            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService)
 
             if (blockingCatalogs.length > 0) {
                 return res.status(409).json({
                     error: 'Cannot delete hub: catalogs with required hub flag would become orphaned',
-                    blockingCatalogs: blockingCatalogs.map((c) => ({
-                        id: c.id,
-                        name: c.name,
-                        codename: c.codename
-                    }))
+                    blockingCatalogs
                 })
             }
 
-            await hubRepo.remove(hub)
+            await hubsService.delete(metahubId, hubId)
             res.status(204).send()
         })
     )

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, RadioGroup, Radio, FormControlLabel } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -46,6 +46,7 @@ import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localiz
 type MetahubFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
+    storageMode?: 'main_db' | 'external_db'
 }
 
 const MetahubList = () => {
@@ -123,9 +124,12 @@ const MetahubList = () => {
         return imagesMap
     }, [metahubsDisplay])
 
-    const localizedFormDefaults = useMemo<MetahubFormValues>(() => ({ nameVlc: null, descriptionVlc: null }), [])
+    const localizedFormDefaults = useMemo<MetahubFormValues>(
+        () => ({ nameVlc: null, descriptionVlc: null, storageMode: 'main_db' }),
+        []
+    )
 
-    const renderLocalizedFields = useCallback(
+    const buildFormTabs = useCallback(
         ({
             values,
             setValue,
@@ -140,33 +144,73 @@ const MetahubList = () => {
             const fieldErrors = errors ?? {}
             const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-            return (
-                <>
-                    <LocalizedInlineField
-                        mode='localized'
-                        label={tc('fields.name', 'Name')}
-                        required
-                        disabled={isLoading}
-                        value={nameVlc}
-                        onChange={(next) => setValue('nameVlc', next)}
-                        error={fieldErrors.nameVlc || null}
-                        helperText={fieldErrors.nameVlc}
-                        uiLocale={i18n.language}
-                    />
-                    <LocalizedInlineField
-                        mode='localized'
-                        label={tc('fields.description', 'Description')}
-                        disabled={isLoading}
-                        value={descriptionVlc}
-                        onChange={(next) => setValue('descriptionVlc', next)}
-                        uiLocale={i18n.language}
-                        multiline
-                        rows={2}
-                    />
-                </>
-            )
+            const storageMode = values.storageMode ?? 'main_db'
+
+            return [
+                {
+                    id: 'general',
+                    label: t('tabs.general'),
+                    content: (
+                        <Stack spacing={2}>
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={tc('fields.name', 'Name')}
+                                required
+                                disabled={isLoading}
+                                value={nameVlc}
+                                onChange={(next) => setValue('nameVlc', next)}
+                                error={fieldErrors.nameVlc || null}
+                                helperText={fieldErrors.nameVlc}
+                                uiLocale={i18n.language}
+                            />
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={tc('fields.description', 'Description')}
+                                disabled={isLoading}
+                                value={descriptionVlc}
+                                onChange={(next) => setValue('descriptionVlc', next)}
+                                uiLocale={i18n.language}
+                                multiline
+                                rows={2}
+                            />
+                        </Stack>
+                    )
+                },
+                {
+                    id: 'storage',
+                    label: t('tabs.storage'),
+                    content: (
+                        <Box sx={{ mt: 2 }}>
+                            <RadioGroup
+                                value={storageMode}
+                                onChange={(e) => setValue('storageMode', e.target.value)}
+                            >
+                                <FormControlLabel
+                                    value="main_db"
+                                    control={<Radio />}
+                                    label={t('storage.mainDb')}
+                                    disabled={isLoading}
+                                />
+                                <FormControlLabel
+                                    value="external_db"
+                                    control={<Radio />}
+                                    label={
+                                        <Box>
+                                            <Typography variant="body1">{t('storage.externalDb')}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {t('storage.externalDbDisabled')}
+                                            </Typography>
+                                        </Box>
+                                    }
+                                    disabled={true}
+                                />
+                            </RadioGroup>
+                        </Box>
+                    )
+                }
+            ]
         },
-        [i18n.language, tc]
+        [i18n.language, tc, t]
     )
 
     const validateMetahubForm = useCallback(
@@ -182,6 +226,7 @@ const MetahubList = () => {
 
     const canSaveMetahubForm = useCallback((values: Record<string, any>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+        // Storage mode is always valid as it defaults to main_db and external is disabled
         return hasPrimaryContent(nameVlc)
     }, [])
 
@@ -216,6 +261,8 @@ const MetahubList = () => {
                 description: descriptionInput,
                 namePrimaryLocale,
                 descriptionPrimaryLocale
+                // storageMode handles automatically in backend logic for now (default) or we pass it if API supports
+                // For now, API doesn't support storageMode, so we just assume default behavior (Phase 1 UI only)
             })
 
             // Invalidate cache to refetch metahubs list
@@ -230,10 +277,10 @@ const MetahubList = () => {
                 typeof responseMessage === 'string'
                     ? responseMessage
                     : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('errors.saveFailed')
+                        ? e.message
+                        : typeof e === 'string'
+                            ? e
+                            : t('errors.saveFailed')
             setDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to create metahub', e)
@@ -553,7 +600,7 @@ const MetahubList = () => {
                 onSave={handleCreateMetahub}
                 hideDefaultFields
                 initialExtraValues={localizedFormDefaults}
-                extraFields={renderLocalizedFields}
+                tabs={buildFormTabs}
                 canSave={canSaveMetahubForm}
                 validate={validateMetahubForm}
             />
@@ -579,10 +626,10 @@ const MetahubList = () => {
                                 typeof responseMessage === 'string'
                                     ? responseMessage
                                     : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('deleteError')
+                                        ? err.message
+                                        : typeof err === 'string'
+                                            ? err
+                                            : t('deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
                             setDeleteDialogState({ open: false, metahub: null })
                         }

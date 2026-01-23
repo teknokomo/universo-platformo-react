@@ -267,9 +267,10 @@ const PublicationList = () => {
     /**
      * Build tabs configuration for create dialog.
      * Tab 1: General (name, description)
-     * Tab 2: Access (access mode configuration)
-     * Tab 3: Applications (auto-create application option)
-     * 
+     * Tab 2: Versions (first version name, description)
+     * Tab 3: Access (access mode configuration)
+     * Tab 4: Applications (auto-create application option)
+     *
      * Note: Metahubs tab is not shown because Publication is created within a Metahub context.
      */
     const buildCreateTabs = useCallback(
@@ -285,7 +286,7 @@ const PublicationList = () => {
             errors: Record<string, string>
         }): TabConfig[] => {
             const fieldErrors = errors ?? {}
-            
+
             return [
                 {
                     id: 'general',
@@ -300,6 +301,35 @@ const PublicationList = () => {
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                         />
+                    )
+                },
+                {
+                    id: 'versions',
+                    label: t('publications.tabs.versions', 'Версии'),
+                    content: (
+                        <Stack spacing={2}>
+                            <Typography variant="body2" color="text.secondary">
+                                {t('publications.versions.createFirstDescription', 'При создании публикации будет создана первая версия. Укажите её название и описание.')}
+                            </Typography>
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={t('publications.versions.versionName', 'Название версии')}
+                                disabled={isFormLoading}
+                                value={values.versionNameVlc ?? null}
+                                onChange={(next) => setValue('versionNameVlc', next)}
+                                uiLocale={i18n.language}
+                            />
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={t('publications.versions.versionDescription', 'Описание версии')}
+                                disabled={isFormLoading}
+                                value={values.versionDescriptionVlc ?? null}
+                                onChange={(next) => setValue('versionDescriptionVlc', next)}
+                                uiLocale={i18n.language}
+                                multiline
+                                rows={2}
+                            />
+                        </Stack>
                     )
                 },
                 {
@@ -488,6 +518,12 @@ const PublicationList = () => {
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
 
+            // Extract version fields
+            const versionNameVlc = data.versionNameVlc as VersionedLocalizedContent<string> | null | undefined
+            const versionDescriptionVlc = data.versionDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const { input: versionNameInput, primaryLocale: versionNamePrimaryLocale } = extractLocalizedInput(versionNameVlc)
+            const { input: versionDescriptionInput, primaryLocale: versionDescriptionPrimaryLocale } = extractLocalizedInput(versionDescriptionVlc)
+
             await createPublicationMutation.mutateAsync({
                 metahubId: metahubId!,
                 data: {
@@ -495,7 +531,12 @@ const PublicationList = () => {
                     description: descriptionInput,
                     namePrimaryLocale,
                     descriptionPrimaryLocale,
-                    autoCreateApplication: Boolean(data.autoCreateApplication)
+                    autoCreateApplication: Boolean(data.autoCreateApplication),
+                    // First version data
+                    versionName: versionNameInput,
+                    versionDescription: versionDescriptionInput,
+                    versionNamePrimaryLocale,
+                    versionDescriptionPrimaryLocale
                 }
             })
 

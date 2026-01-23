@@ -73,8 +73,9 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     initialExtraValues: initial,
                     extraFields: ({ values, setValue, isLoading, errors }: any) => {
                         const fieldErrors = errors ?? {}
+                        const Stack = require('@mui/material').Stack
                         return (
-                            <>
+                            <Stack spacing={2}>
                                 <LocalizedInlineField
                                     mode='localized'
                                     label={ctx.t('common:fields.name')}
@@ -96,7 +97,7 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                                     multiline
                                     rows={2}
                                 />
-                            </>
+                            </Stack>
                         )
                     },
                     validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),
