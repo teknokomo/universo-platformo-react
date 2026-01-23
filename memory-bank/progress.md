@@ -83,6 +83,13 @@
 - **Queries**: Attribute list requests include locale; count query added for limitReached detection.
 - **Build/Test**: metahubs-backend and metahubs-frontend builds successful.
 
+### PR Review Fixes (Attributes + RLS + Memory Bank)
+- **Attributes Meta**: usePaginated now exposes list meta; removed extra count query and used meta limit in UI/error messages.
+- **Attributes List**: totalAll derived from list length to avoid extra COUNT query.
+- **RLS**: Added WITH CHECK to publication_versions policy to enforce write access.
+- **Memory Bank**: activeContext reduced to a single Current Focus summary.
+- **Build/Test**: template-mui, metahubs-backend, metahubs-frontend builds successful.
+
 ---
 
 ## 2026-01-22

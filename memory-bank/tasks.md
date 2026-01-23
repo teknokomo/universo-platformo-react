@@ -25,6 +25,15 @@
 - [x] Add attribute count query for limitReached and disable Add button at 100.
 - [x] Render info banner when limit reached; add i18n keys (EN/RU).
 - [x] Run metahubs-backend and metahubs-frontend builds.
+
+## IMPLEMENT (2026-01-23): PR Review Fixes (Attributes + RLS + Memory Bank)
+
+- [x] Remove extra attributes count query by exposing meta in usePaginated.
+- [x] Pass limit param in limitReached error and use meta limit in banner.
+- [x] Avoid extra COUNT in attributes list (use items length for totalAll).
+- [x] Add WITH CHECK to publication_versions RLS policy.
+- [x] Normalize activeContext.md to single Current Focus block.
+- [x] Run template-mui, metahubs-backend, metahubs-frontend builds.
 ## IMPLEMENT (2026-01-23): Publication Snapshots + App System Tables
 
 - [x] Replace `_sys_*` with `_app_*` in schema-ddl (generator/migrator/manager/types/tests).

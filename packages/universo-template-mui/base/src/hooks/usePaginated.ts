@@ -53,6 +53,7 @@ export interface UsePaginatedReturn<TData> {
     // Data
     data: TData[]
     pagination: PaginationState
+    meta?: Record<string, unknown>
 
     // State
     isLoading: boolean
@@ -211,6 +212,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
             hasPreviousPage,
             search: searchQuery
         },
+        meta: (query.data as { meta?: Record<string, unknown> } | undefined)?.meta,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,

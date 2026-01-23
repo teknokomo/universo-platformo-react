@@ -257,6 +257,13 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                     WHERE mu.user_id = auth.uid()
                 )
             )
+            WITH CHECK (
+                publication_id IN (
+                    SELECT p.id FROM metahubs.publications p
+                    JOIN metahubs.metahubs_users mu ON p.metahub_id = mu.metahub_id
+                    WHERE mu.user_id = auth.uid()
+                )
+            )
         `)
     }
 

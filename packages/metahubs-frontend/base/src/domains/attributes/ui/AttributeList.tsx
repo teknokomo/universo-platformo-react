@@ -250,26 +250,10 @@ const AttributeList = () => {
     const { data: attributes, isLoading, error } = paginationResult
     // usePaginated already extracts items array, so data IS the array
 
-    const attributesCountQueryKey = metahubId && catalogId
-        ? effectiveHubId
-            ? [...metahubsQueryKeys.attributes(metahubId, effectiveHubId, catalogId), 'count', i18n.language]
-            : [...metahubsQueryKeys.attributesDirect(metahubId, catalogId), 'count', i18n.language]
-        : ['empty']
-
-    const { data: attributesCountData } = useQuery({
-        queryKey: attributesCountQueryKey,
-        queryFn:
-            metahubId && catalogId
-                ? () =>
-                      effectiveHubId
-                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 1, offset: 0, locale: i18n.language })
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, { limit: 1, offset: 0, locale: i18n.language })
-                : async () => ({ items: [], pagination: { limit: 1, offset: 0, count: 0, total: 0, hasMore: false } }),
-        enabled: canLoadAttributes
-    })
-
-    const totalAttributes = attributesCountData?.pagination.total ?? paginationResult.pagination.totalItems
-    const limitReached = totalAttributes >= attributesLimit
+    const attributesMeta = paginationResult.meta as { totalAll?: number; limit?: number; limitReached?: boolean } | undefined
+    const limitValue = attributesMeta?.limit ?? attributesLimit
+    const totalAttributes = attributesMeta?.totalAll ?? paginationResult.pagination.totalItems
+    const limitReached = attributesMeta?.limitReached ?? totalAttributes >= limitValue
 
     // Instant search for better UX
     const { searchValue, handleSearchChange } = useDebouncedSearch({
@@ -640,7 +624,6 @@ const AttributeList = () => {
             })
 
             await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
-            await queryClient.invalidateQueries({ queryKey: attributesCountQueryKey })
             handleDialogSave()
         } catch (e: unknown) {
             const responseData =
@@ -648,7 +631,7 @@ const AttributeList = () => {
             const responseMessage = responseData?.message
             const message =
                 responseData?.code === 'ATTRIBUTE_LIMIT_REACHED'
-                    ? t('attributes.limitReached')
+                    ? t('attributes.limitReached', { limit: responseData?.limit ?? limitValue })
                     : typeof responseMessage === 'string'
                     ? responseMessage
                     : e instanceof Error
@@ -738,7 +721,7 @@ const AttributeList = () => {
                                 mb: 2
                             }}
                         >
-                            {t('attributes.limitReached', { limit: attributesLimit })}
+                            {t('attributes.limitReached', { limit: limitValue })}
                         </Alert>
                     )}
 

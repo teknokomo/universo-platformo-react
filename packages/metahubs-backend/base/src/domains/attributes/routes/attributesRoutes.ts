@@ -127,7 +127,7 @@ export function createAttributesRoutes(
             // Fetch all attributes for the catalog (usually small number < 100)
             let items = await attributesService.findAll(metahubId, catalogId)
 
-            const totalAll = await attributesService.countByObjectId(metahubId, catalogId)
+            const totalAll = items.length
             const limitReached = totalAll >= ATTRIBUTE_LIMIT
 
             // Calculate total before filtering? Or after?
