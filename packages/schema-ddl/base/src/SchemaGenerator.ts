@@ -336,7 +336,7 @@ export class SchemaGenerator {
             codename: entity.codename,
             table_name: generateTableName(entity.id, entity.kind),
             presentation: entity.presentation,
-            config: {},
+            config: (entity as { config?: Record<string, unknown> }).config ?? {},
             created_at: knex.fn.now(),
             updated_at: knex.fn.now(),
         }))

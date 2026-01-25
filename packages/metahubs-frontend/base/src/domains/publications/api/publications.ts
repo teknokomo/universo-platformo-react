@@ -47,6 +47,12 @@ export interface CreatePublicationPayload {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
+    autoCreateApplication?: boolean
+    versionName?: SimpleLocalizedInput
+    versionDescription?: SimpleLocalizedInput
+    versionNamePrimaryLocale?: string
+    versionDescriptionPrimaryLocale?: string
+    versionBranchId?: string
 }
 
 /**

@@ -3,7 +3,7 @@ import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
+import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { generateTableName } from '../../ddl'
 
@@ -12,7 +12,7 @@ export interface MetahubSnapshot {
     generatedAt: string
     metahubId: string
     entities: Record<string, MetaEntitySnapshot>
-    records?: Record<string, MetaRecordSnapshot[]>
+    elements?: Record<string, MetaElementSnapshot[]>
 }
 
 export interface MetaEntitySnapshot extends EntityDefinition {
@@ -26,7 +26,7 @@ export interface MetaFieldSnapshot extends FieldDefinition {
     sortOrder: number
 }
 
-export interface MetaRecordSnapshot {
+export interface MetaElementSnapshot {
     id: string
     objectId: string
     data: Record<string, unknown>
@@ -37,7 +37,7 @@ export class SnapshotSerializer {
     constructor(
         private readonly objectsService: MetahubObjectsService,
         private readonly attributesService: MetahubAttributesService,
-        private readonly recordsService?: MetahubRecordsService,
+        private readonly elementsService?: MetahubElementsService,
         private readonly hubsService?: MetahubHubsService
         // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
     ) { }
@@ -52,18 +52,18 @@ export class SnapshotSerializer {
         // Currently _mhb_objects doesn't have sort_order in standard schema, using order by name or created_at
 
         const entities: Record<string, MetaEntitySnapshot> = {}
-        const recordsByObject: Record<string, MetaRecordSnapshot[]> = {}
+        const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
 
         const objectIds = catalogs.map((catalog) => catalog.id)
-        const allRecords = this.recordsService && objectIds.length > 0
-            ? await this.recordsService.findAllByObjectIds(metahubId, objectIds)
+        const allElements = this.elementsService && objectIds.length > 0
+            ? await this.elementsService.findAllByObjectIds(metahubId, objectIds)
             : []
-        const recordsMap = new Map<string, MetaRecordSnapshot[]>()
+        const elementsMap = new Map<string, MetaElementSnapshot[]>()
 
-        for (const record of allRecords) {
-            const list = recordsMap.get(record.objectId) ?? []
-            list.push(record)
-            recordsMap.set(record.objectId, list)
+        for (const element of allElements) {
+            const list = elementsMap.get(element.objectId) ?? []
+            list.push(element)
+            elementsMap.set(element.objectId, list)
         }
 
         const hubs = await this.fetchAllHubs(metahubId)
@@ -93,9 +93,9 @@ export class SnapshotSerializer {
             // Get associated hubs from config
             const hubIds: string[] = catalog.config?.hubs || []
 
-            const catalogRecords = recordsMap.get(catalog.id) ?? []
-            if (catalogRecords.length > 0) {
-                recordsByObject[catalog.id] = catalogRecords
+            const catalogElements = elementsMap.get(catalog.id) ?? []
+            if (catalogElements.length > 0) {
+                elementsByObject[catalog.id] = catalogElements
             }
 
             entities[catalog.id] = {
@@ -135,7 +135,7 @@ export class SnapshotSerializer {
             generatedAt: new Date().toISOString(),
             version: 1,
             entities,
-            records: Object.keys(recordsByObject).length > 0 ? recordsByObject : undefined
+            elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined
         }
     }
 
@@ -237,15 +237,15 @@ export class SnapshotSerializer {
                 return a.id.localeCompare(b.id)
             })
 
-        const records = snapshot.records
-            ? Object.entries(snapshot.records)
+        const elements = snapshot.elements
+            ? Object.entries(snapshot.elements)
                 .map(([objectId, list]) => ({
                     objectId,
-                    records: [...list]
-                        .map((record) => ({
-                            id: record.id,
-                            data: record.data ?? {},
-                            sortOrder: record.sortOrder ?? 0
+                    elements: [...list]
+                        .map((element) => ({
+                            id: element.id,
+                            data: element.data ?? {},
+                            sortOrder: element.sortOrder ?? 0
                         }))
                         .sort((a, b) => {
                             if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
@@ -259,7 +259,7 @@ export class SnapshotSerializer {
             version: snapshot.version,
             metahubId: snapshot.metahubId,
             entities,
-            records
+            elements
         }
     }
 }

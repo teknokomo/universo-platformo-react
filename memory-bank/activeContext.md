@@ -1,19 +1,19 @@
 # Active Context
 
-> **Last Updated**: 2026-01-23
+> **Last Updated**: 2026-01-24
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Metahubs — Attributes and UI polish (Completed)
+## Current Focus: Metahubs — Elements rename + UI sync (Completed)
 
-**Status**: Recent work completed; awaiting next concrete focus.
+**Status**: Implementation complete; awaiting QA validation.
 
-### Summary (2026-01-23)
-- Attribute limit (100) enforced in backend; UI shows info banner and disables Add at limit.
-- Attribute list supports locale-aware sorting and localized search; record columns follow `sortOrder`.
-- Metahub list shows `codename`; menu divider support added for metahub navigation.
+### Summary (2026-01-24)
+- Records renamed to Elements across metahubs backend/frontend (routes, services, UI, snapshot, schema).
+- Storage tab added to Metahub edit dialog; Publications → Applications tab shows name/description only.
+- Metahub menu reordered with dividers; docs updated; builds passed for metahubs-backend, metahubs-frontend, template-mui.
 
 ### Next Step
-- Define the next Metahubs-related focus and log it in `tasks.md`; keep historical details in `progress.md`.
+- Trigger QA mode for validation.

@@ -128,10 +128,11 @@ const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applica
 const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
 const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubBoard }))))
 const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationList }))))
+const BranchList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.BranchList }))))
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
 const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
-const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.RecordList }))))
+const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
@@ -528,6 +529,10 @@ const MainRoutesMUI = {
                     element: <PublicationList />
                 },
                 {
+                    path: 'branches',
+                    element: <BranchList />
+                },
+                {
                     path: 'hubs',
                     element: <HubList />
                 },
@@ -541,8 +546,8 @@ const MainRoutesMUI = {
                     element: <AttributeList />
                 },
                 {
-                    path: 'catalog/:catalogId/records',
-                    element: <RecordList />
+                    path: 'catalog/:catalogId/elements',
+                    element: <ElementList />
                 },
                 // Hub-scoped catalog routes
                 {
@@ -554,8 +559,8 @@ const MainRoutesMUI = {
                     element: <AttributeList />
                 },
                 {
-                    path: 'hub/:hubId/catalog/:catalogId/records',
-                    element: <RecordList />
+                    path: 'hub/:hubId/catalog/:catalogId/elements',
+                    element: <ElementList />
                 },
                 {
                     path: 'members',

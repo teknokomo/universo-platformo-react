@@ -671,7 +671,7 @@ const AttributeList = () => {
                 />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    {/* Tab navigation between Attributes and Records */}
+                    {/* Tab navigation between Attributes and Elements */}
                     <Box sx={{ mb: 1 }}>
                         <ToggleButtonGroup value='attributes' exclusive size='small' sx={{ mb: 1 }}>
                             <ToggleButton value='attributes' sx={{ px: 2, py: 0.5 }}>
@@ -679,18 +679,18 @@ const AttributeList = () => {
                                 {t('attributes.title')}
                             </ToggleButton>
                             <ToggleButton
-                                value='records'
+                                value='elements'
                                 sx={{ px: 2, py: 0.5 }}
                                 onClick={() => {
                                     if (hubIdParam) {
-                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/records`)
+                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/elements`)
                                         return
                                     }
-                                    navigate(`/metahub/${metahubId}/catalog/${catalogId}/records`)
+                                    navigate(`/metahub/${metahubId}/catalog/${catalogId}/elements`)
                                 }}
                             >
                                 <TableRowsIcon sx={{ mr: 1, fontSize: 18 }} />
-                                {t('records.title')}
+                                {t('elements.title')}
                             </ToggleButton>
                         </ToggleButtonGroup>
                     </Box>

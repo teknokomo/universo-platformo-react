@@ -10,6 +10,9 @@ export type { HubSelectionPanelProps } from './HubSelectionPanel'
 export { HubDeleteDialog } from './HubDeleteDialog'
 export type { HubDeleteDialogProps } from './HubDeleteDialog'
 
+export { BranchDeleteDialog } from './BranchDeleteDialog'
+export type { BranchDeleteDialogProps } from './BranchDeleteDialog'
+
 export { PublicationDiffDialog } from './PublicationDiffDialog'
 
 export { MetahubInfoPanel } from './MetahubInfoPanel'

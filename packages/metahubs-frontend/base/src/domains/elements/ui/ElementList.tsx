@@ -25,16 +25,16 @@ import {
 import { ConfirmDeleteDialog, DynamicEntityFormDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/mutations'
-import * as recordsApi from '../api'
+import { useCreateElement, useUpdateElement, useDeleteElement } from '../hooks/mutations'
+import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
 import { getCatalogById } from '../../catalogs'
-import { metahubsQueryKeys, invalidateRecordsQueries } from '../../shared'
-import { HubRecord, HubRecordDisplay, getVLCString, toHubRecordDisplay } from '../../../types'
-import recordActions from './RecordActions'
+import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
+import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
+import elementActions from './ElementActions'
 import type { DynamicFieldConfig } from '@universo/template-mui/components/dialogs'
 
-const RecordList = () => {
+const ElementList = () => {
     const navigate = useNavigate()
     const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
@@ -43,7 +43,7 @@ const RecordList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [editingRecord, setEditingRecord] = useState<HubRecord | null>(null)
+    const [editingElement, setEditingElement] = useState<HubElement | null>(null)
 
     // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
     // Resolve a stable hubId from the catalog's hub associations.
@@ -72,7 +72,7 @@ const RecordList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Can load data when we have metahubId and catalogId
-    // hubId is optional - records/attributes belong to catalog directly
+    // hubId is optional - elements/attributes belong to catalog directly
     const canLoadData = !!metahubId && !!catalogId && (!hubIdParam || !isCatalogResolutionLoading)
 
     // Fetch attributes for this catalog to build dynamic columns and forms
@@ -108,7 +108,7 @@ const RecordList = () => {
         [attributes]
     )
 
-    const recordFields = useMemo<DynamicFieldConfig[]>(
+    const elementFields = useMemo<DynamicFieldConfig[]>(
         () =>
             orderedAttributes.map((attribute) => ({
                 id: attribute.codename,
@@ -120,21 +120,21 @@ const RecordList = () => {
         [orderedAttributes, i18n.language]
     )
 
-    // Use paginated hook for records list
-    const paginationResult = usePaginated<HubRecord, 'created' | 'updated'>({
+    // Use paginated hook for elements list
+    const paginationResult = usePaginated<HubElement, 'created' | 'updated'>({
         queryKeyFn:
             metahubId && catalogId
                 ? (params) =>
                       effectiveHubId
-                          ? metahubsQueryKeys.recordsList(metahubId, effectiveHubId, catalogId, params)
-                          : metahubsQueryKeys.recordsListDirect(metahubId, catalogId, params)
+                          ? metahubsQueryKeys.elementsList(metahubId, effectiveHubId, catalogId, params)
+                          : metahubsQueryKeys.elementsListDirect(metahubId, catalogId, params)
                 : () => ['empty'],
         queryFn:
             metahubId && catalogId
                 ? (params) =>
                       effectiveHubId
-                          ? recordsApi.listRecords(metahubId, effectiveHubId, catalogId, params)
-                          : recordsApi.listRecordsDirect(metahubId, catalogId, params)
+                          ? elementsApi.listElements(metahubId, effectiveHubId, catalogId, params)
+                          : elementsApi.listElementsDirect(metahubId, catalogId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'updated',
@@ -142,8 +142,8 @@ const RecordList = () => {
         enabled: canLoadData
     })
 
-    const { data: records, isLoading, error } = paginationResult
-    // usePaginated already returns the items array as `data`, here aliased to `records`
+    const { data: elements, isLoading, error } = paginationResult
+    // usePaginated already returns the items array as `data`, here aliased to `elements`
 
     // Instant search for better UX
     const { searchValue, handleSearchChange } = useDebouncedSearch({
@@ -154,43 +154,43 @@ const RecordList = () => {
     // State for independent ConfirmDeleteDialog
     const [deleteDialogState, setDeleteDialogState] = useState<{
         open: boolean
-        record: HubRecord | null
-    }>({ open: false, record: null })
+        element: HubElement | null
+    }>({ open: false, element: null })
 
     const { confirm } = useConfirm()
 
-    const createRecordMutation = useCreateRecord()
-    const updateRecordMutation = useUpdateRecord()
-    const deleteRecordMutation = useDeleteRecord()
+    const createElementMutation = useCreateElement()
+    const updateElementMutation = useUpdateElement()
+    const deleteElementMutation = useDeleteElement()
 
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
-        if (Array.isArray(records)) {
-            records.forEach((record) => {
-                if (record?.id) {
-                    imagesMap[record.id] = []
+        if (Array.isArray(elements)) {
+            elements.forEach((element) => {
+                if (element?.id) {
+                    imagesMap[element.id] = []
                 }
             })
         }
         return imagesMap
-    }, [records])
+    }, [elements])
 
-    const recordMap = useMemo(() => {
-        if (!Array.isArray(records)) return new Map<string, HubRecord>()
-        return new Map(records.map((record) => [record.id, record]))
-    }, [records])
+    const elementMap = useMemo(() => {
+        if (!Array.isArray(elements)) return new Map<string, HubElement>()
+        return new Map(elements.map((element) => [element.id, element]))
+    }, [elements])
 
     const orderedAttributesForColumns = orderedAttributes
 
     // Build dynamic columns based on attributes
-    const recordColumns = useMemo(() => {
+    const elementColumns = useMemo(() => {
         const cols: Array<{
             id: string
             label: string
             width: string
             align: 'left' | 'center' | 'right'
-            render: (row: HubRecordDisplay) => React.ReactNode
+            render: (row: HubElementDisplay) => React.ReactNode
         }> = []
 
         // Add columns for first 4 attributes
@@ -201,7 +201,7 @@ const RecordList = () => {
                 label: getVLCString(attr.name, i18n.language) || attr.codename,
                 width: `${80 / Math.max(visibleAttrs.length, 1)}%`,
                 align: 'left',
-                render: (row: HubRecordDisplay) => {
+                render: (row: HubElementDisplay) => {
                     const value = row.data?.[attr.codename]
                     if (value === undefined || value === null) return '—'
 
@@ -239,10 +239,10 @@ const RecordList = () => {
         // Add updated column
         cols.push({
             id: 'updatedAt',
-            label: t('records.table.updated', 'Updated'),
+            label: t('elements.table.updated', 'Updated'),
             width: '15%',
             align: 'left',
-            render: (row: HubRecordDisplay) => (
+            render: (row: HubElementDisplay) => (
                 <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
                     {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '—'}
                 </Typography>
@@ -252,34 +252,34 @@ const RecordList = () => {
         return cols
     }, [i18n.language, orderedAttributes, t])
 
-    const createRecordContext = useCallback(
+    const createElementContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
                     if (!metahubId || !catalogId) return
-                    await updateRecordMutation.mutateAsync({
+                    await updateElementMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
                         catalogId,
-                        recordId: id,
+                        elementId: id,
                         data: { data: patch }
                     })
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId || !catalogId) return
-                    await deleteRecordMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, recordId: id })
+                    await deleteElementMutation.mutateAsync({ metahubId, hubId: effectiveHubId, catalogId, elementId: id })
                 }
             },
             helpers: {
                 refreshList: async () => {
                     if (metahubId && catalogId) {
                         if (effectiveHubId) {
-                            await invalidateRecordsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                            await invalidateElementsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
                         }
                         // Also invalidate catalog-level queries
                         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId) })
-                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(metahubId, catalogId) })
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(metahubId, catalogId) })
                     }
                 },
                 confirm: async (spec: any) => {
@@ -303,24 +303,24 @@ const RecordList = () => {
                         enqueueSnackbar(payload.message, payload.options)
                     }
                 },
-                openDeleteDialog: (record: HubRecordDisplay) => {
-                    const fullRecord = recordMap.get(record.id) ?? (record as unknown as HubRecord)
-                    setDeleteDialogState({ open: true, record: fullRecord })
+                openDeleteDialog: (element: HubElementDisplay) => {
+                    const fullElement = elementMap.get(element.id) ?? (element as unknown as HubElement)
+                    setDeleteDialogState({ open: true, element: fullElement })
                 },
-                openEditDialog: async (record: HubRecord | HubRecordDisplay) => {
+                openEditDialog: async (element: HubElement | HubElementDisplay) => {
                     if (!metahubId || !catalogId) return
-                    const hasData = typeof (record as HubRecord).data === 'object'
-                    let fullRecord: HubRecord | null = null
-                    if (hasData && (record as HubRecord).data) {
-                        fullRecord = record as HubRecord
+                    const hasData = typeof (element as HubElement).data === 'object'
+                    let fullRecord: HubElement | null = null
+                    if (hasData && (element as HubElement).data) {
+                        fullRecord = element as HubElement
                     } else {
-                        fullRecord = recordMap.get(record.id) || null
+                        fullRecord = elementMap.get(element.id) || null
                         if (!fullRecord) {
                             try {
                                 if (effectiveHubId) {
-                                    fullRecord = (await recordsApi.getRecord(metahubId, effectiveHubId, catalogId, record.id)).data
+                                    fullRecord = (await elementsApi.getElement(metahubId, effectiveHubId, catalogId, element.id)).data
                                 } else {
-                                    fullRecord = (await recordsApi.getRecordDirect(metahubId, catalogId, record.id)).data
+                                    fullRecord = (await elementsApi.getElementDirect(metahubId, catalogId, element.id)).data
                                 }
                             } catch {
                                 fullRecord = null
@@ -328,9 +328,9 @@ const RecordList = () => {
                         }
                     }
                     if (fullRecord) {
-                        setEditingRecord(fullRecord)
+                        setEditingElement(fullRecord)
                     } else {
-                        enqueueSnackbar(t('records.updateError', 'Failed to update record'), { variant: 'error' })
+                        enqueueSnackbar(t('elements.updateError', 'Failed to update element'), { variant: 'error' })
                     }
                 }
             }
@@ -338,14 +338,14 @@ const RecordList = () => {
         [
             catalogId,
             confirm,
-            deleteRecordMutation,
+            deleteElementMutation,
             effectiveHubId,
             enqueueSnackbar,
             metahubId,
             queryClient,
-            recordMap,
+            elementMap,
             t,
-            updateRecordMutation
+            updateElementMutation
         ]
     )
 
@@ -394,15 +394,15 @@ const RecordList = () => {
     }
 
     const handleEditClose = () => {
-        setEditingRecord(null)
+        setEditingElement(null)
         setDialogError(null)
     }
 
-    const handleCreateRecord = async (data: Record<string, unknown>) => {
+    const handleCreateElement = async (data: Record<string, unknown>) => {
         setDialogError(null)
         setSubmitting(true)
         try {
-            await createRecordMutation.mutateAsync({
+            await createElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
@@ -420,25 +420,25 @@ const RecordList = () => {
                     ? e.message
                     : typeof e === 'string'
                     ? e
-                    : t('records.createError')
+                    : t('elements.createError')
             setDialogError(message)
-            console.error('Failed to create record', e)
+            console.error('Failed to create element', e)
         } finally {
             setSubmitting(false)
         }
     }
 
-    const handleUpdateRecord = async (data: Record<string, unknown>) => {
-        if (!editingRecord) return
+    const handleUpdateElement = async (data: Record<string, unknown>) => {
+        if (!editingElement) return
 
         setDialogError(null)
         setSubmitting(true)
         try {
-            await updateRecordMutation.mutateAsync({
+            await updateElementMutation.mutateAsync({
                 metahubId,
                 hubId: effectiveHubId,
                 catalogId,
-                recordId: editingRecord.id,
+                elementId: editingElement.id,
                 data: { data }
             })
 
@@ -453,16 +453,16 @@ const RecordList = () => {
                     ? e.message
                     : typeof e === 'string'
                     ? e
-                    : t('records.updateError')
+                    : t('elements.updateError')
             setDialogError(message)
-            console.error('Failed to update record', e)
+            console.error('Failed to update element', e)
         } finally {
             setSubmitting(false)
         }
     }
 
-    // Transform Record data for FlowListTable
-    const getRecordTableData = (record: HubRecord): HubRecordDisplay => toHubRecordDisplay(record, attributes, i18n.language)
+    // Transform Element data for FlowListTable
+    const getElementTableData = (element: HubElement): HubElementDisplay => toHubElementDisplay(element, attributes, i18n.language)
 
     return (
         <MainCard
@@ -486,9 +486,9 @@ const RecordList = () => {
                 />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    {/* Tab navigation between Attributes and Records */}
+                    {/* Tab navigation between Attributes and Elements */}
                     <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup value='records' exclusive size='small' sx={{ mb: 1 }}>
+                        <ToggleButtonGroup value='elements' exclusive size='small' sx={{ mb: 1 }}>
                             <ToggleButton
                                 value='attributes'
                                 sx={{ px: 2, py: 0.5 }}
@@ -503,18 +503,18 @@ const RecordList = () => {
                                 <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />
                                 {t('attributes.title')}
                             </ToggleButton>
-                            <ToggleButton value='records' sx={{ px: 2, py: 0.5 }}>
+                            <ToggleButton value='elements' sx={{ px: 2, py: 0.5 }}>
                                 <TableRowsIcon sx={{ mr: 1, fontSize: 18 }} />
-                                {t('records.title')}
+                                {t('elements.title')}
                             </ToggleButton>
                         </ToggleButtonGroup>
                     </Box>
 
                     <ViewHeader
                         search={true}
-                        searchPlaceholder={t('records.searchPlaceholder')}
+                        searchPlaceholder={t('elements.searchPlaceholder')}
                         onSearchChange={handleSearchChange}
-                        title={t('records.title')}
+                        title={t('elements.title')}
                     >
                         <ToolbarControls
                             primaryAction={{
@@ -526,40 +526,40 @@ const RecordList = () => {
                         />
                     </ViewHeader>
 
-                    {isLoading && records.length === 0 ? (
+                    {isLoading && elements.length === 0 ? (
                         <Skeleton variant='rectangular' height={120} />
-                    ) : !isLoading && records.length === 0 ? (
+                    ) : !isLoading && elements.length === 0 ? (
                         <EmptyListState
                             image={APIEmptySVG}
-                            imageAlt='No records'
-                            title={t('records.empty')}
-                            description={attributes.length === 0 ? t('records.addAttributesFirst') : t('records.emptyDescription')}
+                            imageAlt='No elements'
+                            title={t('elements.empty')}
+                            description={attributes.length === 0 ? t('elements.addAttributesFirst') : t('elements.emptyDescription')}
                         />
                     ) : (
                         <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                             <FlowListTable
-                                data={records.map(getRecordTableData)}
+                                data={elements.map(getElementTableData)}
                                 images={images}
                                 isLoading={isLoading}
-                                customColumns={recordColumns}
+                                customColumns={elementColumns}
                                 i18nNamespace='flowList'
                                 renderActions={(row: any) => {
-                                    const originalRecord = records.find((r) => r.id === row.id)
-                                    if (!originalRecord) return null
+                                    const originalElement = elements.find((element) => element.id === row.id)
+                                    if (!originalElement) return null
 
-                                    const descriptors = [...recordActions]
+                                    const descriptors = [...elementActions]
                                     if (!descriptors.length) return null
 
                                     return (
-                                        <BaseEntityMenu<HubRecordDisplay, { data: Record<string, unknown> }>
-                                            entity={toHubRecordDisplay(originalRecord, attributes, i18n.language)}
-                                            entityKind='record'
+                                        <BaseEntityMenu<HubElementDisplay, { data: Record<string, unknown> }>
+                                            entity={toHubElementDisplay(originalElement, attributes, i18n.language)}
+                                            entityKind='element'
                                             descriptors={descriptors}
                                             namespace='metahubs'
                                             menuButtonLabelKey='flowList:menu.button'
                                             i18nInstance={i18n}
-                                            createContext={createRecordContext}
-                                            contextExtras={{ rawRecord: originalRecord }}
+                                            createContext={createElementContext}
+                                            contextExtras={{ rawElement: originalElement }}
                                         />
                                     )
                                 }}
@@ -568,7 +568,7 @@ const RecordList = () => {
                     )}
 
                     {/* Table Pagination at bottom */}
-                    {!isLoading && records.length > 0 && (
+                    {!isLoading && elements.length > 0 && (
                         <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                             <PaginationControls
                                 pagination={paginationResult.pagination}
@@ -582,44 +582,44 @@ const RecordList = () => {
                 </Stack>
             )}
 
-            {/* Create Record Dialog */}
+            {/* Create Element Dialog */}
             <DynamicEntityFormDialog
                 open={isDialogOpen}
                 onClose={handleDialogClose}
-                onSubmit={handleCreateRecord}
-                fields={recordFields}
+                onSubmit={handleCreateElement}
+                fields={elementFields}
                 isSubmitting={isSubmitting}
                 error={dialogError}
-                title={t('records.createDialog.title', 'Add Record')}
+                title={t('elements.createDialog.title', 'Add Element')}
                 locale={i18n.language}
                 requireAnyValue
-                emptyStateText={t('records.noAttributes')}
+                emptyStateText={t('elements.noAttributes')}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
             />
 
-            {/* Edit Record Dialog */}
+            {/* Edit Element Dialog */}
             <DynamicEntityFormDialog
-                open={!!editingRecord}
+                open={!!editingElement}
                 onClose={handleEditClose}
-                onSubmit={handleUpdateRecord}
-                initialData={editingRecord?.data}
+                onSubmit={handleUpdateElement}
+                initialData={editingElement?.data}
                 isSubmitting={isSubmitting}
                 error={dialogError}
-                title={t('records.editDialog.title', 'Edit Record')}
+                title={t('elements.editDialog.title', 'Edit Element')}
                 locale={i18n.language}
-                fields={recordFields}
+                fields={elementFields}
                 requireAnyValue
-                emptyStateText={t('records.noAttributes')}
+                emptyStateText={t('elements.noAttributes')}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 showDeleteButton
                 deleteButtonText={tc('actions.delete', 'Delete')}
                 onDelete={() => {
-                    if (editingRecord) {
-                        setDeleteDialogState({ open: true, record: editingRecord })
+                    if (editingElement) {
+                        setDeleteDialogState({ open: true, element: editingElement })
                     }
                 }}
             />
@@ -627,22 +627,22 @@ const RecordList = () => {
             {/* Independent ConfirmDeleteDialog */}
             <ConfirmDeleteDialog
                 open={deleteDialogState.open}
-                title={t('records.deleteDialog.title')}
-                description={t('records.deleteDialog.message')}
+                title={t('elements.deleteDialog.title')}
+                description={t('elements.deleteDialog.message')}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, record: null })}
+                onCancel={() => setDeleteDialogState({ open: false, element: null })}
                 onConfirm={async () => {
-                    if (deleteDialogState.record) {
+                    if (deleteDialogState.element) {
                         try {
-                            await deleteRecordMutation.mutateAsync({
+                            await deleteElementMutation.mutateAsync({
                                 metahubId,
                                 hubId: effectiveHubId,
                                 catalogId,
-                                recordId: deleteDialogState.record.id
+                                elementId: deleteDialogState.element.id
                             })
-                            setDeleteDialogState({ open: false, record: null })
+                            setDeleteDialogState({ open: false, element: null })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
@@ -653,9 +653,9 @@ const RecordList = () => {
                                     ? err.message
                                     : typeof err === 'string'
                                     ? err
-                                    : t('records.deleteError')
+                                    : t('elements.deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, record: null })
+                            setDeleteDialogState({ open: false, element: null })
                         }
                     }
                 }}
@@ -666,4 +666,4 @@ const RecordList = () => {
     )
 }
 
-export default RecordList
+export default ElementList

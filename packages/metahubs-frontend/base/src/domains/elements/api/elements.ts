@@ -1,17 +1,17 @@
 import { apiClient } from '../../shared'
-import { HubRecord, PaginationParams, PaginatedResponse } from '../../../types'
+import { HubElement, PaginationParams, PaginatedResponse } from '../../../types'
 
 /**
- * List records for a specific catalog
+ * List elements for a specific catalog
  */
-export const listRecords = async (
+export const listElements = async (
     metahubId: string,
     hubId: string,
     catalogId: string,
     params?: PaginationParams
-): Promise<PaginatedResponse<HubRecord>> => {
-    const response = await apiClient.get<{ items: HubRecord[]; pagination: { total: number; limit: number; offset: number } }>(
-        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/records`,
+): Promise<PaginatedResponse<HubElement>> => {
+    const response = await apiClient.get<{ items: HubElement[]; pagination: { total: number; limit: number; offset: number } }>(
+        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/elements`,
         {
             params: {
                 limit: params?.limit,
@@ -38,15 +38,15 @@ export const listRecords = async (
 }
 
 /**
- * Get a single record
+ * Get a single element
  */
-export const getRecord = (metahubId: string, hubId: string, catalogId: string, recordId: string) =>
-    apiClient.get<HubRecord>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/record/${recordId}`)
+export const getElement = (metahubId: string, hubId: string, catalogId: string, elementId: string) =>
+    apiClient.get<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}`)
 
 /**
- * Create a new record
+ * Create a new element
  */
-export const createRecord = (
+export const createElement = (
     metahubId: string,
     hubId: string,
     catalogId: string,
@@ -54,42 +54,42 @@ export const createRecord = (
         data: Record<string, unknown>
         sortOrder?: number
     }
-) => apiClient.post<HubRecord>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/records`, data)
+) => apiClient.post<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/elements`, data)
 
 /**
- * Update a record
+ * Update an element
  */
-export const updateRecord = (
+export const updateElement = (
     metahubId: string,
     hubId: string,
     catalogId: string,
-    recordId: string,
+    elementId: string,
     data: {
         data?: Record<string, unknown>
         sortOrder?: number
     }
-) => apiClient.patch<HubRecord>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/record/${recordId}`, data)
+) => apiClient.patch<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}`, data)
 
 /**
- * Delete a record
+ * Delete an element
  */
-export const deleteRecord = (metahubId: string, hubId: string, catalogId: string, recordId: string) =>
-    apiClient.delete<void>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/record/${recordId}`)
+export const deleteElement = (metahubId: string, hubId: string, catalogId: string, elementId: string) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}`)
 
 // ============================================================================
 // Direct API (without hub) - for catalogs without hub association
 // ============================================================================
 
 /**
- * List records for a catalog (direct, without hub)
+ * List elements for a catalog (direct, without hub)
  */
-export const listRecordsDirect = async (
+export const listElementsDirect = async (
     metahubId: string,
     catalogId: string,
     params?: PaginationParams
-): Promise<PaginatedResponse<HubRecord>> => {
-    const response = await apiClient.get<{ items: HubRecord[]; pagination: { total: number; limit: number; offset: number } }>(
-        `/metahub/${metahubId}/catalog/${catalogId}/records`,
+): Promise<PaginatedResponse<HubElement>> => {
+    const response = await apiClient.get<{ items: HubElement[]; pagination: { total: number; limit: number; offset: number } }>(
+        `/metahub/${metahubId}/catalog/${catalogId}/elements`,
         {
             params: {
                 limit: params?.limit,
@@ -115,38 +115,38 @@ export const listRecordsDirect = async (
 }
 
 /**
- * Get a single record (direct, without hub)
+ * Get a single element (direct, without hub)
  */
-export const getRecordDirect = (metahubId: string, catalogId: string, recordId: string) =>
-    apiClient.get<HubRecord>(`/metahub/${metahubId}/catalog/${catalogId}/record/${recordId}`)
+export const getElementDirect = (metahubId: string, catalogId: string, elementId: string) =>
+    apiClient.get<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}`)
 
 /**
- * Create a new record (direct, without hub)
+ * Create a new element (direct, without hub)
  */
-export const createRecordDirect = (
+export const createElementDirect = (
     metahubId: string,
     catalogId: string,
     data: {
         data: Record<string, unknown>
         sortOrder?: number
     }
-) => apiClient.post<HubRecord>(`/metahub/${metahubId}/catalog/${catalogId}/records`, data)
+) => apiClient.post<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/elements`, data)
 
 /**
- * Update a record (direct, without hub)
+ * Update an element (direct, without hub)
  */
-export const updateRecordDirect = (
+export const updateElementDirect = (
     metahubId: string,
     catalogId: string,
-    recordId: string,
+    elementId: string,
     data: {
         data?: Record<string, unknown>
         sortOrder?: number
     }
-) => apiClient.patch<HubRecord>(`/metahub/${metahubId}/catalog/${catalogId}/record/${recordId}`, data)
+) => apiClient.patch<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}`, data)
 
 /**
- * Delete a record (direct, without hub)
+ * Delete an element (direct, without hub)
  */
-export const deleteRecordDirect = (metahubId: string, catalogId: string, recordId: string) =>
-    apiClient.delete<void>(`/metahub/${metahubId}/catalog/${catalogId}/record/${recordId}`)
+export const deleteElementDirect = (metahubId: string, catalogId: string, elementId: string) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}`)

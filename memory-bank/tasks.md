@@ -1,5 +1,30 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
+## IMPLEMENT (2026-01-24): Elements Rename + Metahub UI Sync
+
+- [x] Rename Records domain to Elements across metahubs-backend (routes/services/types/schema table `_mhb_elements`, snapshot `elements`, sync/seed usage).
+- [x] Update metahubs-frontend to Elements (routes/tabs/queryKeys/hooks/types/UI labels) and remove legacy Records naming.
+- [x] Update i18n keys for Elements (EN/RU) and remove/replace Records keys.
+- [x] Add "Storage" tab to Metahub edit dialog (match create dialog; fixed first option).
+- [x] Verify Catalog↔Hub relations persist in snapshot and app schema generation; fix serialization/DDL if missing.
+- [x] Publication edit "Applications" tab: show only application name/description (remove `pub-*` system label).
+- [x] Reorder Metahub side menu with separators (Board / Hubs / Catalogs / Publications / Access).
+- [x] Update metahubs README docs (EN/RU) and vitest config path after Elements rename.
+- [x] Run targeted builds/tests for metahubs-backend, metahubs-frontend, and template-mui.
+
+## IMPLEMENT (2026-01-24): Metahubs Branches (Default/Active per user)
+
+- [ ] Update metahubs migration to add metahubs_branches, default_branch_id, active_branch_id (no new migration).
+- [ ] Add MetahubBranch entity + update Metahub/MetahubUser entities.
+- [ ] Implement MetahubBranchesService (create/clone/activate/delete, created_by, blocking users).
+- [ ] Update MetahubSchemaService to resolve schema by user active branch (fallback to default).
+- [ ] Update hubs/catalogs/attributes/elements/services & routes to pass userId.
+- [ ] Add branches API routes (list/create/update/activate/delete/blocking-users).
+- [ ] Create branches frontend domain (list UI, create/edit, activate, delete blocking dialog).
+- [ ] Update metahub menu/routes/breadcrumbs for branches.
+- [ ] Add i18n keys for branches (metahubs + menu).
+- [ ] Run targeted builds/tests for metahubs-backend and metahubs-frontend.
+
 ## IMPLEMENT (2026-01-23): Metahub Codename + Migration Squash + Menu Order
 
 - [x] Merge metahubs migrations into 1766351182000 (publications, versions, schema_name, codename).

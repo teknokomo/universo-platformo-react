@@ -7,6 +7,8 @@ export const STORAGE_KEYS = {
     METAHUB_DISPLAY_STYLE: 'metahubsMetahubDisplayStyle',
     /** Display style for Hubs list (card/table) */
     HUB_DISPLAY_STYLE: 'metahubsHubDisplayStyle',
+    /** Display style for Branches list (card/table) */
+    BRANCH_DISPLAY_STYLE: 'metahubsBranchDisplayStyle',
     /** Display style for Publications (Information Bases) list (card/table) */
     PUBLICATION_DISPLAY_STYLE: 'metahubsPublicationDisplayStyle',
     /** Display style for Catalogs list within a hub (card/table) */

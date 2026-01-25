@@ -2,7 +2,7 @@
 
 > 🏗️ **Modern Package** - TypeScript-first architecture with Express.js and TypeORM
 
-Backend service for managing metahubs, hubs, catalogs, attributes, records, and memberships with strict metahub-level isolation.
+Backend service for managing metahubs, hubs, catalogs, attributes, elements, and memberships with strict metahub-level isolation.
 
 ## Package Information
 
@@ -18,7 +18,7 @@ Backend service for managing metahubs, hubs, catalogs, attributes, records, and 
 - **Hubs**: Content containers within metahubs (N:M relationship with Catalogs)
 - **Catalogs**: Schema definitions for structured data (N:M relationship with Hubs)
 - **Attributes**: Field definitions within catalogs
-- **Records**: Data entries conforming to catalog schemas
+- **Elements**: Data entries conforming to catalog schemas
 - **Memberships**: User-metahub membership with roles and permissions
 
 ### Data Isolation & Security
@@ -130,19 +130,19 @@ DELETE /metahub/:m/catalog/:c/attribute/:attrId                   # Delete attri
 PATCH  /metahub/:m/catalog/:c/attribute/:attrId/move              # Reorder attribute (direct)
 ```
 
-### Records Endpoints
+### Elements Endpoints
 ```http
-GET    /metahub/:m/hub/:h/catalog/:c/records                      # List records (hub scope)
-POST   /metahub/:m/hub/:h/catalog/:c/records                      # Create record (hub scope)
-GET    /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Get record (hub scope)
-PATCH  /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Update record (hub scope)
-DELETE /metahub/:m/hub/:h/catalog/:c/record/:recordId             # Delete record (hub scope)
+GET    /metahub/:m/hub/:h/catalog/:c/elements                     # List elements (hub scope)
+POST   /metahub/:m/hub/:h/catalog/:c/elements                     # Create element (hub scope)
+GET    /metahub/:m/hub/:h/catalog/:c/element/:elementId           # Get element (hub scope)
+PATCH  /metahub/:m/hub/:h/catalog/:c/element/:elementId           # Update element (hub scope)
+DELETE /metahub/:m/hub/:h/catalog/:c/element/:elementId           # Delete element (hub scope)
 
-GET    /metahub/:m/catalog/:c/records                             # List records (direct)
-POST   /metahub/:m/catalog/:c/records                             # Create record (direct)
-GET    /metahub/:m/catalog/:c/record/:recordId                    # Get record (direct)
-PATCH  /metahub/:m/catalog/:c/record/:recordId                    # Update record (direct)
-DELETE /metahub/:m/catalog/:c/record/:recordId                    # Delete record (direct)
+GET    /metahub/:m/catalog/:c/elements                            # List elements (direct)
+POST   /metahub/:m/catalog/:c/elements                            # Create element (direct)
+GET    /metahub/:m/catalog/:c/element/:elementId                  # Get element (direct)
+PATCH  /metahub/:m/catalog/:c/element/:elementId                  # Update element (direct)
+DELETE /metahub/:m/catalog/:c/element/:elementId                  # Delete element (direct)
 ```
 
 ### Publications Endpoints (Schema Sync)
@@ -183,9 +183,9 @@ Response:
 }
 ```
 
-#### Create Record
+#### Create Element
 ```http
-POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/records
+POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements
 Content-Type: application/json
 
 {
@@ -205,7 +205,7 @@ Content-Type: application/json
 - `Hub`: content container within metahub.
 - `Catalog`: schema definition for structured data (N:M with Hubs via junction table).
 - `Attribute`: field definition within catalog (name, type, constraints).
-- `Record`: data entry conforming to catalog schema (JSONB data).
+- `Element`: data entry conforming to catalog schema (JSONB data).
 - `MetahubUser`: membership with role and permissions.
 
 ### Junction Tables
@@ -269,7 +269,7 @@ These tables enable runtime introspection and Server-Driven UI generation.
 
 - `metahubId` is required for all operations.
 - `hubId` is required for creating catalogs.
-- `catalogId` is required for creating attributes and records.
+- `catalogId` is required for creating attributes and elements.
 - UUID parameters are validated, and access is enforced by guards.
 
 ## Database Schema
@@ -313,7 +313,7 @@ src/
 │   │   └── routes/
 │   ├── publications/
 │   │   └── routes/
-│   ├── records/
+│   ├── elements/
 │   │   └── routes/
 │   ├── ddl/
 │   │   └── definitions/

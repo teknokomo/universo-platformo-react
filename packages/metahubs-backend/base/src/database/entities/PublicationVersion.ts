@@ -10,6 +10,9 @@ export class PublicationVersion {
     @Column({ name: 'publication_id', type: 'uuid' })
     publicationId!: string
 
+    @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+    branchId!: string | null
+
     @ManyToOne(() => Publication, (pub) => pub.versions, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'publication_id' })
     publication!: Publication

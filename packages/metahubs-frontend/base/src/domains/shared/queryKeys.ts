@@ -40,6 +40,26 @@ export const metahubsQueryKeys = {
 
     // ============ NEW ARCHITECTURE QUERY KEYS ============
 
+    // Branches scoped to a specific metahub
+    branches: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'branches'] as const,
+
+    branchesList: (metahubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.branches(metahubId), 'list', normalized] as const
+    },
+
+    branchDetail: (metahubId: string, branchId: string) =>
+        [...metahubsQueryKeys.branches(metahubId), 'detail', branchId] as const,
+
+    blockingBranchUsers: (metahubId: string, branchId: string) =>
+        [...metahubsQueryKeys.branchDetail(metahubId, branchId), 'blockingUsers'] as const,
+
     // Hubs scoped to a specific metahub
     hubs: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'hubs'] as const,
 
@@ -126,11 +146,11 @@ export const metahubsQueryKeys = {
         return [...metahubsQueryKeys.attributesDirect(metahubId, catalogId), 'list', normalized] as const
     },
 
-    // Records scoped to a specific catalog
-    records: (metahubId: string, hubId: string, catalogId: string) =>
-        [...metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId), 'records'] as const,
+    // Elements scoped to a specific catalog
+    elements: (metahubId: string, hubId: string, catalogId: string) =>
+        [...metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId), 'elements'] as const,
 
-    recordsList: (metahubId: string, hubId: string, catalogId: string, params?: PaginationParams) => {
+    elementsList: (metahubId: string, hubId: string, catalogId: string, params?: PaginationParams) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
@@ -138,14 +158,14 @@ export const metahubsQueryKeys = {
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined
         }
-        return [...metahubsQueryKeys.records(metahubId, hubId, catalogId), 'list', normalized] as const
+        return [...metahubsQueryKeys.elements(metahubId, hubId, catalogId), 'list', normalized] as const
     },
 
-    // Records scoped directly to catalog (without hub context)
-    recordsDirect: (metahubId: string, catalogId: string) =>
-        [...metahubsQueryKeys.catalogDetail(metahubId, catalogId), 'records'] as const,
+    // Elements scoped directly to catalog (without hub context)
+    elementsDirect: (metahubId: string, catalogId: string) =>
+        [...metahubsQueryKeys.catalogDetail(metahubId, catalogId), 'elements'] as const,
 
-    recordsListDirect: (metahubId: string, catalogId: string, params?: PaginationParams) => {
+    elementsListDirect: (metahubId: string, catalogId: string, params?: PaginationParams) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
@@ -153,7 +173,7 @@ export const metahubsQueryKeys = {
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined
         }
-        return [...metahubsQueryKeys.recordsDirect(metahubId, catalogId), 'list', normalized] as const
+        return [...metahubsQueryKeys.elementsDirect(metahubId, catalogId), 'list', normalized] as const
     },
 
     // ============ PUBLICATIONS (INFORMATION BASES) QUERY KEYS ============
@@ -197,6 +217,16 @@ export const invalidateHubsQueries = {
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubDetail(metahubId, hubId) })
 }
 
+export const invalidateBranchesQueries = {
+    all: (queryClient: QueryClient, metahubId: string) => queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(metahubId) }),
+
+    lists: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branchesList(metahubId) }),
+
+    detail: (queryClient: QueryClient, metahubId: string, branchId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branchDetail(metahubId, branchId) })
+}
+
 export const invalidateCatalogsQueries = {
     all: (queryClient: QueryClient, metahubId: string, hubId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(metahubId, hubId) }),
@@ -216,12 +246,12 @@ export const invalidateAttributesQueries = {
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesList(metahubId, hubId, catalogId) })
 }
 
-export const invalidateRecordsQueries = {
+export const invalidateElementsQueries = {
     all: (queryClient: QueryClient, metahubId: string, hubId: string, catalogId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.records(metahubId, hubId, catalogId) }),
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elements(metahubId, hubId, catalogId) }),
 
     lists: (queryClient: QueryClient, metahubId: string, hubId: string, catalogId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsList(metahubId, hubId, catalogId) })
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsList(metahubId, hubId, catalogId) })
 }
 
 export const invalidatePublicationsQueries = {

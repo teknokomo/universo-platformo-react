@@ -1,13 +1,26 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Chip, Alert } from '@mui/material'
+import {
+    Box,
+    Skeleton,
+    Stack,
+    Typography,
+    IconButton,
+    Chip,
+    Alert,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormHelperText
+} from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -38,6 +51,7 @@ import { useMetahubDetails } from '../../metahubs'
 import type { Publication, PublicationAccessMode } from '../api'
 import { invalidatePublicationsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString, type PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import publicationActions from './PublicationActions'
@@ -47,6 +61,7 @@ import { ApplicationsCreatePanel } from './ApplicationsCreatePanel'
 type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
+    versionBranchId?: string | null
 }
 
 type PublicationFormFieldsProps = {
@@ -122,6 +137,28 @@ const PublicationList = () => {
     const { data: metahub, isLoading: isMetahubLoading } = useMetahubDetails(metahubId ?? '', {
         enabled: !!metahubId
     })
+
+    const { data: branchesResponse } = useQuery({
+        queryKey: ['metahub-branches', 'options', 'publication', metahubId],
+        queryFn: () => listBranchOptions(metahubId ?? '', { sortBy: 'name', sortOrder: 'asc' }),
+        enabled: !!metahubId
+    })
+
+    const branches = branchesResponse?.items ?? []
+    const defaultBranchId = branchesResponse?.meta?.defaultBranchId ?? branches[0]?.id ?? null
+
+    const getBranchLabel = useCallback(
+        (branchId?: string | null) => {
+            if (!branchId) return ''
+            const branch = branches.find((item) => item.id === branchId)
+            if (!branch) return `${t('publications.versions.branchMissing', 'Удалённая ветка')} (${branchId})`
+            const name = getVLCString(branch.name, i18n.language)
+                || getVLCString(branch.name, 'en')
+                || branch.codename
+            return `${name} (${branch.codename})`
+        },
+        [branches, i18n.language, t]
+    )
 
     const publications = publicationsResponse?.items ?? []
 
@@ -243,8 +280,8 @@ const PublicationList = () => {
     }, [publications])
 
     const localizedFormDefaults = useMemo<PublicationFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null }),
-        []
+        () => ({ nameVlc: null, descriptionVlc: null, versionBranchId: defaultBranchId ?? null }),
+        [defaultBranchId]
     )
 
     const validatePublicationForm = useCallback(
@@ -329,6 +366,29 @@ const PublicationList = () => {
                                 multiline
                                 rows={2}
                             />
+                            <FormControl fullWidth disabled={isFormLoading}>
+                                <InputLabel id="publication-version-branch-label">
+                                    {t('publications.versions.branchLabel', 'Ветка для версии')}
+                                </InputLabel>
+                                <Select
+                                    labelId="publication-version-branch-label"
+                                    value={values.versionBranchId ?? defaultBranchId ?? ''}
+                                    label={t('publications.versions.branchLabel', 'Ветка для версии')}
+                                    onChange={(event) => setValue('versionBranchId', event.target.value)}
+                                >
+                                    {branches.map((branch) => (
+                                        <MenuItem key={branch.id} value={branch.id}>
+                                            {getBranchLabel(branch.id)}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                                <FormHelperText>
+                                    {t(
+                                        'publications.versions.branchHelper',
+                                        'Снапшот версии будет создан на основе выбранной ветки.'
+                                    )}
+                                </FormHelperText>
+                            </FormControl>
                         </Stack>
                     )
                 },
@@ -358,7 +418,7 @@ const PublicationList = () => {
                 }
             ]
         },
-        [i18n.language, t, tc]
+        [branches, defaultBranchId, getBranchLabel, i18n.language, t, tc]
     )
 
     // Access mode chip colors
@@ -523,6 +583,7 @@ const PublicationList = () => {
             const versionDescriptionVlc = data.versionDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: versionNameInput, primaryLocale: versionNamePrimaryLocale } = extractLocalizedInput(versionNameVlc)
             const { input: versionDescriptionInput, primaryLocale: versionDescriptionPrimaryLocale } = extractLocalizedInput(versionDescriptionVlc)
+            const versionBranchId = (data.versionBranchId as string | null | undefined) ?? defaultBranchId ?? undefined
 
             await createPublicationMutation.mutateAsync({
                 metahubId: metahubId!,
@@ -536,7 +597,8 @@ const PublicationList = () => {
                     versionName: versionNameInput,
                     versionDescription: versionDescriptionInput,
                     versionNamePrimaryLocale,
-                    versionDescriptionPrimaryLocale
+                    versionDescriptionPrimaryLocale,
+                    versionBranchId
                 }
             })
 

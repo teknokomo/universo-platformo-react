@@ -12,7 +12,13 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
+import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
+
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
 
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -66,14 +72,14 @@ export function createCatalogsRoutes(
         const objectsService = new MetahubObjectsService(schemaService)
         const hubsService = new MetahubHubsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
-        const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
         return {
             ds,
             manager,
             hubsService,
             objectsService,
             attributesService,
-            recordsService
+            elementsService
         }
     }
 
@@ -86,7 +92,8 @@ export function createCatalogsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const { objectsService, hubsService, attributesService, recordsService } = services(req)
+            const { objectsService, hubsService, attributesService, elementsService } = services(req)
+            const userId = resolveUserId(req)
 
             let validatedQuery
             try {
@@ -101,15 +108,15 @@ export function createCatalogsRoutes(
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
             // Fetch catalogs from _mhb_objects
-            const rawCatalogs = await objectsService.findAll(metahubId)
+            const rawCatalogs = await objectsService.findAll(metahubId, userId)
 
             // Get all catalog IDs for batch count queries
             const catalogIds = rawCatalogs.map((row: any) => row.id)
 
-            // Batch fetch counts for attributes and records
-            const [attributesCounts, recordsCounts] = await Promise.all([
-                attributesService.countByObjectIds(metahubId, catalogIds),
-                recordsService.countByObjectIds(metahubId, catalogIds)
+            // Batch fetch counts for attributes and elements
+            const [attributesCounts, elementsCounts] = await Promise.all([
+                attributesService.countByObjectIds(metahubId, catalogIds, userId),
+                elementsService.countByObjectIds(metahubId, catalogIds, userId)
             ])
 
             let items = rawCatalogs.map((row: any) => ({
@@ -124,7 +131,7 @@ export function createCatalogsRoutes(
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
                 attributesCount: attributesCounts.get(row.id) || 0,
-                recordsCount: recordsCounts.get(row.id) || 0,
+                elementsCount: elementsCounts.get(row.id) || 0,
                 hubs: [] as any[]
             }))
 
@@ -175,7 +182,7 @@ export function createCatalogsRoutes(
 
             const hubMap = new Map<string, any>()
             if (allHubIds.size > 0) {
-                const hubs = await hubsService.findByIds(metahubId, Array.from(allHubIds))
+                const hubs = await hubsService.findByIds(metahubId, Array.from(allHubIds), userId)
                 hubs.forEach((h: any) => hubMap.set(h.id, h))
             }
 
@@ -204,6 +211,7 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
             const { objectsService, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
             const parsed = createCatalogSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -221,7 +229,7 @@ export function createCatalogsRoutes(
             }
 
             // Check for duplicate codename within the metahub
-            const existing = await objectsService.findByCodename(metahubId, normalizedCodename)
+            const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
             }
@@ -253,7 +261,7 @@ export function createCatalogsRoutes(
 
             // Validate all hub IDs belong to this metahub
             if (targetHubIds.length > 0) {
-                const validHubs = await hubsService.findByIds(metahubId, targetHubIds)
+                const validHubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
                 if (validHubs.length !== targetHubIds.length) {
                     return res.status(400).json({ error: 'One or more hub IDs are invalid' })
                 }
@@ -270,10 +278,10 @@ export function createCatalogsRoutes(
                     sortOrder: sortOrder ?? 0,
                     hubs: targetHubIds
                 }
-            })
+            }, userId)
 
             // Fetch hubs for response
-            const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds) : []
+            const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
             res.status(201).json({
                 id: created.id,
@@ -301,9 +309,10 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { objectsService, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
             // Verify catalog exists
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
@@ -342,7 +351,7 @@ export function createCatalogsRoutes(
 
                 // Validate all hub IDs belong to this metahub (if any provided)
                 if (targetHubIds.length > 0) {
-                    const validHubs = await hubsService.findByIds(metahubId, targetHubIds)
+                    const validHubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
                     if (validHubs.length !== targetHubIds.length) {
                         return res.status(400).json({ error: 'One or more hub IDs are invalid' })
                     }
@@ -359,7 +368,7 @@ export function createCatalogsRoutes(
                 }
                 if (normalizedCodename !== catalog.codename) {
                     // Check for duplicate codename within the metahub
-                    const existing = await objectsService.findByCodename(metahubId, normalizedCodename)
+                    const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
                     if (existing && existing.id !== catalogId) {
                         return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
                     }
@@ -422,11 +431,11 @@ export function createCatalogsRoutes(
                     isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
                     sortOrder: sortOrder ?? currentConfig.sortOrder
                 }
-            })
+            }, userId)
 
             // Get updated hub associations for response
             const hubs =
-                targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds) : []
+                targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
             res.json({
                 id: updated.id,
@@ -453,7 +462,8 @@ export function createCatalogsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
-            const { objectsService, hubsService, attributesService, recordsService } = services(req)
+            const { objectsService, hubsService, attributesService, elementsService } = services(req)
+            const userId = resolveUserId(req)
 
             let validatedQuery
             try {
@@ -468,7 +478,7 @@ export function createCatalogsRoutes(
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
             // Fetch all catalogs and filter by hubId in config
-            const allCatalogs = await objectsService.findAll(metahubId)
+            const allCatalogs = await objectsService.findAll(metahubId, userId)
 
             let hubCatalogs = allCatalogs.filter((cat: any) => {
                 const hubs = cat.config?.hubs || []
@@ -482,10 +492,10 @@ export function createCatalogsRoutes(
             // Get catalog IDs for batch count queries
             const catalogIds = hubCatalogs.map((row: any) => row.id)
 
-            // Batch fetch counts for attributes and records
-            const [attributesCounts, recordsCounts] = await Promise.all([
-                attributesService.countByObjectIds(metahubId, catalogIds),
-                recordsService.countByObjectIds(metahubId, catalogIds)
+            // Batch fetch counts for attributes and elements
+            const [attributesCounts, elementsCounts] = await Promise.all([
+                attributesService.countByObjectIds(metahubId, catalogIds, userId),
+                elementsService.countByObjectIds(metahubId, catalogIds, userId)
             ])
 
             // Map to items
@@ -501,7 +511,7 @@ export function createCatalogsRoutes(
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
                 attributesCount: attributesCounts.get(row.id) || 0,
-                recordsCount: recordsCounts.get(row.id) || 0,
+                elementsCount: elementsCounts.get(row.id) || 0,
                 hubs: [] as any[]
             }))
 
@@ -554,7 +564,7 @@ export function createCatalogsRoutes(
 
             const hubMap = new Map<string, any>()
             if (allHubIds.size > 0) {
-                const hubs = await hubsService.findByIds(metahubId, Array.from(allHubIds))
+                const hubs = await hubsService.findByIds(metahubId, Array.from(allHubIds), userId)
                 hubs.forEach((h: any) => hubMap.set(h.id, h))
             }
 
@@ -582,8 +592,9 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
             const { objectsService, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
 
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
@@ -600,12 +611,12 @@ export function createCatalogsRoutes(
             // Get all hub associations
             const hubs =
                 currentHubs.length > 0
-                    ? await hubsService.findByIds(metahubId, currentHubs)
+                    ? await hubsService.findByIds(metahubId, currentHubs, userId)
                     : []
 
             // TODO: Implement counts
             const attributesCount = 0
-            const recordsCount = 0
+            const elementsCount = 0
 
             res.json({
                 id: catalog.id,
@@ -620,7 +631,7 @@ export function createCatalogsRoutes(
                 updatedAt: catalog.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename })),
                 attributesCount,
-                recordsCount
+                elementsCount
             })
         })
     )
@@ -636,8 +647,9 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { objectsService, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
 
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
@@ -648,12 +660,12 @@ export function createCatalogsRoutes(
 
             const hubs =
                 hubIds.length > 0
-                    ? await hubsService.findByIds(metahubId, hubIds)
+                    ? await hubsService.findByIds(metahubId, hubIds, userId)
                     : []
 
             // TODO: Implement counts using specialized services
             const attributesCount = 0
-            const recordsCount = 0
+            const elementsCount = 0
 
             res.json({
                 id: catalog.id,
@@ -668,7 +680,7 @@ export function createCatalogsRoutes(
                 updatedAt: catalog.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename })),
                 attributesCount,
-                recordsCount
+                elementsCount
             })
         })
     )
@@ -683,9 +695,10 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { objectsService, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
             // Verify hub exists in this metahub
-            const hub = await hubsService.findById(metahubId, hubId)
+            const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
@@ -706,7 +719,7 @@ export function createCatalogsRoutes(
             }
 
             // Check for duplicate codename within the metahub
-            const existing = await objectsService.findByCodename(metahubId, normalizedCodename)
+            const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
             }
@@ -738,7 +751,7 @@ export function createCatalogsRoutes(
             }
 
             // Validate all hub IDs belong to this metahub
-            const validHubs = await hubsService.findByIds(metahubId, targetHubIds)
+            const validHubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
             if (validHubs.length !== targetHubIds.length) {
                 return res.status(400).json({ error: 'One or more hub IDs are invalid' })
             }
@@ -754,10 +767,10 @@ export function createCatalogsRoutes(
                     isRequiredHub: effectiveIsRequired,
                     sortOrder: sortOrder ?? 0
                 }
-            })
+            }, userId)
 
             // Return catalog with hubs
-            const hubs = await hubsService.findByIds(metahubId, targetHubIds)
+            const hubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
 
             res.status(201).json({
                 id: catalog.id,
@@ -787,8 +800,9 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
             const { objectsService, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
@@ -832,7 +846,7 @@ export function createCatalogsRoutes(
 
                 // Validate hubs
                 if (targetHubIds.length > 0) {
-                    const validHubs = await hubsService.findByIds(metahubId, targetHubIds)
+                    const validHubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
                     if (validHubs.length !== targetHubIds.length) {
                         return res.status(400).json({ error: 'One or more hub IDs are invalid' })
                     }
@@ -845,7 +859,7 @@ export function createCatalogsRoutes(
                     return res.status(400).json({ error: 'Validation failed', details: { codename: ['Invalid format'] } })
                 }
                 if (normalizedCodename !== catalog.codename) {
-                    const existing = await objectsService.findByCodename(metahubId, normalizedCodename)
+                    const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
                     if (existing && existing.id !== catalogId) {
                         return res.status(409).json({ error: 'Catalog with this codename already exists' })
                     }
@@ -879,10 +893,10 @@ export function createCatalogsRoutes(
                     isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
                     sortOrder: sortOrder ?? currentConfig.sortOrder
                 }
-            })
+            }, userId)
 
             const outputHubs = targetHubIds.length > 0
-                ? await hubsService.findByIds(metahubId, targetHubIds)
+                ? await hubsService.findByIds(metahubId, targetHubIds, userId)
                 : []
 
             res.json({
@@ -912,8 +926,9 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
             const { objectsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
@@ -938,11 +953,11 @@ export function createCatalogsRoutes(
                 const newHubIds = currentHubIds.filter((id) => id !== hubId)
                 await objectsService.updateCatalog(metahubId, catalogId, {
                     config: { ...currentConfig, hubs: newHubIds }
-                })
+                }, userId)
                 res.status(200).json({ message: 'Catalog removed from hub', remainingHubs: newHubIds.length })
             } else {
                 // Delete entire catalog
-                await objectsService.delete(metahubId, catalogId)
+                await objectsService.delete(metahubId, catalogId, userId)
                 res.status(204).send()
             }
         })
@@ -958,13 +973,14 @@ export function createCatalogsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { objectsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
-            await objectsService.delete(metahubId, catalogId)
+            await objectsService.delete(metahubId, catalogId, userId)
 
             res.status(204).send()
         })

@@ -65,14 +65,14 @@ describe('Catalogs Routes', () => {
         const catalogHubRepo = createMockRepository<any>()
         const hubRepo = createMockRepository<any>()
         const attributeRepo = createMockRepository<any>()
-        const recordRepo = createMockRepository<any>()
+        const elementRepo = createMockRepository<any>()
 
         const dataSource = createMockDataSource({
             Catalog: catalogRepo,
             CatalogHub: catalogHubRepo,
             Hub: hubRepo,
             Attribute: attributeRepo,
-            HubRecord: recordRepo
+            HubElement: elementRepo
         })
 
         return {
@@ -81,7 +81,7 @@ describe('Catalogs Routes', () => {
             catalogHubRepo,
             hubRepo,
             attributeRepo,
-            recordRepo
+            elementRepo
         }
     }
 
@@ -132,7 +132,7 @@ describe('Catalogs Routes', () => {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                     attributesCount: '0',
-                    recordsCount: '0',
+                    elementsCount: '0',
                     window_total: '1'
                 }
             ]
@@ -353,7 +353,7 @@ describe('Catalogs Routes', () => {
             expect(response.body.error).toBe('Catalog not found')
         })
 
-        it('should cascade delete CatalogHub records', async () => {
+        it('should cascade delete CatalogHub elements', async () => {
             const { dataSource, catalogRepo } = buildDataSource()
 
             const mockCatalog = {

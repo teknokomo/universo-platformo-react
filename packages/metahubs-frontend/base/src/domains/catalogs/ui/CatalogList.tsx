@@ -553,11 +553,11 @@ const CatalogList = () => {
                     )
             },
             {
-                id: 'recordsCount',
-                label: t('catalogs.recordsHeader', 'Records'),
+                id: 'elementsCount',
+                label: t('catalogs.elementsHeader', 'Elements'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: CatalogWithHubsDisplay) => (typeof row.recordsCount === 'number' ? row.recordsCount : '—')
+                render: (row: CatalogWithHubsDisplay) => (typeof row.elementsCount === 'number' ? row.elementsCount : '—')
             }
         ]
 

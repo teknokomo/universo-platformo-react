@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Stack, Typography, Box, Skeleton, List, ListItem, ListItemText, Link as MuiLink, Chip } from '@mui/material'
+import { Stack, Typography, Box, Skeleton, List, ListItem, ListItemText, Link as MuiLink } from '@mui/material'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
 import type { LinkedApplication } from '../api'
@@ -97,7 +97,7 @@ export const ApplicationsPanel = ({
 
             <List disablePadding>
                 {applications.map((app) => {
-                    const name = getVLCString(app.name, uiLocale) || app.slug || app.id
+                    const name = getVLCString(app.name, uiLocale) || ''
                     const description = app.description ? getVLCString(app.description, uiLocale) : null
 
                     return (
@@ -123,19 +123,9 @@ export const ApplicationsPanel = ({
                         >
                             <ListItemText
                                 primary={
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <Typography variant="body1" fontWeight={500}>
-                                            {name}
-                                        </Typography>
-                                        {app.slug && (
-                                            <Chip
-                                                label={app.slug}
-                                                size="small"
-                                                variant="outlined"
-                                                sx={{ fontFamily: 'monospace', fontSize: 12 }}
-                                            />
-                                        )}
-                                    </Stack>
+                                    <Typography variant="body1" fontWeight={500}>
+                                        {name}
+                                    </Typography>
                                 }
                                 secondary={description || t('publications.applications.noDescription', 'Нет описания')}
                             />

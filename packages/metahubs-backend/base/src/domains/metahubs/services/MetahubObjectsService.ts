@@ -12,8 +12,8 @@ export class MetahubObjectsService {
         return KnexClient.getInstance()
     }
 
-    async findAll(metahubId: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findAll(metahubId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         return this.knex
             .withSchema(schemaName)
             .from('_mhb_objects')
@@ -22,8 +22,19 @@ export class MetahubObjectsService {
             .orderBy('created_at', 'desc')
     }
 
-    async findById(metahubId: string, id: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async countByKind(metahubId: string, kind: 'CATALOG' | 'HUB' | 'DOCUMENT', userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const result = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind })
+            .count('* as count')
+            .first()
+        return result ? parseInt(result.count as string, 10) : 0
+    }
+
+    async findById(metahubId: string, id: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         return this.knex
             .withSchema(schemaName)
             .from('_mhb_objects')
@@ -31,8 +42,8 @@ export class MetahubObjectsService {
             .first()
     }
 
-    async findByCodename(metahubId: string, codename: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findByCodename(metahubId: string, codename: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         return this.knex
             .withSchema(schemaName)
             .from('_mhb_objects')
@@ -49,8 +60,8 @@ export class MetahubObjectsService {
         name: any // VLC
         description?: any // VLC
         config?: any
-    }) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    }, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // First insert without table_name to get the generated UUID
         const [created] = await this.knex
@@ -89,8 +100,8 @@ export class MetahubObjectsService {
         name?: any
         description?: any
         config?: any
-    }) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    }, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const updateData: any = { updated_at: new Date() }
 
@@ -107,7 +118,7 @@ export class MetahubObjectsService {
         // Here we assume input provides full new state for complex objects or we use jsonb_set.
         // For simplicity, we fetch and merge in app for now or assume full object replacement for nested fields.
 
-        const existing = await this.findById(metahubId, id)
+        const existing = await this.findById(metahubId, id, userId)
         if (!existing) throw new Error('Catalog not found')
 
         if (input.name || input.description) {
@@ -134,8 +145,8 @@ export class MetahubObjectsService {
         return updated
     }
 
-    async delete(metahubId: string, id: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async delete(metahubId: string, id: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         await this.knex
             .withSchema(schemaName)
             .from('_mhb_objects')

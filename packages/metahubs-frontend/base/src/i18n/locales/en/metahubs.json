@@ -31,6 +31,16 @@
             "defaultDescription": "Metahub analytics and statistics",
             "overview": "Overview",
             "stats": {
+                "branches": {
+                    "title": "Branches",
+                    "interval": "All time",
+                    "description": "Total branches in this metahub"
+                },
+                "applications": {
+                    "title": "Applications",
+                    "interval": "All time",
+                    "description": "Applications linked to this metahub"
+                },
                 "hubs": {
                     "title": "Hubs",
                     "interval": "All time",
@@ -40,6 +50,16 @@
                     "title": "Catalogs",
                     "interval": "All time",
                     "description": "Total catalogs across all hubs"
+                },
+                "publications": {
+                    "title": "Publications",
+                    "interval": "All time",
+                    "description": "Total publications in this metahub"
+                },
+                "versions": {
+                    "title": "Publication versions",
+                    "interval": "All time",
+                    "description": "Total publication versions in this metahub"
                 },
                 "members": {
                     "title": "Members",
@@ -86,6 +106,67 @@
             "externalDbDisabled": "Coming soon"
         }
     },
+    "branches": {
+        "title": "Branches",
+        "description": "Workspaces for parallel development",
+        "searchPlaceholder": "Search branches...",
+        "empty": "No branches yet",
+        "emptyDescription": "Create your first branch to start iterating",
+        "create": "Create Branch",
+        "editTitle": "Edit Branch",
+        "createDialog": {
+            "title": "Create Branch"
+        },
+        "editDialog": {
+            "title": "Edit Branch"
+        },
+        "deleteDialog": {
+            "title": "Delete Branch",
+            "confirmMessage": "Are you sure you want to delete this branch? This action cannot be undone.",
+            "fetchError": "Failed to check for blocking users",
+            "hasBlockingUsers": "Cannot delete branch. The following users have it active:",
+            "resolutionHint": "Ask users to switch to another branch before deleting."
+        },
+        "codename": "Codename",
+        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+        "sourceBranch": "Source branch",
+        "sourceBranchHelper": "Default branch",
+        "sourceEmpty": "Empty branch",
+        "sourceEmptyHelper": "Empty branch (no data will be copied)",
+        "sourceEmptyInfo": "This branch was created without a source.",
+        "sourceMissing": "Source branch is missing",
+        "sourceMissingItem": "Deleted branch",
+        "sourceChainTitle": "Source chain",
+        "tabs": {
+            "general": "General",
+            "source": "Source"
+        },
+        "activate": "Activate",
+        "actions": {
+            "activate": "Make active",
+            "setDefault": "Set as default"
+        },
+        "badge": {
+            "active": "Active",
+            "default": "Default"
+        },
+        "createSuccess": "Branch created",
+        "createLocked": "Branch creation is already in progress. Please try again.",
+        "updateSuccess": "Branch updated",
+        "deleteSuccess": "Branch deleted",
+        "activateSuccess": "Branch activated",
+        "setDefaultSuccess": "Default branch updated",
+        "createError": "Failed to create branch",
+        "updateError": "Failed to update branch",
+        "deleteError": "Failed to delete branch",
+        "activateError": "Failed to activate branch",
+        "setDefaultError": "Failed to set default branch",
+        "validation": {
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+            "sourceRequired": "Select a source branch"
+        }
+    },
     "hubs": {
         "title": "Hubs",
         "description": "Data containers that define the structure of your metahub",
@@ -102,7 +183,7 @@
         },
         "deleteDialog": {
             "title": "Delete Hub",
-            "message": "Are you sure you want to delete this hub? All catalogs, attributes and records will be permanently removed.",
+            "message": "Are you sure you want to delete this hub? All catalogs, attributes and elements will be permanently removed.",
             "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
             "fetchError": "Failed to check for blocking catalogs",
             "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
@@ -128,10 +209,10 @@
         "title": "Catalogs",
         "allTitle": "Catalogs",
         "allDescription": "All catalogs across all hubs in this metahub",
-        "description": "Directories that organize attributes and records within a hub",
+        "description": "Directories that organize attributes and elements within a hub",
         "searchPlaceholder": "Search catalogs...",
         "empty": "No catalogs yet",
-        "emptyDescription": "Create your first catalog to organize attributes and records",
+        "emptyDescription": "Create your first catalog to organize attributes and elements",
         "emptyHint": "Create catalogs in specific hubs",
         "noSearchResults": "No catalogs found",
         "noSearchResultsHint": "Try different search terms",
@@ -145,7 +226,7 @@
         },
         "deleteDialog": {
             "title": "Delete Catalog",
-            "message": "Are you sure you want to delete this catalog? All attributes and records will be permanently removed."
+            "message": "Are you sure you want to delete this catalog? All attributes and elements will be permanently removed."
         },
         "deleted": "Catalog deleted",
         "deleteTitle": "Delete Catalog",
@@ -158,9 +239,9 @@
         "attributesHeader": "Attributes",
         "attributesCount_one": "{{count}} attribute",
         "attributesCount_other": "{{count}} attributes",
-        "recordsHeader": "Records",
-        "recordsCount_one": "{{count}} rec",
-        "recordsCount_other": "{{count}} rec",
+        "elementsHeader": "Elements",
+        "elementsCount_one": "{{count}} elem",
+        "elementsCount_other": "{{count}} elem",
         "countsHeader": "Items",
         "createError": "Failed to create catalog",
         "updateError": "Failed to update catalog",
@@ -241,31 +322,31 @@
         "moveSuccess": "Attribute order updated",
         "moveError": "Failed to update attribute order"
     },
-    "records": {
-        "title": "Records",
+    "elements": {
+        "title": "Elements",
         "description": "Data entries for this catalog",
-        "searchPlaceholder": "Search records...",
-        "empty": "No records yet",
-        "emptyDescription": "Add records to store data in this catalog",
-        "addAttributesFirst": "Define attributes for this catalog before adding records",
+        "searchPlaceholder": "Search elements...",
+        "empty": "No elements yet",
+        "emptyDescription": "Add elements to store data in this catalog",
+        "addAttributesFirst": "Define attributes for this catalog before adding elements",
         "noAttributes": "No attributes defined for this catalog. Add attributes first.",
-        "create": "Add Record",
+        "create": "Add Element",
         "createDialog": {
-            "title": "Add Record"
+            "title": "Add Element"
         },
         "editDialog": {
-            "title": "Edit Record"
+            "title": "Edit Element"
         },
         "deleteDialog": {
-            "title": "Delete Record",
-            "message": "Are you sure you want to delete this record? This action cannot be undone."
+            "title": "Delete Element",
+            "message": "Are you sure you want to delete this element? This action cannot be undone."
         },
         "table": {
             "updated": "Updated"
         },
-        "createError": "Failed to create record",
-        "updateError": "Failed to update record",
-        "deleteError": "Failed to delete record"
+        "createError": "Failed to create element",
+        "updateError": "Failed to update element",
+        "deleteError": "Failed to delete element"
     },
     "members": {
         "title": "Members",
@@ -306,6 +387,7 @@
         },
         "tabs": {
             "general": "General",
+            "versions": "Versions",
             "metahubs": "Metahubs",
             "access": "Access",
             "applications": "Applications"
@@ -396,6 +478,7 @@
         },
         "table": {
             "name": "Name",
+            "description": "Description",
             "accessMode": "Access"
         },
         "accessMode": {
@@ -405,12 +488,20 @@
         "versions": {
             "title": "Versions",
             "create": "Create Version",
+            "addButton": "Add",
             "createSuccess": "Version created successfully",
+            "createFirstDescription": "When creating a publication, the first version will be created. Provide its name and description.",
+            "versionName": "Version name",
+            "versionDescription": "Version description",
+            "branchLabel": "Branch for version",
+            "branchHelper": "The version snapshot will be created from the selected branch.",
+            "branchMissing": "Deleted branch",
             "duplicateWarning": "This version matches the previous snapshot",
             "activate": "Activate",
             "activateConfirm": "Are you sure you want to activate this version? It will be used for all future syncs.",
             "activateSuccess": "Version activated successfully",
             "active": "Active",
+            "edit": "Edit version",
             "list": {
                 "version": "Version",
                 "date": "Date",

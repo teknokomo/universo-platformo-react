@@ -110,6 +110,51 @@ export interface MetahubDisplay {
     permissions?: MetahubPermissions
 }
 
+// ============ BRANCH ENTITY ============
+
+export interface MetahubBranch {
+    id: string
+    metahubId: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string> | null
+    sourceBranchId?: string | null
+    branchNumber: number
+    createdAt: string
+    updatedAt: string
+    isDefault?: boolean
+    isActive?: boolean
+    sourceChain?: BranchSourceNode[]
+}
+
+export interface MetahubBranchDisplay {
+    id: string
+    metahubId: string
+    codename: string
+    name: string
+    description: string
+    branchNumber: number
+    createdAt: string
+    updatedAt: string
+    isDefault?: boolean
+    isActive?: boolean
+}
+
+export interface BranchSourceNode {
+    id: string
+    codename?: string | null
+    name?: VersionedLocalizedContent<string> | null
+    isMissing?: boolean
+}
+
+export interface BlockingBranchUser {
+    id: string
+    userId: string
+    email: string | null
+    nickname: string | null
+    role: MetahubRole
+}
+
 // ============ PUBLICATION ENTITY ============
 
 /**
@@ -192,7 +237,7 @@ export interface Catalog {
     updatedAt: string
     hubs?: HubRef[]
     attributesCount?: number
-    recordsCount?: number
+    elementsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
@@ -211,7 +256,7 @@ export interface CatalogDisplay {
     updatedAt: string
     hubs?: Array<{ id: string; name: string; codename: string }>
     attributesCount?: number
-    recordsCount?: number
+    elementsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
@@ -220,7 +265,7 @@ export interface CatalogDisplay {
 
 /**
  * Attribute - a virtual field within a Catalog
- * Defines the schema for Catalog records
+ * Defines the schema for Catalog elements
  */
 export interface Attribute {
     id: string
@@ -257,10 +302,10 @@ export interface AttributeDisplay {
     permissions?: MetahubPermissions
 }
 
-// ============ RECORD ENTITY ============
+// ============ ELEMENT ENTITY ============
 
-/** HubRecord - a data row within a Catalog */
-export interface HubRecord {
+/** HubElement - a data row within a Catalog */
+export interface HubElement {
     id: string
     catalogId: string
     data: Record<string, unknown>
@@ -270,8 +315,8 @@ export interface HubRecord {
     updatedAt: string
 }
 
-/** HubRecord with derived name/description for FlowListTable compatibility */
-export interface HubRecordDisplay {
+/** HubElement with derived name/description for FlowListTable compatibility */
+export interface HubElementDisplay {
     id: string
     catalogId: string
     name: string
@@ -303,6 +348,16 @@ export interface HubLocalizedPayload {
     descriptionPrimaryLocale?: string
 }
 
+/** Payload for creating/updating Branch */
+export interface BranchLocalizedPayload {
+    codename: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    sourceBranchId?: string
+}
+
 /** Payload for creating/updating Catalog */
 export interface CatalogLocalizedPayload {
     codename: string
@@ -332,6 +387,15 @@ export function toMetahubDisplay(metahub: Metahub, locale = 'en'): MetahubDispla
         ...metahub,
         name: getVLCString(metahub.name, locale),
         description: getVLCString(metahub.description, locale)
+    }
+}
+
+/** Convert Branch to BranchDisplay for table rendering */
+export function toBranchDisplay(branch: MetahubBranch, locale = 'en'): MetahubBranchDisplay {
+    return {
+        ...branch,
+        name: getVLCString(branch.name, locale),
+        description: getVLCString(branch.description, locale)
     }
 }
 
@@ -368,17 +432,17 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
     }
 }
 
-/** Convert HubRecord to HubRecordDisplay for table rendering */
-export function toHubRecordDisplay(record: HubRecord, attributes: Attribute[] = [], locale = 'en'): HubRecordDisplay {
+/** Convert HubElement to HubElementDisplay for table rendering */
+export function toHubElementDisplay(element: HubElement, attributes: Attribute[] = [], locale = 'en'): HubElementDisplay {
     const firstStringAttr = attributes.find((a) => a.dataType === 'STRING')
-    const rawValue = firstStringAttr ? record.data[firstStringAttr.codename] : undefined
+    const rawValue = firstStringAttr ? element.data[firstStringAttr.codename] : undefined
     const nameValue =
         firstStringAttr && rawValue !== undefined && rawValue !== null
             ? getVLCString(rawValue as VersatileLocalizedContent, locale) || String(rawValue)
-            : `Record ${record.id.slice(0, 8)}`
+            : `Element ${element.id.slice(0, 8)}`
 
     return {
-        ...record,
+        ...element,
         name: nameValue,
         description: ''
     }

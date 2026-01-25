@@ -4,6 +4,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -18,6 +19,7 @@ import {
 
 import { useMetahubDetails } from '../hooks/useMetahubDetails'
 import { toMetahubDisplay } from '../../../types'
+import { getMetahubBoardSummary } from '../api/metahubs'
 
 /**
  * Metahub Board Page
@@ -40,10 +42,21 @@ const MetahubBoard = () => {
     // Fetch metahub details with TanStack Query
     const {
         data: metahub,
-        isLoading,
-        error,
-        isError
+        isLoading: isMetahubLoading,
+        error: metahubError,
+        isError: isMetahubError
     } = useMetahubDetails(metahubId || '', {
+        enabled: Boolean(metahubId)
+    })
+
+    const {
+        data: boardSummary,
+        isLoading: isSummaryLoading,
+        isError: isSummaryError,
+        error: summaryError
+    } = useQuery({
+        queryKey: ['metahub-board-summary', metahubId],
+        queryFn: () => getMetahubBoardSummary(metahubId || ''),
         enabled: Boolean(metahubId)
     })
 
@@ -51,7 +64,7 @@ const MetahubBoard = () => {
     const metahubDisplay = metahub ? toMetahubDisplay(metahub, i18n.language) : null
 
     // Loading state
-    if (isLoading) {
+    if (isMetahubLoading || isSummaryLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
                 <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
@@ -65,8 +78,13 @@ const MetahubBoard = () => {
     }
 
     // Error state
-    if (isError || !metahubDisplay) {
-        const errorMessage = error instanceof Error ? error.message : t('board.error', 'Failed to load metahub data')
+    if (isMetahubError || isSummaryError || !metahubDisplay) {
+        const errorMessage =
+            metahubError instanceof Error
+                ? metahubError.message
+                : summaryError instanceof Error
+                    ? summaryError.message
+                    : t('board.error', 'Failed to load metahub data')
 
         return (
             <Stack spacing={3} sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%', p: 2 }}>
@@ -85,12 +103,21 @@ const MetahubBoard = () => {
     // Success state with dashboard
     // Demo trend data for SparkLineChart (30 data points)
     // TODO: Replace with real historical data when analytics service is ready
-    const hubsData = [8, 9, 9, 10, 10, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11]
-    // Use current catalog count as trend data (shows actual value in chart)
-    const catalogsCount = metahubDisplay.catalogsCount ?? 0
-    const catalogsData = Array(30).fill(catalogsCount)
+    const hubsCount = boardSummary?.hubsCount ?? 0
+    const catalogsCount = boardSummary?.catalogsCount ?? 0
+    const membersCount = boardSummary?.membersCount ?? 0
+    const branchesCount = boardSummary?.branchesCount ?? 0
+    const applicationsCount = boardSummary?.applicationsCount ?? 0
+    const publicationsCount = boardSummary?.publicationsCount ?? 0
+    const versionsCount = boardSummary?.publicationVersionsCount ?? 0
 
-    const membersData = [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+    const hubsData = Array(30).fill(hubsCount)
+    const catalogsData = Array(30).fill(catalogsCount)
+    const membersData = Array(30).fill(membersCount)
+    const branchesData = Array(30).fill(branchesCount)
+    const applicationsData = Array(30).fill(applicationsCount)
+    const publicationsData = Array(30).fill(publicationsCount)
+    const versionsData = Array(30).fill(versionsCount)
 
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
@@ -113,25 +140,25 @@ const MetahubBoard = () => {
                         </Typography>
                     </Grid>
 
-                    {/* Hubs Count */}
+                    {/* Branches Count */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
-                            title={t('board.stats.hubs.title')}
-                            value={metahubDisplay.hubsCount ?? 0}
-                            interval={t('board.stats.hubs.interval')}
-                            description={t('board.stats.hubs.description')}
-                            data={hubsData}
+                            title={t('board.stats.branches.title')}
+                            value={branchesCount}
+                            interval={t('board.stats.branches.interval')}
+                            description={t('board.stats.branches.description')}
+                            data={branchesData}
                         />
                     </Grid>
 
-                    {/* Catalogs Count */}
+                    {/* Applications Count */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
-                            title={t('board.stats.catalogs.title')}
-                            value={metahubDisplay.catalogsCount ?? 0}
-                            interval={t('board.stats.catalogs.interval')}
-                            description={t('board.stats.catalogs.description')}
-                            data={catalogsData}
+                            title={t('board.stats.applications.title')}
+                            value={applicationsCount}
+                            interval={t('board.stats.applications.interval')}
+                            description={t('board.stats.applications.description')}
+                            data={applicationsData}
                         />
                     </Grid>
 
@@ -155,6 +182,50 @@ const MetahubBoard = () => {
                             buttonText={t('board.documentation.button')}
                             buttonIcon={<OpenInNewIcon />}
                             onButtonClick={() => window.open('https://teknokomo.gitbook.io/up', '_blank', 'noopener,noreferrer')}
+                        />
+                    </Grid>
+
+                    {/* Second row: Hubs */}
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.hubs.title')}
+                            value={hubsCount}
+                            interval={t('board.stats.hubs.interval')}
+                            description={t('board.stats.hubs.description')}
+                            data={hubsData}
+                        />
+                    </Grid>
+
+                    {/* Second row: Catalogs */}
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.catalogs.title')}
+                            value={catalogsCount}
+                            interval={t('board.stats.catalogs.interval')}
+                            description={t('board.stats.catalogs.description')}
+                            data={catalogsData}
+                        />
+                    </Grid>
+
+                    {/* Second row: Publications */}
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.publications.title')}
+                            value={publicationsCount}
+                            interval={t('board.stats.publications.interval')}
+                            description={t('board.stats.publications.description')}
+                            data={publicationsData}
+                        />
+                    </Grid>
+
+                    {/* Second row: Publication Versions */}
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.versions.title')}
+                            value={versionsCount}
+                            interval={t('board.stats.versions.interval')}
+                            description={t('board.stats.versions.description')}
+                            data={versionsData}
                         />
                     </Grid>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -14,7 +14,13 @@ import {
     Stack,
     Paper,
     IconButton,
-    Tooltip
+    Tooltip,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormHelperText,
+    TextField
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -30,6 +36,7 @@ import { apiClient } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
+import { listBranchOptions } from '../../branches/api/branches'
 
 // Types
 interface PublicationVersion {
@@ -40,6 +47,7 @@ interface PublicationVersion {
     isActive: boolean
     createdAt: string
     createdBy: string
+    branchId?: string | null
 }
 
 interface VersionTableRow extends FlowListTableData {
@@ -56,6 +64,7 @@ interface CreateVersionPayload {
     description?: Record<string, string>
     namePrimaryLocale: string
     descriptionPrimaryLocale?: string
+    branchId?: string
 }
 
 export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string }> = ({ metahubId, publicationId }) => {
@@ -69,10 +78,38 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
     // Localized form state for create
     const [nameVlc, setNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [descriptionVlc, setDescriptionVlc] = useState<VersionedLocalizedContent<string> | null>(null)
+    const [createBranchId, setCreateBranchId] = useState<string>('')
 
     // Localized form state for edit
     const [editNameVlc, setEditNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [editDescriptionVlc, setEditDescriptionVlc] = useState<VersionedLocalizedContent<string> | null>(null)
+
+    const { data: branchesResponse } = useQuery({
+        queryKey: ['metahub-branches', 'options', 'publication-versions', metahubId],
+        queryFn: () => listBranchOptions(metahubId, { sortBy: 'name', sortOrder: 'asc' }),
+        enabled: Boolean(metahubId)
+    })
+
+    const branches = branchesResponse?.items ?? []
+    const defaultBranchId = branchesResponse?.meta?.defaultBranchId ?? branches[0]?.id ?? null
+
+    const getBranchLabel = (branchId?: string | null) => {
+        if (!branchId) return ''
+        const branch = branches.find((item) => item.id === branchId)
+        if (!branch) {
+            return `${t('publications.versions.branchMissing', 'Удалённая ветка')} (${branchId})`
+        }
+        const name = getVLCString(branch.name, i18n.language)
+            || getVLCString(branch.name, 'en')
+            || branch.codename
+        return `${name} (${branch.codename})`
+    }
+
+    useEffect(() => {
+        if (createDialogOpen) {
+            setCreateBranchId(defaultBranchId ?? '')
+        }
+    }, [createDialogOpen, defaultBranchId])
 
     // Fetch versions
     const { data: rawVersions = [], isLoading } = useQuery<PublicationVersion[]>({
@@ -175,6 +212,10 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
             namePrimaryLocale,
             description: descriptionInput,
             descriptionPrimaryLocale
+        }
+        const effectiveBranchId = createBranchId || defaultBranchId || undefined
+        if (effectiveBranchId) {
+            payload.branchId = effectiveBranchId
         }
 
         createMutation.mutate(payload)
@@ -320,6 +361,29 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                             multiline
                             rows={3}
                         />
+                        <FormControl fullWidth>
+                            <InputLabel id="publication-version-branch-create">
+                                {t('publications.versions.branchLabel', 'Ветка для версии')}
+                            </InputLabel>
+                            <Select
+                                labelId="publication-version-branch-create"
+                                value={createBranchId || defaultBranchId || ''}
+                                label={t('publications.versions.branchLabel', 'Ветка для версии')}
+                                onChange={(event) => setCreateBranchId(event.target.value)}
+                            >
+                                {branches.map((branch) => (
+                                    <MenuItem key={branch.id} value={branch.id}>
+                                        {getBranchLabel(branch.id)}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            <FormHelperText>
+                                {t(
+                                    'publications.versions.branchHelper',
+                                    'Снапшот версии будет создан на основе выбранной ветки.'
+                                )}
+                            </FormHelperText>
+                        </FormControl>
                     </Stack>
                 </DialogContent>
                 <DialogActions>
@@ -372,6 +436,12 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                             uiLocale={i18n.language}
                             multiline
                             rows={3}
+                        />
+                        <TextField
+                            label={t('publications.versions.branchLabel', 'Ветка для версии')}
+                            value={getBranchLabel(editDialogOpen?.branchId)}
+                            fullWidth
+                            disabled
                         />
                     </Stack>
                 </DialogContent>

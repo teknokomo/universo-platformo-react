@@ -12,6 +12,9 @@ export class MetahubUser {
     @Column('uuid')
     user_id!: string
 
+    @Column({ type: 'uuid', nullable: true })
+    active_branch_id?: string | null
+
     @Column({ type: 'varchar', length: 50, default: 'owner' })
     role!: string
 

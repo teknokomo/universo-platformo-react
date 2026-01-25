@@ -13,6 +13,12 @@ import { MetahubAttributesService } from '../../metahubs/services/MetahubAttribu
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
@@ -111,6 +117,7 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { attributesService } = services(req)
+            const userId = resolveUserId(req)
 
             let validatedQuery
             try {
@@ -125,7 +132,7 @@ export function createAttributesRoutes(
             const { limit, offset, sortBy, sortOrder, search, locale } = validatedQuery
 
             // Fetch all attributes for the catalog (usually small number < 100)
-            let items = await attributesService.findAll(metahubId, catalogId)
+            let items = await attributesService.findAll(metahubId, catalogId, userId)
 
             const totalAll = items.length
             const limitReached = totalAll >= ATTRIBUTE_LIMIT
@@ -230,8 +237,9 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService } = services(req)
+            const userId = resolveUserId(req)
 
-            const attribute = await attributesService.findById(metahubId, attributeId)
+            const attribute = await attributesService.findById(metahubId, attributeId, userId)
 
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
@@ -252,14 +260,15 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
             const { attributesService, objectsService, schemaService } = services(req)
+            const userId = resolveUserId(req)
 
             // Verify catalog exists
-            const catalog = await objectsService.findById(metahubId, catalogId)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
-            const totalAll = await attributesService.countByObjectId(metahubId, catalogId)
+            const totalAll = await attributesService.countByObjectId(metahubId, catalogId, userId)
             if (totalAll >= ATTRIBUTE_LIMIT) {
                 return res.status(409).json({
                     error: 'Attribute limit reached',
@@ -285,14 +294,14 @@ export function createAttributesRoutes(
             }
 
             // Check for duplicate codename
-            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename)
+            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
 
             // For REF type, verify target catalog exists
             if (dataType === AttributeDataType.REF && targetCatalogId) {
-                const targetCatalog = await objectsService.findById(metahubId, targetCatalogId)
+                const targetCatalog = await objectsService.findById(metahubId, targetCatalogId, userId)
                 if (!targetCatalog) {
                     return res.status(400).json({ error: 'Target catalog not found' })
                 }
@@ -309,7 +318,7 @@ export function createAttributesRoutes(
             }
 
             // Normalize sort orders
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
 
             // If sortOrder not provided, append to end
             // We can fetch max sort order or trust service default (0 might overlap)
@@ -329,12 +338,12 @@ export function createAttributesRoutes(
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
                 sortOrder: sortOrder
-            })
+            }, userId)
 
             // Normalize again to fit new item
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource()).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -356,8 +365,9 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, objectsService, schemaService } = services(req)
+            const userId = resolveUserId(req)
 
-            const attribute = await attributesService.findById(metahubId, attributeId)
+            const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
             }
@@ -381,7 +391,7 @@ export function createAttributesRoutes(
                     })
                 }
                 if (normalizedCodename !== attribute.codename) {
-                    const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename)
+                    const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, userId)
                     if (existing) {
                         return res.status(409).json({ error: 'Attribute with this codename already exists' })
                     }
@@ -408,7 +418,7 @@ export function createAttributesRoutes(
                 if (targetCatalogId === null) {
                     updateData.targetCatalogId = null
                 } else if ((dataType || attribute.dataType) === AttributeDataType.REF) {
-                    const targetCatalog = await objectsService.findById(metahubId, targetCatalogId)
+                    const targetCatalog = await objectsService.findById(metahubId, targetCatalogId, userId)
                     if (!targetCatalog) {
                         return res.status(400).json({ error: 'Target catalog not found' })
                     }
@@ -421,13 +431,13 @@ export function createAttributesRoutes(
             if (isRequired !== undefined) updateData.isRequired = isRequired
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
 
-            const updated = await attributesService.update(metahubId, attributeId, updateData)
+            const updated = await attributesService.update(metahubId, attributeId, updateData, userId)
 
             if (sortOrder !== undefined) {
-                await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+                await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
             }
 
-            await syncMetahubSchema(metahubId, getDataSource()).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -449,6 +459,7 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService } = services(req)
+            const userId = resolveUserId(req)
 
             const parsed = moveAttributeSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -459,7 +470,7 @@ export function createAttributesRoutes(
 
             try {
                 // Ensure existence first? Service does it.
-                const updated = await attributesService.moveAttribute(metahubId, catalogId, attributeId, direction)
+                const updated = await attributesService.moveAttribute(metahubId, catalogId, attributeId, direction, userId)
                 res.json(updated)
             } catch (error: any) {
                 if (error.message === 'Attribute not found') {
@@ -484,17 +495,18 @@ export function createAttributesRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
             const { attributesService, schemaService } = services(req)
+            const userId = resolveUserId(req)
 
-            const attribute = await attributesService.findById(metahubId, attributeId)
+            const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
-            await attributesService.delete(metahubId, attributeId)
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+            await attributesService.delete(metahubId, attributeId, userId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource()).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 

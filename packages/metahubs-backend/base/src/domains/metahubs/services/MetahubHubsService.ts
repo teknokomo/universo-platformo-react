@@ -42,8 +42,8 @@ export class MetahubHubsService {
         sortBy?: string
         sortOrder?: 'asc' | 'desc'
         search?: string
-    } = {}) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    } = {}, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         let query = this.knex
             .withSchema(schemaName)
@@ -95,8 +95,8 @@ export class MetahubHubsService {
     /**
      * Find a hub by ID.
      */
-    async findById(metahubId: string, hubId: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findById(metahubId: string, hubId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const row = await this.knex
             .withSchema(schemaName)
@@ -110,8 +110,8 @@ export class MetahubHubsService {
     /**
      * Find a hub by codename.
      */
-    async findByCodename(metahubId: string, codename: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findByCodename(metahubId: string, codename: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const row = await this.knex
             .withSchema(schemaName)
@@ -125,10 +125,10 @@ export class MetahubHubsService {
     /**
      * Find multiple hubs by IDs.
      */
-    async findByIds(metahubId: string, hubIds: string[]): Promise<Record<string, unknown>[]> {
+    async findByIds(metahubId: string, hubIds: string[], userId?: string): Promise<Record<string, unknown>[]> {
         if (hubIds.length === 0) return []
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const rows = await this.knex
             .withSchema(schemaName)
@@ -147,8 +147,8 @@ export class MetahubHubsService {
         name: Record<string, unknown>
         description?: Record<string, unknown>
         sortOrder?: number
-    }) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    }, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const [created] = await this.knex
             .withSchema(schemaName)
@@ -188,8 +188,8 @@ export class MetahubHubsService {
         name?: Record<string, unknown>
         description?: Record<string, unknown>
         sortOrder?: number
-    }) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    }, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const existing = await this.knex
             .withSchema(schemaName)
@@ -238,8 +238,8 @@ export class MetahubHubsService {
     /**
      * Delete a hub.
      */
-    async delete(metahubId: string, hubId: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async delete(metahubId: string, hubId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         await this.knex
             .withSchema(schemaName)
@@ -251,8 +251,8 @@ export class MetahubHubsService {
     /**
      * Count hubs in a metahub.
      */
-    async count(metahubId: string): Promise<number> {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async count(metahubId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const result = await this.knex
             .withSchema(schemaName)
