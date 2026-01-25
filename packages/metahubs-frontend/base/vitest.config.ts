@@ -54,7 +54,7 @@ export default mergeConfig(
           'src/domains/attributes/**',
           'src/domains/catalogs/**',
           'src/domains/hubs/**',
-          'src/domains/records/**',
+          'src/domains/elements/**',
           'src/domains/publications/**',
           'src/domains/metahubs/ui/MetahubActions.tsx',
         ],

@@ -29,6 +29,6 @@ export const generateMetahubSchemaName = (metahubId: string): string => {
     return `mhb_${cleanId}`
 }
 
-export const isValidSchemaName = (schemaName: string): boolean => /^(app|mhb)_[a-f0-9]+$/.test(schemaName)
+export const isValidSchemaName = (schemaName: string): boolean => /^(app_[a-f0-9]+|mhb_[a-f0-9]+(_b[0-9]+)?)$/.test(schemaName)
 
 export const buildFkConstraintName = (tableName: string, columnName: string): string => `fk_${tableName}_${columnName}`.substring(0, 63)

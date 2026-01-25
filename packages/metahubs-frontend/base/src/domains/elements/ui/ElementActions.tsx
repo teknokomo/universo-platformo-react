@@ -1,13 +1,13 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { ActionDescriptor } from '@universo/template-mui'
-import type { HubRecord, HubRecordDisplay } from '../../../types'
+import type { HubElement, HubElementDisplay } from '../../../types'
 
-type RecordData = {
+type ElementData = {
     data: Record<string, unknown>
 }
 
-const recordActions: readonly ActionDescriptor<HubRecordDisplay, RecordData>[] = [
+const elementActions: readonly ActionDescriptor<HubElementDisplay, ElementData>[] = [
     {
         id: 'edit',
         labelKey: 'common:actions.edit',
@@ -16,11 +16,11 @@ const recordActions: readonly ActionDescriptor<HubRecordDisplay, RecordData>[] =
         onSelect: async (ctx) => {
             const helpers = ctx.helpers as
                 | {
-                      openEditDialog?: (entity: HubRecord | HubRecordDisplay) => void | Promise<void>
+                      openEditDialog?: (entity: HubElement | HubElementDisplay) => void | Promise<void>
                   }
                 | undefined
-            const rawRecord = (ctx as { rawRecord?: HubRecord }).rawRecord
-            await helpers?.openEditDialog?.(rawRecord ?? ctx.entity)
+            const rawElement = (ctx as { rawElement?: HubElement }).rawElement
+            await helpers?.openEditDialog?.(rawElement ?? ctx.entity)
         }
     },
     {
@@ -35,4 +35,4 @@ const recordActions: readonly ActionDescriptor<HubRecordDisplay, RecordData>[] =
     }
 ]
 
-export default recordActions
+export default elementActions

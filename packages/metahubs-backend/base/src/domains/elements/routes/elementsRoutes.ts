@@ -6,20 +6,26 @@ import { validateListQuery } from '../../shared/queryParams'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
+import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
+
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
 
 // Request body schemas
-const createRecordSchema = z.object({
+const createElementSchema = z.object({
     data: z.record(z.unknown()),
     sortOrder: z.number().int().optional()
 })
 
-const updateRecordSchema = z.object({
+const updateElementSchema = z.object({
     data: z.record(z.unknown()).optional(),
     sortOrder: z.number().int().optional()
 })
 
-export function createRecordsRoutes(
+export function createElementsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
     readLimiter: RateLimitRequestHandler,
@@ -38,24 +44,25 @@ export function createRecordsRoutes(
         const schemaService = new MetahubSchemaService(getDataSource())
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
-        const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
-            recordsService
+            elementsService
         }
     }
 
     /**
-     * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/records
-     * GET /metahub/:metahubId/catalog/:catalogId/records (direct, without hub)
-     * List all records in a catalog with optional filtering
+     * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements
+     * GET /metahub/:metahubId/catalog/:catalogId/elements (direct, without hub)
+     * List all elements in a catalog with optional filtering
      */
     router.get(
-        ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/records', '/metahub/:metahubId/catalog/:catalogId/records'],
+        ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements', '/metahub/:metahubId/catalog/:catalogId/elements'],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { recordsService } = services(req)
+            const { elementsService } = services(req)
+            const userId = resolveUserId(req)
 
             let validatedQuery
             try {
@@ -69,13 +76,13 @@ export function createRecordsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            const { items, total } = await recordsService.findAllAndCount(metahubId, catalogId, {
+            const { items, total } = await elementsService.findAllAndCount(metahubId, catalogId, {
                 limit,
                 offset,
                 sortBy,
                 sortOrder,
                 search
-            })
+            }, userId)
 
             res.json({
                 items,
@@ -89,43 +96,45 @@ export function createRecordsRoutes(
     )
 
     /**
-     * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/record/:recordId
-     * GET /metahub/:metahubId/catalog/:catalogId/record/:recordId (direct, without hub)
-     * Get a single record
+     * GET /metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId
+     * GET /metahub/:metahubId/catalog/:catalogId/element/:elementId (direct, without hub)
+     * Get a single element
      */
     router.get(
         [
-            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/record/:recordId',
-            '/metahub/:metahubId/catalog/:catalogId/record/:recordId'
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId',
+            '/metahub/:metahubId/catalog/:catalogId/element/:elementId'
         ],
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { metahubId, catalogId, recordId } = req.params
-            const { recordsService } = services(req)
+            const { metahubId, catalogId, elementId } = req.params
+            const { elementsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const record = await recordsService.findById(metahubId, catalogId, recordId)
+            const element = await elementsService.findById(metahubId, catalogId, elementId, userId)
 
-            if (!record) {
-                return res.status(404).json({ error: 'Record not found' })
+            if (!element) {
+                return res.status(404).json({ error: 'Element not found' })
             }
 
-            res.json(record)
+            res.json(element)
         })
     )
 
     /**
-     * POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/records
-     * POST /metahub/:metahubId/catalog/:catalogId/records (direct, without hub)
-     * Create a new record with JSONB data validation
+     * POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements
+     * POST /metahub/:metahubId/catalog/:catalogId/elements (direct, without hub)
+     * Create a new element with JSONB data validation
      */
     router.post(
-        ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/records', '/metahub/:metahubId/catalog/:catalogId/records'],
+        ['/metahub/:metahubId/hub/:hubId/catalog/:catalogId/elements', '/metahub/:metahubId/catalog/:catalogId/elements'],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { recordsService } = services(req)
+            const { elementsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const parsed = createRecordSchema.safeParse(req.body)
+            const parsed = createElementSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
@@ -133,11 +142,11 @@ export function createRecordsRoutes(
             const { data, sortOrder } = parsed.data
 
             try {
-                const record = await recordsService.create(metahubId, catalogId, {
+                const element = await elementsService.create(metahubId, catalogId, {
                     data,
                     sortOrder
-                })
-                res.status(201).json(record)
+                }, userId)
+                res.status(201).json(element)
             } catch (error: any) {
                 if (error.message.includes('Catalog not found')) {
                     return res.status(404).json({ error: 'Catalog not found' })
@@ -151,21 +160,22 @@ export function createRecordsRoutes(
     )
 
     /**
-     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/record/:recordId
-     * PATCH /metahub/:metahubId/catalog/:catalogId/record/:recordId (direct, without hub)
-     * Update a record
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId
+     * PATCH /metahub/:metahubId/catalog/:catalogId/element/:elementId (direct, without hub)
+     * Update an element
      */
     router.patch(
         [
-            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/record/:recordId',
-            '/metahub/:metahubId/catalog/:catalogId/record/:recordId'
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId',
+            '/metahub/:metahubId/catalog/:catalogId/element/:elementId'
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { metahubId, catalogId, recordId } = req.params
-            const { recordsService } = services(req)
+            const { metahubId, catalogId, elementId } = req.params
+            const { elementsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const parsed = updateRecordSchema.safeParse(req.body)
+            const parsed = updateElementSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
@@ -173,13 +183,13 @@ export function createRecordsRoutes(
             const { data, sortOrder } = parsed.data
 
             try {
-                const record = await recordsService.update(metahubId, catalogId, recordId, {
+                const element = await elementsService.update(metahubId, catalogId, elementId, {
                     data,
                     sortOrder
-                })
-                res.json(record)
+                }, userId)
+                res.json(element)
             } catch (error: any) {
-                if (error.message.includes('Catalog not found') || error.message.includes('Record not found')) {
+                if (error.message.includes('Catalog not found') || error.message.includes('Element not found')) {
                     return res.status(404).json({ error: error.message })
                 }
                 if (error.message.includes('Validation failed')) {
@@ -191,25 +201,26 @@ export function createRecordsRoutes(
     )
 
     /**
-     * DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId/record/:recordId
-     * DELETE /metahub/:metahubId/catalog/:catalogId/record/:recordId (direct, without hub)
-     * Delete a record
+     * DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId
+     * DELETE /metahub/:metahubId/catalog/:catalogId/element/:elementId (direct, without hub)
+     * Delete an element
      */
     router.delete(
         [
-            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/record/:recordId',
-            '/metahub/:metahubId/catalog/:catalogId/record/:recordId'
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId',
+            '/metahub/:metahubId/catalog/:catalogId/element/:elementId'
         ],
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { metahubId, catalogId, recordId } = req.params
-            const { recordsService } = services(req)
+            const { metahubId, catalogId, elementId } = req.params
+            const { elementsService } = services(req)
+            const userId = resolveUserId(req)
 
             try {
-                await recordsService.delete(metahubId, catalogId, recordId)
+                await elementsService.delete(metahubId, catalogId, elementId, userId)
                 res.status(204).send()
             } catch (error: any) {
-                if (error.message.includes('Catalog not found') || error.message.includes('Record not found')) {
+                if (error.message.includes('Catalog not found') || error.message.includes('Element not found')) {
                     return res.status(404).json({ error: error.message })
                 }
                 throw error

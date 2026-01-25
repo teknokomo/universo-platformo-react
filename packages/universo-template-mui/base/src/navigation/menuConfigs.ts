@@ -24,7 +24,8 @@ import {
     IconUserShield,
     IconLanguage,
     IconApps,
-    IconHistory
+    IconHistory,
+    IconGitBranch
 } from '@tabler/icons-react'
 
 export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
@@ -133,17 +134,10 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'item'
     },
     {
-        id: 'metahub-publications',
-        titleKey: 'publications',
-        url: `/metahub/${metahubId}/publications`,
-        icon: IconApps,
-        type: 'item'
-    },
-    {
-        id: 'metahub-access',
-        titleKey: 'access',
-        url: `/metahub/${metahubId}/access`,
-        icon: IconUsers,
+        id: 'metahub-branches',
+        titleKey: 'branches',
+        url: `/metahub/${metahubId}/branches`,
+        icon: IconGitBranch,
         type: 'item'
     },
     {
@@ -162,6 +156,24 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         titleKey: 'catalogs',
         url: `/metahub/${metahubId}/catalogs`,
         icon: IconDatabase,
+        type: 'item'
+    },
+    {
+        id: 'metahub-divider-secondary',
+        type: 'divider'
+    },
+    {
+        id: 'metahub-publications',
+        titleKey: 'publications',
+        url: `/metahub/${metahubId}/publications`,
+        icon: IconApps,
+        type: 'item'
+    },
+    {
+        id: 'metahub-access',
+        titleKey: 'access',
+        url: `/metahub/${metahubId}/access`,
+        icon: IconUsers,
         type: 'item'
     }
 ]

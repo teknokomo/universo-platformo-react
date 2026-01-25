@@ -8,7 +8,7 @@ import {
     invalidateMetahubMembers,
     invalidateMetahubsQueries,
     invalidatePublicationsQueries,
-    invalidateRecordsQueries,
+    invalidateElementsQueries,
     metahubsQueryKeys
 } from '../queryKeys'
 
@@ -37,6 +37,26 @@ describe('queryKeys factories + invalidation helpers', () => {
             'members',
             'list',
             { limit: 100, offset: 0, sortBy: 'created', sortOrder: 'desc', search: undefined }
+        ])
+
+        expect(metahubsQueryKeys.branches('m1')).toEqual(['metahubs', 'detail', 'm1', 'branches'])
+        expect(metahubsQueryKeys.branchesList('m1', { limit: 5, search: 'main' })).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'branches',
+            'list',
+            { limit: 5, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'main' }
+        ])
+        expect(metahubsQueryKeys.branchDetail('m1', 'b1')).toEqual(['metahubs', 'detail', 'm1', 'branches', 'detail', 'b1'])
+        expect(metahubsQueryKeys.blockingBranchUsers('m1', 'b1')).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'branches',
+            'detail',
+            'b1',
+            'blockingUsers'
         ])
 
         expect(metahubsQueryKeys.hubs('m1')).toEqual(['metahubs', 'detail', 'm1', 'hubs'])
@@ -143,7 +163,7 @@ describe('queryKeys factories + invalidation helpers', () => {
             { limit: 100, offset: 0, sortBy: 'created', sortOrder: 'desc', search: undefined }
         ])
 
-        expect(metahubsQueryKeys.records('m1', 'h1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.elements('m1', 'h1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
@@ -153,9 +173,9 @@ describe('queryKeys factories + invalidation helpers', () => {
             'catalogs',
             'detail',
             'c1',
-            'records'
+            'elements'
         ])
-        expect(metahubsQueryKeys.recordsList('m1', 'h1', 'c1', { limit: 5 })).toEqual([
+        expect(metahubsQueryKeys.elementsList('m1', 'h1', 'c1', { limit: 5 })).toEqual([
             'metahubs',
             'detail',
             'm1',
@@ -165,27 +185,27 @@ describe('queryKeys factories + invalidation helpers', () => {
             'catalogs',
             'detail',
             'c1',
-            'records',
+            'elements',
             'list',
             { limit: 5, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined }
         ])
-        expect(metahubsQueryKeys.recordsDirect('m1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.elementsDirect('m1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'allCatalogs',
             'detail',
             'c1',
-            'records'
+            'elements'
         ])
-        expect(metahubsQueryKeys.recordsListDirect('m1', 'c1', { offset: 5, search: '  rec  ' })).toEqual([
+        expect(metahubsQueryKeys.elementsListDirect('m1', 'c1', { offset: 5, search: '  rec  ' })).toEqual([
             'metahubs',
             'detail',
             'm1',
             'allCatalogs',
             'detail',
             'c1',
-            'records',
+            'elements',
             'list',
             { limit: 100, offset: 5, sortBy: 'updated', sortOrder: 'desc', search: 'rec' }
         ])
@@ -232,8 +252,8 @@ describe('queryKeys factories + invalidation helpers', () => {
         await invalidateAttributesQueries.all(queryClient, 'm1', 'h1', 'c1')
         await invalidateAttributesQueries.lists(queryClient, 'm1', 'h1', 'c1')
 
-        await invalidateRecordsQueries.all(queryClient, 'm1', 'h1', 'c1')
-        await invalidateRecordsQueries.lists(queryClient, 'm1', 'h1', 'c1')
+        await invalidateElementsQueries.all(queryClient, 'm1', 'h1', 'c1')
+        await invalidateElementsQueries.lists(queryClient, 'm1', 'h1', 'c1')
 
         await invalidatePublicationsQueries.all(queryClient, 'm1')
         await invalidatePublicationsQueries.lists(queryClient, 'm1')
@@ -256,8 +276,8 @@ describe('queryKeys factories + invalidation helpers', () => {
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.attributes('m1', 'h1', 'c1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.attributesList('m1', 'h1', 'c1') })
 
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.records('m1', 'h1', 'c1') })
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.recordsList('m1', 'h1', 'c1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.elements('m1', 'h1', 'c1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.elementsList('m1', 'h1', 'c1') })
 
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.publications('m1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.publicationsList('m1') })

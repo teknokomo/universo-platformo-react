@@ -92,3 +92,22 @@ export const updateMetahubMemberRole = (metahubId: string, memberId: string, dat
 
 export const removeMetahubMember = (metahubId: string, memberId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/member/${memberId}`)
+
+// ============ METAHUB BOARD ============
+
+export interface MetahubBoardSummary {
+    metahubId: string
+    activeBranchId: string | null
+    branchesCount: number
+    hubsCount: number
+    catalogsCount: number
+    membersCount: number
+    publicationsCount: number
+    publicationVersionsCount: number
+    applicationsCount: number
+}
+
+export const getMetahubBoardSummary = async (metahubId: string): Promise<MetahubBoardSummary> => {
+    const response = await apiClient.get<MetahubBoardSummary>(`/metahub/${metahubId}/board/summary`)
+    return response.data
+}

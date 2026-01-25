@@ -3,10 +3,11 @@ import type { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
+import { createBranchesRoutes } from './branches/routes/branchesRoutes'
 import { createHubsRoutes } from './hubs/routes/hubsRoutes'
 import { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
 import { createAttributesRoutes } from './attributes/routes/attributesRoutes'
-import { createRecordsRoutes } from './records/routes/recordsRoutes'
+import { createElementsRoutes } from './elements/routes/elementsRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
@@ -48,6 +49,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     // Core metahubs CRUD
     router.use('/', createMetahubsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Branches (metahub design-time branches)
+    router.use('/', createBranchesRoutes(ensureAuth, getDataSource, read, write))
+
     // Publications (Information Bases) - imports entities from @universo/applications-backend
     router.use('/', createPublicationsRoutes(ensureAuth, getDataSource, read, write))
 
@@ -61,7 +65,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createAttributesRoutes(ensureAuth, getDataSource, read, write))
-    router.use('/', createRecordsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createElementsRoutes(ensureAuth, getDataSource, read, write))
 
     return router
 }
@@ -76,10 +80,11 @@ export function createPublicMetahubsServiceRoutes(getDataSource: () => DataSourc
 }
 
 export { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
+export { createBranchesRoutes } from './branches/routes/branchesRoutes'
 export { createHubsRoutes } from './hubs/routes/hubsRoutes'
 export { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
 export { createAttributesRoutes } from './attributes/routes/attributesRoutes'
-export { createRecordsRoutes } from './records/routes/recordsRoutes'
+export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'

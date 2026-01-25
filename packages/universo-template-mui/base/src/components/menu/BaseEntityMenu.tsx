@@ -254,7 +254,13 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                 'aria-haspopup': 'true',
                 disabled: busyActionId !== null
             })}
-            <Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
+            <Menu
+                open={open}
+                onClose={handleClose}
+                anchorEl={anchorEl}
+                disableAutoFocusItem
+                MenuListProps={{ autoFocusItem: false }}
+            >
                 {Object.entries(groups).map(([group, acts], gi, arr) => (
                     <React.Fragment key={group}>
                         {acts.map((a) => {

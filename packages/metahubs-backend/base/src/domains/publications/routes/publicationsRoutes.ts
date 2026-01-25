@@ -6,6 +6,7 @@ import { localizedContent } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestManager } from '../../../utils'
 import { Metahub } from '../../../database/entities/Metahub'
+import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { Publication, PublicationSchemaStatus } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
@@ -17,7 +18,7 @@ import { Application, ApplicationUser, Connector, ConnectorPublication } from '@
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
+import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 
 // Helper: Resolve user ID from request
@@ -42,7 +43,8 @@ const createPublicationSchema = z.object({
     versionName: localizedInputSchema.optional(),
     versionDescription: localizedInputSchema.optional(),
     versionNamePrimaryLocale: z.string().optional(),
-    versionDescriptionPrimaryLocale: z.string().optional()
+    versionDescriptionPrimaryLocale: z.string().optional(),
+    versionBranchId: z.string().uuid().optional()
 })
 
 const updatePublicationSchema = z.object({
@@ -79,7 +81,7 @@ export function createPublicationsRoutes(
         const schemaService = new MetahubSchemaService(ds)
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
-        const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
             publicationRepo: manager.getRepository(Publication),
@@ -87,7 +89,7 @@ export function createPublicationsRoutes(
             versionRepo: manager.getRepository(PublicationVersion),
             objectsService,
             attributesService,
-            recordsService
+            elementsService
         }
     }
 
@@ -207,7 +209,8 @@ export function createPublicationsRoutes(
 
             const {
                 name, description, namePrimaryLocale, descriptionPrimaryLocale, autoCreateApplication,
-                versionName, versionDescription, versionNamePrimaryLocale, versionDescriptionPrimaryLocale
+                versionName, versionDescription, versionNamePrimaryLocale, versionDescriptionPrimaryLocale,
+                versionBranchId
             } = parsed.data
 
             const metahubRepo = ds.getRepository(Metahub)
@@ -225,12 +228,22 @@ export function createPublicationsRoutes(
                 })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const branchRepo = ds.getRepository(MetahubBranch)
+            const effectiveBranchId = versionBranchId ?? metahub.defaultBranchId ?? null
+            if (!effectiveBranchId) {
+                return res.status(400).json({ error: 'Default branch is not configured' })
+            }
+            const branch = await branchRepo.findOne({ where: { id: effectiveBranchId, metahub_id: metahubId } })
+            if (!branch) {
+                return res.status(400).json({ error: 'Branch not found' })
+            }
+
+            const schemaService = new MetahubSchemaService(ds, effectiveBranchId)
             const objectsService = new MetahubObjectsService(schemaService)
             const attributesService = new MetahubAttributesService(schemaService)
-            const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+            const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
-            const serializer = new SnapshotSerializer(objectsService, attributesService, recordsService, hubsService)
+            const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
             const snapshot = await serializer.serializeMetahub(metahubId)
             const snapshotHash = serializer.calculateHash(snapshot)
 
@@ -315,6 +328,7 @@ export function createPublicationsRoutes(
                 firstVersion.isActive = true
                 firstVersion.snapshotJson = snapshot as unknown as Record<string, unknown>
                 firstVersion.snapshotHash = snapshotHash
+                firstVersion.branchId = effectiveBranchId
                 firstVersion.createdBy = userId
                 await versionRepoTx.save(firstVersion)
 
@@ -734,7 +748,7 @@ export function createPublicationsRoutes(
             const versions = await versionRepo.find({
                 where: { publicationId },
                 order: { versionNumber: 'DESC' },
-                select: ['id', 'versionNumber', 'name', 'description', 'isActive', 'createdAt', 'createdBy']
+                select: ['id', 'versionNumber', 'name', 'description', 'isActive', 'createdAt', 'createdBy', 'branchId']
             })
 
             console.log('[Versions] Found versions:', versions.length, versions)
@@ -748,7 +762,7 @@ export function createPublicationsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
-            const { versionRepo, publicationRepo } = repos(req)
+            const { versionRepo, publicationRepo, metahubRepo } = repos(req)
             const userId = resolveUserId(req)
 
             if (!userId) {
@@ -760,17 +774,33 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not found' })
             }
 
-            const { name, description, namePrimaryLocale, descriptionPrimaryLocale } = req.body
+            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, branchId } = req.body
             if (!name || typeof name !== 'object' || Object.keys(name).length === 0) {
                 return res.status(400).json({ error: 'Name is required' })
             }
 
-            const schemaService = new MetahubSchemaService(getDataSource())
+            const metahub = await metahubRepo.findOneBy({ id: metahubId })
+            if (!metahub) {
+                return res.status(404).json({ error: 'Metahub not found' })
+            }
+
+            const branchRepo = metahubRepo.manager.getRepository(MetahubBranch)
+            const requestedBranchId = typeof branchId === 'string' ? branchId : null
+            const effectiveBranchId = requestedBranchId ?? metahub.defaultBranchId ?? null
+            if (!effectiveBranchId) {
+                return res.status(400).json({ error: 'Default branch is not configured' })
+            }
+            const branch = await branchRepo.findOne({ where: { id: effectiveBranchId, metahub_id: metahubId } })
+            if (!branch) {
+                return res.status(400).json({ error: 'Branch not found' })
+            }
+
+            const schemaService = new MetahubSchemaService(getDataSource(), effectiveBranchId)
             const objectsService = new MetahubObjectsService(schemaService)
             const attributesService = new MetahubAttributesService(schemaService)
-            const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+            const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
-            const serializer = new SnapshotSerializer(objectsService, attributesService, recordsService, hubsService)
+            const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
             const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId)
             const snapshotHash = serializer.calculateHash(snapshot)
 
@@ -795,6 +825,7 @@ export function createPublicationsRoutes(
                     : null
                 version.snapshotJson = snapshot as unknown as Record<string, unknown>
                 version.snapshotHash = snapshotHash
+                version.branchId = effectiveBranchId
                 version.createdBy = userId
 
                 // Deactivate all other versions and make this one active

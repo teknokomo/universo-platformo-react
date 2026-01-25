@@ -11,17 +11,17 @@ import { MetahubSchemaService } from './MetahubSchemaService'
  * Design-Time schemas contain only metadata tables:
  * - _mhb_objects: Registry of all objects (Catalogs, Hubs, Documents)
  * - _mhb_attributes: Attribute definitions for objects
- * - _mhb_records: Predefined data for catalogs
+ * - _mhb_elements: Predefined data for catalogs
  *
  * @param metahubId - The Metahub UUID
  * @param ds - TypeORM DataSource
  * @returns The schema name (mhb_<uuid>)
  */
-export async function syncMetahubSchema(metahubId: string, ds: DataSource): Promise<string> {
+export async function syncMetahubSchema(metahubId: string, ds: DataSource, userId?: string): Promise<string> {
     const schemaService = new MetahubSchemaService(ds)
 
     // Only ensure schema and system tables exist - NO physical table creation
-    const schemaName = await schemaService.ensureSchema(metahubId)
+    const schemaName = await schemaService.ensureSchema(metahubId, userId)
 
     return schemaName
 }

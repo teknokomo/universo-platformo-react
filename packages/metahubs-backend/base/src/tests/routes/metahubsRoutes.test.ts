@@ -73,7 +73,7 @@ describe('Metahubs Routes', () => {
         const hubRepo = createMockRepository<any>()
         const catalogRepo = createMockRepository<any>()
         const attributeRepo = createMockRepository<any>()
-        const hubRecordRepo = createMockRepository<any>()
+        const hubElementRepo = createMockRepository<any>()
         const authUserRepo = createMockRepository<any>()
         const profileRepo = createMockRepository<any>()
 
@@ -83,7 +83,7 @@ describe('Metahubs Routes', () => {
             Hub: hubRepo,
             Catalog: catalogRepo,
             Attribute: attributeRepo,
-            HubRecord: hubRecordRepo,
+            HubElement: hubElementRepo,
             AuthUser: authUserRepo,
             Profile: profileRepo
         })
@@ -95,7 +95,7 @@ describe('Metahubs Routes', () => {
             hubRepo,
             catalogRepo,
             attributeRepo,
-            hubRecordRepo,
+            hubElementRepo,
             authUserRepo,
             profileRepo
         }
@@ -297,7 +297,7 @@ describe('Metahubs Routes', () => {
 
     // NOTE: Removed tests for legacy /entities and /sections endpoints.
     // These endpoints were removed in the metadata-driven platform refactoring.
-    // New tests for /hubs, /attributes, and /records should be added.
+    // New tests for /hubs, /attributes, and /elements should be added.
 
     describe('Members management endpoints', () => {
         const buildApp = () => {

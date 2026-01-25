@@ -1,17 +1,17 @@
-import { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps } from '@tabler/icons-react'
+import { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
 export interface MenuItem {
     id: string
     title: string
-    type: 'item' | 'group' | 'collapse'
+    type: 'item' | 'group' | 'collapse' | 'divider'
     url?: string
     icon?: ComponentType<any>
     breadcrumbs?: boolean
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps }
+const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch }
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
 
@@ -29,12 +29,17 @@ const metahubDashboard: MenuItem = {
             breadcrumbs: false
         },
         {
-            id: 'publications',
-            title: 'menu:publications',
+            id: 'branches',
+            title: 'menu:branches',
             type: 'item',
-            url: '/publications',
-            icon: icons.IconApps,
+            url: '/branches',
+            icon: icons.IconGitBranch,
             breadcrumbs: true
+        },
+        {
+            id: 'divider-primary',
+            title: '',
+            type: 'divider'
         },
         {
             id: 'hubs',
@@ -50,6 +55,19 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/catalogs',
             icon: icons.IconDatabase,
+            breadcrumbs: true
+        },
+        {
+            id: 'divider-secondary',
+            title: '',
+            type: 'divider'
+        },
+        {
+            id: 'publications',
+            title: 'menu:publications',
+            type: 'item',
+            url: '/publications',
+            icon: icons.IconApps,
             breadcrumbs: true
         },
         {

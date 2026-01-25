@@ -9,11 +9,14 @@ export { default as MetahubMembers } from './domains/metahubs/ui/MetahubMembers'
 // Publication (Information Base) pages
 export { default as PublicationList } from './domains/publications/ui/PublicationList'
 
-// New Hub/Catalog/Attribute/Record pages
+// Branches
+export { default as BranchList } from './domains/branches/ui/BranchList'
+
+// New Hub/Catalog/Attribute/Element pages
 export { default as HubList } from './domains/hubs/ui/HubList'
 export { default as CatalogList } from './domains/catalogs/ui/CatalogList'
 export { default as AttributeList } from './domains/attributes/ui/AttributeList'
-export { default as RecordList } from './domains/records/ui/RecordList'
+export { default as ElementList } from './domains/elements/ui/ElementList'
 
 export { default as metahubsDashboard } from './menu-items/metahubDashboard'
 export { metahubsTranslations } from './i18n'
@@ -22,6 +25,9 @@ export { metahubsTranslations } from './i18n'
 export type {
     Metahub,
     MetahubDisplay,
+    MetahubBranch,
+    MetahubBranchDisplay,
+    BlockingBranchUser,
     Hub,
     HubDisplay,
     HubRef,
@@ -30,12 +36,13 @@ export type {
     Attribute,
     AttributeDisplay,
     AttributeDataType,
-    HubRecord,
-    HubRecordDisplay
+    HubElement,
+    HubElementDisplay
 } from './types'
 
 // Types - Payloads
 export type { MetahubLocalizedPayload, HubLocalizedPayload, CatalogLocalizedPayload, AttributeLocalizedPayload } from './types'
+export type { BranchLocalizedPayload } from './types'
 
 // Types - Pagination (re-exported from @universo/types)
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from './types'
@@ -44,7 +51,7 @@ export type { PaginationParams, PaginationMeta, PaginatedResponse } from './type
 export type { VersatileLocalizedContent, SimpleLocalizedInput } from './types'
 
 // Display converters
-export { toMetahubDisplay, toHubDisplay, toCatalogDisplay, toAttributeDisplay, toHubRecordDisplay } from './types'
+export { toMetahubDisplay, toBranchDisplay, toHubDisplay, toCatalogDisplay, toAttributeDisplay, toHubElementDisplay } from './types'
 
 // VLC utilities
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from './types'

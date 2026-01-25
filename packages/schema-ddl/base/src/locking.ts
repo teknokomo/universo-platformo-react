@@ -1,5 +1,12 @@
 import type { Knex } from 'knex'
 
+type LockEntry = {
+    connection: any
+    knex: Knex
+}
+
+const lockConnections = new Map<number, LockEntry>()
+
 /**
  * Generate a numeric lock key from a UUID string
  * Uses a simple hash function to convert UUID to int32
@@ -37,22 +44,43 @@ export async function acquireAdvisoryLock(
     if (!Number.isInteger(timeout) || timeout <= 0 || timeout > 300000) {
         throw new Error('Invalid timeout value: must be a positive integer <= 300000ms')
     }
-    
-    // Set statement timeout for this session
-    // Note: SET commands do not support parameter binding ($1), so we interpolate the validated number directly.
-    await knex.raw(`SET LOCAL statement_timeout = ${timeout}`)
 
-    try {
-        // Try to acquire exclusive session-level advisory lock
-        const result = await knex.raw<{ rows: { pg_try_advisory_lock: boolean }[] }>(
-            `SELECT pg_try_advisory_lock(?)`,
-            [lockKey]
-        )
-        return result.rows[0]?.pg_try_advisory_lock === true
-    } catch (error) {
-        console.error('[schema-ddl] Failed to acquire advisory lock:', error)
-        return false
+    const startedAt = Date.now()
+    const pollIntervalMs = 150
+
+    while (Date.now() - startedAt < timeout) {
+        if (lockConnections.has(lockKey)) {
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+            continue
+        }
+
+        const connection = await knex.client.acquireConnection()
+        try {
+            // Set statement timeout for this session
+            // Note: SET commands do not support parameter binding ($1), so we interpolate the validated number directly.
+            await knex.raw(`SET LOCAL statement_timeout = ${timeout}`).connection(connection)
+
+            // Try to acquire exclusive session-level advisory lock
+            const result = await knex.raw<{ rows: { pg_try_advisory_lock: boolean }[] }>(
+                `SELECT pg_try_advisory_lock(?)`,
+                [lockKey]
+            ).connection(connection)
+            const acquired = result.rows[0]?.pg_try_advisory_lock === true
+            if (acquired) {
+                lockConnections.set(lockKey, { connection, knex })
+                return true
+            }
+        } catch (error) {
+            console.error('[schema-ddl] Failed to acquire advisory lock:', error)
+            await knex.client.releaseConnection(connection)
+            return false
+        }
+
+        await knex.client.releaseConnection(connection)
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
     }
+
+    return false
 }
 
 /**
@@ -62,9 +90,22 @@ export async function acquireAdvisoryLock(
  * @param lockKey - The same key used to acquire the lock
  */
 export async function releaseAdvisoryLock(knex: Knex, lockKey: number): Promise<void> {
+    const entry = lockConnections.get(lockKey)
+    const connection = entry?.connection
+    const effectiveKnex = entry?.knex ?? knex
+
     try {
-        await knex.raw(`SELECT pg_advisory_unlock(?)`, [lockKey])
+        if (connection) {
+            await effectiveKnex.raw(`SELECT pg_advisory_unlock(?)`, [lockKey]).connection(connection)
+        } else {
+            await effectiveKnex.raw(`SELECT pg_advisory_unlock(?)`, [lockKey])
+        }
     } catch (error) {
         console.error('[schema-ddl] Failed to release advisory lock:', error)
+    } finally {
+        if (connection) {
+            await effectiveKnex.client.releaseConnection(connection)
+            lockConnections.delete(lockKey)
+        }
     }
 }

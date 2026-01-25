@@ -1,8 +1,9 @@
 import { DataSource } from 'typeorm'
 import { Metahub } from '../../../database/entities/Metahub'
+import { MetahubBranch } from '../../../database/entities/MetahubBranch'
+import { MetahubUser } from '../../../database/entities/MetahubUser'
 import {
     getDDLServices,
-    generateMetahubSchemaName,
     KnexClient,
     uuidToLockKey,
     acquireAdvisoryLock,
@@ -11,7 +12,7 @@ import {
 
 /**
  * In-memory cache for schema existence.
- * Key: metahubId, Value: schemaName
+ * Key: metahubId:branchId, Value: schemaName
  *
  * Schema names are immutable once created, so caching is safe.
  */
@@ -24,18 +25,45 @@ const schemaCache = new Map<string, string>()
 const tablesInitCache = new Set<string>()
 
 /**
+ * Cache for user active branch resolution.
+ * Key: metahubId:userId, Value: { branchId, ts }
+ *
+ * Short TTL to avoid stale branch selection after user switches branch.
+ */
+const userBranchCache = new Map<string, { branchId: string; ts: number }>()
+const USER_BRANCH_TTL_MS = 30_000
+
+const getCachedUserBranchId = (metahubId: string, userId: string): string | null => {
+    const key = `${metahubId}:${userId}`
+    const entry = userBranchCache.get(key)
+    if (!entry) return null
+    if (Date.now() - entry.ts > USER_BRANCH_TTL_MS) {
+        userBranchCache.delete(key)
+        return null
+    }
+    return entry.branchId
+}
+
+const setCachedUserBranchId = (metahubId: string, userId: string, branchId: string) => {
+    userBranchCache.set(`${metahubId}:${userId}`, { branchId, ts: Date.now() })
+}
+
+/**
  * MetahubSchemaService - Manages isolated schemas for Metahubs.
  *
  * Each Metahub has its own PostgreSQL schema (mhb_<uuid>) containing:
  * - _mhb_objects: Registry of all objects (Catalogs, Hubs, Documents, etc.)
  * - _mhb_attributes: Attribute definitions for objects
- * - _mhb_records: Predefined data for catalogs
+ * - _mhb_elements: Predefined data for catalogs
  *
  * Note: This is Design-Time storage. Physical data tables (cat_*, doc_*)
  * are only created in Application schemas (app_*) during publication.
  */
 export class MetahubSchemaService {
-    constructor(private dataSource: DataSource) { }
+    constructor(
+        private dataSource: DataSource,
+        private branchIdOverride?: string
+    ) { }
 
     private get knex() {
         return KnexClient.getInstance()
@@ -45,11 +73,12 @@ export class MetahubSchemaService {
      * Clears cache for a specific metahub (call on metahub deletion).
      */
     static clearCache(metahubId: string): void {
-        const schemaName = schemaCache.get(metahubId)
-        if (schemaName) {
-            tablesInitCache.delete(schemaName)
+        for (const [key, schemaName] of schemaCache.entries()) {
+            if (key.startsWith(`${metahubId}:`)) {
+                tablesInitCache.delete(schemaName)
+                schemaCache.delete(key)
+            }
         }
-        schemaCache.delete(metahubId)
     }
 
     /**
@@ -67,9 +96,23 @@ export class MetahubSchemaService {
      * Uses caching to avoid repeated DB checks and advisory locking
      * to prevent race conditions during schema creation.
      */
-    async ensureSchema(metahubId: string): Promise<string> {
-        // Check cache first (no DB query)
-        const cached = schemaCache.get(metahubId)
+    async ensureSchema(metahubId: string, userId?: string): Promise<string> {
+        const cachedBranchId = this.branchIdOverride
+            ?? (userId ? getCachedUserBranchId(metahubId, userId) : null)
+        if (cachedBranchId) {
+            const cacheKey = `${metahubId}:${cachedBranchId}`
+            const cachedSchema = schemaCache.get(cacheKey)
+            if (cachedSchema && tablesInitCache.has(cachedSchema)) {
+                return cachedSchema
+            }
+        }
+
+        const resolvedInitial = await this.resolveBranchSchema(metahubId, userId)
+        if (userId && !this.branchIdOverride) {
+            setCachedUserBranchId(metahubId, userId, resolvedInitial.branchId)
+        }
+        const cacheKey = `${metahubId}:${resolvedInitial.branchId}`
+        const cached = schemaCache.get(cacheKey)
         if (cached && tablesInitCache.has(cached)) {
             return cached
         }
@@ -83,35 +126,80 @@ export class MetahubSchemaService {
 
         try {
             // Double-check cache after acquiring lock
-            const cachedAfterLock = schemaCache.get(metahubId)
+            const cachedAfterLock = schemaCache.get(cacheKey)
             if (cachedAfterLock && tablesInitCache.has(cachedAfterLock)) {
                 return cachedAfterLock
             }
-
-            const metaRepo = this.dataSource.getRepository(Metahub)
-            const metahub = await metaRepo.findOneByOrFail({ id: metahubId })
-
-            let schemaName = metahub.schemaName
-            if (!schemaName) {
-                schemaName = generateMetahubSchemaName(metahubId)
-                const { generator } = getDDLServices()
-                await generator.createSchema(schemaName)
-                await metaRepo.update({ id: metahubId }, { schemaName })
+            const resolved = await this.resolveBranchSchema(metahubId, userId)
+            if (!resolved.schemaName) {
+                throw new Error('Branch schema name is missing')
             }
+
+            // Ensure schema exists and tables are initialized
+            await this.createEmptySchemaIfNeeded(resolved.schemaName)
 
             // Cache schema name
-            schemaCache.set(metahubId, schemaName)
+            schemaCache.set(cacheKey, resolved.schemaName)
 
             // Initialize tables only once per schema
-            if (!tablesInitCache.has(schemaName)) {
-                await this.initSystemTables(schemaName)
-                tablesInitCache.add(schemaName)
+            if (!tablesInitCache.has(resolved.schemaName)) {
+                await this.initSystemTables(resolved.schemaName)
+                tablesInitCache.add(resolved.schemaName)
             }
 
-            return schemaName
+            return resolved.schemaName
         } finally {
             await releaseAdvisoryLock(this.knex, lockKey)
         }
+    }
+
+    /**
+     * Create empty schema and system tables when schema does not exist yet.
+     */
+    async createEmptySchemaIfNeeded(schemaName: string): Promise<void> {
+        const { generator } = getDDLServices()
+        await generator.createSchema(schemaName)
+    }
+
+    /**
+     * Ensures schema and system tables exist for a known schema name.
+     * Does not resolve branches or cache keys.
+     */
+    async initializeSchema(schemaName: string): Promise<void> {
+        await this.createEmptySchemaIfNeeded(schemaName)
+        if (!tablesInitCache.has(schemaName)) {
+            await this.initSystemTables(schemaName)
+            tablesInitCache.add(schemaName)
+        }
+    }
+
+    private async resolveBranchSchema(
+        metahubId: string,
+        userId?: string
+    ): Promise<{ branchId: string; schemaName: string }> {
+        const metaRepo = this.dataSource.getRepository(Metahub)
+        const branchRepo = this.dataSource.getRepository(MetahubBranch)
+        const memberRepo = this.dataSource.getRepository(MetahubUser)
+
+        const metahub = await metaRepo.findOneByOrFail({ id: metahubId })
+        const defaultBranchId = metahub.defaultBranchId
+        if (!defaultBranchId) {
+            throw new Error('Default branch is not configured for this metahub')
+        }
+
+        let branchId = this.branchIdOverride ?? defaultBranchId
+        if (!this.branchIdOverride && userId) {
+            const membership = await memberRepo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
+            if (membership?.active_branch_id) {
+                branchId = membership.active_branch_id
+            }
+        }
+
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        if (!branch) {
+            throw new Error('Branch not found')
+        }
+        return { branchId, schemaName: branch.schema_name }
     }
 
     /**
@@ -120,13 +208,12 @@ export class MetahubSchemaService {
      * WARNING: destructive operation.
      */
     async dropSchema(metahubId: string): Promise<void> {
-        const metaRepo = this.dataSource.getRepository(Metahub)
-        const metahub = await metaRepo.findOneBy({ id: metahubId })
-
-        const schemaName = metahub?.schemaName || generateMetahubSchemaName(metahubId)
-
+        const branchRepo = this.dataSource.getRepository(MetahubBranch)
+        const branches = await branchRepo.find({ where: { metahub_id: metahubId } })
         const { generator } = getDDLServices()
-        await generator.dropSchema(schemaName)
+        for (const branch of branches) {
+            await generator.dropSchema(branch.schema_name)
+        }
 
         // Clear cache after dropping
         MetahubSchemaService.clearCache(metahubId)
@@ -174,10 +261,10 @@ export class MetahubSchemaService {
             })
         }
 
-        // _mhb_records: Predefined data for catalogs (synced to publications/versions)
-        const hasRecords = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_records')
-        if (!hasRecords) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_records', (t) => {
+        // _mhb_elements: Predefined data for catalogs (synced to publications/versions)
+        const hasElements = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_elements')
+        if (!hasElements) {
+            await this.knex.schema.withSchema(schemaName).createTable('_mhb_elements', (t) => {
                 t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
                 t.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._mhb_objects`).onDelete('CASCADE')
                 t.jsonb('data').notNullable().defaultTo('{}')
@@ -185,15 +272,15 @@ export class MetahubSchemaService {
                 t.uuid('owner_id').nullable()
                 t.timestamps(true, true)
                 // Performance indexes
-                t.index(['object_id'], 'idx_mhb_records_object_id')
-                t.index(['object_id', 'sort_order'], 'idx_mhb_records_object_sort')
-                t.index(['owner_id'], 'idx_mhb_records_owner_id')
+                t.index(['object_id'], 'idx_mhb_elements_object_id')
+                t.index(['object_id', 'sort_order'], 'idx_mhb_elements_object_sort')
+                t.index(['owner_id'], 'idx_mhb_elements_owner_id')
             })
 
             // GIN index for JSONB search (requires raw SQL)
             await this.knex.raw(`
-                CREATE INDEX IF NOT EXISTS idx_mhb_records_data_gin
-                ON "${schemaName}"._mhb_records USING GIN(data)
+                CREATE INDEX IF NOT EXISTS idx_mhb_elements_data_gin
+                ON "${schemaName}"._mhb_elements USING GIN(data)
             `)
         }
     }

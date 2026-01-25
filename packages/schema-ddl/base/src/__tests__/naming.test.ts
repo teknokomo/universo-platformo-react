@@ -71,6 +71,14 @@ describe('DDL Naming Utilities', () => {
             expect(isValidSchemaName('app_abc123')).toBe(true)
         })
 
+        it('should return true for valid metahub schema name', () => {
+            expect(isValidSchemaName('mhb_a1b2c3d4e5f67890abcdef1234567890')).toBe(true)
+        })
+
+        it('should return true for metahub branch schema name', () => {
+            expect(isValidSchemaName('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')).toBe(true)
+        })
+
         it('should return false for schema name without app_ prefix', () => {
             expect(isValidSchemaName('schema_a1b2c3d4')).toBe(false)
         })
@@ -85,6 +93,10 @@ describe('DDL Naming Utilities', () => {
 
         it('should return false for schema name with special characters', () => {
             expect(isValidSchemaName('app_a1b2c3d4!')).toBe(false)
+        })
+
+        it('should return false for app schema name with branch suffix', () => {
+            expect(isValidSchemaName('app_a1b2c3d4_b1')).toBe(false)
         })
 
         it('should return false for empty string', () => {

@@ -300,11 +300,11 @@ export default function NavbarBreadcrumbs() {
                             to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
-                        // Nested under catalog: attributes or records
+                        // Nested under catalog: attributes or elements
                         if (segments[4] === 'attributes') {
                             items.push({ label: t('attributes'), to: location.pathname })
-                        } else if (segments[4] === 'records') {
-                            items.push({ label: t('records'), to: location.pathname })
+                        } else if (segments[4] === 'elements') {
+                            items.push({ label: t('elements'), to: location.pathname })
                         }
                     }
                 } else if (segments[2] === 'catalog') {
@@ -319,16 +319,18 @@ export default function NavbarBreadcrumbs() {
                             to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
                         })
 
-                        // Nested under catalog: attributes or records
+                        // Nested under catalog: attributes or elements
                         if (segments[4] === 'attributes') {
                             items.push({ label: t('attributes'), to: location.pathname })
-                        } else if (segments[4] === 'records') {
-                            items.push({ label: t('records'), to: location.pathname })
+                        } else if (segments[4] === 'elements') {
+                            items.push({ label: t('elements'), to: location.pathname })
                         }
                     }
                 } else if (segments[2] === 'hubs') {
                     // Hubs list
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
+                } else if (segments[2] === 'branches') {
+                    items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
                 } else if (segments[2] === 'publications') {
                     // Publications list
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
@@ -366,7 +368,7 @@ export default function NavbarBreadcrumbs() {
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
-                                // Nested under catalog: attributes or records
+                                // Nested under catalog: attributes or elements
                                 if (segments[6] === 'attributes') {
                                     items.push({ label: t('attributes'), to: location.pathname })
 
@@ -377,8 +379,8 @@ export default function NavbarBreadcrumbs() {
                                             to: location.pathname
                                         })
                                     }
-                                } else if (segments[6] === 'records') {
-                                    items.push({ label: t('records'), to: location.pathname })
+                                } else if (segments[6] === 'elements') {
+                                    items.push({ label: t('elements'), to: location.pathname })
                                 }
                             }
                         } else if (segments[4] === 'catalog') {
@@ -398,7 +400,7 @@ export default function NavbarBreadcrumbs() {
                                     to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
                                 })
 
-                                // Nested under catalog: attributes or records
+                                // Nested under catalog: attributes or elements
                                 if (segments[6] === 'attributes') {
                                     items.push({ label: t('attributes'), to: location.pathname })
 
@@ -409,8 +411,8 @@ export default function NavbarBreadcrumbs() {
                                             to: location.pathname
                                         })
                                     }
-                                } else if (segments[6] === 'records') {
-                                    items.push({ label: t('records'), to: location.pathname })
+                                } else if (segments[6] === 'elements') {
+                                    items.push({ label: t('elements'), to: location.pathname })
                                 }
                             }
                         } else {
@@ -422,8 +424,8 @@ export default function NavbarBreadcrumbs() {
 
                             if (segments[4] === 'attributes') {
                                 items.push({ label: t('attributes'), to: location.pathname })
-                            } else if (segments[4] === 'records') {
-                                items.push({ label: t('records'), to: location.pathname })
+                            } else if (segments[4] === 'elements') {
+                                items.push({ label: t('elements'), to: location.pathname })
                             }
                         }
                     }

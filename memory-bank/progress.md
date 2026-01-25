@@ -44,6 +44,15 @@
 
 ---
 
+## 2026-01-24
+
+### Metahubs elements rename + UI sync
+- Records renamed to Elements across metahubs backend/frontend (routes, services, types, snapshot, `_mhb_elements`).
+- Metahub edit dialog includes Storage tab; Publications → Applications tab shows name/description only.
+- Metahub menu reordered with dividers; docs updated; builds passed for metahubs-backend, metahubs-frontend, template-mui.
+
+---
+
 ## 2026-01-23
 
 ### Metahub Codename + Migration Squash + Menu Order

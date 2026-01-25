@@ -66,12 +66,12 @@ async function ensureApplicationAccess(
     }
 }
 
-async function seedPredefinedRecords(
+async function seedPredefinedElements(
     schemaName: string,
     snapshot: MetahubSnapshot,
     entities: EntityDefinition[]
 ): Promise<string[]> {
-    if (!snapshot.records || Object.keys(snapshot.records).length === 0) {
+    if (!snapshot.elements || Object.keys(snapshot.elements).length === 0) {
         return []
     }
 
@@ -81,8 +81,8 @@ async function seedPredefinedRecords(
     const warnings: string[] = []
 
     await knex.transaction(async (trx) => {
-        for (const [objectId, records] of Object.entries(snapshot.records ?? {})) {
-            if (!records || records.length === 0) continue
+        for (const [objectId, elements] of Object.entries(snapshot.elements ?? {})) {
+            if (!elements || elements.length === 0) continue
 
             const entity = entityMap.get(objectId)
             if (!entity) continue
@@ -93,8 +93,8 @@ async function seedPredefinedRecords(
             )
             const dataColumns = Array.from(columnByCodename.values())
 
-            const rows = records.map((record) => {
-                const data = record.data ?? {}
+            const rows = elements.map((element) => {
+                const data = element.data ?? {}
                 const missingRequired = entity.fields
                     .filter((field) => field.isRequired)
                     .filter((field) => {
@@ -104,7 +104,7 @@ async function seedPredefinedRecords(
                     })
 
                 if (missingRequired.length > 0) {
-                    const message = `[SchemaSync] Skipping predefined record ${record.id} for ${tableName} ` +
+                    const message = `[SchemaSync] Skipping predefined element ${element.id} for ${tableName} ` +
                         `due to missing required fields: ${missingRequired.map((f) => f.codename).join(', ')}`
                     console.warn(message)
                     warnings.push(message)
@@ -112,7 +112,7 @@ async function seedPredefinedRecords(
                 }
 
                 const row: Record<string, unknown> = {
-                    id: record.id,
+                    id: element.id,
                     created_at: now,
                     updated_at: now
                 }
@@ -324,7 +324,7 @@ export function createApplicationSyncRoutes(
                     application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
                     await applicationRepo.save(application)
 
-                    const seedWarnings = await seedPredefinedRecords(application.schemaName!, snapshot, catalogDefs)
+                    const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs)
                     await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                     return res.json({
@@ -397,7 +397,7 @@ export function createApplicationSyncRoutes(
                 application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
                 await applicationRepo.save(application)
 
-                const seedWarnings = await seedPredefinedRecords(application.schemaName!, snapshot, catalogDefs)
+                const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs)
                 await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                 return res.json({

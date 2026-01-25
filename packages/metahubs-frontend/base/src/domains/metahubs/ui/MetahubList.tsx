@@ -251,10 +251,7 @@ const MetahubList = () => {
                     label: t('tabs.storage'),
                     content: (
                         <Box sx={{ mt: 2 }}>
-                            <RadioGroup
-                                value={storageMode}
-                                onChange={(e) => setValue('storageMode', e.target.value)}
-                            >
+                            <RadioGroup value={storageMode} onChange={(e) => setValue('storageMode', e.target.value)}>
                                 <FormControlLabel
                                     value="main_db"
                                     control={<Radio />}

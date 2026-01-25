@@ -5,6 +5,8 @@ import { AuthUser, RequestWithDbContext } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
+import { MetahubBranch } from '../../../database/entities/MetahubBranch'
+import { Publication } from '../../../database/entities/Publication'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
 import { Profile } from '@universo/profile-backend'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } from '../../shared/guards'
@@ -15,6 +17,8 @@ import { normalizeCodename, isValidCodename } from '@universo/utils/validation/c
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
+import { MetahubHubsService } from '../services/MetahubHubsService'
+import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner
@@ -46,13 +50,15 @@ export function createMetahubsRoutes(
         const manager = getRequestManager(req, ds)
         const schemaService = new MetahubSchemaService(ds)
         const objectsService = new MetahubObjectsService(schemaService)
+        const branchesService = new MetahubBranchesService(ds, manager)
         return {
             metahubRepo: manager.getRepository(Metahub),
             metahubUserRepo: manager.getRepository(MetahubUser),
             // hubRepo removed - hubs are in isolated schemas now
             authUserRepo: manager.getRepository(AuthUser),
             schemaService,
-            objectsService
+            objectsService,
+            branchesService
         }
     }
 
@@ -264,17 +270,20 @@ export function createMetahubsRoutes(
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            // Load counts - counting hubs and catalogs
-            // TODO: Implement schema-based hub counting via Knex (_mhb_hubs in isolated schema)
-            // For now, return 0 (hubs are in isolated schemas, not metahubs.hubs)
-            const hubsCount = 0
+            // Load counts from active branch (user-specific)
+            const hubsService = new MetahubHubsService(new MetahubSchemaService(ds))
+            let hubsCount = 0
+            try {
+                const { total } = await hubsService.findAll(metahubId, { limit: 1, offset: 0 }, userId)
+                hubsCount = total
+            } catch (e) {
+                // Ignore errors (e.g. schema not found yet)
+            }
 
-            // Count catalogs by fetching them from dynamic schema
+            // Count catalogs by active branch schema
             let catalogsCount = 0
             try {
-                // This might fail if schema doesn't exist yet, which is fine (count 0)
-                const catalogs = await objectsService.findAll(metahubId)
-                catalogsCount = catalogs.length
+                catalogsCount = await objectsService.countByKind(metahubId, 'CATALOG', userId)
             } catch (e) {
                 // Ignore error (e.g. schema not found)
             }
@@ -299,6 +308,100 @@ export function createMetahubsRoutes(
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
                 permissions
+            })
+        })
+    )
+
+    // ============ METAHUB BOARD SUMMARY ============
+    router.get(
+        '/metahub/:metahubId/board/summary',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { metahubId } = req.params
+            const { metahubRepo, metahubUserRepo } = repos(req)
+            const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
+
+            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
+
+            const branchesRepo = ds.getRepository(MetahubBranch)
+            const publicationsRepo = ds.getRepository(Publication)
+
+            const membership = await metahubUserRepo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
+            const activeBranchId = membership?.active_branch_id ?? metahub.defaultBranchId ?? null
+
+            let hubsCount = 0
+            let catalogsCount = 0
+
+            if (activeBranchId) {
+                const activeBranch = await branchesRepo.findOne({ where: { id: activeBranchId, metahub_id: metahubId } })
+                const schemaName = activeBranch?.schema_name ?? null
+
+                if (schemaName && /^mhb_[a-f0-9]+_b\d+$/i.test(schemaName)) {
+                    const manager = getRequestManager(req, ds)
+                    try {
+                        const [hubsResult, catalogsResult] = await Promise.all([
+                            manager.query(
+                                `SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'HUB'`
+                            ),
+                            manager.query(
+                                `SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'CATALOG'`
+                            )
+                        ])
+                        hubsCount = parseInt(hubsResult?.[0]?.count ?? '0', 10)
+                        catalogsCount = parseInt(catalogsResult?.[0]?.count ?? '0', 10)
+                    } catch (e) {
+                        hubsCount = 0
+                        catalogsCount = 0
+                    }
+                }
+            }
+
+            const [branchesCount, publicationsCount, membersCount] = await Promise.all([
+                branchesRepo.count({ where: { metahub_id: metahubId } }),
+                publicationsRepo.count({ where: { metahubId } }),
+                metahubUserRepo.count({ where: { metahub_id: metahubId } })
+            ])
+
+            const manager = getRequestManager(req, ds)
+            const versionsResult = await manager.query(
+                `
+                SELECT COUNT(*)::int as count
+                FROM metahubs.publication_versions pv
+                JOIN metahubs.publications p ON p.id = pv.publication_id
+                WHERE p.metahub_id = $1
+            `,
+                [metahubId]
+            )
+
+            const applicationsResult = await manager.query(
+                `
+                SELECT COUNT(DISTINCT a.id)::int as count
+                FROM applications.applications a
+                JOIN applications.connectors c ON c.application_id = a.id
+                JOIN applications.connectors_publications cp ON cp.connector_id = c.id
+                JOIN metahubs.publications p ON p.id = cp.publication_id
+                WHERE p.metahub_id = $1
+            `,
+                [metahubId]
+            )
+
+            return res.json({
+                metahubId,
+                activeBranchId,
+                branchesCount,
+                hubsCount,
+                catalogsCount,
+                membersCount,
+                publicationsCount,
+                publicationVersionsCount: parseInt(versionsResult?.[0]?.count ?? '0', 10),
+                applicationsCount: parseInt(applicationsResult?.[0]?.count ?? '0', 10)
             })
         })
     )
@@ -339,7 +442,7 @@ export function createMetahubsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { metahubRepo, metahubUserRepo, schemaService } = repos(req)
+            const { metahubRepo, metahubUserRepo, branchesService } = repos(req)
 
             const normalizedCodename = normalizeCodename(result.data.codename)
             if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -401,8 +504,18 @@ export function createMetahubsRoutes(
             })
             await metahubUserRepo.save(membership)
 
-            // Ensure schema is created
-            await schemaService.ensureSchema(metahub.id)
+            const branchName = buildLocalizedContent({ en: 'Main', ru: 'Главная' }, 'en', 'en')
+            const branchDescription = buildLocalizedContent({ en: 'Your first branch', ru: 'Ваша первая ветка' }, 'en', 'en')
+            if (!branchName) {
+                return res.status(500).json({ error: 'Failed to build default branch name' })
+            }
+
+            await branchesService.createInitialBranch({
+                metahubId: metahub.id,
+                name: branchName,
+                description: branchDescription ?? null,
+                createdBy: userId
+            })
 
             return res.status(201).json({
                 id: metahub.id,

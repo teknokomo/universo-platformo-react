@@ -6,7 +6,7 @@ import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubAttributesService } from '../services/MetahubAttributesService'
-import { MetahubRecordsService } from '../services/MetahubRecordsService'
+import { MetahubElementsService } from '../services/MetahubElementsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
 
 /**
@@ -16,7 +16,7 @@ import { MetahubHubsService } from '../services/MetahubHubsService'
  * Only metahubs with isPublic=true are accessible.
  * All operations are read-only.
  *
- * Hierarchy: Metahub → Hub → Catalog → Attributes/Records
+ * Hierarchy: Metahub → Hub → Catalog → Attributes/Elements
  */
 export function createPublicMetahubsRoutes(getDataSource: () => DataSource, readLimiter: RateLimitRequestHandler): Router {
     const router = Router({ mergeParams: true })
@@ -32,7 +32,7 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
         const schemaService = new MetahubSchemaService(ds)
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
-        const recordsService = new MetahubRecordsService(schemaService, objectsService, attributesService)
+        const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
         const hubsService = new MetahubHubsService(schemaService)
 
         return {
@@ -40,7 +40,7 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
             hubsService,
             objectsService,
             attributesService,
-            recordsService
+            elementsService
         }
     }
 
@@ -246,16 +246,16 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
     )
 
     /**
-     * GET /api/public/metahub/:slug/hub/:hubCodename/catalog/:catalogCodename/records
-     * List all records in a catalog (with pagination)
+     * GET /api/public/metahub/:slug/hub/:hubCodename/catalog/:catalogCodename/elements
+     * List all elements in a catalog (with pagination)
      */
     router.get(
-        '/:slug/hub/:hubCodename/catalog/:catalogCodename/records',
+        '/:slug/hub/:hubCodename/catalog/:catalogCodename/elements',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { slug, hubCodename, catalogCodename } = req.params
             const { limit = '100', offset = '0' } = req.query
-            const { metahubRepo, hubsService, objectsService, recordsService } = repos()
+            const { metahubRepo, hubsService, objectsService, elementsService } = repos()
 
             const metahub = await metahubRepo.findOne({
                 where: { slug, isPublic: true }
@@ -283,14 +283,14 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
                 return res.status(404).json({ error: 'Catalog not found in this hub' })
             }
 
-            const { items: records, total } = await recordsService.findAllAndCount(metahub.id, catalog.id, {
+            const { items: elements, total } = await elementsService.findAllAndCount(metahub.id, catalog.id, {
                 limit: Math.min(parseInt(limit as string, 10), 1000),
                 offset: parseInt(offset as string, 10),
                 sortOrder: 'asc' // Default
             })
 
             res.json({
-                items: records,
+                items: elements,
                 pagination: {
                     total,
                     limit: parseInt(limit as string, 10),
@@ -301,15 +301,15 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
     )
 
     /**
-     * GET /api/public/metahub/:slug/hub/:hubCodename/catalog/:catalogCodename/record/:recordId
-     * Get a single record by ID
+     * GET /api/public/metahub/:slug/hub/:hubCodename/catalog/:catalogCodename/element/:elementId
+     * Get a single element by ID
      */
     router.get(
-        '/:slug/hub/:hubCodename/catalog/:catalogCodename/record/:recordId',
+        '/:slug/hub/:hubCodename/catalog/:catalogCodename/element/:elementId',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { slug, hubCodename, catalogCodename, recordId } = req.params
-            const { metahubRepo, hubsService, objectsService, recordsService } = repos()
+            const { slug, hubCodename, catalogCodename, elementId } = req.params
+            const { metahubRepo, hubsService, objectsService, elementsService } = repos()
 
             const metahub = await metahubRepo.findOne({
                 where: { slug, isPublic: true }
@@ -337,13 +337,13 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
                 return res.status(404).json({ error: 'Catalog not found in this hub' })
             }
 
-            const record = await recordsService.findById(metahub.id, catalog.id, recordId)
+            const element = await elementsService.findById(metahub.id, catalog.id, elementId)
 
-            if (!record) {
-                return res.status(404).json({ error: 'Record not found' })
+            if (!element) {
+                return res.status(404).json({ error: 'Element not found' })
             }
 
-            res.json(record)
+            res.json(element)
         })
     )
 

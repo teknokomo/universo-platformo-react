@@ -1,6 +1,6 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Stack, Divider } from '@mui/material'
+import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -21,7 +21,8 @@ const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedP
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
-        codenameTouched: true
+        codenameTouched: true,
+        storageMode: 'main_db'
     }
 }
 
@@ -136,6 +137,69 @@ const MetahubEditFields = ({
     )
 }
 
+const buildEditTabs = (
+    ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>,
+    {
+        values,
+        setValue,
+        isLoading,
+        errors
+    }: {
+        values: Record<string, any>
+        setValue: (name: string, value: any) => void
+        isLoading: boolean
+        errors?: Record<string, string>
+    }
+) => {
+    const storageMode = values.storageMode ?? 'main_db'
+
+    return [
+        {
+            id: 'general',
+            label: ctx.t('tabs.general'),
+            content: (
+                <MetahubEditFields
+                    values={values}
+                    setValue={setValue}
+                    isLoading={isLoading}
+                    errors={errors}
+                    t={ctx.t}
+                    uiLocale={ctx.uiLocale as string}
+                />
+            )
+        },
+        {
+            id: 'storage',
+            label: ctx.t('tabs.storage'),
+            content: (
+                <Box sx={{ mt: 2 }}>
+                    <RadioGroup value={storageMode} onChange={(e) => setValue('storageMode', e.target.value)}>
+                        <FormControlLabel
+                            value="main_db"
+                            control={<Radio />}
+                            label={ctx.t('storage.mainDb')}
+                            disabled={isLoading}
+                        />
+                        <FormControlLabel
+                            value="external_db"
+                            control={<Radio />}
+                            label={
+                                <Box>
+                                    <Typography variant="body1">{ctx.t('storage.externalDb')}</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {ctx.t('storage.externalDbDisabled')}
+                                    </Typography>
+                                </Box>
+                            }
+                            disabled={true}
+                        />
+                    </RadioGroup>
+                </Box>
+            )
+        }
+    ]
+}
+
 const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalizedPayload>[] = [
     {
         id: 'edit',
@@ -160,18 +224,8 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: any) => {
-                        return (
-                            <MetahubEditFields
-                                values={values}
-                                setValue={setValue}
-                                isLoading={isLoading}
-                                errors={errors}
-                                t={ctx.t}
-                                uiLocale={ctx.uiLocale as string}
-                            />
-                        )
-                    },
+                    tabs: (args: { values: Record<string, any>; setValue: (name: string, value: any) => void; isLoading: boolean; errors?: Record<string, string> }) =>
+                        buildEditTabs(ctx, args),
                     validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),
                     canSave: canSaveMetahubForm,
                     showDeleteButton: true,

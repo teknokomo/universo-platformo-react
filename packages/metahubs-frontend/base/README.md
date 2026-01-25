@@ -2,7 +2,7 @@
 
 > 🏗️ **Modern Package** - TypeScript-first architecture with dual build system
 
-Frontend application for managing metahubs, hubs, catalogs, attributes, and records in the Universo Platformo ecosystem.
+Frontend application for managing metahubs, hubs, catalogs, attributes, and elements in the Universo Platformo ecosystem.
 
 ## Package Information
 
@@ -16,7 +16,7 @@ Frontend application for managing metahubs, hubs, catalogs, attributes, and reco
 ## Key Features
 
 ### 🌍 Metahub Management
-- **Hierarchical Organization**: Four-tier architecture (Metahubs → Hubs → Catalogs → Attributes/Records)
+- **Hierarchical Organization**: Four-tier architecture (Metahubs → Hubs → Catalogs → Attributes/Elements)
 - **Complete Data Isolation**: Data from different metahubs is completely separated
 - **Role-Based Access**: User roles and permissions for metahub access control
 - **Context-Aware Navigation**: Metahub-aware routing with breadcrumbs and sidebar preservation
@@ -25,7 +25,7 @@ Frontend application for managing metahubs, hubs, catalogs, attributes, and reco
 - **Hubs**: Data containers that define the structure of your metahub
 - **Catalogs**: Reusable schema definitions with N:M relationship to hubs
 - **Attributes**: Field definitions within catalogs (name, type, validation)
-- **Records**: Data entries conforming to catalog schemas (JSONB storage)
+- **Elements**: Data entries conforming to catalog schemas (JSONB storage)
 
 ### 🎨 User Interface
 - **Material-UI Integration**: Consistent UI components with modern design system
@@ -70,7 +70,7 @@ import {
   HubList,
   CatalogList,
   AttributeList,
-  RecordList,
+  ElementList,
   metahubsDashboard 
 } from '@universo/metahubs-frontend'
 
@@ -84,7 +84,7 @@ import { metahubsTranslations } from '@universo/metahubs-frontend'
 <Route path="/metahub/:id/hub/:hubId/catalogs" element={<CatalogList />} />
 <Route path="/metahub/:id/catalogs" element={<CatalogList />} />
 <Route path="/metahub/:id/catalog/:catalogId/attributes" element={<AttributeList />} />
-<Route path="/metahub/:id/catalog/:catalogId/records" element={<RecordList />} />
+<Route path="/metahub/:id/catalog/:catalogId/elements" element={<ElementList />} />
 ```
 
 ## Architecture
@@ -96,7 +96,7 @@ Metahub (top-level organizational unit)
         └── CatalogHub (N:M junction)
               └── Catalog (schema definition)
                     ├── Attribute (field definitions)
-                    └── Record (data entries)
+                    └── Element (data entries)
 ```
 
 ### Key Concepts
@@ -104,7 +104,7 @@ Metahub (top-level organizational unit)
 - **Hubs**: Content containers within metahubs for organizing catalogs
 - **Catalogs**: Reusable schema definitions that can belong to multiple hubs (N:M relationship)
 - **Attributes**: Field definitions within catalogs (name, type, required, order)
-- **Records**: Data entries stored as JSONB conforming to catalog attribute schema
+- **Elements**: Data entries stored as JSONB conforming to catalog attribute schema
 
 ### Data Isolation Strategy
 - Complete separation between metahubs - no cross-metahub visibility
@@ -122,7 +122,7 @@ packages/metahubs-frontend/base/
 │   │   ├── hubs.ts       # Hub management
 │   │   ├── catalogs.ts   # Catalog operations
 │   │   ├── attributes.ts # Attribute operations
-│   │   ├── records.ts    # Record operations
+│   │   ├── elements.ts   # Element operations
 │   │   └── queryKeys.ts  # React Query keys
 │   ├── hooks/            # Custom React hooks
 │   │   ├── mutations.ts  # useMutation hooks
@@ -135,7 +135,7 @@ packages/metahubs-frontend/base/
 │   │   ├── HubList.tsx
 │   │   ├── CatalogList.tsx
 │   │   ├── AttributeList.tsx
-│   │   └── RecordList.tsx
+│   │   └── ElementList.tsx
 │   ├── menu-items/       # Navigation configuration
 │   ├── types/            # TypeScript definitions
 │   ├── utils/            # Utility functions
@@ -197,18 +197,18 @@ import { CatalogList } from '@universo/metahubs-frontend'
 // Features:
 // - Dual mode: hub-scoped or metahub-wide
 // - N:M hub relationship management
-// - Attributes and records count display
+// - Attributes and elements count display
 ```
 
-### AttributeList / RecordList
+### AttributeList / ElementList
 Components for managing catalog data:
 
 ```tsx
-import { AttributeList, RecordList } from '@universo/metahubs-frontend'
+import { AttributeList, ElementList } from '@universo/metahubs-frontend'
 
 // Features:
 // - Attribute ordering (drag & drop)
-// - Dynamic record forms based on attributes
+// - Dynamic element forms based on attributes
 // - Data type support (string, with extensibility)
 ```
 

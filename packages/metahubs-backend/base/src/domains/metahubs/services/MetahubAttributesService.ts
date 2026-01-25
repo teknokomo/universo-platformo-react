@@ -15,8 +15,8 @@ export class MetahubAttributesService {
     /**
      * Count attributes for a specific object (catalog).
      */
-    async countByObjectId(metahubId: string, objectId: string): Promise<number> {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const result = await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -29,10 +29,10 @@ export class MetahubAttributesService {
     /**
      * Count attributes for multiple objects (batch operation).
      */
-    async countByObjectIds(metahubId: string, objectIds: string[]): Promise<Map<string, number>> {
+    async countByObjectIds(metahubId: string, objectIds: string[], userId?: string): Promise<Map<string, number>> {
         if (objectIds.length === 0) return new Map()
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const results = await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -48,8 +48,8 @@ export class MetahubAttributesService {
         return counts
     }
 
-    async findAll(metahubId: string, objectId: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findAll(metahubId: string, objectId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const rows = await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -60,8 +60,8 @@ export class MetahubAttributesService {
         return rows.map(this.mapRowToAttribute)
     }
 
-    async getAllAttributes(metahubId: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async getAllAttributes(metahubId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const rows = await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -71,8 +71,8 @@ export class MetahubAttributesService {
         return rows.map(this.mapRowToAttribute)
     }
 
-    async findById(metahubId: string, id: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findById(metahubId: string, id: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const row = await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -82,8 +82,8 @@ export class MetahubAttributesService {
         return row ? this.mapRowToAttribute(row) : null
     }
 
-    async findByCodename(metahubId: string, objectId: string, codename: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async findByCodename(metahubId: string, objectId: string, codename: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const row = await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -93,8 +93,8 @@ export class MetahubAttributesService {
         return row ? this.mapRowToAttribute(row) : null
     }
 
-    async create(metahubId: string, data: any) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async create(metahubId: string, data: any, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const sortOrder = data.sortOrder ?? await this.getNextSortOrder(schemaName, data.catalogId)
         const dbData = {
@@ -122,8 +122,8 @@ export class MetahubAttributesService {
         return this.mapRowToAttribute(created)
     }
 
-    async update(metahubId: string, id: string, data: any) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async update(metahubId: string, id: string, data: any, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const updateData: any = { updated_at: new Date() }
 
@@ -159,8 +159,8 @@ export class MetahubAttributesService {
         return updated ? this.mapRowToAttribute(updated) : null
     }
 
-    async delete(metahubId: string, id: string) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async delete(metahubId: string, id: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -168,12 +168,12 @@ export class MetahubAttributesService {
             .delete()
     }
 
-    async moveAttribute(metahubId: string, objectId: string, attributeId: string, direction: 'up' | 'down') {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async moveAttribute(metahubId: string, objectId: string, attributeId: string, direction: 'up' | 'down', userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         return this.knex.transaction(async (trx) => {
             // Ensure sequential order first
-            await this._ensureSequentialSortOrder(metahubId, objectId, trx)
+            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId)
 
             const current = await trx
                 .withSchema(schemaName)
@@ -216,8 +216,8 @@ export class MetahubAttributesService {
     }
 
     // Internal method passing transaction
-    private async _ensureSequentialSortOrder(metahubId: string, objectId: string, trx: any) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    private async _ensureSequentialSortOrder(metahubId: string, objectId: string, trx: any, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const attributes = await trx
             .withSchema(schemaName)
@@ -250,8 +250,8 @@ export class MetahubAttributesService {
     }
 
     // Public wrapper if needed independently
-    async ensureSequentialSortOrder(metahubId: string, objectId: string) {
-        return this.knex.transaction(trx => this._ensureSequentialSortOrder(metahubId, objectId, trx))
+    async ensureSequentialSortOrder(metahubId: string, objectId: string, userId?: string) {
+        return this.knex.transaction(trx => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId))
     }
 
     private async getNextSortOrder(schemaName: string, objectId: string): Promise<number> {

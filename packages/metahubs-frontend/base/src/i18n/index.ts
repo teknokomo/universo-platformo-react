@@ -9,10 +9,11 @@ interface MetahubsBundle {
     meta_sections?: Record<string, unknown>
     meta_entities?: Record<string, unknown>
     members?: Record<string, unknown>
+    branches?: Record<string, unknown>
     hubs?: Record<string, unknown>
     catalogs?: Record<string, unknown>
     attributes?: Record<string, unknown>
-    records?: Record<string, unknown>
+    elements?: Record<string, unknown>
     publications?: Record<string, unknown>
     common?: Record<string, unknown>
     actions?: Record<string, unknown>
@@ -33,16 +34,17 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
             ...metahubsActions,
             ...(bundle?.actions ?? {})
         },
-    meta_sections: bundle?.meta_sections ?? {},
-    meta_entities: bundle?.meta_entities ?? {},
-    members: bundle?.members ?? {},
-    hubs: bundle?.hubs ?? {},
-    catalogs: bundle?.catalogs ?? {},
-    attributes: bundle?.attributes ?? {},
-    records: bundle?.records ?? {},
-    publications: bundle?.publications ?? {},
-    common: bundle?.common ?? {},
-    errors: bundle?.errors ?? {}
+        branches: bundle?.branches ?? {},
+        meta_sections: bundle?.meta_sections ?? {},
+        meta_entities: bundle?.meta_entities ?? {},
+        members: bundle?.members ?? {},
+        hubs: bundle?.hubs ?? {},
+        catalogs: bundle?.catalogs ?? {},
+        attributes: bundle?.attributes ?? {},
+        elements: bundle?.elements ?? {},
+        publications: bundle?.publications ?? {},
+        common: bundle?.common ?? {},
+        errors: bundle?.errors ?? {}
     }
 }
 
@@ -59,6 +61,7 @@ interface MetahubsTranslation {
     meta_sections?: Record<string, unknown>
     meta_entities?: Record<string, unknown>
     members?: Record<string, unknown>
+    branches?: Record<string, unknown>
     publications?: Record<string, unknown>
     common?: Record<string, unknown>
     errors?: Record<string, unknown>

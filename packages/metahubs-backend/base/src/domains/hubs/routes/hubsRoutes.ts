@@ -12,6 +12,12 @@ import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsSer
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { KnexClient } from '../../ddl'
 
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 const optionalLocalizedInputSchema = z
@@ -70,8 +76,8 @@ export function createHubsRoutes(
      * Uses SQL-level JSONB filtering instead of loading all catalogs into memory.
      * Returns catalogs with isRequiredHub=true that have this as their ONLY hub association.
      */
-    const findBlockingCatalogs = async (metahubId: string, hubId: string, schemaService: MetahubSchemaService) => {
-        const schemaName = await schemaService.ensureSchema(metahubId)
+    const findBlockingCatalogs = async (metahubId: string, hubId: string, schemaService: MetahubSchemaService, userId?: string) => {
+        const schemaName = await schemaService.ensureSchema(metahubId, userId)
         const knex = KnexClient.getInstance()
 
         // SQL-level filtering using JSONB operators
@@ -104,6 +110,7 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
             const { hubsService, objectsService } = services(req)
+            const userId = resolveUserId(req)
 
             let validatedQuery
             try {
@@ -123,10 +130,10 @@ export function createHubsRoutes(
                 sortBy,
                 sortOrder,
                 search
-            })
+            }, userId)
 
             // Calculate catalog counts
-            const catalogs = await objectsService.findAll(metahubId)
+            const catalogs = await objectsService.findAll(metahubId, userId)
             const counts = new Map<string, number>()
 
             for (const catalog of catalogs) {
@@ -161,8 +168,9 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { hubsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const hub = await hubsService.findById(metahubId, hubId)
+            const hub = await hubsService.findById(metahubId, hubId, userId)
 
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
@@ -190,6 +198,7 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
             const { metahubRepo, hubsService } = services(req)
+            const userId = resolveUserId(req)
 
             // Verify metahub exists
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
@@ -213,7 +222,7 @@ export function createHubsRoutes(
             }
 
             // Check for duplicate codename
-            const existing = await hubsService.findByCodename(metahubId, normalizedCodename)
+            const existing = await hubsService.findByCodename(metahubId, normalizedCodename, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Hub with this codename already exists' })
             }
@@ -241,7 +250,7 @@ export function createHubsRoutes(
                 name: nameVlc as unknown as Record<string, unknown>,
                 description: descriptionVlc as unknown as Record<string, unknown> | undefined,
                 sortOrder: sortOrder ?? 0
-            })
+            }, userId)
 
             res.status(201).json({
                 id: saved.id,
@@ -265,8 +274,9 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { hubsService } = services(req)
+            const userId = resolveUserId(req)
 
-            const hub = await hubsService.findById(metahubId, hubId)
+            const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
@@ -289,7 +299,7 @@ export function createHubsRoutes(
                     })
                 }
                 if (normalizedCodename !== hub.codename) {
-                    const existing = await hubsService.findByCodename(metahubId, normalizedCodename)
+                    const existing = await hubsService.findByCodename(metahubId, normalizedCodename, userId)
                     if (existing) {
                         return res.status(409).json({ error: 'Hub with this codename already exists' })
                     }
@@ -329,7 +339,7 @@ export function createHubsRoutes(
                 updateData.sortOrder = sortOrder
             }
 
-            const saved = await hubsService.update(metahubId, hubId, updateData)
+            const saved = await hubsService.update(metahubId, hubId, updateData, userId)
 
             res.json({
                 id: saved.id,
@@ -354,14 +364,15 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { hubsService, schemaService } = services(req)
+            const userId = resolveUserId(req)
 
-            const hub = await hubsService.findById(metahubId, hubId)
+            const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
             // Use helper function to find blocking catalogs
-            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService)
+            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService, userId)
 
             res.json({
                 hubId,
@@ -381,14 +392,15 @@ export function createHubsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId } = req.params
             const { hubsService, schemaService } = services(req)
+            const userId = resolveUserId(req)
 
-            const hub = await hubsService.findById(metahubId, hubId)
+            const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
             // Use helper function to check for blocking catalogs
-            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService)
+            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService, userId)
 
             if (blockingCatalogs.length > 0) {
                 return res.status(409).json({
@@ -397,7 +409,7 @@ export function createHubsRoutes(
                 })
             }
 
-            await hubsService.delete(metahubId, hubId)
+            await hubsService.delete(metahubId, hubId, userId)
             res.status(204).send()
         })
     )

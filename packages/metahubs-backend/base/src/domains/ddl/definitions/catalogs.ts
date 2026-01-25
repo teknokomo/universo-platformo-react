@@ -41,7 +41,7 @@ export const buildCatalogDefinitions = (
                     validationRules: (attr.validation_rules || attr.validationRules || {}) as Record<string, unknown>,
                     uiConfig: (attr.ui_config || attr.uiConfig || {}) as Record<string, unknown>,
                 })),
-                // System field: data (JSONB storage for record data)
+                // System field: data (JSONB storage for element data)
                 {
                     id: 'sys_data',
                     codename: 'data',

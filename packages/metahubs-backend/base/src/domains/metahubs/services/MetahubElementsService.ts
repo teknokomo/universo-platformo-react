@@ -7,15 +7,15 @@ import { AttributeDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
 
 /**
- * MetahubRecordsService - CRUD operations for predefined records in Design-Time.
+ * MetahubElementsService - CRUD operations for predefined elements in Design-Time.
  *
- * Records are stored in the `_mhb_records` system table within isolated schemas (mhb_<uuid>).
- * Each record references a catalog via `object_id` foreign key.
+ * Elements are stored in the `_mhb_elements` system table within isolated schemas (mhb_<uuid>).
+ * Each element references a catalog via `object_id` foreign key.
  *
- * Note: This is Design-Time data (predefined records for catalogs).
+ * Note: This is Design-Time data (predefined elements for catalogs).
  * Run-Time data is stored in Application schemas (app_<uuid>) after publication.
  */
-export class MetahubRecordsService {
+export class MetahubElementsService {
     constructor(
         private schemaService: MetahubSchemaService,
         private objectsService: MetahubObjectsService,
@@ -27,13 +27,13 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Count records for a specific catalog.
+     * Count elements for a specific catalog.
      */
-    async countByObjectId(metahubId: string, objectId: string): Promise<number> {
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+    async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const result = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ object_id: objectId })
             .count('* as count')
             .first()
@@ -41,15 +41,15 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Count records for multiple catalogs (batch operation).
+     * Count elements for multiple catalogs (batch operation).
      */
-    async countByObjectIds(metahubId: string, objectIds: string[]): Promise<Map<string, number>> {
+    async countByObjectIds(metahubId: string, objectIds: string[], userId?: string): Promise<Map<string, number>> {
         if (objectIds.length === 0) return new Map()
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const results = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .whereIn('object_id', objectIds)
             .select('object_id')
             .count('* as count')
@@ -63,31 +63,31 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Find all records for multiple catalogs.
-     * Records in Metahubs are treated as predefined (design-time data).
+     * Find all elements for multiple catalogs.
+     * Elements in Metahubs are treated as predefined (design-time data).
      */
-    async findAllByObjectIds(metahubId: string, objectIds: string[]) {
+    async findAllByObjectIds(metahubId: string, objectIds: string[], userId?: string) {
         if (objectIds.length === 0) return []
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
-        const records = await this.knex
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const elements = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .whereIn('object_id', objectIds)
             .orderBy('object_id', 'asc')
             .orderBy('sort_order', 'asc')
             .orderBy('created_at', 'asc')
 
-        return records.map((record: any) => ({
-            id: record.id,
-            objectId: record.object_id,
-            data: record.data ?? {},
-            sortOrder: record.sort_order ?? 0
+        return elements.map((element: any) => ({
+            id: element.id,
+            objectId: element.object_id,
+            data: element.data ?? {},
+            sortOrder: element.sort_order ?? 0
         }))
     }
 
     /**
-     * Find all records for a catalog with pagination and search.
+     * Find all elements for a catalog with pagination and search.
      */
     async findAll(metahubId: string, catalogId: string, options: {
         limit?: number
@@ -95,17 +95,17 @@ export class MetahubRecordsService {
         sortBy?: string
         sortOrder?: 'asc' | 'desc'
         search?: string
-    } = {}) {
+    } = {}, userId?: string) {
         // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, catalogId)
+        const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        // Query _mhb_records table with object_id filter
+        // Query _mhb_elements table with object_id filter
         let query = this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ object_id: catalogId })
 
         if (options.search) {
@@ -122,11 +122,11 @@ export class MetahubRecordsService {
         if (options.offset) query = query.offset(options.offset)
 
         const items = await query
-        return items.map((record: any) => this.mapRowToRecord(record))
+        return items.map((element: any) => this.mapRowToElement(element))
     }
 
     /**
-     * Find all records for a catalog with count (for pagination).
+     * Find all elements for a catalog with count (for pagination).
      */
     async findAllAndCount(metahubId: string, catalogId: string, options: {
         limit?: number
@@ -134,17 +134,17 @@ export class MetahubRecordsService {
         sortBy?: string
         sortOrder?: 'asc' | 'desc'
         search?: string
-    } = {}) {
+    } = {}, userId?: string) {
         // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, catalogId)
+        const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Base query with object_id filter
         let query = this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ object_id: catalogId })
 
         if (options.search) {
@@ -167,52 +167,52 @@ export class MetahubRecordsService {
         if (options.offset) query = query.offset(options.offset)
 
         const items = await query
-        return { items: items.map((record: any) => this.mapRowToRecord(record)), total }
+        return { items: items.map((element: any) => this.mapRowToElement(element)), total }
     }
 
     /**
-     * Find a single record by ID.
+     * Find a single element by ID.
      */
-    async findById(metahubId: string, catalogId: string, id: string) {
+    async findById(metahubId: string, catalogId: string, id: string, userId?: string) {
         // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, catalogId)
+        const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) return null
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const row = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ id, object_id: catalogId })
             .first()
 
-        return row ? this.mapRowToRecord(row) : null
+        return row ? this.mapRowToElement(row) : null
     }
 
     /**
-     * Create a new record in a catalog.
+     * Create a new element in a catalog.
      */
     async create(metahubId: string, catalogId: string, input: {
         data: Record<string, unknown>
         sortOrder?: number
-    }) {
+    }, userId?: string) {
         // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, catalogId)
+        const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
 
-        // Validate record data against catalog attributes
-        const attributes = await this.attributesService.findAll(metahubId, catalogId)
-        const validation = this.validateRecordData(input.data, attributes)
+        // Validate element data against catalog attributes
+        const attributes = await this.attributesService.findAll(metahubId, catalogId, userId)
+        const validation = this.validateElementData(input.data, attributes)
         if (!validation.valid) {
             throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
         }
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        // Insert into _mhb_records table
+        // Insert into _mhb_elements table
         const [created] = await this.knex
             .withSchema(schemaName)
-            .into('_mhb_records')
+            .into('_mhb_elements')
             .insert({
                 object_id: catalogId,
                 data: input.data,
@@ -223,37 +223,37 @@ export class MetahubRecordsService {
             })
             .returning('*')
 
-        return this.mapRowToRecord(created)
+        return this.mapRowToElement(created)
     }
 
     /**
-     * Update an existing record.
+     * Update an existing element.
      */
     async update(metahubId: string, catalogId: string, id: string, input: {
         data?: Record<string, unknown>
         sortOrder?: number
-    }) {
+    }, userId?: string) {
         // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, catalogId)
+        const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        // Find existing record
+        // Find existing element
         const existing = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ id, object_id: catalogId })
             .first()
 
-        if (!existing) throw new Error('Record not found')
+        if (!existing) throw new Error('Element not found')
 
         const updateData: Record<string, unknown> = { updated_at: new Date() }
 
         if (input.data) {
             const mergedData = { ...existing.data, ...input.data }
-            const attributes = await this.attributesService.findAll(metahubId, catalogId)
-            const validation = this.validateRecordData(mergedData, attributes)
+            const attributes = await this.attributesService.findAll(metahubId, catalogId, userId)
+            const validation = this.validateElementData(mergedData, attributes)
             if (!validation.valid) {
                 throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
             }
@@ -266,37 +266,37 @@ export class MetahubRecordsService {
 
         const [updated] = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ id, object_id: catalogId })
             .update(updateData)
             .returning('*')
 
-        return updated ? this.mapRowToRecord(updated) : null
+        return updated ? this.mapRowToElement(updated) : null
     }
 
     /**
-     * Delete a record.
+     * Delete an element.
      */
-    async delete(metahubId: string, catalogId: string, id: string) {
+    async delete(metahubId: string, catalogId: string, id: string, userId?: string) {
         // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, catalogId)
+        const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
 
-        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const deleted = await this.knex
             .withSchema(schemaName)
-            .from('_mhb_records')
+            .from('_mhb_elements')
             .where({ id, object_id: catalogId })
             .delete()
 
         if (deleted === 0) {
-            throw new Error('Record not found')
+            throw new Error('Element not found')
         }
     }
 
     // Validation helpers
-    private validateRecordData(data: Record<string, unknown>, attributes: any[]): { valid: boolean; errors: string[] } {
+    private validateElementData(data: Record<string, unknown>, attributes: any[]): { valid: boolean; errors: string[] } {
         const errors: string[] = []
         const attributeMap = new Map(attributes.map((a) => [a.codename, a]))
 
@@ -342,7 +342,7 @@ export class MetahubRecordsService {
         return value !== ''
     }
 
-    private mapRowToRecord(row: any) {
+    private mapRowToElement(row: any) {
         return {
             id: row.id,
             catalogId: row.object_id,
