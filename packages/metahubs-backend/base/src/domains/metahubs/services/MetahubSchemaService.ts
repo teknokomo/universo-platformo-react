@@ -25,6 +25,30 @@ const schemaCache = new Map<string, string>()
 const tablesInitCache = new Set<string>()
 
 /**
+ * Cache for user active branch resolution.
+ * Key: metahubId:userId, Value: { branchId, ts }
+ *
+ * Short TTL to avoid stale branch selection after user switches branch.
+ */
+const userBranchCache = new Map<string, { branchId: string; ts: number }>()
+const USER_BRANCH_TTL_MS = 30_000
+
+const getCachedUserBranchId = (metahubId: string, userId: string): string | null => {
+    const key = `${metahubId}:${userId}`
+    const entry = userBranchCache.get(key)
+    if (!entry) return null
+    if (Date.now() - entry.ts > USER_BRANCH_TTL_MS) {
+        userBranchCache.delete(key)
+        return null
+    }
+    return entry.branchId
+}
+
+const setCachedUserBranchId = (metahubId: string, userId: string, branchId: string) => {
+    userBranchCache.set(`${metahubId}:${userId}`, { branchId, ts: Date.now() })
+}
+
+/**
  * MetahubSchemaService - Manages isolated schemas for Metahubs.
  *
  * Each Metahub has its own PostgreSQL schema (mhb_<uuid>) containing:
@@ -73,10 +97,21 @@ export class MetahubSchemaService {
      * to prevent race conditions during schema creation.
      */
     async ensureSchema(metahubId: string, userId?: string): Promise<string> {
-        const { branchId, schemaName } = await this.resolveBranchSchema(metahubId, userId)
-        const cacheKey = `${metahubId}:${branchId}`
+        const cachedBranchId = this.branchIdOverride
+            ?? (userId ? getCachedUserBranchId(metahubId, userId) : null)
+        if (cachedBranchId) {
+            const cacheKey = `${metahubId}:${cachedBranchId}`
+            const cachedSchema = schemaCache.get(cacheKey)
+            if (cachedSchema && tablesInitCache.has(cachedSchema)) {
+                return cachedSchema
+            }
+        }
 
-        // Check cache first (no DB query)
+        const resolvedInitial = await this.resolveBranchSchema(metahubId, userId)
+        if (userId && !this.branchIdOverride) {
+            setCachedUserBranchId(metahubId, userId, resolvedInitial.branchId)
+        }
+        const cacheKey = `${metahubId}:${resolvedInitial.branchId}`
         const cached = schemaCache.get(cacheKey)
         if (cached && tablesInitCache.has(cached)) {
             return cached

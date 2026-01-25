@@ -97,7 +97,7 @@ export const ApplicationsPanel = ({
 
             <List disablePadding>
                 {applications.map((app) => {
-                    const name = getVLCString(app.name, uiLocale) || ''
+                    const name = getVLCString(app.name, uiLocale) || app.slug || app.id
                     const description = app.description ? getVLCString(app.description, uiLocale) : null
 
                     return (
