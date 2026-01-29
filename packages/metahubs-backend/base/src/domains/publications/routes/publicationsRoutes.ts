@@ -450,6 +450,8 @@ export function createPublicationsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
             const { publicationRepo, metahubRepo } = repos(req)
 
             const parsed = updatePublicationSchema.safeParse(req.body)
@@ -496,6 +498,8 @@ export function createPublicationsRoutes(
                 const descVlc = buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')
                 publication.description = descVlc ?? null
             }
+
+            publication._uplUpdatedBy = userId
 
             await publicationRepo.save(publication)
 

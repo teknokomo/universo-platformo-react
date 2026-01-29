@@ -10,6 +10,7 @@ jest.mock(
             Column: decorator,
             CreateDateColumn: decorator,
             UpdateDateColumn: decorator,
+            VersionColumn: decorator,
             ManyToOne: decorator,
             OneToMany: decorator,
             ManyToMany: decorator,

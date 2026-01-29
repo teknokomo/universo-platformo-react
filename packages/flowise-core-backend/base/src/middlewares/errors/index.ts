@@ -4,6 +4,24 @@ import { OptimisticLockError, lookupUserEmail } from '@universo/utils'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getDataSource } from '../../DataSource'
 
+/**
+ * Check if error is an OptimisticLockError (by class or duck typing)
+ * Duck typing needed because instanceof may fail across different module bundles.
+ * Requires valid conflict payload to prevent crashes when spreading conflict data.
+ */
+function isOptimisticLockError(err: unknown): err is OptimisticLockError {
+    if (err instanceof OptimisticLockError && err.conflict && typeof err.conflict === 'object') {
+        return true
+    }
+    // Duck typing fallback for cross-bundle compatibility
+    if (err && typeof err === 'object') {
+        const e = err as { name?: string; code?: string; conflict?: unknown }
+        const hasValidConflict = !!e.conflict && typeof e.conflict === 'object'
+        return hasValidConflict && (e.name === 'OptimisticLockError' || e.code === 'OPTIMISTIC_LOCK_CONFLICT')
+    }
+    return false
+}
+
 // we need eslint because we have to pass next arg for the error middleware
 // eslint-disable-next-line
 async function errorHandlerMiddleware(err: InternalFlowiseError | any, req: Request, res: Response, next: NextFunction) {
@@ -14,7 +32,7 @@ async function errorHandlerMiddleware(err: InternalFlowiseError | any, req: Requ
     const errCode = err?.code as string | undefined
 
     // Handle Optimistic Lock Conflicts (409)
-    if (err instanceof OptimisticLockError) {
+    if (isOptimisticLockError(err)) {
         const conflict = err.conflict
         const updatedByEmail = await lookupUserEmail(getDataSource(), conflict.updatedBy)
 
