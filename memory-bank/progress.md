@@ -52,7 +52,7 @@
 - **Global Middleware**: Kept duck-typed OptimisticLockError detection to support cross-bundle class instances.
 - **Email Restoration**: Added updatedByEmail lookup in router-level conflict response to show editor email.
 - **Build**: @flowise/core-backend rebuilt successfully.
-- **Verification**: User retest pending (stale `_upl_version` should trigger 409 + ConflictResolutionDialog with email).
+- **Verification**: User tested and confirmed working (409 + ConflictResolutionDialog with email display).
 
 ### Optimistic Lock QA Remediation
 - **Conflict Metadata**: Moved metahub `_uplUpdatedBy/_uplUpdatedAt` assignment to after version check for accurate conflict data.

@@ -668,11 +668,16 @@ router.use(chatMessagesErrorHandler)
 router.use(feedbackErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
+// Note: isOptimisticLockError is intentionally duplicated here (also in middlewares/errors)
+// because router error handlers run before global middleware, and we need consistent detection.
 function isOptimisticLockError(err: unknown): err is OptimisticLockError {
-    if (err instanceof OptimisticLockError) return true
+    if (err instanceof OptimisticLockError && err.conflict && typeof err.conflict === 'object') {
+        return true
+    }
     if (err && typeof err === 'object') {
         const e = err as { name?: string; code?: string; conflict?: unknown }
-        return e.name === 'OptimisticLockError' || (e.code === 'OPTIMISTIC_LOCK_CONFLICT' && !!e.conflict)
+        const hasValidConflict = !!e.conflict && typeof e.conflict === 'object'
+        return hasValidConflict && (e.name === 'OptimisticLockError' || e.code === 'OPTIMISTIC_LOCK_CONFLICT')
     }
     return false
 }

@@ -15,11 +15,11 @@
 - [x] Set updatedBy for publication updates (resolve user)
 - [x] Add VersionColumn to typeorm jest mocks (metahubs/applications backends)
 - [x] Re-run backend tests for metahubs/applications
-	- Note: Tests still failing in metahubs-backend and applications-backend due to outdated expectations/mocks (see progress.md#2026-01-29).
+    - Note: Tests still failing in metahubs-backend and applications-backend due to outdated expectations/mocks (see progress.md#2026-01-29).
 
 ## IMPLEMENT (2026-01-29): Optimistic Locking Pattern Unification
 
-> See full plan: `memory-bank/plans/optimistic-locking-unification.md`
+> See full plan: `memory-bank/plans/optimistic-locking-implementation.md`
 
 ### Phase 1: Extend Error Handler Middleware
 - [x] Add OptimisticLockError handling to flowise-core-backend errorHandlerMiddleware
@@ -512,7 +512,7 @@
 - [x] 14 unit tests added; keys normalized (projects/storages).
 - [x] Lint and build verification completed.
 - [x] Details: progress.md#2026-01-15.
-## COMPLETED (2026-01-14 to 2026-01-01): Condensed log
+## COMPLETED (2026-01-01 to 2026-01-14): Condensed log
 
 - Publications rename + page fixes, sources linking, application creation/QA, and UI improvements.
 - Catalogs/attributes improvements, schema sync UUID naming, and application UI/diff fixes.
