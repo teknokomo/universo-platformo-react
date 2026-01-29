@@ -245,7 +245,7 @@ export class MetahubBranchesService {
 
                 await schemaService.initializeSchema(schemaName)
                 if (sourceBranch) {
-                    await this.cloneSchemaData(sourceBranch.schemaName, schemaName)
+                    await this.cloneSchemaData(sourceBranch.schemaName, schemaName, createdBy)
                 }
 
                 const branch = branchRepo.create({
@@ -492,26 +492,29 @@ export class MetahubBranchesService {
         MetahubSchemaService.clearCache(metahubId)
     }
 
-    private async cloneSchemaData(sourceSchema: string, targetSchema: string): Promise<void> {
+    private async cloneSchemaData(sourceSchema: string, targetSchema: string, userId?: string | null): Promise<void> {
         await this.knex.transaction(async (trx) => {
+            // Clone objects with fresh audit timestamps
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_objects
-                    (id, kind, codename, table_name, presentation, config, _upl_created_at, _upl_updated_at)
-                SELECT id, kind, codename, table_name, presentation, config, _upl_created_at, _upl_updated_at
+                    (id, kind, codename, table_name, presentation, config, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                SELECT id, kind, codename, table_name, presentation, config, now(), ?::uuid, now(), ?::uuid
                 FROM "${sourceSchema}"._mhb_objects
-            `)
+            `, [userId ?? null, userId ?? null])
+            // Clone attributes with fresh audit timestamps
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_attributes
-                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, _upl_created_at, _upl_updated_at)
-                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, _upl_created_at, _upl_updated_at
+                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, now(), ?::uuid, now(), ?::uuid
                 FROM "${sourceSchema}"._mhb_attributes
-            `)
+            `, [userId ?? null, userId ?? null])
+            // Clone elements with fresh audit timestamps
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_elements
-                    (id, object_id, data, sort_order, owner_id, _upl_created_at, _upl_updated_at)
-                SELECT id, object_id, data, sort_order, owner_id, _upl_created_at, _upl_updated_at
+                    (id, object_id, data, sort_order, owner_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                SELECT id, object_id, data, sort_order, owner_id, now(), ?::uuid, now(), ?::uuid
                 FROM "${sourceSchema}"._mhb_elements
-            `)
+            `, [userId ?? null, userId ?? null])
         })
     }
 }
