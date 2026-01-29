@@ -51,17 +51,76 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name JSONB NOT NULL DEFAULT '{}',
                 description JSONB DEFAULT '{}',
-                slug VARCHAR(100) UNIQUE,
+                slug VARCHAR(100),
                 is_public BOOLEAN NOT NULL DEFAULT false,
                 -- Schema sync fields (for Metahub → Application publishing)
-                schema_name VARCHAR(100) UNIQUE,
+                schema_name VARCHAR(100),
                 schema_status applications.application_schema_status DEFAULT 'draft',
                 schema_error TEXT,
                 schema_synced_at TIMESTAMPTZ,
                 schema_snapshot JSONB,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                updated_at TIMESTAMP NOT NULL DEFAULT now()
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Application-level system fields (_app_*)
+                _app_published BOOLEAN NOT NULL DEFAULT true,
+                _app_published_at TIMESTAMPTZ,
+                _app_published_by UUID,
+
+                _app_archived BOOLEAN NOT NULL DEFAULT false,
+                _app_archived_at TIMESTAMPTZ,
+                _app_archived_by UUID,
+
+                _app_deleted BOOLEAN NOT NULL DEFAULT false,
+                _app_deleted_at TIMESTAMPTZ,
+                _app_deleted_by UUID,
+
+                _app_owner_id UUID,
+                _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private'
             )
+        `)
+
+        // Partial unique indexes (exclude soft-deleted records)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_applications_slug_active
+            ON applications.applications (slug)
+            WHERE _upl_deleted = false AND slug IS NOT NULL
+        `)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_applications_schema_name_active
+            ON applications.applications (schema_name)
+            WHERE _upl_deleted = false AND schema_name IS NOT NULL
+        `)
+        // Index for trash queries
+        await queryRunner.query(`
+            CREATE INDEX idx_applications_deleted
+            ON applications.applications (_upl_deleted_at)
+            WHERE _upl_deleted = true
+        `)
+        // Index for archived queries
+        await queryRunner.query(`
+            CREATE INDEX idx_applications_archived
+            ON applications.applications (_upl_archived)
+            WHERE _upl_archived = true
         `)
 
         // Connector - data connector within an application with metahub constraints
@@ -75,8 +134,44 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 -- Metahub constraint flags
                 is_single_metahub BOOLEAN NOT NULL DEFAULT true,
                 is_required_metahub BOOLEAN NOT NULL DEFAULT true,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                updated_at TIMESTAMP NOT NULL DEFAULT now(),
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Application-level system fields (_app_*)
+                _app_published BOOLEAN NOT NULL DEFAULT true,
+                _app_published_at TIMESTAMPTZ,
+                _app_published_by UUID,
+
+                _app_archived BOOLEAN NOT NULL DEFAULT false,
+                _app_archived_at TIMESTAMPTZ,
+                _app_archived_by UUID,
+
+                _app_deleted BOOLEAN NOT NULL DEFAULT false,
+                _app_deleted_at TIMESTAMPTZ,
+                _app_deleted_by UUID,
+
+                _app_owner_id UUID,
+                _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
+
                 FOREIGN KEY (application_id) REFERENCES applications.applications(id) ON DELETE CASCADE
             )
         `)
@@ -88,10 +183,40 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 connector_id UUID NOT NULL,
                 publication_id UUID NOT NULL,
                 sort_order INTEGER NOT NULL DEFAULT 0,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                FOREIGN KEY (connector_id) REFERENCES applications.connectors(id) ON DELETE CASCADE,
-                UNIQUE(connector_id, publication_id)
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+
+                -- Application-level system fields (_app_*)
+                _app_published BOOLEAN NOT NULL DEFAULT true,
+                _app_published_at TIMESTAMPTZ,
+                _app_published_by UUID,
+
+                _app_archived BOOLEAN NOT NULL DEFAULT false,
+                _app_archived_at TIMESTAMPTZ,
+                _app_archived_by UUID,
+
+                _app_deleted BOOLEAN NOT NULL DEFAULT false,
+                _app_deleted_at TIMESTAMPTZ,
+                _app_deleted_by UUID,
+
+                FOREIGN KEY (connector_id) REFERENCES applications.connectors(id) ON DELETE CASCADE
             )
+        `)
+
+        // Partial unique index (exclude soft-deleted at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_connectors_publications_active
+            ON applications.connectors_publications (connector_id, publication_id)
+            WHERE _upl_deleted = false AND _app_deleted = false
         `)
 
         // Cross-schema FK to metahubs.publications (idempotent)
@@ -123,10 +248,50 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
                 comment TEXT,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                UNIQUE(application_id, user_id),
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Application-level system fields (_app_*)
+                _app_published BOOLEAN NOT NULL DEFAULT true,
+                _app_published_at TIMESTAMPTZ,
+                _app_published_by UUID,
+
+                _app_archived BOOLEAN NOT NULL DEFAULT false,
+                _app_archived_at TIMESTAMPTZ,
+                _app_archived_by UUID,
+
+                _app_deleted BOOLEAN NOT NULL DEFAULT false,
+                _app_deleted_at TIMESTAMPTZ,
+                _app_deleted_by UUID,
+
                 FOREIGN KEY (application_id) REFERENCES applications.applications(id) ON DELETE CASCADE
             )
+        `)
+
+        // Partial unique index (exclude soft-deleted at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_applications_users_active
+            ON applications.applications_users (application_id, user_id)
+            WHERE _upl_deleted = false AND _app_deleted = false
         `)
 
         // ===== 6) Foreign key to auth.users (idempotent) =====
@@ -275,8 +440,13 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_name_gin`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_cp_publication`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_cp_connector`)
+        await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_connectors_publications_active`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_schema_status`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_schema_name`)
+        await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_applications_schema_name_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_applications_slug_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_applications_deleted`)
+        await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_applications_users_active`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_application_slug`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_connectors_application`)
         await queryRunner.query(`DROP INDEX IF EXISTS applications.idx_au_user`)

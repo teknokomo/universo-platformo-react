@@ -69,7 +69,8 @@ async function ensureApplicationAccess(
 async function seedPredefinedElements(
     schemaName: string,
     snapshot: MetahubSnapshot,
-    entities: EntityDefinition[]
+    entities: EntityDefinition[],
+    userId?: string | null
 ): Promise<string[]> {
     if (!snapshot.elements || Object.keys(snapshot.elements).length === 0) {
         return []
@@ -113,8 +114,10 @@ async function seedPredefinedElements(
 
                 const row: Record<string, unknown> = {
                     id: element.id,
-                    created_at: now,
-                    updated_at: now
+                    _upl_created_at: now,
+                    _upl_created_by: userId ?? null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId ?? null,
                 }
 
                 for (const [codename, columnName] of columnByCodename.entries()) {
@@ -131,7 +134,7 @@ async function seedPredefinedElements(
             const validRows = rows.filter((row): row is Record<string, unknown> => row !== null)
             if (validRows.length === 0) continue
 
-            const mergeColumns = ['updated_at', ...dataColumns]
+            const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns]
             await trx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
         }
     })
@@ -302,7 +305,8 @@ export function createApplicationSyncRoutes(
                         migrationDescription: 'initial_schema',
                         migrationManager,
                         migrationMeta,
-                        publicationSnapshot
+                        publicationSnapshot,
+                        userId
                     })
 
                     if (!result.success) {
@@ -324,7 +328,7 @@ export function createApplicationSyncRoutes(
                     application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
                     await applicationRepo.save(application)
 
-                    const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs)
+                    const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                     await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                     return res.json({
@@ -341,7 +345,7 @@ export function createApplicationSyncRoutes(
                 const hasDestructiveChanges = diff.destructive.length > 0
 
                 if (!diff.hasChanges) {
-                    await generator.syncSystemMetadata(application.schemaName!, catalogDefs)
+                    await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
 
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
@@ -375,7 +379,7 @@ export function createApplicationSyncRoutes(
                     diff,
                     catalogDefs,
                     confirmDestructive,
-                    { recordMigration: true, migrationDescription: 'schema_sync', migrationMeta, publicationSnapshot }
+                    { recordMigration: true, migrationDescription: 'schema_sync', migrationMeta, publicationSnapshot, userId }
                 )
 
                 if (!migrationResult.success) {
@@ -397,7 +401,7 @@ export function createApplicationSyncRoutes(
                 application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
                 await applicationRepo.save(application)
 
-                const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs)
+                const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                 await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                 return res.json({

@@ -4,6 +4,24 @@
 
 ---
 
+## Three-Level System Fields Architecture (CRITICAL)
+
+**Rule**: All entities use prefixed system fields for cascade soft delete and audit tracking.
+**Levels**:
+- `_upl_*` (Platform): Base fields for all entities — `created_at`, `created_by`, `updated_at`, `updated_by`, `version`, `deleted`, `deleted_at`, `deleted_by`.
+- `_mhb_*` (Metahub): Design-Time fields — `published`, `published_at`, `unpublished_at`, `archived`, `archived_at`.
+- `_app_*` (Application): Run-Time fields — `published`, `published_at`, `unpublished_at`, `archived`, `archived_at`, `deleted`, `deleted_at`, `deleted_by`.
+
+**Cascade Delete Logic**: `_app_deleted` → `_mhb_deleted` → `_upl_deleted` (three-level cascade).
+**Required**: Always pass `createdBy`/`updatedBy` or `_uplCreatedBy`/`_uplUpdatedBy` when creating/updating entities.
+**Detection**: `rg "_uplCreatedBy" packages`.
+**Symptoms**:
+- NULL values in `_upl_created_by`/`_upl_updated_by` columns.
+- Version incrementing unexpectedly (use `createQueryBuilder().update()` instead of `repository.update()`).
+**Why**: Consistent audit trail and soft delete cascade across platform, metahub, and application layers.
+
+---
+
 ## Public Routes & 401 Redirect Pattern (CRITICAL)
 
 **Rule**: All public route constants live in `@universo/utils/routes`. API clients use `createAuthClient({ redirectOn401: 'auto' })`.

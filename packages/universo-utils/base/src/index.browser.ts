@@ -41,6 +41,10 @@ export {
     isLocalizedContent
 } from './vlc'
 
+// Optimistic locking error utilities
+export { OptimisticLockError, type ConflictInfo } from './errors/OptimisticLockError'
+export { isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors/conflictDetection'
+
 // Explicit imports to avoid pulling in Node "net" dependency when bundling for the browser.
 import { createTimeSyncEstimator } from './net/timeSync'
 import { updateSeqState, reconcileAck } from './net/sequencing'

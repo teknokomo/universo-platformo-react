@@ -29,7 +29,7 @@ import {
     useUserSettings,
     LocalizedInlineField
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
@@ -39,6 +39,7 @@ import { STORAGE_KEYS } from '../constants/storage'
 import * as applicationsApi from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import { Application, ApplicationDisplay, ApplicationLocalizedPayload, toApplicationDisplay } from '../types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import applicationActions from './ApplicationActions'
 import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 
@@ -92,6 +93,12 @@ const ApplicationList = () => {
         open: boolean
         application: ApplicationDisplay | null
     }>({ open: false, application: null })
+
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: ApplicationLocalizedPayload } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -321,7 +328,20 @@ const ApplicationList = () => {
             uiLocale: i18n.language,
             api: {
                 updateEntity: async (id: string, patch: ApplicationLocalizedPayload) => {
-                    await updateApplicationMutation.mutateAsync({ id, data: patch })
+                    const application = applicationMap.get(id)
+                    const expectedVersion = application?.version
+                    try {
+                        await updateApplicationMutation.mutateAsync({ id, data: { ...patch, expectedVersion } })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     await deleteApplicationMutation.mutateAsync(id)
@@ -586,6 +606,23 @@ const ApplicationList = () => {
             />
 
             <ConfirmDialog />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updateApplicationMutation.mutateAsync({ id, data: patch })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updateApplicationMutation.isPending}
+            />
         </MainCard>
     )
 }

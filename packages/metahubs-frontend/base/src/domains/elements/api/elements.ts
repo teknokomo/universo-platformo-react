@@ -58,6 +58,7 @@ export const createElement = (
 
 /**
  * Update an element
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updateElement = (
     metahubId: string,
@@ -67,6 +68,7 @@ export const updateElement = (
     data: {
         data?: Record<string, unknown>
         sortOrder?: number
+        expectedVersion?: number
     }
 ) => apiClient.patch<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}`, data)
 
@@ -134,6 +136,7 @@ export const createElementDirect = (
 
 /**
  * Update an element (direct, without hub)
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updateElementDirect = (
     metahubId: string,
@@ -142,6 +145,7 @@ export const updateElementDirect = (
     data: {
         data?: Record<string, unknown>
         sortOrder?: number
+        expectedVersion?: number
     }
 ) => apiClient.patch<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}`, data)
 

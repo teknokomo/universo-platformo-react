@@ -67,19 +67,19 @@ const baseGuards = createAccessGuards<ApplicationRole, ApplicationUser>({
     permissions: ROLE_PERMISSIONS,
     getMembership: async (ds: DataSource, userId: string, applicationId: string, queryRunner?: QueryRunner) => {
         const repo = getManager(ds, queryRunner).getRepository(ApplicationUser)
-        return repo.findOne({ where: { application_id: applicationId, user_id: userId } })
+        return repo.findOne({ where: { applicationId, userId } })
     },
     extractRole: (m) => (m.role || 'member') as ApplicationRole,
-    extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.application_id,
+    extractUserId: (m) => m.userId,
+    extractEntityId: (m) => m.applicationId,
     isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleCodenameByDataSource,
-    createGlobalAdminMembership: (userId, entityId, _globalRole) =>
+    createGlobalAdminMembership: (visitorUserId, entityId, _globalRole) =>
         ({
-            user_id: userId,
-            application_id: entityId,
+            userId: visitorUserId,
+            applicationId: entityId,
             role: 'owner',
-            created_at: new Date()
+            _uplCreatedAt: new Date()
         } as ApplicationUser)
 })
 
@@ -107,10 +107,10 @@ export async function ensureApplicationAccess(
         // User has global access - create synthetic membership with owner role
         const globalRoleName = await getGlobalRoleCodenameByDataSource(ds, userId, queryRunner)
         const syntheticMembership: ApplicationUser = {
-            user_id: userId,
-            application_id: applicationId,
+            userId,
+            applicationId,
             role: 'owner',
-            created_at: new Date()
+            _uplCreatedAt: new Date()
         } as ApplicationUser
 
         return {
@@ -124,7 +124,7 @@ export async function ensureApplicationAccess(
 
     // Otherwise do membership check using request manager (RLS-enabled if available)
     const manager = getManager(ds, queryRunner)
-    const membership = await manager.getRepository(ApplicationUser).findOne({ where: { application_id: applicationId, user_id: userId } })
+    const membership = await manager.getRepository(ApplicationUser).findOne({ where: { applicationId, userId } })
     if (!membership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),

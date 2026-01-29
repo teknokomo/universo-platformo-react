@@ -26,7 +26,7 @@ import {
     useConfirm,
     LocalizedInlineField
 } from '@universo/template-mui'
-import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
@@ -39,6 +39,7 @@ import * as connectorsApi from '../api/connectors'
 import { applicationsQueryKeys, invalidateConnectorsQueries } from '../api/queryKeys'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Connector, ConnectorDisplay, ConnectorLocalizedPayload, getVLCString, toConnectorDisplay } from '../types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
 import { ConnectorDeleteDialog, PublicationSelectionPanel } from '../components'
 import connectorActions from './ConnectorActions'
@@ -139,6 +140,12 @@ const ConnectorList = () => {
         open: boolean
         connector: Connector | null
     }>({ open: false, connector: null })
+
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: ConnectorLocalizedPayload } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -361,11 +368,24 @@ const ConnectorList = () => {
             api: {
                 updateEntity: async (id: string, patch: ConnectorLocalizedPayload) => {
                     if (!applicationId) return
-                    await updateConnectorMutation.mutateAsync({
-                        applicationId,
-                        connectorId: id,
-                        data: patch
-                    })
+                    const connector = connectorMap.get(id)
+                    const expectedVersion = connector?.version
+                    try {
+                        await updateConnectorMutation.mutateAsync({
+                            applicationId,
+                            connectorId: id,
+                            data: { ...patch, expectedVersion }
+                        })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     if (!applicationId) return
@@ -737,6 +757,29 @@ const ConnectorList = () => {
             />
 
             <ConfirmDialog />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    if (applicationId) {
+                        invalidateConnectorsQueries.all(queryClient, applicationId)
+                    }
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate && applicationId) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updateConnectorMutation.mutateAsync({
+                            applicationId,
+                            connectorId: id,
+                            data: patch
+                        })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updateConnectorMutation.isPending}
+            />
         </MainCard>
     )
 }

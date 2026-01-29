@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
+import { OptimisticLockError, lookupUserEmail } from '@universo/utils'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
+import { getDataSource } from '../../DataSource'
 
 // we need eslint because we have to pass next arg for the error middleware
 // eslint-disable-next-line
@@ -10,6 +12,19 @@ async function errorHandlerMiddleware(err: InternalFlowiseError | any, req: Requ
     }
 
     const errCode = err?.code as string | undefined
+
+    // Handle Optimistic Lock Conflicts (409)
+    if (err instanceof OptimisticLockError) {
+        const conflict = err.conflict
+        const updatedByEmail = await lookupUserEmail(getDataSource(), conflict.updatedBy)
+
+        res.setHeader('Content-Type', 'application/json')
+        return res.status(409).json({
+            error: 'Conflict: entity was modified by another user',
+            code: err.code,
+            conflict: { ...conflict, updatedByEmail }
+        })
+    }
 
     // Align CSRF error handling with frontend behavior (auth client clears CSRF on 419).
     const isCsrfError = errCode === 'EBADCSRFTOKEN'

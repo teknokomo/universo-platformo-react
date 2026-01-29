@@ -95,8 +95,9 @@ export const createBranch = (metahubId: string, data: BranchLocalizedPayload) =>
 
 /**
  * Update a branch
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
-export const updateBranch = (metahubId: string, branchId: string, data: BranchLocalizedPayload) =>
+export const updateBranch = (metahubId: string, branchId: string, data: BranchLocalizedPayload & { expectedVersion?: number }) =>
     apiClient.patch<MetahubBranch>(`/metahub/${metahubId}/branch/${branchId}`, data)
 
 /**

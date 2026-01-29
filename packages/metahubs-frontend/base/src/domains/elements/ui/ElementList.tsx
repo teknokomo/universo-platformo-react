@@ -22,7 +22,7 @@ import {
     ConfirmDialog,
     useConfirm
 } from '@universo/template-mui'
-import { ConfirmDeleteDialog, DynamicEntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { ConfirmDeleteDialog, DynamicEntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateElement, useUpdateElement, useDeleteElement } from '../hooks/mutations'
@@ -31,6 +31,7 @@ import * as attributesApi from '../../attributes'
 import { getCatalogById } from '../../catalogs'
 import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import elementActions from './ElementActions'
 import type { DynamicFieldConfig } from '@universo/template-mui/components/dialogs'
 
@@ -157,6 +158,12 @@ const ElementList = () => {
         element: HubElement | null
     }>({ open: false, element: null })
 
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: { data: Record<string, unknown> } } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
+
     const { confirm } = useConfirm()
 
     const createElementMutation = useCreateElement()
@@ -258,13 +265,26 @@ const ElementList = () => {
             api: {
                 updateEntity: async (id: string, patch: any) => {
                     if (!metahubId || !catalogId) return
-                    await updateElementMutation.mutateAsync({
-                        metahubId,
-                        hubId: effectiveHubId,
-                        catalogId,
-                        elementId: id,
-                        data: { data: patch }
-                    })
+                    const element = elementMap.get(id)
+                    const expectedVersion = element?.version
+                    try {
+                        await updateElementMutation.mutateAsync({
+                            metahubId,
+                            hubId: effectiveHubId,
+                            catalogId,
+                            elementId: id,
+                            data: { data: patch, expectedVersion }
+                        })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { data: patch } } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId || !catalogId) return
@@ -662,6 +682,34 @@ const ElementList = () => {
             />
 
             <ConfirmDialog />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    if (metahubId && catalogId) {
+                        if (effectiveHubId) {
+                            invalidateElementsQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                        }
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(metahubId, catalogId) })
+                    }
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate && metahubId && catalogId) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updateElementMutation.mutateAsync({
+                            metahubId,
+                            hubId: effectiveHubId,
+                            catalogId,
+                            elementId: id,
+                            data: patch
+                        })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updateElementMutation.isPending}
+            />
         </MainCard>
     )
 }

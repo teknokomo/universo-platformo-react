@@ -102,21 +102,23 @@ export const createCatalog = (metahubId: string, hubId: string, data: CatalogLoc
 
 /**
  * Update a catalog (including hub associations via hubIds array)
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updateCatalog = (
     metahubId: string,
     hubId: string,
     catalogId: string,
-    data: Partial<CatalogLocalizedPayload> & { sortOrder?: number }
+    data: Partial<CatalogLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
 ) => apiClient.patch<Catalog>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}`, data)
 
 /**
  * Update a catalog at metahub level (for catalogs without hub or with multiple hubs)
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updateCatalogAtMetahub = (
     metahubId: string,
     catalogId: string,
-    data: Partial<CatalogLocalizedPayload> & { sortOrder?: number }
+    data: Partial<CatalogLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
 ) => apiClient.patch<Catalog>(`/metahub/${metahubId}/catalog/${catalogId}`, data)
 
 /**

@@ -71,6 +71,7 @@ export const createAttribute = (
 
 /**
  * Update an attribute
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updateAttribute = (
     metahubId: string,
@@ -83,6 +84,7 @@ export const updateAttribute = (
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
         sortOrder?: number
+        expectedVersion?: number
     }
 ) => apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`, data)
 
@@ -157,6 +159,7 @@ export const createAttributeDirect = (
 
 /**
  * Update an attribute (without hubId)
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updateAttributeDirect = (
     metahubId: string,
@@ -168,6 +171,7 @@ export const updateAttributeDirect = (
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
         sortOrder?: number
+        expectedVersion?: number
     }
 ) => apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}`, data)
 

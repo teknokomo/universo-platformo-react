@@ -45,8 +45,9 @@ export const createConnector = (applicationId: string, data: ConnectorLocalizedP
 
 /**
  * Update a connector
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
-export const updateConnector = (applicationId: string, connectorId: string, data: Partial<ConnectorLocalizedPayload>) =>
+export const updateConnector = (applicationId: string, connectorId: string, data: Partial<ConnectorLocalizedPayload> & { expectedVersion?: number }) =>
     apiClient.patch<Connector>(`/applications/${applicationId}/connectors/${connectorId}`, data)
 
 /**

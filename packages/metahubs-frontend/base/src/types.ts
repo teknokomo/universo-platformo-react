@@ -20,6 +20,9 @@ import type { SimpleLocalizedInput, VersatileLocalizedContent } from '@universo/
 // Re-export role type
 export type { MetahubRole }
 
+// Re-export conflict info for optimistic locking
+export type { ConflictInfo } from '@universo/utils'
+
 // ============ PAGINATION TYPES ============
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
@@ -187,6 +190,7 @@ export interface Hub {
     sortOrder: number
     createdAt: string
     updatedAt: string
+    version?: number
     catalogsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
@@ -235,6 +239,7 @@ export interface Catalog {
     sortOrder: number
     createdAt: string
     updatedAt: string
+    version?: number
     hubs?: HubRef[]
     attributesCount?: number
     elementsCount?: number
@@ -280,6 +285,7 @@ export interface Attribute {
     sortOrder: number
     createdAt: string
     updatedAt: string
+    version?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
@@ -313,6 +319,7 @@ export interface HubElement {
     sortOrder: number
     createdAt: string
     updatedAt: string
+    version?: number
 }
 
 /** HubElement with derived name/description for FlowListTable compatibility */

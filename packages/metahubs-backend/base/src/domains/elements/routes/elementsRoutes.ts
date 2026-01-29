@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
+import { OptimisticLockError } from '@universo/utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
@@ -22,7 +23,8 @@ const createElementSchema = z.object({
 
 const updateElementSchema = z.object({
     data: z.record(z.unknown()).optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
 export function createElementsRoutes(
@@ -144,7 +146,8 @@ export function createElementsRoutes(
             try {
                 const element = await elementsService.create(metahubId, catalogId, {
                     data,
-                    sortOrder
+                    sortOrder,
+                    createdBy: userId
                 }, userId)
                 res.status(201).json(element)
             } catch (error: any) {
@@ -180,15 +183,20 @@ export function createElementsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { data, sortOrder } = parsed.data
+            const { data, sortOrder, expectedVersion } = parsed.data
 
             try {
                 const element = await elementsService.update(metahubId, catalogId, elementId, {
                     data,
-                    sortOrder
+                    sortOrder,
+                    updatedBy: userId,
+                    expectedVersion
                 }, userId)
                 res.json(element)
             } catch (error: any) {
+                if (error instanceof OptimisticLockError) {
+                    throw error // Let middleware handle it
+                }
                 if (error.message.includes('Catalog not found') || error.message.includes('Element not found')) {
                     return res.status(404).json({ error: error.message })
                 }

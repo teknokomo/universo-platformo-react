@@ -69,20 +69,20 @@ const baseGuards = createAccessGuards<MetahubRole, MetahubUser>({
     permissions: ROLE_PERMISSIONS,
     getMembership: async (ds: DataSource, userId: string, metahubId: string, queryRunner?: QueryRunner) => {
         const repo = getManager(ds, queryRunner).getRepository(MetahubUser)
-        return repo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
+        return repo.findOne({ where: { metahubId, userId } })
     },
     extractRole: (m) => (m.role || 'member') as MetahubRole,
-    extractUserId: (m) => m.user_id,
-    extractEntityId: (m) => m.metahub_id,
+    extractUserId: (m) => m.userId,
+    extractEntityId: (m) => m.metahubId,
     // Global admin bypass - users with global access get owner-level access
     isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleCodenameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
     ({
-        user_id: userId,
-        metahub_id: entityId,
+        userId,
+        metahubId: entityId,
         role: 'owner', // Global admins get owner-level access
-        created_at: new Date()
+        _uplCreatedAt: new Date()
     } as MetahubUser)
 })
 
@@ -110,10 +110,10 @@ export async function ensureMetahubAccess(
         // User has global access - create synthetic membership with owner role
         const globalRoleName = await getGlobalRoleCodenameByDataSource(ds, userId, queryRunner)
         const syntheticMembership: MetahubUser = {
-            user_id: userId,
-            metahub_id: metahubId,
+            userId,
+            metahubId,
             role: 'owner', // Global role users get owner-level access
-            created_at: new Date()
+            _uplCreatedAt: new Date()
         } as MetahubUser
 
         return {
@@ -127,7 +127,7 @@ export async function ensureMetahubAccess(
 
     // Otherwise do membership check using request manager (RLS-enabled if available)
     const manager = getManager(ds, queryRunner)
-    const membership = await manager.getRepository(MetahubUser).findOne({ where: { metahub_id: metahubId, user_id: userId } })
+    const membership = await manager.getRepository(MetahubUser).findOne({ where: { metahubId, userId } })
     if (!membership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),

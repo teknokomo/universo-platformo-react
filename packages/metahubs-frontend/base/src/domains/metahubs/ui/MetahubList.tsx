@@ -8,6 +8,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import type { VersionedLocalizedContent } from '@universo/types'
+import type { ConflictInfo } from '@universo/utils'
 
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
@@ -30,7 +31,7 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
@@ -177,6 +178,13 @@ const MetahubList = () => {
         open: boolean
         metahub: MetahubDisplay | null
     }>({ open: false, metahub: null })
+
+    // State for conflict resolution dialog
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: MetahubLocalizedPayload } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -475,7 +483,23 @@ const MetahubList = () => {
             uiLocale: i18n.language,
             api: {
                 updateEntity: async (id: string, patch: MetahubLocalizedPayload) => {
-                    await updateMetahubMutation.mutateAsync({ id, data: patch })
+                    const metahub = metahubMap.get(id)
+                    const expectedVersion = metahub?.version
+                    try {
+                        await updateMetahubMutation.mutateAsync({ id, data: patch, expectedVersion })
+                    } catch (error: any) {
+                        // Check for 409 Conflict (optimistic lock)
+                        if (error?.response?.status === 409 && error?.response?.data?.code === 'OPTIMISTIC_LOCK_CONFLICT') {
+                            const conflict = error.response.data.conflict as ConflictInfo
+                            setConflictState({
+                                open: true,
+                                conflict,
+                                pendingUpdate: { id, patch }
+                            })
+                            return // Don't re-throw, dialog will handle it
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     await deleteMetahubMutation.mutateAsync(id)
@@ -732,6 +756,29 @@ const MetahubList = () => {
                                             : t('deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
                             setDeleteDialogState({ open: false, metahub: null })
+                        }
+                    }
+                }}
+            />
+
+            {/* Conflict Resolution Dialog for optimistic locking */}
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    // Refresh list to get latest data
+                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.lists() })
+                }}
+                onOverwrite={async () => {
+                    // Force update without version check
+                    if (conflictState.pendingUpdate) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        try {
+                            await updateMetahubMutation.mutateAsync({ id, data: patch })
+                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        } catch (err) {
+                            enqueueSnackbar(t('updateError', 'Failed to update'), { variant: 'error' })
                         }
                     }
                 }}

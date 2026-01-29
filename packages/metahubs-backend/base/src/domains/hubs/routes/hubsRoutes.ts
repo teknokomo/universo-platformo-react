@@ -39,7 +39,8 @@ const updateHubSchema = z.object({
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
 export function createHubsRoutes(
@@ -149,6 +150,7 @@ export function createHubsRoutes(
                 name: h.name,
                 description: h.description,
                 sortOrder: h.sort_order,
+                version: h._upl_version || 1,
                 createdAt: h.created_at,
                 updatedAt: h.updated_at,
                 catalogsCount: counts.get(h.id) || 0
@@ -182,6 +184,7 @@ export function createHubsRoutes(
                 name: hub.name,
                 description: hub.description,
                 sortOrder: hub.sort_order,
+                version: hub._upl_version || 1,
                 createdAt: hub.created_at,
                 updatedAt: hub.updated_at
             })
@@ -249,7 +252,8 @@ export function createHubsRoutes(
                 codename: normalizedCodename,
                 name: nameVlc as unknown as Record<string, unknown>,
                 description: descriptionVlc as unknown as Record<string, unknown> | undefined,
-                sortOrder: sortOrder ?? 0
+                sortOrder: sortOrder ?? 0,
+                createdBy: userId
             }, userId)
 
             res.status(201).json({
@@ -258,6 +262,7 @@ export function createHubsRoutes(
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
+                version: saved._upl_version || 1,
                 createdAt: saved.created_at,
                 updatedAt: saved.updated_at
             })
@@ -286,7 +291,7 @@ export function createHubsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = parsed.data
 
             const updateData: any = {}
 
@@ -339,6 +344,12 @@ export function createHubsRoutes(
                 updateData.sortOrder = sortOrder
             }
 
+            if (expectedVersion !== undefined) {
+                updateData.expectedVersion = expectedVersion
+            }
+
+            updateData.updatedBy = userId
+
             const saved = await hubsService.update(metahubId, hubId, updateData, userId)
 
             res.json({
@@ -347,6 +358,7 @@ export function createHubsRoutes(
                 name: saved.name,
                 description: saved.description,
                 sortOrder: saved.sort_order,
+                version: saved._upl_version || 1,
                 createdAt: saved.created_at,
                 updatedAt: saved.updated_at
             })

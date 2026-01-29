@@ -1,5 +1,6 @@
 import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
+import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
@@ -55,7 +56,7 @@ export class MetahubAttributesService {
             .from('_mhb_attributes')
             .where({ object_id: objectId })
             .orderBy('sort_order', 'asc')
-            .orderBy('created_at', 'desc')
+            .orderBy('_upl_created_at', 'desc')
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -66,7 +67,7 @@ export class MetahubAttributesService {
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .orderBy('sort_order', 'asc')
-            .orderBy('created_at', 'desc')
+            .orderBy('_upl_created_at', 'desc')
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -109,8 +110,10 @@ export class MetahubAttributesService {
             },
             validation_rules: data.validationRules || {},
             ui_config: data.uiConfig || {},
-            created_at: new Date(),
-            updated_at: new Date()
+            _upl_created_at: new Date(),
+            _upl_created_by: data.createdBy ?? null,
+            _upl_updated_at: new Date(),
+            _upl_updated_by: data.createdBy ?? null
         }
 
         const [created] = await this.knex
@@ -125,7 +128,10 @@ export class MetahubAttributesService {
     async update(metahubId: string, id: string, data: any, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const updateData: any = { updated_at: new Date() }
+        const updateData: Record<string, unknown> = {
+            _upl_updated_at: new Date(),
+            _upl_updated_by: data.updatedBy ?? null
+        }
 
         if (data.codename !== undefined) updateData.codename = data.codename
         if (data.dataType !== undefined) updateData.data_type = data.dataType
@@ -133,29 +139,29 @@ export class MetahubAttributesService {
         if (data.targetCatalogId !== undefined) updateData.target_object_id = data.targetCatalogId
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-        // Merge complex JSON fields if not provided
-        // But for update, we might want to merge `presentation.name` if only name provided?
-        // Let's assume input `name` replaces `presentation.name`.
         if (data.name !== undefined) {
-            // We need to fetch existing if we want to preserve description (if any exists in presentation)
-            // But for now, assume name is main thing.
-            // Or better, fetch existing outside and pass full object, or use jsonb_set logic.
-            // Let's rely on simple update for name.
-            // If we really need deep merge, we should do it in service logic before calling update or here.
-            // Let's assume the passed data is the desired state for these fields.
             updateData.presentation = { name: data.name }
         }
 
         if (data.validationRules !== undefined) updateData.validation_rules = data.validationRules
         if (data.uiConfig !== undefined) updateData.ui_config = data.uiConfig
 
-        const [updated] = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ id })
-            .update(updateData)
-            .returning('*')
+        // If expectedVersion is provided, use version-checked update
+        if (data.expectedVersion !== undefined) {
+            const updated = await updateWithVersionCheck({
+                knex: this.knex,
+                schemaName,
+                tableName: '_mhb_attributes',
+                entityId: id,
+                entityType: 'attribute',
+                expectedVersion: data.expectedVersion,
+                updateData
+            })
+            return this.mapRowToAttribute(updated)
+        }
 
+        // Fallback: increment version without check (backwards compatibility)
+        const updated = await incrementVersion(this.knex, schemaName, '_mhb_attributes', id, updateData)
         return updated ? this.mapRowToAttribute(updated) : null
     }
 
@@ -224,7 +230,7 @@ export class MetahubAttributesService {
             .from('_mhb_attributes')
             .where({ object_id: objectId })
             .orderBy('sort_order', 'asc')
-            .orderBy('created_at', 'asc')
+            .orderBy('_upl_created_at', 'asc')
 
         // Check consistency
         let consistent = true
@@ -281,8 +287,9 @@ export class MetahubAttributesService {
             description: row.presentation?.description,
             validationRules: row.validation_rules,
             uiConfig: row.ui_config,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+            version: row._upl_version || 1,
+            createdAt: row._upl_created_at,
+            updatedAt: row._upl_updated_at
         }
     }
 }

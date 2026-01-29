@@ -36,7 +36,7 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill
 } from '@universo/template-mui'
-import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
@@ -54,6 +54,7 @@ import {
     getVLCString,
     toBranchDisplay
 } from '../../../types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, BranchDeleteDialog } from '../../../components'
@@ -284,6 +285,12 @@ const BranchList = () => {
         open: boolean
         branch: MetahubBranch | null
     }>({ open: false, branch: null })
+
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: BranchLocalizedPayload } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const createBranchMutation = useCreateBranch()
     const updateBranchMutation = useUpdateBranch()
@@ -518,11 +525,24 @@ const BranchList = () => {
                     if (!normalizedCodename) {
                         throw new Error(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
                     }
-                    await updateBranchMutation.mutateAsync({
-                        metahubId,
-                        branchId: id,
-                        data: { ...patch, codename: normalizedCodename }
-                    })
+                    const branch = branchMap.get(id)
+                    const expectedVersion = branch?.version
+                    try {
+                        await updateBranchMutation.mutateAsync({
+                            metahubId,
+                            branchId: id,
+                            data: { ...patch, codename: normalizedCodename, expectedVersion }
+                        })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId) return
@@ -829,6 +849,29 @@ const BranchList = () => {
                 onClose={() => setDeleteDialogState({ open: false, branch: null })}
                 onConfirm={handleDeleteBranch}
                 isDeleting={deleteBranchMutation.isPending}
+            />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    if (metahubId) {
+                        invalidateBranchesQueries.all(queryClient, metahubId)
+                    }
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate && metahubId) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updateBranchMutation.mutateAsync({
+                            metahubId,
+                            branchId: id,
+                            data: patch
+                        })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updateBranchMutation.isPending}
             />
         </MainCard>
     )

@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
@@ -64,12 +65,12 @@ export function createMetahubsRoutes(
 
     const mapMember = (member: MetahubUser, email: string | null, nickname: string | null) => ({
         id: member.id,
-        userId: member.user_id,
+        userId: member.userId,
         email,
         nickname,
         role: (member.role || 'member') as MetahubRole,
         comment: member.comment,
-        createdAt: member.created_at
+        createdAt: member._uplCreatedAt
     })
 
     const loadMembers = async (
@@ -82,7 +83,7 @@ export function createMetahubsRoutes(
         const manager = getRequestManager(req, ds)
 
         try {
-            const qb = metahubUserRepo.createQueryBuilder('mu').where('mu.metahub_id = :metahubId', { metahubId })
+            const qb = metahubUserRepo.createQueryBuilder('mu').where('mu.metahubId = :metahubId', { metahubId })
 
             if (params) {
                 const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
@@ -91,8 +92,8 @@ export function createMetahubsRoutes(
                     const escapedSearch = escapeLikeWildcards(search.toLowerCase())
                     qb.andWhere(
                         `(
-                            EXISTS (SELECT 1 FROM auth.users u WHERE u.id = mu.user_id AND LOWER(u.email) LIKE :search)
-                         OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.user_id = mu.user_id AND LOWER(p.nickname) LIKE :search)
+                            EXISTS (SELECT 1 FROM auth.users u WHERE u.id = mu.userId AND LOWER(u.email) LIKE :search)
+                         OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.user_id = mu.userId AND LOWER(p.nickname) LIKE :search)
                         )`,
                         { search: `%${escapedSearch}%` }
                     )
@@ -100,16 +101,16 @@ export function createMetahubsRoutes(
 
                 const orderColumn =
                     sortBy === 'email'
-                        ? '(SELECT u.email FROM auth.users u WHERE u.id = mu.user_id)'
+                        ? '(SELECT u.email FROM auth.users u WHERE u.id = mu.userId)'
                         : sortBy === 'role'
                             ? 'mu.role'
-                            : 'mu.created_at'
+                            : 'mu._upl_created_at'
                 qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
                 qb.skip(offset).take(limit)
             }
 
             const [rawMembers, total] = await qb.getManyAndCount()
-            const userIds = rawMembers.map((m) => m.user_id)
+            const userIds = rawMembers.map((m) => m.userId)
 
             if (userIds.length === 0) {
                 return { members: [], total }
@@ -122,7 +123,7 @@ export function createMetahubsRoutes(
             const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
             const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
 
-            const members = rawMembers.map((m) => mapMember(m, usersMap.get(m.user_id) ?? null, profilesMap.get(m.user_id) ?? null))
+            const members = rawMembers.map((m) => mapMember(m, usersMap.get(m.userId) ?? null, profilesMap.get(m.userId) ?? null))
 
             return { members, total }
         } catch (error) {
@@ -183,8 +184,8 @@ export function createMetahubsRoutes(
                     : sortBy === 'codename'
                         ? 'm.codename'
                         : sortBy === 'created'
-                            ? 'm.created_at'
-                            : 'm.updated_at'
+                            ? 'm._upl_created_at'
+                            : 'm._upl_updated_at'
             qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
             // Pagination
@@ -197,10 +198,10 @@ export function createMetahubsRoutes(
             const memberships =
                 metahubIds.length > 0
                     ? await metahubUserRepo.find({
-                        where: { metahub_id: In(metahubIds), user_id: userId }
+                        where: { metahubId: In(metahubIds), userId }
                     })
                     : []
-            const membershipMap = new Map(memberships.map((m) => [m.metahub_id, m]))
+            const membershipMap = new Map(memberships.map((m) => [m.metahubId, m]))
 
             // Count hubs per metahub
             // TODO: Implement schema-based hub counting via Knex (_mhb_hubs in isolated schemas)
@@ -237,8 +238,9 @@ export function createMetahubsRoutes(
                     codename: m.codename,
                     slug: m.slug,
                     isPublic: m.isPublic,
-                    createdAt: m.createdAt,
-                    updatedAt: m.updatedAt,
+                    version: m._uplVersion || 1,
+                    createdAt: m._uplCreatedAt,
+                    updatedAt: m._uplUpdatedAt,
                     hubsCount: hubCountMap.get(m.id) ?? 0,
                     catalogsCount: 0, // Cannot count efficiently across dynamic schemas
                     membersCount: memberCountMap.get(m.id) ?? 0,
@@ -300,8 +302,9 @@ export function createMetahubsRoutes(
                 codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
-                createdAt: metahub.createdAt,
-                updatedAt: metahub.updatedAt,
+                version: metahub._uplVersion || 1,
+                createdAt: metahub._uplCreatedAt,
+                updatedAt: metahub._uplUpdatedAt,
                 hubsCount,
                 catalogsCount,
                 membersCount,
@@ -333,15 +336,15 @@ export function createMetahubsRoutes(
             const branchesRepo = ds.getRepository(MetahubBranch)
             const publicationsRepo = ds.getRepository(Publication)
 
-            const membership = await metahubUserRepo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
-            const activeBranchId = membership?.active_branch_id ?? metahub.defaultBranchId ?? null
+            const membership = await metahubUserRepo.findOne({ where: { metahubId, userId } })
+            const activeBranchId = membership?.activeBranchId ?? metahub.defaultBranchId ?? null
 
             let hubsCount = 0
             let catalogsCount = 0
 
             if (activeBranchId) {
-                const activeBranch = await branchesRepo.findOne({ where: { id: activeBranchId, metahub_id: metahubId } })
-                const schemaName = activeBranch?.schema_name ?? null
+                const activeBranch = await branchesRepo.findOne({ where: { id: activeBranchId, metahubId } })
+                const schemaName = activeBranch?.schemaName ?? null
 
                 if (schemaName && /^mhb_[a-f0-9]+_b\d+$/i.test(schemaName)) {
                     const manager = getRequestManager(req, ds)
@@ -364,9 +367,9 @@ export function createMetahubsRoutes(
             }
 
             const [branchesCount, publicationsCount, membersCount] = await Promise.all([
-                branchesRepo.count({ where: { metahub_id: metahubId } }),
+                branchesRepo.count({ where: { metahubId } }),
                 publicationsRepo.count({ where: { metahubId } }),
-                metahubUserRepo.count({ where: { metahub_id: metahubId } })
+                metahubUserRepo.count({ where: { metahubId } })
             ])
 
             const manager = getRequestManager(req, ds)
@@ -492,15 +495,19 @@ export function createMetahubsRoutes(
                 description: descriptionVlc,
                 codename: normalizedCodename,
                 slug: result.data.slug,
-                isPublic: result.data.isPublic ?? false
+                isPublic: result.data.isPublic ?? false,
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
             await metahubRepo.save(metahub)
 
             // Create owner membership
             const membership = metahubUserRepo.create({
-                metahub_id: metahub.id,
-                user_id: userId,
-                role: 'owner'
+                metahubId: metahub.id,
+                userId,
+                role: 'owner',
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
             await metahubUserRepo.save(membership)
 
@@ -524,8 +531,9 @@ export function createMetahubsRoutes(
                 codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
-                createdAt: metahub.createdAt,
-                updatedAt: metahub.updatedAt,
+                version: metahub._uplVersion || 1,
+                createdAt: metahub._uplCreatedAt,
+                updatedAt: metahub._uplUpdatedAt,
                 role: 'owner',
                 accessType: 'member',
                 permissions: ROLE_PERMISSIONS.owner
@@ -570,7 +578,8 @@ export function createMetahubsRoutes(
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .nullable()
                     .optional(),
-                isPublic: z.boolean().optional()
+                isPublic: z.boolean().optional(),
+                expectedVersion: z.number().int().positive().optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -634,7 +643,25 @@ export function createMetahubsRoutes(
             if (result.data.isPublic !== undefined) {
                 metahub.isPublic = result.data.isPublic
             }
-            metahub.updatedAt = new Date()
+            metahub._uplUpdatedAt = new Date()
+            metahub._uplUpdatedBy = userId
+
+            const { expectedVersion } = result.data
+
+            // Optimistic locking check
+            if (expectedVersion !== undefined) {
+                const currentVersion = metahub._uplVersion || 1
+                if (currentVersion !== expectedVersion) {
+                    throw new OptimisticLockError({
+                        entityId: metahubId,
+                        entityType: 'metahub',
+                        expectedVersion,
+                        actualVersion: currentVersion,
+                        updatedAt: metahub._uplUpdatedAt,
+                        updatedBy: metahub._uplUpdatedBy ?? null
+                    })
+                }
+            }
 
             await metahubRepo.save(metahub)
 
@@ -645,8 +672,9 @@ export function createMetahubsRoutes(
                 codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
-                createdAt: metahub.createdAt,
-                updatedAt: metahub.updatedAt
+                version: metahub._uplVersion || 1,
+                createdAt: metahub._uplCreatedAt,
+                updatedAt: metahub._uplUpdatedAt
             })
         })
     )
@@ -761,7 +789,7 @@ export function createMetahubsRoutes(
 
             // Check if already a member
             const existing = await metahubUserRepo.findOne({
-                where: { metahub_id: metahubId, user_id: authUser.id }
+                where: { metahubId, userId: authUser.id }
             })
             if (existing) {
                 return res.status(409).json({
@@ -771,10 +799,12 @@ export function createMetahubsRoutes(
             }
 
             const membership = metahubUserRepo.create({
-                metahub_id: metahubId,
-                user_id: authUser.id,
+                metahubId,
+                userId: authUser.id,
                 role: result.data.role,
-                comment: result.data.comment
+                comment: result.data.comment,
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
             await metahubUserRepo.save(membership)
 
@@ -784,7 +814,7 @@ export function createMetahubsRoutes(
                 email: authUser.email,
                 role: membership.role,
                 comment: membership.comment,
-                createdAt: membership.created_at
+                createdAt: membership._uplCreatedAt
             })
         })
     )
@@ -806,7 +836,7 @@ export function createMetahubsRoutes(
             await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers', rlsRunner)
 
             const membership = await metahubUserRepo.findOne({
-                where: { id: memberId, metahub_id: metahubId }
+                where: { id: memberId, metahubId }
             })
             if (!membership) {
                 return res.status(404).json({ error: 'Member not found' })
@@ -831,15 +861,16 @@ export function createMetahubsRoutes(
 
             if (result.data.role !== undefined) membership.role = result.data.role
             if (result.data.comment !== undefined) membership.comment = result.data.comment
+            membership._uplUpdatedBy = userId
 
             await metahubUserRepo.save(membership)
 
             return res.json({
                 id: membership.id,
-                userId: membership.user_id,
+                userId: membership.userId,
                 role: membership.role,
                 comment: membership.comment,
-                createdAt: membership.created_at
+                createdAt: membership._uplCreatedAt
             })
         })
     )
@@ -861,7 +892,7 @@ export function createMetahubsRoutes(
             await ensureMetahubAccess(ds, userId, metahubId, 'manageMembers', rlsRunner)
 
             const membership = await metahubUserRepo.findOne({
-                where: { id: memberId, metahub_id: metahubId }
+                where: { id: memberId, metahubId }
             })
             if (!membership) {
                 return res.status(404).json({ error: 'Member not found' })

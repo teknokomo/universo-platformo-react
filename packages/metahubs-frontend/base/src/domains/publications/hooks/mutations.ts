@@ -5,6 +5,12 @@ import { metahubsQueryKeys } from '../../shared'
 import * as publicationsApi from '../api'
 import type { CreatePublicationPayload, UpdatePublicationPayload } from '../api'
 
+// Applications query keys for cross-domain invalidation
+const applicationsQueryKeys = {
+    all: ['applications'] as const,
+    lists: () => [...applicationsQueryKeys.all, 'list'] as const
+}
+
 interface CreatePublicationParams {
     metahubId: string
     data: CreatePublicationPayload
@@ -38,6 +44,11 @@ export function useCreatePublication() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
+            // If autoCreateApplication was enabled, invalidate applications cache
+            if (variables.data.autoCreateApplication) {
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
+            }
             enqueueSnackbar(t('publications.messages.createSuccess', 'Information base created'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -58,6 +69,7 @@ export function useUpdatePublication() {
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publicationDetail(variables.metahubId, variables.publicationId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('publications.messages.updateSuccess', 'Publication updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -78,6 +90,7 @@ export function useSyncPublication() {
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publicationDetail(variables.metahubId, variables.publicationId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
 
             if (data.status === 'pending_confirmation') {
                 enqueueSnackbar(t('publications.messages.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })
@@ -102,6 +115,7 @@ export function useDeletePublication() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.publications(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('publications.messages.deleteSuccess', 'Information base deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {

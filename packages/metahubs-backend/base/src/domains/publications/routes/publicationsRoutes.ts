@@ -2,7 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { localizedContent } from '@universo/utils'
+import { localizedContent, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestManager } from '../../../utils'
 import { Metahub } from '../../../database/entities/Metahub'
@@ -51,7 +51,8 @@ const updatePublicationSchema = z.object({
     name: localizedInputSchema.optional(),
     description: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional()
+    descriptionPrimaryLocale: z.string().optional(),
+    expectedVersion: z.number().int().positive().optional()
 })
 
 const syncSchema = z.object({
@@ -109,13 +110,14 @@ export function createPublicationsRoutes(
 
             const manager = getRequestManager(req, ds)
             const publications = await manager.query(`
-                SELECT 
+                SELECT
                     p.id,
                     p.schema_name as "codename",
                     p.schema_name as "schemaName",
                     p.name,
                     p.description,
-                    p.created_at as "createdAt",
+                    p._upl_version as "version",
+                    p._upl_created_at as "createdAt",
                     m.id as "metahubId",
                     COALESCE(m.codename, m.slug, m.id::text) as "metahubCodename",
                     m.name as "metahubName"
@@ -123,7 +125,7 @@ export function createPublicationsRoutes(
                 JOIN metahubs.metahubs m ON m.id = p.metahub_id
                 JOIN metahubs.metahubs_users mu ON mu.metahub_id = m.id
                 WHERE mu.user_id = $1
-                ORDER BY p.created_at DESC
+                ORDER BY p._upl_created_at DESC
                 LIMIT $2 OFFSET $3
             `, [userId, limit, offset])
 
@@ -133,6 +135,7 @@ export function createPublicationsRoutes(
                 schemaName: pub.schemaName,
                 name: pub.name,
                 description: pub.description,
+                version: pub.version || 1,
                 createdAt: pub.createdAt,
                 metahub: {
                     id: pub.metahubId,
@@ -171,12 +174,24 @@ export function createPublicationsRoutes(
 
             const publications = await publicationRepo.find({
                 where: { metahubId },
-                order: { createdAt: 'DESC' }
+                order: { _uplCreatedAt: 'DESC' }
             })
 
             const enrichedPublications = publications.map((publication) => ({
-                ...publication,
-                metahubId
+                id: publication.id,
+                metahubId,
+                name: publication.name,
+                description: publication.description,
+                schemaName: publication.schemaName,
+                schemaStatus: publication.schemaStatus,
+                schemaError: publication.schemaError,
+                schemaSyncedAt: publication.schemaSyncedAt,
+                accessMode: publication.accessMode,
+                autoCreateApplication: publication.autoCreateApplication,
+                activeVersionId: publication.activeVersionId,
+                version: publication._uplVersion || 1,
+                createdAt: publication._uplCreatedAt,
+                updatedAt: publication._uplUpdatedAt
             }))
 
             return res.json({
@@ -233,7 +248,7 @@ export function createPublicationsRoutes(
             if (!effectiveBranchId) {
                 return res.status(400).json({ error: 'Default branch is not configured' })
             }
-            const branch = await branchRepo.findOne({ where: { id: effectiveBranchId, metahub_id: metahubId } })
+            const branch = await branchRepo.findOne({ where: { id: effectiveBranchId, metahubId } })
             if (!branch) {
                 return res.status(400).json({ error: 'Branch not found' })
             }
@@ -258,14 +273,21 @@ export function createPublicationsRoutes(
                         ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')
                         : undefined,
                     schemaStatus: PublicationSchemaStatus.DRAFT,
-                    autoCreateApplication: autoCreateApplication ?? false
+                    autoCreateApplication: autoCreateApplication ?? false,
+                    _uplCreatedBy: userId,
+                    _uplUpdatedBy: userId
                 })
                 await publicationRepoTx.save(publication)
 
-                // 2. Generate schema name
+                // 2. Generate schema name (use raw update to avoid version increment)
                 const schemaName = generateSchemaName(publication.id)
                 publication.schemaName = schemaName
-                await publicationRepoTx.save(publication)
+                await publicationRepoTx
+                    .createQueryBuilder()
+                    .update(Publication)
+                    .set({ schemaName })
+                    .where('id = :id', { id: publication.id })
+                    .execute()
 
                 // 3. Auto-create Application
                 if (autoCreateApplication && metahub) {
@@ -277,17 +299,28 @@ export function createPublicationsRoutes(
                     const application = applicationRepo.create({
                         name: publication.name!,
                         description: publication.description ?? undefined,
-                        slug: `pub-${publication.id.slice(0, 8)}`
+                        slug: `pub-${publication.id.slice(0, 8)}`,
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
                     })
                     await applicationRepo.save(application)
 
-                    application.schemaName = generateSchemaName(application.id)
-                    await applicationRepo.save(application)
+                    // Set schemaName using raw update to avoid version increment
+                    const appSchemaName = generateSchemaName(application.id)
+                    application.schemaName = appSchemaName
+                    await applicationRepo
+                        .createQueryBuilder()
+                        .update(Application)
+                        .set({ schemaName: appSchemaName })
+                        .where('id = :id', { id: application.id })
+                        .execute()
 
                     const appUser = appUserRepo.create({
-                        application_id: application.id,
-                        user_id: userId,
-                        role: 'owner'
+                        applicationId: application.id,
+                        userId,
+                        role: 'owner',
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
                     })
                     await appUserRepo.save(appUser)
 
@@ -295,14 +328,18 @@ export function createPublicationsRoutes(
                         applicationId: application.id,
                         name: metahub.name,
                         description: metahub.description ?? undefined,
-                        sortOrder: 0
+                        sortOrder: 0,
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
                     })
                     await connectorRepo.save(connector)
 
                     const connectorPublication = connectorPublicationRepo.create({
                         connectorId: connector.id,
                         publicationId: publication.id,
-                        sortOrder: 0
+                        sortOrder: 0,
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
                     })
                     await connectorPublicationRepo.save(connectorPublication)
                 }
@@ -329,18 +366,37 @@ export function createPublicationsRoutes(
                 firstVersion.snapshotJson = snapshot as unknown as Record<string, unknown>
                 firstVersion.snapshotHash = snapshotHash
                 firstVersion.branchId = effectiveBranchId
-                firstVersion.createdBy = userId
+                firstVersion._uplCreatedBy = userId
+                firstVersion._uplUpdatedBy = userId
                 await versionRepoTx.save(firstVersion)
 
+                // Update activeVersionId using raw update to avoid version increment
                 publication.activeVersionId = firstVersion.id
-                await publicationRepoTx.save(publication)
+                await publicationRepoTx
+                    .createQueryBuilder()
+                    .update(Publication)
+                    .set({ activeVersionId: firstVersion.id })
+                    .where('id = :id', { id: publication.id })
+                    .execute()
 
                 return publication
             })
 
             return res.status(201).json({
-                ...result,
-                metahubId
+                id: result.id,
+                metahubId,
+                name: result.name,
+                description: result.description,
+                schemaName: result.schemaName,
+                schemaStatus: result.schemaStatus,
+                schemaError: result.schemaError,
+                schemaSyncedAt: result.schemaSyncedAt,
+                accessMode: result.accessMode,
+                autoCreateApplication: result.autoCreateApplication,
+                activeVersionId: result.activeVersionId,
+                version: result._uplVersion || 1,
+                createdAt: result._uplCreatedAt,
+                updatedAt: result._uplUpdatedAt
             })
         })
     )
@@ -368,8 +424,22 @@ export function createPublicationsRoutes(
             }
 
             return res.json({
-                ...publication,
-                metahubId
+                id: publication.id,
+                metahubId,
+                name: publication.name,
+                description: publication.description,
+                schemaName: publication.schemaName,
+                schemaStatus: publication.schemaStatus,
+                schemaError: publication.schemaError,
+                schemaSyncedAt: publication.schemaSyncedAt,
+                accessMode: publication.accessMode,
+                accessConfig: publication.accessConfig,
+                autoCreateApplication: publication.autoCreateApplication,
+                activeVersionId: publication.activeVersionId,
+                schemaSnapshot: publication.schemaSnapshot,
+                version: publication._uplVersion || 1,
+                createdAt: publication._uplCreatedAt,
+                updatedAt: publication._uplUpdatedAt
             })
         })
     )
@@ -401,7 +471,22 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
-            const { name, description, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = parsed.data
+
+            // Optimistic locking check
+            if (expectedVersion !== undefined) {
+                const currentVersion = publication._uplVersion || 1
+                if (currentVersion !== expectedVersion) {
+                    throw new OptimisticLockError({
+                        entityId: publicationId,
+                        entityType: 'publication',
+                        expectedVersion,
+                        actualVersion: currentVersion,
+                        updatedAt: publication._uplUpdatedAt,
+                        updatedBy: publication._uplUpdatedBy ?? null
+                    })
+                }
+            }
 
             if (name) {
                 const nameVlc = buildLocalizedContent(sanitizeLocalizedInput(name), namePrimaryLocale || 'en')
@@ -415,8 +500,22 @@ export function createPublicationsRoutes(
             await publicationRepo.save(publication)
 
             return res.json({
-                ...publication,
-                metahubId
+                id: publication.id,
+                metahubId,
+                name: publication.name,
+                description: publication.description,
+                schemaName: publication.schemaName,
+                schemaStatus: publication.schemaStatus,
+                schemaError: publication.schemaError,
+                schemaSyncedAt: publication.schemaSyncedAt,
+                accessMode: publication.accessMode,
+                accessConfig: publication.accessConfig,
+                autoCreateApplication: publication.autoCreateApplication,
+                activeVersionId: publication.activeVersionId,
+                schemaSnapshot: publication.schemaSnapshot,
+                version: publication._uplVersion || 1,
+                createdAt: publication._uplCreatedAt,
+                updatedAt: publication._uplUpdatedAt
             })
         })
     )
@@ -494,12 +593,12 @@ export function createPublicationsRoutes(
 
             const linkedApps = await ds.query(
                 `
-                SELECT DISTINCT a.id, a.name, a.description, a.slug, a.created_at as "createdAt"
+                SELECT DISTINCT a.id, a.name, a.description, a.slug, a._upl_created_at as "createdAt"
                 FROM applications.applications a
                 JOIN applications.connectors c ON c.application_id = a.id
                 JOIN applications.connectors_publications cp ON cp.connector_id = c.id
                 WHERE cp.publication_id = $1
-                ORDER BY a.created_at DESC
+                ORDER BY a._upl_created_at DESC
             `,
                 [publicationId]
             )
@@ -748,11 +847,23 @@ export function createPublicationsRoutes(
             const versions = await versionRepo.find({
                 where: { publicationId },
                 order: { versionNumber: 'DESC' },
-                select: ['id', 'versionNumber', 'name', 'description', 'isActive', 'createdAt', 'createdBy', 'branchId']
+                select: ['id', 'versionNumber', 'name', 'description', 'isActive', '_uplCreatedAt', '_uplCreatedBy', 'branchId']
             })
 
-            console.log('[Versions] Found versions:', versions.length, versions)
-            return res.json({ items: versions })
+            // Map internal field names to API response format
+            const mappedVersions = versions.map(v => ({
+                id: v.id,
+                versionNumber: v.versionNumber,
+                name: v.name,
+                description: v.description,
+                isActive: v.isActive,
+                createdAt: v._uplCreatedAt,
+                createdBy: v._uplCreatedBy,
+                branchId: v.branchId
+            }))
+
+            console.log('[Versions] Found versions:', mappedVersions.length, mappedVersions)
+            return res.json({ items: mappedVersions })
         })
     )
 
@@ -790,7 +901,7 @@ export function createPublicationsRoutes(
             if (!effectiveBranchId) {
                 return res.status(400).json({ error: 'Default branch is not configured' })
             }
-            const branch = await branchRepo.findOne({ where: { id: effectiveBranchId, metahub_id: metahubId } })
+            const branch = await branchRepo.findOne({ where: { id: effectiveBranchId, metahubId } })
             if (!branch) {
                 return res.status(400).json({ error: 'Branch not found' })
             }
@@ -826,7 +937,8 @@ export function createPublicationsRoutes(
                 version.snapshotJson = snapshot as unknown as Record<string, unknown>
                 version.snapshotHash = snapshotHash
                 version.branchId = effectiveBranchId
-                version.createdBy = userId
+                version._uplCreatedBy = userId
+                version._uplUpdatedBy = userId
 
                 // Deactivate all other versions and make this one active
                 await versionRepoTx.update({ publicationId }, { isActive: false })

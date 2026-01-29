@@ -49,6 +49,7 @@ export function useCreateCatalogAtMetahub() {
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             const hubIds = variables.data.hubIds ?? []
             hubIds.forEach((hubId: string) => {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, hubId) })
@@ -75,6 +76,7 @@ export function useCreateCatalog() {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -97,6 +99,7 @@ export function useUpdateCatalog() {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -118,6 +121,7 @@ export function useUpdateCatalogAtMetahub() {
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -145,6 +149,7 @@ export function useDeleteCatalog() {
             }
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('catalogs.deleteSuccess', 'Catalog deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Unique } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, VersionColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { Connector } from './Connector'
 
 /**
@@ -16,9 +16,14 @@ import { Connector } from './Connector'
  * Constraint behavior:
  * - Connector.isSingleMetahub = true → only one ConnectorPublication per connector allowed
  * - Connector.isRequiredMetahub = true → at least one ConnectorPublication per connector required
+ *
+ * Uniqueness / indexing:
+ * - Composite uniqueness (connector_id + publication_id) is enforced via a partial UNIQUE INDEX
+ *   defined in the PostgreSQL migration with `WHERE _upl_deleted = false`.
+ * - TypeORM decorators do not support partial indexes, so this entity intentionally omits @Unique.
+ * - Do NOT rely on TypeORM schema synchronization to recreate this index; always run migrations.
  */
 @Entity({ name: 'connectors_publications', schema: 'applications' })
-@Unique(['connectorId', 'publicationId'])
 export class ConnectorPublication {
     @PrimaryGeneratedColumn('uuid')
     id!: string
@@ -42,6 +47,66 @@ export class ConnectorPublication {
     @Column({ type: 'integer', default: 0, name: 'sort_order' })
     sortOrder!: number
 
-    @CreateDateColumn({ name: 'created_at' })
-    createdAt!: Date
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Platform-level system fields (_upl_*)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @CreateDateColumn({ name: '_upl_created_at', type: 'timestamptz' })
+    _uplCreatedAt!: Date
+
+    @Column({ name: '_upl_created_by', type: 'uuid', nullable: true })
+    _uplCreatedBy?: string
+
+    @UpdateDateColumn({ name: '_upl_updated_at', type: 'timestamptz' })
+    _uplUpdatedAt!: Date
+
+    @Column({ name: '_upl_updated_by', type: 'uuid', nullable: true })
+    _uplUpdatedBy?: string
+
+    @VersionColumn({ name: '_upl_version' })
+    _uplVersion!: number
+
+    // Soft delete fields
+    @Column({ name: '_upl_deleted', type: 'boolean', default: false })
+    _uplDeleted!: boolean
+
+    @Column({ name: '_upl_deleted_at', type: 'timestamptz', nullable: true })
+    _uplDeletedAt?: Date
+
+    @Column({ name: '_upl_deleted_by', type: 'uuid', nullable: true })
+    _uplDeletedBy?: string
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Application-level system fields (_app_*)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Publication fields
+    @Column({ name: '_app_published', type: 'boolean', default: true })
+    _appPublished!: boolean
+
+    @Column({ name: '_app_published_at', type: 'timestamptz', nullable: true })
+    _appPublishedAt?: Date
+
+    @Column({ name: '_app_published_by', type: 'uuid', nullable: true })
+    _appPublishedBy?: string
+
+    // Archive fields
+    @Column({ name: '_app_archived', type: 'boolean', default: false })
+    _appArchived!: boolean
+
+    @Column({ name: '_app_archived_at', type: 'timestamptz', nullable: true })
+    _appArchivedAt?: Date
+
+    @Column({ name: '_app_archived_by', type: 'uuid', nullable: true })
+    _appArchivedBy?: string
+
+    // Soft delete fields
+    @Column({ name: '_app_deleted', type: 'boolean', default: false })
+    _appDeleted!: boolean
+
+    @Column({ name: '_app_deleted_at', type: 'timestamptz', nullable: true })
+    _appDeletedAt?: Date
+
+    @Column({ name: '_app_deleted_by', type: 'uuid', nullable: true })
+    _appDeletedBy?: string
 }

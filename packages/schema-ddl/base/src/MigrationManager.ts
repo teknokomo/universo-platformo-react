@@ -71,7 +71,8 @@ export class MigrationManager {
             MigrationMeta,
             'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
         >,
-        publicationSnapshot?: Record<string, unknown> | null
+        publicationSnapshot?: Record<string, unknown> | null,
+        userId?: string | null
     ): Promise<string> {
         const knex = trx ?? this.knex
 
@@ -93,7 +94,9 @@ export class MigrationManager {
             .insert({
                 name,
                 meta: JSON.stringify(meta),
-                publication_snapshot: publicationSnapshot ? JSON.stringify(publicationSnapshot) : null
+                publication_snapshot: publicationSnapshot ? JSON.stringify(publicationSnapshot) : null,
+                _upl_created_by: userId ?? null,
+                _upl_updated_by: userId ?? null,
             })
             .returning('id')
 

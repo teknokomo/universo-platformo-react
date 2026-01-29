@@ -79,7 +79,42 @@ export {
 } from './vlc'
 
 // Database utilities
-export { escapeLikeWildcards } from './database'
+export { escapeLikeWildcards, lookupUserEmail } from './database'
+
+// System fields utilities for three-level architecture
+export {
+    UPL_FIELDS,
+    MHB_FIELDS,
+    APP_FIELDS,
+    type AccessLevel,
+    type AuditContext,
+    getUplCreateFields,
+    getUplUpdateFields,
+    getMhbCreateFields,
+    getAppCreateFields,
+    getUplDeleteFields,
+    getMhbDeleteFields,
+    getAppDeleteFields,
+    getUplRestoreFields,
+    getMhbRestoreFields,
+    getAppRestoreFields,
+    getUplArchiveFields,
+    getUplLockFields,
+    getUplUnlockFields,
+    type DeleteLevel,
+    type SoftDeleteOptions,
+    type UplSoftDeleteOptions,
+    type MhbSoftDeleteOptions,
+    getUplDeleteConditions,
+    getMhbDeleteConditions,
+    getAppDeleteConditions,
+    getDeleteFieldsByLevel,
+    getRestoreFieldsByLevel,
+    getDeletedFieldName
+} from './database'
 
 // Auth feature toggles utilities
 export { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled, isEmailConfirmationRequired, type AuthFeatureConfig } from './auth'
+
+// Error classes for common error handling patterns
+export { OptimisticLockError, type ConflictInfo, isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors'

@@ -38,7 +38,7 @@ import {
     useConfirm,
     LocalizedInlineField
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps, PaginationState, PaginationActions } from '@universo/template-mui'
@@ -54,6 +54,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString, type PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import publicationActions from './PublicationActions'
 import { AccessPanel } from './AccessPanel'
 import { ApplicationsCreatePanel } from './ApplicationsCreatePanel'
@@ -253,6 +254,12 @@ const PublicationList = () => {
         open: boolean
         publication: Publication | null
     }>({ open: false, publication: null })
+
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: any } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -490,7 +497,20 @@ const PublicationList = () => {
             api: {
                 updateEntity: async (id: string, data: any) => {
                     if (!metahubId) return
-                    await updatePublicationMutation.mutateAsync({ metahubId, publicationId: id, data })
+                    const publication = publicationMap.get(id)
+                    const expectedVersion = publication?.version
+                    try {
+                        await updatePublicationMutation.mutateAsync({ metahubId, publicationId: id, data: { ...data, expectedVersion } })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: data } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId) return
@@ -868,6 +888,29 @@ const PublicationList = () => {
             />
 
             <ConfirmDialog />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    if (metahubId) {
+                        invalidatePublicationsQueries.all(queryClient, metahubId)
+                    }
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate && metahubId) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updatePublicationMutation.mutateAsync({
+                            metahubId,
+                            publicationId: id,
+                            data: patch
+                        })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updatePublicationMutation.isPending}
+            />
         </MainCard>
     )
 }

@@ -206,6 +206,18 @@
       "back": "Back",
       "noLanguagesAvailable": "No languages available",
       "fallbackNotice": "Using fallback languages"
+    },
+    "unknown": "Unknown",
+    "conflict": {
+      "title": "Edit Conflict",
+      "description": "This record was modified by another user while you were editing. Your changes cannot be saved automatically.",
+      "modifiedBy": "Modified by",
+      "modifiedAt": "Modified at",
+      "yourVersion": "Your version",
+      "serverVersion": "Server version",
+      "chooseAction": "Please choose how to proceed:",
+      "overwrite": "Overwrite Changes",
+      "reloadLatest": "Reload Latest"
     }
   }
 }

@@ -5,6 +5,7 @@ import { MetahubAttributesService } from './MetahubAttributesService'
 import { isLocalizedContent, filterLocalizedContent } from '@universo/utils'
 import { AttributeDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
+import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 
 /**
  * MetahubElementsService - CRUD operations for predefined elements in Design-Time.
@@ -76,7 +77,7 @@ export class MetahubElementsService {
             .whereIn('object_id', objectIds)
             .orderBy('object_id', 'asc')
             .orderBy('sort_order', 'asc')
-            .orderBy('created_at', 'asc')
+            .orderBy('_upl_created_at', 'asc')
 
         return elements.map((element: any) => ({
             id: element.id,
@@ -113,8 +114,8 @@ export class MetahubElementsService {
             query = query.whereRaw('data::text ILIKE ?', [`%${escapedSearch}%`])
         }
 
-        const sortColumn = options.sortBy === 'created' ? 'created_at'
-            : options.sortBy === 'updated' ? 'updated_at'
+        const sortColumn = options.sortBy === 'created' ? '_upl_created_at'
+            : options.sortBy === 'updated' ? '_upl_updated_at'
                 : 'sort_order'
         query = query.orderBy(sortColumn, options.sortOrder || 'asc')
 
@@ -157,8 +158,8 @@ export class MetahubElementsService {
         const total = countResult ? parseInt(countResult.total as string, 10) : 0
 
         // Apply sorting
-        const sortColumn = options.sortBy === 'created' ? 'created_at'
-            : options.sortBy === 'updated' ? 'updated_at'
+        const sortColumn = options.sortBy === 'created' ? '_upl_created_at'
+            : options.sortBy === 'updated' ? '_upl_updated_at'
                 : 'sort_order'
         query = query.orderBy(sortColumn, options.sortOrder || 'asc')
 
@@ -195,6 +196,7 @@ export class MetahubElementsService {
     async create(metahubId: string, catalogId: string, input: {
         data: Record<string, unknown>
         sortOrder?: number
+        createdBy?: string | null
     }, userId?: string) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
@@ -218,8 +220,10 @@ export class MetahubElementsService {
                 data: input.data,
                 sort_order: input.sortOrder ?? 0,
                 owner_id: null,
-                created_at: new Date(),
-                updated_at: new Date()
+                _upl_created_at: new Date(),
+                _upl_created_by: input.createdBy ?? null,
+                _upl_updated_at: new Date(),
+                _upl_updated_by: input.createdBy ?? null
             })
             .returning('*')
 
@@ -232,6 +236,8 @@ export class MetahubElementsService {
     async update(metahubId: string, catalogId: string, id: string, input: {
         data?: Record<string, unknown>
         sortOrder?: number
+        updatedBy?: string | null
+        expectedVersion?: number
     }, userId?: string) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
@@ -248,7 +254,10 @@ export class MetahubElementsService {
 
         if (!existing) throw new Error('Element not found')
 
-        const updateData: Record<string, unknown> = { updated_at: new Date() }
+        const updateData: Record<string, unknown> = {
+            _upl_updated_at: new Date(),
+            _upl_updated_by: input.updatedBy ?? null
+        }
 
         if (input.data) {
             const mergedData = { ...existing.data, ...input.data }
@@ -264,13 +273,22 @@ export class MetahubElementsService {
             updateData.sort_order = input.sortOrder
         }
 
-        const [updated] = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ id, object_id: catalogId })
-            .update(updateData)
-            .returning('*')
+        // If expectedVersion is provided, use version-checked update
+        if (input.expectedVersion !== undefined) {
+            const updated = await updateWithVersionCheck({
+                knex: this.knex,
+                schemaName,
+                tableName: '_mhb_elements',
+                entityId: id,
+                entityType: 'element',
+                expectedVersion: input.expectedVersion,
+                updateData
+            })
+            return this.mapRowToElement(updated)
+        }
 
+        // Fallback: increment version without check (backwards compatibility)
+        const updated = await incrementVersion(this.knex, schemaName, '_mhb_elements', id, updateData)
         return updated ? this.mapRowToElement(updated) : null
     }
 
@@ -349,8 +367,9 @@ export class MetahubElementsService {
             data: row.data ?? {},
             ownerId: row.owner_id ?? null,
             sortOrder: row.sort_order ?? 0,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+            version: row._upl_version || 1,
+            createdAt: row._upl_created_at,
+            updatedAt: row._upl_updated_at
         }
     }
 

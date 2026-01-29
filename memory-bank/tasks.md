@@ -1,5 +1,45 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
+
+## IMPLEMENT (2026-01-29): Optimistic Locking Pattern Unification
+
+> See full plan: `memory-bank/plans/optimistic-locking-unification.md`
+
+### Phase 1: Extend Error Handler Middleware
+- [ ] Add OptimisticLockError handling to flowise-core-backend errorHandlerMiddleware
+- [ ] Verify lookupUserEmail export in @universo/utils
+
+### Phase 2: Migrate Metahubs Backend Routes (Pattern A → B)
+- [ ] metahubsRoutes.ts - Move version check to service, remove inline 409
+- [ ] branchesRoutes.ts - Move version check to service, remove inline 409
+- [ ] publicationsRoutes.ts - Move version check to service, remove inline 409
+
+### Phase 3: Migrate Applications Backend Routes
+- [ ] applicationsRoutes.ts - Move version check to service, remove inline 409
+- [ ] connectorsRoutes.ts - Move version check to service, remove inline 409
+
+### Phase 4: Simplify Existing Pattern B Routes
+- [ ] attributesRoutes.ts - Remove try/catch, let middleware handle
+- [ ] hubsRoutes.ts - Remove try/catch, let middleware handle
+- [ ] elementsRoutes.ts - Remove try/catch, let middleware handle
+- [ ] catalogsRoutes.ts - Remove try/catch, let middleware handle
+
+### Phase 5: Consolidate Frontend Utilities
+- [ ] Delete metahubs-frontend/utils/conflictDetection.ts (duplicate)
+- [ ] Update imports to use @universo/utils
+
+### Phase 6: Add i18n Keys
+- [ ] Add conflict error keys to EN locale
+- [ ] Add conflict error keys to RU locale
+
+### Phase 7: Build & Test
+- [ ] Run targeted builds for affected packages
+- [ ] Run tests for metahubs-backend and applications-backend
+
+### Phase 8: Documentation
+- [ ] Update memory-bank/systemPatterns.md
+- [ ] Update memory-bank/progress.md
+
 ## IMPLEMENT (2026-01-24): Elements Rename + Metahub UI Sync
 
 - [x] Rename Records domain to Elements across metahubs-backend (routes/services/types/schema table `_mhb_elements`, snapshot `elements`, sync/seed usage).

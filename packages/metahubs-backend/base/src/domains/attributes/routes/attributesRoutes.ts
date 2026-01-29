@@ -73,7 +73,8 @@ const updateAttributeSchema = z.object({
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
 const moveAttributeSchema = z.object({
@@ -337,7 +338,8 @@ export function createAttributesRoutes(
                 validationRules: validationRules ?? {},
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
-                sortOrder: sortOrder
+                sortOrder: sortOrder,
+                createdBy: userId
             }, userId)
 
             // Normalize again to fit new item
@@ -377,7 +379,7 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder } =
+            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder, expectedVersion } =
                 parsed.data
 
             const updateData: any = {}
@@ -430,6 +432,8 @@ export function createAttributesRoutes(
             if (uiConfig) updateData.uiConfig = uiConfig
             if (isRequired !== undefined) updateData.isRequired = isRequired
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
+            if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
+            updateData.updatedBy = userId
 
             const updated = await attributesService.update(metahubId, attributeId, updateData, userId)
 

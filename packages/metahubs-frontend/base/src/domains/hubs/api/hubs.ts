@@ -64,8 +64,9 @@ export const createHub = (metahubId: string, data: HubLocalizedPayload & { sortO
 
 /**
  * Update a hub
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
-export const updateHub = (metahubId: string, hubId: string, data: HubLocalizedPayload & { sortOrder?: number }) =>
+export const updateHub = (metahubId: string, hubId: string, data: HubLocalizedPayload & { sortOrder?: number; expectedVersion?: number }) =>
     apiClient.patch<Hub>(`/metahub/${metahubId}/hub/${hubId}`, data)
 
 /**
