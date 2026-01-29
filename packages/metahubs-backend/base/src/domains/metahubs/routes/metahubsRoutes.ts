@@ -14,7 +14,7 @@ import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
-import { type ConflictInfo } from '@universo/utils'
+import { OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
@@ -652,34 +652,13 @@ export function createMetahubsRoutes(
             if (expectedVersion !== undefined) {
                 const currentVersion = metahub._uplVersion || 1
                 if (currentVersion !== expectedVersion) {
-                    // Try to get email of the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (metahub._uplUpdatedBy) {
-                        try {
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [metahub._uplUpdatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: 'OPTIMISTIC_LOCK_CONFLICT',
-                        conflict: {
-                            entityId: metahubId,
-                            entityType: 'metahub',
-                            expectedVersion,
-                            actualVersion: currentVersion,
-                            updatedAt: metahub._uplUpdatedAt,
-                            updatedBy: metahub._uplUpdatedBy ?? null,
-                            updatedByEmail
-                        }
+                    throw new OptimisticLockError({
+                        entityId: metahubId,
+                        entityType: 'metahub',
+                        expectedVersion,
+                        actualVersion: currentVersion,
+                        updatedAt: metahub._uplUpdatedAt,
+                        updatedBy: metahub._uplUpdatedBy ?? null
                     })
                 }
             }

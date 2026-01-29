@@ -425,48 +425,19 @@ export function createCatalogsRoutes(
                 }
             }
 
-            let updated: Record<string, any>
-            try {
-                updated = await objectsService.updateCatalog(metahubId, catalogId, {
-                    codename: finalCodename !== catalog.codename ? finalCodename : undefined,
-                    name: finalName,
-                    description: finalDescription,
-                    config: {
-                        hubs: targetHubIds,
-                        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                        sortOrder: sortOrder ?? currentConfig.sortOrder
-                    },
-                    updatedBy: userId,
-                    expectedVersion
-                }, userId)
-            } catch (error) {
-                if (error instanceof OptimisticLockError) {
-                    const conflict = error.conflict
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (conflict.updatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [conflict.updatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: error.code,
-                        conflict: { ...conflict, updatedByEmail }
-                    })
-                }
-                throw error
-            }
+            const updated: Record<string, any> = await objectsService.updateCatalog(metahubId, catalogId, {
+                codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                name: finalName,
+                description: finalDescription,
+                config: {
+                    hubs: targetHubIds,
+                    isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+                    isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+                    sortOrder: sortOrder ?? currentConfig.sortOrder
+                },
+                updatedBy: userId,
+                expectedVersion
+            }, userId)
 
             // Get updated hub associations for response
             const hubs =
@@ -924,48 +895,19 @@ export function createCatalogsRoutes(
                     : undefined
             }
 
-            let updated: Record<string, any>
-            try {
-                updated = await objectsService.updateCatalog(metahubId, catalogId, {
-                    codename: finalCodename !== catalog.codename ? finalCodename : undefined,
-                    name: finalName,
-                    description: finalDescription,
-                    config: {
-                        hubs: targetHubIds,
-                        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                        sortOrder: sortOrder ?? currentConfig.sortOrder
-                    },
-                    updatedBy: userId,
-                    expectedVersion
-                }, userId)
-            } catch (error) {
-                if (error instanceof OptimisticLockError) {
-                    const conflict = error.conflict
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (conflict.updatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [conflict.updatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: error.code,
-                        conflict: { ...conflict, updatedByEmail }
-                    })
-                }
-                throw error
-            }
+            const updated: Record<string, any> = await objectsService.updateCatalog(metahubId, catalogId, {
+                codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                name: finalName,
+                description: finalDescription,
+                config: {
+                    hubs: targetHubIds,
+                    isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+                    isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+                    sortOrder: sortOrder ?? currentConfig.sortOrder
+                },
+                updatedBy: userId,
+                expectedVersion
+            }, userId)
 
             const outputHubs = targetHubIds.length > 0
                 ? await hubsService.findByIds(metahubId, targetHubIds, userId)

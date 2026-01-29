@@ -42,6 +42,59 @@ Backend service for managing metahubs, hubs, catalogs, attributes, elements, and
 - Automated migrations through central registry
 - CASCADE delete relationships with UNIQUE constraints
 
+### System Fields Architecture
+
+All entities use a three-level system fields architecture for audit trails, soft delete, and concurrency control:
+
+#### Platform Level (`_upl_*`)
+Present on ALL tables across the platform:
+- `_upl_created_at`, `_upl_created_by` — Creation audit trail
+- `_upl_updated_at`, `_upl_updated_by` — Modification audit trail
+- `_upl_version` — Optimistic locking version counter
+- `_upl_archived`, `_upl_archived_at`, `_upl_archived_by` — Archive status
+- `_upl_deleted`, `_upl_deleted_at`, `_upl_deleted_by`, `_upl_purge_after` — Soft delete
+- `_upl_locked`, `_upl_locked_at`, `_upl_locked_by`, `_upl_locked_reason` — Record locking
+
+#### Metahub Level (`_mhb_*`)
+Present on dynamic tables in `mhb_*` schemas:
+- `_mhb_published`, `_mhb_published_at`, `_mhb_published_by` — Publication status
+- `_mhb_archived`, `_mhb_archived_at`, `_mhb_archived_by` — Metahub-level archive
+- `_mhb_deleted`, `_mhb_deleted_at`, `_mhb_deleted_by` — Metahub-level soft delete
+- `_mhb_order` — Sort order within collections
+- `_mhb_readonly` — Read-only flag
+
+### Optimistic Locking
+
+All PATCH/PUT endpoints support optimistic locking to prevent concurrent edit conflicts:
+
+```http
+PATCH /metahub/:metahubId
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "expectedVersion": 3
+}
+```
+
+If the entity was modified by another user, the server responds with HTTP 409:
+
+```json
+{
+  "error": "Conflict: entity was modified by another user",
+  "code": "OPTIMISTIC_LOCK_CONFLICT",
+  "conflict": {
+    "entityId": "uuid",
+    "entityType": "metahub",
+    "expectedVersion": 3,
+    "actualVersion": 4,
+    "updatedAt": "2024-01-15T10:30:00Z",
+    "updatedBy": "user-uuid",
+    "updatedByEmail": "user@example.com"
+  }
+}
+```
+
 ## Installation
 
 ```bash

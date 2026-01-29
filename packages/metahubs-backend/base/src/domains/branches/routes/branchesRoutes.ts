@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
-import { localizedContent, validation, type ConflictInfo } from '@universo/utils'
+import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
 import type { VersionedLocalizedContent } from '@universo/types'
 
@@ -393,29 +393,8 @@ export function createBranchesRoutes(
                 if (error.message?.includes('Branch not found')) {
                     return res.status(404).json({ error: 'Branch not found' })
                 }
-                if (error.code === 'OPTIMISTIC_LOCK_CONFLICT') {
-                    const conflict = error.conflict as ConflictInfo
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (conflict.updatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [conflict.updatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: error.code,
-                        conflict: { ...conflict, updatedByEmail }
-                    })
+                if (error instanceof OptimisticLockError) {
+                    throw error // Let middleware handle it
                 }
                 throw error
             }

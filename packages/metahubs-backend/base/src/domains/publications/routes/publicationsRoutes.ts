@@ -2,7 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { localizedContent } from '@universo/utils'
+import { localizedContent, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestManager } from '../../../utils'
 import { Metahub } from '../../../database/entities/Metahub'
@@ -477,34 +477,13 @@ export function createPublicationsRoutes(
             if (expectedVersion !== undefined) {
                 const currentVersion = publication._uplVersion || 1
                 if (currentVersion !== expectedVersion) {
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (publication._uplUpdatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [publication._uplUpdatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: 'OPTIMISTIC_LOCK_CONFLICT',
-                        conflict: {
-                            entityId: publicationId,
-                            entityType: 'publication',
-                            expectedVersion,
-                            actualVersion: currentVersion,
-                            updatedAt: publication._uplUpdatedAt,
-                            updatedBy: publication._uplUpdatedBy ?? null,
-                            updatedByEmail
-                        }
+                    throw new OptimisticLockError({
+                        entityId: publicationId,
+                        entityType: 'publication',
+                        expectedVersion,
+                        actualVersion: currentVersion,
+                        updatedAt: publication._uplUpdatedAt,
+                        updatedBy: publication._uplUpdatedBy ?? null
                     })
                 }
             }

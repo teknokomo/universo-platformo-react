@@ -79,7 +79,7 @@ export {
 } from './vlc'
 
 // Database utilities
-export { escapeLikeWildcards } from './database'
+export { escapeLikeWildcards, lookupUserEmail } from './database'
 
 // System fields utilities for three-level architecture
 export {

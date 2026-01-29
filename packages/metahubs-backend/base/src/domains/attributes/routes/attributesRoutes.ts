@@ -435,36 +435,7 @@ export function createAttributesRoutes(
             if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
             updateData.updatedBy = userId
 
-            let updated
-            try {
-                updated = await attributesService.update(metahubId, attributeId, updateData, userId)
-            } catch (error) {
-                if (error instanceof OptimisticLockError) {
-                    const conflict = error.conflict
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (conflict.updatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [conflict.updatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: error.code,
-                        conflict: { ...conflict, updatedByEmail }
-                    })
-                }
-                throw error
-            }
+            const updated = await attributesService.update(metahubId, attributeId, updateData, userId)
 
             if (sortOrder !== undefined) {
                 await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)

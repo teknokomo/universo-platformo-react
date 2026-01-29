@@ -1,40 +1,44 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
-## IMPLEMENT (2026-01-27): Optimistic Locking for Metahub Entities
+## IMPLEMENT (2026-01-29): Optimistic Locking Pattern Unification
 
-### Phase 1: Backend Core
-- [ ] Create OptimisticLockError in universo-utils/errors
-- [ ] Create optimisticLock.ts helper in metahubs-backend/utils
-- [ ] Update MetahubObjectsService with version handling
-- [ ] Update MetahubAttributesService with version handling
-- [ ] Update MetahubElementsService with version handling
-- [ ] Update MetahubHubsService with version handling
+> See full plan: `memory-bank/plans/optimistic-locking-unification.md`
 
-### Phase 2: Backend Routes
-- [ ] Update catalogsRoutes.ts to accept version and return 409
-- [ ] Update attributesRoutes.ts to accept version and return 409
-- [ ] Update elementsRoutes.ts to accept version and return 409
-- [ ] Update hubsRoutes.ts to accept version and return 409
+### Phase 1: Extend Error Handler Middleware
+- [ ] Add OptimisticLockError handling to flowise-core-backend errorHandlerMiddleware
+- [ ] Verify lookupUserEmail export in @universo/utils
 
-### Phase 3: Frontend API
-- [ ] Add ConflictInfo types to universo-types
-- [ ] Update metahubs-frontend API client methods
+### Phase 2: Migrate Metahubs Backend Routes (Pattern A → B)
+- [ ] metahubsRoutes.ts - Move version check to service, remove inline 409
+- [ ] branchesRoutes.ts - Move version check to service, remove inline 409
+- [ ] publicationsRoutes.ts - Move version check to service, remove inline 409
 
-### Phase 4: Frontend Dialog
-- [ ] Create ConflictResolutionDialog in universo-template-mui
-- [ ] Add i18n keys for conflict dialog (EN + RU)
+### Phase 3: Migrate Applications Backend Routes
+- [ ] applicationsRoutes.ts - Move version check to service, remove inline 409
+- [ ] connectorsRoutes.ts - Move version check to service, remove inline 409
 
-### Phase 5: Frontend Integration
-- [ ] Create useOptimisticLock hook
-- [ ] Update CatalogEditDialog with conflict handling
-- [ ] Update HubEditDialog with conflict handling
-- [ ] Update AttributeEditDialog with conflict handling
-- [ ] Update ElementEditDialog with conflict handling
+### Phase 4: Simplify Existing Pattern B Routes
+- [ ] attributesRoutes.ts - Remove try/catch, let middleware handle
+- [ ] hubsRoutes.ts - Remove try/catch, let middleware handle
+- [ ] elementsRoutes.ts - Remove try/catch, let middleware handle
+- [ ] catalogsRoutes.ts - Remove try/catch, let middleware handle
 
-### Phase 6: Build & Test
+### Phase 5: Consolidate Frontend Utilities
+- [ ] Delete metahubs-frontend/utils/conflictDetection.ts (duplicate)
+- [ ] Update imports to use @universo/utils
+
+### Phase 6: Add i18n Keys
+- [ ] Add conflict error keys to EN locale
+- [ ] Add conflict error keys to RU locale
+
+### Phase 7: Build & Test
 - [ ] Run targeted builds for affected packages
-- [ ] Update memory-bank files
+- [ ] Run tests for metahubs-backend and applications-backend
+
+### Phase 8: Documentation
+- [ ] Update memory-bank/systemPatterns.md
+- [ ] Update memory-bank/progress.md
 
 ## IMPLEMENT (2026-01-24): Elements Rename + Metahub UI Sync
 

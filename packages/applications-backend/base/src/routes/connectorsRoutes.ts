@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+import { OptimisticLockError } from '@universo/utils'
 
 // User ID resolution helper
 interface RequestUser {
@@ -304,34 +305,13 @@ export function createConnectorsRoutes(
             if (expectedVersion !== undefined) {
                 const currentVersion = connector._uplVersion || 1
                 if (currentVersion !== expectedVersion) {
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (connector._uplUpdatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [connector._uplUpdatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: 'OPTIMISTIC_LOCK_CONFLICT',
-                        conflict: {
-                            entityId: connectorId,
-                            entityType: 'connector',
-                            expectedVersion,
-                            actualVersion: currentVersion,
-                            updatedAt: connector._uplUpdatedAt,
-                            updatedBy: connector._uplUpdatedBy ?? null,
-                            updatedByEmail
-                        }
+                    throw new OptimisticLockError({
+                        entityId: connectorId,
+                        entityType: 'connector',
+                        expectedVersion,
+                        actualVersion: currentVersion,
+                        updatedAt: connector._uplUpdatedAt,
+                        updatedBy: connector._uplUpdatedBy ?? null
                     })
                 }
             }

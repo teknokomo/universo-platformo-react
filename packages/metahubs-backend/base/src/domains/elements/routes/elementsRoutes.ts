@@ -195,28 +195,7 @@ export function createElementsRoutes(
                 res.json(element)
             } catch (error: any) {
                 if (error instanceof OptimisticLockError) {
-                    const conflict = error.conflict
-                    // Fetch email for the user who last updated
-                    let updatedByEmail: string | null = null
-                    if (conflict.updatedBy) {
-                        try {
-                            const ds = getDataSource()
-                            const authUserResult = await ds.query(
-                                'SELECT email FROM auth.users WHERE id = $1',
-                                [conflict.updatedBy]
-                            )
-                            if (authUserResult?.[0]?.email) {
-                                updatedByEmail = authUserResult[0].email
-                            }
-                        } catch {
-                            // Ignore errors fetching email
-                        }
-                    }
-                    return res.status(409).json({
-                        error: 'Conflict: entity was modified by another user',
-                        code: error.code,
-                        conflict: { ...conflict, updatedByEmail }
-                    })
+                    throw error // Let middleware handle it
                 }
                 if (error.message.includes('Catalog not found') || error.message.includes('Element not found')) {
                     return res.status(404).json({ error: error.message })
