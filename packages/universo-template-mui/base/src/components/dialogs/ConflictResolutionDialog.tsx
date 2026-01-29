@@ -6,7 +6,10 @@ import type { ConflictInfo } from '@universo/utils'
 export interface ConflictResolutionDialogProps {
     open: boolean
     conflict: ConflictInfo | null
+    /** Called when user chooses to overwrite with their local changes */
     onOverwrite: () => void
+    /** Called when user chooses to reload/use server version (discards local changes) */
+    onReload?: () => void
     onCancel: () => void
     isLoading?: boolean
 }
@@ -15,6 +18,7 @@ export function ConflictResolutionDialog({
     open,
     conflict,
     onOverwrite,
+    onReload,
     onCancel,
     isLoading = false
 }: ConflictResolutionDialogProps) {
@@ -65,6 +69,11 @@ export function ConflictResolutionDialog({
                 <Button onClick={onCancel} disabled={isLoading}>
                     {t('common:actions.cancel', 'Cancel')}
                 </Button>
+                {onReload && (
+                    <Button onClick={onReload} variant="outlined" disabled={isLoading}>
+                        {t('conflict.useServerVersion', 'Use Server Version')}
+                    </Button>
+                )}
                 <Button onClick={onOverwrite} variant="contained" color="warning" disabled={isLoading}>
                     {t('conflict.overwrite')}
                 </Button>

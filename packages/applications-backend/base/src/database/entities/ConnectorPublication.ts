@@ -16,6 +16,12 @@ import { Connector } from './Connector'
  * Constraint behavior:
  * - Connector.isSingleMetahub = true → only one ConnectorPublication per connector allowed
  * - Connector.isRequiredMetahub = true → at least one ConnectorPublication per connector required
+ *
+ * Uniqueness / indexing:
+ * - Composite uniqueness (connector_id + publication_id) is enforced via a partial UNIQUE INDEX
+ *   defined in the PostgreSQL migration with `WHERE _upl_deleted = false`.
+ * - TypeORM decorators do not support partial indexes, so this entity intentionally omits @Unique.
+ * - Do NOT rely on TypeORM schema synchronization to recreate this index; always run migrations.
  */
 @Entity({ name: 'connectors_publications', schema: 'applications' })
 export class ConnectorPublication {

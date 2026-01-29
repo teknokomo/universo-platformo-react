@@ -28,8 +28,9 @@ export async function lookupUserEmail(
             [userId]
         )
         return result?.[0]?.email ?? null
-    } catch {
-        // Ignore errors fetching email - don't block main functionality
+    } catch (error) {
+        // Log error for debugging but don't block main functionality
+        console.error('[lookupUserEmail] Failed to fetch user email:', error)
         return null
     }
 }

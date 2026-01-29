@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
-import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
+import { localizedContent, validation } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
 import { AttributeDataType, ATTRIBUTE_DATA_TYPES } from '@universo/types'

@@ -24,7 +24,15 @@ export class Metahub {
     @Column({ type: 'varchar', length: 100 })
     codename!: string
 
-    /** URL-friendly identifier for public access (e.g., "ideas", "products") */
+    /**
+     * URL-friendly identifier for public access (e.g., "ideas", "products").
+     *
+     * NOTE: Logical uniqueness for non-deleted records is enforced via a partial
+     * unique index defined in migrations (`WHERE _upl_deleted = false`).
+     * Do NOT add `unique: true` here or enable TypeORM `synchronize: true`,
+     * otherwise TypeORM may attempt to create a full unique constraint that
+     * conflicts with soft-deleted rows.
+     */
     @Column({ type: 'varchar', length: 100, nullable: true })
     slug?: string
 

@@ -8,6 +8,7 @@ import { KnexClient, getDDLServices, uuidToLockKey, acquireAdvisoryLock, release
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { OptimisticLockError } from '@universo/utils'
 
 export interface BranchListOptions {
     limit?: number
@@ -305,25 +306,14 @@ export class MetahubBranchesService {
         if (data.expectedVersion !== undefined) {
             const currentVersion = branch._uplVersion || 1
             if (currentVersion !== data.expectedVersion) {
-                const error = new Error('VERSION_CONFLICT') as Error & {
-                    code: string
-                    conflict: {
-                        entityId: string
-                        expectedVersion: number
-                        actualVersion: number
-                        updatedAt: Date
-                        updatedBy: string | null
-                    }
-                }
-                error.code = 'OPTIMISTIC_LOCK_CONFLICT'
-                error.conflict = {
+                throw new OptimisticLockError({
                     entityId: branchId,
+                    entityType: 'branch',
                     expectedVersion: data.expectedVersion,
                     actualVersion: currentVersion,
                     updatedAt: branch._uplUpdatedAt,
                     updatedBy: branch._uplUpdatedBy ?? null
-                }
-                throw error
+                })
             }
         }
 

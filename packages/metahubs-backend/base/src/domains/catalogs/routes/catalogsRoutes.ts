@@ -5,7 +5,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
-import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
+import { localizedContent, validation } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
