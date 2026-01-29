@@ -294,6 +294,7 @@ export class MetahubBranchesService {
             name?: VersionedLocalizedContent<string>
             description?: VersionedLocalizedContent<string> | null
             expectedVersion?: number
+            updatedBy?: string | null
         }
     ) {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
@@ -325,6 +326,9 @@ export class MetahubBranchesService {
         }
         if (data.description !== undefined) {
             branch.description = data.description as any
+        }
+        if (data.updatedBy !== undefined) {
+            branch._uplUpdatedBy = data.updatedBy ?? null
         }
 
         return branchRepo.save(branch)

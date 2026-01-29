@@ -44,6 +44,24 @@
 
 ---
 
+## 2026-01-29
+
+### Optimistic Lock Conflict Handling Fix
+- **Issue**: OptimisticLockError was returning 500 because the router-level error handler intercepted errors before the global middleware.
+- **Backend Fix**: Added duck-typed OptimisticLockError handling in the router error handler to return 409 with conflict payload.
+- **Global Middleware**: Kept duck-typed OptimisticLockError detection to support cross-bundle class instances.
+- **Email Restoration**: Added updatedByEmail lookup in router-level conflict response to show editor email.
+- **Build**: @flowise/core-backend rebuilt successfully.
+- **Verification**: User retest pending (stale `_upl_version` should trigger 409 + ConflictResolutionDialog with email).
+
+### Optimistic Lock QA Remediation
+- **Conflict Metadata**: Moved metahub `_uplUpdatedBy/_uplUpdatedAt` assignment to after version check for accurate conflict data.
+- **Audit Fields**: Added updatedBy propagation for branch updates and publication updates.
+- **Tests**: Added VersionColumn to TypeORM jest mocks and reran tests.
+- **Test Results**:
+  - metahubs-backend: multiple failures in routes tests (branches options meta, board summary counts, catalogs routes 500s, metahubs routes expectations).
+  - applications-backend: connectors routes and applications members tests failing; multiple 500s and expectation mismatches.
+
 ## 2026-01-28
 
 ### Optimistic Locking Email Lookup Rollout

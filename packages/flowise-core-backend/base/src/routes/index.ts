@@ -53,6 +53,7 @@ import { createAssistantsService, createAssistantsController, createAssistantsRo
 import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@flowise/leads-backend'
 import { createExecutionsService, createExecutionsRouter, createPublicExecutionsRouter } from '@flowise/executions-backend'
 import { createValidationRouter } from '@flowise/agents-backend'
+import { OptimisticLockError, lookupUserEmail } from '@universo/utils'
 import {
     createChatMessagesService,
     createChatMessagesController,
@@ -667,7 +668,32 @@ router.use(chatMessagesErrorHandler)
 router.use(feedbackErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
-router.use((err: Error & { statusCode?: number }, req: Request, res: Response, next: NextFunction) => {
+function isOptimisticLockError(err: unknown): err is OptimisticLockError {
+    if (err instanceof OptimisticLockError) return true
+    if (err && typeof err === 'object') {
+        const e = err as { name?: string; code?: string; conflict?: unknown }
+        return e.name === 'OptimisticLockError' || (e.code === 'OPTIMISTIC_LOCK_CONFLICT' && !!e.conflict)
+    }
+    return false
+}
+
+router.use(async (err: Error & { statusCode?: number }, req: Request, res: Response, next: NextFunction) => {
+    if (isOptimisticLockError(err)) {
+        const conflict = err.conflict
+        let updatedByEmail = conflict?.updatedByEmail ?? null
+
+        if (!updatedByEmail && conflict?.updatedBy) {
+            updatedByEmail = await lookupUserEmail(getDataSource(), conflict.updatedBy)
+        }
+
+        res.setHeader('Content-Type', 'application/json')
+        return res.status(409).json({
+            error: 'Conflict: entity was modified by another user',
+            code: err.code,
+            conflict: { ...conflict, updatedByEmail }
+        })
+    }
+
     // Determine HTTP status code - respect statusCode from custom errors (e.g., InternalFlowiseError)
     const statusCode = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
 

@@ -321,6 +321,8 @@ export function createBranchesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
             const branchesService = getService(req)
 
             const parsed = updateBranchSchema.safeParse(req.body)
@@ -334,6 +336,7 @@ export function createBranchesRoutes(
                 name?: VersionedLocalizedContent<string>
                 description?: VersionedLocalizedContent<string> | null
                 expectedVersion?: number
+                updatedBy?: string | null
             } = {}
 
             if (codename !== undefined) {
@@ -374,6 +377,8 @@ export function createBranchesRoutes(
             if (expectedVersion !== undefined) {
                 updateData.expectedVersion = expectedVersion
             }
+
+            updateData.updatedBy = userId
 
             try {
                 const updated = await branchesService.updateBranch(metahubId, branchId, updateData)

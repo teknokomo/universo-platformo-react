@@ -643,8 +643,6 @@ export function createMetahubsRoutes(
             if (result.data.isPublic !== undefined) {
                 metahub.isPublic = result.data.isPublic
             }
-            metahub._uplUpdatedAt = new Date()
-            metahub._uplUpdatedBy = userId
 
             const { expectedVersion } = result.data
 
@@ -662,6 +660,9 @@ export function createMetahubsRoutes(
                     })
                 }
             }
+
+            metahub._uplUpdatedAt = new Date()
+            metahub._uplUpdatedBy = userId
 
             await metahubRepo.save(metahub)
 

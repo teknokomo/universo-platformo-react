@@ -1,13 +1,29 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## BUG FIX (2026-01-29): Optimistic Locking Returns 500 Instead of 409
+
+- [x] Identify root cause: `instanceof OptimisticLockError` fails across module bundles
+- [x] Add `isOptimisticLockError()` duck typing helper to error middleware
+- [x] Handle OptimisticLockError in router-level error handler (flowise-core-backend routes)
+- [x] Rebuild @flowise/core-backend after error handler changes
+- [x] Add updatedByEmail lookup in router-level conflict response
+- [x] Rebuild @flowise/core-backend after updatedByEmail fix
+- [x] User tests: edit metahub, change _upl_version in DB, save → expect 409 + ConflictResolutionDialog
+- [x] Fix metahub conflict metadata to use stored updatedBy/updatedAt
+- [x] Set updatedBy for branch updates
+- [x] Set updatedBy for publication updates (resolve user)
+- [x] Add VersionColumn to typeorm jest mocks (metahubs/applications backends)
+- [x] Re-run backend tests for metahubs/applications
+	- Note: Tests still failing in metahubs-backend and applications-backend due to outdated expectations/mocks (see progress.md#2026-01-29).
+
 ## IMPLEMENT (2026-01-29): Optimistic Locking Pattern Unification
 
 > See full plan: `memory-bank/plans/optimistic-locking-unification.md`
 
 ### Phase 1: Extend Error Handler Middleware
-- [ ] Add OptimisticLockError handling to flowise-core-backend errorHandlerMiddleware
-- [ ] Verify lookupUserEmail export in @universo/utils
+- [x] Add OptimisticLockError handling to flowise-core-backend errorHandlerMiddleware
+- [x] Verify lookupUserEmail export in @universo/utils
 
 ### Phase 2: Migrate Metahubs Backend Routes (Pattern A → B)
 - [ ] metahubsRoutes.ts - Move version check to service, remove inline 409
@@ -496,176 +512,13 @@
 - [x] 14 unit tests added; keys normalized (projects/storages).
 - [x] Lint and build verification completed.
 - [x] Details: progress.md#2026-01-15.
-## ✅ COMPLETED (2026-01-14): Publications rename stabilization
+## COMPLETED (2026-01-14 to 2026-01-01): Condensed log
 
-- [x] Rename Application* -> Publication* in metahubs UI and types.
-- [x] Update API/hook names and routes (`/publications`, `/publication/:publicationId`).
-- [x] Update query keys/mutations and menu configs (EN/RU).
-- [x] Backend routes factory renamed to createPublicationsRoutes.
-- [x] Build verified (63 tasks).
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Publications page fixes
-
-- [x] Add missing publications i18n keys + labels (EN/RU).
-- [x] Fix crash on /metahub/:id/publications and diff hook naming.
-- [x] Update breadcrumbs for publication routes.
-- [x] Build verified.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Source deletion & table unification
-
-- [x] Disable Source delete actions and hide Delete button.
-- [x] Update EN/RU deletion restriction copy.
-- [x] Extend CompactListTable action column props.
-- [x] Unify selection panels via EntitySelectionPanel.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Application/Source UX fixes
-
-- [x] Add Stack spacing and tabs to Application/Source dialogs.
-- [x] Pass metahub context into creation/edit dialogs.
-- [x] Fix SourceMetahubInfoWrapper items extraction.
-- [x] Move Source list alert below ViewHeader and keep Add button disabled/visible.
-- [x] Add clickable Source cards + row navigation links.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Application creation from Metahubs fixes
-
-- [x] Add Application creation tabs with MetahubInfoPanel.
-- [x] Resolve owner assignment when creating Application.
-- [x] Copy Metahub name/description to Source on create.
-- [x] Add Source edit dialog Metahubs tab; single Source limit.
-- [x] Add translations for singleSourceLimit.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Link Applications and Metahubs via Sources
-
-- [x] Extend applications schema with schema sync fields.
-- [x] Add SourceMetahub junction entity + RLS policy.
-- [x] Create applicationsRoutes in metahubs-backend (CRUD/diff/sync).
-- [x] Add source-metahub link endpoints and build verification.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Applications packages QA fixes
-
-- [x] Rename tests and remove obsolete backend tests.
-- [x] Update README terminology and jest config.
-- [x] Clean Metahubs/Catalogs comments in sources.
-- [x] useViewPreference in ApplicationMembers; build/tests verified.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-14): Applications backend tests + localStorage improvements
-
-- [x] Add applicationsRoutes/sourcesRoutes test suites.
-- [x] Fix test expectations (403 vs 404, pagination shape).
-- [x] Add MSW handler for profile settings.
-- [x] Apply useViewPreference to MetahubMembers + tests.
-- [x] Details: progress.md#2026-01-14.
-## ✅ COMPLETED (2026-01-13): Applications packages creation
-
-- [x] Clone metahubs packages -> applications-frontend/backend.
-- [x] Remove catalogs/attributes/records artifacts.
-- [x] Rename Metahub -> Application and Hub -> Source files.
-- [x] Register entities, migrations, routes, i18n, and menu entries.
-- [x] Full build verification.
-- [x] Details: progress.md#2026-01-13.
-## ✅ COMPLETED (2026-01-13): Catalogs/attributes improvements
-
-- [x] Normalize Attribute.sortOrder after delete (1..N).
-- [x] Hub-less attribute endpoints + direct API functions.
-- [x] Hub-less record endpoints + direct query keys.
-- [x] Routes refactor `/catalogs/:id` -> `/catalog/:id`.
-- [x] Details: progress.md#2026-01-13.
-## ✅ COMPLETED (2026-01-13): Schema sync UUID naming
-
-- [x] Use UUID-based `cat_<uuid32>` and `app_<uuid32>` naming.
-- [x] SchemaMigrator diff uses UUID names consistently.
-- [x] Build verification.
-- [x] Details: progress.md#2026-01-13.
-## ✅ COMPLETED (2026-01-13): Applications UI & diff fixes
-
-- [x] Save VLC structure for comparisons and primaryLocale fields.
-- [x] Replace confirm() with ConfirmDeleteDialog.
-- [x] Add edit action + PATCH endpoint + i18n keys.
-- [x] Add search/pagination and fix Options menu crash.
-- [x] Build verification.
-## ✅ COMPLETED (2026-01-13): Applications config/data separation
-
-- [x] Add Application entity + schema status fields.
-- [x] Create migrations + SchemaGenerator/SchemaMigrator services.
-- [x] Add CRUD/diff/sync routes and frontend hooks/UI.
-- [x] Register menu, routes, i18n, storage keys.
-- [x] Build verification.
-- [x] Details: progress.md#2026-01-13.
-## ✅ COMPLETED (2026-01-12): Catalogs endpoint tests
-
-- [x] Add catalogsRoutes tests (17 cases).
-- [x] Extend MockRepository count.
-- [x] Document UUID validation in routes.
-- [x] Details: progress.md#2026-01-12.
-## ✅ COMPLETED (2026-01-11): Catalogs + QueryRunner QA fixes
-
-- [x] Hub-less catalog DELETE endpoint and deleteCatalogDirect API.
-- [x] escapeLikeWildcards and getRequestManager consolidation.
-- [x] QueryRunner support in AccessGuards and loadMembers patterns.
-- [x] CompactListTable header + HubDeleteDialog UX improvements.
-- [x] Catalog/Hub operations fixes (blocking catalogs, update endpoints).
-- [x] isRequiredHub migration + documentation.
-- [x] Full build verification.
-- [x] Details: progress.md#2026-01-11.
-## ✅ COMPLETED (2026-01-10): Catalogs QA rounds + code quality
-
-- [x] Sorting, columns, catalogsCount, dashboard widget updates.
-- [x] AllCatalogs list UI, i18n fixes, cache invalidation.
-- [x] useCatalogName hook + breadcrumbs updates.
-- [x] Optimize catalogsRoutes/hubsRoutes to avoid N+1 queries.
-- [x] Centralize localStorage keys + useViewPreference hook in list pages.
-- [x] Full project rebuilds.
-- [x] Details: progress.md#2026-01-10.
-## ✅ COMPLETED (2026-01-09): Metahubs VLC rollout + FlowListTable fix
-
-- [x] VLC rendering fixes in metahubs lists.
-- [x] FlowListTable listView rendering fixed.
-- [x] Build verification.
-- [x] Details: progress.md#2026-01-09.
-## ✅ COMPLETED (2026-01-08): Record edit fixes
-
-- [x] Pass raw record data to actions; fetch full record when missing.
-- [x] Delay record edit fields until hydration completes.
-- [x] Build metahubs-frontend verified.
-- [x] Details: progress.md#2026-01-08.
-## ✅ COMPLETED (2026-01-06): Attributes localization hardening
-
-- [x] Localized name + codename auto-fill; remove description field.
-- [x] Align API payloads/mutations and backend validation.
-- [x] Update tests and builds for metahubs frontend/backend.
-- [x] Details: progress.md#2026-01-06.
-## ✅ COMPLETED (2026-01-05): Project metadata i18n + login UX
-
-- [x] Add locale metadata files and update landing/onboarding translations.
-- [x] Update entrypoints and docs metadata.
-- [x] Improve login error messages and i18n keys; security-safe copy.
-- [x] Full build and lint verification.
-- [x] Details: progress.md#2026-01-05.
-## ✅ COMPLETED (2026-01-04): Auth bot review fixes
-
-- [x] Refactor AuthView/AuthPage per review (mode switcher + useEffect).
-- [x] Align systemPatterns docs to flat config.
-- [x] Details: progress.md#2026-01-04.
-## ✅ COMPLETED (2026-01-03): Auth feature toggles + i18n migration
-
-- [x] Add auth feature toggles and /auth-config endpoint.
-- [x] Update auth-frontend types, UI, and i18n keys.
-- [x] Migrate start page i18n to registerNamespace(); add StartFooter.
-- [x] Full build verification.
-- [x] Details: progress.md#2026-01-03.
-## ✅ COMPLETED (2026-01-02): SmartCaptcha improvements
-
-- [x] Add login captcha support and shared captcha module.
-- [x] Fail-closed behavior for captcha services.
-- [x] Lint and full build passed.
-- [x] Details: progress.md#2026-01-02.
-## ✅ COMPLETED (2026-01-01): SmartCaptcha + lead forms
-
-- [x] Server-side captcha validation for leads.
-- [x] /p/:slug SmartCaptcha domain fix via server render endpoint.
-- [x] Quiz lead forms support (captchaEnabled, captchaSiteKey, submit guard).
-- [x] Auth captcha integration and i18n updates.
-- [x] Details: progress.md#2026-01-01.
+- Publications rename + page fixes, sources linking, application creation/QA, and UI improvements.
+- Catalogs/attributes improvements, schema sync UUID naming, and application UI/diff fixes.
+- Catalogs QA rounds, VLC rollout, record edit fixes, and localization hardening.
+- Project metadata i18n/login UX, auth fixes/toggles, and SmartCaptcha/lead forms updates.
+- Details: progress.md#2026-01-14, progress.md#2026-01-13, progress.md#2026-01-12, progress.md#2026-01-11, progress.md#2026-01-10, progress.md#2026-01-09, progress.md#2026-01-08, progress.md#2026-01-06, progress.md#2026-01-05, progress.md#2026-01-04, progress.md#2026-01-03, progress.md#2026-01-02, progress.md#2026-01-01.
 ## ✅ COMPLETED (2025-12-31 to 2025-12-14): Condensed log
 
 - [x] Cookie/lead consent, legal pages, onboarding/auth fixes, start page MVP.
