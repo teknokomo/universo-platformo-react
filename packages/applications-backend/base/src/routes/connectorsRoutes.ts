@@ -9,6 +9,20 @@ import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 
+// User ID resolution helper
+interface RequestUser {
+    id?: string
+    sub?: string
+    user_id?: string
+    userId?: string
+}
+
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as Request & { user?: RequestUser }).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 const optionalLocalizedInputSchema = z
@@ -29,7 +43,8 @@ const updateConnectorSchema = z.object({
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    expectedVersion: z.number().int().positive().optional()
 })
 
 export function createConnectorsRoutes(
@@ -93,8 +108,8 @@ export function createConnectorsRoutes(
                 sortBy === 'name'
                     ? "COALESCE(s.name->>(s.name->>'_primary'), s.name->>'en', '')"
                     : sortBy === 'created'
-                    ? 's.created_at'
-                    : 's.updated_at'
+                    ? 's._upl_created_at'
+                    : 's._upl_updated_at'
 
             qb.select([
                 's.id as id',
@@ -102,8 +117,9 @@ export function createConnectorsRoutes(
                 's.name as name',
                 's.description as description',
                 's.sortOrder as "sortOrder"',
-                's.created_at as "createdAt"',
-                's.updated_at as "updatedAt"'
+                's._upl_version as "version"',
+                's._upl_created_at as "createdAt"',
+                's._upl_updated_at as "updatedAt"'
             ])
                 .addSelect('COUNT(*) OVER()', 'window_total')
                 .orderBy(orderColumn, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
@@ -116,6 +132,7 @@ export function createConnectorsRoutes(
                 name: Record<string, string> | null
                 description: Record<string, string> | null
                 sortOrder: number
+                version: number
                 createdAt: Date
                 updatedAt: Date
                 window_total?: string
@@ -129,6 +146,7 @@ export function createConnectorsRoutes(
                 name: row.name,
                 description: row.description,
                 sortOrder: row.sortOrder,
+                version: row.version || 1,
                 createdAt: row.createdAt,
                 updatedAt: row.updatedAt
             }))
@@ -156,7 +174,16 @@ export function createConnectorsRoutes(
                 return res.status(404).json({ error: 'Connector not found' })
             }
 
-            res.json(connector)
+            res.json({
+                id: connector.id,
+                applicationId: connector.applicationId,
+                name: connector.name,
+                description: connector.description,
+                sortOrder: connector.sortOrder,
+                version: connector._uplVersion || 1,
+                createdAt: connector._uplCreatedAt,
+                updatedAt: connector._uplUpdatedAt
+            })
         })
     )
 
@@ -168,6 +195,9 @@ export function createConnectorsRoutes(
         '/applications/:applicationId/connectors',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
             const { applicationId } = req.params
             const { connectorRepo, applicationRepo } = repos(req)
 
@@ -206,7 +236,9 @@ export function createConnectorsRoutes(
                 applicationId,
                 name: nameVlc,
                 description: descriptionVlc,
-                sortOrder: sortOrder ?? 0
+                sortOrder: sortOrder ?? 0,
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
 
             // Wrap connector creation and optional publication link in a transaction
@@ -219,7 +251,9 @@ export function createConnectorsRoutes(
                     const link = manager.getRepository(ConnectorPublication).create({
                         connectorId: savedConnector.id,
                         publicationId,
-                        sortOrder: 0
+                        sortOrder: 0,
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
                     })
                     await manager.save(link)
                 }
@@ -227,7 +261,16 @@ export function createConnectorsRoutes(
                 return savedConnector
             })
 
-            res.status(201).json(saved)
+            res.status(201).json({
+                id: saved.id,
+                applicationId: saved.applicationId,
+                name: saved.name,
+                description: saved.description,
+                sortOrder: saved.sortOrder,
+                version: saved._uplVersion || 1,
+                createdAt: saved._uplCreatedAt,
+                updatedAt: saved._uplUpdatedAt
+            })
         })
     )
 
@@ -239,6 +282,9 @@ export function createConnectorsRoutes(
         '/applications/:applicationId/connectors/:connectorId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
             const { applicationId, connectorId } = req.params
             const { connectorRepo } = repos(req)
 
@@ -252,7 +298,43 @@ export function createConnectorsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+            const { name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = parsed.data
+
+            // Optimistic locking check
+            if (expectedVersion !== undefined) {
+                const currentVersion = connector._uplVersion || 1
+                if (currentVersion !== expectedVersion) {
+                    // Fetch email for the user who last updated
+                    let updatedByEmail: string | null = null
+                    if (connector._uplUpdatedBy) {
+                        try {
+                            const ds = getDataSource()
+                            const authUserResult = await ds.query(
+                                'SELECT email FROM auth.users WHERE id = $1',
+                                [connector._uplUpdatedBy]
+                            )
+                            if (authUserResult?.[0]?.email) {
+                                updatedByEmail = authUserResult[0].email
+                            }
+                        } catch {
+                            // Ignore errors fetching email
+                        }
+                    }
+                    return res.status(409).json({
+                        error: 'Conflict: entity was modified by another user',
+                        code: 'OPTIMISTIC_LOCK_CONFLICT',
+                        conflict: {
+                            entityId: connectorId,
+                            entityType: 'connector',
+                            expectedVersion,
+                            actualVersion: currentVersion,
+                            updatedAt: connector._uplUpdatedAt,
+                            updatedBy: connector._uplUpdatedBy ?? null,
+                            updatedByEmail
+                        }
+                    })
+                }
+            }
 
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)
@@ -284,8 +366,19 @@ export function createConnectorsRoutes(
                 connector.sortOrder = sortOrder
             }
 
+            connector._uplUpdatedBy = userId
+
             const saved = await connectorRepo.save(connector)
-            res.json(saved)
+            res.json({
+                id: saved.id,
+                applicationId: saved.applicationId,
+                name: saved.name,
+                description: saved.description,
+                sortOrder: saved.sortOrder,
+                version: saved._uplVersion || 1,
+                createdAt: saved._uplCreatedAt,
+                updatedAt: saved._uplUpdatedAt
+            })
         })
     )
 
@@ -341,7 +434,7 @@ export function createConnectorsRoutes(
                     cp.connector_id AS "connectorId",
                     cp.publication_id AS "publicationId",
                     cp.sort_order AS "sortOrder",
-                    cp.created_at AS "createdAt",
+                    cp._upl_created_at AS "createdAt",
                     p.id AS "publication_id",
                     p.name AS "publication_name",
                     p.description AS "publication_description",
@@ -396,6 +489,9 @@ export function createConnectorsRoutes(
         '/applications/:applicationId/connectors/:connectorId/publications',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
             const { applicationId, connectorId } = req.params
             const { connectorRepo, connectorPublicationRepo } = repos(req)
 
@@ -444,7 +540,9 @@ export function createConnectorsRoutes(
             const link = connectorPublicationRepo.create({
                 connectorId,
                 publicationId,
-                sortOrder
+                sortOrder,
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
             await connectorPublicationRepo.save(link)
 

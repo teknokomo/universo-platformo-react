@@ -12,6 +12,7 @@ import {
 export interface ApplicationInput extends ApplicationLocalizedPayload {
     slug?: string
     isPublic?: boolean
+    expectedVersion?: number
 }
 
 // Extended pagination params with showAll for admin users
@@ -56,7 +57,11 @@ export const getApplication = (id: string) => apiClient.get<Application>(`/appli
 
 export const createApplication = (data: ApplicationInput) => apiClient.post<Application>('/applications', data)
 
-export const updateApplication = (id: string, data: Partial<ApplicationInput>) => apiClient.put<Application>(`/applications/${id}`, data)
+/**
+ * Update an application
+ * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
+ */
+export const updateApplication = (id: string, data: Partial<ApplicationInput>) => apiClient.patch<Application>(`/applications/${id}`, data)
 
 export const deleteApplication = (id: string) => apiClient.delete<void>(`/applications/${id}`)
 

@@ -5,7 +5,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
-import { localizedContent, validation } from '@universo/utils'
+import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -47,7 +47,8 @@ const updateCatalogSchema = z.object({
     sortOrder: z.number().int().optional(),
     isSingleHub: z.boolean().optional(),
     isRequiredHub: z.boolean().optional(), // If true, catalog must have at least one hub
-    hubIds: z.array(z.string().uuid()).optional() // Replace all hub associations (can be empty if isRequiredHub=false)
+    hubIds: z.array(z.string().uuid()).optional(), // Replace all hub associations (can be empty if isRequiredHub=false)
+    expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
 export function createCatalogsRoutes(
@@ -128,6 +129,7 @@ export function createCatalogsRoutes(
                 isSingleHub: row.config?.isSingleHub || false,
                 isRequiredHub: row.config?.isRequiredHub || false,
                 sortOrder: row.config?.sortOrder || 0,
+                version: row._upl_version || 1,
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
                 attributesCount: attributesCounts.get(row.id) || 0,
@@ -277,7 +279,8 @@ export function createCatalogsRoutes(
                     isRequiredHub: effectiveIsRequired,
                     sortOrder: sortOrder ?? 0,
                     hubs: targetHubIds
-                }
+                },
+                createdBy: userId
             }, userId)
 
             // Fetch hubs for response
@@ -292,6 +295,7 @@ export function createCatalogsRoutes(
                 isSingleHub: created.config.isSingleHub,
                 isRequiredHub: created.config.isRequiredHub,
                 sortOrder: created.config.sortOrder,
+                version: created._upl_version || 1,
                 createdAt: created.created_at,
                 updatedAt: created.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
@@ -322,7 +326,7 @@ export function createCatalogsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds } = parsed.data
+            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds, expectedVersion } = parsed.data
 
             const currentPresentation = catalog.presentation || {}
             const currentConfig = catalog.config || {}
@@ -421,17 +425,48 @@ export function createCatalogsRoutes(
                 }
             }
 
-            const updated = await objectsService.updateCatalog(metahubId, catalogId, {
-                codename: finalCodename !== catalog.codename ? finalCodename : undefined,
-                name: finalName,
-                description: finalDescription,
-                config: {
-                    hubs: targetHubIds,
-                    isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                    isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                    sortOrder: sortOrder ?? currentConfig.sortOrder
+            let updated: Record<string, any>
+            try {
+                updated = await objectsService.updateCatalog(metahubId, catalogId, {
+                    codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                    name: finalName,
+                    description: finalDescription,
+                    config: {
+                        hubs: targetHubIds,
+                        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+                        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+                        sortOrder: sortOrder ?? currentConfig.sortOrder
+                    },
+                    updatedBy: userId,
+                    expectedVersion
+                }, userId)
+            } catch (error) {
+                if (error instanceof OptimisticLockError) {
+                    const conflict = error.conflict
+                    // Fetch email for the user who last updated
+                    let updatedByEmail: string | null = null
+                    if (conflict.updatedBy) {
+                        try {
+                            const ds = getDataSource()
+                            const authUserResult = await ds.query(
+                                'SELECT email FROM auth.users WHERE id = $1',
+                                [conflict.updatedBy]
+                            )
+                            if (authUserResult?.[0]?.email) {
+                                updatedByEmail = authUserResult[0].email
+                            }
+                        } catch {
+                            // Ignore errors fetching email
+                        }
+                    }
+                    return res.status(409).json({
+                        error: 'Conflict: entity was modified by another user',
+                        code: error.code,
+                        conflict: { ...conflict, updatedByEmail }
+                    })
                 }
-            }, userId)
+                throw error
+            }
 
             // Get updated hub associations for response
             const hubs =
@@ -446,6 +481,7 @@ export function createCatalogsRoutes(
                 isSingleHub: updated.config.isSingleHub,
                 isRequiredHub: updated.config.isRequiredHub,
                 sortOrder: updated.config.sortOrder,
+                version: updated._upl_version || 1,
                 createdAt: updated.created_at,
                 updatedAt: updated.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
@@ -508,6 +544,7 @@ export function createCatalogsRoutes(
                 isSingleHub: row.config?.isSingleHub || false,
                 isRequiredHub: row.config?.isRequiredHub || false,
                 sortOrder: row.config?.sortOrder || 0,
+                version: row._upl_version || 1,
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
                 attributesCount: attributesCounts.get(row.id) || 0,
@@ -627,6 +664,7 @@ export function createCatalogsRoutes(
                 isSingleHub: currentConfig.isSingleHub,
                 isRequiredHub: currentConfig.isRequiredHub,
                 sortOrder: currentConfig.sortOrder,
+                version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename })),
@@ -676,6 +714,7 @@ export function createCatalogsRoutes(
                 isSingleHub: currentConfig.isSingleHub,
                 isRequiredHub: currentConfig.isRequiredHub,
                 sortOrder: currentConfig.sortOrder,
+                version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename })),
@@ -766,7 +805,8 @@ export function createCatalogsRoutes(
                     isSingleHub: isSingleHub ?? false,
                     isRequiredHub: effectiveIsRequired,
                     sortOrder: sortOrder ?? 0
-                }
+                },
+                createdBy: userId
             }, userId)
 
             // Return catalog with hubs
@@ -781,6 +821,7 @@ export function createCatalogsRoutes(
                 isSingleHub: catalog.config.isSingleHub,
                 isRequiredHub: catalog.config.isRequiredHub,
                 sortOrder: catalog.config.sortOrder,
+                version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
                 hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
@@ -822,7 +863,7 @@ export function createCatalogsRoutes(
             // Here we just forward the update but we need to respect the context if needed.
             // If user updates hubs, we must ensure consistency logic.
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds } = parsed.data
+            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds, expectedVersion } = parsed.data
 
             const currentPresentation = catalog.presentation || {}
             const currentConfig = catalog.config || {}
@@ -883,17 +924,48 @@ export function createCatalogsRoutes(
                     : undefined
             }
 
-            const updated = await objectsService.updateCatalog(metahubId, catalogId, {
-                codename: finalCodename !== catalog.codename ? finalCodename : undefined,
-                name: finalName,
-                description: finalDescription,
-                config: {
-                    hubs: targetHubIds,
-                    isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                    isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                    sortOrder: sortOrder ?? currentConfig.sortOrder
+            let updated: Record<string, any>
+            try {
+                updated = await objectsService.updateCatalog(metahubId, catalogId, {
+                    codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                    name: finalName,
+                    description: finalDescription,
+                    config: {
+                        hubs: targetHubIds,
+                        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+                        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+                        sortOrder: sortOrder ?? currentConfig.sortOrder
+                    },
+                    updatedBy: userId,
+                    expectedVersion
+                }, userId)
+            } catch (error) {
+                if (error instanceof OptimisticLockError) {
+                    const conflict = error.conflict
+                    // Fetch email for the user who last updated
+                    let updatedByEmail: string | null = null
+                    if (conflict.updatedBy) {
+                        try {
+                            const ds = getDataSource()
+                            const authUserResult = await ds.query(
+                                'SELECT email FROM auth.users WHERE id = $1',
+                                [conflict.updatedBy]
+                            )
+                            if (authUserResult?.[0]?.email) {
+                                updatedByEmail = authUserResult[0].email
+                            }
+                        } catch {
+                            // Ignore errors fetching email
+                        }
+                    }
+                    return res.status(409).json({
+                        error: 'Conflict: entity was modified by another user',
+                        code: error.code,
+                        conflict: { ...conflict, updatedByEmail }
+                    })
                 }
-            }, userId)
+                throw error
+            }
 
             const outputHubs = targetHubIds.length > 0
                 ? await hubsService.findByIds(metahubId, targetHubIds, userId)
@@ -908,6 +980,7 @@ export function createCatalogsRoutes(
                 isSingleHub: updated.config.isSingleHub,
                 isRequiredHub: updated.config.isRequiredHub,
                 sortOrder: updated.config.sortOrder,
+                version: updated._upl_version || 1,
                 createdAt: updated.created_at,
                 updatedAt: updated.updated_at,
                 hubs: outputHubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
@@ -952,7 +1025,8 @@ export function createCatalogsRoutes(
                 // Remove only from this hub
                 const newHubIds = currentHubIds.filter((id) => id !== hubId)
                 await objectsService.updateCatalog(metahubId, catalogId, {
-                    config: { ...currentConfig, hubs: newHubIds }
+                    config: { ...currentConfig, hubs: newHubIds },
+                    updatedBy: userId
                 }, userId)
                 res.status(200).json({ message: 'Catalog removed from hub', remainingHubs: newHubIds.length })
             } else {
@@ -965,7 +1039,7 @@ export function createCatalogsRoutes(
 
     /**
      * DELETE /metahub/:metahubId/catalog/:catalogId
-     * Delete a catalog directly (removes from all hubs and deletes completely)
+     * Delete a catalog directly (soft delete - moves to trash)
      */
     router.delete(
         '/metahub/:metahubId/catalog/:catalogId',
@@ -981,6 +1055,82 @@ export function createCatalogsRoutes(
             }
 
             await objectsService.delete(metahubId, catalogId, userId)
+
+            res.status(204).send()
+        })
+    )
+
+    /**
+     * GET /metahub/:metahubId/catalogs/trash
+     * List all soft-deleted catalogs (trash view)
+     */
+    router.get(
+        '/metahub/:metahubId/catalogs/trash',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId } = req.params
+            const { objectsService } = services(req)
+            const userId = resolveUserId(req)
+
+            const deletedCatalogs = await objectsService.findDeleted(metahubId, userId)
+
+            const items = deletedCatalogs.map((row: any) => ({
+                id: row.id,
+                metahubId,
+                codename: row.codename,
+                name: row.presentation?.name || {},
+                description: row.presentation?.description || {},
+                deletedAt: row.deleted_at,
+                deletedBy: row.deleted_by
+            }))
+
+            res.json({ items, total: items.length })
+        })
+    )
+
+    /**
+     * POST /metahub/:metahubId/catalog/:catalogId/restore
+     * Restore a soft-deleted catalog from trash
+     */
+    router.post(
+        '/metahub/:metahubId/catalog/:catalogId/restore',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { objectsService } = services(req)
+            const userId = resolveUserId(req)
+
+            // Check if catalog exists in trash
+            const catalog = await objectsService.findById(metahubId, catalogId, userId, { onlyDeleted: true })
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found in trash' })
+            }
+
+            await objectsService.restore(metahubId, catalogId, userId)
+
+            res.json({ message: 'Catalog restored successfully', id: catalogId })
+        })
+    )
+
+    /**
+     * DELETE /metahub/:metahubId/catalog/:catalogId/permanent
+     * Permanently delete a catalog (irreversible)
+     */
+    router.delete(
+        '/metahub/:metahubId/catalog/:catalogId/permanent',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { objectsService } = services(req)
+            const userId = resolveUserId(req)
+
+            // Check if catalog exists (including deleted)
+            const catalog = await objectsService.findById(metahubId, catalogId, userId, { includeDeleted: true })
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            await objectsService.permanentDelete(metahubId, catalogId, userId)
 
             res.status(204).send()
         })

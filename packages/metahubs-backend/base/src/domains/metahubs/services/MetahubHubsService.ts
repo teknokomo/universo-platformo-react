@@ -1,6 +1,7 @@
 import { KnexClient, generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
+import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 
 /**
  * MetahubHubsService - CRUD operations for Hubs stored in isolated schemas.
@@ -28,8 +29,8 @@ export class MetahubHubsService {
             name: (row.presentation as Record<string, unknown>)?.name ?? {},
             description: (row.presentation as Record<string, unknown>)?.description ?? null,
             sort_order: (row.config as Record<string, unknown>)?.sortOrder ?? 0,
-            created_at: row.created_at,
-            updated_at: row.updated_at
+            created_at: row._upl_created_at,
+            updated_at: row._upl_updated_at
         }
     }
 
@@ -70,11 +71,11 @@ export class MetahubHubsService {
         } else if (options.sortBy === 'codename') {
             query = query.orderBy('codename', sortOrder)
         } else if (options.sortBy === 'created') {
-            query = query.orderBy('created_at', sortOrder)
+            query = query.orderBy('_upl_created_at', sortOrder)
         } else if (options.sortBy === 'updated') {
-            query = query.orderBy('updated_at', sortOrder)
+            query = query.orderBy('_upl_updated_at', sortOrder)
         } else {
-            query = query.orderBy('created_at', sortOrder)
+            query = query.orderBy('_upl_created_at', sortOrder)
         }
 
         // Pagination
@@ -147,6 +148,7 @@ export class MetahubHubsService {
         name: Record<string, unknown>
         description?: Record<string, unknown>
         sortOrder?: number
+        createdBy?: string | null
     }, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
@@ -164,8 +166,10 @@ export class MetahubHubsService {
                 config: {
                     sortOrder: input.sortOrder ?? 0
                 },
-                created_at: new Date(),
-                updated_at: new Date()
+                _upl_created_at: new Date(),
+                _upl_created_by: input.createdBy ?? null,
+                _upl_updated_at: new Date(),
+                _upl_updated_by: input.createdBy ?? null
             })
             .returning('*')
 
@@ -188,6 +192,8 @@ export class MetahubHubsService {
         name?: Record<string, unknown>
         description?: Record<string, unknown>
         sortOrder?: number
+        updatedBy?: string | null
+        expectedVersion?: number
     }, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
@@ -202,7 +208,10 @@ export class MetahubHubsService {
         const currentPresentation = existing.presentation ?? {}
         const currentConfig = existing.config ?? {}
 
-        const updateData: Record<string, unknown> = { updated_at: new Date() }
+        const updateData: Record<string, unknown> = {
+            _upl_updated_at: new Date(),
+            _upl_updated_by: input.updatedBy ?? null
+        }
 
         if (input.codename !== undefined) {
             updateData.codename = input.codename
@@ -225,13 +234,22 @@ export class MetahubHubsService {
             }
         }
 
-        const [updated] = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id: hubId, kind: 'HUB' })
-            .update(updateData)
-            .returning('*')
+        // If expectedVersion is provided, use version-checked update
+        if (input.expectedVersion !== undefined) {
+            const updated = await updateWithVersionCheck({
+                knex: this.knex,
+                schemaName,
+                tableName: '_mhb_objects',
+                entityId: hubId,
+                entityType: 'hub',
+                expectedVersion: input.expectedVersion,
+                updateData
+            })
+            return this.mapHubFromObject(updated)
+        }
 
+        // Fallback: increment version without check (backwards compatibility)
+        const updated = await incrementVersion(this.knex, schemaName, '_mhb_objects', hubId, updateData)
         return this.mapHubFromObject(updated)
     }
 

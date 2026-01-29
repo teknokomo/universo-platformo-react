@@ -113,10 +113,12 @@ export interface UpdatePublicationPayload {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
+    expectedVersion?: number
 }
 
 /**
  * Update a publication (information base)
+ * @param payload.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
 export const updatePublication = async (
     metahubId: string,

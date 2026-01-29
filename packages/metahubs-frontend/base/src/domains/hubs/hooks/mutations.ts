@@ -33,6 +33,7 @@ export function useCreateHub() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('hubs.createSuccess', 'Hub created'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -53,6 +54,7 @@ export function useUpdateHub() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('hubs.updateSuccess', 'Hub updated'), { variant: 'success' })
         },
         onError: (error: Error) => {
@@ -72,6 +74,7 @@ export function useDeleteHub() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('hubs.deleteSuccess', 'Hub deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {

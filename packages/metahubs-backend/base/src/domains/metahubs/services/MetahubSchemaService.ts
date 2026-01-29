@@ -189,17 +189,17 @@ export class MetahubSchemaService {
 
         let branchId = this.branchIdOverride ?? defaultBranchId
         if (!this.branchIdOverride && userId) {
-            const membership = await memberRepo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
-            if (membership?.active_branch_id) {
-                branchId = membership.active_branch_id
+            const membership = await memberRepo.findOne({ where: { metahubId, userId } })
+            if (membership?.activeBranchId) {
+                branchId = membership.activeBranchId
             }
         }
 
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
         if (!branch) {
             throw new Error('Branch not found')
         }
-        return { branchId, schemaName: branch.schema_name }
+        return { branchId, schemaName: branch.schemaName }
     }
 
     /**
@@ -209,10 +209,10 @@ export class MetahubSchemaService {
      */
     async dropSchema(metahubId: string): Promise<void> {
         const branchRepo = this.dataSource.getRepository(MetahubBranch)
-        const branches = await branchRepo.find({ where: { metahub_id: metahubId } })
+        const branches = await branchRepo.find({ where: { metahubId } })
         const { generator } = getDDLServices()
         for (const branch of branches) {
-            await generator.dropSchema(branch.schema_name)
+            await generator.dropSchema(branch.schemaName)
         }
 
         // Clear cache after dropping
@@ -222,6 +222,10 @@ export class MetahubSchemaService {
     /**
      * Initialize system tables in the isolated schema.
      * Uses UUID v7 for better indexing performance.
+     *
+     * System fields follow the three-level architecture:
+     * - _upl_* (Platform level): audit trail, optimistic locking, archive, soft delete, lock
+     * - _mhb_* (Metahub level): design-time soft delete and publication status
      */
     private async initSystemTables(schemaName: string): Promise<void> {
         // _mhb_objects: Unified registry for all object types (Catalogs, Hubs, Documents, etc.)
@@ -234,9 +238,67 @@ export class MetahubSchemaService {
                 t.string('table_name').nullable() // Only for data-bearing objects (Catalogs, Documents)
                 t.jsonb('presentation').defaultTo('{}')
                 t.jsonb('config').defaultTo('{}')
-                t.timestamps(true, true)
-                t.unique(['kind', 'codename'])
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_created_by').nullable()
+                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_updated_by').nullable()
+                t.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                t.boolean('_upl_archived').notNullable().defaultTo(false)
+                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                t.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                t.boolean('_upl_deleted').notNullable().defaultTo(false)
+                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                t.uuid('_upl_deleted_by').nullable()
+                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                t.boolean('_upl_locked').notNullable().defaultTo(false)
+                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                t.uuid('_upl_locked_by').nullable()
+                t.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Metahub-level system fields (_mhb_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                t.boolean('_mhb_published').notNullable().defaultTo(true)
+                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
+                t.uuid('_mhb_published_by').nullable()
+                // Archive fields (design-time)
+                t.boolean('_mhb_archived').notNullable().defaultTo(false)
+                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
+                t.uuid('_mhb_archived_by').nullable()
+                // Soft delete fields (design-time)
+                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
+                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
+                t.uuid('_mhb_deleted_by').nullable()
             })
+
+            // Partial unique index (exclude soft-deleted records at both levels)
+            await this.knex.raw(`
+                CREATE UNIQUE INDEX idx_mhb_objects_kind_codename_active
+                ON "${schemaName}"._mhb_objects (kind, codename)
+                WHERE _upl_deleted = false AND _mhb_deleted = false
+            `)
+
+            // Index for trash queries (metahub-level)
+            await this.knex.raw(`
+                CREATE INDEX idx_mhb_objects_mhb_deleted
+                ON "${schemaName}"._mhb_objects (_mhb_deleted_at)
+                WHERE _mhb_deleted = true
+            `)
+
+            // Index for platform-level trash queries
+            await this.knex.raw(`
+                CREATE INDEX idx_mhb_objects_upl_deleted
+                ON "${schemaName}"._mhb_objects (_upl_deleted_at)
+                WHERE _upl_deleted = true
+            `)
         }
 
         // _mhb_attributes: Field definitions for objects
@@ -253,12 +315,57 @@ export class MetahubSchemaService {
                 t.integer('sort_order').defaultTo(0)
                 t.boolean('is_required').defaultTo(false)
                 t.string('target_object_id').nullable()
-                t.timestamps(true, true)
-                t.unique(['object_id', 'codename'])
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_created_by').nullable()
+                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_updated_by').nullable()
+                t.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                t.boolean('_upl_archived').notNullable().defaultTo(false)
+                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                t.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                t.boolean('_upl_deleted').notNullable().defaultTo(false)
+                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                t.uuid('_upl_deleted_by').nullable()
+                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                t.boolean('_upl_locked').notNullable().defaultTo(false)
+                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                t.uuid('_upl_locked_by').nullable()
+                t.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Metahub-level system fields (_mhb_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                t.boolean('_mhb_published').notNullable().defaultTo(true)
+                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
+                t.uuid('_mhb_published_by').nullable()
+                // Archive fields (design-time)
+                t.boolean('_mhb_archived').notNullable().defaultTo(false)
+                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
+                t.uuid('_mhb_archived_by').nullable()
+                // Soft delete fields (design-time)
+                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
+                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
+                t.uuid('_mhb_deleted_by').nullable()
+
                 // Performance indexes
                 t.index(['object_id'], 'idx_mhb_attributes_object_id')
                 t.index(['target_object_id'], 'idx_mhb_attributes_target_object_id')
             })
+
+            // Partial unique index (exclude soft-deleted records at both levels)
+            await this.knex.raw(`
+                CREATE UNIQUE INDEX idx_mhb_attributes_object_codename_active
+                ON "${schemaName}"._mhb_attributes (object_id, codename)
+                WHERE _upl_deleted = false AND _mhb_deleted = false
+            `)
         }
 
         // _mhb_elements: Predefined data for catalogs (synced to publications/versions)
@@ -270,7 +377,46 @@ export class MetahubSchemaService {
                 t.jsonb('data').notNullable().defaultTo('{}')
                 t.integer('sort_order').defaultTo(0)
                 t.uuid('owner_id').nullable()
-                t.timestamps(true, true)
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_created_by').nullable()
+                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_updated_by').nullable()
+                t.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                t.boolean('_upl_archived').notNullable().defaultTo(false)
+                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                t.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                t.boolean('_upl_deleted').notNullable().defaultTo(false)
+                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                t.uuid('_upl_deleted_by').nullable()
+                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                t.boolean('_upl_locked').notNullable().defaultTo(false)
+                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                t.uuid('_upl_locked_by').nullable()
+                t.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Metahub-level system fields (_mhb_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                t.boolean('_mhb_published').notNullable().defaultTo(true)
+                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
+                t.uuid('_mhb_published_by').nullable()
+                // Archive fields (design-time)
+                t.boolean('_mhb_archived').notNullable().defaultTo(false)
+                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
+                t.uuid('_mhb_archived_by').nullable()
+                // Soft delete fields (design-time)
+                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
+                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
+                t.uuid('_mhb_deleted_by').nullable()
+
                 // Performance indexes
                 t.index(['object_id'], 'idx_mhb_elements_object_id')
                 t.index(['object_id', 'sort_order'], 'idx_mhb_elements_object_sort')
@@ -281,6 +427,20 @@ export class MetahubSchemaService {
             await this.knex.raw(`
                 CREATE INDEX IF NOT EXISTS idx_mhb_elements_data_gin
                 ON "${schemaName}"._mhb_elements USING GIN(data)
+            `)
+
+            // Index for trash queries (metahub-level)
+            await this.knex.raw(`
+                CREATE INDEX idx_mhb_elements_mhb_deleted
+                ON "${schemaName}"._mhb_elements (_mhb_deleted_at)
+                WHERE _mhb_deleted = true
+            `)
+
+            // Index for platform-level trash queries
+            await this.knex.raw(`
+                CREATE INDEX idx_mhb_elements_upl_deleted
+                ON "${schemaName}"._mhb_elements (_upl_deleted_at)
+                WHERE _upl_deleted = true
             `)
         }
     }

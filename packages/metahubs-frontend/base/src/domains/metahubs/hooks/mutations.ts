@@ -14,6 +14,7 @@ type LegacyMetahubInput = { name: string; description?: string }
 interface UpdateMetahubParams {
     id: string
     data: LegacyMetahubInput | MetahubLocalizedPayload
+    expectedVersion?: number
 }
 
 interface UpdateMemberRoleParams {
@@ -80,9 +81,9 @@ export function useUpdateMetahub() {
     const { t, i18n } = useTranslation('metahubs')
 
     return useMutation({
-        mutationFn: async ({ id, data }: UpdateMetahubParams) => {
+        mutationFn: async ({ id, data, expectedVersion }: UpdateMetahubParams) => {
             const locale = normalizeLocale(i18n.language)
-            const payload: MetahubLocalizedPayload =
+            const payload: MetahubLocalizedPayload & { expectedVersion?: number } =
                 typeof data.name === 'string'
                     ? {
                           codename: (() => {
@@ -95,9 +96,10 @@ export function useUpdateMetahub() {
                           name: buildLocalizedInput(data.name, locale) ?? { [locale]: '' },
                           description: buildLocalizedInput(data.description, locale),
                           namePrimaryLocale: locale,
-                          descriptionPrimaryLocale: data.description ? locale : undefined
+                          descriptionPrimaryLocale: data.description ? locale : undefined,
+                          expectedVersion
                       }
-                    : data
+                    : { ...data, expectedVersion }
             const response = await metahubsApi.updateMetahub(id, payload)
             return response.data
         },

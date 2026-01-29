@@ -44,6 +44,78 @@
 
 ---
 
+## 2026-01-28
+
+### Optimistic Locking Email Lookup Rollout
+- **Backend Phase 1**: Added email lookup to conflict responses for 7 entities:
+  - Branch (branchesRoutes.ts)
+  - Publication (publicationsRoutes.ts) — also fixed entityType from 'catalog' to 'publication'
+  - Hub (hubsRoutes.ts)
+  - Catalog (catalogsRoutes.ts) — both PATCH routes updated
+  - Attribute (attributesRoutes.ts)
+  - Element (elementsRoutes.ts)
+  - Connector (connectorsRoutes.ts) — also fixed entityType from 'catalog' to 'connector'
+- **Backend Phase 2**: Full optimistic locking implementation for Application entity:
+  - Added `expectedVersion` to Zod schema
+  - Added version check logic with 409 response
+  - Added email lookup for conflict info
+- **Frontend Phase 3**: Updated API functions with `expectedVersion` parameter:
+  - branches/api/branches.ts — updateBranch
+  - publications/api/publications.ts — UpdatePublicationPayload + updatePublication
+  - applications.ts — ApplicationInput + updateApplication
+  - connectors.ts — updateConnector
+- **Pattern**: All entities now return `updatedByEmail` in conflict response, fetched via `SELECT email FROM auth.users WHERE id = $1`
+- **Builds verified**: metahubs-backend, applications-backend, metahubs-frontend, applications-frontend
+
+### Optimistic Locking Version Field Implementation
+- **Root Cause Fix**: API responses were missing `version` field, causing frontend to send `expectedVersion: undefined` which bypassed version checks.
+- **Metahubs API**: Added `version: m._uplVersion || 1` to list, get, create, update endpoints in `metahubsRoutes.ts`.
+- **Publications API**: Added `version` field to `/publications/available` SQL query and all CRUD endpoints in `publicationsRoutes.ts`.
+- **Branches API**: Added `version: branch._uplVersion || 1` to list options, list, get, create, update endpoints in `branchesRoutes.ts`.
+- **Connectors API**: Unified response format with explicit `version: connector._uplVersion || 1` field in get, create, update endpoints in `connectorsRoutes.ts`.
+
+### Optimistic Locking Version Check Implementation
+- **Metahubs UPDATE**: Added `expectedVersion` to Zod schema and version check before save with 409 Conflict response.
+- **Branches UPDATE**: Added `expectedVersion` to schema, service, and routes with 409 response.
+- **Publications UPDATE**: Added `expectedVersion` to schema with inline version check and 409 response.
+- **Connectors UPDATE**: Added `expectedVersion` to schema with inline version check and 409 response.
+- **Build/Test**: metahubs-backend and applications-backend builds successful.
+
+### Key Files Modified
+- `packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts`: 4 endpoints updated.
+- `packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts`: SQL query + 4 endpoints updated.
+- `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`: 5 endpoints updated.
+- `packages/applications-backend/base/src/routes/connectorsRoutes.ts`: 3 endpoints unified.
+
+---
+
+## 2026-01-27
+
+### Three-Level System Fields Architecture
+- **Architecture**: Implemented three-level prefixed system fields (`_upl_*`, `_mhb_*`, `_app_*`) for cascade soft delete and audit tracking.
+- **Platform Fields (`_upl_*`)**: `created_at`, `created_by`, `updated_at`, `updated_by`, `version`, `deleted`, `deleted_at`, `deleted_by` — present in all entities.
+- **Metahub Fields (`_mhb_*`)**: `published`, `published_at`, `unpublished_at`, `archived`, `archived_at` — for Design-Time entities in `mhb_*` schemas.
+- **Application Fields (`_app_*`)**: `published`, `published_at`, `unpublished_at`, `archived`, `archived_at`, `deleted`, `deleted_at`, `deleted_by` — for Run-Time entities in `app_*` schemas.
+- **Entity Updates**: All TypeORM entities updated with new field names (e.g., `_uplCreatedAt`, `_uplCreatedBy`).
+- **Migration Consolidation**: Migrations updated to use new column names with proper defaults.
+- **User ID Propagation**: Fixed `_upl_created_by`/`_upl_updated_by` across all routes:
+  - `catalogsRoutes.ts`: Added `createdBy`/`updatedBy` to catalog create/update.
+  - `attributesRoutes.ts`: Added `createdBy`/`updatedBy` to attribute create/update.
+  - `elementsRoutes.ts`: Added `createdBy`/`updatedBy` to element create/update.
+  - `publicationsRoutes.ts`: Added `_uplCreatedBy`/`_uplUpdatedBy` to publication and auto-created entities.
+  - `connectorsRoutes.ts`: Added `resolveUserId` helper and user fields to connector/publication operations.
+- **SchemaGenerator Fix**: Updated `syncSystemMetadata` to use `_upl_created_at`/`_upl_updated_at` column names.
+- **Version Increment Fix**: Changed `MetahubBranchesService` to use `createQueryBuilder().update()` to avoid double version increment.
+- **Build/Test**: metahubs-backend, applications-backend, schema-ddl builds successful.
+
+### Key Files Modified
+- `packages/metahubs-backend/base/src/database/entities/*.ts`: All entities with `_upl*` fields.
+- `packages/applications-backend/base/src/database/entities/*.ts`: All entities with `_upl*` and `_app*` fields.
+- `packages/schema-ddl/base/src/SchemaGenerator.ts`: System tables and `syncSystemMetadata` with new column names.
+- `packages/*/routes/*.ts`: User ID propagation for audit fields.
+
+---
+
 ## 2026-01-24
 
 ### Metahubs elements rename + UI sync

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, VersionColumn } from 'typeorm'
 import type { VersionedLocalizedContent } from '@universo/types'
 
 /**
@@ -39,7 +39,7 @@ export class Application {
     description?: VersionedLocalizedContent<string>
 
     /** URL-friendly identifier for public access */
-    @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
+    @Column({ type: 'varchar', length: 100, nullable: true })
     slug?: string
 
     /** Whether this application is publicly accessible via API */
@@ -55,7 +55,7 @@ export class Application {
      * Format: app_{uuid-without-hyphens}
      * Example: app_0190a1b2c3d4e5f6a7b8c9d0e1f2a3b4
      */
-    @Column({ name: 'schema_name', type: 'varchar', length: 100, unique: true, nullable: true })
+    @Column({ name: 'schema_name', type: 'varchar', length: 100, nullable: true })
     schemaName?: string | null
 
     /** Current schema synchronization status */
@@ -84,11 +84,99 @@ export class Application {
     @Column({ name: 'schema_snapshot', type: 'jsonb', nullable: true })
     schemaSnapshot?: Record<string, unknown> | null
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Platform-level system fields (_upl_*)
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    @CreateDateColumn({ name: 'created_at' })
-    createdAt!: Date
+    @CreateDateColumn({ name: '_upl_created_at', type: 'timestamptz' })
+    _uplCreatedAt!: Date
 
-    @UpdateDateColumn({ name: 'updated_at' })
-    updatedAt!: Date
+    @Column({ name: '_upl_created_by', type: 'uuid', nullable: true })
+    _uplCreatedBy?: string
+
+    @UpdateDateColumn({ name: '_upl_updated_at', type: 'timestamptz' })
+    _uplUpdatedAt!: Date
+
+    @Column({ name: '_upl_updated_by', type: 'uuid', nullable: true })
+    _uplUpdatedBy?: string
+
+    @VersionColumn({ name: '_upl_version' })
+    _uplVersion!: number
+
+    // Archive fields
+    @Column({ name: '_upl_archived', type: 'boolean', default: false })
+    _uplArchived!: boolean
+
+    @Column({ name: '_upl_archived_at', type: 'timestamptz', nullable: true })
+    _uplArchivedAt?: Date
+
+    @Column({ name: '_upl_archived_by', type: 'uuid', nullable: true })
+    _uplArchivedBy?: string
+
+    // Soft delete fields
+    @Column({ name: '_upl_deleted', type: 'boolean', default: false })
+    _uplDeleted!: boolean
+
+    @Column({ name: '_upl_deleted_at', type: 'timestamptz', nullable: true })
+    _uplDeletedAt?: Date
+
+    @Column({ name: '_upl_deleted_by', type: 'uuid', nullable: true })
+    _uplDeletedBy?: string
+
+    @Column({ name: '_upl_purge_after', type: 'timestamptz', nullable: true })
+    _uplPurgeAfter?: Date
+
+    // Lock fields
+    @Column({ name: '_upl_locked', type: 'boolean', default: false })
+    _uplLocked!: boolean
+
+    @Column({ name: '_upl_locked_at', type: 'timestamptz', nullable: true })
+    _uplLockedAt?: Date
+
+    @Column({ name: '_upl_locked_by', type: 'uuid', nullable: true })
+    _uplLockedBy?: string
+
+    @Column({ name: '_upl_locked_reason', type: 'text', nullable: true })
+    _uplLockedReason?: string
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Application-level system fields (_app_*)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Publication fields
+    @Column({ name: '_app_published', type: 'boolean', default: true })
+    _appPublished!: boolean
+
+    @Column({ name: '_app_published_at', type: 'timestamptz', nullable: true })
+    _appPublishedAt?: Date
+
+    @Column({ name: '_app_published_by', type: 'uuid', nullable: true })
+    _appPublishedBy?: string
+
+    // Archive fields
+    @Column({ name: '_app_archived', type: 'boolean', default: false })
+    _appArchived!: boolean
+
+    @Column({ name: '_app_archived_at', type: 'timestamptz', nullable: true })
+    _appArchivedAt?: Date
+
+    @Column({ name: '_app_archived_by', type: 'uuid', nullable: true })
+    _appArchivedBy?: string
+
+    // Soft delete fields
+    @Column({ name: '_app_deleted', type: 'boolean', default: false })
+    _appDeleted!: boolean
+
+    @Column({ name: '_app_deleted_at', type: 'timestamptz', nullable: true })
+    _appDeletedAt?: Date
+
+    @Column({ name: '_app_deleted_by', type: 'uuid', nullable: true })
+    _appDeletedBy?: string
+
+    // Access control
+    @Column({ name: '_app_owner_id', type: 'uuid', nullable: true })
+    _appOwnerId?: string
+
+    @Column({ name: '_app_access_level', type: 'varchar', length: 20, default: 'private' })
+    _appAccessLevel!: string
 }

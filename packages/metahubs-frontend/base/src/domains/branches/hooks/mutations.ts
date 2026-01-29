@@ -43,6 +43,7 @@ export function useCreateBranch() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.createSuccess', 'Branch created'), { variant: 'success' })
         },
@@ -69,6 +70,7 @@ export function useUpdateBranch() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.updateSuccess', 'Branch updated'), { variant: 'success' })
         },
@@ -89,6 +91,7 @@ export function useDeleteBranch() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.deleteSuccess', 'Branch deleted'), { variant: 'success' })
         },
@@ -130,6 +133,7 @@ export function useSetDefaultBranch() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.setDefaultSuccess', 'Default branch updated'), { variant: 'success' })
         },

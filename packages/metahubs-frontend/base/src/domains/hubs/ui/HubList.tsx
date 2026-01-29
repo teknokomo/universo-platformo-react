@@ -26,7 +26,7 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill
 } from '@universo/template-mui'
-import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
@@ -37,6 +37,7 @@ import * as hubsApi from '../api'
 import { metahubsQueryKeys, invalidateHubsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Hub, HubDisplay, HubLocalizedPayload, getVLCString, toHubDisplay } from '../../../types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubDeleteDialog } from '../../../components'
@@ -168,6 +169,12 @@ const HubList = () => {
         open: boolean
         hub: Hub | null
     }>({ open: false, hub: null })
+
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: HubLocalizedPayload } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -342,11 +349,24 @@ const HubList = () => {
                     if (!normalizedCodename) {
                         throw new Error(t('hubs.validation.codenameRequired', 'Codename is required'))
                     }
-                    await updateHubMutation.mutateAsync({
-                        metahubId,
-                        hubId: id,
-                        data: { ...patch, codename: normalizedCodename }
-                    })
+                    const hub = hubMap.get(id)
+                    const expectedVersion = hub?.version
+                    try {
+                        await updateHubMutation.mutateAsync({
+                            metahubId,
+                            hubId: id,
+                            data: { ...patch, codename: normalizedCodename, expectedVersion }
+                        })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId) return
@@ -692,6 +712,29 @@ const HubList = () => {
             />
 
             <ConfirmDialog />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    if (metahubId) {
+                        invalidateHubsQueries.all(queryClient, metahubId)
+                    }
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate && metahubId) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updateHubMutation.mutateAsync({
+                            metahubId,
+                            hubId: id,
+                            data: patch
+                        })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updateHubMutation.isPending}
+            />
         </MainCard>
     )
 }

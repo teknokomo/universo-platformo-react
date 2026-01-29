@@ -30,6 +30,8 @@ export interface GenerateFullSchemaOptions {
     >
     /** Optional Metahub snapshot stored separately from meta */
     publicationSnapshot?: Record<string, unknown> | null
+    /** User ID for audit fields */
+    userId?: string | null
 }
 
 /**
@@ -120,7 +122,7 @@ export class SchemaGenerator {
                     }
                 }
 
-                await this.syncSystemMetadata(schemaName, entities, { trx })
+                await this.syncSystemMetadata(schemaName, entities, { trx, userId: options?.userId })
 
                 // Record initial migration if requested
                 if (options?.recordMigration) {
@@ -148,7 +150,8 @@ export class SchemaGenerator {
                         initialDiff,
                         trx,
                         options.migrationMeta,
-                        options.publicationSnapshot ?? null
+                        options.publicationSnapshot ?? null,
+                        options.userId ?? null
                     )
                 }
             })
@@ -173,9 +176,8 @@ export class SchemaGenerator {
         const knex = trx ?? this.knex
         await knex.schema.withSchema(schemaName).createTable(tableName, (table: Knex.CreateTableBuilder) => {
             table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
-            table.timestamp('created_at').notNullable().defaultTo(knex.fn.now())
-            table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now())
 
+            // User-defined fields
             for (const field of entity.fields) {
                 const columnName = generateColumnName(field.id)
                 const pgType = SchemaGenerator.mapDataType(field.dataType)
@@ -185,7 +187,66 @@ export class SchemaGenerator {
                     table.specificType(columnName, pgType).nullable()
                 }
             }
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // Platform-level system fields (_upl_*)
+            // ═══════════════════════════════════════════════════════════════════════
+            table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+            table.uuid('_upl_created_by').nullable()
+            table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+            table.uuid('_upl_updated_by').nullable()
+            table.integer('_upl_version').notNullable().defaultTo(1)
+            // Archive fields
+            table.boolean('_upl_archived').notNullable().defaultTo(false)
+            table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+            table.uuid('_upl_archived_by').nullable()
+            // Soft delete fields
+            table.boolean('_upl_deleted').notNullable().defaultTo(false)
+            table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+            table.uuid('_upl_deleted_by').nullable()
+            table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+            // Lock fields
+            table.boolean('_upl_locked').notNullable().defaultTo(false)
+            table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+            table.uuid('_upl_locked_by').nullable()
+            table.text('_upl_locked_reason').nullable()
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // Application-level system fields (_app_*)
+            // ═══════════════════════════════════════════════════════════════════════
+            // Publication status
+            table.boolean('_app_published').notNullable().defaultTo(true)
+            table.timestamp('_app_published_at', { useTz: true }).nullable()
+            table.uuid('_app_published_by').nullable()
+            // Archive fields
+            table.boolean('_app_archived').notNullable().defaultTo(false)
+            table.timestamp('_app_archived_at', { useTz: true }).nullable()
+            table.uuid('_app_archived_by').nullable()
+            // Soft delete fields
+            table.boolean('_app_deleted').notNullable().defaultTo(false)
+            table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+            table.uuid('_app_deleted_by').nullable()
+            // Access control
+            table.uuid('_app_owner_id').nullable()
+            table.string('_app_access_level', 20).notNullable().defaultTo('private')
         })
+
+        // Create indexes for system fields
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_${tableName}_upl_deleted
+            ON "${schemaName}"."${tableName}" (_upl_deleted_at)
+            WHERE _upl_deleted = true
+        `)
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_${tableName}_app_deleted
+            ON "${schemaName}"."${tableName}" (_app_deleted_at)
+            WHERE _app_deleted = true
+        `)
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_${tableName}_app_owner
+            ON "${schemaName}"."${tableName}" (_app_owner_id)
+            WHERE _app_owner_id IS NOT NULL
+        `)
 
         console.log(`[SchemaGenerator] Table ${schemaName}.${tableName} created`)
     }
@@ -257,8 +318,46 @@ export class SchemaGenerator {
                 table.string('table_name', 255).notNullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('config').notNullable().defaultTo('{}')
-                table.timestamp('created_at').notNullable().defaultTo(knex.fn.now())
-                table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now())
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Application-level system fields (_app_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                // Archive fields
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
                 table.unique(['kind', 'codename'])
                 table.unique(['table_name'])
             })
@@ -281,8 +380,45 @@ export class SchemaGenerator {
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('validation_rules').notNullable().defaultTo('{}')
                 table.jsonb('ui_config').notNullable().defaultTo('{}')
-                table.timestamp('created_at').notNullable().defaultTo(knex.fn.now())
-                table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now())
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Application-level system fields (_app_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                // Archive fields
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
 
                 table
                     .foreign('object_id')
@@ -308,9 +444,49 @@ export class SchemaGenerator {
             await knex.schema.withSchema(schemaName).createTable('_app_migrations', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
                 table.string('name', 255).notNullable()
-                table.timestamp('applied_at').notNullable().defaultTo(knex.fn.now())
+                table.timestamp('applied_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
                 table.jsonb('meta').notNullable().defaultTo('{}')
                 table.jsonb('publication_snapshot').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Application-level system fields (_app_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                // Archive fields
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
                 table.unique(['name'])
             })
             console.log(`[SchemaGenerator] _app_migrations created`)
@@ -325,9 +501,11 @@ export class SchemaGenerator {
         options?: {
             removeMissing?: boolean
             trx?: Knex.Transaction
+            userId?: string | null
         }
     ): Promise<void> {
         const knex = options?.trx ?? this.knex
+        const userId = options?.userId ?? null
         await this.ensureSystemTables(schemaName, options?.trx)
 
         const objectRows = entities.map((entity) => ({
@@ -337,8 +515,10 @@ export class SchemaGenerator {
             table_name: generateTableName(entity.id, entity.kind),
             presentation: entity.presentation,
             config: (entity as { config?: Record<string, unknown> }).config ?? {},
-            created_at: knex.fn.now(),
-            updated_at: knex.fn.now(),
+            _upl_created_at: knex.fn.now(),
+            _upl_created_by: userId,
+            _upl_updated_at: knex.fn.now(),
+            _upl_updated_by: userId,
         }))
 
         if (objectRows.length > 0) {
@@ -347,7 +527,7 @@ export class SchemaGenerator {
                 .table('_app_objects')
                 .insert(objectRows)
                 .onConflict('id')
-                .merge(['kind', 'codename', 'table_name', 'presentation', 'config', 'updated_at'])
+                .merge(['kind', 'codename', 'table_name', 'presentation', 'config', '_upl_updated_at', '_upl_updated_by'])
         }
 
         const attributeRows = entities.flatMap((entity) =>
@@ -362,8 +542,10 @@ export class SchemaGenerator {
                 presentation: field.presentation,
                 validation_rules: field.validationRules ?? {},
                 ui_config: field.uiConfig ?? {},
-                created_at: knex.fn.now(),
-                updated_at: knex.fn.now(),
+                _upl_created_at: knex.fn.now(),
+                _upl_created_by: userId,
+                _upl_updated_at: knex.fn.now(),
+                _upl_updated_by: userId,
             }))
         )
 
@@ -383,7 +565,8 @@ export class SchemaGenerator {
                     'presentation',
                     'validation_rules',
                     'ui_config',
-                    'updated_at',
+                    '_upl_updated_at',
+                    '_upl_updated_by',
                 ])
         }
 

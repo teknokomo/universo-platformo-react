@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
-import { localizedContent, validation } from '@universo/utils'
+import { localizedContent, validation, type ConflictInfo } from '@universo/utils'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
 import type { VersionedLocalizedContent } from '@universo/types'
 
@@ -39,7 +39,8 @@ const updateBranchSchema = z.object({
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional()
+    descriptionPrimaryLocale: z.string().optional(),
+    expectedVersion: z.number().int().positive().optional()
 })
 
 export function createBranchesRoutes(
@@ -98,10 +99,11 @@ export function createBranchesRoutes(
                 codename: branch.codename,
                 name: branch.name,
                 description: branch.description,
-                sourceBranchId: branch.source_branch_id ?? null,
-                branchNumber: branch.branch_number,
-                createdAt: branch.created_at,
-                updatedAt: branch.updated_at,
+                sourceBranchId: branch.sourceBranchId ?? null,
+                branchNumber: branch.branchNumber,
+                version: branch._uplVersion || 1,
+                createdAt: branch._uplCreatedAt,
+                updatedAt: branch._uplUpdatedAt,
                 isDefault: branch.id === defaultBranchId,
                 isActive: branch.id === effectiveActiveId
             }))
@@ -158,10 +160,11 @@ export function createBranchesRoutes(
                 codename: branch.codename,
                 name: branch.name,
                 description: branch.description,
-                sourceBranchId: branch.source_branch_id ?? null,
-                branchNumber: branch.branch_number,
-                createdAt: branch.created_at,
-                updatedAt: branch.updated_at,
+                sourceBranchId: branch.sourceBranchId ?? null,
+                branchNumber: branch.branchNumber,
+                version: branch._uplVersion || 1,
+                createdAt: branch._uplCreatedAt,
+                updatedAt: branch._uplUpdatedAt,
                 isDefault: branch.id === defaultBranchId,
                 isActive: branch.id === effectiveActiveId
             }))
@@ -209,9 +212,10 @@ export function createBranchesRoutes(
                 codename: branch.codename,
                 name: branch.name,
                 description: branch.description,
-                branchNumber: branch.branch_number,
-                createdAt: branch.created_at,
-                updatedAt: branch.updated_at,
+                branchNumber: branch.branchNumber,
+                version: branch._uplVersion || 1,
+                createdAt: branch._uplCreatedAt,
+                updatedAt: branch._uplUpdatedAt,
                 isDefault: branch.id === defaultBranchId,
                 isActive: branch.id === effectiveActiveId,
                 ...(await branchesService.getBranchLineage(metahubId, branchId))
@@ -287,10 +291,11 @@ export function createBranchesRoutes(
                     codename: branch.codename,
                     name: branch.name,
                     description: branch.description,
-                    sourceBranchId: branch.source_branch_id ?? null,
-                    branchNumber: branch.branch_number,
-                    createdAt: branch.created_at,
-                    updatedAt: branch.updated_at
+                    sourceBranchId: branch.sourceBranchId ?? null,
+                    branchNumber: branch.branchNumber,
+                    version: branch._uplVersion || 1,
+                    createdAt: branch._uplCreatedAt,
+                    updatedAt: branch._uplUpdatedAt
                 })
             } catch (error: any) {
                 if (error.message?.includes('Branch creation in progress')) {
@@ -323,11 +328,12 @@ export function createBranchesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+            const { codename, name, description, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = parsed.data
             const updateData: {
                 codename?: string
                 name?: VersionedLocalizedContent<string>
                 description?: VersionedLocalizedContent<string> | null
+                expectedVersion?: number
             } = {}
 
             if (codename !== undefined) {
@@ -365,6 +371,10 @@ export function createBranchesRoutes(
                         : null
             }
 
+            if (expectedVersion !== undefined) {
+                updateData.expectedVersion = expectedVersion
+            }
+
             try {
                 const updated = await branchesService.updateBranch(metahubId, branchId, updateData)
                 res.json({
@@ -373,14 +383,39 @@ export function createBranchesRoutes(
                     codename: updated.codename,
                     name: updated.name,
                     description: updated.description,
-                    sourceBranchId: updated.source_branch_id ?? null,
-                    branchNumber: updated.branch_number,
-                    createdAt: updated.created_at,
-                    updatedAt: updated.updated_at
+                    sourceBranchId: updated.sourceBranchId ?? null,
+                    branchNumber: updated.branchNumber,
+                    version: updated._uplVersion || 1,
+                    createdAt: updated._uplCreatedAt,
+                    updatedAt: updated._uplUpdatedAt
                 })
             } catch (error: any) {
                 if (error.message?.includes('Branch not found')) {
                     return res.status(404).json({ error: 'Branch not found' })
+                }
+                if (error.code === 'OPTIMISTIC_LOCK_CONFLICT') {
+                    const conflict = error.conflict as ConflictInfo
+                    // Fetch email for the user who last updated
+                    let updatedByEmail: string | null = null
+                    if (conflict.updatedBy) {
+                        try {
+                            const ds = getDataSource()
+                            const authUserResult = await ds.query(
+                                'SELECT email FROM auth.users WHERE id = $1',
+                                [conflict.updatedBy]
+                            )
+                            if (authUserResult?.[0]?.email) {
+                                updatedByEmail = authUserResult[0].email
+                            }
+                        } catch {
+                            // Ignore errors fetching email
+                        }
+                    }
+                    return res.status(409).json({
+                        error: 'Conflict: entity was modified by another user',
+                        code: error.code,
+                        conflict: { ...conflict, updatedByEmail }
+                    })
                 }
                 throw error
             }

@@ -37,6 +37,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
 import { listBranchOptions } from '../../branches/api/branches'
+import { metahubsQueryKeys } from '../../shared'
 
 // Types
 interface PublicationVersion {
@@ -142,6 +143,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['publication-versions', publicationId] })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(metahubId) })
             enqueueSnackbar(t('publications.versions.createSuccess', 'Версия создана'), { variant: 'success' })
             if (data?.isDuplicate) {
                 enqueueSnackbar(t('publications.versions.duplicateWarning', 'Версия совпадает с предыдущей'), {
@@ -163,6 +165,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['publication-versions', publicationId] })
             queryClient.invalidateQueries({ queryKey: ['publication', publicationId] })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(metahubId) })
             enqueueSnackbar(t('publications.versions.activateSuccess', 'Version activated'), { variant: 'success' })
             setActivateDialogOpen(null)
         }
@@ -175,6 +178,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['publication-versions', publicationId] })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(metahubId) })
             enqueueSnackbar(t('publications.versions.updateSuccess', 'Version updated'), { variant: 'success' })
             handleCloseEditDialog()
         },

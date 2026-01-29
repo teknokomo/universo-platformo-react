@@ -61,12 +61,12 @@ export function createApplicationsRoutes(
 
     const mapMember = (member: ApplicationUser, email: string | null, nickname: string | null) => ({
         id: member.id,
-        userId: member.user_id,
+        userId: member.userId,
         email,
         nickname,
         role: (member.role || 'member') as ApplicationRole,
         comment: member.comment,
-        createdAt: member.created_at
+        createdAt: member._uplCreatedAt
     })
 
     const loadMembers = async (
@@ -100,13 +100,13 @@ export function createApplicationsRoutes(
                         ? '(SELECT u.email FROM auth.users u WHERE u.id = au.user_id)'
                         : sortBy === 'role'
                         ? 'au.role'
-                        : 'au.created_at'
+                        : 'au._upl_created_at'
                 qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
                 qb.skip(offset).take(limit)
             }
 
             const [rawMembers, total] = await qb.getManyAndCount()
-            const userIds = rawMembers.map((m) => m.user_id)
+            const userIds = rawMembers.map((m) => m.userId)
 
             if (userIds.length === 0) {
                 return { members: [], total }
@@ -118,7 +118,7 @@ export function createApplicationsRoutes(
             const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
             const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
 
-            const members = rawMembers.map((m) => mapMember(m, usersMap.get(m.user_id) ?? null, profilesMap.get(m.user_id) ?? null))
+            const members = rawMembers.map((m) => mapMember(m, usersMap.get(m.userId) ?? null, profilesMap.get(m.userId) ?? null))
 
             return { members, total }
         } catch (error) {
@@ -174,8 +174,8 @@ export function createApplicationsRoutes(
                 sortBy === 'name'
                     ? "COALESCE(a.name->>(a.name->>'_primary'), a.name->>'en', '')"
                     : sortBy === 'created'
-                    ? 'a.created_at'
-                    : 'a.updated_at'
+                    ? 'a._upl_created_at'
+                    : 'a._upl_updated_at'
             qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
             qb = qb.skip(offset).take(limit)
 
@@ -185,10 +185,10 @@ export function createApplicationsRoutes(
             const memberships =
                 applicationIds.length > 0
                     ? await applicationUserRepo.find({
-                          where: { application_id: In(applicationIds), user_id: userId }
+                          where: { applicationId: In(applicationIds), userId }
                       })
                     : []
-            const membershipMap = new Map(memberships.map((m) => [m.application_id, m]))
+            const membershipMap = new Map(memberships.map((m) => [m.applicationId, m]))
 
             const { connectorRepo } = repos(req)
             const connectorCounts =
@@ -230,8 +230,9 @@ export function createApplicationsRoutes(
                     description: a.description,
                     slug: a.slug,
                     isPublic: a.isPublic,
-                    createdAt: a.createdAt,
-                    updatedAt: a.updatedAt,
+                    version: a._uplVersion || 1,
+                    createdAt: a._uplCreatedAt,
+                    updatedAt: a._uplUpdatedAt,
                     connectorsCount: connectorCountMap.get(a.id) ?? 0,
                     membersCount: memberCountMap.get(a.id) ?? 0,
                     role,
@@ -275,8 +276,9 @@ export function createApplicationsRoutes(
                 description: application.description,
                 slug: application.slug,
                 isPublic: application.isPublic,
-                createdAt: application.createdAt,
-                updatedAt: application.updatedAt,
+                version: application._uplVersion || 1,
+                createdAt: application._uplCreatedAt,
+                updatedAt: application._uplUpdatedAt,
                 schemaName: application.schemaName,
                 schemaStatus: application.schemaStatus,
                 schemaSyncedAt: application.schemaSyncedAt,
@@ -356,20 +358,25 @@ export function createApplicationsRoutes(
                 name: nameVlc,
                 description: descriptionVlc,
                 slug: slug || undefined,
-                isPublic: isPublic ?? false
+                isPublic: isPublic ?? false,
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
 
             const saved = await applicationRepo.save(application)
 
             // Generate schemaName based on Application UUID
             saved.schemaName = generateSchemaName(saved.id)
+            saved._uplUpdatedBy = userId
             await applicationRepo.save(saved)
 
             // Add creator as owner
             const member = applicationUserRepo.create({
-                application_id: saved.id,
-                user_id: userId,
-                role: 'owner'
+                applicationId: saved.id,
+                userId,
+                role: 'owner',
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
             await applicationUserRepo.save(member)
 
@@ -379,8 +386,9 @@ export function createApplicationsRoutes(
                 description: saved.description,
                 slug: saved.slug,
                 isPublic: saved.isPublic,
-                createdAt: saved.createdAt,
-                updatedAt: saved.updatedAt,
+                version: saved._uplVersion || 1,
+                createdAt: saved._uplCreatedAt,
+                updatedAt: saved._uplUpdatedAt,
                 connectorsCount: 0,
                 membersCount: 1,
                 role: 'owner',
@@ -428,7 +436,8 @@ export function createApplicationsRoutes(
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .nullable()
                     .optional(),
-                isPublic: z.boolean().optional()
+                isPublic: z.boolean().optional(),
+                expectedVersion: z.number().int().positive().optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -436,7 +445,42 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale } = result.data
+            const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } = result.data
+
+            // Optimistic locking check
+            if (expectedVersion !== undefined) {
+                const currentVersion = application._uplVersion || 1
+                if (currentVersion !== expectedVersion) {
+                    // Fetch email for the user who last updated
+                    let updatedByEmail: string | null = null
+                    if (application._uplUpdatedBy) {
+                        try {
+                            const authUserResult = await ds.query(
+                                'SELECT email FROM auth.users WHERE id = $1',
+                                [application._uplUpdatedBy]
+                            )
+                            if (authUserResult?.[0]?.email) {
+                                updatedByEmail = authUserResult[0].email
+                            }
+                        } catch {
+                            // Ignore errors fetching email
+                        }
+                    }
+                    return res.status(409).json({
+                        error: 'Conflict: entity was modified by another user',
+                        code: 'OPTIMISTIC_LOCK_CONFLICT',
+                        conflict: {
+                            entityId: applicationId,
+                            entityType: 'application',
+                            expectedVersion,
+                            actualVersion: currentVersion,
+                            updatedAt: application._uplUpdatedAt,
+                            updatedBy: application._uplUpdatedBy ?? null,
+                            updatedByEmail
+                        }
+                    })
+                }
+            }
 
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)
@@ -482,6 +526,8 @@ export function createApplicationsRoutes(
                 application.isPublic = isPublic
             }
 
+            application._uplUpdatedBy = userId
+
             const saved = await applicationRepo.save(application)
             const role = ctx.membership.role as ApplicationRole
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
@@ -492,8 +538,9 @@ export function createApplicationsRoutes(
                 description: saved.description,
                 slug: saved.slug,
                 isPublic: saved.isPublic,
-                createdAt: saved.createdAt,
-                updatedAt: saved.updatedAt,
+                version: saved._uplVersion || 1,
+                createdAt: saved._uplCreatedAt,
+                updatedAt: saved._uplUpdatedAt,
                 role,
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
                 permissions
@@ -587,17 +634,19 @@ export function createApplicationsRoutes(
             }
 
             const existing = await applicationUserRepo.findOne({
-                where: { application_id: applicationId, user_id: user.id }
+                where: { applicationId, userId: user.id }
             })
             if (existing) {
                 return res.status(409).json({ error: 'User is already a member' })
             }
 
             const member = applicationUserRepo.create({
-                application_id: applicationId,
-                user_id: user.id,
+                applicationId,
+                userId: user.id,
                 role,
-                comment
+                comment,
+                _uplCreatedBy: userId,
+                _uplUpdatedBy: userId
             })
             await applicationUserRepo.save(member)
 
@@ -625,7 +674,7 @@ export function createApplicationsRoutes(
 
             const { applicationUserRepo, authUserRepo } = repos(req)
             const member = await applicationUserRepo.findOne({
-                where: { id: memberId, application_id: applicationId }
+                where: { id: memberId, applicationId }
             })
             if (!member) {
                 return res.status(404).json({ error: 'Member not found' })
@@ -656,11 +705,13 @@ export function createApplicationsRoutes(
                 member.comment = comment ?? undefined
             }
 
+            member._uplUpdatedBy = userId
+
             await applicationUserRepo.save(member)
 
-            const user = await authUserRepo.findOne({ where: { id: member.user_id } })
+            const user = await authUserRepo.findOne({ where: { id: member.userId } })
             const manager = getRequestManager(req, ds)
-            const profiles = await manager.find(Profile, { where: { user_id: member.user_id } })
+            const profiles = await manager.find(Profile, { where: { user_id: member.userId } })
             const nickname = profiles.length > 0 ? profiles[0].nickname : null
 
             return res.json(mapMember(member, user?.email ?? null, nickname))
@@ -683,7 +734,7 @@ export function createApplicationsRoutes(
 
             const { applicationUserRepo } = repos(req)
             const member = await applicationUserRepo.findOne({
-                where: { id: memberId, application_id: applicationId }
+                where: { id: memberId, applicationId }
             })
             if (!member) {
                 return res.status(404).json({ error: 'Member not found' })

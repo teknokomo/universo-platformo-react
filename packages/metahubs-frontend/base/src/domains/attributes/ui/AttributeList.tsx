@@ -41,7 +41,7 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute, useMoveAttribute } from '../hooks/mutations'
@@ -50,6 +50,7 @@ import { getCatalogById } from '../../catalogs'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Attribute, AttributeDisplay, AttributeDataType, AttributeLocalizedPayload, getVLCString, toAttributeDisplay } from '../../../types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
@@ -267,6 +268,12 @@ const AttributeList = () => {
         attribute: Attribute | null
     }>({ open: false, attribute: null })
 
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingUpdate: { id: string; patch: AttributeLocalizedPayload } | null
+    }>({ open: false, conflict: null, pendingUpdate: null })
+
     const { confirm } = useConfirm()
 
     const createAttributeMutation = useCreateAttribute()
@@ -453,13 +460,26 @@ const AttributeList = () => {
                         throw new Error(t('attributes.validation.codenameRequired', 'Codename is required'))
                     }
                     const dataType = patch.dataType ?? 'STRING'
-                    await updateAttributeMutation.mutateAsync({
-                        metahubId,
-                        hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
-                        catalogId,
-                        attributeId: id,
-                        data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
-                    })
+                    const attribute = attributeMap.get(id)
+                    const expectedVersion = attribute?.version
+                    try {
+                        await updateAttributeMutation.mutateAsync({
+                            metahubId,
+                            hubId: effectiveHubId, // Optional - undefined for hub-less catalogs
+                            catalogId,
+                            attributeId: id,
+                            data: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired, expectedVersion }
+                        })
+                    } catch (error: unknown) {
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired } } })
+                                return
+                            }
+                        }
+                        throw error
+                    }
                 },
                 deleteEntity: async (id: string) => {
                     if (!metahubId || !catalogId) return
@@ -837,6 +857,35 @@ const AttributeList = () => {
             />
 
             <ConfirmDialog />
+
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    if (metahubId && catalogId) {
+                        if (effectiveHubId) {
+                            invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                        } else {
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                        }
+                    }
+                }}
+                onOverwrite={async () => {
+                    if (conflictState.pendingUpdate && metahubId && catalogId) {
+                        const { id, patch } = conflictState.pendingUpdate
+                        await updateAttributeMutation.mutateAsync({
+                            metahubId,
+                            hubId: effectiveHubId,
+                            catalogId,
+                            attributeId: id,
+                            data: patch
+                        })
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                    }
+                }}
+                isLoading={updateAttributeMutation.isPending}
+            />
         </MainCard>
     )
 }

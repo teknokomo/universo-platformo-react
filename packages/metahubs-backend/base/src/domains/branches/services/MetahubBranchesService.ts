@@ -79,8 +79,8 @@ export class MetahubBranchesService {
                 : sortBy === 'codename'
                     ? 'b.codename'
                     : sortBy === 'created'
-                        ? 'b.created_at'
-                        : 'b.updated_at'
+                        ? 'b._upl_created_at'
+                        : 'b._upl_updated_at'
 
         qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
         qb.skip(offset).take(limit)
@@ -115,8 +115,8 @@ export class MetahubBranchesService {
                 : sortBy === 'codename'
                     ? 'b.codename'
                     : sortBy === 'created'
-                        ? 'b.created_at'
-                        : 'b.updated_at'
+                        ? 'b._upl_created_at'
+                        : 'b._upl_updated_at'
 
         qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
@@ -126,12 +126,12 @@ export class MetahubBranchesService {
 
     async getBranchById(metahubId: string, branchId: string): Promise<MetahubBranch | null> {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        return branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        return branchRepo.findOne({ where: { id: branchId, metahubId } })
     }
 
     async findByCodename(metahubId: string, codename: string): Promise<MetahubBranch | null> {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        return branchRepo.findOne({ where: { metahub_id: metahubId, codename } })
+        return branchRepo.findOne({ where: { metahubId, codename } })
     }
 
     async getDefaultBranchId(metahubId: string): Promise<string | null> {
@@ -142,8 +142,8 @@ export class MetahubBranchesService {
 
     async getUserActiveBranchId(metahubId: string, userId: string): Promise<string | null> {
         const memberRepo = this.repoManager.getRepository(MetahubUser)
-        const member = await memberRepo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
-        return member?.active_branch_id ?? null
+        const member = await memberRepo.findOne({ where: { metahubId, userId } })
+        return member?.activeBranchId ?? null
     }
 
     async createInitialBranch(params: {
@@ -172,18 +172,25 @@ export class MetahubBranchesService {
         await schemaService.initializeSchema(schemaName)
 
         const branch = branchRepo.create({
-            metahub_id: metahubId,
+            metahubId,
             name,
             description: description ?? null,
             codename,
-            branch_number: branchNumber,
-            schema_name: schemaName,
-            created_by: createdBy ?? null
+            branchNumber,
+            schemaName,
+            _uplCreatedBy: createdBy ?? null,
+            _uplUpdatedBy: createdBy ?? null
         })
 
         try {
             const saved = await branchRepo.save(branch)
-            await metahubRepo.update(metahubId, { defaultBranchId: saved.id, lastBranchNumber: branchNumber })
+            // Use raw update to avoid incrementing _upl_version
+            await metahubRepo
+                .createQueryBuilder()
+                .update(Metahub)
+                .set({ defaultBranchId: saved.id, lastBranchNumber: branchNumber })
+                .where('id = :id', { id: metahubId })
+                .execute()
             return saved
         } catch (error) {
             const { generator } = getDDLServices()
@@ -227,7 +234,7 @@ export class MetahubBranchesService {
                 }
 
                 const sourceBranch = sourceBranchId
-                    ? await branchRepo.findOne({ where: { id: sourceBranchId, metahub_id: metahubId } })
+                    ? await branchRepo.findOne({ where: { id: sourceBranchId, metahubId } })
                     : null
                 if (sourceBranchId && !sourceBranch) {
                     throw new Error('Source branch not found')
@@ -238,23 +245,29 @@ export class MetahubBranchesService {
 
                 await schemaService.initializeSchema(schemaName)
                 if (sourceBranch) {
-                    await this.cloneSchemaData(sourceBranch.schema_name, schemaName)
+                    await this.cloneSchemaData(sourceBranch.schemaName, schemaName)
                 }
 
                 const branch = branchRepo.create({
-                    metahub_id: metahubId,
-                    source_branch_id: sourceBranch?.id ?? null,
+                    metahubId,
+                    sourceBranchId: sourceBranch?.id ?? null,
                     name,
                     description: description ?? null,
                     codename,
-                    branch_number: nextNumber,
-                    schema_name: schemaName,
-                    created_by: createdBy ?? null
+                    branchNumber: nextNumber,
+                    schemaName,
+                    _uplCreatedBy: createdBy ?? null,
+                    _uplUpdatedBy: createdBy ?? null
                 })
 
                 savedBranch = await branchRepo.save(branch)
-                metahub.lastBranchNumber = nextNumber
-                await metahubRepo.save(metahub)
+                // Use raw update to avoid incrementing _upl_version on metahub
+                await metahubRepo
+                    .createQueryBuilder()
+                    .update(Metahub)
+                    .set({ lastBranchNumber: nextNumber })
+                    .where('id = :id', { id: metahubId })
+                    .execute()
             })
 
             if (!savedBranch) {
@@ -279,12 +292,39 @@ export class MetahubBranchesService {
             codename?: string
             name?: VersionedLocalizedContent<string>
             description?: VersionedLocalizedContent<string> | null
+            expectedVersion?: number
         }
     ) {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
         if (!branch) {
             throw new Error('Branch not found')
+        }
+
+        // Optimistic locking check
+        if (data.expectedVersion !== undefined) {
+            const currentVersion = branch._uplVersion || 1
+            if (currentVersion !== data.expectedVersion) {
+                const error = new Error('VERSION_CONFLICT') as Error & {
+                    code: string
+                    conflict: {
+                        entityId: string
+                        expectedVersion: number
+                        actualVersion: number
+                        updatedAt: Date
+                        updatedBy: string | null
+                    }
+                }
+                error.code = 'OPTIMISTIC_LOCK_CONFLICT'
+                error.conflict = {
+                    entityId: branchId,
+                    expectedVersion: data.expectedVersion,
+                    actualVersion: currentVersion,
+                    updatedAt: branch._uplUpdatedAt,
+                    updatedBy: branch._uplUpdatedBy ?? null
+                }
+                throw error
+            }
         }
 
         if (data.codename !== undefined) {
@@ -304,17 +344,17 @@ export class MetahubBranchesService {
         const memberRepo = this.repoManager.getRepository(MetahubUser)
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
 
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
         if (!branch) {
             throw new Error('Branch not found')
         }
 
-        const membership = await memberRepo.findOne({ where: { metahub_id: metahubId, user_id: userId } })
+        const membership = await memberRepo.findOne({ where: { metahubId, userId } })
         if (!membership) {
             throw new Error('Membership not found')
         }
 
-        membership.active_branch_id = branch.id
+        membership.activeBranchId = branch.id
         await memberRepo.save(membership)
 
         return branch
@@ -324,7 +364,7 @@ export class MetahubBranchesService {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
         const metahubRepo = this.repoManager.getRepository(Metahub)
 
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
         if (!branch) {
             throw new Error('Branch not found')
         }
@@ -343,7 +383,7 @@ export class MetahubBranchesService {
         }>
     }> {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
         if (!branch) {
             throw new Error('Branch not found')
         }
@@ -355,14 +395,14 @@ export class MetahubBranchesService {
             isMissing?: boolean
         }> = []
 
-        let currentId = branch.source_branch_id ?? null
+        let currentId = branch.sourceBranchId ?? null
         const visited = new Set<string>()
 
         while (currentId) {
             if (visited.has(currentId)) break
             visited.add(currentId)
 
-            const source = await branchRepo.findOne({ where: { id: currentId, metahub_id: metahubId } })
+            const source = await branchRepo.findOne({ where: { id: currentId, metahubId } })
             if (!source) {
                 chain.push({ id: currentId, isMissing: true })
                 break
@@ -374,11 +414,11 @@ export class MetahubBranchesService {
                 name: source.name
             })
 
-            currentId = source.source_branch_id ?? null
+            currentId = source.sourceBranchId ?? null
         }
 
         return {
-            sourceBranchId: branch.source_branch_id ?? null,
+            sourceBranchId: branch.sourceBranchId ?? null,
             sourceChain: chain
         }
     }
@@ -388,12 +428,12 @@ export class MetahubBranchesService {
         const authUserRepo = this.repoManager.getRepository(AuthUser)
         const profileRepo = this.repoManager.getRepository(Profile)
 
-        const members = await memberRepo.find({ where: { metahub_id: metahubId, active_branch_id: branchId } })
-        const filtered = excludeUserId ? members.filter((m) => m.user_id !== excludeUserId) : members
+        const members = await memberRepo.find({ where: { metahubId, activeBranchId: branchId } })
+        const filtered = excludeUserId ? members.filter((m) => m.userId !== excludeUserId) : members
 
         if (filtered.length === 0) return []
 
-        const userIds = filtered.map((m) => m.user_id)
+        const userIds = filtered.map((m) => m.userId)
         const [users, profiles] = await Promise.all([
             authUserRepo.find({ where: userIds.map((id) => ({ id })) }),
             profileRepo.find({ where: userIds.map((id) => ({ user_id: id })) })
@@ -404,9 +444,9 @@ export class MetahubBranchesService {
 
         return filtered.map((m) => ({
             id: m.id,
-            userId: m.user_id,
-            email: emailMap.get(m.user_id) ?? null,
-            nickname: nicknameMap.get(m.user_id) ?? null,
+            userId: m.userId,
+            email: emailMap.get(m.userId) ?? null,
+            nickname: nicknameMap.get(m.userId) ?? null,
             role: m.role
         }))
     }
@@ -429,7 +469,7 @@ export class MetahubBranchesService {
             throw new Error('Default branch cannot be deleted')
         }
 
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahub_id: metahubId } })
+        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
         if (!branch) {
             throw new Error('Branch not found')
         }
@@ -441,12 +481,12 @@ export class MetahubBranchesService {
 
         // Clear active branch for requester if it matches this branch
         await memberRepo.update(
-            { metahub_id: metahubId, user_id: requesterId, active_branch_id: branchId },
-            { active_branch_id: null }
+            { metahubId, userId: requesterId, activeBranchId: branchId },
+            { activeBranchId: null }
         )
 
         const { generator } = getDDLServices()
-        await generator.dropSchema(branch.schema_name)
+        await generator.dropSchema(branch.schemaName)
 
         await branchRepo.delete({ id: branchId })
         MetahubSchemaService.clearCache(metahubId)
@@ -456,20 +496,20 @@ export class MetahubBranchesService {
         await this.knex.transaction(async (trx) => {
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_objects
-                    (id, kind, codename, table_name, presentation, config, created_at, updated_at)
-                SELECT id, kind, codename, table_name, presentation, config, created_at, updated_at
+                    (id, kind, codename, table_name, presentation, config, _upl_created_at, _upl_updated_at)
+                SELECT id, kind, codename, table_name, presentation, config, _upl_created_at, _upl_updated_at
                 FROM "${sourceSchema}"._mhb_objects
             `)
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_attributes
-                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, created_at, updated_at)
-                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, created_at, updated_at
+                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, _upl_created_at, _upl_updated_at)
+                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, _upl_created_at, _upl_updated_at
                 FROM "${sourceSchema}"._mhb_attributes
             `)
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_elements
-                    (id, object_id, data, sort_order, owner_id, created_at, updated_at)
-                SELECT id, object_id, data, sort_order, owner_id, created_at, updated_at
+                    (id, object_id, data, sort_order, owner_id, _upl_created_at, _upl_updated_at)
+                SELECT id, object_id, data, sort_order, owner_id, _upl_created_at, _upl_updated_at
                 FROM "${sourceSchema}"._mhb_elements
             `)
         })

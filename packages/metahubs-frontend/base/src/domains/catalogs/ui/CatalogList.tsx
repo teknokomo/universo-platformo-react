@@ -26,7 +26,7 @@ import {
     LocalizedInlineField,
     useCodenameAutoFill
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
@@ -45,6 +45,7 @@ import type { CatalogWithHubs } from '../api'
 import * as hubsApi from '../../hubs'
 import { metahubsQueryKeys, invalidateCatalogsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { CatalogDisplay, CatalogLocalizedPayload, Hub, PaginatedResponse, getVLCString, toCatalogDisplay } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -269,6 +270,14 @@ const CatalogList = () => {
         open: boolean
         catalog: CatalogWithHubs | null
     }>({ open: false, catalog: null })
+
+    // State for ConflictResolutionDialog
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        pendingData: Record<string, any> | null
+        catalogId: string | null
+    }>({ open: false, conflict: null, pendingData: null, catalogId: null })
 
     const { confirm } = useConfirm()
 
@@ -576,30 +585,51 @@ const CatalogList = () => {
             uiLocale: i18n.language,
             hubs, // Pass hubs for hub selector in edit dialog (N:M)
             api: {
-                updateEntity: async (id: string, patch: CatalogLocalizedPayload) => {
+                updateEntity: async (id: string, patch: CatalogLocalizedPayload & { expectedVersion?: number }) => {
                     if (!metahubId) return
                     const catalog = catalogMap.get(id)
                     const normalizedCodename = sanitizeCodename(patch.codename)
                     if (!normalizedCodename) {
                         throw new Error(t('catalogs.validation.codenameRequired', 'Codename is required'))
                     }
-                    // In hub-scoped mode, use hubId from URL; in global mode, check if catalog has hubs
-                    const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
-                    if (targetHubId) {
-                        // Use hub-scoped endpoint
-                        await updateCatalogMutation.mutateAsync({
-                            metahubId,
-                            hubId: targetHubId,
-                            catalogId: id,
-                            data: { ...patch, codename: normalizedCodename }
-                        })
-                    } else {
-                        // Use metahub-level endpoint for catalogs without hubs
-                        await updateCatalogAtMetahubMutation.mutateAsync({
-                            metahubId,
-                            catalogId: id,
-                            data: { ...patch, codename: normalizedCodename }
-                        })
+                    // Include expectedVersion for optimistic locking if catalog has version
+                    const expectedVersion = catalog?.version
+                    const dataWithVersion = { ...patch, codename: normalizedCodename, expectedVersion }
+
+                    try {
+                        // In hub-scoped mode, use hubId from URL; in global mode, check if catalog has hubs
+                        const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
+                        if (targetHubId) {
+                            // Use hub-scoped endpoint
+                            await updateCatalogMutation.mutateAsync({
+                                metahubId,
+                                hubId: targetHubId,
+                                catalogId: id,
+                                data: dataWithVersion
+                            })
+                        } else {
+                            // Use metahub-level endpoint for catalogs without hubs
+                            await updateCatalogAtMetahubMutation.mutateAsync({
+                                metahubId,
+                                catalogId: id,
+                                data: dataWithVersion
+                            })
+                        }
+                    } catch (error: unknown) {
+                        // Check for optimistic lock conflict
+                        if (isOptimisticLockConflict(error)) {
+                            const conflict = extractConflictInfo(error)
+                            if (conflict) {
+                                setConflictState({
+                                    open: true,
+                                    conflict,
+                                    pendingData: { ...patch, codename: normalizedCodename },
+                                    catalogId: id
+                                })
+                                return // Don't rethrow - dialog will handle
+                            }
+                        }
+                        throw error
                     }
                 },
                 deleteEntity: async (id: string) => {
@@ -1065,6 +1095,53 @@ const CatalogList = () => {
                             setDeleteDialogState({ open: false, catalog: null })
                         }
                     }
+                }}
+            />
+
+            {/* Conflict Resolution Dialog for optimistic locking */}
+            <ConflictResolutionDialog
+                open={conflictState.open}
+                conflict={conflictState.conflict}
+                onOverwrite={async () => {
+                    if (!metahubId || !conflictState.catalogId || !conflictState.pendingData) return
+                    try {
+                        const catalog = catalogMap.get(conflictState.catalogId)
+                        const targetHubId = isHubScoped ? hubId! : catalog?.hubs?.[0]?.id
+                        // Retry without expectedVersion to force overwrite
+                        if (targetHubId) {
+                            await updateCatalogMutation.mutateAsync({
+                                metahubId,
+                                hubId: targetHubId,
+                                catalogId: conflictState.catalogId,
+                                data: conflictState.pendingData as CatalogLocalizedPayload
+                            })
+                        } else {
+                            await updateCatalogAtMetahubMutation.mutateAsync({
+                                metahubId,
+                                catalogId: conflictState.catalogId,
+                                data: conflictState.pendingData as CatalogLocalizedPayload
+                            })
+                        }
+                        setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
+                        enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
+                    } catch (e) {
+                        console.error('Failed to overwrite catalog', e)
+                        enqueueSnackbar(t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
+                    }
+                }}
+                onReload={async () => {
+                    // Reload the list to get latest data
+                    if (metahubId) {
+                        if (isHubScoped && hubId) {
+                            await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
+                        } else {
+                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
+                        }
+                    }
+                    setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
+                }}
+                onCancel={() => {
+                    setConflictState({ open: false, conflict: null, pendingData: null, catalogId: null })
                 }}
             />
 

@@ -23,5 +23,8 @@ export type { MemberFormDialogProps } from './MemberFormDialog'
 export { SettingsDialog } from './SettingsDialog'
 export type { SettingsDialogProps } from './SettingsDialog'
 
+export { ConflictResolutionDialog } from './ConflictResolutionDialog'
+export type { ConflictResolutionDialogProps } from './ConflictResolutionDialog'
+
 // Re-export AssignableRole from @universo/types for convenience
 export type { AssignableRole } from '@universo/types'

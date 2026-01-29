@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
-import { localizedContent, validation } from '@universo/utils'
+import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
 import { AttributeDataType, ATTRIBUTE_DATA_TYPES } from '@universo/types'
@@ -73,7 +73,8 @@ const updateAttributeSchema = z.object({
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
 const moveAttributeSchema = z.object({
@@ -337,7 +338,8 @@ export function createAttributesRoutes(
                 validationRules: validationRules ?? {},
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
-                sortOrder: sortOrder
+                sortOrder: sortOrder,
+                createdBy: userId
             }, userId)
 
             // Normalize again to fit new item
@@ -377,7 +379,7 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder } =
+            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder, expectedVersion } =
                 parsed.data
 
             const updateData: any = {}
@@ -430,8 +432,39 @@ export function createAttributesRoutes(
             if (uiConfig) updateData.uiConfig = uiConfig
             if (isRequired !== undefined) updateData.isRequired = isRequired
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
+            if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
+            updateData.updatedBy = userId
 
-            const updated = await attributesService.update(metahubId, attributeId, updateData, userId)
+            let updated
+            try {
+                updated = await attributesService.update(metahubId, attributeId, updateData, userId)
+            } catch (error) {
+                if (error instanceof OptimisticLockError) {
+                    const conflict = error.conflict
+                    // Fetch email for the user who last updated
+                    let updatedByEmail: string | null = null
+                    if (conflict.updatedBy) {
+                        try {
+                            const ds = getDataSource()
+                            const authUserResult = await ds.query(
+                                'SELECT email FROM auth.users WHERE id = $1',
+                                [conflict.updatedBy]
+                            )
+                            if (authUserResult?.[0]?.email) {
+                                updatedByEmail = authUserResult[0].email
+                            }
+                        } catch {
+                            // Ignore errors fetching email
+                        }
+                    }
+                    return res.status(409).json({
+                        error: 'Conflict: entity was modified by another user',
+                        code: error.code,
+                        conflict: { ...conflict, updatedByEmail }
+                    })
+                }
+                throw error
+            }
 
             if (sortOrder !== undefined) {
                 await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)

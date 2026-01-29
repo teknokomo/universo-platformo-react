@@ -1,5 +1,41 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
+
+## IMPLEMENT (2026-01-27): Optimistic Locking for Metahub Entities
+
+### Phase 1: Backend Core
+- [ ] Create OptimisticLockError in universo-utils/errors
+- [ ] Create optimisticLock.ts helper in metahubs-backend/utils
+- [ ] Update MetahubObjectsService with version handling
+- [ ] Update MetahubAttributesService with version handling
+- [ ] Update MetahubElementsService with version handling
+- [ ] Update MetahubHubsService with version handling
+
+### Phase 2: Backend Routes
+- [ ] Update catalogsRoutes.ts to accept version and return 409
+- [ ] Update attributesRoutes.ts to accept version and return 409
+- [ ] Update elementsRoutes.ts to accept version and return 409
+- [ ] Update hubsRoutes.ts to accept version and return 409
+
+### Phase 3: Frontend API
+- [ ] Add ConflictInfo types to universo-types
+- [ ] Update metahubs-frontend API client methods
+
+### Phase 4: Frontend Dialog
+- [ ] Create ConflictResolutionDialog in universo-template-mui
+- [ ] Add i18n keys for conflict dialog (EN + RU)
+
+### Phase 5: Frontend Integration
+- [ ] Create useOptimisticLock hook
+- [ ] Update CatalogEditDialog with conflict handling
+- [ ] Update HubEditDialog with conflict handling
+- [ ] Update AttributeEditDialog with conflict handling
+- [ ] Update ElementEditDialog with conflict handling
+
+### Phase 6: Build & Test
+- [ ] Run targeted builds for affected packages
+- [ ] Update memory-bank files
+
 ## IMPLEMENT (2026-01-24): Elements Rename + Metahub UI Sync
 
 - [x] Rename Records domain to Elements across metahubs-backend (routes/services/types/schema table `_mhb_elements`, snapshot `elements`, sync/seed usage).

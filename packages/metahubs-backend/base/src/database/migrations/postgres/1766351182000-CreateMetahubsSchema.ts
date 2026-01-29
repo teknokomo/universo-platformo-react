@@ -76,14 +76,70 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                 name JSONB NOT NULL DEFAULT '{}',
                 description JSONB DEFAULT '{}',
-                codename VARCHAR(100) NOT NULL UNIQUE,
-                slug VARCHAR(100) UNIQUE,
+                codename VARCHAR(100) NOT NULL,
+                slug VARCHAR(100),
                 default_branch_id UUID,
                 last_branch_number INT NOT NULL DEFAULT 0,
                 is_public BOOLEAN NOT NULL DEFAULT false,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                updated_at TIMESTAMP NOT NULL DEFAULT now()
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Metahub-level system fields (_mhb_*)
+                _mhb_published BOOLEAN NOT NULL DEFAULT false,
+                _mhb_published_at TIMESTAMPTZ,
+                _mhb_published_by UUID,
+
+                _mhb_archived BOOLEAN NOT NULL DEFAULT false,
+                _mhb_archived_at TIMESTAMPTZ,
+                _mhb_archived_by UUID,
+
+                _mhb_deleted BOOLEAN NOT NULL DEFAULT false,
+                _mhb_deleted_at TIMESTAMPTZ,
+                _mhb_deleted_by UUID
             )
+        `)
+
+        // Partial unique indexes (exclude soft-deleted records at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_metahubs_codename_active
+            ON metahubs.metahubs (codename)
+            WHERE _upl_deleted = false AND _mhb_deleted = false
+        `)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_metahubs_slug_active
+            ON metahubs.metahubs (slug)
+            WHERE _upl_deleted = false AND _mhb_deleted = false AND slug IS NOT NULL
+        `)
+        // Index for trash queries
+        await queryRunner.query(`
+            CREATE INDEX idx_metahubs_deleted
+            ON metahubs.metahubs (_upl_deleted_at)
+            WHERE _upl_deleted = true
+        `)
+        // Index for archived queries
+        await queryRunner.query(`
+            CREATE INDEX idx_metahubs_archived
+            ON metahubs.metahubs (_upl_archived)
+            WHERE _upl_archived = true
         `)
 
         // Metahub branches
@@ -97,15 +153,58 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 codename VARCHAR(100) NOT NULL,
                 branch_number INT NOT NULL,
                 schema_name VARCHAR(100) NOT NULL,
-                created_by UUID,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                updated_at TIMESTAMP NOT NULL DEFAULT now(),
-                UNIQUE (metahub_id, codename),
-                UNIQUE (metahub_id, branch_number),
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Metahub-level system fields (_mhb_*)
+                _mhb_published BOOLEAN NOT NULL DEFAULT false,
+                _mhb_published_at TIMESTAMPTZ,
+                _mhb_published_by UUID,
+
+                _mhb_archived BOOLEAN NOT NULL DEFAULT false,
+                _mhb_archived_at TIMESTAMPTZ,
+                _mhb_archived_by UUID,
+
+                _mhb_deleted BOOLEAN NOT NULL DEFAULT false,
+                _mhb_deleted_at TIMESTAMPTZ,
+                _mhb_deleted_by UUID,
+
+                -- Constraints
                 UNIQUE (schema_name),
                 FOREIGN KEY (metahub_id) REFERENCES metahubs.metahubs(id) ON DELETE CASCADE,
-                FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
+                FOREIGN KEY (_upl_created_by) REFERENCES auth.users(id) ON DELETE SET NULL
             )
+        `)
+
+        // Partial unique indexes for branches (exclude soft-deleted at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_branches_metahub_codename_active
+            ON metahubs.metahubs_branches (metahub_id, codename)
+            WHERE _upl_deleted = false AND _mhb_deleted = false
+        `)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_branches_metahub_number_active
+            ON metahubs.metahubs_branches (metahub_id, branch_number)
+            WHERE _upl_deleted = false AND _mhb_deleted = false
         `)
 
         await queryRunner.query(`
@@ -123,11 +222,52 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 active_branch_id UUID,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
                 comment TEXT,
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                UNIQUE(metahub_id, user_id),
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Metahub-level system fields (_mhb_*)
+                _mhb_published BOOLEAN NOT NULL DEFAULT false,
+                _mhb_published_at TIMESTAMPTZ,
+                _mhb_published_by UUID,
+
+                _mhb_archived BOOLEAN NOT NULL DEFAULT false,
+                _mhb_archived_at TIMESTAMPTZ,
+                _mhb_archived_by UUID,
+
+                _mhb_deleted BOOLEAN NOT NULL DEFAULT false,
+                _mhb_deleted_at TIMESTAMPTZ,
+                _mhb_deleted_by UUID,
+
+                -- Constraints
                 FOREIGN KEY (metahub_id) REFERENCES metahubs.metahubs(id) ON DELETE CASCADE,
                 FOREIGN KEY (active_branch_id) REFERENCES metahubs.metahubs_branches(id) ON DELETE SET NULL
             )
+        `)
+
+        // Partial unique index for metahub-user (exclude soft-deleted at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_metahubs_users_active
+            ON metahubs.metahubs_users (metahub_id, user_id)
+            WHERE _upl_deleted = false AND _mhb_deleted = false
         `)
 
         // ===== 5) Foreign key to auth.users =====
@@ -154,7 +294,7 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 access_mode metahubs.publication_access_mode NOT NULL DEFAULT 'full',
                 access_config JSONB DEFAULT '{}',
                 -- Schema sync fields (moved from applications.applications)
-                schema_name VARCHAR(100) UNIQUE,
+                schema_name VARCHAR(100),
                 schema_status metahubs.publication_schema_status DEFAULT 'draft',
                 schema_error TEXT,
                 schema_synced_at TIMESTAMPTZ,
@@ -163,13 +303,52 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 auto_create_application BOOLEAN NOT NULL DEFAULT false,
                 -- Active version pointer
                 active_version_id UUID,
-                -- Timestamps
-                created_at TIMESTAMP NOT NULL DEFAULT now(),
-                updated_at TIMESTAMP NOT NULL DEFAULT now(),
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                -- Metahub-level system fields (_mhb_*)
+                _mhb_published BOOLEAN NOT NULL DEFAULT false,
+                _mhb_published_at TIMESTAMPTZ,
+                _mhb_published_by UUID,
+
+                _mhb_archived BOOLEAN NOT NULL DEFAULT false,
+                _mhb_archived_at TIMESTAMPTZ,
+                _mhb_archived_by UUID,
+
+                _mhb_deleted BOOLEAN NOT NULL DEFAULT false,
+                _mhb_deleted_at TIMESTAMPTZ,
+                _mhb_deleted_by UUID,
+
                 -- FK to metahub
                 CONSTRAINT fk_publication_metahub FOREIGN KEY (metahub_id)
                     REFERENCES metahubs.metahubs(id) ON DELETE CASCADE
             )
+        `)
+
+        // Partial unique index for schema_name (exclude soft-deleted at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_publications_schema_name_active
+            ON metahubs.publications (schema_name)
+            WHERE _upl_deleted = false AND _mhb_deleted = false AND schema_name IS NOT NULL
         `)
 
         // Publication versions
@@ -184,18 +363,57 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 "snapshot_json" jsonb NOT NULL,
                 "snapshot_hash" character varying(64) NOT NULL,
                 "is_active" boolean NOT NULL DEFAULT false,
-                "created_by" uuid,
-                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+
+                -- Platform-level system fields (_upl_*)
+                "_upl_created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+                "_upl_created_by" uuid,
+                "_upl_updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+                "_upl_updated_by" uuid,
+                "_upl_version" integer NOT NULL DEFAULT 1,
+
+                "_upl_archived" boolean NOT NULL DEFAULT false,
+                "_upl_archived_at" TIMESTAMPTZ,
+                "_upl_archived_by" uuid,
+
+                "_upl_deleted" boolean NOT NULL DEFAULT false,
+                "_upl_deleted_at" TIMESTAMPTZ,
+                "_upl_deleted_by" uuid,
+                "_upl_purge_after" TIMESTAMPTZ,
+
+                "_upl_locked" boolean NOT NULL DEFAULT false,
+                "_upl_locked_at" TIMESTAMPTZ,
+                "_upl_locked_by" uuid,
+                "_upl_locked_reason" text,
+
+                -- Metahub-level system fields (_mhb_*)
+                "_mhb_published" boolean NOT NULL DEFAULT false,
+                "_mhb_published_at" TIMESTAMPTZ,
+                "_mhb_published_by" uuid,
+
+                "_mhb_archived" boolean NOT NULL DEFAULT false,
+                "_mhb_archived_at" TIMESTAMPTZ,
+                "_mhb_archived_by" uuid,
+
+                "_mhb_deleted" boolean NOT NULL DEFAULT false,
+                "_mhb_deleted_at" TIMESTAMPTZ,
+                "_mhb_deleted_by" uuid,
+
                 CONSTRAINT "pk_publication_versions" PRIMARY KEY ("id"),
                 CONSTRAINT "fk_publication_versions_publication" FOREIGN KEY ("publication_id") REFERENCES "metahubs"."publications"("id") ON DELETE CASCADE,
-                CONSTRAINT "fk_publication_versions_user" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL,
-                CONSTRAINT "uq_publication_version" UNIQUE ("publication_id", "version_number")
+                CONSTRAINT "fk_publication_versions_user" FOREIGN KEY ("_upl_created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL
             )
+        `)
+
+        // Partial unique index for publication version number (exclude soft-deleted at both levels)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_publication_versions_number_active
+            ON metahubs.publication_versions (publication_id, version_number)
+            WHERE _upl_deleted = false AND _mhb_deleted = false
         `)
 
         // Partial unique index for active version (only one active per publication)
         await queryRunner.query(`
-            CREATE UNIQUE INDEX "uq_active_version" ON "metahubs"."publication_versions" ("publication_id", "is_active") 
+            CREATE UNIQUE INDEX "uq_active_version" ON "metahubs"."publication_versions" ("publication_id", "is_active")
             WHERE is_active = true
         `)
 
@@ -346,21 +564,29 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         // Drop indexes
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publication_versions_publication`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publication_versions_branch`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publication_versions_number_active`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_name_gin`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_status`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_schema_name`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_metahub`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publications_schema_name_active`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.uq_active_version`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_branch_number`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_branch_codename`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_branch_metahub`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_branches_metahub_codename_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_branches_metahub_number_active`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahub_default_branch`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_mu_active_branch`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahub_codename`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahubs_codename_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahubs_slug_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahubs_deleted`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahub_name_gin`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahub_slug`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_mu_user`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_mu_metahub`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahubs_users_active`)
 
         // Drop tables
         await queryRunner.query(`DROP TABLE IF EXISTS metahubs.publication_versions`)

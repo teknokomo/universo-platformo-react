@@ -5,6 +5,7 @@ import { Metahub, MetahubMember, MetahubAssignableRole, PaginationParams, Pagina
 export interface MetahubInput extends MetahubLocalizedPayload {
     slug?: string
     isPublic?: boolean
+    expectedVersion?: number
 }
 
 // Extended pagination params with showAll for admin users

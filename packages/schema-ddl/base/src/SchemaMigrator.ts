@@ -23,6 +23,8 @@ export interface ApplyChangesOptions {
     >
     /** Optional Metahub snapshot stored separately from meta */
     publicationSnapshot?: Record<string, unknown> | null
+    /** User ID for audit fields */
+    userId?: string | null
 }
 
 /**
@@ -148,7 +150,8 @@ export class SchemaMigrator {
 
                 await this.generator.syncSystemMetadata(schemaName, entities, {
                     trx,
-                    removeMissing: diff.destructive.length > 0
+                    removeMissing: diff.destructive.length > 0,
+                    userId: options?.userId
                 })
 
                 // Record migration if requested
@@ -165,7 +168,8 @@ export class SchemaMigrator {
                         diff,
                         trx,
                         options.migrationMeta,
-                        options.publicationSnapshot ?? null
+                        options.publicationSnapshot ?? null,
+                        options.userId ?? null
                     )
                 }
             })
