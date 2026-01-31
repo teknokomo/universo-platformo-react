@@ -2,7 +2,7 @@ import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { MetahubObjectsService } from './MetahubObjectsService'
 import { MetahubAttributesService } from './MetahubAttributesService'
-import { isLocalizedContent, filterLocalizedContent } from '@universo/utils'
+import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@universo/utils'
 import { AttributeDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
@@ -332,7 +332,7 @@ export class MetahubElementsService {
 
             if (value === null || value === undefined) continue
 
-            const typeError = this.validateType(value, attr.dataType)
+            const typeError = this.validateType(value, attr)
             if (typeError) {
                 errors.push(`Field "${key}": ${typeError}`)
                 continue
@@ -373,7 +373,10 @@ export class MetahubElementsService {
         }
     }
 
-    private validateType(value: unknown, dataType: AttributeDataType): string | null {
+    private validateType(value: unknown, attr: any): string | null {
+        const dataType = attr.dataType as AttributeDataType
+        const rules = attr.validationRules ?? {}
+
         switch (dataType) {
             case AttributeDataType.STRING:
                 if (typeof value === 'string' || isLocalizedContent(value)) break
@@ -385,14 +388,38 @@ export class MetahubElementsService {
                 if (typeof value !== 'boolean') return 'Expected boolean'
                 break
             case AttributeDataType.DATE:
-            case AttributeDataType.DATETIME:
-                if (typeof value !== 'string' || isNaN(Date.parse(value))) return 'Expected valid date string'
-                break
+                return this.validateDateValue(value, rules)
             case AttributeDataType.REF:
                 if (typeof value !== 'string') return 'Expected UUID string'
                 break
         }
         return null
+    }
+
+    private validateDateValue(value: unknown, rules: any): string | null {
+        if (typeof value !== 'string') return 'Expected date/time string'
+
+        const composition = rules?.dateComposition ?? 'datetime'
+        if (composition === 'time') {
+            return this.isValidTimeString(value) ? null : 'Expected time string'
+        }
+        if (composition === 'date') {
+            return this.isValidDateString(value) ? null : 'Expected date string'
+        }
+
+        // Default: datetime
+        if (isNaN(Date.parse(value))) return 'Expected valid date/time string'
+        return null
+    }
+
+    private isValidTimeString(value: string): boolean {
+        return /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?$/.test(value)
+    }
+
+    private isValidDateString(value: string): boolean {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+        const date = new Date(`${value}T00:00:00`)
+        return !isNaN(date.getTime())
     }
 
     private validateRules(value: unknown, rules: any, fieldName: string): string[] {
@@ -403,7 +430,7 @@ export class MetahubElementsService {
             if (rules.minLength !== undefined && stringValue.length < rules.minLength) {
                 errors.push(`Field "${fieldName}": minimum length is ${rules.minLength}`)
             }
-            if (rules.maxLength !== undefined && stringValue.length > rules.maxLength) {
+            if (rules.maxLength !== undefined && rules.maxLength !== null && stringValue.length > rules.maxLength) {
                 errors.push(`Field "${fieldName}": maximum length is ${rules.maxLength}`)
             }
             if (rules.pattern) {
@@ -412,18 +439,24 @@ export class MetahubElementsService {
                     if (!regex.test(stringValue)) {
                         errors.push(`Field "${fieldName}": does not match pattern`)
                     }
-                } catch { }
+                } catch { /* ignore invalid regex */ }
             }
             if (rules.options && !rules.options.includes(stringValue)) {
                 errors.push(`Field "${fieldName}": must be one of [${rules.options.join(', ')}]`)
             }
         }
         if (typeof value === 'number') {
-            if (rules.min !== undefined && value < rules.min) {
-                errors.push(`Field "${fieldName}": minimum value is ${rules.min}`)
-            }
-            if (rules.max !== undefined && value > rules.max) {
-                errors.push(`Field "${fieldName}": maximum value is ${rules.max}`)
+            // Use shared validator for comprehensive precision/scale checks
+            const result = validateNumber(value, {
+                precision: rules.precision,
+                scale: rules.scale,
+                min: rules.min ?? undefined,
+                max: rules.max ?? undefined,
+                nonNegative: rules.nonNegative
+            })
+
+            if (!result.valid && result.errorMessage) {
+                errors.push(`Field "${fieldName}": ${result.errorMessage}`)
             }
         }
         return errors

@@ -23,7 +23,14 @@
         "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
         "validation": {
             "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+            "stringLengthRange": "Length: {{min}}–{{max}}",
+            "stringMinLength": "Min length: {{min}}",
+            "stringMaxLength": "Max length: {{max}}",
+            "numberRange": "Range: {{min}}–{{max}}",
+            "numberMin": "Min value: {{min}}",
+            "numberMax": "Max value: {{max}}",
+            "numberNonNegative": "Non-negative value"
         },
         "board": {
             "title": "Metahub Board",
@@ -303,9 +310,41 @@
             "number": "Number",
             "boolean": "Boolean",
             "date": "Date",
-            "datetime": "Date/Time",
             "ref": "Reference",
             "json": "JSON"
+        },
+        "typeSettings": {
+            "title": "Type Settings",
+            "string": {
+                "maxLength": "Max Length",
+                "minLength": "Min Length",
+                "versioned": "Versioned (VLC)",
+                "localized": "Localized (VLC)",
+                "backendType": {
+                    "jsonbVlc": "JSONB (VLC)",
+                    "textUnlimited": "TEXT (unlimited)",
+                    "varchar": "VARCHAR({{maxLength}})"
+                }
+            },
+            "number": {
+                "precision": "Length",
+                "scale": "Decimal places",
+                "min": "Min Value",
+                "max": "Max Value",
+                "nonNegative": "Non-negative only"
+            },
+            "date": {
+                "composition": "Date Composition",
+                "compositionOptions": {
+                    "date": "Date only",
+                    "time": "Time only",
+                    "datetime": "Date and Time"
+                }
+            }
+        },
+        "physicalType": {
+            "label": "PostgreSQL type",
+            "tooltip": "PostgreSQL: {{type}}"
         },
         "isRequiredLabel": "Required",
         "required": "Required",

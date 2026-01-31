@@ -33,7 +33,7 @@ import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import elementActions from './ElementActions'
-import type { DynamicFieldConfig } from '@universo/template-mui/components/dialogs'
+import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui/components/dialogs'
 
 const ElementList = () => {
     const navigate = useNavigate()
@@ -109,6 +109,46 @@ const ElementList = () => {
         [attributes]
     )
 
+    const buildStringLengthHelperText = useCallback(
+        (rules?: { minLength?: number | null; maxLength?: number | null }) => {
+            const minLength = typeof rules?.minLength === 'number' ? rules.minLength : null
+            const maxLength = typeof rules?.maxLength === 'number' ? rules.maxLength : null
+
+            if (minLength === null && maxLength === null) return undefined
+            if (minLength !== null && maxLength !== null) {
+                return t('attributes.validation.stringLengthRange', 'Length: {{min}}–{{max}}', { min: minLength, max: maxLength })
+            }
+            if (minLength !== null) {
+                return t('attributes.validation.stringMinLength', 'Min length: {{min}}', { min: minLength })
+            }
+            return t('attributes.validation.stringMaxLength', 'Max length: {{max}}', { max: maxLength })
+        },
+        [t]
+    )
+
+    const buildNumberRangeHelperText = useCallback(
+        (rules?: { min?: number | null; max?: number | null; nonNegative?: boolean }) => {
+            const minValue = typeof rules?.min === 'number' ? rules.min : null
+            const maxValue = typeof rules?.max === 'number' ? rules.max : null
+            const isNonNegative = Boolean(rules?.nonNegative)
+
+            if (minValue !== null && maxValue !== null) {
+                return t('attributes.validation.numberRange', 'Range: {{min}}–{{max}}', { min: minValue, max: maxValue })
+            }
+            if (minValue !== null) {
+                return t('attributes.validation.numberMin', 'Min value: {{min}}', { min: minValue })
+            }
+            if (maxValue !== null) {
+                return t('attributes.validation.numberMax', 'Max value: {{max}}', { max: maxValue })
+            }
+            if (isNonNegative) {
+                return t('attributes.validation.numberNonNegative', 'Non-negative value')
+            }
+            return undefined
+        },
+        [t]
+    )
+
     const elementFields = useMemo<DynamicFieldConfig[]>(
         () =>
             orderedAttributes.map((attribute) => ({
@@ -116,9 +156,15 @@ const ElementList = () => {
                 label: getVLCString(attribute.name, i18n.language) || attribute.codename,
                 type: attribute.dataType as DynamicFieldConfig['type'],
                 required: attribute.isRequired,
-                localized: attribute.dataType === 'STRING'
+                helperText:
+                    attribute.dataType === 'STRING'
+                        ? buildStringLengthHelperText(attribute.validationRules)
+                        : attribute.dataType === 'NUMBER'
+                            ? buildNumberRangeHelperText(attribute.validationRules)
+                            : undefined,
+                validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined
             })),
-        [orderedAttributes, i18n.language]
+        [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText]
     )
 
     // Use paginated hook for elements list

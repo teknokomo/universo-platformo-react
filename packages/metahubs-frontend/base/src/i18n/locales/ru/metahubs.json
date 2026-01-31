@@ -309,9 +309,41 @@
             "number": "Число",
             "boolean": "Булево",
             "date": "Дата",
-            "datetime": "Дата и время",
             "ref": "Ссылка",
             "json": "JSON"
+        },
+        "typeSettings": {
+            "title": "Настройки типа",
+            "string": {
+                "maxLength": "Макс. длина",
+                "minLength": "Мин. длина",
+                "versioned": "Версионируемый (VLC)",
+                "localized": "Локализуемый (VLC)",
+                "backendType": {
+                    "jsonbVlc": "JSONB (VLC)",
+                    "textUnlimited": "TEXT (без лимита)",
+                    "varchar": "VARCHAR({{maxLength}})"
+                }
+            },
+            "number": {
+                "precision": "Длина",
+                "scale": "Точность (после запятой)",
+                "min": "Мин. значение",
+                "max": "Макс. значение",
+                "nonNegative": "Только положительные"
+            },
+            "date": {
+                "composition": "Состав даты",
+                "compositionOptions": {
+                    "date": "Только дата",
+                    "time": "Только время",
+                    "datetime": "Дата и время"
+                }
+            }
+        },
+        "physicalType": {
+            "label": "Тип PostgreSQL",
+            "tooltip": "PostgreSQL: {{type}}"
         },
         "isRequiredLabel": "Обязательный",
         "required": "Обязательный",
@@ -320,7 +352,14 @@
         "descriptionEn": "Описание (English)",
         "validation": {
             "codenameRequired": "Кодовое имя обязательно",
-            "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы"
+            "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы",
+            "stringLengthRange": "Длина: {{min}}–{{max}}",
+            "stringMinLength": "Мин. длина: {{min}}",
+            "stringMaxLength": "Макс. длина: {{max}}",
+            "numberRange": "Диапазон: {{min}}–{{max}}",
+            "numberMin": "Мин. значение: {{min}}",
+            "numberMax": "Макс. значение: {{max}}",
+            "numberNonNegative": "Только неотрицательное значение"
         },
         "createError": "Не удалось создать атрибут",
         "updateError": "Не удалось обновить атрибут",

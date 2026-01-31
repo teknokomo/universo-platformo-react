@@ -1,5 +1,6 @@
 import type { Knex } from 'knex'
-import { AttributeDataType } from '@universo/types'
+import { AttributeDataType, getPhysicalDataType, formatPhysicalType } from '@universo/types'
+import type { AttributeValidationRules } from '@universo/types'
 import { buildSchemaSnapshot } from './snapshot'
 import {
     buildFkConstraintName,
@@ -47,25 +48,19 @@ export class SchemaGenerator {
         this.knex = knex
     }
 
-    public static mapDataType(dataType: AttributeDataType): string {
-        switch (dataType) {
-            case AttributeDataType.STRING:
-                return 'TEXT'
-            case AttributeDataType.NUMBER:
-                return 'NUMERIC'
-            case AttributeDataType.BOOLEAN:
-                return 'BOOLEAN'
-            case AttributeDataType.DATE:
-                return 'DATE'
-            case AttributeDataType.DATETIME:
-                return 'TIMESTAMPTZ'
-            case AttributeDataType.REF:
-                return 'UUID'
-            case AttributeDataType.JSON:
-                return 'JSONB'
-            default:
-                return 'TEXT'
-        }
+    /**
+     * Maps abstract data type to PostgreSQL type with optional configuration.
+     * Delegates to shared getPhysicalDataType() from @universo/types.
+     * @param dataType - The abstract data type
+     * @param config - Type-specific configuration from validationRules
+     * @returns PostgreSQL type string
+     */
+    public static mapDataType(
+        dataType: AttributeDataType,
+        config?: Partial<AttributeValidationRules>
+    ): string {
+        const info = getPhysicalDataType(dataType, config)
+        return formatPhysicalType(info)
     }
 
     public async createSchema(schemaName: string, trx?: Knex.Transaction): Promise<void> {
@@ -180,7 +175,10 @@ export class SchemaGenerator {
             // User-defined fields
             for (const field of entity.fields) {
                 const columnName = generateColumnName(field.id)
-                const pgType = SchemaGenerator.mapDataType(field.dataType)
+                const pgType = SchemaGenerator.mapDataType(
+                    field.dataType,
+                    field.validationRules as Partial<AttributeValidationRules> | undefined
+                )
                 if (field.isRequired) {
                     table.specificType(columnName, pgType).notNullable()
                 } else {

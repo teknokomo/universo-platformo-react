@@ -50,7 +50,7 @@ class KnexClient {
             ssl: sslConfig ? 'enabled' : 'disabled',
         })
 
-        return knex({
+        const instance = knex({
             client: 'pg',
             connection: {
                 host,
@@ -62,13 +62,55 @@ class KnexClient {
             },
             pool: {
                 min: 0,
-                max: 5,
+                max: 8, // Keep below Supabase Pool Size (15) together with TypeORM (7)
                 // Acquire timeout - how long to wait for a connection
-                acquireTimeoutMillis: 30000,
+                acquireTimeoutMillis: 60000,
                 // Idle timeout - close connections after this time
-                idleTimeoutMillis: 10000,
+                idleTimeoutMillis: 30000,
+                // Reap interval - how often to check for idle connections
+                reapIntervalMillis: 1000,
+                // Create timeout - how long to wait for connection creation
+                createTimeoutMillis: 30000,
+                // Destroy timeout - how long to wait for connection destruction
+                destroyTimeoutMillis: 5000,
+                // Propagate create error
+                propagateCreateError: false,
             },
         })
+
+        // NOTE: Accessing internal Knex/tarn.js pool properties for error monitoring.
+        // This is fragile and may break with Knex or tarn.js updates.
+        // We accept this risk for improved observability during pool errors.
+        // The pool interface matches tarn.js internals (numUsed, numFree, numPendingAcquires, numPendingCreates).
+        const pool = (instance as unknown as { client?: { pool?: any } })?.client?.pool
+        if (pool?.on) {
+            pool.on('error', (error: unknown) => {
+                KnexClient.logPoolState('error', pool, error)
+            })
+        }
+
+        return instance
+    }
+
+    private static logPoolState(context: string, pool: any, error?: unknown): void {
+        const used = typeof pool?.numUsed === 'function' ? pool.numUsed() : undefined
+        const free = typeof pool?.numFree === 'function' ? pool.numFree() : undefined
+        const pendingAcquires = typeof pool?.numPendingAcquires === 'function' ? pool.numPendingAcquires() : undefined
+        const pendingCreates = typeof pool?.numPendingCreates === 'function' ? pool.numPendingCreates() : undefined
+
+        const poolState = {
+            used,
+            free,
+            pendingAcquires,
+            pendingCreates
+        }
+
+        const errorMessage = error instanceof Error ? error.message : error ? String(error) : undefined
+        if (errorMessage) {
+            console.error(`[KnexClient] Pool ${context}`, { error: errorMessage, ...poolState })
+        } else {
+            console.warn(`[KnexClient] Pool ${context}`, poolState)
+        }
     }
 
     /**

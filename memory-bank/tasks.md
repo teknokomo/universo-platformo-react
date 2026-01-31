@@ -1,6 +1,173 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## COMPLETED (2026-01-31): PR #660 Bot Recommendations QA
+
+QA analysis of bot comments (Gemini Code Assist, GitHub Copilot) on PR #660.
+
+**Issues Fixed:**
+- [x] Fix scale validation in numberValidation.ts - return error instead of silent clamp when scale >= precision
+- [x] Fix countIntegerDigits() for 0 < |value| < 1 - return 1 (for leading "0") matching docstring and PostgreSQL behavior
+- [x] Add risk comments for TypeORM/Knex internal pool access (fragile but accepted for observability)
+- [x] Fix attributesRoutes.ts scale validation - validate against effective precision (default 10) even when precision not provided
+- [x] Remove noisy afterCreate pool connection log (reduces production log noise)
+- [x] Fix handleNumberBlur for optional NUMBER fields - only force 0 for required fields, keep null for optional
+- [x] Add i18n for backend type helperText in AttributeList.tsx (JSONB, TEXT, VARCHAR)
+- [x] Fix decimalSeparator locale handling - use ',' for Russian, '.' for others
+- [x] Full build verification (64 tasks, 5m20s)
+
+**Issues Not Fixed (by design):**
+- memory-bank file compression (tasks.md, progress.md) - requires separate MB compression run, not code fix
+
+## COMPLETED (2026-01-31): Pool Error Logging
+
+- [x] Reduce KnexClient pool max to 8 (Supabase pool budget)
+- [x] Reduce TypeORM pool max to 7 (Supabase pool budget)
+- [x] Add Knex pool error logging with pool state metrics
+- [x] Add TypeORM pool error logging with pool state metrics
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-31): Fix VLC Error Display Location
+
+**Problem**: minLength validation error showed under the WRONG field (primary/first locale field) even when the error was in a different locale.
+
+**Solution**: Added `errorLocale` prop to track which locale has the error and display error text under that specific locale's field.
+
+- [x] Add `errorLocale?: string | null` prop to LocalizedInlineField BaseProps
+- [x] Update DynamicEntityFormDialog to compute and pass `errorLocale` from `getVlcMinLengthError()`
+- [x] Update LocalizedInlineFieldContent to show error under the correct locale field (where `locale === errorLocale`)
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-31): VLC minLength Validation for All Locales
+
+- [x] Add getVlcMinLengthError() helper function to validate minLength for ALL VLC locales
+- [x] Update getFieldError() to use VLC validation for STRING fields with localized content
+- [x] Add per-locale error display in LocalizedInlineFieldContent (hasMinLengthError check)
+- [x] Show "min: X" in field helper text when locale fails minLength validation
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-31): VLC String Field UX Fixes
+
+- [x] Add 'versioned' mode to LocalizedInlineField (no language switching for versioned-only fields)
+- [x] Add maxLength/minLength props to LocalizedInlineField BaseProps
+- [x] Create VersionedInlineField component (single locale, no language tabs)
+- [x] Update SimpleInlineField with maxLength blocking and constraintText
+- [x] Update LocalizedInlineFieldContent with maxLength blocking and constraintText
+- [x] Update DynamicEntityFormDialog to use correct mode (versioned vs localized)
+- [x] Pass maxLength/minLength from validationRules to LocalizedInlineField
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-31): QA Fix - Precision/Scale Limits
+
+- [x] Reduce maxPrecision from 38 to 15 (JavaScript number precision limit)
+- [x] Change scale validation to strict inequality (scale < precision, at least 1 integer digit required)
+- [x] Update @universo/utils/numberValidation.ts - NUMBER_DEFAULTS.maxPrecision: 15
+- [x] Update @universo/types/metahubs.ts - getPhysicalDataType limits
+- [x] Update attributesRoutes.ts - Zod schema precision max: 15, scale max: 14
+- [x] Update AttributeList.tsx - UI limits precision: 1-15, scale: 0-(precision-1)
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-31): NUMBER Input UX Improvement
+
+- [x] Research MUI TextField number formatting best practices (react-number-format, NumericFormat)
+- [x] Implement controlled text input with digit restrictions (maxIntegerDigits, scale)
+- [x] Block invalid characters via onKeyDown handler
+- [x] Format value with fixed decimal places (e.g., "0.00" for scale=2)
+- [x] Show constraints hint below field (Range/Min/Max, Non-negative)
+- [x] Display precision format (e.g., "8,2") in helper text
+- [x] Remove precision/scale validation errors (enforced by input restrictions instead)
+- [x] Auto-select integer/decimal parts for overwrite editing
+- [x] Prevent deleting decimal separator; overwrite decimal digits in-place
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-31): NUMBER Precision/Scale Validation
+
+- [x] Create validateNumber() utility in @universo/utils with precision/scale checks
+- [x] Add validateNumberOrThrow() for sync operations that throw on overflow
+- [x] Update MetahubElementsService.validateRules() with precision/scale validation
+- [x] Update applicationSyncRoutes.ts to throw on overflow instead of setting null
+- [x] Full build verification (64 tasks successful)
+
+## COMPLETED (2026-01-30): QA Fixes Round 3
+
+- [x] Add numeric overflow handling in seedPredefinedElements for NUMERIC precision/scale
+- [x] Add warnings/logs for numeric overflow during sync
+- [x] Full build and verification (64 tasks successful)
+
+## COMPLETED (2026-01-30): QA Fixes Round 2
+
+- [x] Fix MuiAlert severity colors (removed custom info palette from colorSchemes)
+- [x] Fix number input minus sign for non-nonNegative fields (check currentValue.length > 0)
+- [x] Fix JSON sync error for VLC fields in seedPredefinedElements (JSON.stringify primitives for JSONB)
+- [x] Full build and verification (64 tasks successful)
+
+## COMPLETED (2026-01-30): QA Fixes for Physical Type Display
+
+- [x] Fix MuiAlert severity-based colors (removed hardcoded orange, now uses MUI severity colors)
+- [x] Consolidate type mapping logic (SchemaGenerator.mapDataType now uses getPhysicalDataType from @universo/types)
+- [x] Refactor IIFE anti-pattern in AttributeList JSX to useMemo
+- [x] Fix number input allowing double minus and minus for nonNegative fields (added onKeyDown handler)
+- [x] Remove redundant VLC info Alert (now shown in PostgreSQL type Alert)
+- [x] Full workspace build verification - 64 tasks successful
+
+## COMPLETED (2026-01-30): Physical PostgreSQL Type Display in Attribute UI
+
+- [x] Add getPhysicalDataType() and formatPhysicalType() helpers to @universo/types
+- [x] Add PhysicalTypeInfo interface for type information
+- [x] Add Tooltip to AttributeList table showing PostgreSQL type on hover
+- [x] Add info Alert in AttributeForm showing computed PostgreSQL type
+- [x] Add physicalType i18n keys (EN/RU)
+- [x] Re-export new functions from metahubs-frontend types.ts
+- [x] Full build verification - all packages build successfully
+- [x] Update memory bank entries
+
+## COMPLETED (2026-01-30): DATE Input Year Digits Fix (Round 3)
+
+- [x] Research HTML5 date input 5+ digit year issue
+- [x] Implement normalizeDateValue helper function to truncate year to 4 digits
+- [x] Add max attribute for date/datetime-local inputs (9999-12-31 / 9999-12-31T23:59)
+- [x] Update DATE case in renderField with normalization and max constraint
+- [x] Build @universo/template-mui successfully
+- [x] Update memory bank entries
+
+## COMPLETED (2026-01-30): Validation UX Round 2
+
+- [x] Return maxLength restriction for STRING (prevent typing beyond max)
+- [x] Fix Save button disabled state (was missing disabled prop)
+- [x] Fix DATE/DATETIME inputs (remove custom normalization, use native browser handling)
+- [x] Build @universo/template-mui successfully
+- [x] Update memory bank entries
+
+## COMPLETED (2026-01-30): Validation UX Follow-up
+
+- [x] Allow max-length errors to surface (remove HTML maxLength lock)
+- [x] Add helper text for number range constraints
+- [x] Improve date/time input normalization to avoid clearing
+- [x] Update numeric precision label to "Length" (EN/RU)
+- [x] Run targeted builds (template-mui, metahubs-frontend)
+- [x] Update memory bank entries (activeContext/progress)
+
+## COMPLETED (2026-01-30): QA Fix - Attribute Validation Rules in Element Form
+
+- [x] Phase 1: Update @universo/types - move versioned/localized from JSON to STRING settings
+- [x] Phase 2: Update @universo/schema-ddl - STRING with VLC → JSONB mapping
+- [x] Phase 3: Update metahubs-backend Zod schema comments (VLC under STRING)
+- [x] Phase 4: Update AttributeList UI - VLC settings in STRING, [V][L] badges in table
+- [x] Phase 5: Extend DynamicFieldConfig - add DynamicFieldValidationRules interface
+- [x] Phase 6: Update ElementList - pass validationRules from attributes to dynamic fields
+- [x] Phase 7: Update i18n (EN/RU) - move VLC keys from json to string section
+- [x] Phase 8: Full build verification - all packages build successfully
+
+## COMPLETED (2026-01-30): Enhanced Attribute Types with Type-Specific Settings
+
+- [x] Phase 1: Update @universo/types - remove DATETIME, add type config interfaces (StringTypeConfig, NumberTypeConfig, DateTypeConfig, JsonTypeConfig, AttributeValidationRules)
+- [x] Phase 2: Update @universo/schema-ddl - mapDataType() now accepts optional config for VARCHAR(n), NUMERIC(p,s), DATE/TIME/TIMESTAMPTZ
+- [x] Phase 3: Update metahubs-backend - extend Zod schemas with type settings, update migration (remove DATETIME from enum), update ElementsService validation
+- [x] Phase 4: Update metahubs-frontend - add collapsible "Type Settings" panel with conditional fields for STRING/NUMBER/DATE/JSON
+- [x] Phase 5: Update i18n (EN/RU) - remove datetime key, add typeSettings keys
+- [x] Phase 6: Update SchemaGenerator tests - new tests for mapDataType with config parameter
+- [x] Phase 7: Full build verification - all packages build successfully
+
 ## BUG FIX (2026-01-29): Optimistic Locking Returns 500 Instead of 409
 
 - [x] Identify root cause: `instanceof OptimisticLockError` fails across module bundles

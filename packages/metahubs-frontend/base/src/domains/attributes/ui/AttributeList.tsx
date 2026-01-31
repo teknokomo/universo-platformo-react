@@ -15,12 +15,17 @@ import {
     Select,
     MenuItem,
     FormControlLabel,
-    Switch
+    Switch,
+    TextField,
+    Collapse,
+    Tooltip
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
 import InfoIcon from '@mui/icons-material/Info'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -49,7 +54,18 @@ import * as attributesApi from '../api'
 import { getCatalogById } from '../../catalogs'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { Attribute, AttributeDisplay, AttributeDataType, AttributeLocalizedPayload, getVLCString, toAttributeDisplay } from '../../../types'
+import { 
+    Attribute, 
+    AttributeDisplay, 
+    AttributeDataType, 
+    AttributeLocalizedPayload, 
+    getVLCString, 
+    toAttributeDisplay,
+    AttributeValidationRules,
+    getDefaultValidationRules,
+    getPhysicalDataType,
+    formatPhysicalType
+} from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -62,6 +78,7 @@ type AttributeFormValues = {
     codenameTouched?: boolean
     dataType?: AttributeDataType
     isRequired?: boolean
+    validationRules?: AttributeValidationRules
 }
 
 type AttributeFormFieldsProps = {
@@ -76,6 +93,21 @@ type AttributeFormFieldsProps = {
     dataTypeLabel: string
     requiredLabel: string
     dataTypeOptions: Array<{ value: AttributeDataType; label: string }>
+    // Type settings labels
+    typeSettingsLabel: string
+    stringMaxLengthLabel: string
+    stringMinLengthLabel: string
+    stringVersionedLabel: string
+    stringLocalizedLabel: string
+    numberPrecisionLabel: string
+    numberScaleLabel: string
+    numberMinLabel: string
+    numberMaxLabel: string
+    numberNonNegativeLabel: string
+    dateCompositionLabel: string
+    dateCompositionOptions: Array<{ value: string; label: string }>
+    // Physical type info
+    physicalTypeLabel: string
 }
 
 const AttributeFormFields = ({
@@ -89,16 +121,38 @@ const AttributeFormFields = ({
     codenameHelper,
     dataTypeLabel,
     requiredLabel,
-    dataTypeOptions
+    dataTypeOptions,
+    typeSettingsLabel,
+    stringMaxLengthLabel,
+    stringMinLengthLabel,
+    stringVersionedLabel,
+    stringLocalizedLabel,
+    numberPrecisionLabel,
+    numberScaleLabel,
+    numberMinLabel,
+    numberMaxLabel,
+    numberNonNegativeLabel,
+    dateCompositionLabel,
+    dateCompositionOptions,
+    physicalTypeLabel
 }: AttributeFormFieldsProps) => {
+    const [showTypeSettings, setShowTypeSettings] = useState(false)
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const dataType = (values.dataType as AttributeDataType | undefined) ?? 'STRING'
     const isRequired = Boolean(values.isRequired)
+    const validationRules = (values.validationRules as AttributeValidationRules | undefined) ?? getDefaultValidationRules(dataType)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
     const nextCodename = sanitizeCodename(nameValue)
+
+    // Compute physical PostgreSQL type info
+    const physicalTypeInfo = useMemo(() => {
+        const physicalInfo = getPhysicalDataType(dataType, validationRules)
+        const physicalTypeStr = formatPhysicalType(physicalInfo)
+        return { physicalInfo, physicalTypeStr }
+    }, [dataType, validationRules])
 
     useCodenameAutoFill({
         codename,
@@ -107,6 +161,152 @@ const AttributeFormFields = ({
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
     })
+
+    // Helper to update nested validationRules
+    const updateValidationRule = useCallback((key: string, value: any) => {
+        setValue('validationRules', { ...validationRules, [key]: value })
+    }, [setValue, validationRules])
+
+    // Render type-specific settings
+    const renderTypeSettings = () => {
+        switch (dataType) {
+            case 'STRING':
+                return (
+                    <Stack spacing={2}>
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label={stringMinLengthLabel}
+                                type="number"
+                                size="small"
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.minLength ?? ''}
+                                onChange={(e) => updateValidationRule('minLength', e.target.value ? parseInt(e.target.value, 10) : null)}
+                                inputProps={{ min: 0 }}
+                            />
+                            <TextField
+                                label={stringMaxLengthLabel}
+                                type="number"
+                                size="small"
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.maxLength ?? ''}
+                                onChange={(e) => updateValidationRule('maxLength', e.target.value ? parseInt(e.target.value, 10) : null)}
+                                inputProps={{ min: 1 }}
+                                helperText={
+                                    validationRules.versioned || validationRules.localized
+                                        ? t('attributes.typeSettings.string.backendType.jsonbVlc')
+                                        : !validationRules.maxLength
+                                        ? t('attributes.typeSettings.string.backendType.textUnlimited')
+                                        : t('attributes.typeSettings.string.backendType.varchar', { maxLength: validationRules.maxLength })
+                                }
+                            />
+                        </Stack>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={Boolean(validationRules.versioned)}
+                                    onChange={(e) => updateValidationRule('versioned', e.target.checked)}
+                                />
+                            }
+                            label={stringVersionedLabel}
+                            disabled={isLoading}
+                        />
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={Boolean(validationRules.localized)}
+                                    onChange={(e) => updateValidationRule('localized', e.target.checked)}
+                                />
+                            }
+                            label={stringLocalizedLabel}
+                            disabled={isLoading}
+                        />
+                    </Stack>
+                )
+            case 'NUMBER':
+                return (
+                    <Stack spacing={2}>
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label={numberPrecisionLabel}
+                                type="number"
+                                size="small"
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.precision ?? 10}
+                                onChange={(e) => updateValidationRule('precision', e.target.value ? parseInt(e.target.value, 10) : 10)}
+                                inputProps={{ min: 1, max: 15 }}
+                                helperText="1-15"
+                            />
+                            <TextField
+                                label={numberScaleLabel}
+                                type="number"
+                                size="small"
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.scale ?? 2}
+                                onChange={(e) => updateValidationRule('scale', e.target.value ? parseInt(e.target.value, 10) : 2)}
+                                inputProps={{ min: 0, max: Math.max(0, (validationRules.precision ?? 10) - 1) }}
+                                helperText={`0-${Math.max(0, (validationRules.precision ?? 10) - 1)}`}
+                            />
+                        </Stack>
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label={numberMinLabel}
+                                type="number"
+                                size="small"
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.min ?? ''}
+                                onChange={(e) => updateValidationRule('min', e.target.value ? parseFloat(e.target.value) : null)}
+                            />
+                            <TextField
+                                label={numberMaxLabel}
+                                type="number"
+                                size="small"
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.max ?? ''}
+                                onChange={(e) => updateValidationRule('max', e.target.value ? parseFloat(e.target.value) : null)}
+                            />
+                        </Stack>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={Boolean(validationRules.nonNegative)}
+                                    onChange={(e) => updateValidationRule('nonNegative', e.target.checked)}
+                                />
+                            }
+                            label={numberNonNegativeLabel}
+                            disabled={isLoading}
+                        />
+                    </Stack>
+                )
+            case 'DATE':
+                return (
+                    <FormControl fullWidth size="small" disabled={isLoading}>
+                        <InputLabel id="date-composition-label">{dateCompositionLabel}</InputLabel>
+                        <Select
+                            labelId="date-composition-label"
+                            label={dateCompositionLabel}
+                            value={validationRules.dateComposition ?? 'datetime'}
+                            onChange={(e) => updateValidationRule('dateComposition', e.target.value)}
+                        >
+                            {dateCompositionOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                )
+            default:
+                return null
+        }
+    }
+
+    const hasTypeSettings = ['STRING', 'NUMBER', 'DATE'].includes(dataType)
 
     return (
         <>
@@ -127,7 +327,12 @@ const AttributeFormFields = ({
                     labelId='attribute-data-type-label'
                     label={dataTypeLabel}
                     value={dataType}
-                    onChange={(event) => setValue('dataType', event.target.value as AttributeDataType)}
+                    onChange={(event) => {
+                        const newType = event.target.value as AttributeDataType
+                        setValue('dataType', newType)
+                        // Reset validationRules to defaults for new type
+                        setValue('validationRules', getDefaultValidationRules(newType))
+                    }}
                 >
                     {dataTypeOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
@@ -136,6 +341,35 @@ const AttributeFormFields = ({
                     ))}
                 </Select>
             </FormControl>
+            {hasTypeSettings && (
+                <Box>
+                    <Box
+                        sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            cursor: 'pointer',
+                            py: 1,
+                            '&:hover': { color: 'primary.main' }
+                        }}
+                        onClick={() => setShowTypeSettings(!showTypeSettings)}
+                    >
+                        {showTypeSettings ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                        <Typography variant="body2" sx={{ ml: 0.5 }}>
+                            {typeSettingsLabel}
+                        </Typography>
+                    </Box>
+                    <Collapse in={showTypeSettings}>
+                        <Box sx={{ pl: 2, pt: 1 }}>
+                            {renderTypeSettings()}
+                        </Box>
+                    </Collapse>
+                </Box>
+            )}
+            {/* Physical PostgreSQL type info */}
+            <Alert severity="info" sx={{ py: 0.5 }}>
+                {physicalTypeLabel}: <strong>{physicalTypeInfo.physicalTypeStr}</strong>
+                {physicalTypeInfo.physicalInfo.isVLC && ' (VLC)'}
+            </Alert>
             <FormControlLabel
                 control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
                 label={requiredLabel}
@@ -167,7 +401,6 @@ const getDataTypeColor = (dataType: AttributeDataType): 'default' | 'primary' | 
         case 'BOOLEAN':
             return 'success'
         case 'DATE':
-        case 'DATETIME':
             return 'warning'
         case 'REF':
             return 'info'
@@ -360,10 +593,26 @@ const AttributeList = () => {
                         { value: 'NUMBER', label: t('attributes.dataTypeOptions.number', 'Number') },
                         { value: 'BOOLEAN', label: t('attributes.dataTypeOptions.boolean', 'Boolean') },
                         { value: 'DATE', label: t('attributes.dataTypeOptions.date', 'Date') },
-                        { value: 'DATETIME', label: t('attributes.dataTypeOptions.datetime', 'Date/Time') },
                         { value: 'REF', label: t('attributes.dataTypeOptions.ref', 'Reference') },
                         { value: 'JSON', label: t('attributes.dataTypeOptions.json', 'JSON') }
                     ]}
+                    typeSettingsLabel={t('attributes.typeSettings.title', 'Type Settings')}
+                    stringMaxLengthLabel={t('attributes.typeSettings.string.maxLength', 'Max Length')}
+                    stringMinLengthLabel={t('attributes.typeSettings.string.minLength', 'Min Length')}
+                    stringVersionedLabel={t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
+                    stringLocalizedLabel={t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
+                    numberPrecisionLabel={t('attributes.typeSettings.number.precision', 'Precision')}
+                    numberScaleLabel={t('attributes.typeSettings.number.scale', 'Scale')}
+                    numberMinLabel={t('attributes.typeSettings.number.min', 'Min Value')}
+                    numberMaxLabel={t('attributes.typeSettings.number.max', 'Max Value')}
+                    numberNonNegativeLabel={t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
+                    dateCompositionLabel={t('attributes.typeSettings.date.composition', 'Date Composition')}
+                    dateCompositionOptions={[
+                        { value: 'date', label: t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
+                        { value: 'time', label: t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
+                        { value: 'datetime', label: t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time') }
+                    ]}
+                    physicalTypeLabel={t('attributes.physicalType.label', 'PostgreSQL type')}
                 />
             )
         },
@@ -427,7 +676,23 @@ const AttributeList = () => {
                 label: t('attributes.dataType', 'Type'),
                 width: '17%',
                 align: 'center' as const,
-                render: (row: AttributeDisplay) => <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
+                render: (row: AttributeDisplay) => {
+                    const rules = row.validationRules as AttributeValidationRules | undefined
+                    const hasVersioned = rules?.versioned
+                    const hasLocalized = rules?.localized
+                    const physicalInfo = getPhysicalDataType(row.dataType, rules)
+                    const physicalTypeStr = formatPhysicalType(physicalInfo)
+                    const tooltipTitle = t('attributes.physicalType.tooltip', 'PostgreSQL: {{type}}', { type: physicalTypeStr })
+                    return (
+                        <Tooltip title={tooltipTitle} arrow placement="top">
+                            <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center" sx={{ cursor: 'help' }}>
+                                <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
+                                {hasVersioned && <Chip label="V" size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                                {hasLocalized && <Chip label="L" size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                            </Stack>
+                        </Tooltip>
+                    )
+                }
             },
             {
                 id: 'isRequired',
@@ -629,6 +894,7 @@ const AttributeList = () => {
 
             const dataType = (data.dataType as AttributeDataType | undefined) ?? 'STRING'
             const isRequired = Boolean(data.isRequired)
+            const validationRules = data.validationRules as AttributeValidationRules | undefined
 
             await createAttributeMutation.mutateAsync({
                 metahubId,
@@ -639,7 +905,8 @@ const AttributeList = () => {
                     dataType,
                     isRequired,
                     name: nameInput,
-                    namePrimaryLocale
+                    namePrimaryLocale,
+                    validationRules
                 }
             })
 

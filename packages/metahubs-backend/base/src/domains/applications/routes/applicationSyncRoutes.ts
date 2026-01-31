@@ -10,6 +10,8 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
+import { AttributeDataType, AttributeValidationRules } from '@universo/types'
+import { validateNumberOrThrow } from '@universo/utils'
 import { Application, Connector, ConnectorPublication, ApplicationSchemaStatus } from '@universo/applications-backend'
 import { Publication } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
@@ -66,6 +68,83 @@ async function ensureApplicationAccess(
     }
 }
 
+/**
+ * Checks if a field stores VLC (versioned/localized content) as JSONB.
+ * STRING fields with versioned=true or localized=true are stored as JSONB.
+ */
+function isVLCField(field: { dataType: AttributeDataType; validationRules?: Record<string, unknown> }): boolean {
+    if (field.dataType !== AttributeDataType.STRING) {
+        return false
+    }
+    const rules = field.validationRules as Partial<AttributeValidationRules> | undefined
+    return rules?.versioned === true || rules?.localized === true
+}
+
+/**
+ * Prepares a value for insertion into a JSONB column.
+ * Knex handles object serialization automatically, but primitives need JSON.stringify.
+ * PostgreSQL JSONB requires valid JSON: strings must be quoted, etc.
+ */
+function prepareJsonbValue(value: unknown): unknown {
+    if (value === undefined || value === null) {
+        return null
+    }
+    // Objects and arrays: Knex serializes them automatically
+    if (typeof value === 'object') {
+        return value
+    }
+    // Primitives (string, number, boolean): wrap in JSON.stringify for valid JSONB
+    // PostgreSQL JSONB requires: '"string"' not just 'string'
+    return JSON.stringify(value)
+}
+
+/**
+ * Validates numeric values against NUMERIC(precision, scale) constraints.
+ * Throws an error if the value is invalid or overflows.
+ *
+ * This ensures data integrity - if data passed metahub validation,
+ * it should pass application sync too. Any overflow indicates
+ * validation was bypassed during element creation.
+ */
+function validateNumericValue(options: {
+    value: unknown
+    field: { codename: string; validationRules?: Record<string, unknown> }
+    tableName: string
+    elementId: string
+}): number | null {
+    const { value, field, tableName, elementId } = options
+
+    if (value === undefined || value === null) {
+        return null
+    }
+
+    if (typeof value !== 'number') {
+        // Let DB handle type mismatch
+        return value as unknown as number
+    }
+
+    const rules = field.validationRules as Partial<AttributeValidationRules> | undefined
+
+    try {
+        return validateNumberOrThrow(value, {
+            precision: rules?.precision,
+            scale: rules?.scale,
+            min: rules?.min ?? undefined,
+            max: rules?.max ?? undefined,
+            nonNegative: rules?.nonNegative
+        }, {
+            fieldName: field.codename,
+            elementId
+        })
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(
+            `[SchemaSync] Failed to sync element ${elementId} to ${tableName}: ${message}. ` +
+            `This indicates the element contains invalid data that bypassed metahub validation.`
+        )
+    }
+}
+
 async function seedPredefinedElements(
     schemaName: string,
     snapshot: MetahubSnapshot,
@@ -89,10 +168,11 @@ async function seedPredefinedElements(
             if (!entity) continue
 
             const tableName = generateTableName(entity.id, entity.kind)
-            const columnByCodename = new Map<string, string>(
-                entity.fields.map((field) => [field.codename, generateColumnName(field.id)])
+            // Build field map: codename -> { columnName, field definition }
+            const fieldByCodename = new Map<string, { columnName: string; field: typeof entity.fields[0] }>(
+                entity.fields.map((field) => [field.codename, { columnName: generateColumnName(field.id), field }])
             )
-            const dataColumns = Array.from(columnByCodename.values())
+            const dataColumns = Array.from(fieldByCodename.values()).map((v) => v.columnName)
 
             const rows = elements.map((element) => {
                 const data = element.data ?? {}
@@ -120,9 +200,26 @@ async function seedPredefinedElements(
                     _upl_updated_by: userId ?? null,
                 }
 
-                for (const [codename, columnName] of columnByCodename.entries()) {
+                for (const [codename, { columnName, field }] of fieldByCodename.entries()) {
                     if (Object.prototype.hasOwnProperty.call(data, codename)) {
-                        row[columnName] = (data as Record<string, unknown>)[codename]
+                        const rawValue = (data as Record<string, unknown>)[codename]
+                        // VLC fields (versioned/localized STRING) are JSONB columns
+                        if (isVLCField(field)) {
+                            row[columnName] = prepareJsonbValue(rawValue)
+                        } else if (field.dataType === AttributeDataType.JSON) {
+                            // JSON type is also JSONB, prepare value
+                            row[columnName] = prepareJsonbValue(rawValue)
+                        } else if (field.dataType === AttributeDataType.NUMBER) {
+                            // Validate and normalize NUMBER values - throws on invalid data
+                            row[columnName] = validateNumericValue({
+                                value: rawValue,
+                                field: { codename, validationRules: field.validationRules },
+                                tableName,
+                                elementId: element.id
+                            })
+                        } else {
+                            row[columnName] = rawValue
+                        }
                     } else {
                         row[columnName] = null
                     }

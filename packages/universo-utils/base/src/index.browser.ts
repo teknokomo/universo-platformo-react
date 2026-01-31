@@ -41,6 +41,16 @@ export {
     isLocalizedContent
 } from './vlc'
 
+// Number validation utilities for precision/scale constraints
+export {
+    validateNumber,
+    validateNumberOrThrow,
+    getMaxValueForPrecision,
+    NUMBER_DEFAULTS,
+    type NumberValidationResult,
+    type NumberValidationRules
+} from './validation/numberValidation'
+
 // Optimistic locking error utilities
 export { OptimisticLockError, type ConflictInfo } from './errors/OptimisticLockError'
 export { isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors/conflictDetection'
