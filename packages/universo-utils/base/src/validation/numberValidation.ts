@@ -73,12 +73,15 @@ export function getMaxValueForPrecision(precision: number, scale: number): numbe
 
 /**
  * Count integer digits (digits before decimal point).
- * Returns 1 for values between -1 and 1 (exclusive of 0).
+ * Returns 1 for zero and for values between -1 and 1 (the leading "0" in "0.xxx").
+ * This matches PostgreSQL NUMERIC behavior where NUMERIC(p,s) always requires at least 1 integer digit.
  */
 function countIntegerDigits(value: number): number {
     const absValue = Math.abs(value)
+    // Zero has 1 integer digit (the "0")
     if (absValue === 0) return 1
-    if (absValue < 1) return 0
+    // Values between -1 and 1 (exclusive) have 1 integer digit (the leading "0" in "0.xxx")
+    if (absValue < 1) return 1
     return Math.floor(Math.log10(absValue)) + 1
 }
 
@@ -150,7 +153,16 @@ export function validateNumber(
         Math.max(NUMBER_DEFAULTS.minPrecision, rules.precision ?? NUMBER_DEFAULTS.precision),
         NUMBER_DEFAULTS.maxPrecision
     )
-    const scale = Math.min(Math.max(0, rules.scale ?? NUMBER_DEFAULTS.scale), precision)
+    // Validate scale: must be 0 to precision-1 (at least 1 integer digit required)
+    const scale = rules.scale ?? NUMBER_DEFAULTS.scale
+    if (scale < 0 || scale >= precision) {
+        return {
+            valid: false,
+            errorKey: 'invalidScale',
+            errorMessage: `Scale (${scale}) must be between 0 and ${precision - 1} (less than precision)`,
+            errorParams: { scale, precision, maxScale: precision - 1 }
+        }
+    }
     const maxIntegerDigits = precision - scale
 
     // Check nonNegative

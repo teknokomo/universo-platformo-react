@@ -461,19 +461,24 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 const scale = rules?.scale ?? NUMBER_DEFAULTS.scale
                 const maxIntegerDigits = precision - scale
                 const allowNegative = !rules?.nonNegative
-                const decimalSeparator = scale > 0 ? ',' : ''
+                // Use locale-appropriate decimal separator: comma for Russian, dot for others
+                const normalizedLocale = normalizeLocale(locale)
+                const decimalSeparator = scale > 0 ? (normalizedLocale === 'ru' ? ',' : '.') : ''
 
                 /**
                  * Format number value for display.
                  * Shows fixed decimal places (e.g., "0.00" for scale=2).
+                 * For optional fields, empty values remain empty (not "0").
                  */
                 const formatNumberValue = (val: unknown): string => {
                     if (val === null || val === undefined || val === '') {
-                        // Show default formatted value when empty
+                        // For optional fields, show empty; for required, show default "0"
+                        if (!field.required) return ''
                         return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
                     }
                     if (typeof val === 'number') {
                         if (Number.isNaN(val)) {
+                            if (!field.required) return ''
                             return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
                         }
                         return scale > 0 ? val.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(val))
@@ -481,6 +486,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     // Parse string value
                     const parsed = parseFloat(String(val))
                     if (Number.isNaN(parsed)) {
+                        if (!field.required) return ''
                         return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
                     }
                     return scale > 0 ? parsed.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(parsed))
@@ -676,8 +682,9 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                  * Handle blur to format value properly.
                  */
                 const handleNumberBlur = () => {
-                    // When field loses focus, ensure value is properly formatted
-                    if (value === null || value === undefined) {
+                    // When field loses focus, for required fields normalize empty to 0,
+                    // but keep optional fields empty (null/undefined) so they can persist as NULL.
+                    if ((value === null || value === undefined) && field.required) {
                         handleFieldChange(field.id, 0)
                     }
                 }

@@ -195,10 +195,10 @@ const AttributeFormFields = ({
                                 inputProps={{ min: 1 }}
                                 helperText={
                                     validationRules.versioned || validationRules.localized
-                                        ? 'JSONB (VLC)'
+                                        ? t('attributes.typeSettings.string.backendType.jsonbVlc')
                                         : !validationRules.maxLength
-                                        ? 'TEXT (unlimited)'
-                                        : `VARCHAR(${validationRules.maxLength})`
+                                        ? t('attributes.typeSettings.string.backendType.textUnlimited')
+                                        : t('attributes.typeSettings.string.backendType.varchar', { maxLength: validationRules.maxLength })
                                 }
                             />
                         </Stack>

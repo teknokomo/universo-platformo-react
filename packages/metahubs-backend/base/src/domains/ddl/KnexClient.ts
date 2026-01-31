@@ -75,14 +75,13 @@ class KnexClient {
                 destroyTimeoutMillis: 5000,
                 // Propagate create error
                 propagateCreateError: false,
-                // Pool event logging for monitoring
-                afterCreate: (conn: unknown, done: (err: Error | null, conn: unknown) => void) => {
-                    console.log('[KnexClient] Pool connection created')
-                    done(null, conn)
-                },
             },
         })
 
+        // NOTE: Accessing internal Knex/tarn.js pool properties for error monitoring.
+        // This is fragile and may break with Knex or tarn.js updates.
+        // We accept this risk for improved observability during pool errors.
+        // The pool interface matches tarn.js internals (numUsed, numFree, numPendingAcquires, numPendingCreates).
         const pool = (instance as unknown as { client?: { pool?: any } })?.client?.pool
         if (pool?.on) {
             pool.on('error', (error: unknown) => {

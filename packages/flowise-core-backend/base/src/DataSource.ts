@@ -34,6 +34,10 @@ export const init = async (): Promise<void> => {
 
     console.log('[DataSource] Creating DataSource with entities:', Object.keys(entities).length, 'migrations:', postgresMigrations.length)
     const logPoolError = (err: Error): void => {
+        // NOTE: Accessing internal TypeORM driver properties for pool metrics.
+        // This is fragile and may break with TypeORM or pg-pool updates.
+        // We accept this risk for improved observability during pool errors.
+        // The pool metrics interface matches pg-pool internals (totalCount, idleCount, waitingCount).
         const pool = (appDataSource as unknown as { driver?: { master?: { totalCount?: number; idleCount?: number; waitingCount?: number } } })
             ?.driver?.master
         if (pool) {

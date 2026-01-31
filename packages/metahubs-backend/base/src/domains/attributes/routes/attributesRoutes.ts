@@ -59,9 +59,11 @@ const validationRulesSchema = z
     .refine(
         (rules) => {
             if (!rules) return true
-            // Validate scale < precision for NUMBER type (at least 1 integer digit required)
-            if (rules.precision !== undefined && rules.scale !== undefined) {
-                if (rules.scale >= rules.precision) return false
+            // Validate scale < precision for NUMBER type (at least 1 integer digit required).
+            // If precision is not provided, use the default precision (10) to avoid silently clamping scale later.
+            if (rules.scale !== undefined) {
+                const effectivePrecision = rules.precision ?? 10
+                if (rules.scale >= effectivePrecision) return false
             }
             // Validate min <= max
             if (rules.min !== undefined && rules.max !== undefined) {

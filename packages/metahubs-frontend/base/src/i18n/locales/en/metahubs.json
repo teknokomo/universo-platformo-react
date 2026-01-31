@@ -319,7 +319,12 @@
                 "maxLength": "Max Length",
                 "minLength": "Min Length",
                 "versioned": "Versioned (VLC)",
-                "localized": "Localized (VLC)"
+                "localized": "Localized (VLC)",
+                "backendType": {
+                    "jsonbVlc": "JSONB (VLC)",
+                    "textUnlimited": "TEXT (unlimited)",
+                    "varchar": "VARCHAR({{maxLength}})"
+                }
             },
             "number": {
                 "precision": "Length",

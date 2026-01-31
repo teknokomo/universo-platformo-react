@@ -1,6 +1,24 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## COMPLETED (2026-01-31): PR #660 Bot Recommendations QA
+
+QA analysis of bot comments (Gemini Code Assist, GitHub Copilot) on PR #660.
+
+**Issues Fixed:**
+- [x] Fix scale validation in numberValidation.ts - return error instead of silent clamp when scale >= precision
+- [x] Fix countIntegerDigits() for 0 < |value| < 1 - return 1 (for leading "0") matching docstring and PostgreSQL behavior
+- [x] Add risk comments for TypeORM/Knex internal pool access (fragile but accepted for observability)
+- [x] Fix attributesRoutes.ts scale validation - validate against effective precision (default 10) even when precision not provided
+- [x] Remove noisy afterCreate pool connection log (reduces production log noise)
+- [x] Fix handleNumberBlur for optional NUMBER fields - only force 0 for required fields, keep null for optional
+- [x] Add i18n for backend type helperText in AttributeList.tsx (JSONB, TEXT, VARCHAR)
+- [x] Fix decimalSeparator locale handling - use ',' for Russian, '.' for others
+- [x] Full build verification (64 tasks, 5m20s)
+
+**Issues Not Fixed (by design):**
+- memory-bank file compression (tasks.md, progress.md) - requires separate MB compression run, not code fix
+
 ## COMPLETED (2026-01-31): Pool Error Logging
 
 - [x] Reduce KnexClient pool max to 8 (Supabase pool budget)

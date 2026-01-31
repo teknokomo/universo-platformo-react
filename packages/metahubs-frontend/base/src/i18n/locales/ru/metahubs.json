@@ -318,7 +318,12 @@
                 "maxLength": "Макс. длина",
                 "minLength": "Мин. длина",
                 "versioned": "Версионируемый (VLC)",
-                "localized": "Локализуемый (VLC)"
+                "localized": "Локализуемый (VLC)",
+                "backendType": {
+                    "jsonbVlc": "JSONB (VLC)",
+                    "textUnlimited": "TEXT (без лимита)",
+                    "varchar": "VARCHAR({{maxLength}})"
+                }
             },
             "number": {
                 "precision": "Длина",
