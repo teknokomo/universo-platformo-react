@@ -88,6 +88,11 @@ if (!userId) return
 **Flowise AI 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
 **Supabase Integration** - Multi-user functionality with Postgres-only database support
 
+### Database Pooling (Operational Stability)
+- **Pool budget**: Keep total app connections within Supabase Pool Size (15).
+- **Current split**: Knex (8) + TypeORM (7).
+- **Observability**: Pool error logs include pool state metrics to aid incident triage.
+
 ### Authentication Architecture
 **Current**: Passport.js session auth (Express) integrated with Supabase identity; clients use cookie/session + CSRF protection.
 

@@ -85,24 +85,40 @@ describe('SchemaGenerator', () => {
         })
 
         describe('mapDataType', () => {
-            it('should map STRING to TEXT', () => {
+            it('should map STRING to TEXT by default', () => {
                 expect(SchemaGenerator.mapDataType(AttributeDataType.STRING)).toBe('TEXT')
             })
 
-            it('should map NUMBER to NUMERIC', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER)).toBe('NUMERIC')
+            it('should map STRING to VARCHAR(n) when maxLength is specified', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.STRING, { maxLength: 255 })).toBe('VARCHAR(255)')
+            })
+
+            it('should map NUMBER to NUMERIC(10,2) by default', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER)).toBe('NUMERIC(10,2)')
+            })
+
+            it('should map NUMBER with custom precision and scale', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER, { precision: 15, scale: 4 })).toBe('NUMERIC(15,4)')
             })
 
             it('should map BOOLEAN to BOOLEAN', () => {
                 expect(SchemaGenerator.mapDataType(AttributeDataType.BOOLEAN)).toBe('BOOLEAN')
             })
 
-            it('should map DATE to DATE', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE)).toBe('DATE')
+            it('should map DATE to TIMESTAMPTZ by default (datetime composition)', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE)).toBe('TIMESTAMPTZ')
             })
 
-            it('should map DATETIME to TIMESTAMPTZ', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.DATETIME)).toBe('TIMESTAMPTZ')
+            it('should map DATE to DATE when dateComposition is date', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE, { dateComposition: 'date' })).toBe('DATE')
+            })
+
+            it('should map DATE to TIME when dateComposition is time', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE, { dateComposition: 'time' })).toBe('TIME')
+            })
+
+            it('should map DATE to TIMESTAMPTZ when dateComposition is datetime', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE, { dateComposition: 'datetime' })).toBe('TIMESTAMPTZ')
             })
 
             it('should map REF to UUID', () => {

@@ -30,10 +30,11 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
 
         // ===== 2) Create ENUM for attribute data types =====
         // Use DO block to check if type exists before creating
+        // Note: DATETIME was removed in favor of DATE with dateComposition setting
         await queryRunner.query(`
             DO $$ BEGIN
                 CREATE TYPE metahubs.attribute_data_type AS ENUM (
-                    'STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'DATETIME', 'REF', 'JSON'
+                    'STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON'
                 );
             EXCEPTION
                 WHEN duplicate_object THEN NULL;

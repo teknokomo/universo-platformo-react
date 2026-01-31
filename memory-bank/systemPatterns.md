@@ -107,6 +107,15 @@ return repo.find({ where: { ... } })
 **Avoid**: Deprecated static wrappers (use naming utilities directly) and raw string interpolation in `knex.raw`.
 **Why**: Consistent DI simplifies testing and reduces SQL injection risk.
 
+## Database Pool Budget + Error Logging Pattern
+
+**Rule**: Keep total pooled connections within Supabase Pool Size; log pool state on errors.
+**Current Split**: Knex pool max = 8, TypeORM pool max = 7 (total 15).
+**Required**:
+- Knex: attach pool error listener and log `used/free/pending` metrics.
+- TypeORM: `poolErrorHandler` logs `total/idle/waiting` metrics.
+**Why**: Prevent pool exhaustion and provide actionable diagnostics during incidents.
+
 ## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 
 **Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.
@@ -219,6 +228,31 @@ export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... }
 - Table: `cat_<uuid32>`
 - Column: `attr_<uuid32>`
 - Tabular: `{parent}_tp_<uuid32>`
+
+## Attribute Type Architecture Pattern
+
+**Rule**: `_mhb_attributes.data_type` stores LOGICAL type (enum); `validation_rules` stores type-specific settings.
+**Why**: Separation of concern, flexibility, backward compatibility.
+**Components**:
+- **@universo/types**: `AttributeDataType` enum (STRING, NUMBER, BOOLEAN, DATE, REF, JSON), `AttributeValidationRules` interface.
+- **@universo/schema-ddl**: `SchemaGenerator.mapDataType(dataType, rules)` → PostgreSQL type.
+- **@universo/types**: `getPhysicalDataType(dataType, rules)` → `PhysicalTypeInfo` for UI display.
+
+**Type Mappings**:
+| Logical Type | Settings | PostgreSQL Type |
+|--------------|----------|-----------------|
+| STRING | default | TEXT |
+| STRING | maxLength: n | VARCHAR(n) |
+| STRING | versioned/localized | JSONB |
+| NUMBER | precision, scale | NUMERIC(p,s) |
+| DATE | dateComposition: 'date' | DATE |
+| DATE | dateComposition: 'time' | TIME |
+| DATE | dateComposition: 'datetime' | TIMESTAMPTZ |
+| BOOLEAN | - | BOOLEAN |
+| REF | - | UUID |
+| JSON | - | JSONB |
+
+**UI**: Tooltip in AttributeList shows computed PostgreSQL type; Alert in form displays "PostgreSQL type: X".
 
 ## Pagination Pattern
 

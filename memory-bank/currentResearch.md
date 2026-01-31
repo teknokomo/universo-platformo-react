@@ -22,3 +22,12 @@
 - Parameterized statement_timeout in `@universo/schema-ddl` locking helper to avoid raw interpolation
 - Removed deprecated static wrapper methods in `SchemaGenerator` and `MigrationManager`
 - Updated tests to use naming utilities directly
+
+---
+
+## Database pool monitoring (2026-01-31)
+
+### Notes
+- Supabase Pool Size observed at 15 connections for the project tier.
+- Knex + TypeORM pool budgets aligned to 8 + 7 (total 15).
+- Error logging now includes pool state metrics to diagnose exhaustion events.

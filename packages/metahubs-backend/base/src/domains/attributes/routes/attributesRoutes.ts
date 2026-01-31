@@ -27,22 +27,58 @@ const AttributesListQuerySchema = ListQuerySchema.extend({
 
 const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
 
-// Validation schemas
+/**
+ * Validation rules schema for attribute type-specific settings.
+ * Supports STRING, NUMBER, DATE, and JSON type configurations.
+ */
 const validationRulesSchema = z
     .object({
+        // Generic rules
         required: z.boolean().optional(),
-        minLength: z.number().int().optional(),
-        maxLength: z.number().int().optional(),
+
+        // STRING settings
+        minLength: z.number().int().min(0).max(10000).optional(),
+        maxLength: z.number().int().min(1).max(10000).nullable().optional(),
+        pattern: z.string().max(500).optional(),
+        options: z.array(z.string().max(200)).max(100).optional(),
+        // VLC support for STRING (stores as JSONB when enabled)
+        versioned: z.boolean().optional(),
+        localized: z.boolean().optional(),
+
+        // NUMBER settings (max precision limited to 15 due to JavaScript number precision)
+        precision: z.number().int().min(1).max(15).optional(),
+        scale: z.number().int().min(0).max(14).optional(),
         min: z.number().optional(),
         max: z.number().optional(),
-        pattern: z.string().optional(),
-        options: z.array(z.string()).optional()
+        nonNegative: z.boolean().optional(),
+
+        // DATE settings (replaces DATETIME type)
+        dateComposition: z.enum(['date', 'time', 'datetime']).optional()
     })
     .optional()
+    .refine(
+        (rules) => {
+            if (!rules) return true
+            // Validate scale < precision for NUMBER type (at least 1 integer digit required)
+            if (rules.precision !== undefined && rules.scale !== undefined) {
+                if (rules.scale >= rules.precision) return false
+            }
+            // Validate min <= max
+            if (rules.min !== undefined && rules.max !== undefined) {
+                if (rules.min > rules.max) return false
+            }
+            // Validate minLength <= maxLength for STRING
+            if (rules.minLength !== undefined && rules.maxLength !== undefined && rules.maxLength !== null) {
+                if (rules.minLength > rules.maxLength) return false
+            }
+            return true
+        },
+        { message: 'Invalid validation rules: scale must be < precision (at least 1 integer digit), min <= max, minLength <= maxLength' }
+    )
 
 const uiConfigSchema = z
     .object({
-        widget: z.enum(['text', 'textarea', 'number', 'select', 'checkbox', 'date', 'datetime', 'reference']).optional(),
+        widget: z.enum(['text', 'textarea', 'number', 'select', 'checkbox', 'date', 'time', 'datetime', 'reference', 'json']).optional(),
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),

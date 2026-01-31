@@ -16,19 +16,43 @@ import {
     Typography
 } from '@mui/material'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent, NUMBER_DEFAULTS } from '@universo/utils'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 
-export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'DATETIME' | 'REF' | 'JSON'
+export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON'
+
+/**
+ * Validation rules for dynamic fields.
+ * Matches AttributeValidationRules from @universo/types.
+ */
+export interface DynamicFieldValidationRules {
+    // STRING settings
+    minLength?: number | null
+    maxLength?: number | null
+    versioned?: boolean
+    localized?: boolean
+
+    // NUMBER settings
+    precision?: number
+    scale?: number
+    min?: number | null
+    max?: number | null
+    nonNegative?: boolean
+
+    // DATE settings
+    dateComposition?: 'date' | 'time' | 'datetime'
+}
 
 export interface DynamicFieldConfig {
     id: string
     label: string
     type: DynamicFieldType
     required?: boolean
+    /** @deprecated Use validationRules.localized instead */
     localized?: boolean
     placeholder?: string
     helperText?: string
+    validationRules?: DynamicFieldValidationRules
 }
 
 export interface DynamicEntityFormDialogProps {
@@ -70,6 +94,56 @@ const ensureLocalizedValue = (value: unknown, locale: string): VersionedLocalize
 const hasAnyLocalizedContent = (value: VersionedLocalizedContent<string>) =>
     Object.values(value.locales ?? {}).some((entry) => typeof entry?.content === 'string' && entry.content.trim() !== '')
 
+const getLocalizedStringValue = (value: unknown, locale: string): string | null => {
+    if (!isLocalizedContent(value)) return null
+    const locales = value.locales ?? {}
+    const normalizedLocale = normalizeLocale(locale)
+    const entry = locales[normalizedLocale]
+    if (typeof entry?.content === 'string') return entry.content
+    const primary = value._primary
+    const primaryEntry = locales[primary]
+    if (typeof primaryEntry?.content === 'string') return primaryEntry.content
+    const firstEntry = Object.values(locales).find((item) => typeof item?.content === 'string')
+    return typeof firstEntry?.content === 'string' ? firstEntry.content : null
+}
+
+const isValidTimeString = (value: string) => /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?$/.test(value)
+
+const isValidDateString = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+    const date = new Date(`${value}T00:00:00`)
+    return !Number.isNaN(date.getTime())
+}
+
+const isValidDateTimeString = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(value)) return false
+    const date = new Date(value)
+    return !Number.isNaN(date.getTime())
+}
+
+/**
+ * Normalize date/datetime input to ensure year has max 4 digits.
+ * Browser native date inputs allow typing 5+ digit years which breaks validation.
+ * This function truncates the year to 4 digits while preserving the rest.
+ */
+const normalizeDateValue = (value: string, inputType: 'date' | 'time' | 'datetime-local'): string => {
+    if (!value || inputType === 'time') return value
+
+    // Find the year portion (everything before first '-')
+    const dashIndex = value.indexOf('-')
+    if (dashIndex <= 0) return value
+
+    const yearPart = value.substring(0, dashIndex)
+
+    // If year has more than 4 digits, keep only the last 4 digits
+    if (yearPart.length > 4) {
+        const truncatedYear = yearPart.slice(-4)
+        return truncatedYear + value.substring(dashIndex)
+    }
+
+    return value
+}
+
 export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = ({
     open,
     title,
@@ -106,6 +180,12 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
 
+    const isRuLocale = normalizedLocale === 'ru'
+    const formatMessage = useCallback(
+        (en: string, ru: string) => (isRuLocale ? ru : en),
+        [isRuLocale]
+    )
+
     const handleFieldChange = useCallback((id: string, value: unknown) => {
         setFormData((prev) => ({ ...prev, [id]: value }))
     }, [])
@@ -140,6 +220,132 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         [isValuePresent]
     )
 
+    const getStringValueForValidation = useCallback(
+        (value: unknown) => {
+            if (typeof value === 'string') return value
+            const localizedValue = getLocalizedStringValue(value, normalizedLocale)
+            if (typeof localizedValue === 'string') return localizedValue
+            if (value === null || value === undefined) return null
+            return String(value)
+        },
+        [normalizedLocale]
+    )
+
+    /**
+     * For VLC fields, check minLength for ALL locales that have content.
+     * Returns the locale code that fails validation, or null if all pass.
+     */
+    const getVlcMinLengthError = useCallback(
+        (value: unknown, minLength: number): string | null => {
+            if (!isLocalizedContent(value)) return null
+            const vlc = value as VersionedLocalizedContent<string>
+            const locales = vlc.locales
+            for (const [localeCode, entry] of Object.entries(locales)) {
+                const content = entry?.content
+                // Only validate locales that have content (not empty)
+                if (typeof content === 'string' && content.length > 0 && content.length < minLength) {
+                    return localeCode
+                }
+            }
+            return null
+        },
+        []
+    )
+
+    const getFieldError = useCallback(
+        (field: DynamicFieldConfig, value: unknown) => {
+            if (!resolveValuePresent(field, value)) return null
+
+            const rules = field.validationRules ?? {}
+
+            if (field.type === 'STRING') {
+                const minLength = typeof rules.minLength === 'number' ? rules.minLength : null
+                const maxLength = typeof rules.maxLength === 'number' ? rules.maxLength : null
+
+                // For VLC fields, check minLength for ALL locales
+                if (isLocalizedContent(value) && minLength !== null) {
+                    const failedLocale = getVlcMinLengthError(value, minLength)
+                    if (failedLocale) {
+                        return formatMessage(
+                            `Language "${failedLocale.toUpperCase()}": minimum length ${minLength}`,
+                            `Язык "${failedLocale.toUpperCase()}": минимальная длина ${minLength}`
+                        )
+                    }
+                }
+
+                // For primary/simple string validation
+                const stringValue = getStringValueForValidation(value)
+                if (typeof stringValue === 'string') {
+                    if (minLength !== null && maxLength !== null) {
+                        if (stringValue.length < minLength || stringValue.length > maxLength) {
+                            return formatMessage(
+                                `Length must be between ${minLength} and ${maxLength}`,
+                                `Длина должна быть от ${minLength} до ${maxLength}`
+                            )
+                        }
+                    } else if (minLength !== null && stringValue.length < minLength) {
+                        return formatMessage(
+                            `Minimum length: ${minLength}`,
+                            `Минимальная длина: ${minLength}`
+                        )
+                    } else if (maxLength !== null && stringValue.length > maxLength) {
+                        return formatMessage(
+                            `Maximum length: ${maxLength}`,
+                            `Максимальная длина: ${maxLength}`
+                        )
+                    }
+                }
+            }
+
+            if (field.type === 'NUMBER') {
+                // For NUMBER fields, precision/scale is enforced by input restrictions.
+                // Only validate min/max/nonNegative rules which can't be controlled by input alone.
+                if (typeof value !== 'number' || Number.isNaN(value)) {
+                    return null // Empty or non-number is not an error (will show default)
+                }
+
+                if (rules.nonNegative === true && value < 0) {
+                    return formatMessage('Must be non-negative', 'Только неотрицательное значение')
+                }
+                if (typeof rules.min === 'number' && value < rules.min) {
+                    return formatMessage(
+                        `Minimum value: ${rules.min}`,
+                        `Минимальное значение: ${rules.min}`
+                    )
+                }
+                if (typeof rules.max === 'number' && value > rules.max) {
+                    return formatMessage(
+                        `Maximum value: ${rules.max}`,
+                        `Максимальное значение: ${rules.max}`
+                    )
+                }
+            }
+
+            if (field.type === 'DATE') {
+                if (typeof value !== 'string') return null
+
+                const composition = rules.dateComposition ?? 'datetime'
+                if (composition === 'time') {
+                    return isValidTimeString(value)
+                        ? null
+                        : formatMessage('Expected time format: HH:MM', 'Ожидается время в формате ЧЧ:ММ')
+                }
+                if (composition === 'date') {
+                    return isValidDateString(value)
+                        ? null
+                        : formatMessage('Expected date format: YYYY-MM-DD', 'Ожидается дата в формате ГГГГ-ММ-ДД')
+                }
+
+                return isValidDateTimeString(value)
+                    ? null
+                    : formatMessage('Expected date & time format: YYYY-MM-DD HH:MM', 'Ожидаются дата и время в формате ГГГГ-ММ-ДД ЧЧ:ММ')
+            }
+
+            return null
+        },
+        [formatMessage, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
+    )
+
     const hasAnyValue = useMemo(
         () => fields.some((field) => resolveValuePresent(field, formData[field.id])),
         [fields, formData, resolveValuePresent]
@@ -148,6 +354,11 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     const hasMissingRequired = useMemo(
         () => fields.some((field) => field.required && !resolveValuePresent(field, formData[field.id])),
         [fields, formData, resolveValuePresent]
+    )
+
+    const hasValidationErrors = useMemo(
+        () => fields.some((field) => Boolean(getFieldError(field, formData[field.id]))),
+        [fields, formData, getFieldError]
     )
 
     const buildPayload = useCallback(() => {
@@ -169,50 +380,350 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     const renderField = (field: DynamicFieldConfig) => {
         const value = formData[field.id]
         const disabled = isSubmitting
+        const rules = field.validationRules
+        const fieldError = getFieldError(field, value)
+        const helperText = fieldError ?? field.helperText
 
         switch (field.type) {
             case 'STRING': {
-                if (field.localized === false) {
+                // Check if localized: from validationRules or legacy localized prop
+                const isLocalized = rules?.localized ?? field.localized
+                const isVersioned = rules?.versioned
+
+                // For VLC fields, compute which locale has the minLength error
+                const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength 
+                    ? getVlcMinLengthError(value, rules.minLength)
+                    : null
+
+                // If both versioned and localized, use localized mode
+                // If only versioned, use versioned mode (no language switching)
+                // If only localized, use localized mode
+                if (isLocalized) {
                     return (
-                        <TextField
-                            fullWidth
+                        <LocalizedInlineField
+                            mode='localized'
                             label={field.label}
-                            value={typeof value === 'string' ? value : value == null ? '' : String(value)}
-                            onChange={(event) => handleFieldChange(field.id, event.target.value)}
                             required={field.required}
+                            value={ensureLocalizedValue(value, normalizedLocale)}
+                            onChange={(next) => handleFieldChange(field.id, next)}
+                            uiLocale={locale}
                             disabled={disabled}
-                            placeholder={field.placeholder}
+                            error={fieldError}
+                            errorLocale={vlcErrorLocale}
                             helperText={field.helperText}
+                            maxLength={rules?.maxLength}
+                            minLength={rules?.minLength}
                         />
                     )
                 }
 
-                return (
-                    <LocalizedInlineField
-                        mode='localized'
-                        label={field.label}
-                        required={field.required}
-                        value={ensureLocalizedValue(value, normalizedLocale)}
-                        onChange={(next) => handleFieldChange(field.id, next)}
-                        uiLocale={locale}
-                        disabled={disabled}
-                    />
-                )
-            }
-            case 'NUMBER':
+                if (isVersioned) {
+                    return (
+                        <LocalizedInlineField
+                            mode='versioned'
+                            label={field.label}
+                            required={field.required}
+                            value={ensureLocalizedValue(value, normalizedLocale)}
+                            onChange={(next) => handleFieldChange(field.id, next)}
+                            uiLocale={locale}
+                            disabled={disabled}
+                            error={fieldError}
+                            errorLocale={vlcErrorLocale}
+                            helperText={field.helperText}
+                            maxLength={rules?.maxLength}
+                            minLength={rules?.minLength}
+                        />
+                    )
+                }
+
+                // Plain string with optional length validation
                 return (
                     <TextField
                         fullWidth
-                        type='number'
                         label={field.label}
-                        value={typeof value === 'number' ? value : value == null ? '' : Number(value)}
-                        onChange={(event) => handleFieldChange(field.id, event.target.value ? parseFloat(event.target.value) : null)}
+                        value={typeof value === 'string' ? value : value == null ? '' : String(value)}
+                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
                         required={field.required}
                         disabled={disabled}
                         placeholder={field.placeholder}
-                        helperText={field.helperText}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                        inputProps={{
+                            minLength: rules?.minLength ?? undefined,
+                            maxLength: rules?.maxLength ?? undefined
+                        }}
                     />
                 )
+            }
+            case 'NUMBER': {
+                // Calculate precision/scale constraints
+                const precision = rules?.precision ?? NUMBER_DEFAULTS.precision
+                const scale = rules?.scale ?? NUMBER_DEFAULTS.scale
+                const maxIntegerDigits = precision - scale
+                const allowNegative = !rules?.nonNegative
+                const decimalSeparator = scale > 0 ? ',' : ''
+
+                /**
+                 * Format number value for display.
+                 * Shows fixed decimal places (e.g., "0.00" for scale=2).
+                 */
+                const formatNumberValue = (val: unknown): string => {
+                    if (val === null || val === undefined || val === '') {
+                        // Show default formatted value when empty
+                        return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+                    }
+                    if (typeof val === 'number') {
+                        if (Number.isNaN(val)) {
+                            return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+                        }
+                        return scale > 0 ? val.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(val))
+                    }
+                    // Parse string value
+                    const parsed = parseFloat(String(val))
+                    if (Number.isNaN(parsed)) {
+                        return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+                    }
+                    return scale > 0 ? parsed.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(parsed))
+                }
+
+                const selectNumberPart = (target: HTMLInputElement) => {
+                    if (scale <= 0) {
+                        target.setSelectionRange(0, target.value.length)
+                        return
+                    }
+                    const valueText = target.value
+                    const signOffset = valueText.startsWith('-') ? 1 : 0
+                    const separatorIndex = valueText.indexOf(decimalSeparator)
+                    if (separatorIndex === -1) {
+                        target.setSelectionRange(signOffset, valueText.length)
+                        return
+                    }
+                    const cursor = target.selectionStart ?? 0
+                    if (cursor <= separatorIndex) {
+                        target.setSelectionRange(signOffset, separatorIndex)
+                    } else {
+                        target.setSelectionRange(separatorIndex + 1, valueText.length)
+                    }
+                }
+
+                const handleNumberFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+                    const target = event.target
+                    window.requestAnimationFrame(() => selectNumberPart(target))
+                }
+
+                const handleNumberClick = (event: React.MouseEvent<HTMLInputElement>) => {
+                    const target = event.target as HTMLInputElement
+                    window.requestAnimationFrame(() => selectNumberPart(target))
+                }
+
+                /**
+                 * Handle input change with digit restrictions.
+                 * Prevents entering more digits than allowed by precision/scale.
+                 */
+                const handleNumberChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+                    const inputValue = event.target.value
+
+                    // Allow empty to reset
+                    if (inputValue === '' || inputValue === '-') {
+                        handleFieldChange(field.id, null)
+                        return
+                    }
+
+                    // Normalize decimal separator (replace comma with dot for parsing)
+                    const normalizedInput = inputValue.replace(/,/g, '.')
+
+                    // Validate input format: optional minus, digits, optional decimal point, digits
+                    const validPattern = allowNegative
+                        ? /^-?\d*\.?\d*$/
+                        : /^\d*\.?\d*$/
+
+                    if (!validPattern.test(normalizedInput)) {
+                        return // Block invalid characters
+                    }
+
+                    // Split into integer and decimal parts
+                    const isNegative = normalizedInput.startsWith('-')
+                    const absValue = isNegative ? normalizedInput.slice(1) : normalizedInput
+                    const [intPart = '', decPart = ''] = absValue.split('.')
+
+                    // Check digit limits
+                    if (intPart.length > maxIntegerDigits) {
+                        return // Block: too many integer digits
+                    }
+                    if (decPart.length > scale) {
+                        return // Block: too many decimal digits
+                    }
+
+                    // Parse and store as number
+                    const parsed = parseFloat(normalizedInput)
+                    if (Number.isFinite(parsed)) {
+                        handleFieldChange(field.id, parsed)
+                    }
+                }
+
+                /**
+                 * Handle key press to prevent invalid characters.
+                 */
+                const handleNumberKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+                    const key = event.key
+                    const target = event.target as HTMLInputElement
+                    const currentValue = target.value
+                    const selectionStart = target.selectionStart ?? 0
+                    const selectionEnd = target.selectionEnd ?? selectionStart
+                    const hasSelection = selectionEnd > selectionStart
+                    const separatorIndex = scale > 0 ? currentValue.indexOf(decimalSeparator) : -1
+
+                    if ((key === 'Backspace' || key === 'Delete') && scale > 0 && separatorIndex !== -1) {
+                        const selectionCrossesSeparator = selectionStart <= separatorIndex && selectionEnd > separatorIndex
+                        const backspaceOnSeparator = key === 'Backspace' && selectionStart === separatorIndex + 1 && selectionEnd === selectionStart
+                        const deleteOnSeparator = key === 'Delete' && selectionStart === separatorIndex && selectionEnd === selectionStart
+                        if (selectionCrossesSeparator || backspaceOnSeparator || deleteOnSeparator) {
+                            event.preventDefault()
+                            return
+                        }
+                    }
+
+                    // Allow navigation and control keys
+                    if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(key)) {
+                        return
+                    }
+
+                    // Allow Ctrl/Cmd combinations (copy, paste, select all)
+                    if (event.ctrlKey || event.metaKey) {
+                        return
+                    }
+
+                    // Handle minus sign
+                    if (key === '-') {
+                        if (!allowNegative) {
+                            event.preventDefault()
+                            return
+                        }
+                        // Only allow at the beginning and if not already present
+                        if (selectionStart !== 0 || currentValue.includes('-')) {
+                            event.preventDefault()
+                        }
+                        return
+                    }
+
+                    // Handle decimal point (dot or comma)
+                    if (key === '.' || key === ',') {
+                        if (scale === 0) {
+                            event.preventDefault() // No decimals allowed
+                            return
+                        }
+                        event.preventDefault()
+                        if (separatorIndex !== -1) {
+                            const decimalStart = separatorIndex + 1
+                            window.requestAnimationFrame(() => target.setSelectionRange(decimalStart, currentValue.length))
+                        }
+                        return
+                    }
+
+                    // Allow digits 0-9
+                    if (/^\d$/.test(key)) {
+                        if (scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex) {
+                            event.preventDefault()
+                            const decimalStart = separatorIndex + 1
+                            const localIndex = Math.min(selectionStart, currentValue.length) - decimalStart
+                            const decimalChars = currentValue.slice(decimalStart).split('')
+                            if (localIndex >= 0 && localIndex < decimalChars.length) {
+                                decimalChars[localIndex] = key
+                                const nextValue = `${currentValue.slice(0, decimalStart)}${decimalChars.join('')}`
+                                const parsed = parseFloat(nextValue.replace(/,/g, '.'))
+                                if (Number.isFinite(parsed)) {
+                                    handleFieldChange(field.id, parsed)
+                                }
+                                const nextCaret = Math.min(decimalStart + localIndex + 1, decimalStart + scale)
+                                window.requestAnimationFrame(() => target.setSelectionRange(nextCaret, nextCaret))
+                                return
+                            }
+                        }
+
+                        // Check if adding this digit would exceed limits (integer part)
+                        const normalizedValue = currentValue.replace(/,/g, '.')
+                        const isNegative = normalizedValue.startsWith('-')
+                        const absValue = isNegative ? normalizedValue.slice(1) : normalizedValue
+                        const decimalIndex = absValue.indexOf('.')
+
+                        if (decimalIndex === -1) {
+                            const intPartLength = absValue.length
+                            if (intPartLength >= maxIntegerDigits && selectionStart >= (isNegative ? 1 : 0) && !hasSelection) {
+                                event.preventDefault()
+                            }
+                        } else {
+                            const adjustedPos = isNegative ? selectionStart - 1 : selectionStart
+                            if (adjustedPos <= decimalIndex) {
+                                const intPart = absValue.slice(0, decimalIndex)
+                                if (intPart.length >= maxIntegerDigits && !hasSelection) {
+                                    event.preventDefault()
+                                }
+                            } else {
+                                const decPart = absValue.slice(decimalIndex + 1)
+                                if (decPart.length >= scale && !hasSelection) {
+                                    event.preventDefault()
+                                }
+                            }
+                        }
+                        return
+                    }
+
+                    // Block all other characters
+                    event.preventDefault()
+                }
+
+                /**
+                 * Handle blur to format value properly.
+                 */
+                const handleNumberBlur = () => {
+                    // When field loses focus, ensure value is properly formatted
+                    if (value === null || value === undefined) {
+                        handleFieldChange(field.id, 0)
+                    }
+                }
+
+                // Build helper text showing constraints (like STRING shows "Макс. длина: 10")
+                const constraintParts: string[] = []
+                
+                // Show precision format: "Длина: 8,2" means 8 digits before decimal, 2 after
+                const formatInfo = scale > 0 
+                    ? formatMessage(`Length: ${maxIntegerDigits},${scale}`, `Длина: ${maxIntegerDigits},${scale}`)
+                    : formatMessage(`Length: ${maxIntegerDigits}`, `Длина: ${maxIntegerDigits}`)
+                constraintParts.push(formatInfo)
+                
+                if (typeof rules?.min === 'number' && typeof rules?.max === 'number') {
+                    constraintParts.push(formatMessage(`Range: ${rules.min}–${rules.max}`, `Диапазон: ${rules.min}–${rules.max}`))
+                } else if (typeof rules?.min === 'number') {
+                    constraintParts.push(formatMessage(`Min: ${rules.min}`, `Мин: ${rules.min}`))
+                } else if (typeof rules?.max === 'number') {
+                    constraintParts.push(formatMessage(`Max: ${rules.max}`, `Макс: ${rules.max}`))
+                }
+                if (rules?.nonNegative) {
+                    constraintParts.push(formatMessage('Non-negative only', 'Только неотрицательное значение'))
+                }
+
+                const numberHelperText = fieldError ?? constraintParts.join(', ')
+
+                return (
+                    <TextField
+                        fullWidth
+                        type='text'
+                        inputMode='decimal'
+                        label={field.label}
+                        value={formatNumberValue(value)}
+                        onChange={handleNumberChange}
+                        onKeyDown={handleNumberKeyDown}
+                        onFocus={handleNumberFocus}
+                        onClick={handleNumberClick}
+                        onBlur={handleNumberBlur}
+                        required={field.required}
+                        disabled={disabled}
+                        placeholder={scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'}
+                        error={Boolean(fieldError)}
+                        helperText={numberHelperText}
+                    />
+                )
+            }
             case 'BOOLEAN':
                 return (
                     <FormControlLabel
@@ -223,34 +734,48 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         disabled={disabled}
                     />
                 )
-            case 'DATE':
+            case 'DATE': {
+                // Determine input type and max value based on dateComposition
+                // Browser native date/time inputs allow 5+ digit years, so we add max constraint and normalize
+                const composition = rules?.dateComposition ?? 'datetime'
+                let inputType: 'date' | 'time' | 'datetime-local'
+                let maxValue: string | undefined
+
+                switch (composition) {
+                    case 'date':
+                        inputType = 'date'
+                        maxValue = '9999-12-31'
+                        break
+                    case 'time':
+                        inputType = 'time'
+                        maxValue = undefined
+                        break
+                    case 'datetime':
+                    default:
+                        inputType = 'datetime-local'
+                        maxValue = '9999-12-31T23:59'
+                        break
+                }
+
                 return (
                     <TextField
                         fullWidth
-                        type='date'
+                        type={inputType}
                         label={field.label}
                         value={(value as string) ?? ''}
-                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
+                        onChange={(event) => {
+                            const normalizedValue = normalizeDateValue(event.target.value, inputType)
+                            handleFieldChange(field.id, normalizedValue)
+                        }}
                         required={field.required}
                         disabled={disabled}
                         InputLabelProps={{ shrink: true }}
-                        helperText={field.helperText}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                        inputProps={{ max: maxValue }}
                     />
                 )
-            case 'DATETIME':
-                return (
-                    <TextField
-                        fullWidth
-                        type='datetime-local'
-                        label={field.label}
-                        value={(value as string) ?? ''}
-                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
-                        required={field.required}
-                        disabled={disabled}
-                        InputLabelProps={{ shrink: true }}
-                        helperText={field.helperText}
-                    />
-                )
+            }
             case 'JSON': {
                 const stringValue =
                     typeof value === 'string' ? value : value && typeof value === 'object' ? JSON.stringify(value, null, 2) : ''
@@ -271,7 +796,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         required={field.required}
                         disabled={disabled}
                         placeholder={field.placeholder}
-                        helperText={field.helperText}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
                     />
                 )
             }
@@ -285,7 +811,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         required={field.required}
                         disabled={disabled}
                         placeholder={field.placeholder}
-                        helperText={field.helperText}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
                     />
                 )
             default:
@@ -298,13 +825,20 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         required={field.required}
                         disabled={disabled}
                         placeholder={field.placeholder}
-                        helperText={field.helperText}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
                     />
                 )
         }
     }
 
-    const isSubmitDisabled = isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || (requireAnyValue && !hasAnyValue)
+    const isSubmitDisabled =
+        isSubmitting ||
+        !isReady ||
+        fields.length === 0 ||
+        hasMissingRequired ||
+        hasValidationErrors ||
+        (requireAnyValue && !hasAnyValue)
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
@@ -329,7 +863,6 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         onClick={deleteButtonDisabled ? undefined : onDelete}
                         disabled={isSubmitting || deleteButtonDisabled}
                         variant='outlined'
-                        color='error'
                         startIcon={<DeleteIcon />}
                         sx={{ borderRadius: 1, mr: 'auto' }}
                     >

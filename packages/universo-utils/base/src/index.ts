@@ -118,3 +118,13 @@ export { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled, isEmailCon
 
 // Error classes for common error handling patterns
 export { OptimisticLockError, type ConflictInfo, isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors'
+
+// Number validation utilities for precision/scale constraints
+export {
+    validateNumber,
+    validateNumberOrThrow,
+    getMaxValueForPrecision,
+    NUMBER_DEFAULTS,
+    type NumberValidationResult,
+    type NumberValidationRules
+} from './validation/numberValidation'

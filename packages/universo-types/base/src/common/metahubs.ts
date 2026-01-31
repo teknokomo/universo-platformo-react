@@ -3,12 +3,15 @@
 
 import type { VersionedLocalizedContent } from './admin'
 
+/**
+ * Supported attribute data types.
+ * Note: DATETIME was removed in favor of DATE with dateComposition setting.
+ */
 export const ATTRIBUTE_DATA_TYPES = [
     'STRING',
     'NUMBER',
     'BOOLEAN',
     'DATE',
-    'DATETIME',
     'REF',
     'JSON',
 ] as const
@@ -22,6 +25,196 @@ export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce(
     },
     {} as Record<AttributeDataType, AttributeDataType>
 )
+
+// ============ TYPE-SPECIFIC CONFIGURATION INTERFACES ============
+
+/**
+ * STRING type settings.
+ * Controls length limits and pattern validation.
+ */
+export interface StringTypeConfig {
+    /** Maximum length limit (1-10000), null for unlimited */
+    maxLength?: number | null
+    /** Minimum length (0-maxLength) */
+    minLength?: number
+    /** Pattern regex for validation */
+    pattern?: string
+    /** Fixed options list for enum-like behavior */
+    options?: string[]
+}
+
+/**
+ * NUMBER type settings.
+ * Controls precision, scale, and range.
+ */
+export interface NumberTypeConfig {
+    /** Total significant digits (1-38) */
+    precision?: number
+    /** Digits after decimal point (0-precision) */
+    scale?: number
+    /** Minimum value */
+    min?: number
+    /** Maximum value */
+    max?: number
+    /** Only allow non-negative values */
+    nonNegative?: boolean
+}
+
+/**
+ * DATE type settings (replaces former DATETIME).
+ * Controls what temporal component to store.
+ */
+export interface DateTypeConfig {
+    /**
+     * What component to store:
+     * - 'date': DATE only (YYYY-MM-DD)
+     * - 'time': TIME only (HH:MM:SS)
+     * - 'datetime': Full TIMESTAMPTZ (default for backward compatibility)
+     */
+    dateComposition?: 'date' | 'time' | 'datetime'
+}
+
+/**
+ * Combined validation rules with type-specific settings.
+ * Stored in attribute's validationRules field.
+ */
+export interface AttributeValidationRules {
+    // Generic rules
+    required?: boolean
+
+    // STRING settings
+    maxLength?: number | null
+    minLength?: number
+    pattern?: string
+    options?: string[]
+    /** Enable versioning (VLC pattern). When true, field stores JSONB instead of TEXT */
+    versioned?: boolean
+    /** Enable localization (multiple language versions via VLC). When true, field stores JSONB instead of TEXT */
+    localized?: boolean
+
+    // NUMBER settings
+    precision?: number
+    scale?: number
+    min?: number
+    max?: number
+    nonNegative?: boolean
+
+    // DATE settings
+    dateComposition?: 'date' | 'time' | 'datetime'
+}
+
+/**
+ * Returns default validation rules for a given data type.
+ */
+export function getDefaultValidationRules(dataType: AttributeDataType): Partial<AttributeValidationRules> {
+    switch (dataType) {
+        case 'STRING':
+            return { maxLength: null, versioned: false, localized: false }
+        case 'NUMBER':
+            return { precision: 10, scale: 2, nonNegative: false }
+        case 'DATE':
+            return { dateComposition: 'datetime' } // Full datetime by default
+        case 'JSON':
+            return {}
+        default:
+            return {}
+    }
+}
+
+/**
+ * Physical PostgreSQL type information returned by getPhysicalDataType().
+ */
+export interface PhysicalTypeInfo {
+    /** PostgreSQL type name (e.g., 'TEXT', 'VARCHAR', 'JSONB', 'TIMESTAMPTZ') */
+    type: string
+    /** Whether storage uses VLC (versioned/localized content) pattern */
+    isVLC: boolean
+    /** Optional length for VARCHAR types */
+    length?: number
+    /** Optional precision for NUMERIC types */
+    precision?: number
+    /** Optional scale for NUMERIC types */
+    scale?: number
+}
+
+/**
+ * Maps logical AttributeDataType + validation rules to physical PostgreSQL type.
+ * This mirrors SchemaGenerator.mapDataType() logic but without Knex dependency.
+ *
+ * @param dataType - Logical data type from AttributeDataType enum
+ * @param rules - Validation rules containing type-specific settings
+ * @returns Physical type information for UI display
+ */
+export function getPhysicalDataType(
+    dataType: AttributeDataType,
+    rules?: Partial<AttributeValidationRules>
+): PhysicalTypeInfo {
+    switch (dataType) {
+        case 'STRING': {
+            // If versioned or localized, store as JSONB for VLC structure
+            if (rules?.versioned || rules?.localized) {
+                return { type: 'JSONB', isVLC: true }
+            }
+            // VARCHAR(n) when explicit limit is set
+            const maxLength = rules?.maxLength
+            if (typeof maxLength === 'number' && maxLength > 0 && maxLength <= 10000) {
+                return { type: 'VARCHAR', isVLC: false, length: maxLength }
+            }
+            // Default: unlimited TEXT
+            return { type: 'TEXT', isVLC: false }
+        }
+
+        case 'NUMBER': {
+            // Max precision limited to 15 due to JavaScript number precision limits
+            const precision = Math.min(Math.max(1, rules?.precision ?? 10), 15)
+            // Scale must be < precision (at least 1 integer digit required)
+            const scale = Math.min(Math.max(0, rules?.scale ?? 2), precision - 1)
+            return { type: 'NUMERIC', isVLC: false, precision, scale }
+        }
+
+        case 'BOOLEAN':
+            return { type: 'BOOLEAN', isVLC: false }
+
+        case 'DATE': {
+            const composition = rules?.dateComposition || 'datetime'
+            switch (composition) {
+                case 'date':
+                    return { type: 'DATE', isVLC: false }
+                case 'time':
+                    return { type: 'TIME', isVLC: false }
+                case 'datetime':
+                default:
+                    return { type: 'TIMESTAMPTZ', isVLC: false }
+            }
+        }
+
+        case 'REF':
+            return { type: 'UUID', isVLC: false }
+
+        case 'JSON':
+            return { type: 'JSONB', isVLC: false }
+
+        default:
+            return { type: 'TEXT', isVLC: false }
+    }
+}
+
+/**
+ * Formats PhysicalTypeInfo into a human-readable PostgreSQL type string.
+ *
+ * @param info - Physical type information
+ * @returns Formatted string like 'VARCHAR(1024)', 'NUMERIC(10,2)', 'TEXT'
+ */
+export function formatPhysicalType(info: PhysicalTypeInfo): string {
+    switch (info.type) {
+        case 'VARCHAR':
+            return info.length ? `VARCHAR(${info.length})` : 'VARCHAR'
+        case 'NUMERIC':
+            return `NUMERIC(${info.precision ?? 10},${info.scale ?? 2})`
+        default:
+            return info.type
+    }
+}
 
 export const MetaEntityKind = {
     CATALOG: 'catalog',

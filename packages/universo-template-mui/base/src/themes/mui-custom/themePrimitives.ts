@@ -116,18 +116,7 @@ export const getDesignTokens = (mode: PaletteMode) => {
                     dark: brand[700]
                 })
             },
-            info: {
-                light: brand[100],
-                main: brand[300],
-                dark: brand[600],
-                contrastText: gray[50],
-                ...(mode === 'dark' && {
-                    contrastText: brand[300],
-                    light: brand[500],
-                    main: brand[700],
-                    dark: brand[900]
-                })
-            },
+            // info: use default MUI palette for standard Alert colors
             warning: {
                 light: orange[300],
                 main: orange[400],
@@ -251,12 +240,7 @@ export const colorSchemes = {
                 dark: brand[700],
                 contrastText: brand[50]
             },
-            info: {
-                light: brand[100],
-                main: brand[300],
-                dark: brand[600],
-                contrastText: gray[50]
-            },
+            // info: use default MUI palette for standard Alert colors
             warning: {
                 light: orange[300],
                 main: orange[400],
@@ -304,12 +288,7 @@ export const colorSchemes = {
                 main: brand[400],
                 dark: brand[700]
             },
-            info: {
-                contrastText: brand[300],
-                light: brand[500],
-                main: brand[700],
-                dark: brand[900]
-            },
+            // info: use default MUI palette for standard Alert colors
             warning: {
                 light: orange[400],
                 main: orange[500],

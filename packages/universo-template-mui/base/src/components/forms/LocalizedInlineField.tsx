@@ -49,10 +49,16 @@ type BaseProps = {
     required?: boolean
     disabled?: boolean
     error?: string | null
+    /** Locale code that has the error (for VLC fields, shows error under specific locale) */
+    errorLocale?: string | null
     helperText?: string
     multiline?: boolean
     rows?: number
     size?: 'small' | 'medium'
+    /** Maximum string length (blocks input beyond limit) */
+    maxLength?: number | null
+    /** Minimum string length (for validation display) */
+    minLength?: number | null
 }
 
 type SimpleFieldProps = BaseProps & {
@@ -61,7 +67,17 @@ type SimpleFieldProps = BaseProps & {
     onChange: (value: string) => void
 }
 
+type VersionedFieldProps = BaseProps & {
+    /** Versioned-only mode: single locale, no language switching */
+    mode: 'versioned'
+    value: VersionedLocalizedContent<string> | null
+    onChange: (value: VersionedLocalizedContent<string>) => void
+    uiLocale?: string
+    autoInitialize?: boolean
+}
+
 type LocalizedFieldProps = BaseProps & {
+    /** Localized mode: multiple locales with language switching */
     mode: 'localized'
     value: VersionedLocalizedContent<string> | null
     onChange: (value: VersionedLocalizedContent<string>) => void
@@ -70,7 +86,7 @@ type LocalizedFieldProps = BaseProps & {
     localesEndpoint?: string
 }
 
-export type LocalizedInlineFieldProps = SimpleFieldProps | LocalizedFieldProps
+export type LocalizedInlineFieldProps = SimpleFieldProps | VersionedFieldProps | LocalizedFieldProps
 
 const normalizeLocale = (locale?: string) => (locale ? String(locale).split(/[-_]/)[0].toLowerCase() : 'en')
 
@@ -100,25 +116,57 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
     helperText,
     multiline,
     rows,
-    size
-}) => (
-    <TextField
-        fullWidth
-        label={label}
-        required={required}
-        disabled={disabled}
-        error={Boolean(error)}
-        helperText={error || helperText}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        multiline={multiline}
-        rows={rows}
-        size={size}
-    />
-)
+    size,
+    maxLength,
+    minLength
+}) => {
+    // Block input beyond maxLength
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = event.target.value
+        if (maxLength != null && newValue.length > maxLength) {
+            return // Block input
+        }
+        onChange(newValue)
+    }
 
-/** Localized field variant with full hook logic */
-const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
+    // Build constraint helper text
+    const constraintText = useMemo(() => {
+        if (minLength != null && maxLength != null) {
+            return `${minLength}-${maxLength}`
+        }
+        if (maxLength != null) {
+            return `max: ${maxLength}`
+        }
+        if (minLength != null) {
+            return `min: ${minLength}`
+        }
+        return null
+    }, [minLength, maxLength])
+
+    const finalHelperText = error || helperText || constraintText
+
+    return (
+        <TextField
+            fullWidth
+            label={label}
+            required={required}
+            disabled={disabled}
+            error={Boolean(error)}
+            helperText={finalHelperText}
+            value={value}
+            onChange={handleChange}
+            multiline={multiline}
+            rows={rows}
+            size={size}
+            inputProps={{
+                maxLength: maxLength ?? undefined
+            }}
+        />
+    )
+}
+
+/** Versioned-only field: single locale with version tracking, no language switching */
+const VersionedInlineField: React.FC<VersionedFieldProps> = ({
     value,
     onChange,
     label,
@@ -131,7 +179,88 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
     size,
     uiLocale,
     autoInitialize = true,
-    localesEndpoint = '/api/v1/locales/content'
+    maxLength,
+    minLength
+}) => {
+    const normalizedUiLocale = normalizeLocale(uiLocale)
+
+    // Auto-initialize if needed
+    useEffect(() => {
+        if (!autoInitialize || value) return
+        onChange(createLocalizedContent(normalizedUiLocale, ''))
+    }, [autoInitialize, value, normalizedUiLocale, onChange])
+
+    // Get content from primary locale
+    const primaryLocale = value?._primary ?? normalizedUiLocale
+    const content = value?.locales?.[primaryLocale]?.content ?? ''
+
+    // Block input beyond maxLength
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = event.target.value
+        if (maxLength != null && newValue.length > maxLength) {
+            return // Block input
+        }
+        if (!value) {
+            onChange(createLocalizedContent(primaryLocale, newValue))
+        } else {
+            onChange(updateLocalizedContentLocale(value, primaryLocale, newValue))
+        }
+    }
+
+    // Build constraint helper text
+    const constraintText = useMemo(() => {
+        if (minLength != null && maxLength != null) {
+            return `${minLength}-${maxLength}`
+        }
+        if (maxLength != null) {
+            return `max: ${maxLength}`
+        }
+        if (minLength != null) {
+            return `min: ${minLength}`
+        }
+        return null
+    }, [minLength, maxLength])
+
+    const finalHelperText = error || helperText || constraintText
+
+    return (
+        <TextField
+            fullWidth
+            label={label}
+            required={required}
+            disabled={disabled}
+            error={Boolean(error)}
+            helperText={finalHelperText}
+            value={content}
+            onChange={handleChange}
+            multiline={multiline}
+            rows={rows}
+            size={size}
+            inputProps={{
+                maxLength: maxLength ?? undefined
+            }}
+        />
+    )
+}
+
+/** Localized field variant with full hook logic */
+const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
+    value,
+    onChange,
+    label,
+    required,
+    disabled,
+    error,
+    errorLocale,
+    helperText,
+    multiline,
+    rows,
+    size,
+    uiLocale,
+    autoInitialize = true,
+    localesEndpoint = '/api/v1/locales/content',
+    maxLength,
+    minLength
 }) => {
     const { t } = useCommonTranslations('localizedField')
     const theme = useTheme()
@@ -255,6 +384,32 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
     const canRemoveLocale = activeLocales.length > 1
     const isPrimaryLocale = menuLocale && value?._primary === menuLocale
 
+    // Build constraint helper text - MUST be before conditional returns
+    const constraintText = useMemo(() => {
+        if (minLength != null && maxLength != null) {
+            return `${minLength}-${maxLength}`
+        }
+        if (maxLength != null) {
+            return `max: ${maxLength}`
+        }
+        if (minLength != null) {
+            return `min: ${minLength}`
+        }
+        return null
+    }, [minLength, maxLength])
+
+    // Handler that blocks input beyond maxLength - MUST be before conditional returns
+    const handleLocaleChange = useCallback(
+        (locale: string, newValue: string) => {
+            if (maxLength != null && newValue.length > maxLength) {
+                return // Block input
+            }
+            if (!value) return
+            onChange(updateLocalizedContentLocale(value, locale, newValue))
+        },
+        [maxLength, value, onChange]
+    )
+
     if (localesLoading && !value) {
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
@@ -312,6 +467,26 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
 
                 const isFocused = focusedLocale === locale
                 const shouldShrink = Boolean(entry?.content?.trim()) || isFocused
+                
+                // Check minLength validation for this specific locale
+                const localeContent = entry?.content ?? ''
+                const hasMinLengthError = minLength != null && 
+                    localeContent.length > 0 && 
+                    localeContent.length < minLength
+                
+                // Determine if error should show under THIS locale:
+                // - If errorLocale is specified, show error only on that locale
+                // - If errorLocale is not specified (null/undefined), show error on primary (backward compat)
+                // - Also show minLength error independently for visual feedback
+                const isErrorLocale = errorLocale 
+                    ? locale.toLowerCase() === errorLocale.toLowerCase()
+                    : isPrimary
+                const showError = (isErrorLocale && error) || hasMinLengthError
+                const fieldHelperText = isErrorLocale && error 
+                    ? error 
+                    : hasMinLengthError 
+                        ? `min: ${minLength}` 
+                        : (helperText || constraintText)
 
                 return (
                     <Box key={locale} sx={{ position: 'relative', overflow: 'visible' }}>
@@ -335,16 +510,19 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             label={label}
                             required={isPrimary && required}
                             disabled={disabled}
-                            error={Boolean(isPrimary && error)}
-                            helperText={isPrimary && error ? error : undefined}
+                            error={Boolean(showError)}
+                            helperText={fieldHelperText}
                             multiline={multiline}
                             rows={rows}
                             size={size}
                             value={entry?.content ?? ''}
                             InputLabelProps={{ shrink: shouldShrink }}
-                            onChange={(event) => onChange(updateLocalizedContentLocale(value, locale, event.target.value))}
+                            onChange={(event) => handleLocaleChange(locale, event.target.value)}
                             onFocus={() => setFocusedLocale(locale)}
                             onBlur={() => setFocusedLocale((prev) => (prev === locale ? null : prev))}
+                            inputProps={{
+                                maxLength: maxLength ?? undefined
+                            }}
                         />
                         <Box
                             sx={{
@@ -420,14 +598,22 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
 }
 
 /**
- * Unified field component that switches between simple and localized modes.
+ * Unified field component that switches between simple, versioned, and localized modes.
  * No hooks are called conditionally - each variant is a separate component.
+ * 
+ * Modes:
+ * - 'simple' (default): Plain text field, no VLC structure
+ * - 'versioned': VLC structure with version tracking, single locale (no language switching)
+ * - 'localized': VLC structure with multiple locales and language switching UI
  */
 export const LocalizedInlineField: React.FC<LocalizedInlineFieldProps> = (props) => {
-    if (props.mode !== 'localized') {
-        return <SimpleInlineField {...props} />
+    if (props.mode === 'localized') {
+        return <LocalizedInlineFieldContent {...props} />
     }
-    return <LocalizedInlineFieldContent {...props} />
+    if (props.mode === 'versioned') {
+        return <VersionedInlineField {...props} />
+    }
+    return <SimpleInlineField {...props} />
 }
 
 export default LocalizedInlineField

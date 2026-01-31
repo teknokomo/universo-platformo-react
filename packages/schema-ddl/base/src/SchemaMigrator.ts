@@ -1,5 +1,6 @@
 import type { Knex } from 'knex'
 import { AttributeDataType } from '@universo/types'
+import type { AttributeValidationRules } from '@universo/types'
 import { buildFkConstraintName, generateColumnName, generateTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
 import { calculateSchemaDiff, ChangeType } from './diff'
@@ -231,7 +232,10 @@ export class SchemaMigrator {
 
             case ChangeType.ADD_COLUMN: {
                 const field = this.findField(entities, change.entityId!, change.fieldId!)
-                const pgType = SchemaGenerator.mapDataType(field.dataType)
+                const pgType = SchemaGenerator.mapDataType(
+                    field.dataType,
+                    field.validationRules as Partial<AttributeValidationRules> | undefined
+                )
                 const columnName = change.columnName ?? generateColumnName(field.id)
 
                 await trx.schema.withSchema(schemaName).alterTable(change.tableName!, (table: Knex.AlterTableBuilder) => {
@@ -257,7 +261,14 @@ export class SchemaMigrator {
                 } else if (change.oldValue === 'required' && change.newValue === 'nullable') {
                     await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? DROP NOT NULL`, [schemaName, change.tableName, change.columnName])
                 } else {
-                    const newType = SchemaGenerator.mapDataType(change.newValue as AttributeDataType)
+                    // Type change - get field to access validationRules for type config
+                    const field = change.fieldId && change.entityId
+                        ? this.findField(entities, change.entityId, change.fieldId)
+                        : null
+                    const newType = SchemaGenerator.mapDataType(
+                        change.newValue as AttributeDataType,
+                        field?.validationRules as Partial<AttributeValidationRules> | undefined
+                    )
                     await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
                         schemaName,
                         change.tableName,

@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { MetahubRole, GlobalRole, VersionedLocalizedContent, AttributeDataType } from '@universo/types'
+import type { MetahubRole, GlobalRole, VersionedLocalizedContent, AttributeDataType, AttributeValidationRules } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from '@universo/utils/vlc'
@@ -26,7 +26,8 @@ export type { ConflictInfo } from '@universo/utils'
 // ============ PAGINATION TYPES ============
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
-export type { AttributeDataType } from '@universo/types'
+export type { AttributeDataType, AttributeValidationRules, PhysicalTypeInfo } from '@universo/types'
+export { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 
 // ============ ACCESS & PERMISSIONS ============
 

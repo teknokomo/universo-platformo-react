@@ -58,6 +58,7 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 -   **Supabase** for authentication and data storage
 -   **Flowise AI 2.2.8** as base framework
 -   **TypeScript** for type safety
+-   **Operational reliability**: pool budgets aligned with Supabase Pool Size and pool error telemetry enabled
 
 ### Essential Commands
 

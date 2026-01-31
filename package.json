@@ -1,13 +1,11 @@
 {
     "name": "universo-platformo-react",
-    "version": "upr-0.48.0-alpha",
+    "version": "upr-0.49.0-alpha",
     "private": true,
     "homepage": "https://universo.pro",
     "workspaces": [
         "packages/*/base",
         "packages/*",
-        "flowise",
-        "ui",
         "components",
         "universo-rest-docs"
     ],

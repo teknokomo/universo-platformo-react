@@ -33,6 +33,20 @@ export const init = async (): Promise<void> => {
     }
 
     console.log('[DataSource] Creating DataSource with entities:', Object.keys(entities).length, 'migrations:', postgresMigrations.length)
+    const logPoolError = (err: Error): void => {
+        const pool = (appDataSource as unknown as { driver?: { master?: { totalCount?: number; idleCount?: number; waitingCount?: number } } })
+            ?.driver?.master
+        if (pool) {
+            console.error('[DataSource] Pool error:', err.message, {
+                total: pool.totalCount,
+                idle: pool.idleCount,
+                waiting: pool.waitingCount
+            })
+            return
+        }
+        console.error('[DataSource] Pool error:', err.message)
+    }
+
     appDataSource = new DataSource({
         type: 'postgres',
         host: process.env.DATABASE_HOST,
@@ -45,9 +59,16 @@ export const init = async (): Promise<void> => {
         migrationsRun: false,
         entities: Object.values(entities),
         migrations: postgresMigrations,
-        logging: ['error', 'warn', 'migration'] // Enable SQL logging for debugging
+        logging: ['error', 'warn', 'migration'], // Enable SQL logging for debugging
+        // Pool configuration - keep below Supabase Pool Size (15) together with KnexClient (8)
+        extra: {
+            max: 7,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000
+        },
+        poolErrorHandler: logPoolError
     })
-    console.log('[DataSource] DataSource created successfully')
+    console.log('[DataSource] DataSource created successfully (pool max: 7)')
 }
 
 export function getDataSource(): DataSource {

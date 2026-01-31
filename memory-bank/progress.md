@@ -44,7 +44,213 @@
 
 ---
 
+## 2026-01-31
+
+### Database Pool Error Logging
+- **Objective**: Prevent pool exhaustion issues and improve observability when pool errors occur.
+- **Changes**:
+  - KnexClient pool size capped at 8; added pool error logging with `used/free/pending` metrics.
+  - TypeORM pool size capped at 7; added pool error logging with `total/idle/waiting` metrics.
+- **Files Changed**:
+  - `packages/metahubs-backend/base/src/domains/ddl/KnexClient.ts`
+  - `packages/flowise-core-backend/base/src/DataSource.ts`
+- **Build**: Full workspace build successful (64 tasks).
+
+### VLC String Field UX Fixes
+- **Objective**: Fix VLC (Versioned/Localized Content) string field issues in Element forms.
+- **Issues Fixed**:
+  1. **Versioned-only fields show language switching UI**: When a field is only versioned (not localized), it shouldn't show language tabs. Added separate 'versioned' mode.
+  2. **Missing maxLength enforcement**: VLC fields allowed typing beyond maxLength limit. Now input is blocked at maxLength (like NUMBER fields).
+  3. **Missing constraint hints**: VLC fields didn't show helperText with min/max length constraints. Now displays "10-20" style hints.
+  4. **No validation for non-primary locales**: Secondary locale fields had no maxLength. Now all locales enforce same limits.
+- **Implementation Details**:
+  - Added `VersionedFieldProps` type with `mode: 'versioned'` (no language switching)
+  - Added `maxLength`/`minLength` props to `BaseProps` interface
+  - Created `VersionedInlineField` component (single locale, no language tabs)
+  - Updated `SimpleInlineField` with maxLength blocking and constraintText
+  - Updated `LocalizedInlineFieldContent` with maxLength blocking for all locales
+  - Updated `DynamicEntityFormDialog` to use correct mode based on `validationRules`
+- **Files Changed**:
+  - `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx` - Added versioned mode, maxLength support
+  - `packages/universo-template-mui/base/src/components/dialogs/DynamicEntityFormDialog.tsx` - Use correct mode and pass maxLength/minLength
+- **Build**: 64 tasks successful
+
+### QA Fix: Precision/Scale Limits
+- **Objective**: Fix JavaScript number precision limits and scale validation logic.
+- **Issues Fixed**:
+  1. **maxPrecision too large**: PostgreSQL allows 38 digits, but JavaScript numbers lose precision beyond ~15-16 digits. Reduced maxPrecision from 38 to 15.
+  2. **scale can equal precision**: When scale=precision, there are 0 integer digits which is logically invalid. Changed validation to require scale < precision (strictly less).
+- **Files Changed**:
+  - `packages/universo-utils/base/src/validation/numberValidation.ts` - NUMBER_DEFAULTS.maxPrecision: 15
+  - `packages/universo-types/base/src/common/metahubs.ts` - getPhysicalDataType() limits precision to 15, scale to precision-1
+  - `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts` - Zod schema: precision max: 15, scale max: 14, strict inequality validation
+  - `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx` - UI: precision 1-15, scale 0-(precision-1)
+- **Build**: 64 tasks successful
+
+### NUMBER Input UX Improvement
+- **Objective**: Replace error-based validation with input restrictions for NUMBER fields.
+- **Changes**:
+  - Removed validation errors for precision/scale - now enforced by controlled input.
+  - Implemented text input (type="text" inputMode="decimal") with digit restrictions.
+  - onKeyDown handler blocks invalid characters and excess digits.
+  - Format displays fixed decimal places (e.g., "0.00" for scale=2).
+  - Shows constraints hint below field (Range/Min/Max, Non-negative).
+  - Added precision format indicator (e.g., "8,2") to helper text.
+  - Auto-select integer/decimal parts for overwrite editing.
+  - Prevent deletion of decimal separator; overwrite decimal digits in-place.
+- **Files Changed**:
+  - `packages/universo-template-mui/base/src/components/dialogs/DynamicEntityFormDialog.tsx`
+- **Build**: 64 tasks successful
+
+### NUMBER Precision/Scale Validation
+- **Objective**: Add proper validation for NUMBER fields in element creation and schema sync.
+- **Changes**:
+  - Created `validateNumber()` utility with precision/scale/min/max/nonNegative checks.
+  - Added `validateNumberOrThrow()` for sync operations that throw instead of returning null.
+  - Backend MetahubElementsService.validateRules() now validates precision/scale.
+  - applicationSyncRoutes.ts throws on overflow instead of silently setting null.
+- **Files Changed**:
+  - `packages/universo-utils/base/src/validation/numberValidation.ts` (new)
+  - `packages/universo-utils/base/src/index.ts` (export)
+  - `packages/universo-utils/base/src/index.browser.ts` (export)
+  - `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubElementsService.ts`
+  - `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
+- **Build**: 64 tasks successful
+
+---
+
+## 2026-01-30
+
+### QA Fixes Round 3
+- **Objective**: Fix schema sync failure caused by numeric overflow in predefined elements.
+- **Fix**:
+  - Added numeric normalization for NUMERIC(precision, scale) fields in `seedPredefinedElements()`.
+  - Logs warnings and sets offending numeric values to null to avoid sync failure.
+- **Files Changed**:
+  - `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
+- **Build**: 64 tasks successful
+
+### QA Fixes Round 2
+- **Objective**: Fix additional issues discovered during QA testing.
+- **Issues Fixed**:
+  1. **MuiAlert severity colors**: Removed custom `info` palette from `colorSchemes` (light/dark) in themePrimitives.ts. Alert now uses standard MUI colors.
+  2. **Number input minus sign**: Fixed logic in `handleNumberKeyDown` to check `currentValue.length > 0` before applying restrictions, allowing minus for empty fields.
+  3. **JSON sync error for VLC fields**: Updated `seedPredefinedElements()` in applicationSyncRoutes.ts to use `JSON.stringify()` for primitive values in VLC/JSONB columns.
+- **Files Changed**:
+  - `packages/universo-template-mui/base/src/themePrimitives.ts` (removed info palette from colorSchemes)
+  - `packages/universo-template-mui/base/src/components/dialogs/DynamicEntityFormDialog.tsx` (already fixed earlier)
+  - `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts` (added VLC handling)
+- **Build**: 64 tasks successful
+
+### QA Fixes for Physical Type Display
+- **Objective**: Fix 5 issues found during QA testing of the physical PostgreSQL type display feature.
+- **Issues Fixed**:
+  1. **MuiAlert severity colors**: Removed hardcoded orange styles from `feedback.tsx`. Now Alert uses standard MUI severity colors (info=blue, warning=orange, error=red, success=green), keeping only `borderRadius: 10`.
+  2. **Duplicate type mapping logic**: Refactored `SchemaGenerator.mapDataType()` in @universo/schema-ddl to use `getPhysicalDataType()` + `formatPhysicalType()` from @universo/types instead of duplicating the mapping switch statement.
+  3. **IIFE anti-pattern**: Replaced inline IIFE `{(() => { ... })()}` in AttributeFormFields with `useMemo` hook for computing physicalTypeInfo.
+  4. **Number input validation**: Added `handleNumberKeyDown` function to block minus key for `nonNegative` fields and prevent double minus (`--`). Minus is only allowed at position 0.
+  5. **Redundant VLC Alert**: Removed the separate VLC info Alert from STRING type settings since VLC status is now shown in the PostgreSQL type Alert with "(VLC)" suffix.
+- **Files Changed**:
+  - `packages/universo-template-mui/base/src/themes/mui-custom/customizations/feedback.tsx`
+  - `packages/universo-template-mui/base/src/components/dialogs/DynamicEntityFormDialog.tsx`
+  - `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx`
+  - `packages/schema-ddl/base/src/SchemaGenerator.ts`
+- **Build**: Full workspace build successful (64 tasks).
+
+### Physical PostgreSQL Type Display in Attribute UI
+- **Objective**: Add UI indication of computed PostgreSQL type to clarify how attributes will be stored in application database.
+- **Background**: `data_type` column stores logical type (STRING, NUMBER, DATE, etc.), while `validation_rules` stores settings. SchemaGenerator.mapDataType() computes physical PostgreSQL type at sync time.
+- **Architectural Decision**: Keep logical type in `data_type` + settings in `validation_rules` (current approach). Add computed display for user clarity.
+- **Changes**:
+  - **@universo/types**: Added `PhysicalTypeInfo` interface, `getPhysicalDataType()` and `formatPhysicalType()` helper functions that mirror SchemaGenerator.mapDataType() logic without Knex dependency.
+  - **metahubs-frontend/types.ts**: Re-exported new functions and PhysicalTypeInfo type.
+  - **AttributeList.tsx**: Added MUI Tooltip to dataType column showing "PostgreSQL: VARCHAR(1024)" etc. on hover; added info Alert in form showing computed type dynamically.
+  - **i18n (EN/RU)**: Added `attributes.physicalType.label` and `attributes.physicalType.tooltip` keys.
+- **Type Mappings Displayed**:
+  - STRING → TEXT (default), VARCHAR(n) with maxLength, JSONB with versioned/localized
+  - NUMBER → NUMERIC(precision,scale)
+  - DATE → DATE/TIME/TIMESTAMPTZ based on dateComposition
+  - BOOLEAN → BOOLEAN, REF → UUID, JSON → JSONB
+- **Build**: Full workspace build successful.
+
+### QA Fix: Attribute Validation Rules in Element Form
+- **Objective**: Fix validation rules not being applied in Element creation/edit dialog.
+- **Root Cause**: ElementList.tsx was hardcoding `localized: attribute.dataType === 'STRING'` instead of reading from validationRules.
+- **UX Improvement**: Moved versioned/localized settings from JSON to STRING type for user clarity (all "String" fields from user perspective, even if stored as JSONB internally).
+- **Changes**:
+  - **@universo/types**: Removed JsonTypeConfig interface, moved versioned/localized to STRING settings in AttributeValidationRules
+  - **@universo/schema-ddl**: mapDataType now returns JSONB for STRING when versioned||localized is true
+  - **@universo/template-mui**: Added DynamicFieldValidationRules interface, extended DynamicFieldConfig with validationRules property, updated renderField for all types (STRING: localized/versioned check, minLength/maxLength; NUMBER: min/max/nonNegative/scale; DATE: dateComposition → date/time/datetime-local)
+  - **metahubs-frontend AttributeList.tsx**: Moved VLC settings from JSON to STRING section, added [V][L] Chips in dataType table column, removed JSON from hasTypeSettings
+  - **metahubs-frontend ElementList.tsx**: Now passes attribute.validationRules to DynamicFieldConfig
+  - **i18n (EN/RU)**: Moved versioned/localized keys from typeSettings.json to typeSettings.string
+- **Build**: Full project build successful.
+
+### DATE Input Year Digits Fix (Round 3)
+- **Objective**: Fix HTML5 date inputs allowing 5+ digit years (e.g., "275760" instead of "2026").
+- **Root Cause**: Browser native `<input type="date">` and `<input type="datetime-local">` do not restrict year length by default.
+- **Solution Implemented**:
+  - Added `normalizeDateValue()` helper function that truncates year to 4 digits while preserving rest of date string.
+  - Added `max` attribute: `9999-12-31` for date, `9999-12-31T23:59` for datetime-local (provides browser validation + some prevention).
+  - Combined approach: `max` for native validation + `normalizeDateValue` on `onChange` for input restriction.
+- **Technical Details**: Function extracts year portion before first `-`, checks if > 4 digits, keeps only last 4 digits.
+- **Build**: @universo/template-mui successful.
+
+### Inline Validation & Helper Text for Element Form
+- **Objective**: Provide immediate UI validation feedback for constrained fields and disable Save when invalid.
+- **Frontend Changes**:
+  - ElementList now provides helper text for STRING length constraints (min/max) using i18n keys.
+  - DynamicEntityFormDialog validates STRING length, NUMBER min/max/nonNegative, and DATE formats; shows error messages inline and disables Save while invalid.
+  - DATE inputs now enforce stricter pattern/length expectations (year length) with input patterns.
+- **i18n**: Updated numeric labels to clarify total digits vs decimal places (EN/RU).
+- **Build**: @universo/template-mui and metahubs-frontend build successfully.
+
+### Validation UX Round 2
+- **Objective**: Address user feedback on validation behavior.
+- **Changes**:
+  - STRING maxLength: Re-added HTML maxLength attribute to prevent typing beyond max (UX preference: block input vs show error).
+  - Save button: Added `disabled={isSubmitDisabled}` prop that was missing, causing button to remain active with validation errors.
+  - DATE/DATETIME: Removed custom `normalizeDateInputValue` and `rotateDigits` functions; let native browser inputs handle keyboard navigation between date/time sections (day, month, year, hours, minutes) automatically.
+- **Technical Note**: Browser native `<input type="date">` and `<input type="datetime-local">` have built-in section navigation (Tab/arrow keys) and proper overflow handling.
+- **Build**: @universo/template-mui successful.
+
+### Validation UX Follow-up
+- **Objective**: Address remaining validation UX issues for max length, number ranges, and date/time inputs.
+- **Changes**:
+  - Removed HTML maxLength locking to allow inline errors to surface for max length violations.
+  - Added helper text for NUMBER min/max and non-negative constraints.
+  - Improved date/time input normalization to prevent full reset on invalid year input and support rotation behavior.
+  - Updated numeric precision label to "Length" (EN/RU).
+- **Build**: @universo/template-mui and metahubs-frontend build successful.
+
+### Enhanced Attribute Types with Type-Specific Settings
+- **Objective**: Implement 1C:Enterprise-like configurable attribute type system with settings per type.
+- **Types Updated**: Removed DATETIME, kept 6 types (STRING, NUMBER, BOOLEAN, DATE, REF, JSON).
+- **Type Settings Added**:
+  - STRING: maxLength (null=unlimited TEXT, or VARCHAR(n)), minLength
+  - NUMBER: precision (1-38), scale, min, max, nonNegative
+  - DATE: dateComposition (date/time/datetime) - replaces old DATETIME type
+  - JSON: versioned, localized (VLC pattern support)
+- **Backend Changes**:
+  - @universo/types: Added StringTypeConfig, NumberTypeConfig, DateTypeConfig, JsonTypeConfig, AttributeValidationRules interfaces, getDefaultValidationRules() helper
+  - @universo/schema-ddl: mapDataType() now accepts optional config for VARCHAR(n), NUMERIC(p,s), DATE/TIME/TIMESTAMPTZ
+  - metahubs-backend: Extended Zod validationRulesSchema with cross-field validation, removed DATETIME from migration enum
+- **Frontend Changes**:
+  - metahubs-frontend: Added collapsible "Type Settings" panel in AttributeFormFields with conditional rendering per type
+  - Removed DATETIME from dataTypeOptions
+  - Added validationRules to form handling and API payload
+- **i18n**: Added typeSettings keys (EN/RU), removed datetime key
+- **Tests**: Updated SchemaGenerator tests for new mapDataType signature with config parameter
+- **Build**: Full project build successful.
+
+---
+
 ## 2026-01-29
+
+### Fix Element Create 400 for DATE Time Composition
+- **Issue**: Element creation failed with 400 when DATE attributes used dateComposition = time (time-only strings like "11:11" failed Date.parse validation).
+- **Backend Fix**: Updated MetahubElementsService DATE validation to honor dateComposition and accept time-only strings; added date/time validators.
+- **Build**: metahubs-backend build successful.
 
 ### Optimistic Lock Conflict Handling Fix
 - **Issue**: OptimisticLockError was returning 500 because the router-level error handler intercepted errors before the global middleware.
