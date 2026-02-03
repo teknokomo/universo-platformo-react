@@ -13,9 +13,9 @@ let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
  */
 export async function initializeRateLimiters(): Promise<void> {
     rateLimiters = await createRateLimiters({
-        keyPrefix: 'Projects-backend',
-        maxRead: 100,
-        maxWrite: 60
+        keyPrefix: 'projects-backend',
+        maxRead: 600,   // Increased for normal workflow
+        maxWrite: 240   // Increased for active editing
     })
     console.info('[Projects] Rate limiters initialized')
 }

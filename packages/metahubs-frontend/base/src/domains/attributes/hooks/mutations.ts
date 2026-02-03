@@ -189,3 +189,107 @@ export function useMoveAttribute() {
         }
     })
 }
+
+interface ToggleRequiredParams {
+    metahubId: string
+    hubId?: string
+    catalogId: string
+    attributeId: string
+    isRequired: boolean
+}
+
+export function useToggleAttributeRequired() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId, isRequired }: ToggleRequiredParams) => {
+            if (hubId) {
+                const response = await attributesApi.toggleAttributeRequired(metahubId, hubId, catalogId, attributeId, isRequired)
+                return response.data
+            }
+            const response = await attributesApi.toggleAttributeRequiredDirect(metahubId, catalogId, attributeId, isRequired)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
+            const messageKey = variables.isRequired ? 'attributes.setRequiredSuccess' : 'attributes.setOptionalSuccess'
+            const defaultMessage = variables.isRequired ? 'Attribute marked as required' : 'Attribute marked as optional'
+            enqueueSnackbar(t(messageKey, defaultMessage), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('attributes.toggleRequiredError', 'Failed to update attribute'), { variant: 'error' })
+        }
+    })
+}
+
+interface SetDisplayAttributeParams {
+    metahubId: string
+    hubId?: string
+    catalogId: string
+    attributeId: string
+}
+
+export function useSetDisplayAttribute() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId }: SetDisplayAttributeParams) => {
+            if (hubId) {
+                const response = await attributesApi.setDisplayAttribute(metahubId, hubId, catalogId, attributeId)
+                return response.data
+            }
+            const response = await attributesApi.setDisplayAttributeDirect(metahubId, catalogId, attributeId)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
+            enqueueSnackbar(t('attributes.setDisplaySuccess', 'Attribute set as display attribute'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('attributes.setDisplayError', 'Failed to set display attribute'), { variant: 'error' })
+        }
+    })
+}
+
+export function useClearDisplayAttribute() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId }: SetDisplayAttributeParams) => {
+            if (hubId) {
+                const response = await attributesApi.clearDisplayAttribute(metahubId, hubId, catalogId, attributeId)
+                return response.data
+            }
+            const response = await attributesApi.clearDisplayAttributeDirect(metahubId, catalogId, attributeId)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
+            enqueueSnackbar(t('attributes.clearDisplaySuccess', 'Display attribute flag cleared'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('attributes.clearDisplayError', 'Failed to clear display attribute'), { variant: 'error' })
+        }
+    })
+}

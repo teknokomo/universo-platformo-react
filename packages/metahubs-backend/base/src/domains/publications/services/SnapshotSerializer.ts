@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
+import { MetaEntityKind } from '@universo/types'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
@@ -112,20 +113,28 @@ export class SnapshotSerializer {
                     isSingleHub: catalog.config?.isSingleHub ?? false,
                     isRequiredHub: catalog.config?.isRequiredHub ?? false
                 },
-                fields: attributes.map(attr => ({
-                    id: attr.id,
-                    codename: attr.codename,
-                    dataType: attr.dataType,
-                    isRequired: attr.isRequired,
-                    targetEntityId: attr.targetCatalogId ?? undefined,
-                    presentation: {
-                        name: attr.name || {},
-                        description: attr.description || {}
-                    },
-                    validationRules: (attr.validationRules || {}) as any,
-                    uiConfig: (attr.uiConfig || {}) as any,
-                    sortOrder: attr.sortOrder
-                })),
+                fields: attributes.map(attr => {
+                    const resolvedTargetEntityId = attr.targetEntityId ?? attr.targetCatalogId ?? undefined
+                    const resolvedTargetEntityKind: MetaEntityKind | undefined =
+                        attr.targetEntityKind ?? (attr.targetCatalogId ? MetaEntityKind.CATALOG : undefined)
+
+                    return {
+                        id: attr.id,
+                        codename: attr.codename,
+                        dataType: attr.dataType,
+                        isRequired: attr.isRequired,
+                        isDisplayAttribute: attr.isDisplayAttribute ?? false,
+                        targetEntityId: resolvedTargetEntityId,
+                        targetEntityKind: resolvedTargetEntityKind,
+                        presentation: {
+                            name: attr.name || {},
+                            description: attr.description || {}
+                        },
+                        validationRules: (attr.validationRules || {}) as any,
+                        uiConfig: (attr.uiConfig || {}) as any,
+                        sortOrder: attr.sortOrder
+                    }
+                }),
                 hubs: hubIds
             }
         }
@@ -198,7 +207,8 @@ export class SnapshotSerializer {
             id: entity.id,
             fields: entity.fields.map((field) => ({
                 ...field,
-                targetEntityId: field.targetEntityId
+                targetEntityId: field.targetEntityId,
+                targetEntityKind: field.targetEntityKind
             }))
         }))
     }
@@ -219,7 +229,9 @@ export class SnapshotSerializer {
                         codename: field.codename,
                         dataType: field.dataType,
                         isRequired: field.isRequired,
+                        isDisplayAttribute: field.isDisplayAttribute ?? false,
                         targetEntityId: field.targetEntityId ?? null,
+                        targetEntityKind: field.targetEntityKind ?? null,
                         presentation: field.presentation ?? {},
                         validationRules: field.validationRules ?? {},
                         uiConfig: field.uiConfig ?? {},

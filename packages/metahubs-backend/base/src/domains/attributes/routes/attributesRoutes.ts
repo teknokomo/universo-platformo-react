@@ -7,7 +7,7 @@ import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { localizedContent, validation } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
-import { AttributeDataType, ATTRIBUTE_DATA_TYPES } from '@universo/types'
+import { AttributeDataType, ATTRIBUTE_DATA_TYPES, MetaEntityKind, META_ENTITY_KINDS } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -27,60 +27,58 @@ const AttributesListQuerySchema = ListQuerySchema.extend({
 
 const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
 
-/**
- * Validation rules schema for attribute type-specific settings.
- * Supports STRING, NUMBER, DATE, and JSON type configurations.
- */
+// Validation schemas
+// Note: Fields use .nullable() to accept null values from frontend (e.g., cleared inputs)
 const validationRulesSchema = z
     .object({
-        // Generic rules
-        required: z.boolean().optional(),
-
+        required: z.boolean().nullable().optional(),
         // STRING settings
-        minLength: z.number().int().min(0).max(10000).optional(),
+        minLength: z.number().int().min(0).max(10000).nullable().optional(),
         maxLength: z.number().int().min(1).max(10000).nullable().optional(),
-        pattern: z.string().max(500).optional(),
-        options: z.array(z.string().max(200)).max(100).optional(),
+        pattern: z.string().max(500).nullable().optional(),
+        options: z.array(z.string().max(200)).max(100).nullable().optional(),
         // VLC support for STRING (stores as JSONB when enabled)
-        versioned: z.boolean().optional(),
-        localized: z.boolean().optional(),
-
+        versioned: z.boolean().nullable().optional(),
+        localized: z.boolean().nullable().optional(),
         // NUMBER settings (max precision limited to 15 due to JavaScript number precision)
-        precision: z.number().int().min(1).max(15).optional(),
-        scale: z.number().int().min(0).max(14).optional(),
-        min: z.number().optional(),
-        max: z.number().optional(),
-        nonNegative: z.boolean().optional(),
-
+        precision: z.number().int().min(1).max(15).nullable().optional(),
+        scale: z.number().int().min(0).max(14).nullable().optional(),
+        min: z.number().nullable().optional(),
+        max: z.number().nullable().optional(),
+        nonNegative: z.boolean().nullable().optional(),
         // DATE settings (replaces DATETIME type)
-        dateComposition: z.enum(['date', 'time', 'datetime']).optional()
+        dateComposition: z.enum(['date', 'time', 'datetime']).nullable().optional()
     })
     .optional()
     .refine(
         (rules) => {
             if (!rules) return true
-            // Validate scale < precision for NUMBER type (at least 1 integer digit required).
-            // If precision is not provided, use the default precision (10) to avoid silently clamping scale later.
-            if (rules.scale !== undefined) {
-                const effectivePrecision = rules.precision ?? 10
+            // Validate scale < precision for NUMBER type (only if both are non-null numbers)
+            if (typeof rules.scale === 'number' && rules.scale !== null) {
+                const effectivePrecision = typeof rules.precision === 'number' && rules.precision !== null ? rules.precision : 10
                 if (rules.scale >= effectivePrecision) return false
             }
-            // Validate min <= max
-            if (rules.min !== undefined && rules.max !== undefined) {
+            // Validate min <= max (only if both are non-null numbers)
+            if (typeof rules.min === 'number' && rules.min !== null && typeof rules.max === 'number' && rules.max !== null) {
                 if (rules.min > rules.max) return false
             }
-            // Validate minLength <= maxLength for STRING
-            if (rules.minLength !== undefined && rules.maxLength !== undefined && rules.maxLength !== null) {
+            // Validate minLength <= maxLength for STRING (only if both are non-null numbers)
+            if (
+                typeof rules.minLength === 'number' &&
+                rules.minLength !== null &&
+                typeof rules.maxLength === 'number' &&
+                rules.maxLength !== null
+            ) {
                 if (rules.minLength > rules.maxLength) return false
             }
             return true
         },
-        { message: 'Invalid validation rules: scale must be < precision (at least 1 integer digit), min <= max, minLength <= maxLength' }
+        { message: 'Invalid validation rules: scale must be less than precision, min must be <= max, and minLength must be <= maxLength.' }
     )
 
 const uiConfigSchema = z
     .object({
-        widget: z.enum(['text', 'textarea', 'number', 'select', 'checkbox', 'date', 'time', 'datetime', 'reference', 'json']).optional(),
+        widget: z.enum(['text', 'textarea', 'number', 'select', 'checkbox', 'date', 'datetime', 'reference']).optional(),
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
@@ -95,10 +93,15 @@ const createAttributeSchema = z.object({
     dataType: z.enum(ATTRIBUTE_DATA_TYPES),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
+    // Polymorphic reference fields
+    targetEntityId: z.string().uuid().optional(),
+    targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
+    // Legacy alias for backward compatibility
     targetCatalogId: z.string().uuid().optional(),
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
+    isDisplayAttribute: z.boolean().optional(),
     sortOrder: z.number().int().optional()
 })
 
@@ -107,10 +110,15 @@ const updateAttributeSchema = z.object({
     dataType: z.enum(ATTRIBUTE_DATA_TYPES).optional(),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
+    // Polymorphic reference fields
+    targetEntityId: z.string().uuid().nullable().optional(),
+    targetEntityKind: z.enum(META_ENTITY_KINDS).nullable().optional(),
+    // Legacy alias for backward compatibility
     targetCatalogId: z.string().uuid().nullable().optional(),
     validationRules: validationRulesSchema,
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
+    isDisplayAttribute: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
     expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
@@ -321,8 +329,12 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder } =
+            const { codename, dataType, name, namePrimaryLocale, targetEntityId, targetEntityKind, targetCatalogId, validationRules, uiConfig, isRequired, isDisplayAttribute, sortOrder } =
                 parsed.data
+
+            // Resolve target entity: prefer new fields, fallback to legacy
+            const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
+            const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId ? MetaEntityKind.CATALOG : undefined)
 
             const normalizedCodename = normalizeCodename(codename)
             if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -338,12 +350,21 @@ export function createAttributesRoutes(
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
 
-            // For REF type, verify target catalog exists
-            if (dataType === AttributeDataType.REF && targetCatalogId) {
-                const targetCatalog = await objectsService.findById(metahubId, targetCatalogId, userId)
-                if (!targetCatalog) {
-                    return res.status(400).json({ error: 'Target catalog not found' })
+            // For REF type, verify target entity exists and validate required fields
+            if (dataType === AttributeDataType.REF) {
+                if (!resolvedTargetEntityId || !resolvedTargetEntityKind) {
+                    return res.status(400).json({
+                        error: 'REF type requires targetEntityId and targetEntityKind'
+                    })
                 }
+                // Verify target exists (currently only catalog is fully supported)
+                if (resolvedTargetEntityKind === MetaEntityKind.CATALOG) {
+                    const targetCatalog = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
+                    if (!targetCatalog) {
+                        return res.status(400).json({ error: 'Target catalog not found' })
+                    }
+                }
+                // Future: add validation for DOCUMENT, HUB when needed
             }
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
@@ -372,16 +393,23 @@ export function createAttributesRoutes(
                 codename: normalizedCodename,
                 dataType,
                 name: nameVlc,
-                targetCatalogId: dataType === AttributeDataType.REF ? targetCatalogId : undefined,
+                targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
+                targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
                 validationRules: validationRules ?? {},
                 uiConfig: uiConfig ?? {},
                 isRequired: isRequired ?? false,
+                isDisplayAttribute: isDisplayAttribute ?? false,
                 sortOrder: sortOrder,
                 createdBy: userId
             }, userId)
 
             // Normalize again to fit new item
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+
+            // If isDisplayAttribute was set, ensure exclusivity (clear from others)
+            if (isDisplayAttribute) {
+                await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
+            }
 
             await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
                 console.error('[Attributes] Schema sync failed:', err)
@@ -417,8 +445,43 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetCatalogId, validationRules, uiConfig, isRequired, sortOrder, expectedVersion } =
+            const { codename, dataType, name, namePrimaryLocale, targetEntityId, targetEntityKind, targetCatalogId, validationRules, uiConfig, isRequired, isDisplayAttribute, sortOrder, expectedVersion } =
                 parsed.data
+
+            // MVP: Prevent data type change (would require schema migration)
+            if (dataType && dataType !== attribute.dataType) {
+                return res.status(400).json({
+                    error: 'Data type change not allowed',
+                    code: 'DATA_TYPE_CHANGE_FORBIDDEN',
+                    message: 'Changing data type after creation is not supported. Please delete and recreate the attribute.',
+                    currentType: attribute.dataType,
+                    requestedType: dataType
+                })
+            }
+
+            // MVP: Prevent VLC settings change for STRING type (would change physical type TEXT <-> JSONB)
+            if (attribute.dataType === AttributeDataType.STRING && validationRules) {
+                const oldRules = attribute.validationRules as Record<string, unknown> | undefined
+                const wasVersioned = Boolean(oldRules?.versioned)
+                const wasLocalized = Boolean(oldRules?.localized)
+                const willBeVersioned = Boolean(validationRules.versioned)
+                const willBeLocalized = Boolean(validationRules.localized)
+                const wasVLC = wasVersioned || wasLocalized
+                const willBeVLC = willBeVersioned || willBeLocalized
+                if (wasVLC !== willBeVLC) {
+                    return res.status(400).json({
+                        error: 'VLC settings change not allowed',
+                        code: 'VLC_CHANGE_FORBIDDEN',
+                        message: 'Changing versioned/localized settings after creation is not supported (would change PostgreSQL type).',
+                        currentVLC: wasVLC,
+                        requestedVLC: willBeVLC
+                    })
+                }
+            }
+
+            // Resolve target entity: prefer new fields, fallback to legacy
+            const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
+            const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId !== undefined && targetCatalogId !== null ? MetaEntityKind.CATALOG : undefined)
 
             const updateData: any = {}
 
@@ -439,7 +502,7 @@ export function createAttributesRoutes(
                 }
             }
 
-            if (dataType) updateData.dataType = dataType
+            // dataType is intentionally NOT updatable (see validation above)
 
 
             if (name !== undefined) {
@@ -454,26 +517,41 @@ export function createAttributesRoutes(
                 }
             }
 
-            if (targetCatalogId !== undefined) {
-                if (targetCatalogId === null) {
-                    updateData.targetCatalogId = null
+            // Handle polymorphic reference update
+            if (resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined) {
+                if (resolvedTargetEntityId === null) {
+                    // Clear reference
+                    updateData.targetEntityId = null
+                    updateData.targetEntityKind = null
                 } else if ((dataType || attribute.dataType) === AttributeDataType.REF) {
-                    const targetCatalog = await objectsService.findById(metahubId, targetCatalogId, userId)
-                    if (!targetCatalog) {
-                        return res.status(400).json({ error: 'Target catalog not found' })
+                    // Validate target exists (currently only catalog is fully supported)
+                    if (resolvedTargetEntityKind === MetaEntityKind.CATALOG && resolvedTargetEntityId) {
+                        const targetCatalog = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
+                        if (!targetCatalog) {
+                            return res.status(400).json({ error: 'Target catalog not found' })
+                        }
                     }
-                    updateData.targetCatalogId = targetCatalogId
+                    if (resolvedTargetEntityId) updateData.targetEntityId = resolvedTargetEntityId
+                    if (resolvedTargetEntityKind) updateData.targetEntityKind = resolvedTargetEntityKind
                 }
             }
 
             if (validationRules) updateData.validationRules = validationRules
             if (uiConfig) updateData.uiConfig = uiConfig
             if (isRequired !== undefined) updateData.isRequired = isRequired
+            // isDisplayAttribute is handled separately via setDisplayAttribute for atomicity
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
             if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
             updateData.updatedBy = userId
 
             const updated = await attributesService.update(metahubId, attributeId, updateData, userId)
+
+            // Handle isDisplayAttribute change atomically (clears flag from other attributes)
+            if (isDisplayAttribute === true) {
+                await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
+            } else if (isDisplayAttribute === false) {
+                await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+            }
 
             if (sortOrder !== undefined) {
                 await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
@@ -520,6 +598,103 @@ export function createAttributesRoutes(
                 }
                 throw error
             }
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/toggle-required
+     * PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/toggle-required
+     * Toggle the isRequired flag on an attribute
+     */
+    router.patch(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/toggle-required',
+            '/metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/toggle-required'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const attribute = await attributesService.findById(metahubId, attributeId, userId)
+            if (!attribute || attribute.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Attribute not found' })
+            }
+
+            const newValue = !attribute.isRequired
+            await attributesService.update(metahubId, attributeId, {
+                isRequired: newValue,
+                updatedBy: userId
+            }, userId)
+
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+                console.error('[Attributes] Schema sync failed:', err)
+            })
+
+            res.json({ success: true, isRequired: newValue })
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/set-display
+     * PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/set-display
+     * Set this attribute as the display attribute for the catalog
+     */
+    router.patch(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/set-display',
+            '/metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/set-display'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const attribute = await attributesService.findById(metahubId, attributeId, userId)
+            if (!attribute || attribute.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Attribute not found' })
+            }
+
+            await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
+
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+                console.error('[Attributes] Schema sync failed:', err)
+            })
+
+            res.json({ success: true })
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/clear-display
+     * PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/clear-display
+     * Clear the display attribute flag from this attribute
+     */
+    router.patch(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/clear-display',
+            '/metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/clear-display'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const attribute = await attributesService.findById(metahubId, attributeId, userId)
+            if (!attribute || attribute.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Attribute not found' })
+            }
+
+            await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+                console.error('[Attributes] Schema sync failed:', err)
+            })
+
+            res.json({ success: true })
         })
     )
 

@@ -374,7 +374,10 @@ export class SchemaGenerator {
                 table.string('column_name', 255).notNullable()
                 table.string('data_type', 20).notNullable()
                 table.boolean('is_required').notNullable().defaultTo(false)
+                table.boolean('is_display_attribute').notNullable().defaultTo(false)
+                // Polymorphic reference: target entity ID and kind
                 table.uuid('target_object_id').nullable()
+                table.string('target_object_kind', 20).nullable() // 'catalog', 'document', 'hub', etc.
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('validation_rules').notNullable().defaultTo('{}')
                 table.jsonb('ui_config').notNullable().defaultTo('{}')
@@ -537,6 +540,7 @@ export class SchemaGenerator {
                 data_type: field.dataType,
                 is_required: field.isRequired,
                 target_object_id: field.targetEntityId ?? null,
+                target_object_kind: field.targetEntityKind ?? null,
                 presentation: field.presentation,
                 validation_rules: field.validationRules ?? {},
                 ui_config: field.uiConfig ?? {},
@@ -560,6 +564,7 @@ export class SchemaGenerator {
                     'data_type',
                     'is_required',
                     'target_object_id',
+                    'target_object_kind',
                     'presentation',
                     'validation_rules',
                     'ui_config',

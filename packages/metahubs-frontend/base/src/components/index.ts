@@ -17,3 +17,6 @@ export { PublicationDiffDialog } from './PublicationDiffDialog'
 
 export { MetahubInfoPanel } from './MetahubInfoPanel'
 export type { MetahubInfoPanelProps } from './MetahubInfoPanel'
+
+export { TargetEntitySelector } from './TargetEntitySelector'
+export type { TargetEntitySelectorProps } from './TargetEntitySelector'

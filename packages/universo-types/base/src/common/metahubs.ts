@@ -111,7 +111,7 @@ export function getDefaultValidationRules(dataType: AttributeDataType): Partial<
         case 'STRING':
             return { maxLength: null, versioned: false, localized: false }
         case 'NUMBER':
-            return { precision: 10, scale: 2, nonNegative: false }
+            return { precision: 10, scale: 0, nonNegative: false }
         case 'DATE':
             return { dateComposition: 'datetime' } // Full datetime by default
         case 'JSON':
@@ -168,7 +168,7 @@ export function getPhysicalDataType(
             // Max precision limited to 15 due to JavaScript number precision limits
             const precision = Math.min(Math.max(1, rules?.precision ?? 10), 15)
             // Scale must be < precision (at least 1 integer digit required)
-            const scale = Math.min(Math.max(0, rules?.scale ?? 2), precision - 1)
+            const scale = Math.min(Math.max(0, rules?.scale ?? 0), precision - 1)
             return { type: 'NUMERIC', isVLC: false, precision, scale }
         }
 
@@ -210,7 +210,7 @@ export function formatPhysicalType(info: PhysicalTypeInfo): string {
         case 'VARCHAR':
             return info.length ? `VARCHAR(${info.length})` : 'VARCHAR'
         case 'NUMERIC':
-            return `NUMERIC(${info.precision ?? 10},${info.scale ?? 2})`
+            return `NUMERIC(${info.precision ?? 10},${info.scale ?? 0})`
         default:
             return info.type
     }
@@ -224,6 +224,9 @@ export const MetaEntityKind = {
 
 export type MetaEntityKind = (typeof MetaEntityKind)[keyof typeof MetaEntityKind]
 
+/** Array of valid MetaEntityKind values for Zod validation */
+export const META_ENTITY_KINDS = Object.values(MetaEntityKind) as [MetaEntityKind, ...MetaEntityKind[]]
+
 export interface MetaPresentation {
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
@@ -234,7 +237,12 @@ export interface MetaFieldDefinition {
     codename: string
     dataType: AttributeDataType
     isRequired: boolean
+    /** Whether this attribute is used to display the element when referenced */
+    isDisplayAttribute?: boolean
+    /** ID of the target entity for REF field type */
     targetEntityId?: string | null
+    /** Kind of the target entity for REF field type (polymorphic discriminator) */
+    targetEntityKind?: MetaEntityKind | null
     presentation: MetaPresentation
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>

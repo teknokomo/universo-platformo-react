@@ -14,8 +14,8 @@ let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 export async function initializeRateLimiters(): Promise<void> {
     rateLimiters = await createRateLimiters({
         keyPrefix: 'metaverses-backend',
-        maxRead: 100,
-        maxWrite: 60
+        maxRead: 600,   // Increased for normal workflow
+        maxWrite: 240   // Increased for active editing
     })
     console.info('[Metaverses] Rate limiters initialized')
 }

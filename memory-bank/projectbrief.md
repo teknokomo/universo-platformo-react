@@ -1,5 +1,7 @@
 # Project Brief - Universo Platformo
 
+> **Last Reviewed**: 2026-02-03 (no change)
+
 ## Mission & Strategic Vision
 
 Universo Platformo is a comprehensive platform for creating 3D/AR/VR applications and the foundation for **Universo MMOOMM** - a massive multiplayer online game combining space exploration with **Kiberplano** (Cyberplan) functionality. The platform enables "write once, deploy anywhere" workflow for interactive experiences, while the game serves as a cosmic sandbox where players create production chains, develop detailed products, and implement solutions in the real world through robotic systems.

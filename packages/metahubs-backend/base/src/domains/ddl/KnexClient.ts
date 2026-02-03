@@ -9,9 +9,21 @@ import knex, { Knex } from 'knex'
  * Used by:
  * - SchemaGenerator: Creates PostgreSQL schemas for Publications
  * - SchemaMigrator: Alters tables when configuration changes
+ *
+ * Pool Configuration (Supabase Nano tier - 15 connections max):
+ * - TypeORM: 5 connections (static entities)
+ * - Knex: 5 connections (DDL operations)
+ * - Reserved: 5 connections for Supabase internal services
  */
 class KnexClient {
     private static instance: Knex | null = null
+    private static poolMonitorInterval: NodeJS.Timeout | null = null
+
+    /**
+     * Pool monitoring configuration
+     */
+    private static readonly POOL_MONITOR_INTERVAL_MS = 10000 // 10 seconds
+    private static readonly POOL_PRESSURE_THRESHOLD = 0.7 // Log when >70% of pool is in use
 
     /**
      * Get the Knex instance (creates one if not exists)
@@ -32,6 +44,7 @@ class KnexClient {
         const user = process.env.DATABASE_USER
         const password = process.env.DATABASE_PASSWORD
         const database = process.env.DATABASE_NAME
+        const isTransactionPooler = port === 6543
 
         if (!host || !user || !password || !database) {
             throw new Error(
@@ -42,13 +55,22 @@ class KnexClient {
 
         const sslConfig = KnexClient.getSSLConfig()
 
+        // Pool size from env or default 5 (for Supabase Nano tier compatibility)
+        const poolMax = parseInt(process.env.DATABASE_KNEX_POOL_MAX || '5', 10)
+
         console.log('[KnexClient] Creating Knex instance', {
             host,
             port,
             database,
             user: '***',
             ssl: sslConfig ? 'enabled' : 'disabled',
+            poolMax,
+            poolerMode: isTransactionPooler ? 'transaction' : 'session/direct'
         })
+
+        if (isTransactionPooler) {
+            console.warn('[KnexClient] ⚠️ Transaction pooler detected (port 6543). Using shorter timeouts.')
+        }
 
         const instance = knex({
             client: 'pg',
@@ -62,18 +84,13 @@ class KnexClient {
             },
             pool: {
                 min: 0,
-                max: 8, // Keep below Supabase Pool Size (15) together with TypeORM (7)
-                // Acquire timeout - how long to wait for a connection
-                acquireTimeoutMillis: 60000,
-                // Idle timeout - close connections after this time
-                idleTimeoutMillis: 30000,
-                // Reap interval - how often to check for idle connections
+                max: poolMax, // Configurable, default 5 for Supabase Nano tier
+                // Shorter timeouts for better connection reuse
+                acquireTimeoutMillis: 30000, // Reduced from 60000
+                idleTimeoutMillis: 20000,    // Reduced from 30000
                 reapIntervalMillis: 1000,
-                // Create timeout - how long to wait for connection creation
-                createTimeoutMillis: 30000,
-                // Destroy timeout - how long to wait for connection destruction
+                createTimeoutMillis: 15000,  // Reduced from 30000
                 destroyTimeoutMillis: 5000,
-                // Propagate create error
                 propagateCreateError: false,
             },
         })
@@ -87,7 +104,27 @@ class KnexClient {
             pool.on('error', (error: unknown) => {
                 KnexClient.logPoolState('error', pool, error)
             })
+
+            // Additional event listeners for diagnostics
+            pool.on('acquireRequest', () => {
+                KnexClient.logPoolState('acquireRequest', pool)
+            })
+
+            pool.on('acquireSuccess', () => {
+                KnexClient.logPoolState('acquireSuccess', pool)
+            })
+
+            pool.on('acquireFail', (eventId: number, err: Error) => {
+                KnexClient.logPoolState('acquireFail', pool, err)
+            })
+
+            pool.on('release', () => {
+                KnexClient.logPoolState('release', pool)
+            })
         }
+
+        // Start pool monitoring
+        KnexClient.startPoolMonitor(pool)
 
         return instance
     }
@@ -97,6 +134,7 @@ class KnexClient {
         const free = typeof pool?.numFree === 'function' ? pool.numFree() : undefined
         const pendingAcquires = typeof pool?.numPendingAcquires === 'function' ? pool.numPendingAcquires() : undefined
         const pendingCreates = typeof pool?.numPendingCreates === 'function' ? pool.numPendingCreates() : undefined
+        const max = pool?.max ?? 5
 
         const poolState = {
             used,
@@ -105,11 +143,55 @@ class KnexClient {
             pendingCreates
         }
 
+        // Calculate utilization
+        const total = (used ?? 0) + (free ?? 0)
+        const utilization = total > 0 ? (used ?? 0) / max : 0
+
+        // Only log if under pressure, has errors, or explicit events
+        const isUnderPressure = utilization >= KnexClient.POOL_PRESSURE_THRESHOLD || (pendingAcquires ?? 0) > 0
+        const shouldLog = context === 'error' || context === 'acquireFail' || context === 'status' ||
+            (isUnderPressure && (context === 'acquireRequest' || context === 'release'))
+
+        if (!shouldLog) return
+
         const errorMessage = error instanceof Error ? error.message : error ? String(error) : undefined
+        const logData = {
+            ...poolState,
+            max,
+            utilization: `${Math.round(utilization * 100)}%`,
+            ...(errorMessage && { error: errorMessage })
+        }
+
         if (errorMessage) {
-            console.error(`[KnexClient] Pool ${context}`, { error: errorMessage, ...poolState })
+            console.error(`[KnexClient] Pool ${context}`, logData)
+        } else if (isUnderPressure) {
+            console.warn(`[KnexClient] Pool ${context}`, logData)
         } else {
-            console.warn(`[KnexClient] Pool ${context}`, poolState)
+            console.log(`[KnexClient] Pool ${context}`, logData)
+        }
+    }
+
+    /**
+     * Start periodic pool monitoring
+     */
+    private static startPoolMonitor(pool: any): void {
+        if (KnexClient.poolMonitorInterval) return
+
+        KnexClient.poolMonitorInterval = setInterval(() => {
+            KnexClient.logPoolState('status', pool)
+        }, KnexClient.POOL_MONITOR_INTERVAL_MS)
+
+        // Don't keep process alive just for monitoring
+        KnexClient.poolMonitorInterval.unref()
+    }
+
+    /**
+     * Stop pool monitoring
+     */
+    public static stopPoolMonitor(): void {
+        if (KnexClient.poolMonitorInterval) {
+            clearInterval(KnexClient.poolMonitorInterval)
+            KnexClient.poolMonitorInterval = null
         }
     }
 

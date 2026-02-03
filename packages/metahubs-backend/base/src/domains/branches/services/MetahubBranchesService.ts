@@ -498,8 +498,8 @@ export class MetahubBranchesService {
             // Clone attributes with fresh audit timestamps
             await trx.raw(`
                 INSERT INTO "${targetSchema}"._mhb_attributes
-                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, target_object_id, now(), ?::uuid, now(), ?::uuid
+                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, is_display_attribute, target_object_id, target_object_kind, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, is_display_attribute, target_object_id, target_object_kind, now(), ?::uuid, now(), ?::uuid
                 FROM "${sourceSchema}"._mhb_attributes
             `, [userId ?? null, userId ?? null])
             // Clone elements with fresh audit timestamps

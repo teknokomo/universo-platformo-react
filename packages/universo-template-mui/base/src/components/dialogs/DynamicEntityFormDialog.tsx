@@ -53,6 +53,10 @@ export interface DynamicFieldConfig {
     placeholder?: string
     helperText?: string
     validationRules?: DynamicFieldValidationRules
+    /** Optional target entity ID for REF fields */
+    refTargetEntityId?: string | null
+    /** Optional target entity kind for REF fields */
+    refTargetEntityKind?: string | null
 }
 
 export interface DynamicEntityFormDialogProps {
@@ -75,6 +79,15 @@ export interface DynamicEntityFormDialogProps {
     onClose: () => void
     onSubmit: (data: Record<string, unknown>) => Promise<void>
     isValuePresent?: (field: DynamicFieldConfig, value: unknown) => boolean
+    renderField?: (params: {
+        field: DynamicFieldConfig
+        value: unknown
+        onChange: (value: unknown) => void
+        disabled: boolean
+        error: string | null
+        helperText?: string
+        locale: string
+    }) => React.ReactNode | undefined
 }
 
 const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
@@ -163,7 +176,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     onDelete,
     onClose,
     onSubmit,
-    isValuePresent
+    isValuePresent,
+    renderField: renderFieldOverride
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
@@ -383,6 +397,20 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         const rules = field.validationRules
         const fieldError = getFieldError(field, value)
         const helperText = fieldError ?? field.helperText
+
+        const customField = renderFieldOverride?.({
+            field,
+            value,
+            onChange: (next) => handleFieldChange(field.id, next),
+            disabled,
+            error: fieldError,
+            helperText,
+            locale: normalizedLocale
+        })
+
+        if (customField !== undefined) {
+            return customField
+        }
 
         switch (field.type) {
             case 'STRING': {

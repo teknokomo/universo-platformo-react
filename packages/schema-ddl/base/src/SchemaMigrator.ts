@@ -314,6 +314,13 @@ export class SchemaMigrator {
                 break
             }
 
+            case ChangeType.MODIFY_FIELD: {
+                // MODIFY_FIELD represents metadata-only changes (e.g., isDisplayAttribute, targetEntityId)
+                // that don't require DDL operations. We log and skip.
+                console.log(`[SchemaMigrator] Metadata change (no DDL): ${change.description}`)
+                break
+            }
+
             default:
                 console.warn(`[SchemaMigrator] Unknown change type: ${change.type}`)
         }

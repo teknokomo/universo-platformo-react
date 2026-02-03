@@ -7,17 +7,97 @@ import { entities } from './database/entities'
 import { postgresMigrations } from './database/migrations/postgres'
 
 let appDataSource: DataSource
+let poolMonitorInterval: NodeJS.Timeout | null = null
+
+/**
+ * Pool monitoring configuration
+ * Logs pool status periodically when pool is under pressure
+ */
+const POOL_MONITOR_INTERVAL_MS = 10000 // 10 seconds
+const POOL_PRESSURE_THRESHOLD = 0.7 // Log when >70% of pool is in use
+
+/**
+ * Get current pool metrics from TypeORM driver
+ * NOTE: Accessing internal pg-pool properties - may break with driver updates
+ */
+const getPoolMetrics = (): { total: number; idle: number; waiting: number } | null => {
+    const pool = (appDataSource as unknown as { driver?: { master?: { totalCount?: number; idleCount?: number; waitingCount?: number } } })
+        ?.driver?.master
+    if (pool && typeof pool.totalCount === 'number') {
+        return {
+            total: pool.totalCount,
+            idle: pool.idleCount ?? 0,
+            waiting: pool.waitingCount ?? 0
+        }
+    }
+    return null
+}
+
+/**
+ * Log pool status with context
+ */
+const logPoolStatus = (context: string, force = false): void => {
+    const metrics = getPoolMetrics()
+    if (!metrics) return
+
+    const used = metrics.total - metrics.idle
+    const utilization = metrics.total > 0 ? used / metrics.total : 0
+
+    // Only log if under pressure or forced
+    if (force || utilization >= POOL_PRESSURE_THRESHOLD || metrics.waiting > 0) {
+        console.log(`[DataSource] Pool ${context}:`, {
+            used,
+            idle: metrics.idle,
+            total: metrics.total,
+            waiting: metrics.waiting,
+            utilization: `${Math.round(utilization * 100)}%`
+        })
+    }
+}
+
+/**
+ * Start periodic pool monitoring
+ */
+const startPoolMonitor = (): void => {
+    if (poolMonitorInterval) return
+
+    poolMonitorInterval = setInterval(() => {
+        logPoolStatus('status')
+    }, POOL_MONITOR_INTERVAL_MS)
+
+    // Don't keep process alive just for monitoring
+    poolMonitorInterval.unref()
+}
+
+/**
+ * Stop pool monitoring
+ */
+export const stopPoolMonitor = (): void => {
+    if (poolMonitorInterval) {
+        clearInterval(poolMonitorInterval)
+        poolMonitorInterval = null
+    }
+}
 
 export const init = async (): Promise<void> => {
     const databaseType = process.env.DATABASE_TYPE ?? 'postgres'
+    const port = parseInt(process.env.DATABASE_PORT || '5432')
+    const isTransactionPooler = port === 6543
+
     console.log('[DataSource] Initializing', {
         type: databaseType,
         host: process.env.DATABASE_HOST,
-        port: process.env.DATABASE_PORT || '5432',
+        port,
         database: process.env.DATABASE_NAME,
         user: process.env.DATABASE_USER ? '***' : undefined,
-        ssl: !!getDatabaseSSLFromEnv()
+        ssl: !!getDatabaseSSLFromEnv(),
+        poolerMode: isTransactionPooler ? 'transaction' : 'session/direct'
     })
+
+    if (isTransactionPooler) {
+        console.warn('[DataSource] ⚠️ Transaction pooler detected (port 6543). Prepared statements may cause issues.')
+    }
+
     if (databaseType !== 'postgres') {
         throw new Error(
             `Unsupported database type "${databaseType}". This build supports only PostgreSQL configurations.`
@@ -38,18 +118,18 @@ export const init = async (): Promise<void> => {
         // This is fragile and may break with TypeORM or pg-pool updates.
         // We accept this risk for improved observability during pool errors.
         // The pool metrics interface matches pg-pool internals (totalCount, idleCount, waitingCount).
-        const pool = (appDataSource as unknown as { driver?: { master?: { totalCount?: number; idleCount?: number; waitingCount?: number } } })
-            ?.driver?.master
-        if (pool) {
-            console.error('[DataSource] Pool error:', err.message, {
-                total: pool.totalCount,
-                idle: pool.idleCount,
-                waiting: pool.waitingCount
-            })
-            return
+        const metrics = getPoolMetrics()
+        if (metrics) {
+            console.error('[DataSource] Pool error:', err.message, metrics)
+        } else {
+            console.error('[DataSource] Pool error:', err.message)
         }
-        console.error('[DataSource] Pool error:', err.message)
     }
+
+    // Pool size configuration for Supabase Nano tier (15 connections max)
+    // Reserve headroom for: Supabase internal services (Storage, PostgREST, health checks)
+    // Split: TypeORM 5 + Knex 5 = 10, leaving 5 for Supabase services
+    const poolMax = parseInt(process.env.DATABASE_POOL_MAX || '5')
 
     appDataSource = new DataSource({
         type: 'postgres',
@@ -64,15 +144,22 @@ export const init = async (): Promise<void> => {
         entities: Object.values(entities),
         migrations: postgresMigrations,
         logging: ['error', 'warn', 'migration'], // Enable SQL logging for debugging
-        // Pool configuration - keep below Supabase Pool Size (15) together with KnexClient (8)
+        // Pool configuration optimized for Supabase Nano tier (15 connections)
         extra: {
-            max: 7,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000
+            max: poolMax,
+            min: 1, // Keep at least 1 connection warm
+            idleTimeoutMillis: 20000, // Release idle connections faster (was 30000)
+            connectionTimeoutMillis: 10000,
+            // Allow exit on idle for serverless-like deployments
+            allowExitOnIdle: true
         },
         poolErrorHandler: logPoolError
     })
-    console.log('[DataSource] DataSource created successfully (pool max: 7)')
+    console.log(`[DataSource] DataSource created successfully (pool max: ${poolMax})`)
+
+    // Start pool monitoring after initialization
+    startPoolMonitor()
+    logPoolStatus('initialized', true)
 }
 
 export function getDataSource(): DataSource {

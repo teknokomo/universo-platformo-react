@@ -1,5 +1,9 @@
 # Current Research
 
+## 2026-02-03: Display Attribute UX Fixes
+
+- No new external research required; changes were internal UX and default-value adjustments.
+
 ## RLS QueryRunner freeze investigation (2026-01-11)
 
 ### Observations

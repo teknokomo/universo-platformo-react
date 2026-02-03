@@ -1,28 +1,32 @@
 # Active Context
 
-> **Last Updated**: 2026-01-31
+> **Last Updated**: 2026-02-03
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Database Pool Error Logging (Completed)
+## Current Focus: Double Rate Limits for Normal Workflow (Completed)
 
-**Status**: Completed; full workspace build verified (64 tasks).
+**Status**: Completed. No code behavior changes besides new limits.
 
-### Summary (2026-01-31)
-- Aligned Knex + TypeORM pool sizes to stay within Supabase Pool Size (15).
-- Added pool error logging with pool state metrics for Knex and TypeORM.
-- Kept connection lifecycle logging lightweight (error-only metrics + connection created log).
+### Change Implemented
+- **Rate limits doubled**: 600 read / 240 write per 15 min across backend packages
+- **Metahubs documentation updated**: comments and log message reflect new limits
 
-### Changed Files
-- `packages/metahubs-backend/base/src/domains/ddl/KnexClient.ts` - Pool max set to 8; pool error logging with state metrics
-- `packages/flowise-core-backend/base/src/DataSource.ts` - Pool max set to 7; pool error logging with state metrics
+### Key Files Changed
+- 8 backend packages `routes/index.ts` - updated `maxRead` and `maxWrite`
+- `packages/metahubs-backend/base/src/domains/router.ts` - updated limits, comments, log message
 
-### Technical Details
+### Next Step
+User testing to confirm 429 errors are resolved.
 
-- **Knex pool**: `max: 8` with pool error listener logging `used/free/pending` metrics.
-- **TypeORM pool**: `max: 7` with `poolErrorHandler` logging `total/idle/waiting` metrics.
+---
 
-### Previous: VLC String Field UX Fixes (Completed)
-- Added versioned mode, maxLength enforcement, and VLC validation improvements in form dialogs.
+## Previous: Supabase Connection Pool Optimization (Completed)
+
+Pool sizes reduced (TypeORM 5 + Knex 5), pool diagnostics added, and rate limits increased (see progress.md for details).
+
+---
+
+## Previous: Display Attribute UX Fixes Round 2 (Completed)

@@ -10,22 +10,13 @@ import {
     Alert,
     ToggleButtonGroup,
     ToggleButton,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    FormControlLabel,
-    Switch,
-    TextField,
-    Collapse,
     Tooltip
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
 import InfoIcon from '@mui/icons-material/Info'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import StarIcon from '@mui/icons-material/Star'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -42,35 +33,31 @@ import {
     PaginationControls,
     FlowListTable,
     ConfirmDialog,
-    useConfirm,
-    LocalizedInlineField,
-    useCodenameAutoFill
+    useConfirm
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute, useMoveAttribute } from '../hooks/mutations'
+import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute, useMoveAttribute, useToggleAttributeRequired, useSetDisplayAttribute, useClearDisplayAttribute } from '../hooks/mutations'
 import * as attributesApi from '../api'
 import { getCatalogById } from '../../catalogs'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import { 
     Attribute, 
     AttributeDisplay, 
     AttributeDataType, 
     AttributeLocalizedPayload, 
-    getVLCString, 
     toAttributeDisplay,
     AttributeValidationRules,
-    getDefaultValidationRules,
     getPhysicalDataType,
     formatPhysicalType
 } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField } from '../../../components'
+import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import attributeActions from './AttributeActions'
+import AttributeFormFields from './AttributeFormFields'
 
 type AttributeFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -78,317 +65,10 @@ type AttributeFormValues = {
     codenameTouched?: boolean
     dataType?: AttributeDataType
     isRequired?: boolean
+    isDisplayAttribute?: boolean
     validationRules?: AttributeValidationRules
-}
-
-type AttributeFormFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
-    isLoading: boolean
-    errors: Record<string, string>
-    uiLocale: string
-    nameLabel: string
-    codenameLabel: string
-    codenameHelper: string
-    dataTypeLabel: string
-    requiredLabel: string
-    dataTypeOptions: Array<{ value: AttributeDataType; label: string }>
-    // Type settings labels
-    typeSettingsLabel: string
-    stringMaxLengthLabel: string
-    stringMinLengthLabel: string
-    stringVersionedLabel: string
-    stringLocalizedLabel: string
-    numberPrecisionLabel: string
-    numberScaleLabel: string
-    numberMinLabel: string
-    numberMaxLabel: string
-    numberNonNegativeLabel: string
-    dateCompositionLabel: string
-    dateCompositionOptions: Array<{ value: string; label: string }>
-    // Physical type info
-    physicalTypeLabel: string
-}
-
-const AttributeFormFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    uiLocale,
-    nameLabel,
-    codenameLabel,
-    codenameHelper,
-    dataTypeLabel,
-    requiredLabel,
-    dataTypeOptions,
-    typeSettingsLabel,
-    stringMaxLengthLabel,
-    stringMinLengthLabel,
-    stringVersionedLabel,
-    stringLocalizedLabel,
-    numberPrecisionLabel,
-    numberScaleLabel,
-    numberMinLabel,
-    numberMaxLabel,
-    numberNonNegativeLabel,
-    dateCompositionLabel,
-    dateCompositionOptions,
-    physicalTypeLabel
-}: AttributeFormFieldsProps) => {
-    const [showTypeSettings, setShowTypeSettings] = useState(false)
-    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = typeof values.codename === 'string' ? values.codename : ''
-    const codenameTouched = Boolean(values.codenameTouched)
-    const dataType = (values.dataType as AttributeDataType | undefined) ?? 'STRING'
-    const isRequired = Boolean(values.isRequired)
-    const validationRules = (values.validationRules as AttributeValidationRules | undefined) ?? getDefaultValidationRules(dataType)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
-
-    // Compute physical PostgreSQL type info
-    const physicalTypeInfo = useMemo(() => {
-        const physicalInfo = getPhysicalDataType(dataType, validationRules)
-        const physicalTypeStr = formatPhysicalType(physicalInfo)
-        return { physicalInfo, physicalTypeStr }
-    }, [dataType, validationRules])
-
-    useCodenameAutoFill({
-        codename,
-        codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    // Helper to update nested validationRules
-    const updateValidationRule = useCallback((key: string, value: any) => {
-        setValue('validationRules', { ...validationRules, [key]: value })
-    }, [setValue, validationRules])
-
-    // Render type-specific settings
-    const renderTypeSettings = () => {
-        switch (dataType) {
-            case 'STRING':
-                return (
-                    <Stack spacing={2}>
-                        <Stack direction="row" spacing={2}>
-                            <TextField
-                                label={stringMinLengthLabel}
-                                type="number"
-                                size="small"
-                                fullWidth
-                                disabled={isLoading}
-                                value={validationRules.minLength ?? ''}
-                                onChange={(e) => updateValidationRule('minLength', e.target.value ? parseInt(e.target.value, 10) : null)}
-                                inputProps={{ min: 0 }}
-                            />
-                            <TextField
-                                label={stringMaxLengthLabel}
-                                type="number"
-                                size="small"
-                                fullWidth
-                                disabled={isLoading}
-                                value={validationRules.maxLength ?? ''}
-                                onChange={(e) => updateValidationRule('maxLength', e.target.value ? parseInt(e.target.value, 10) : null)}
-                                inputProps={{ min: 1 }}
-                                helperText={
-                                    validationRules.versioned || validationRules.localized
-                                        ? t('attributes.typeSettings.string.backendType.jsonbVlc')
-                                        : !validationRules.maxLength
-                                        ? t('attributes.typeSettings.string.backendType.textUnlimited')
-                                        : t('attributes.typeSettings.string.backendType.varchar', { maxLength: validationRules.maxLength })
-                                }
-                            />
-                        </Stack>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={Boolean(validationRules.versioned)}
-                                    onChange={(e) => updateValidationRule('versioned', e.target.checked)}
-                                />
-                            }
-                            label={stringVersionedLabel}
-                            disabled={isLoading}
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={Boolean(validationRules.localized)}
-                                    onChange={(e) => updateValidationRule('localized', e.target.checked)}
-                                />
-                            }
-                            label={stringLocalizedLabel}
-                            disabled={isLoading}
-                        />
-                    </Stack>
-                )
-            case 'NUMBER':
-                return (
-                    <Stack spacing={2}>
-                        <Stack direction="row" spacing={2}>
-                            <TextField
-                                label={numberPrecisionLabel}
-                                type="number"
-                                size="small"
-                                fullWidth
-                                disabled={isLoading}
-                                value={validationRules.precision ?? 10}
-                                onChange={(e) => updateValidationRule('precision', e.target.value ? parseInt(e.target.value, 10) : 10)}
-                                inputProps={{ min: 1, max: 15 }}
-                                helperText="1-15"
-                            />
-                            <TextField
-                                label={numberScaleLabel}
-                                type="number"
-                                size="small"
-                                fullWidth
-                                disabled={isLoading}
-                                value={validationRules.scale ?? 2}
-                                onChange={(e) => updateValidationRule('scale', e.target.value ? parseInt(e.target.value, 10) : 2)}
-                                inputProps={{ min: 0, max: Math.max(0, (validationRules.precision ?? 10) - 1) }}
-                                helperText={`0-${Math.max(0, (validationRules.precision ?? 10) - 1)}`}
-                            />
-                        </Stack>
-                        <Stack direction="row" spacing={2}>
-                            <TextField
-                                label={numberMinLabel}
-                                type="number"
-                                size="small"
-                                fullWidth
-                                disabled={isLoading}
-                                value={validationRules.min ?? ''}
-                                onChange={(e) => updateValidationRule('min', e.target.value ? parseFloat(e.target.value) : null)}
-                            />
-                            <TextField
-                                label={numberMaxLabel}
-                                type="number"
-                                size="small"
-                                fullWidth
-                                disabled={isLoading}
-                                value={validationRules.max ?? ''}
-                                onChange={(e) => updateValidationRule('max', e.target.value ? parseFloat(e.target.value) : null)}
-                            />
-                        </Stack>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={Boolean(validationRules.nonNegative)}
-                                    onChange={(e) => updateValidationRule('nonNegative', e.target.checked)}
-                                />
-                            }
-                            label={numberNonNegativeLabel}
-                            disabled={isLoading}
-                        />
-                    </Stack>
-                )
-            case 'DATE':
-                return (
-                    <FormControl fullWidth size="small" disabled={isLoading}>
-                        <InputLabel id="date-composition-label">{dateCompositionLabel}</InputLabel>
-                        <Select
-                            labelId="date-composition-label"
-                            label={dateCompositionLabel}
-                            value={validationRules.dateComposition ?? 'datetime'}
-                            onChange={(e) => updateValidationRule('dateComposition', e.target.value)}
-                        >
-                            {dateCompositionOptions.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                )
-            default:
-                return null
-        }
-    }
-
-    const hasTypeSettings = ['STRING', 'NUMBER', 'DATE'].includes(dataType)
-
-    return (
-        <>
-            <LocalizedInlineField
-                mode='localized'
-                label={nameLabel}
-                required
-                disabled={isLoading}
-                value={nameVlc}
-                onChange={(next) => setValue('nameVlc', next)}
-                error={errors.nameVlc || null}
-                helperText={errors.nameVlc}
-                uiLocale={uiLocale}
-            />
-            <FormControl fullWidth disabled={isLoading}>
-                <InputLabel id='attribute-data-type-label'>{dataTypeLabel}</InputLabel>
-                <Select
-                    labelId='attribute-data-type-label'
-                    label={dataTypeLabel}
-                    value={dataType}
-                    onChange={(event) => {
-                        const newType = event.target.value as AttributeDataType
-                        setValue('dataType', newType)
-                        // Reset validationRules to defaults for new type
-                        setValue('validationRules', getDefaultValidationRules(newType))
-                    }}
-                >
-                    {dataTypeOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
-            {hasTypeSettings && (
-                <Box>
-                    <Box
-                        sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            cursor: 'pointer',
-                            py: 1,
-                            '&:hover': { color: 'primary.main' }
-                        }}
-                        onClick={() => setShowTypeSettings(!showTypeSettings)}
-                    >
-                        {showTypeSettings ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                        <Typography variant="body2" sx={{ ml: 0.5 }}>
-                            {typeSettingsLabel}
-                        </Typography>
-                    </Box>
-                    <Collapse in={showTypeSettings}>
-                        <Box sx={{ pl: 2, pt: 1 }}>
-                            {renderTypeSettings()}
-                        </Box>
-                    </Collapse>
-                </Box>
-            )}
-            {/* Physical PostgreSQL type info */}
-            <Alert severity="info" sx={{ py: 0.5 }}>
-                {physicalTypeLabel}: <strong>{physicalTypeInfo.physicalTypeStr}</strong>
-                {physicalTypeInfo.physicalInfo.isVLC && ' (VLC)'}
-            </Alert>
-            <FormControlLabel
-                control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
-                label={requiredLabel}
-                disabled={isLoading}
-            />
-            <Divider />
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
-                label={codenameLabel}
-                helperText={codenameHelper}
-                error={errors.codename}
-                disabled={isLoading}
-                required
-            />
-        </>
-    )
+    targetEntityId?: string | null
+    targetEntityKind?: MetaEntityKind | null
 }
 
 // Get color for data type chip
@@ -513,6 +193,9 @@ const AttributeList = () => {
     const updateAttributeMutation = useUpdateAttribute()
     const deleteAttributeMutation = useDeleteAttribute()
     const moveAttributeMutation = useMoveAttribute()
+    const toggleRequiredMutation = useToggleAttributeRequired()
+    const setDisplayAttributeMutation = useSetDisplayAttribute()
+    const clearDisplayAttributeMutation = useClearDisplayAttribute()
 
     // Memoize images object
     const images = useMemo(() => {
@@ -532,10 +215,19 @@ const AttributeList = () => {
         return new Map(attributes.map((attr) => [attr.id, attr]))
     }, [attributes])
 
-    const localizedFormDefaults = useMemo<AttributeFormValues>(
-        () => ({ nameVlc: null, codename: '', codenameTouched: false, dataType: 'STRING', isRequired: false }),
-        []
-    )
+    const localizedFormDefaults = useMemo<AttributeFormValues>(() => {
+        const hasNoAttributes = (attributes?.length ?? 0) === 0
+        return {
+            nameVlc: null,
+            codename: '',
+            codenameTouched: false,
+            dataType: 'STRING',
+            isRequired: false,
+            isDisplayAttribute: hasNoAttributes,
+            targetEntityId: null,
+            targetEntityKind: null
+        }
+    }, [attributes?.length])
 
     const validateAttributeForm = useCallback(
         (values: Record<string, any>) => {
@@ -551,6 +243,15 @@ const AttributeList = () => {
             } else if (!isValidCodename(normalizedCodename)) {
                 errors.codename = t('attributes.validation.codenameInvalid', 'Codename contains invalid characters')
             }
+            // REF type requires target entity
+            if (values.dataType === 'REF') {
+                if (!values.targetEntityKind) {
+                    errors.targetEntityKind = t('attributes.validation.targetEntityKindRequired', 'Target entity type is required for Reference type')
+                }
+                if (!values.targetEntityId) {
+                    errors.targetEntityId = t('attributes.validation.targetEntityIdRequired', 'Target entity is required for Reference type')
+                }
+            }
             return Object.keys(errors).length > 0 ? errors : null
         },
         [t, tc]
@@ -560,7 +261,12 @@ const AttributeList = () => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const rawCodename = typeof values.codename === 'string' ? values.codename : ''
         const normalizedCodename = sanitizeCodename(rawCodename)
-        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+        const hasBasicInfo = hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+        // REF type requires target entity
+        if (values.dataType === 'REF') {
+            return hasBasicInfo && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+        }
+        return hasBasicInfo
     }, [])
 
     const renderLocalizedFields = useCallback(
@@ -588,6 +294,9 @@ const AttributeList = () => {
                     codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
                     dataTypeLabel={t('attributes.dataType', 'Data Type')}
                     requiredLabel={t('attributes.isRequiredLabel', 'Required')}
+                    displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                    displayAttributeHelper={t('attributes.isDisplayAttributeHelper', 'Use as representation when referencing elements of this catalog')}
+                    displayAttributeLocked={(attributes?.length ?? 0) === 0}
                     dataTypeOptions={[
                         { value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') },
                         { value: 'NUMBER', label: t('attributes.dataTypeOptions.number', 'Number') },
@@ -613,10 +322,12 @@ const AttributeList = () => {
                         { value: 'datetime', label: t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time') }
                     ]}
                     physicalTypeLabel={t('attributes.physicalType.label', 'PostgreSQL type')}
+                    metahubId={metahubId!}
+                    currentCatalogId={catalogId}
                 />
             )
         },
-        [i18n.language, t, tc]
+        [i18n.language, t, tc, metahubId, catalogId, attributes?.length]
     )
 
     const attributeColumns = useMemo(
@@ -639,17 +350,28 @@ const AttributeList = () => {
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: AttributeDisplay) => row.name || '',
-                render: (row: AttributeDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word'
-                        }}
-                    >
-                        {row.name || '—'}
-                    </Typography>
-                )
+                render: (row: AttributeDisplay) => {
+                    const rawAttribute = attributeMap.get(row.id)
+                    const isDisplayAttr = rawAttribute?.isDisplayAttribute ?? (row as any)?.isDisplayAttribute ?? false
+                    return (
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                            {isDisplayAttr && (
+                                <Tooltip title={t('attributes.isDisplayAttributeTooltip', 'This attribute is the display representation for this catalog')} arrow placement="top">
+                                    <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                </Tooltip>
+                            )}
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word'
+                                }}
+                            >
+                                {row.name || '—'}
+                            </Typography>
+                        </Stack>
+                    )
+                }
             },
             {
                 id: 'codename',
@@ -717,6 +439,8 @@ const AttributeList = () => {
             ...baseContext,
             attributeMap,
             uiLocale: i18n.language,
+            metahubId,
+            catalogId,
             api: {
                 updateEntity: async (id: string, patch: AttributeLocalizedPayload) => {
                     if (!metahubId || !catalogId) return
@@ -773,6 +497,44 @@ const AttributeList = () => {
                     queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
                 }
             },
+            toggleRequired: async (id: string, isRequired: boolean) => {
+                if (!metahubId || !catalogId) return
+                await toggleRequiredMutation.mutateAsync({
+                    metahubId,
+                    hubId: effectiveHubId,
+                    catalogId,
+                    attributeId: id,
+                    isRequired
+                })
+                if (effectiveHubId) {
+                    await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                } else {
+                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                }
+            },
+            toggleDisplayAttribute: async (id: string, isDisplayAttribute: boolean) => {
+                if (!metahubId || !catalogId) return
+                if (isDisplayAttribute) {
+                    await setDisplayAttributeMutation.mutateAsync({
+                        metahubId,
+                        hubId: effectiveHubId,
+                        catalogId,
+                        attributeId: id
+                    })
+                } else {
+                    await clearDisplayAttributeMutation.mutateAsync({
+                        metahubId,
+                        hubId: effectiveHubId,
+                        catalogId,
+                        attributeId: id
+                    })
+                }
+                if (effectiveHubId) {
+                    await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                } else {
+                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                }
+            },
             helpers: {
                 refreshList: async () => {
                     if (metahubId && catalogId) {
@@ -813,6 +575,7 @@ const AttributeList = () => {
         [
             attributeMap,
             catalogId,
+            clearDisplayAttributeMutation,
             confirm,
             deleteAttributeMutation,
             enqueueSnackbar,
@@ -821,7 +584,9 @@ const AttributeList = () => {
             metahubId,
             moveAttributeMutation,
             queryClient,
+            setDisplayAttributeMutation,
             t,
+            toggleRequiredMutation,
             updateAttributeMutation
         ]
     )
@@ -895,6 +660,11 @@ const AttributeList = () => {
             const dataType = (data.dataType as AttributeDataType | undefined) ?? 'STRING'
             const isRequired = Boolean(data.isRequired)
             const validationRules = data.validationRules as AttributeValidationRules | undefined
+            const isDisplayAttribute = Boolean(data.isDisplayAttribute)
+
+            // REF type: extract target entity info
+            const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null) : undefined
+            const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null) : undefined
 
             await createAttributeMutation.mutateAsync({
                 metahubId,
@@ -906,7 +676,10 @@ const AttributeList = () => {
                     isRequired,
                     name: nameInput,
                     namePrimaryLocale,
-                    validationRules
+                    validationRules,
+                    isDisplayAttribute,
+                    targetEntityId,
+                    targetEntityKind
                 }
             })
 
