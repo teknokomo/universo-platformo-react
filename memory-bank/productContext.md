@@ -1,5 +1,7 @@
 # Product Context
 
+> **Last Reviewed**: 2026-02-03 (no change)
+
 ## Purpose
 
 Expanding Flowise AI with multi‑user capabilities for collaborative workflows within Uniq (workflows/projects), creating visual‑programming functionality, business applications, games, and AR/VR applications.

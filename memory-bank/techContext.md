@@ -58,6 +58,9 @@ if (!userId) return
 -   **Synchronization**: Changes to Design-Time metadata (e.g., adding a catalog) trigger DDL operations in the corresponding `mhb_<UUID>` schema via `MetahubSchemaService`.
 -   **Benefits**: Isolation of user data, scalability, and simplified access control for run-time records.
 
+#### 3.2.1 Metahub Attribute Defaults
+-   **NUMBER defaults**: `getDefaultValidationRules()` now uses `scale = 0` (precision 10). This keeps NUMERIC defaults as integers unless explicitly configured.
+
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
 -   **Pattern**: DI-only (`createDDLServices(knex)`), no static wrapper methods; naming utilities are imported directly.
@@ -88,10 +91,30 @@ if (!userId) return
 **Flowise AI 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
 **Supabase Integration** - Multi-user functionality with Postgres-only database support
 
-### Database Pooling (Operational Stability)
-- **Pool budget**: Keep total app connections within Supabase Pool Size (15).
-- **Current split**: Knex (8) + TypeORM (7).
-- **Observability**: Pool error logs include pool state metrics to aid incident triage.
+### Database Pooling (Supabase Nano Tier Optimized)
+
+**Target**: Supabase Nano tier (15 connections max) - compatible with free tier.
+
+**Pool allocation** (as of 2026-02-03):
+| Component | Pool Size | Purpose |
+|-----------|-----------|---------|
+| TypeORM   | 5 (configurable via `DATABASE_POOL_MAX`) | Static entities (metahubs, catalogs, attributes) |
+| Knex      | 5 (configurable via `DATABASE_KNEX_POOL_MAX`) | Runtime DDL operations (CREATE SCHEMA, ALTER TABLE) |
+| Reserved  | 5 | Supabase internal services (Storage, PostgREST, health checks) |
+
+**Pooler mode detection**:
+- Port 6543 = Supavisor transaction mode (shorter timeouts, prepared statement warnings)
+- Port 5432 = Direct connection or session mode
+
+**Observability**:
+- Pool status logged every 10s when utilization >70% or waiting connections exist
+- Pool error logs include `used/idle/waiting` metrics
+- Knex logs `acquireRequest/acquireSuccess/acquireFail/release` events under pressure
+
+**Rate limiting** (increased 2026-02-03):
+- Read: 300 requests / 15 minutes (was 100)
+- Write: 120 requests / 15 minutes (was 60)
+- Per-IP by default; consider Redis + user-based keys for multi-user NAT scenarios
 
 ### Authentication Architecture
 **Current**: Passport.js session auth (Express) integrated with Supabase identity; clients use cookie/session + CSRF protection.

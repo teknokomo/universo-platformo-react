@@ -450,7 +450,9 @@ function snapshotToEntities(snapshot: SchemaSnapshot): import('@universo/schema-
                 codename: field.codename,
                 dataType: field.dataType,
                 isRequired: field.isRequired,
+                isDisplayAttribute: field.isDisplayAttribute ?? false,
                 targetEntityId: field.targetEntityId ?? undefined,
+                targetEntityKind: field.targetEntityKind ?? undefined,
                 presentation: createEmptyPresentation(field.codename)
             })
         }

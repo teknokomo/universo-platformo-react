@@ -35,6 +35,7 @@ export const buildCatalogDefinitions = (
                     dataType: attr.data_type || attr.dataType,
                     isRequired: attr.is_required || attr.isRequired || false,
                     targetEntityId: attr.target_object_id || attr.targetCatalogId || null,
+                    targetEntityKind: attr.target_object_kind || attr.targetEntityKind || null,
                     presentation: {
                         name: (attr.presentation?.name || localizedContent.buildLocalizedContent({ en: (typeof attr.name === 'string' ? attr.name : attr.codename) || 'Attribute' }, 'en')) as any,
                     },

@@ -62,6 +62,8 @@ export const createAttribute = (
     catalogId: string,
     data: AttributeLocalizedPayload & {
         targetCatalogId?: string
+        targetEntityId?: string | null
+        targetEntityKind?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -80,6 +82,8 @@ export const updateAttribute = (
     attributeId: string,
     data: AttributeLocalizedPayload & {
         targetCatalogId?: string | null
+        targetEntityId?: string | null
+        targetEntityKind?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -150,6 +154,8 @@ export const createAttributeDirect = (
     catalogId: string,
     data: AttributeLocalizedPayload & {
         targetCatalogId?: string
+        targetEntityId?: string | null
+        targetEntityKind?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -167,6 +173,8 @@ export const updateAttributeDirect = (
     attributeId: string,
     data: AttributeLocalizedPayload & {
         targetCatalogId?: string | null
+        targetEntityId?: string | null
+        targetEntityKind?: string | null
         validationRules?: Record<string, unknown>
         uiConfig?: Record<string, unknown>
         isRequired?: boolean
@@ -186,3 +194,90 @@ export const deleteAttributeDirect = (metahubId: string, catalogId: string, attr
  */
 export const moveAttributeDirect = (metahubId: string, catalogId: string, attributeId: string, direction: 'up' | 'down') =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/move`, { direction })
+
+// ============ Toggle Required API functions ============
+
+/**
+ * Toggle required flag for an attribute (with hubId)
+ */
+export const toggleAttributeRequired = (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    attributeId: string,
+    isRequired: boolean
+) =>
+    apiClient.patch<Attribute>(
+        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/toggle-required`,
+        { isRequired }
+    )
+
+/**
+ * Toggle required flag for an attribute (without hubId)
+ */
+export const toggleAttributeRequiredDirect = (
+    metahubId: string,
+    catalogId: string,
+    attributeId: string,
+    isRequired: boolean
+) =>
+    apiClient.patch<Attribute>(
+        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/toggle-required`,
+        { isRequired }
+    )
+
+// ============ Display Attribute API functions ============
+
+/**
+ * Set attribute as display attribute for catalog (with hubId)
+ */
+export const setDisplayAttribute = (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    attributeId: string
+) =>
+    apiClient.patch<Attribute>(
+        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/set-display`,
+        {}
+    )
+
+/**
+ * Set attribute as display attribute for catalog (without hubId)
+ */
+export const setDisplayAttributeDirect = (
+    metahubId: string,
+    catalogId: string,
+    attributeId: string
+) =>
+    apiClient.patch<Attribute>(
+        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/set-display`,
+        {}
+    )
+
+/**
+ * Clear display attribute flag (with hubId)
+ */
+export const clearDisplayAttribute = (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    attributeId: string
+) =>
+    apiClient.patch<Attribute>(
+        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`,
+        {}
+    )
+
+/**
+ * Clear display attribute flag (without hubId)
+ */
+export const clearDisplayAttributeDirect = (
+    metahubId: string,
+    catalogId: string,
+    attributeId: string
+) =>
+    apiClient.patch<Attribute>(
+        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`,
+        {}
+    )

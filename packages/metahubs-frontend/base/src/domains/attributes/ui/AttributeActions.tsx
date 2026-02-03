@@ -1,20 +1,23 @@
-import { FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Divider } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
+import StarIcon from '@mui/icons-material/Star'
+import StarOutlineIcon from '@mui/icons-material/StarOutline'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
-import type { VersionedLocalizedContent } from '@universo/types'
-import type { Attribute, AttributeDisplay, AttributeLocalizedPayload } from '../../../types'
-import { getVLCString } from '../../../types'
+import { notifyError } from '@universo/template-mui'
+import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
+import type { Attribute, AttributeDisplay, AttributeLocalizedPayload, AttributeValidationRules } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField } from '../../../components'
+import AttributeFormFields from './AttributeFormFields'
 
 const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
     const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
     const raw = attributeMap?.get(ctx.entity.id)
+    const isSingleAttribute = (attributeMap?.size ?? 0) <= 1
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
     const nameFallback = ctx.entity?.name || ctx.entity?.codename || ''
 
@@ -23,7 +26,11 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
         dataType: raw?.dataType ?? ctx.entity?.dataType ?? 'STRING',
-        isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false
+        isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false,
+        isDisplayAttribute: isSingleAttribute ? true : (raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false),
+        validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
+        targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
+        targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null
     }
 }
 
@@ -56,90 +63,22 @@ const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
     const codename = sanitizeCodename(String(values.codename || ''))
     const dataType = (values.dataType as AttributeLocalizedPayload['dataType']) ?? 'STRING'
     const isRequired = Boolean(values.isRequired)
+    const isDisplayAttribute = Boolean(values.isDisplayAttribute)
+    const validationRules = values.validationRules as AttributeValidationRules | undefined
+    const targetEntityId = (values.targetEntityId as string | null | undefined) ?? undefined
+    const targetEntityKind = (values.targetEntityKind as MetaEntityKind | null | undefined) ?? undefined
 
     return {
         codename,
         dataType,
         isRequired,
+        isDisplayAttribute,
         name: nameInput ?? {},
-        namePrimaryLocale
+        namePrimaryLocale,
+        validationRules,
+        targetEntityId,
+        targetEntityKind
     }
-}
-
-const AttributeEditFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    t,
-    uiLocale
-}: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
-    isLoading: boolean
-    errors?: Record<string, string>
-    t: ActionContext<AttributeDisplay, AttributeLocalizedPayload>['t']
-    uiLocale?: string
-}) => {
-    const fieldErrors = errors ?? {}
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = typeof values.codename === 'string' ? values.codename : ''
-    const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
-    const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
-
-    useCodenameAutoFill({
-        codename,
-        codenameTouched,
-        nextCodename,
-        nameValue,
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
-    })
-
-    return (
-        <>
-            <LocalizedInlineField
-                mode='localized'
-                label={t('common:fields.name')}
-                required
-                disabled={isLoading}
-                value={values.nameVlc ?? null}
-                onChange={(next) => setValue('nameVlc', next)}
-                error={fieldErrors.nameVlc || null}
-                helperText={fieldErrors.nameVlc}
-                uiLocale={uiLocale as string}
-            />
-            <FormControl fullWidth disabled={isLoading}>
-                <InputLabel id='attribute-data-type-label'>{t('attributes.dataType', 'Data Type')}</InputLabel>
-                <Select
-                    labelId='attribute-data-type-label'
-                    label={t('attributes.dataType', 'Data Type')}
-                    value={values.dataType ?? 'STRING'}
-                    onChange={(event) => setValue('dataType', event.target.value)}
-                >
-                    <MenuItem value='STRING'>{t('attributes.dataTypeOptions.string', 'String')}</MenuItem>
-                </Select>
-            </FormControl>
-            <FormControlLabel
-                control={<Switch checked={Boolean(values.isRequired)} onChange={(event) => setValue('isRequired', event.target.checked)} />}
-                label={t('attributes.isRequiredLabel', 'Required')}
-                disabled={isLoading}
-            />
-            <Divider />
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched) => setValue('codenameTouched', touched)}
-                label={t('attributes.codename', 'Codename')}
-                helperText={t('attributes.codenameHelper', 'Unique identifier')}
-                error={fieldErrors.codename}
-                disabled={isLoading}
-                required
-            />
-        </>
-    )
 }
 
 const resolveSortOrder = (attribute?: { sortOrder?: number }) => {
@@ -191,16 +130,57 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: any) => (
-                        <AttributeEditFields
-                            values={values}
-                            setValue={setValue}
-                            isLoading={isLoading}
-                            errors={errors}
-                            t={ctx.t}
-                            uiLocale={ctx.uiLocale as string}
-                        />
-                    ),
+                    extraFields: ({ values, setValue, isLoading, errors }: any) => {
+                        const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+                        const displayAttributeLocked = (attributeMap?.size ?? 0) <= 1
+                        return (
+                            <AttributeFormFields
+                                values={values}
+                                setValue={setValue}
+                                isLoading={isLoading}
+                                errors={errors}
+                                uiLocale={ctx.uiLocale as string}
+                                nameLabel={ctx.t('common:fields.name')}
+                                codenameLabel={ctx.t('attributes.codename', 'Codename')}
+                                codenameHelper={ctx.t('attributes.codenameHelper', 'Unique identifier')}
+                                dataTypeLabel={ctx.t('attributes.dataType', 'Data Type')}
+                                requiredLabel={ctx.t('attributes.isRequiredLabel', 'Required')}
+                                displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                displayAttributeHelper={ctx.t('attributes.isDisplayAttributeHelper', 'Use as representation when referencing elements of this catalog')}
+                                displayAttributeLocked={displayAttributeLocked}
+                                dataTypeOptions={[
+                                    { value: 'STRING', label: ctx.t('attributes.dataTypeOptions.string', 'String') },
+                                    { value: 'NUMBER', label: ctx.t('attributes.dataTypeOptions.number', 'Number') },
+                                    { value: 'BOOLEAN', label: ctx.t('attributes.dataTypeOptions.boolean', 'Boolean') },
+                                    { value: 'DATE', label: ctx.t('attributes.dataTypeOptions.date', 'Date') },
+                                    { value: 'REF', label: ctx.t('attributes.dataTypeOptions.ref', 'Reference') },
+                                    { value: 'JSON', label: ctx.t('attributes.dataTypeOptions.json', 'JSON') }
+                                ]}
+                                typeSettingsLabel={ctx.t('attributes.typeSettings.title', 'Type Settings')}
+                                stringMaxLengthLabel={ctx.t('attributes.typeSettings.string.maxLength', 'Max Length')}
+                                stringMinLengthLabel={ctx.t('attributes.typeSettings.string.minLength', 'Min Length')}
+                                stringVersionedLabel={ctx.t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
+                                stringLocalizedLabel={ctx.t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
+                                numberPrecisionLabel={ctx.t('attributes.typeSettings.number.precision', 'Precision')}
+                                numberScaleLabel={ctx.t('attributes.typeSettings.number.scale', 'Scale')}
+                                numberMinLabel={ctx.t('attributes.typeSettings.number.min', 'Min Value')}
+                                numberMaxLabel={ctx.t('attributes.typeSettings.number.max', 'Max Value')}
+                                numberNonNegativeLabel={ctx.t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
+                                dateCompositionLabel={ctx.t('attributes.typeSettings.date.composition', 'Date Composition')}
+                                dateCompositionOptions={[
+                                    { value: 'date', label: ctx.t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
+                                    { value: 'time', label: ctx.t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
+                                    { value: 'datetime', label: ctx.t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time') }
+                                ]}
+                                physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
+                                metahubId={(ctx as any).metahubId as string}
+                                currentCatalogId={(ctx as any).catalogId as string | undefined}
+                                dataTypeDisabled
+                                dataTypeHelperText={ctx.t('attributes.edit.typeChangeDisabled', 'Data type cannot be changed after creation')}
+                                disableVlcToggles
+                            />
+                        )
+                    },
                     validate: (values: Record<string, any>) => validateAttributeForm(ctx, values),
                     canSave: canSaveAttributeForm,
                     showDeleteButton: true,
@@ -275,6 +255,73 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
             try {
                 if (typeof (ctx as any).moveAttribute === 'function') {
                     await (ctx as any).moveAttribute(ctx.entity.id, 'down')
+                }
+            } catch (error: unknown) {
+                notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+            }
+        }
+    },
+    {
+        id: 'set-required',
+        labelKey: 'attributes.actions.setRequired',
+        icon: <CheckCircleOutlineIcon />,
+        order: 40,
+        group: 'flags',
+        visible: (ctx) => {
+            const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+            const raw = attributeMap?.get(ctx.entity.id)
+            const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false
+            return !isRequired
+        },
+        onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+            try {
+                if (typeof (ctx as any).toggleRequired === 'function') {
+                    await (ctx as any).toggleRequired(ctx.entity.id, true)
+                }
+            } catch (error: unknown) {
+                notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+            }
+        }
+    },
+    {
+        id: 'set-optional',
+        labelKey: 'attributes.actions.setOptional',
+        icon: <RadioButtonUncheckedIcon />,
+        order: 41,
+        group: 'flags',
+        visible: (ctx) => {
+            const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+            const raw = attributeMap?.get(ctx.entity.id)
+            const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false
+            return isRequired
+        },
+        onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+            try {
+                if (typeof (ctx as any).toggleRequired === 'function') {
+                    await (ctx as any).toggleRequired(ctx.entity.id, false)
+                }
+            } catch (error: unknown) {
+                notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+            }
+        }
+    },
+    {
+        id: 'set-display-attribute',
+        labelKey: 'attributes.actions.setDisplayAttribute',
+        icon: <StarOutlineIcon />,
+        order: 50,
+        group: 'flags',
+        visible: (ctx) => {
+            const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+            const raw = attributeMap?.get(ctx.entity.id)
+            const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+            // Hide if already display attribute or if only one attribute (locked)
+            return !isDisplayAttribute
+        },
+        onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+            try {
+                if (typeof (ctx as any).toggleDisplayAttribute === 'function') {
+                    await (ctx as any).toggleDisplayAttribute(ctx.entity.id, true)
                 }
             } catch (error: unknown) {
                 notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)

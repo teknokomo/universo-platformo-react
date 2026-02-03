@@ -25,7 +25,8 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
                 columnName: generateColumnName(field.id),
                 dataType: field.dataType,
                 isRequired: field.isRequired,
-                targetEntityId: field.targetEntityId ?? null
+                targetEntityId: field.targetEntityId ?? null,
+                targetEntityKind: field.targetEntityKind ?? null
             }
         }
     }

@@ -314,7 +314,10 @@ export class MetahubSchemaService {
                 t.jsonb('ui_config').defaultTo('{}')
                 t.integer('sort_order').defaultTo(0)
                 t.boolean('is_required').defaultTo(false)
-                t.string('target_object_id').nullable()
+                t.boolean('is_display_attribute').defaultTo(false)
+                // Polymorphic reference: target entity ID and kind
+                t.uuid('target_object_id').nullable()
+                t.string('target_object_kind', 20).nullable() // 'catalog', 'document', 'hub', etc.
 
                 // ═══════════════════════════════════════════════════════════════════════
                 // Platform-level system fields (_upl_*)

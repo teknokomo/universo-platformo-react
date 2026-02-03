@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { MetahubRole, GlobalRole, VersionedLocalizedContent, AttributeDataType, AttributeValidationRules } from '@universo/types'
+import type { MetahubRole, GlobalRole, VersionedLocalizedContent, AttributeDataType, AttributeValidationRules, MetaEntityKind } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from '@universo/utils/vlc'
@@ -279,10 +279,13 @@ export interface Attribute {
     codename: string
     dataType: AttributeDataType
     name: VersionedLocalizedContent<string>
+    targetEntityId?: string | null
+    targetEntityKind?: MetaEntityKind | null
     targetCatalogId?: string
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
     isRequired: boolean
+    isDisplayAttribute?: boolean
     sortOrder: number
     createdAt: string
     updatedAt: string
@@ -298,10 +301,13 @@ export interface AttributeDisplay {
     codename: string
     dataType: AttributeDataType
     name: string
+    targetEntityId?: string | null
+    targetEntityKind?: MetaEntityKind | null
     targetCatalogId?: string
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
     isRequired: boolean
+    isDisplayAttribute?: boolean
     sortOrder: number
     createdAt: string
     updatedAt: string
@@ -385,6 +391,7 @@ export interface AttributeLocalizedPayload {
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
     isRequired?: boolean
+    isDisplayAttribute?: boolean
 }
 
 // ============ DISPLAY CONVERTERS ============
@@ -442,10 +449,13 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
 
 /** Convert HubElement to HubElementDisplay for table rendering */
 export function toHubElementDisplay(element: HubElement, attributes: Attribute[] = [], locale = 'en'): HubElementDisplay {
-    const firstStringAttr = attributes.find((a) => a.dataType === 'STRING')
-    const rawValue = firstStringAttr ? element.data[firstStringAttr.codename] : undefined
+    // Prefer display attribute if set, otherwise fall back to first STRING attribute
+    const displayAttr = attributes.find((a) => a.isDisplayAttribute)
+    const fallbackAttr = attributes.find((a) => a.dataType === 'STRING')
+    const selectedAttr = displayAttr || fallbackAttr
+    const rawValue = selectedAttr ? element.data[selectedAttr.codename] : undefined
     const nameValue =
-        firstStringAttr && rawValue !== undefined && rawValue !== null
+        selectedAttr && rawValue !== undefined && rawValue !== null
             ? getVLCString(rawValue as VersatileLocalizedContent, locale) || String(rawValue)
             : `Element ${element.id.slice(0, 8)}`
 

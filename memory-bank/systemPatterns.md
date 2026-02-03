@@ -116,6 +116,12 @@ return repo.find({ where: { ... } })
 - TypeORM: `poolErrorHandler` logs `total/idle/waiting` metrics.
 **Why**: Prevent pool exhaustion and provide actionable diagnostics during incidents.
 
+## DynamicEntityFormDialog Custom Field Rendering
+
+**Rule**: Use `renderField` override to render domain-specific inputs (e.g., REF element selector) without changing default dialog behavior.
+**Usage**: Return `undefined` to fall back to the built-in renderer; return a React node to override.
+**Why**: Keeps the dialog generic while enabling custom widgets for special field types.
+
 ## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 
 **Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.
@@ -495,4 +501,8 @@ export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'fa
 - Update utils routes before adding new public pages.
 - Add tests for new public paths.
 
-**Last Updated**: 2026-01-15
+### Metahubs UI: Display Attribute Locking
+- When a catalog has a single attribute, the Display Attribute switch must be auto-enabled and locked (create + edit).
+- Action menu should expose explicit set/clear actions (no dynamic icon/label callbacks) to avoid undefined context crashes.
+
+**Last Updated**: 2026-02-03

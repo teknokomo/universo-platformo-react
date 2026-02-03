@@ -293,7 +293,11 @@
         },
         "actions": {
             "moveUp": "Move up",
-            "moveDown": "Move down"
+            "moveDown": "Move down",
+            "setRequired": "Mark as required",
+            "setOptional": "Mark as optional",
+            "setDisplayAttribute": "Set as display attribute",
+            "clearDisplayAttribute": "Clear display attribute"
         },
         "deleteDialog": {
             "title": "Delete Attribute",
@@ -346,20 +350,55 @@
             "label": "PostgreSQL type",
             "tooltip": "PostgreSQL: {{type}}"
         },
+        "edit": {
+            "typeChangeDisabled": "Data type cannot be changed after creation",
+            "settingsReadOnly": "Type settings cannot be modified after creation"
+        },
         "isRequiredLabel": "Required",
+        "isDisplayAttributeLabel": "Display attribute",
+        "isDisplayAttributeHelper": "Use this attribute as representation when referencing elements of this catalog",
+        "isDisplayAttributeTooltip": "This attribute is the display representation for this catalog",
         "required": "Required",
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
         "descriptionEn": "Description (English)",
         "validation": {
             "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+            "targetEntityKindRequired": "Target entity type is required for Reference",
+            "targetEntityIdRequired": "Target entity is required for Reference"
         },
         "createError": "Failed to create attribute",
         "updateError": "Failed to update attribute",
         "deleteError": "Failed to delete attribute",
         "moveSuccess": "Attribute order updated",
-        "moveError": "Failed to update attribute order"
+        "moveError": "Failed to update attribute order",
+        "setRequiredSuccess": "Attribute marked as required",
+        "setOptionalSuccess": "Attribute marked as optional",
+        "toggleRequiredError": "Failed to update attribute",
+        "setDisplaySuccess": "Attribute set as display attribute",
+        "setDisplayError": "Failed to set display attribute",
+        "clearDisplaySuccess": "Display attribute flag cleared",
+        "clearDisplayError": "Failed to clear display attribute"
+    },
+    "ref": {
+        "targetEntityKind": "Target Entity Type",
+        "notSelected": "Not selected",
+        "targetCatalog": "Target Catalog",
+        "selectCatalog": "Select catalog...",
+        "selectElement": "Select element...",
+        "catalogRequired": "Please select a catalog",
+        "noCatalogsAvailable": "No catalogs available",
+        "noElementsAvailable": "No elements available",
+        "loadingElements": "Loading elements...",
+        "targetEntityMissing": "Target entity is not configured for this reference.",
+        "unknownElement": "Element {{id}}",
+        "entityKindNotSupported": "This entity type is not yet supported for references.",
+        "entityKind": {
+            "catalog": "Catalog",
+            "document": "Document",
+            "hub": "Hub"
+        }
     },
     "elements": {
         "title": "Elements",

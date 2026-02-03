@@ -1,6 +1,192 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## COMPLETED (2026-02-03): Double Rate Limits for Normal Workflow
+
+- [x] Increase rate limits to 600 read / 240 write across backend packages
+- [x] Update memory bank entries (activeContext.md, progress.md)
+
+---
+
+## COMPLETED (2026-02-03): Supabase Connection Pool Optimization
+
+### Problem
+HTTP 429 (Too Many Requests) errors during normal workflow due to:
+- Pool exhaustion: TypeORM (7) + Knex (8) = 15 = Supabase Nano limit (no headroom)
+- Aggressive rate limiting: 100 read / 60 write per 15 min
+- No pool observability for debugging
+
+### Solution
+- [x] Add pool diagnostics and monitoring to TypeORM DataSource
+- [x] Add pool diagnostics and monitoring to KnexClient
+- [x] Reduce pool sizes: TypeORM 7→5, Knex 8→5 (total 10, leaving 5 for Supabase)
+- [x] Increase rate limits: 300 read / 120 write per 15 min (across 8 backend packages)
+- [x] Add `DATABASE_POOL_MAX` and `DATABASE_KNEX_POOL_MAX` env vars for configuration
+- [x] Update .env.example with pool configuration documentation
+- [x] Update techContext.md with new pool architecture
+- [x] Build verification (64 packages passed)
+
+### Files Changed
+- `packages/flowise-core-backend/base/src/DataSource.ts` - Pool monitoring, size reduction
+- `packages/metahubs-backend/base/src/domains/ddl/KnexClient.ts` - Pool monitoring, size reduction
+- `packages/metahubs-backend/base/src/domains/router.ts` - Rate limit increase
+- 7 other `*-backend/base/src/routes/index.ts` - Rate limit increase
+- `packages/flowise-core-backend/base/.env.example` - Pool config docs
+
+---
+
+## COMPLETED (2026-02-03): Display Attribute UX Fixes (Round 2)
+
+### Bug Fixes
+- [x] **BUG**: isDisplayAttribute not saved when editing attribute (backend PATCH ignores field)
+    - Note: Added `isDisplayAttribute` handling in PATCH route via setDisplayAttribute/clearDisplayAttribute
+- [x] **BUG**: isDisplayAttribute not saved when CREATING attribute (missing from destructuring and create call)
+    - Note: Added `isDisplayAttribute` to parsed.data extraction and service.create() call + setDisplayAttribute() for exclusivity
+- [x] Fix menu items logic: show only relevant actions (not both make required/optional pairs)
+    - Note: Changed `enabled` to `visible` for conditional hiding of menu items
+- [x] Remove "Clear display attribute" action completely (user must set another attribute instead)
+    - Note: Removed the action entirely; users can only set, not clear
+
+### UI Improvements
+- [x] Add star icon before display attribute name in table
+    - Note: Added StarIcon with tooltip in name column
+- [x] Fix default sort order (by ID ascending, not updated date)
+    - Note: Changed secondary sort from `DESC` to `ASC` in MetahubAttributesService
+
+### Completed Previously
+- [x] Auto-enable and lock display attribute when catalog has only one attribute
+- [x] Set default NUMBER scale to 0
+- [x] Fix action menu crash when context is undefined
+
+## COMPLETED (2026-02-03): Display Attribute (Представление каталога)
+
+Implemented "Display Attribute" feature (similar to 1C:Enterprise 8.x "Представление") that allows marking one attribute per catalog as the representation field used when elements are referenced from other catalogs.
+
+### Phase 0: Database Schema
+- [x] Add `is_display_attribute` BOOLEAN column to `_mhb_attributes` (MetahubSchemaService)
+- [x] Add `is_display_attribute` column to `_app_attributes` (SchemaGenerator)
+- [x] Update MetahubBranchesService clone SQL
+
+### Phase 1-2: Type Definitions
+- [x] Add `isDisplayAttribute` to `MetaFieldDefinition` (@universo/types)
+- [x] Add `isDisplayAttribute` to `SchemaFieldSnapshot` (schema-ddl)
+
+### Phase 3-4: Backend Services & API
+- [x] Update MetahubAttributesService (create/update/mapRow + setDisplayAttribute/clearDisplayAttribute)
+- [x] Add 3 new API endpoints: toggle-required, set-display, clear-display
+- [x] Update Zod validation schemas
+
+### Phase 5-6: Snapshot & Migration
+- [x] Update SnapshotSerializer (serializeMetahub + normalizeSnapshotForHash)
+- [x] Update applicationMigrationsRoutes for snapshot conversion
+
+### Phase 7-10: Frontend
+- [x] Add API functions (toggle/set/clear display attribute)
+- [x] Add mutation hooks (useToggleAttributeRequired, useSetDisplayAttribute, useClearDisplayAttribute)
+- [x] Add isDisplayAttribute to form (AttributeFormFields, AttributeList, AttributeActions)
+- [x] Add action menu buttons (toggle required, set/clear display attribute)
+- [x] Add isDisplayAttribute to Attribute/AttributeDisplay interfaces
+
+### Phase 11: i18n
+- [x] Add EN translations for new actions and labels
+- [x] Add RU translations for new actions and labels
+
+### Phase 12: Display Logic
+- [x] Update `toHubElementDisplay()` to prefer display attribute over first STRING
+
+### Phase 13: Build Verification
+- [x] Full workspace build passed (64 packages)
+
+---
+
+## COMPLETED (2026-02-03): Attribute Edit Settings Parity + Validation Rules Fix
+
+- [x] Align edit "Type Settings" UI with create dialog (shared component, data type locked)
+- [x] Enable editing of NUMBER settings in edit dialog (precision, scale, min/max, nonNegative)
+- [x] Persist NUMBER/DATE validation rules in backend (validation schema + update payload)
+- [x] Build verification (metahubs-frontend, metahubs-backend)
+
+## COMPLETED (2026-02-03): REF Dropdown Styling + Reference Display in Tables
+
+- [x] Normalize REF dropdown indicators (no button-like icon) in attribute and element forms
+- [x] Show referenced element display name (first STRING attribute, localized) in elements table instead of UUID
+- [x] Build verification (full workspace)
+
+## COMPLETED (2026-02-02): Fix Attribute Edit Dialog - Show All Types & Settings
+
+**Problem**: When editing attributes, the "Data Type" dropdown showed empty for non-STRING types (only STRING option existed) and "Type Settings" section was missing entirely.
+
+### Implementation (MVP - Read-Only Settings)
+- [x] Update AttributeEditFields to show all 6 data types in Select (disabled - type cannot be changed after creation)
+- [x] Add physical PostgreSQL type Alert info box
+- [x] Add Accordion with read-only type settings per data type (STRING, NUMBER, DATE, REF)
+- [x] Update buildInitialValues to load validationRules, targetEntityId, targetEntityKind from attribute
+- [x] Add backend validation in attributesRoutes.ts to reject dataType changes (DATA_TYPE_CHANGE_FORBIDDEN)
+- [x] Add backend validation to reject VLC setting changes for STRING type (VLC_CHANGE_FORBIDDEN)
+- [x] Add i18n keys for edit restrictions (EN/RU): `attributes.edit.typeChangeDisabled`, `attributes.edit.settingsReadOnly`
+- [x] Build verification (metahubs-frontend, metahubs-backend)
+
+**Design Decision**: MVP approach prevents destructive changes while allowing safe edits (name, codename, isRequired). Full attribute type/settings migration would require schema restructuring (similar to 1C:Enterprise) which is out of scope for MVP.
+
+---
+
+## COMPLETED (2026-02-02): Polymorphic REF System for Multiple Entity Types
+
+Implementing polymorphic reference system to support REF fields linking to multiple entity types (Catalog, Document, Register, etc.).
+
+### Phase 0: Database Schema Updates
+- [x] Change `_mhb_attributes.target_object_id` from STRING to UUID in MetahubSchemaService
+- [x] Add `target_object_kind` column (VARCHAR(20)) to `_mhb_attributes`
+- [x] Update `_app_attributes` in SchemaGenerator with `target_object_kind`
+- [x] Update MetahubBranchesService clone SQL for target_object_kind
+- [x] Update catalogs.ts to include targetEntityKind
+
+### Phase 1: Type Definitions (@universo/types)
+- [x] Add `targetEntityKind` to MetaFieldDefinition interface
+- [x] Add META_ENTITY_KINDS array for Zod validation
+- [x] Ensure MetaEntityKind enum is extensible for future types
+
+### Phase 2: Backend Updates
+- [x] Update MetahubAttributesService (create/update/mapRow)
+- [x] Update attributesRoutes.ts Zod schemas with targetEntityKind
+- [x] Add validation for REF type requiring both targetEntityId and targetEntityKind
+- [x] Fix validationRules schema to accept nullable fields (minLength, maxLength, etc.)
+
+### Phase 3: Schema Migration System
+- [x] Update SnapshotSerializer (snapshot.ts) to include targetEntityKind
+- [x] Update schema-ddl types.ts SchemaFieldSnapshot
+- [x] Update SchemaGenerator syncSystemMetadata
+- [x] Update diff.ts to compare targetEntityKind
+- [x] Add MODIFY_FIELD to ChangeType enum for field metadata changes
+- [x] Include targetEntityKind in publication snapshot normalization
+- [x] Include targetEntityKind in application migration snapshot conversion
+
+### Phase 4: UI Components
+- [x] Create TargetEntitySelector component (self-contained with useQuery for catalogs)
+- [x] Integrate into AttributeList.tsx for REF type settings
+- [x] Add validation for REF type in form
+- [x] Add ref i18n consolidation in metahubs i18n registry
+- [x] Fix TargetEntitySelector i18n + styling (icons, size, dropdown background)
+
+### Phase 4b: Element Reference Input
+- [x] Add REF element selector (list elements of target catalog)
+- [x] Extend DynamicEntityFormDialog with custom field renderer
+- [x] Update Attribute types to include targetEntityId/Kind
+- [x] Fix ReferenceFieldAutocomplete height styling (remove size="small", add fullWidth)
+
+### Phase 5: Internationalization
+- [x] Add EN keys for REF field UI (validation, ref section)
+- [x] Add RU keys for REF field UI (validation, ref section)
+
+### Phase 5b: Reference Element i18n
+- [x] Add EN/RU keys for reference element selection
+
+### Phase 6: Build Verification
+- [x] Full project build (64/64 tasks successful)
+- [x] Partial build verification for bug fixes (19/19 tasks successful)
+
+---
+
 ## COMPLETED (2026-01-31): PR #660 Bot Recommendations QA
 
 QA analysis of bot comments (Gemini Code Assist, GitHub Copilot) on PR #660.

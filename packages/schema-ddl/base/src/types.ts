@@ -8,7 +8,12 @@ export interface SchemaFieldSnapshot {
     columnName: string
     dataType: AttributeDataType
     isRequired: boolean
+    /** Whether this attribute is used to display the element when referenced */
+    isDisplayAttribute?: boolean
+    /** ID of the target entity for REF field type */
     targetEntityId?: string | null
+    /** Kind of the target entity for REF field type (polymorphic discriminator) */
+    targetEntityKind?: MetaEntityKind | null
 }
 
 export interface SchemaEntitySnapshot {

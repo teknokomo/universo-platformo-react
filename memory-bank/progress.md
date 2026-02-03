@@ -44,6 +44,133 @@
 
 ---
 
+## 2026-02-03
+
+### Supabase Connection Pool Optimization
+- **Problem**: HTTP 429 (Too Many Requests) errors during normal workflow caused by pool exhaustion and aggressive rate limiting
+- **Root Cause Analysis**:
+  - TypeORM pool (7) + Knex pool (8) = 15 connections = Supabase Nano tier limit exactly (no headroom for Supabase services)
+  - Rate limits too aggressive: 100 read / 60 write per 15 min = ~1 request per 9 seconds
+  - No pool observability for debugging
+- **Solution**:
+  - Reduced pool sizes: TypeORM 7→5, Knex 8→5 (total 10, leaving 5 for Supabase internal services)
+  - Added pool monitoring with 70% pressure threshold logging
+  - Added pool event listeners (acquireRequest, acquireSuccess, acquireFail, release)
+  - Increased rate limits to 300 read / 120 write per 15 min (across 8 backend packages)
+  - Added `DATABASE_POOL_MAX` and `DATABASE_KNEX_POOL_MAX` environment variables for configuration
+- **Files Modified**:
+  - `packages/flowise-core-backend/base/src/DataSource.ts` - Pool monitoring, size reduction
+  - `packages/metahubs-backend/base/src/domains/ddl/KnexClient.ts` - Pool monitoring, size reduction
+  - `packages/metahubs-backend/base/src/domains/router.ts` - Rate limit increase
+  - 7 other `*-backend/base/src/routes/index.ts` - Rate limit increase
+  - `packages/flowise-core-backend/base/.env.example` - Pool config documentation
+  - `memory-bank/techContext.md` - Updated pool architecture
+- **Outcome**: Full build (64 packages) passed ✓. Ready for user testing.
+
+### Rate Limit Increase (Double)
+- **Change**: Doubled API rate limits for normal workflow
+  - Read: 600/15min (40/min)
+  - Write: 240/15min (16/min)
+- **Scope**: 8 backend packages + metahubs router documentation/log message
+- **Files Modified**:
+  - 8x `packages/*-backend/base/src/routes/index.ts`
+  - `packages/metahubs-backend/base/src/domains/router.ts`
+- **Outcome**: Configuration-only change; no build run.
+
+### Display Attribute (Представление каталога)
+- **Objective**: Implement "Display Attribute" feature (like 1C:Enterprise "Представление") — allows marking one attribute per catalog as the representation field for element references.
+- **Scope**: Full-stack implementation including database schema, types, backend services, API endpoints, snapshot/migration, frontend form + action menu, i18n (EN/RU), and display logic update.
+- **Key Changes**:
+  - Added `is_display_attribute` BOOLEAN column to `_mhb_attributes` and `_app_attributes`
+  - Backend: `setDisplayAttribute()` and `clearDisplayAttribute()` methods with exclusive flag logic (transaction ensures only one display attribute per catalog)
+  - API: 3 new PATCH endpoints (`toggle-required`, `set-display`, `clear-display`)
+  - Frontend: New switch in attribute form + 2 new action menu buttons (toggle required, toggle display)
+  - Display logic: `toHubElementDisplay()` now prefers display attribute over first STRING when showing referenced elements
+- **Files Modified**: 15+ files across metahubs-backend, metahubs-frontend, universo-types, schema-ddl packages
+- **Outcome**: Full build (64 packages) passed ✓
+
+### Display Attribute UX Fixes
+- **Objective**: Improve UX and stability around display attribute toggles and number defaults.
+- **Key Changes**:
+  - Auto-enable + lock display attribute switch when a catalog has only one attribute (create + edit).
+  - Default NUMBER scale set to 0 in `getDefaultValidationRules()` and physical type formatting.
+  - Action menu crash fixed by replacing dynamic icon/label callbacks with explicit actions.
+- **Outcome**: Full build (64 packages) passed ✓
+
+### Display Attribute UX Fixes (Round 2)
+- **Objective**: Fix critical bugs in display attribute saving and improve UI/UX.
+- **Key Fixes**:
+  - **Bug**: `isDisplayAttribute` not saved when editing attribute — backend PATCH route now calls `setDisplayAttribute()`/`clearDisplayAttribute()` atomically
+  - **Menu logic**: Changed from `enabled` to `visible` for conditional hiding — shows only relevant action (e.g., "Make required" OR "Make optional", not both)
+  - **Removed** "Clear display attribute" action entirely — users set another attribute as display instead
+  - **Star icon**: Added filled star icon before display attribute name in list table with i18n tooltip
+  - **Sort order**: Changed secondary sort from `_upl_created_at DESC` to `ASC` so new attributes appear at bottom
+- **Files Modified**: 
+  - `attributesRoutes.ts` — Added `isDisplayAttribute` handling in PATCH update
+  - `AttributeActions.tsx` — Changed `enabled` to `visible`, removed clear-display action
+  - `AttributeList.tsx` — Added star icon with tooltip for display attribute
+  - `MetahubAttributesService.ts` — Changed secondary sort to ASC
+  - `metahubs.json` (EN/RU) — Added `isDisplayAttributeTooltip` key
+- **Outcome**: Full build (64 packages) passed ✓
+
+### Attribute Edit Settings Parity + Validation Rules Persistence
+- **Objective**: Make edit dialog type settings match create UI, enable NUMBER settings edits, and persist validation rules.
+- **Changes**:
+  - Extracted shared `AttributeFormFields` component for create/edit parity (data type locked in edit).
+  - Enabled editing NUMBER settings in edit dialog (precision, scale, min/max, nonNegative).
+  - Update payload now includes `validationRules` and REF target entity fields.
+  - Backend `validationRulesSchema` now accepts NUMBER/DATE fields (`precision`, `scale`, `nonNegative`, `dateComposition`).
+- **Build**: Full workspace build successful (64/64 tasks); partial metahubs build also verified (19/19).
+
+### REF Dropdown Styling + Reference Display in Elements Table
+- **Objective**: Make REF dropdowns look like standard inputs and show referenced element names in tables.
+- **Changes**:
+  - Styled REF dropdown indicators (catalog selector + element selector) to remove button-like appearance.
+  - Elements table now resolves REF values to the referenced element display name (first STRING attribute, localized), with UUID fallback.
+- **Build**: Full workspace build successful (64/64 tasks).
+
+## 2026-02-02
+
+### REF UI Polish + Reference Element Selection + Bug Fixes
+- **Objective**: Fix REF UI i18n/styling and enable element selection for reference fields.
+- **Changes**:
+  - Added `ref` namespace consolidation in metahubs i18n registry.
+  - Styled `TargetEntitySelector` Autocomplete (consistent icon/size, popper styling).
+  - Added REF element selector with catalog element lookup and localized labels.
+  - Extended `DynamicEntityFormDialog` with custom field renderer hook.
+  - Added REF element selection i18n keys (EN/RU).
+- **Schema & Migration**:
+  - Publication snapshot serialization now includes `targetEntityKind` in field metadata and hash normalization.
+  - Application migration snapshot conversion now preserves `targetEntityKind`.
+- **Bug Fixes**:
+  - Fixed 400 Bad Request on attribute creation with required fields: `validationRulesSchema` now accepts `nullable()` for all optional numeric/string/boolean fields (minLength, maxLength, min, max, pattern, etc.).
+  - Fixed ReferenceFieldAutocomplete height mismatch: removed `size="small"`, added `fullWidth` to match other form fields.
+- **Build**: Partial build verification (19/19 tasks) for bug fixes.
+
+---
+
+## 2026-02-01
+
+### Polymorphic REF System for Multiple Entity Types
+- **Objective**: Enable REF fields to reference multiple entity types (Catalog, Document, Hub) via discriminator pattern.
+- **Pattern**: `target_object_id` (UUID) + `target_object_kind` (VARCHAR(20)) discriminator columns.
+- **Phase 0 - DDL**: Changed `target_object_id` to UUID, added `target_object_kind` column to `_mhb_attributes` and `_app_attributes`.
+- **Phase 1 - Types**: Added `targetEntityKind` to `MetaFieldDefinition`, exported `META_ENTITY_KINDS` array for Zod validation.
+- **Phase 2 - Backend**: Updated `MetahubAttributesService` (create/update/mapRow), `attributesRoutes.ts` Zod schemas with validation for REF type.
+- **Phase 3 - Schema Migration**: Updated `SnapshotSerializer`, `schema-ddl/types.ts`, `SchemaGenerator`, added `MODIFY_FIELD` to `ChangeType` enum.
+- **Phase 4 - UI**: Created `TargetEntitySelector` component with self-contained useQuery, integrated into `AttributeList.tsx` with form validation.
+- **Phase 5 - i18n**: Added EN/RU keys for REF field UI (validation messages, entity kind labels).
+- **Files Changed**:
+  - `@universo/types/metahubs.ts` - MetaFieldDefinition, META_ENTITY_KINDS
+  - `@universo/schema-ddl/types.ts` - SchemaFieldSnapshot
+  - `@universo/schema-ddl/diff.ts` - ChangeType.MODIFY_FIELD
+  - `packages/metahubs-backend/` - KnexClient, MetahubSchemaService, MetahubBranchesService, MetahubAttributesService, attributesRoutes
+  - `packages/metahubs-frontend/` - TargetEntitySelector, AttributeList, catalogs API, i18n/locales
+- **Build**: Full workspace build successful (64/64 tasks).
+- **Future**: Phase 4b - ReferenceFieldAutocomplete for element input.
+
+---
+
 ## 2026-01-31
 
 ### Database Pool Error Logging

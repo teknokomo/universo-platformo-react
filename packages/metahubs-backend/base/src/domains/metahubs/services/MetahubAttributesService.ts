@@ -56,7 +56,7 @@ export class MetahubAttributesService {
             .from('_mhb_attributes')
             .where({ object_id: objectId })
             .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'desc')
+            .orderBy('_upl_created_at', 'asc')
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -67,7 +67,7 @@ export class MetahubAttributesService {
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'desc')
+            .orderBy('_upl_created_at', 'asc')
 
         return rows.map(this.mapRowToAttribute)
     }
@@ -103,7 +103,9 @@ export class MetahubAttributesService {
             codename: data.codename,
             data_type: data.dataType,
             is_required: data.isRequired ?? false,
-            target_object_id: data.targetCatalogId,
+            is_display_attribute: data.isDisplayAttribute ?? false,
+            target_object_id: data.targetEntityId ?? data.targetCatalogId ?? null,
+            target_object_kind: data.targetEntityKind ?? null,
             sort_order: sortOrder,
             presentation: {
                 name: data.name
@@ -136,7 +138,11 @@ export class MetahubAttributesService {
         if (data.codename !== undefined) updateData.codename = data.codename
         if (data.dataType !== undefined) updateData.data_type = data.dataType
         if (data.isRequired !== undefined) updateData.is_required = data.isRequired
-        if (data.targetCatalogId !== undefined) updateData.target_object_id = data.targetCatalogId
+        if (data.isDisplayAttribute !== undefined) updateData.is_display_attribute = data.isDisplayAttribute
+        // Support both new targetEntityId/Kind and legacy targetCatalogId
+        if (data.targetEntityId !== undefined) updateData.target_object_id = data.targetEntityId
+        else if (data.targetCatalogId !== undefined) updateData.target_object_id = data.targetCatalogId
+        if (data.targetEntityKind !== undefined) updateData.target_object_kind = data.targetEntityKind
         if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
         if (data.name !== undefined) {
@@ -260,6 +266,57 @@ export class MetahubAttributesService {
         return this.knex.transaction(trx => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId))
     }
 
+    /**
+     * Set an attribute as the display attribute for its catalog.
+     * Only one attribute per catalog can be the display attribute.
+     * This method atomically clears the flag from all other attributes in the catalog
+     * and sets it on the specified attribute.
+     */
+    async setDisplayAttribute(metahubId: string, catalogId: string, attributeId: string, userId?: string): Promise<void> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
+        await this.knex.transaction(async (trx) => {
+            // Reset all attributes in this catalog
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ object_id: catalogId })
+                .update({
+                    is_display_attribute: false,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null
+                })
+
+            // Set the specified attribute as display attribute
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_attributes')
+                .where({ id: attributeId })
+                .update({
+                    is_display_attribute: true,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null
+                })
+        })
+    }
+
+    /**
+     * Clear display attribute flag from an attribute.
+     */
+    async clearDisplayAttribute(metahubId: string, attributeId: string, userId?: string): Promise<void> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
+        await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .where({ id: attributeId })
+            .update({
+                is_display_attribute: false,
+                _upl_updated_at: new Date(),
+                _upl_updated_by: userId ?? null
+            })
+    }
+
     private async getNextSortOrder(schemaName: string, objectId: string): Promise<number> {
         const result = await this.knex
             .withSchema(schemaName)
@@ -281,6 +338,11 @@ export class MetahubAttributesService {
             codename: row.codename,
             dataType: row.data_type,
             isRequired: row.is_required,
+            isDisplayAttribute: row.is_display_attribute ?? false,
+            // Polymorphic reference fields
+            targetEntityId: row.target_object_id,
+            targetEntityKind: row.target_object_kind,
+            // Legacy alias for backward compatibility
             targetCatalogId: row.target_object_id,
             sortOrder: row.sort_order,
             name: row.presentation?.name,

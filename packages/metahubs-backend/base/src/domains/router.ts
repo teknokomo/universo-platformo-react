@@ -17,14 +17,21 @@ let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
 /**
  * Initialize rate limiters (call once at startup)
+ *
+ * Rate limits optimized for normal user workflow:
+ * - Read: 600/15min = 40/min (sufficient for page loads with multiple API calls)
+ * - Write: 240/15min = 16/min (sufficient for active editing sessions)
+ *
+ * These limits are per-IP by default. For multi-user scenarios behind NAT,
+ * consider using user-based keys via Redis store.
  */
 export async function initializeRateLimiters(): Promise<void> {
     rateLimiters = await createRateLimiters({
         keyPrefix: 'metahubs-backend',
-        maxRead: 100,
-        maxWrite: 60
+        maxRead: 600,   // Increased from 100 for normal workflow
+        maxWrite: 240   // Increased from 60 for active editing
     })
-    console.info('[Metahubs] Rate limiters initialized')
+    console.info('[Metahubs] Rate limiters initialized (read: 600/15min, write: 240/15min)')
 }
 
 /**

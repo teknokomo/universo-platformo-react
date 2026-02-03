@@ -292,7 +292,11 @@
         },
         "actions": {
             "moveUp": "Выше",
-            "moveDown": "Ниже"
+            "moveDown": "Ниже",
+            "setRequired": "Сделать обязательным",
+            "setOptional": "Сделать необязательным",
+            "setDisplayAttribute": "Сделать представлением",
+            "clearDisplayAttribute": "Снять представление"
         },
         "deleteDialog": {
             "title": "Удалить атрибут",
@@ -345,7 +349,14 @@
             "label": "Тип PostgreSQL",
             "tooltip": "PostgreSQL: {{type}}"
         },
+        "edit": {
+            "typeChangeDisabled": "Тип данных нельзя изменить после создания",
+            "settingsReadOnly": "Настройки типа нельзя изменить после создания"
+        },
         "isRequiredLabel": "Обязательный",
+        "isDisplayAttributeLabel": "Атрибут представления",
+        "isDisplayAttributeHelper": "Использовать этот атрибут для отображения элементов каталога при ссылках",
+        "isDisplayAttributeTooltip": "Этот атрибут является представлением для данного каталога",
         "required": "Обязательный",
         "nameEn": "Название (English)",
         "nameRu": "Название (Русский)",
@@ -359,13 +370,41 @@
             "numberRange": "Диапазон: {{min}}–{{max}}",
             "numberMin": "Мин. значение: {{min}}",
             "numberMax": "Макс. значение: {{max}}",
-            "numberNonNegative": "Только неотрицательное значение"
+            "numberNonNegative": "Только неотрицательное значение",
+            "targetEntityKindRequired": "Выберите тип целевой сущности для Ссылки",
+            "targetEntityIdRequired": "Выберите целевую сущность для Ссылки"
         },
         "createError": "Не удалось создать атрибут",
         "updateError": "Не удалось обновить атрибут",
         "deleteError": "Не удалось удалить атрибут",
         "moveSuccess": "Порядок атрибута обновлён",
-        "moveError": "Не удалось изменить порядок атрибута"
+        "moveError": "Не удалось изменить порядок атрибута",
+        "setRequiredSuccess": "Атрибут помечен как обязательный",
+        "setOptionalSuccess": "Атрибут помечен как необязательный",
+        "toggleRequiredError": "Не удалось обновить атрибут",
+        "setDisplaySuccess": "Атрибут установлен как представление",
+        "setDisplayError": "Не удалось установить атрибут представления",
+        "clearDisplaySuccess": "Флаг представления снят",
+        "clearDisplayError": "Не удалось снять флаг представления"
+    },
+    "ref": {
+        "targetEntityKind": "Тип целевой сущности",
+        "notSelected": "Не выбрано",
+        "targetCatalog": "Целевой каталог",
+        "selectCatalog": "Выберите каталог...",
+        "selectElement": "Выберите элемент...",
+        "catalogRequired": "Выберите каталог",
+        "noCatalogsAvailable": "Нет доступных каталогов",
+        "noElementsAvailable": "Элементы недоступны",
+        "loadingElements": "Загрузка элементов...",
+        "targetEntityMissing": "Целевая сущность не настроена для этой ссылки.",
+        "unknownElement": "Элемент {{id}}",
+        "entityKindNotSupported": "Этот тип сущности пока не поддерживается для ссылок.",
+        "entityKind": {
+            "catalog": "Каталог",
+            "document": "Документ",
+            "hub": "Хаб"
+        }
     },
     "elements": {
         "title": "Элементы",

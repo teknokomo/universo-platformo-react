@@ -9,6 +9,7 @@ export enum ChangeType {
     ADD_COLUMN = 'ADD_COLUMN',
     DROP_COLUMN = 'DROP_COLUMN',
     ALTER_COLUMN = 'ALTER_COLUMN',
+    MODIFY_FIELD = 'MODIFY_FIELD',
     ADD_FK = 'ADD_FK',
     DROP_FK = 'DROP_FK'
 }
@@ -257,6 +258,40 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         newValue: field.targetEntityId,
                         isDestructive: false,
                         description: `Add FK on "${field.codename}"`
+                    })
+                }
+            }
+
+            // Track target entity kind changes for polymorphic references
+            if (oldField.targetEntityKind !== field.targetEntityKind) {
+                if (oldField.targetEntityKind && !field.targetEntityKind) {
+                    diff.additive.push({
+                        type: ChangeType.MODIFY_FIELD,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName,
+                        fieldId: field.id,
+                        columnName: oldField.columnName,
+                        oldValue: oldField.targetEntityKind,
+                        newValue: null,
+                        isDestructive: false,
+                        description: `Remove target entity kind from "${field.codename}"`
+                    })
+                }
+                if (field.targetEntityKind) {
+                    diff.additive.push({
+                        type: ChangeType.MODIFY_FIELD,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName,
+                        fieldId: field.id,
+                        columnName: generateColumnName(field.id),
+                        oldValue: oldField.targetEntityKind ?? null,
+                        newValue: field.targetEntityKind,
+                        isDestructive: false,
+                        description: `Set target entity kind to "${field.targetEntityKind}" on "${field.codename}"`
                     })
                 }
             }

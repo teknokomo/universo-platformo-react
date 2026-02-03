@@ -1,9 +1,12 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, ToggleButtonGroup, ToggleButton, TextField, CircularProgress, Popper } from '@mui/material'
+import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
+import { styled } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
+import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -34,6 +37,154 @@ import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import elementActions from './ElementActions'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui/components/dialogs'
+
+const StyledPopper = styled(Popper)(({ theme }) => ({
+    boxShadow: theme.shadows[4],
+    borderRadius: 10,
+    [`& .${autocompleteClasses.paper}`]: {
+        borderRadius: 10,
+        border: `1px solid ${theme.palette.divider}`,
+        backgroundColor: theme.palette.background.paper
+    },
+    [`& .${autocompleteClasses.listbox}`]: {
+        boxSizing: 'border-box',
+        padding: 6
+    }
+}))
+
+type ElementOption = {
+    id: string
+    name: string
+}
+
+type ReferenceFieldAutocompleteProps = {
+    metahubId: string
+    targetCatalogId: string
+    value: string | null | undefined
+    onChange: (value: string | null) => void
+    label: string
+    placeholder?: string
+    disabled?: boolean
+    error?: boolean
+    helperText?: string
+    locale: string
+}
+
+const ReferenceFieldAutocomplete = ({
+    metahubId,
+    targetCatalogId,
+    value,
+    onChange,
+    label,
+    placeholder,
+    disabled = false,
+    error = false,
+    helperText,
+    locale
+}: ReferenceFieldAutocompleteProps) => {
+    const { t } = useTranslation('metahubs')
+
+    const { data: targetAttributesData, isLoading: isLoadingAttributes } = useQuery({
+        queryKey: metahubsQueryKeys.attributesListDirect(metahubId, targetCatalogId, { limit: 100, locale }),
+        queryFn: () => attributesApi.listAttributesDirect(metahubId, targetCatalogId, { limit: 100, locale }),
+        enabled: Boolean(metahubId && targetCatalogId)
+    })
+
+    const targetAttributes = targetAttributesData?.items ?? []
+
+    const { data: targetElementsData, isLoading: isLoadingElements } = useQuery({
+        queryKey: metahubsQueryKeys.elementsListDirect(metahubId, targetCatalogId, { limit: 200, sortBy: 'updated', sortOrder: 'desc' }),
+        queryFn: () =>
+            elementsApi.listElementsDirect(metahubId, targetCatalogId, {
+                limit: 200,
+                sortBy: 'updated',
+                sortOrder: 'desc'
+            }),
+        enabled: Boolean(metahubId && targetCatalogId)
+    })
+
+    const elementOptions = useMemo<ElementOption[]>(() => {
+        const elements = targetElementsData?.items ?? []
+        return elements.map((element) => {
+            const display = toHubElementDisplay(element, targetAttributes, locale)
+            return { id: element.id, name: display.name || element.id }
+        })
+    }, [targetElementsData, targetAttributes, locale])
+
+    const selectedOption = useMemo<ElementOption | null>(() => {
+        if (!value) return null
+        const found = elementOptions.find((option) => option.id === value)
+        if (found) return found
+        const fallbackLabel = t('ref.unknownElement', 'Element {{id}}', { id: value.slice(0, 8) })
+        return { id: value, name: fallbackLabel }
+    }, [elementOptions, t, value])
+
+    const optionsWithFallback = useMemo(() => {
+        if (!selectedOption) return elementOptions
+        if (elementOptions.some((option) => option.id === selectedOption.id)) return elementOptions
+        return [selectedOption, ...elementOptions]
+    }, [elementOptions, selectedOption])
+
+    return (
+        <Autocomplete
+            fullWidth
+            disabled={disabled}
+            disableClearable
+            options={optionsWithFallback}
+            value={selectedOption}
+            onChange={(_event, newValue) => onChange(newValue?.id ?? null)}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
+            popupIcon={<UnfoldMoreRoundedIcon fontSize="small" />}
+            PopperComponent={StyledPopper}
+            slotProps={{
+                popupIndicator: {
+                    disableRipple: true,
+                    sx: {
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        boxShadow: 'none',
+                        padding: 0.5,
+                        '&:hover': { backgroundColor: 'transparent' }
+                    }
+                }
+            }}
+            loading={isLoadingElements || isLoadingAttributes}
+            loadingText={t('ref.loadingElements', 'Loading elements...')}
+            noOptionsText={t('ref.noElementsAvailable', 'No elements available')}
+            sx={{
+                '& .MuiAutocomplete-endAdornment': {
+                    top: '50%',
+                    transform: 'translateY(-50%)'
+                },
+                '& .MuiAutocomplete-popupIndicator': {
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none'
+                }
+            }}
+            renderInput={(params) => (
+                <TextField
+                    {...params}
+                    fullWidth
+                    label={label}
+                    placeholder={placeholder}
+                    error={Boolean(error)}
+                    helperText={helperText}
+                    InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                            <>
+                                {isLoadingElements || isLoadingAttributes ? <CircularProgress color="inherit" size={16} /> : null}
+                                {params.InputProps.endAdornment}
+                            </>
+                        )
+                    }}
+                />
+            )}
+        />
+    )
+}
 
 const ElementList = () => {
     const navigate = useNavigate()
@@ -151,20 +302,101 @@ const ElementList = () => {
 
     const elementFields = useMemo<DynamicFieldConfig[]>(
         () =>
-            orderedAttributes.map((attribute) => ({
-                id: attribute.codename,
-                label: getVLCString(attribute.name, i18n.language) || attribute.codename,
-                type: attribute.dataType as DynamicFieldConfig['type'],
-                required: attribute.isRequired,
-                helperText:
-                    attribute.dataType === 'STRING'
-                        ? buildStringLengthHelperText(attribute.validationRules)
-                        : attribute.dataType === 'NUMBER'
-                            ? buildNumberRangeHelperText(attribute.validationRules)
-                            : undefined,
-                validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined
-            })),
+            orderedAttributes.map((attribute) => {
+                const resolvedTargetEntityId = attribute.targetEntityId ?? attribute.targetCatalogId ?? null
+                const resolvedTargetEntityKind = attribute.targetEntityKind ?? (attribute.targetCatalogId ? 'catalog' : null)
+
+                return {
+                    id: attribute.codename,
+                    label: getVLCString(attribute.name, i18n.language) || attribute.codename,
+                    type: attribute.dataType as DynamicFieldConfig['type'],
+                    required: attribute.isRequired,
+                    helperText:
+                        attribute.dataType === 'STRING'
+                            ? buildStringLengthHelperText(attribute.validationRules)
+                            : attribute.dataType === 'NUMBER'
+                                ? buildNumberRangeHelperText(attribute.validationRules)
+                                : undefined,
+                    validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined,
+                    refTargetEntityId: resolvedTargetEntityId,
+                    refTargetEntityKind: resolvedTargetEntityKind
+                }
+            }),
         [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText]
+    )
+
+    const renderElementField = useCallback(
+        (params: {
+            field: DynamicFieldConfig
+            value: unknown
+            onChange: (value: unknown) => void
+            disabled: boolean
+            error: string | null
+            helperText?: string
+            locale: string
+        }) => {
+            const { field, value, onChange, disabled, error, helperText, locale } = params
+
+            if (field.type !== 'REF') return undefined
+
+            if (!metahubId) {
+                return (
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label={field.label}
+                        disabled
+                        error={Boolean(error)}
+                        helperText={error ?? t('ref.targetEntityMissing', 'Target entity is not configured for this reference.')}
+                    />
+                )
+            }
+
+            const targetKind = field.refTargetEntityKind
+            const targetId = field.refTargetEntityId
+
+            if (!targetKind || !targetId) {
+                return (
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label={field.label}
+                        disabled
+                        error={Boolean(error)}
+                        helperText={error ?? t('ref.targetEntityMissing', 'Target entity is not configured for this reference.')}
+                    />
+                )
+            }
+
+            if (targetKind !== 'catalog') {
+                return (
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label={field.label}
+                        disabled
+                        error={Boolean(error)}
+                        helperText={error ?? t('ref.entityKindNotSupported', 'This entity type is not yet supported for references.')}
+                    />
+                )
+            }
+
+            return (
+                <ReferenceFieldAutocomplete
+                    metahubId={metahubId}
+                    targetCatalogId={targetId}
+                    value={typeof value === 'string' ? value : null}
+                    onChange={(nextValue) => onChange(nextValue)}
+                    label={field.label}
+                    placeholder={t('ref.selectElement', 'Select element...')}
+                    disabled={disabled}
+                    error={Boolean(error)}
+                    helperText={helperText}
+                    locale={locale}
+                />
+            )
+        },
+        [metahubId, t]
     )
 
     // Use paginated hook for elements list
@@ -235,6 +467,93 @@ const ElementList = () => {
     }, [elements])
 
     const orderedAttributesForColumns = orderedAttributes
+    const visibleAttributesForColumns = useMemo(() => orderedAttributesForColumns.slice(0, 4), [orderedAttributesForColumns])
+
+    const refAttributesForColumns = useMemo(() => {
+        return visibleAttributesForColumns.filter((attr) => {
+            const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
+            const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
+            return attr.dataType === 'REF' && targetKind === 'catalog' && Boolean(targetId)
+        })
+    }, [visibleAttributesForColumns])
+
+    const refCatalogByAttribute = useMemo(() => {
+        const map: Record<string, string> = {}
+        refAttributesForColumns.forEach((attr) => {
+            const catalogId = attr.targetEntityId ?? attr.targetCatalogId
+            if (catalogId) map[attr.codename] = catalogId
+        })
+        return map
+    }, [refAttributesForColumns])
+
+    const refIdsByCatalog = useMemo(() => {
+        const map: Record<string, Set<string>> = {}
+        if (!Array.isArray(elements) || refAttributesForColumns.length === 0) return map
+
+        refAttributesForColumns.forEach((attr) => {
+            const catalogId = attr.targetEntityId ?? attr.targetCatalogId
+            if (!catalogId) return
+            if (!map[catalogId]) map[catalogId] = new Set()
+            elements.forEach((element) => {
+                const rawValue = element.data?.[attr.codename]
+                if (typeof rawValue === 'string' && rawValue) {
+                    map[catalogId].add(rawValue)
+                }
+            })
+        })
+
+        return map
+    }, [elements, refAttributesForColumns])
+
+    const refIdsKey = useMemo(() => {
+        return Object.entries(refIdsByCatalog)
+            .map(([catalogId, idsSet]) => ({
+                catalogId,
+                ids: Array.from(idsSet).sort()
+            }))
+            .sort((a, b) => a.catalogId.localeCompare(b.catalogId))
+    }, [refIdsByCatalog])
+
+    const { data: refDisplayMap } = useQuery({
+        queryKey: ['metahubs', 'ref-display', metahubId, refIdsKey, i18n.language],
+        enabled: Boolean(metahubId && refIdsKey.length > 0),
+        staleTime: 30000,
+        queryFn: async () => {
+            if (!metahubId) return {}
+            const result: Record<string, Record<string, string>> = {}
+
+            for (const entry of refIdsKey) {
+                if (!entry.ids.length) continue
+                const catalogId = entry.catalogId
+                const attributesResponse = await attributesApi.listAttributesDirect(metahubId, catalogId, {
+                    limit: 100,
+                    locale: i18n.language
+                })
+                const targetAttributes = attributesResponse?.items ?? []
+
+                const elementsResponse = await Promise.all(
+                    entry.ids.map(async (id) => {
+                        try {
+                            const response = await elementsApi.getElementDirect(metahubId, catalogId, id)
+                            return response.data
+                        } catch (error) {
+                            return null
+                        }
+                    })
+                )
+
+                const displayMap: Record<string, string> = {}
+                elementsResponse.filter(Boolean).forEach((element) => {
+                    const display = toHubElementDisplay(element as HubElement, targetAttributes, i18n.language)
+                    displayMap[(element as HubElement).id] = display.name || (element as HubElement).id
+                })
+
+                result[catalogId] = displayMap
+            }
+
+            return result
+        }
+    })
 
     // Build dynamic columns based on attributes
     const elementColumns = useMemo(() => {
@@ -247,7 +566,7 @@ const ElementList = () => {
         }> = []
 
         // Add columns for first 4 attributes
-        const visibleAttrs = orderedAttributesForColumns.slice(0, 4)
+        const visibleAttrs = visibleAttributesForColumns
         visibleAttrs.forEach((attr) => {
             cols.push({
                 id: attr.codename,
@@ -267,6 +586,18 @@ const ElementList = () => {
                             return (
                                 <Typography sx={{ fontSize: 14 }} noWrap>
                                     {localizedValue || '—'}
+                                </Typography>
+                            )
+                        }
+                        case 'REF': {
+                            const catalogId = refCatalogByAttribute[attr.codename]
+                            const displayName =
+                                catalogId && typeof value === 'string'
+                                    ? refDisplayMap?.[catalogId]?.[value]
+                                    : undefined
+                            return (
+                                <Typography sx={{ fontSize: 14 }} noWrap>
+                                    {displayName || String(value)}
                                 </Typography>
                             )
                         }
@@ -303,7 +634,7 @@ const ElementList = () => {
         })
 
         return cols
-    }, [i18n.language, orderedAttributes, t])
+    }, [i18n.language, visibleAttributesForColumns, refCatalogByAttribute, refDisplayMap, t])
 
     const createElementContext = useCallback(
         (baseContext: any) => ({
@@ -663,6 +994,7 @@ const ElementList = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
+                renderField={renderElementField}
             />
 
             {/* Edit Element Dialog */}
@@ -688,6 +1020,7 @@ const ElementList = () => {
                         setDeleteDialogState({ open: true, element: editingElement })
                     }
                 }}
+                renderField={renderElementField}
             />
 
             {/* Independent ConfirmDeleteDialog */}
