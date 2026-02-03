@@ -219,8 +219,8 @@ const AttributeFormFields = ({
                                 size="small"
                                 fullWidth
                                 disabled={isLoading}
-                                value={validationRules.scale ?? 2}
-                                onChange={(e) => updateValidationRule('scale', e.target.value ? parseInt(e.target.value, 10) : 2)}
+                                value={validationRules.scale ?? 0}
+                                onChange={(e) => updateValidationRule('scale', e.target.value ? parseInt(e.target.value, 10) : 0)}
                                 inputProps={{ min: 0, max: Math.max(0, (validationRules.precision ?? 10) - 1) }}
                                 helperText={`0-${Math.max(0, (validationRules.precision ?? 10) - 1)}`}
                             />

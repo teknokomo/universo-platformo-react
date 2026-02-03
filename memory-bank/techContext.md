@@ -112,8 +112,8 @@ if (!userId) return
 - Knex logs `acquireRequest/acquireSuccess/acquireFail/release` events under pressure
 
 **Rate limiting** (increased 2026-02-03):
-- Read: 300 requests / 15 minutes (was 100)
-- Write: 120 requests / 15 minutes (was 60)
+- Read: 600 requests / 15 minutes (was 100, then 300)
+- Write: 240 requests / 15 minutes (was 60, then 120)
 - Per-IP by default; consider Redis + user-based keys for multi-user NAT scenarios
 
 ### Authentication Architecture

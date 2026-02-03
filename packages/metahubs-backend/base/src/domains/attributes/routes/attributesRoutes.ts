@@ -32,20 +32,49 @@ const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchem
 const validationRulesSchema = z
     .object({
         required: z.boolean().nullable().optional(),
-        minLength: z.number().int().nullable().optional(),
-        maxLength: z.number().int().nullable().optional(),
-        precision: z.number().int().nullable().optional(),
-        scale: z.number().int().nullable().optional(),
-        min: z.number().nullable().optional(),
-        max: z.number().nullable().optional(),
-        pattern: z.string().nullable().optional(),
-        options: z.array(z.string()).nullable().optional(),
+        // STRING settings
+        minLength: z.number().int().min(0).max(10000).nullable().optional(),
+        maxLength: z.number().int().min(1).max(10000).nullable().optional(),
+        pattern: z.string().max(500).nullable().optional(),
+        options: z.array(z.string().max(200)).max(100).nullable().optional(),
+        // VLC support for STRING (stores as JSONB when enabled)
         versioned: z.boolean().nullable().optional(),
         localized: z.boolean().nullable().optional(),
+        // NUMBER settings (max precision limited to 15 due to JavaScript number precision)
+        precision: z.number().int().min(1).max(15).nullable().optional(),
+        scale: z.number().int().min(0).max(14).nullable().optional(),
+        min: z.number().nullable().optional(),
+        max: z.number().nullable().optional(),
         nonNegative: z.boolean().nullable().optional(),
+        // DATE settings (replaces DATETIME type)
         dateComposition: z.enum(['date', 'time', 'datetime']).nullable().optional()
     })
     .optional()
+    .refine(
+        (rules) => {
+            if (!rules) return true
+            // Validate scale < precision for NUMBER type (only if both are non-null numbers)
+            if (typeof rules.scale === 'number' && rules.scale !== null) {
+                const effectivePrecision = typeof rules.precision === 'number' && rules.precision !== null ? rules.precision : 10
+                if (rules.scale >= effectivePrecision) return false
+            }
+            // Validate min <= max (only if both are non-null numbers)
+            if (typeof rules.min === 'number' && rules.min !== null && typeof rules.max === 'number' && rules.max !== null) {
+                if (rules.min > rules.max) return false
+            }
+            // Validate minLength <= maxLength for STRING (only if both are non-null numbers)
+            if (
+                typeof rules.minLength === 'number' &&
+                rules.minLength !== null &&
+                typeof rules.maxLength === 'number' &&
+                rules.maxLength !== null
+            ) {
+                if (rules.minLength > rules.maxLength) return false
+            }
+            return true
+        },
+        { message: 'Invalid validation rules: scale must be less than precision, min must be <= max, and minLength must be <= maxLength.' }
+    )
 
 const uiConfigSchema = z
     .object({
