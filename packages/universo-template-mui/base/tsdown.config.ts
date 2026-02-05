@@ -23,6 +23,10 @@ export default defineConfig({
     'dayjs',
     'notistack',
     '@tanstack/react-query',
+    // Keep react-redux and its React 18 shim external so Vite can properly transform CJS to ESM for the browser.
+    // Bundling them with rolldown/tsdown leads to runtime `require("react")` calls in ESM chunks.
+    /^react-redux(\/.*)?$/,
+    /^use-sync-external-store(\/.*)?$/,
     'canvas',  // Native module from transitive dependency
     /^@flowise\/executions-frontend(\/.*)?$/,
     /^@ui\//,  // Imports from flowise-ui via @ui alias

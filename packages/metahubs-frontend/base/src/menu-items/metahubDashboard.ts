@@ -1,4 +1,12 @@
-import { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch } from '@tabler/icons-react'
+import {
+    IconBuildingStore,
+    IconHierarchy,
+    IconUsersGroup,
+    IconDatabase,
+    IconApps,
+    IconGitBranch,
+    IconLayoutDashboard
+} from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
 export interface MenuItem {
@@ -11,7 +19,7 @@ export interface MenuItem {
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch }
+const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch, IconLayoutDashboard }
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
 
@@ -55,6 +63,14 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/catalogs',
             icon: icons.IconDatabase,
+            breadcrumbs: true
+        },
+        {
+            id: 'layouts',
+            title: 'menu:layouts',
+            type: 'item',
+            url: '/layouts',
+            icon: icons.IconLayoutDashboard,
             breadcrumbs: true
         },
         {

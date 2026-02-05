@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { FormControlLabel, Switch } from '@mui/material'
-import Grid from '@mui/material/Grid'
+import Grid from '@mui/material/GridLegacy'
 
 // Project import
 import BaseBotSettings from './BaseBotSettings'

@@ -37,7 +37,9 @@ import {
     truncateAttributeName,
     truncatePublicationName,
     useConnectorName,
-    truncateConnectorName
+    truncateConnectorName,
+    useLayoutName,
+    truncateLayoutName
 } from '../../hooks'
 import { useInstanceName, truncateInstanceName, useRoleName, truncateRoleName } from '@universo/admin-frontend'
 
@@ -66,6 +68,13 @@ export default function NavbarBreadcrumbs() {
     const metahubId = metahubIdMatch ? metahubIdMatch[1] : null
     const metahubName = useMetahubName(metahubId)
 
+    // Extract layoutId from URL for dynamic name loading (under metahub context)
+    // Pattern: /metahub/:metahubId/layouts/:layoutId
+    const layoutIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/layouts\/([^/]+)/)
+    const layoutParentMetahubId = layoutIdMatch ? layoutIdMatch[1] : null
+    const layoutId = layoutIdMatch ? layoutIdMatch[2] : null
+    const layoutName = useLayoutName(layoutParentMetahubId, layoutId)
+
     // Extract clusterId from URL for dynamic name loading (both singular and plural routes)
     const clusterIdMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
     const clusterId = clusterIdMatch ? clusterIdMatch[1] : null
@@ -91,15 +100,15 @@ export default function NavbarBreadcrumbs() {
     const storageId = storageIdMatch ? storageIdMatch[1] : null
     const storageName = useStorageName(storageId)
 
-    // Extract applicationId from URL for dynamic name loading (standalone applications module)
-    // Pattern: /application/:applicationId/...
-    const applicationIdMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
+    // Extract applicationId from URL for dynamic name loading (application admin context)
+    // Pattern: /a/:applicationId/admin/...
+    const applicationIdMatch = location.pathname.match(/^\/a\/([^/]+)\/admin(?:\/|$)/)
     const applicationId = applicationIdMatch ? applicationIdMatch[1] : null
     const applicationName = useApplicationName(applicationId)
 
-    // Extract connectorId from URL for dynamic name loading (under application context)
-    // Pattern: /application/:applicationId/connector/:connectorId
-    const connectorIdMatch = location.pathname.match(/^\/application\/([^/]+)\/connector\/([^/]+)/)
+    // Extract connectorId from URL for dynamic name loading (under application admin context)
+    // Pattern: /a/:applicationId/admin/connector/:connectorId
+    const connectorIdMatch = location.pathname.match(/^\/a\/([^/]+)\/admin\/connector\/([^/]+)/)
     const connectorParentApplicationId = connectorIdMatch ? connectorIdMatch[1] : null
     const connectorId = connectorIdMatch ? connectorIdMatch[2] : null
     const connectorName = useConnectorName(connectorParentApplicationId, connectorId)
@@ -331,6 +340,14 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
                 } else if (segments[2] === 'branches') {
                     items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
+                } else if (segments[2] === 'layouts') {
+                    items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/layouts` })
+
+                    if (segments[3] && layoutName) {
+                        items.push({ label: truncateLayoutName(layoutName), to: location.pathname })
+                    } else if (segments[3]) {
+                        items.push({ label: segments[3], to: location.pathname })
+                    }
                 } else if (segments[2] === 'publications') {
                     // Publications list
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
@@ -650,24 +667,27 @@ export default function NavbarBreadcrumbs() {
             return [{ label: t('applications'), to: '/applications' }]
         }
 
-        if (primary === 'application') {
+        if (primary === 'a') {
             const items = [{ label: t('applications'), to: '/applications' }]
 
-            if (segments[1] && applicationName) {
+            const currentApplicationId = segments[1]
+            const adminSection = segments[2]
+
+            if (currentApplicationId && applicationName && adminSection === 'admin') {
                 // Use actual application name with truncation for long names
                 items.push({
                     label: truncateApplicationName(applicationName),
-                    to: `/application/${segments[1]}`
+                    to: `/a/${currentApplicationId}/admin`
                 })
 
                 // Sub-pages (connectors, access, connector) - use keys from menu namespace
-                if (segments[2] === 'connectors') {
+                if (segments[3] === 'connectors') {
                     items.push({ label: t('connectors'), to: location.pathname })
-                } else if (segments[2] === 'access') {
+                } else if (segments[3] === 'access') {
                     items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'connector' && segments[3]) {
+                } else if (segments[3] === 'connector' && segments[4]) {
                     // Connector detail page: Application > Connectors > [Connector Name]
-                    items.push({ label: t('connectors'), to: `/application/${segments[1]}/connectors` })
+                    items.push({ label: t('connectors'), to: `/a/${currentApplicationId}/admin/connectors` })
                     if (connectorName) {
                         items.push({
                             label: truncateConnectorName(connectorName),
@@ -678,11 +698,11 @@ export default function NavbarBreadcrumbs() {
                         items.push({ label: '...', to: location.pathname })
                     }
                 }
-            } else if (segments[1]) {
+            } else if (currentApplicationId) {
                 // Fallback while loading name
                 items.push({
                     label: '...',
-                    to: `/application/${segments[1]}`
+                    to: `/a/${currentApplicationId}/admin`
                 })
             }
 

@@ -84,11 +84,7 @@ export default function PageViewsBarChart({
                     /* Provide inner padding so chart content doesn't hug card edges */
                     margin={{ left: 16, right: 16, top: 16, bottom: 24 }}
                     grid={{ horizontal: true }}
-                    slotProps={{
-                        legend: {
-                            hidden: true
-                        }
-                    }}
+                    hideLegend
                 />
             </CardContent>
         </Card>

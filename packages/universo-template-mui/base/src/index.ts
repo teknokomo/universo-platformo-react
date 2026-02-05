@@ -4,6 +4,7 @@
 
 export { templateConfig as config } from './config'
 export { default as Dashboard } from './views/dashboard/Dashboard'
+export type { DashboardLayoutConfig, DashboardDetailsSlot } from './components/dashboard/runtimeTypes'
 
 // New exports for universal MUI routing system
 export { default as MainLayoutMUI } from './layout/MainLayoutMUI'

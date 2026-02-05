@@ -103,49 +103,43 @@ const ClusterBoard = () => {
 
             {/* Dashboard Grid */}
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-                <Grid container spacing={2} columns={12}>
-                    {/* Overview Domain */}
-                    <Grid item xs={12}>
-                        <Typography component='h2' variant='h6'>
-                            {t('board.overview', 'Overview')}
-                        </Typography>
-                    </Grid>
+                <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
+                    {t('board.overview', 'Overview')}
+                </Typography>
+                <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
 
                     {/* Domains Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.domains.title')}
                             value={cluster.domainsCount ?? 0}
                             interval={t('board.stats.domains.interval')}
-                            description={t('board.stats.domains.description')}
                             data={domainsData}
                         />
                     </Grid>
 
                     {/* Resources Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.resources.title')}
                             value={cluster.resourcesCount ?? 0}
                             interval={t('board.stats.resources.interval')}
-                            description={t('board.stats.resources.description')}
                             data={resourcesData}
                         />
                     </Grid>
 
                     {/* Members Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.members.title')}
                             value={cluster.membersCount ?? 0}
                             interval={t('board.stats.members.interval')}
-                            description={t('board.stats.members.description')}
                             data={membersData}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title')}
@@ -157,12 +151,12 @@ const ClusterBoard = () => {
                     </Grid>
 
                     {/* Activity Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
                     </Grid>
 
                     {/* Resources Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <PageViewsBarChart
                             title={t('board.charts.resources.title')}
                             description={t('board.charts.resources.description')}

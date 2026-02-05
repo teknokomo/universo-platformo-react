@@ -5,7 +5,7 @@ export interface ConflictInfo {
     /** ID of the entity that was modified */
     entityId: string
     /** Type of entity */
-    entityType: 'metahub' | 'branch' | 'publication' | 'hub' | 'catalog' | 'attribute' | 'element' | 'application' | 'connector'
+    entityType: 'metahub' | 'branch' | 'publication' | 'hub' | 'catalog' | 'attribute' | 'element' | 'layout' | 'application' | 'connector'
     /** Version the client expected */
     expectedVersion: number
     /** Actual current version in the database */

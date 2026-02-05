@@ -138,7 +138,7 @@ export default function ChartUserByCountry() {
                         ]}
                         height={260}
                         width={260}
-                        legend={{ hidden: true }}
+                        hideLegend
                     >
                         <PieCenterLabel primaryText='98.5K' secondaryText='Total' />
                     </PieChart>

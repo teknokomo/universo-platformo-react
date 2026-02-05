@@ -79,7 +79,7 @@ interface RenderOptions {
     route?: string
 }
 
-const renderWithProviders = (ui: React.ReactElement, { route = '/application/test-application-id' }: RenderOptions = {}) => {
+const renderWithProviders = (ui: React.ReactElement, { route = '/a/test-application-id/admin' }: RenderOptions = {}) => {
     const queryClient = createTestQueryClient()
 
     return {
@@ -90,7 +90,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/application/tes
                     <I18nextProvider i18n={i18n}>
                         <MemoryRouter initialEntries={[route]}>
                             <Routes>
-                                <Route path='/application/:applicationId' element={ui} />
+                                <Route path='/a/:applicationId/admin' element={ui} />
                             </Routes>
                         </MemoryRouter>
                     </I18nextProvider>
@@ -333,7 +333,7 @@ describe('ApplicationBoard', () => {
             // Render without applicationId in route
             vi.mocked(applicationsApi.getApplication).mockImplementation(() => new Promise(() => {}))
 
-            renderWithProviders(<ApplicationBoard />, { route: '/application//board' })
+            renderWithProviders(<ApplicationBoard />, { route: '/a//admin' })
 
             // Should not call API without valid ID
             expect(applicationsApi.getApplication).not.toHaveBeenCalled()

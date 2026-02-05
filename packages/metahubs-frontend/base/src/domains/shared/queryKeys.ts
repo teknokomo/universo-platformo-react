@@ -76,6 +76,23 @@ export const metahubsQueryKeys = {
 
     hubDetail: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubs(metahubId), 'detail', hubId] as const,
 
+    // Layouts scoped to a specific metahub
+    layouts: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'layouts'] as const,
+
+    layoutsList: (metahubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.layouts(metahubId), 'list', normalized] as const
+    },
+
+    layoutDetail: (metahubId: string, layoutId: string) =>
+        [...metahubsQueryKeys.layouts(metahubId), 'detail', layoutId] as const,
+
     // Blocking catalogs for hub deletion (catalogs with isRequiredHub=true that would become orphaned)
     blockingCatalogs: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'blockingCatalogs'] as const,
 
@@ -215,6 +232,17 @@ export const invalidateHubsQueries = {
 
     detail: (queryClient: QueryClient, metahubId: string, hubId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubDetail(metahubId, hubId) })
+}
+
+export const invalidateLayoutsQueries = {
+    all: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layouts(metahubId) }),
+
+    lists: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsList(metahubId) }),
+
+    detail: (queryClient: QueryClient, metahubId: string, layoutId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId) })
 }
 
 export const invalidateBranchesQueries = {

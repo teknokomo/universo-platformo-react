@@ -101,49 +101,42 @@ const CampaignBoard = () => {
 
             {/* Dashboard Grid */}
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-                <Grid container spacing={2} columns={12}>
-                    {/* Overview Event */}
-                    <Grid item xs={12}>
-                        <Typography component='h2' variant='h6'>
-                            {t('board.overview', 'Overview')}
-                        </Typography>
-                    </Grid>
-
+                <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
+                    {t('board.overview', 'Overview')}
+                </Typography>
+                <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
                     {/* Events Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.events.title')}
                             value={campaign.eventsCount ?? 0}
                             interval={t('board.stats.events.interval')}
-                            description={t('board.stats.events.description')}
                             data={eventsData}
                         />
                     </Grid>
 
                     {/* Activities Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.activities.title')}
                             value={campaign.activitiesCount ?? 0}
                             interval={t('board.stats.activities.interval')}
-                            description={t('board.stats.activities.description')}
                             data={activitiesData}
                         />
                     </Grid>
 
                     {/* Members Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.members.title')}
                             value={campaign.membersCount ?? 0}
                             interval={t('board.stats.members.interval')}
-                            description={t('board.stats.members.description')}
                             data={membersData}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title')}
@@ -155,12 +148,12 @@ const CampaignBoard = () => {
                     </Grid>
 
                     {/* Activity Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
                     </Grid>
 
                     {/* Activities Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <PageViewsBarChart
                             title={t('board.charts.activities.title')}
                             description={t('board.charts.activities.description')}

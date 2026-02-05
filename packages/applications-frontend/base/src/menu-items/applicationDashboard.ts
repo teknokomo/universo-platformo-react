@@ -24,7 +24,7 @@ const applicationDashboard: MenuItem = {
             id: 'applicationboard',
             title: 'menu:applicationboard',
             type: 'item',
-            url: '', // will resolve to /application/:applicationId
+            url: '', // will resolve to /a/:applicationId/admin
             icon: icons.IconBuildingStore,
             breadcrumbs: false
         },

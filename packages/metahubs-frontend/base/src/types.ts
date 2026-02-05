@@ -159,6 +159,50 @@ export interface BlockingBranchUser {
     role: MetahubRole
 }
 
+// ============ LAYOUT ENTITY ============
+
+export type LayoutTemplateKey = 'dashboard'
+
+export interface MetahubLayout {
+    id: string
+    templateKey: LayoutTemplateKey
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string> | null
+    config: Record<string, unknown>
+    isActive: boolean
+    isDefault: boolean
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    version?: number
+}
+
+export interface MetahubLayoutDisplay {
+    id: string
+    templateKey: LayoutTemplateKey
+    name: string
+    description: string
+    isActive: boolean
+    isDefault: boolean
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    version?: number
+}
+
+export interface MetahubLayoutLocalizedPayload {
+    templateKey: LayoutTemplateKey
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput | null
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    isActive?: boolean
+    isDefault?: boolean
+    sortOrder?: number
+    config?: Record<string, unknown>
+    expectedVersion?: number
+}
+
 // ============ PUBLICATION ENTITY ============
 
 /**
@@ -411,6 +455,17 @@ export function toBranchDisplay(branch: MetahubBranch, locale = 'en'): MetahubBr
         ...branch,
         name: getVLCString(branch.name, locale),
         description: getVLCString(branch.description, locale)
+    }
+}
+
+/** Convert MetahubLayout to MetahubLayoutDisplay for table/card rendering */
+export function toMetahubLayoutDisplay(layout: MetahubLayout, locale = 'en'): MetahubLayoutDisplay {
+    const name = getVLCString(layout.name, locale)
+    return {
+        ...layout,
+        name: name || layout.templateKey,
+        description: getVLCString(layout.description, locale),
+        templateKey: layout.templateKey
     }
 }
 

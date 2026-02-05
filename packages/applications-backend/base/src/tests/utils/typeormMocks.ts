@@ -60,7 +60,8 @@ export const createMockDataSource = (repositories: RepoMap, options: { isInitial
     const manager: any = {
         getRepository,
         find: jest.fn().mockResolvedValue([]),
-        findOne: jest.fn().mockResolvedValue(null)
+        findOne: jest.fn().mockResolvedValue(null),
+        query: jest.fn().mockResolvedValue([])
     }
 
     const dataSource: any = {
@@ -71,7 +72,8 @@ export const createMockDataSource = (repositories: RepoMap, options: { isInitial
         }),
         createQueryBuilder: jest.fn(() => createMockRepository<any>().createQueryBuilder()),
         getRepository,
-        manager
+        manager,
+        transaction: jest.fn(async (fn: (txManager: any) => Promise<any>) => fn(manager))
     }
     return dataSource
 }

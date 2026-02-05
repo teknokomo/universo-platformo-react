@@ -12,6 +12,7 @@ export { initializeRateLimiters, getRateLimiters, createApplicationsServiceRoute
 
 // Guard exports
 export { ensureApplicationAccess, ensureConnectorAccess, assertNotOwner } from './routes/guards'
+export type { ApplicationRole } from './routes/guards'
 
 // Migration exports
 export { applicationsMigrations } from './database/migrations/postgres'

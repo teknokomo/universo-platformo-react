@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Typography, Stack, CircularProgress, Alert, Grid, Button } from '@mui/material'
+import { Box, Typography, Stack, CircularProgress, Alert, Button, Grid } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -132,49 +132,43 @@ const MetahubBoard = () => {
 
             {/* Dashboard Grid */}
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-                <Grid container spacing={2} columns={12}>
-                    {/* Overview MetaSection */}
-                    <Grid item xs={12}>
-                        <Typography component='h2' variant='h6'>
-                            {t('board.overview', 'Overview')}
-                        </Typography>
-                    </Grid>
+                <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
+                    {t('board.overview', 'Overview')}
+                </Typography>
+                <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
 
                     {/* Branches Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.branches.title')}
                             value={branchesCount}
                             interval={t('board.stats.branches.interval')}
-                            description={t('board.stats.branches.description')}
                             data={branchesData}
                         />
                     </Grid>
 
                     {/* Applications Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.applications.title')}
                             value={applicationsCount}
                             interval={t('board.stats.applications.interval')}
-                            description={t('board.stats.applications.description')}
                             data={applicationsData}
                         />
                     </Grid>
 
                     {/* Members Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.members.title')}
                             value={metahubDisplay.membersCount ?? 0}
                             interval={t('board.stats.members.interval')}
-                            description={t('board.stats.members.description')}
                             data={membersData}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title')}
@@ -186,56 +180,52 @@ const MetahubBoard = () => {
                     </Grid>
 
                     {/* Second row: Hubs */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.hubs.title')}
                             value={hubsCount}
                             interval={t('board.stats.hubs.interval')}
-                            description={t('board.stats.hubs.description')}
                             data={hubsData}
                         />
                     </Grid>
 
                     {/* Second row: Catalogs */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.catalogs.title')}
                             value={catalogsCount}
                             interval={t('board.stats.catalogs.interval')}
-                            description={t('board.stats.catalogs.description')}
                             data={catalogsData}
                         />
                     </Grid>
 
                     {/* Second row: Publications */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.publications.title')}
                             value={publicationsCount}
                             interval={t('board.stats.publications.interval')}
-                            description={t('board.stats.publications.description')}
                             data={publicationsData}
                         />
                     </Grid>
 
                     {/* Second row: Publication Versions */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.versions.title')}
                             value={versionsCount}
                             interval={t('board.stats.versions.interval')}
-                            description={t('board.stats.versions.description')}
                             data={versionsData}
                         />
                     </Grid>
 
                     {/* Activity Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
                     </Grid>
 
                     {/* Resources Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <PageViewsBarChart
                             title={t('board.charts.resources.title')}
                             description={t('board.charts.resources.description')}

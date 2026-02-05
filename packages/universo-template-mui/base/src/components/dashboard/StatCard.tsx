@@ -78,8 +78,8 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
 
     return (
         <Card variant='outlined' sx={{ height: '100%', flexGrow: 1 }}>
-            <CardContent>
-                <Typography component='h2' variant='subtitle2' gutterBottom>
+            <CardContent sx={{ pb: 2, '&:last-child': { pb: 2 } }}>
+                <Typography component='h2' variant='subtitle2' gutterBottom noWrap title={title}>
                     {title}
                 </Typography>
                 <Stack direction='column' sx={{ justifyContent: 'space-between', flexGrow: '1', gap: 1 }}>
@@ -90,11 +90,21 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
                             </Typography>
                             {trend && <Chip size='small' color={labelColors[trend]} label={trendPercentage || defaultTrendValues[trend]} />}
                         </Stack>
-                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                        <Typography
+                            variant='caption'
+                            noWrap
+                            title={interval}
+                            sx={{ color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >
                             {interval}
                         </Typography>
                         {description && (
-                            <Typography variant='caption' sx={{ color: 'text.secondary', mt: 0.5 }}>
+                            <Typography
+                                variant='caption'
+                                noWrap
+                                title={description}
+                                sx={{ color: 'text.secondary', mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            >
                                 {description}
                             </Typography>
                         )}
@@ -102,7 +112,7 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
                     {data && data.length > 0 && (
                         <Box sx={{ width: '100%', height: 50 }}>
                             <SparkLineChart
-                                colors={[chartColor]}
+                                color={chartColor}
                                 data={data}
                                 height={50}
                                 area

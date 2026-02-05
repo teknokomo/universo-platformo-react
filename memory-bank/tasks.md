@@ -1,6 +1,61 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## COMPLETED (2026-02-04): UI Layout Sync + Dashboard Grid Fixes (MUI 7) + Auth Form Layout
+
+- [x] Ensure Metahub Layout config changes are propagated to existing Applications during connector sync (UI-only diff marker + persist `_app_ui_settings` even with no DDL changes)
+- [x] Return explicit sync status when only UI settings change (`ui_updated`) to avoid "no changes" confusion
+- [x] Localize UI-only diff marker in connectors diff dialog (`ui.layout.update` -> i18n label)
+- [x] Fix Metahub "Layout" page: remove extra divider lines and ensure all labels are i18n-ready (ru/en)
+- [x] Normalize all `*Board` dashboards to MUI 7 Grid v2 API (`size`, Overview title placement) and restore template-like StatCard heights (remove `description` usage)
+- [x] Fix AuthView form layout regression (restore vertical stacking + consistent button layout)
+- [x] Run targeted builds (frontend/backends) + `@flowise/core-frontend` production build
+
+---
+
+## COMPLETED (2026-02-04): Applications Menu Delete + Drop Application Schema
+
+- [x] Restore "Delete" action in Applications list item menu (single divider after Control Panel)
+- [x] Drop application PostgreSQL schema on application delete to avoid orphan schemas
+- [x] Run targeted build/tests for backend/frontend changes
+
+---
+
+## COMPLETED (2026-02-04): Runtime Routing Follow-up Hardening
+
+- [x] Remove remaining frontend legacy app admin links in `flowise-template-mui` sidebar menu (`/application/...` -> `/a/:applicationId/admin/...`)
+- [x] Fix `ApplicationGuard` wiring typo (`resourceIdParam`) and update unit test
+- [x] Align `apps-template-mui` minimal runtime scaffold to use Dashboard `CustomizedDataGrid` without demo data
+- [x] Apply Dashboard-like DataGrid behavior on runtime page (`/a/:applicationId`) for consistent UX
+- [x] Run targeted checks (`applications-frontend` build + `ApplicationGuard` unit test + `flowise-template-mui` lint baseline)
+
+---
+
+## COMPLETED (2026-02-04): Runtime Table Data Normalization (MVP)
+
+- [x] Normalize runtime `STRING` field values on backend (`JSONB VLC` -> locale string)
+- [x] Keep runtime attribute order stable by creation order in `_app_attributes`
+- [x] Show explicit boolean checkboxes in runtime table cells for `BOOLEAN` attributes
+- [x] Improve pagination UX via TanStack Query `keepPreviousData`
+- [x] Run targeted backend/frontend builds after runtime normalization changes
+
+---
+
+## COMPLETED (2026-02-04): Applications Runtime UI + New `/a/:applicationId` Routing
+
+- [x] Harden backend authorization for application-scoped operations
+- [x] Remove legacy frontend route links (`/application/...`) and migrate to `/a/:applicationId/admin/...`
+- [x] Add application runtime API endpoint for single-catalog table rendering
+- [x] Implement minimal runtime page (`/a/:applicationId`) with DataGrid and dynamic columns/rows
+- [x] Add role-gated "Control Panel" action in Applications list item menu
+- [x] Keep `/a/:applicationId` accessible for all application members, `/a/:applicationId/admin` for owner/admin/editor
+- [x] Copy `.backup/templates` into new `packages/apps-template-mui` package
+- [x] Update tests/fixtures impacted by new routing scheme
+- [x] Run targeted lint/build checks and fix issues
+- [x] Update memory-bank active context and progress after implementation
+
+---
+
 ## COMPLETED (2026-02-03): Double Rate Limits for Normal Workflow
 
 - [x] Increase rate limits to 600 read / 240 write across backend packages

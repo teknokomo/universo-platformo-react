@@ -16,6 +16,8 @@ vi.mock('../domains/hubs/ui/HubList', () => ({ default: () => null }))
 vi.mock('../domains/catalogs/ui/CatalogList', () => ({ default: () => null }))
 vi.mock('../domains/attributes/ui/AttributeList', () => ({ default: () => null }))
 vi.mock('../domains/elements/ui/ElementList', () => ({ default: () => null }))
+vi.mock('../domains/layouts/ui/LayoutList', () => ({ default: () => null }))
+vi.mock('../domains/layouts/ui/LayoutDetails', () => ({ default: () => null }))
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -37,6 +39,8 @@ describe('metahubs-frontend entry exports', () => {
         expect(entry.CatalogList).toBeTruthy()
         expect(entry.AttributeList).toBeTruthy()
         expect(entry.ElementList).toBeTruthy()
+        expect(entry.MetahubLayouts).toBeTruthy()
+        expect(entry.MetahubLayoutDetails).toBeTruthy()
         expect(entry.metahubsDashboard).toBeTruthy()
         expect(entry.metahubsTranslations).toBeTruthy()
     }, 10000)

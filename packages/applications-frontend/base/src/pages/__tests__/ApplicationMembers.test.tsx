@@ -128,7 +128,7 @@ const paginated = <T,>(items: T[], meta: PaginationMeta) => ({
     }
 })
 
-const renderWithProviders = async (ui: React.ReactElement, { route = '/application/test-application-id/access' } = {}) => {
+const renderWithProviders = async (ui: React.ReactElement, { route = '/a/test-application-id/admin/access' } = {}) => {
     const queryClient = createTestQueryClient()
 
     let renderResult: ReturnType<typeof render>
@@ -140,7 +140,7 @@ const renderWithProviders = async (ui: React.ReactElement, { route = '/applicati
                     <I18nextProvider i18n={i18n}>
                         <MemoryRouter initialEntries={[route]}>
                             <Routes>
-                                <Route path='/application/:applicationId/access' element={ui} />
+                                <Route path='/a/:applicationId/admin/access' element={ui} />
                                 <Route path='/access' element={ui} />
                             </Routes>
                         </MemoryRouter>

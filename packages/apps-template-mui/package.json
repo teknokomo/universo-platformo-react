@@ -1,0 +1,52 @@
+{
+  "name": "@universo/apps-template-mui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.runtime.json --noEmit",
+    "dev:standalone": "vite --port 5174 --strictPort",
+    "preview:standalone": "vite preview --port 5174 --strictPort",
+    "lint": "eslint --ext .ts,.tsx src"
+  },
+  "dependencies": {
+    "@emotion/react": "catalog:",
+    "@emotion/styled": "catalog:",
+    "@mui/icons-material": "catalog:",
+    "@mui/material": "catalog:",
+    "@mui/x-charts": "catalog:",
+    "@mui/x-data-grid": "catalog:",
+    "@mui/x-date-pickers": "catalog:",
+    "@mui/x-tree-view": "catalog:",
+    "@react-spring/web": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "dayjs": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}

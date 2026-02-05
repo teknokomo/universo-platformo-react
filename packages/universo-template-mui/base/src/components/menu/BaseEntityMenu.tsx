@@ -43,6 +43,8 @@ export interface ActionDescriptor<TEntity = any, TData = any> {
     icon?: React.ReactNode | (() => React.ReactNode)
     order?: number
     group?: string
+    dividerBefore?: boolean
+    dividerAfter?: boolean
     entityKinds?: string[]
     visible?: (ctx: ActionContext<TEntity, TData>) => boolean
     enabled?: (ctx: ActionContext<TEntity, TData>) => boolean
@@ -267,10 +269,14 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                             const disabled = busyActionId === a.id || (a.enabled ? !a.enabled(ctx) : false)
                             const IconNode = typeof a.icon === 'function' ? a.icon() : a.icon
                             return (
-                                <MenuItem key={a.id} disabled={disabled} onClick={() => doAction(a)}>
-                                    {IconNode}
-                                    {t(a.labelKey)}
-                                </MenuItem>
+                                <React.Fragment key={a.id}>
+                                    {a.dividerBefore && <Divider />}
+                                    <MenuItem disabled={disabled} onClick={() => doAction(a)}>
+                                        {IconNode}
+                                        {t(a.labelKey)}
+                                    </MenuItem>
+                                    {a.dividerAfter && <Divider />}
+                                </React.Fragment>
                             )
                         })}
                         {gi < arr.length - 1 && <Divider />}

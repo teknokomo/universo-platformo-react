@@ -2,13 +2,11 @@ import Stack from '@mui/material/Stack'
 import NavbarBreadcrumbs from './NavbarBreadcrumbs'
 import ColorModeIconDropdown from '../shared/ColorModeIconDropdown'
 import LanguageSwitcher from '../shared/LanguageSwitcher'
+import type { DashboardLayoutConfig } from './runtimeTypes'
 
-// import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
-// import CustomDatePicker from './CustomDatePicker';
-// import MenuButton from './MenuButton';
-// import Search from './Search';
+export default function Header({ layoutConfig }: { layoutConfig?: DashboardLayoutConfig }) {
+    const showBreadcrumbs = layoutConfig?.showBreadcrumbs ?? true
 
-export default function Header() {
     return (
         <Stack
             direction='row'
@@ -22,13 +20,9 @@ export default function Header() {
             }}
             spacing={2}
         >
-            <NavbarBreadcrumbs />
+            {showBreadcrumbs ? <NavbarBreadcrumbs /> : <span />}
             <Stack direction='row' sx={{ gap: 1 }}>
-                {/* <Search /> */}
-                {/* <CustomDatePicker /> */}
-                {/* <MenuButton showBadge aria-label="Open notifications">
-          <NotificationsRoundedIcon />
-        </MenuButton> */}
+                {/* Keep only theme + language in the host shell (future features stay hidden for now). */}
                 <ColorModeIconDropdown />
                 <LanguageSwitcher />
             </Stack>

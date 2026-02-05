@@ -10,7 +10,7 @@ import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { Publication, PublicationSchemaStatus } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
-import { getDDLServices, generateSchemaName } from '../../ddl'
+import { getDDLServices, generateSchemaName, KnexClient } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 // Import applications entities for auto-create feature
 import { Application, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
@@ -260,6 +260,43 @@ export function createPublicationsRoutes(
             const hubsService = new MetahubHubsService(schemaService)
             const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
             const snapshot = await serializer.serializeMetahub(metahubId)
+
+            // Attach metahub UI layouts to the snapshot (if present).
+            // This keeps runtime UI configuration versioned via publication_versions.snapshot_json.
+            try {
+                const branchSchemaName = await schemaService.ensureSchema(metahubId, userId)
+                const layoutRows = await KnexClient.getInstance()
+                    .withSchema(branchSchemaName)
+                    .from('_mhb_layouts')
+                    .where({ _upl_deleted: false, _mhb_deleted: false })
+                    .select(['id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
+                    .orderBy([{ column: 'sort_order', order: 'asc' }, { column: '_upl_created_at', order: 'asc' }])
+
+                const layouts = (layoutRows ?? []).map((r: any) => ({
+                    id: String(r.id),
+                    templateKey: String(r.template_key ?? 'dashboard'),
+                    name: (r.name as Record<string, unknown>) ?? {},
+                    description: (r.description as Record<string, unknown> | null) ?? null,
+                    config: (r.config as Record<string, unknown>) ?? {},
+                    isActive: Boolean(r.is_active),
+                    isDefault: Boolean(r.is_default),
+                    sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0
+                }))
+
+                const activeLayouts = layouts.filter((l) => l.isActive)
+                const defaultLayout = activeLayouts.find((l) => l.isDefault) ?? activeLayouts[0] ?? null
+
+                snapshot.layouts = activeLayouts
+                snapshot.defaultLayoutId = defaultLayout?.id ?? null
+                snapshot.layoutConfig = defaultLayout?.config ?? {}
+            } catch (e) {
+                // Backward compatibility: older branch schemas may not have _mhb_layouts yet.
+                // eslint-disable-next-line no-console
+                console.warn('[Publications] Failed to load metahub layout config (ignored)', e)
+                snapshot.layouts = []
+                snapshot.defaultLayoutId = null
+                snapshot.layoutConfig = {}
+            }
             const snapshotHash = serializer.calculateHash(snapshot)
 
             const result = await ds.transaction(async (manager) => {
@@ -917,6 +954,41 @@ export function createPublicationsRoutes(
             const hubsService = new MetahubHubsService(schemaService)
             const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
             const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId)
+
+            // Attach metahub UI layouts to the snapshot (if present).
+            try {
+                const branchSchemaName = await schemaService.ensureSchema(metahubId ?? publication.metahubId, userId)
+                const layoutRows = await KnexClient.getInstance()
+                    .withSchema(branchSchemaName)
+                    .from('_mhb_layouts')
+                    .where({ _upl_deleted: false, _mhb_deleted: false })
+                    .select(['id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
+                    .orderBy([{ column: 'sort_order', order: 'asc' }, { column: '_upl_created_at', order: 'asc' }])
+
+                const layouts = (layoutRows ?? []).map((r: any) => ({
+                    id: String(r.id),
+                    templateKey: String(r.template_key ?? 'dashboard'),
+                    name: (r.name as Record<string, unknown>) ?? {},
+                    description: (r.description as Record<string, unknown> | null) ?? null,
+                    config: (r.config as Record<string, unknown>) ?? {},
+                    isActive: Boolean(r.is_active),
+                    isDefault: Boolean(r.is_default),
+                    sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0
+                }))
+
+                const activeLayouts = layouts.filter((l) => l.isActive)
+                const defaultLayout = activeLayouts.find((l) => l.isDefault) ?? activeLayouts[0] ?? null
+
+                snapshot.layouts = activeLayouts
+                snapshot.defaultLayoutId = defaultLayout?.id ?? null
+                snapshot.layoutConfig = defaultLayout?.config ?? {}
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[Publications] Failed to load metahub layout config (ignored)', e)
+                snapshot.layouts = []
+                snapshot.defaultLayoutId = null
+                snapshot.layoutConfig = {}
+            }
             const snapshotHash = serializer.calculateHash(snapshot)
 
             // Get next version number

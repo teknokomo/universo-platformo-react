@@ -11,7 +11,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import Container from '@mui/material/Container'
-import Grid from '@mui/material/Grid2'
+import Grid from '@mui/material/Grid'
 import { useTranslation } from '@universo/i18n'
 
 export default function Testimonials() {

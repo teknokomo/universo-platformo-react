@@ -3,7 +3,8 @@
 
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Box, Typography, FormControl, InputLabel, Select, MenuItem, Grid, FormHelperText, Alert } from '@mui/material'
+import { Box, Typography, FormControl, InputLabel, Select, MenuItem, FormHelperText, Alert } from '@mui/material'
+import Grid from '@mui/material/GridLegacy'
 import type { LibrarySource, GlobalLibrarySettings } from '../../../types'
 
 export interface LibrarySettingsProps {

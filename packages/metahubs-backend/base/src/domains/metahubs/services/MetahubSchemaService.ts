@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
+import { buildLocalizedContent } from '@universo/utils/vlc'
 import {
     getDDLServices,
     KnexClient,
@@ -445,6 +446,186 @@ export class MetahubSchemaService {
                 ON "${schemaName}"._mhb_elements (_upl_deleted_at)
                 WHERE _upl_deleted = true
             `)
+        }
+
+        // _mhb_settings: Metahub branch settings (UI and other settings that must be published to Applications).
+        const hasSettings = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_settings')
+        if (!hasSettings) {
+            await this.knex.schema.withSchema(schemaName).createTable('_mhb_settings', (t) => {
+                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
+                t.string('key', 100).notNullable()
+                t.jsonb('value').notNullable().defaultTo('{}')
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_created_by').nullable()
+                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_updated_by').nullable()
+                t.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                t.boolean('_upl_archived').notNullable().defaultTo(false)
+                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                t.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                t.boolean('_upl_deleted').notNullable().defaultTo(false)
+                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                t.uuid('_upl_deleted_by').nullable()
+                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                t.boolean('_upl_locked').notNullable().defaultTo(false)
+                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                t.uuid('_upl_locked_by').nullable()
+                t.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Metahub-level system fields (_mhb_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                t.boolean('_mhb_published').notNullable().defaultTo(true)
+                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
+                t.uuid('_mhb_published_by').nullable()
+                // Archive fields (design-time)
+                t.boolean('_mhb_archived').notNullable().defaultTo(false)
+                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
+                t.uuid('_mhb_archived_by').nullable()
+                // Soft delete fields (design-time)
+                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
+                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
+                t.uuid('_mhb_deleted_by').nullable()
+
+                t.unique(['key'])
+            })
+        }
+
+        // _mhb_layouts: UI layouts/templates for published Applications (MVP: dashboard show/hide config).
+        const hasLayouts = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_layouts')
+        if (!hasLayouts) {
+            await this.knex.schema.withSchema(schemaName).createTable('_mhb_layouts', (t) => {
+                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
+                t.string('template_key', 100).notNullable().defaultTo('dashboard')
+                t.jsonb('name').notNullable().defaultTo('{}')
+                t.jsonb('description').nullable()
+                t.jsonb('config').notNullable().defaultTo('{}')
+                t.boolean('is_active').notNullable().defaultTo(true)
+                t.boolean('is_default').notNullable().defaultTo(false)
+                t.integer('sort_order').notNullable().defaultTo(0)
+                t.uuid('owner_id').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_created_by').nullable()
+                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
+                t.uuid('_upl_updated_by').nullable()
+                t.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                t.boolean('_upl_archived').notNullable().defaultTo(false)
+                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                t.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                t.boolean('_upl_deleted').notNullable().defaultTo(false)
+                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                t.uuid('_upl_deleted_by').nullable()
+                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                t.boolean('_upl_locked').notNullable().defaultTo(false)
+                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                t.uuid('_upl_locked_by').nullable()
+                t.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Metahub-level system fields (_mhb_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                t.boolean('_mhb_published').notNullable().defaultTo(true)
+                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
+                t.uuid('_mhb_published_by').nullable()
+                // Archive fields (design-time)
+                t.boolean('_mhb_archived').notNullable().defaultTo(false)
+                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
+                t.uuid('_mhb_archived_by').nullable()
+                // Soft delete fields (design-time)
+                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
+                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
+                t.uuid('_mhb_deleted_by').nullable()
+
+                t.index(['template_key'], 'idx_mhb_layouts_template_key')
+                t.index(['is_active'], 'idx_mhb_layouts_is_active')
+                t.index(['is_default'], 'idx_mhb_layouts_is_default')
+                t.index(['sort_order'], 'idx_mhb_layouts_sort_order')
+            })
+
+            // Exactly one default layout (excluding soft-deleted records).
+            await this.knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_mhb_layouts_default_active
+                ON "${schemaName}"._mhb_layouts (is_default)
+                WHERE is_default = true AND _upl_deleted = false AND _mhb_deleted = false
+            `)
+        }
+
+        // Ensure at least one layout exists (new DB / fresh schema).
+        // This is intentionally done at schema initialization time to guarantee Metahub always has a default layout.
+        const layoutsCountRow = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_layouts')
+            .where({ _upl_deleted: false, _mhb_deleted: false })
+            .count<{ count: string }[]>('* as count')
+            .first()
+        const layoutsCount = layoutsCountRow ? Number(layoutsCountRow.count) : 0
+        if (Number.isFinite(layoutsCount) && layoutsCount === 0) {
+            const now = new Date()
+            const defaultName = buildLocalizedContent({ en: 'Dashboard', ru: 'Дашборд' }, 'en', 'en') ?? {}
+            const defaultDescription =
+                buildLocalizedContent(
+                    { en: 'Default layout for published applications', ru: 'Макет по умолчанию для опубликованных приложений' },
+                    'en',
+                    'en'
+                ) ?? null
+            const defaultConfig = {
+                showSideMenu: true,
+                showAppNavbar: true,
+                showHeader: true,
+                showBreadcrumbs: true,
+                showSearch: true,
+                showDatePicker: true,
+                showOptionsMenu: true,
+                showOverviewTitle: true,
+                showOverviewCards: true,
+                showSessionsChart: true,
+                showPageViewsChart: true,
+                showDetailsTitle: true,
+                showDetailsTable: true,
+                showDetailsSidePanel: true,
+                showFooter: true
+            }
+
+            await this.knex
+                .withSchema(schemaName)
+                .into('_mhb_layouts')
+                .insert({
+                    template_key: 'dashboard',
+                    name: defaultName,
+                    description: defaultDescription,
+                    config: defaultConfig,
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    owner_id: null,
+                    _upl_created_at: now,
+                    _upl_created_by: null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
         }
     }
 }

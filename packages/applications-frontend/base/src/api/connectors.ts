@@ -65,19 +65,46 @@ export const deleteConnector = (applicationId: string, connectorId: string) =>
  */
 export interface SchemaDiffResponse {
     schemaExists: boolean
+    schemaName?: string
     diff: {
         hasChanges?: boolean
+        hasDestructiveChanges?: boolean
         summary: string
+        summaryKey?: string
+        summaryParams?: Record<string, unknown>
         additive: string[]
         destructive: string[]
+        details?: {
+            create?: {
+                tables: Array<{
+                    id: string
+                    codename: string
+                    tableName: string | null
+                    fields: Array<{
+                        id: string
+                        codename: string
+                        dataType: string
+                        isRequired: boolean
+                    }>
+                    predefinedElementsCount: number
+                    predefinedElementsPreview: Array<{
+                        id: string
+                        data: Record<string, unknown>
+                        sortOrder: number
+                    }>
+                }>
+            }
+        }
     }
+    message?: string
+    messageKey?: string
 }
 
 /**
  * Sync response
  */
 export interface SchemaSyncResponse {
-    status: 'created' | 'synced' | 'migrated' | 'pending_confirmation' | 'no_changes'
+    status: 'created' | 'synced' | 'migrated' | 'pending_confirmation' | 'no_changes' | 'ui_updated'
     schemaName?: string
     tablesCreated?: string[]
     changesApplied?: number

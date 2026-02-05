@@ -367,6 +367,33 @@ export function useMetahubPublicationName(metahubId: string | null, publicationI
 export const useMetahubApplicationName = useMetahubPublicationName
 
 /**
+ * Hook to fetch Layout name within Metahub context for breadcrumb display.
+ * Requires metahubId and layoutId since Layout API is nested under Metahub.
+ */
+export function useLayoutName(metahubId: string | null, layoutId: string | null): string | null {
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'layout', metahubId, layoutId],
+        queryFn: async () => {
+            if (!metahubId || !layoutId) return null
+            const response = await fetch(`/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.templateKey ?? null
+        },
+        enabled: Boolean(metahubId && layoutId),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+/**
  * Hook to fetch Connector name for breadcrumb display.
  * Requires applicationId and connectorId since Connector API is nested under Application.
  */
@@ -438,3 +465,6 @@ export const truncateAttributeName = createTruncateFunction(30)
 
 /** Truncate connector name with ellipsis (default: 30 chars) */
 export const truncateConnectorName = createTruncateFunction(30)
+
+/** Truncate layout name with ellipsis (default: 30 chars) */
+export const truncateLayoutName = createTruncateFunction(30)

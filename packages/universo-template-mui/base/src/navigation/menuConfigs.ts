@@ -159,6 +159,13 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'item'
     },
     {
+        id: 'metahub-layouts',
+        titleKey: 'layouts',
+        url: `/metahub/${metahubId}/layouts`,
+        icon: IconLayoutDashboard,
+        type: 'item'
+    },
+    {
         id: 'metahub-divider-secondary',
         type: 'divider'
     },
@@ -183,25 +190,25 @@ export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem
     {
         id: 'application-board',
         titleKey: 'applicationboard',
-        url: `/application/${applicationId}`,
+        url: `/a/${applicationId}/admin`,
         icon: IconBuildingStore
     },
     {
         id: 'application-connectors',
         titleKey: 'connectors',
-        url: `/application/${applicationId}/connectors`,
+        url: `/a/${applicationId}/admin/connectors`,
         icon: IconHierarchy3
     },
     {
         id: 'application-migrations',
         titleKey: 'migrations',
-        url: `/application/${applicationId}/migrations`,
+        url: `/a/${applicationId}/admin/migrations`,
         icon: IconHistory
     },
     {
         id: 'application-access',
         titleKey: 'access',
-        url: `/application/${applicationId}/access`,
+        url: `/a/${applicationId}/admin/access`,
         icon: IconUsers
     }
 ]

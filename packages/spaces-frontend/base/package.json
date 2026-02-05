@@ -57,7 +57,7 @@
     "reactflow": "catalog:",
     "react-redux": "^8.0.5",
     "react-router-dom": "catalog:",
-    "@mui/material": "5.15.0",
+    "@mui/material": "catalog:",
     "@tabler/icons-react": "^3.30.0",
     "react-perfect-scrollbar": "^1.5.8"
   },

@@ -7,6 +7,9 @@
 
 import { useEffect } from 'react'
 import {
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -20,11 +23,17 @@ import {
     ListItem,
     ListItemIcon,
     ListItemText,
-    Divider
+    Divider,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow
 } from '@mui/material'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTranslation } from 'react-i18next'
 import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector } from '../types'
@@ -62,6 +71,44 @@ export function ConnectorDiffDialog({
     schemaStatus
 }: ConnectorDiffDialogProps) {
     const { t } = useTranslation('applications')
+    const formatChange = (change: string) => {
+        if (change === 'ui.layout.update') {
+            return t('connectors.diffDialog.uiLayoutUpdate', 'UI layout settings will be updated')
+        }
+        if (change === 'ui.layouts.update') {
+            return t('connectors.diffDialog.uiLayoutsUpdate', 'UI layouts list will be updated')
+        }
+        if (change === 'schema.metadata.update') {
+            return t('connectors.diffDialog.systemMetadataUpdate', 'System metadata will be updated')
+        }
+        return change
+    }
+
+    const formatSummary = (summaryKey?: string, summaryParams?: Record<string, unknown>, fallback?: string) => {
+        if (summaryKey === 'schema.create.summary') {
+            const tablesCount = typeof summaryParams?.tablesCount === 'number' ? summaryParams.tablesCount : 0
+            return t('connectors.diffDialog.summary.create', 'Create {{tablesCount}} table(s) in new schema', { tablesCount })
+        }
+        if (summaryKey === 'ui.layout.changed') {
+            return t('connectors.diffDialog.summary.uiChanged', 'UI settings have changed')
+        }
+        if (summaryKey === 'schema.metadata.changed') {
+            return t('connectors.diffDialog.summary.metadataChanged', 'System metadata will be updated')
+        }
+        if (summaryKey === 'schema.upToDate') {
+            return t('connectors.diffDialog.summary.upToDate', 'Schema is already up to date')
+        }
+        return fallback || ''
+    }
+
+    const formatDataType = (dataType: string) => {
+        const normalized = String(dataType).toUpperCase()
+        if (normalized === 'BOOLEAN') return t('connectors.diffDialog.dataTypes.boolean', 'Boolean')
+        if (normalized === 'STRING') return t('connectors.diffDialog.dataTypes.string', 'String')
+        if (normalized === 'NUMBER') return t('connectors.diffDialog.dataTypes.number', 'Number')
+        if (normalized === 'JSON') return t('connectors.diffDialog.dataTypes.json', 'JSON')
+        return dataType
+    }
 
     // Fetch diff when dialog opens - use applicationId
     const {
@@ -91,6 +138,7 @@ export function ConnectorDiffDialog({
     }
 
     const connectorName = connector ? getVLCString(connector.name, uiLocale) : ''
+    const createTables = diffData?.diff?.details?.create?.tables ?? []
 
     return (
         <Dialog
@@ -126,20 +174,107 @@ export function ConnectorDiffDialog({
                                 {t('connectors.diffDialog.schemaWillBeCreated', 'Schema will be created')}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                {diffData?.diff?.summary || t(
-                                    'connectors.diffDialog.schemaNotExists',
-                                    'Schema does not exist yet. It will be created on first sync.'
-                                )}
+                                {formatSummary(diffData?.diff?.summaryKey, diffData?.diff?.summaryParams, diffData?.diff?.summary) ||
+                                    t('connectors.diffDialog.schemaNotExists', 'Schema does not exist yet. It will be created on first sync.')}
                             </Typography>
                         </Box>
 
-                        {/* Show what will be created */}
-                        {hasAdditiveChanges && (
+                        {/* Show what will be created (expandable details) */}
+                        {createTables.length > 0 ? (
                             <Box sx={{ mb: 2 }}>
-                                <Typography
-                                    variant="subtitle1"
-                                    sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}
-                                >
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}>
+                                    {t('connectors.diffDialog.tablesWillBeCreated', 'Tables to be created')}
+                                </Typography>
+
+                                {createTables.map((table) => {
+                                    const fields = table.fields ?? []
+                                    const preview = (table.predefinedElementsPreview ?? [])
+                                        .slice()
+                                        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
+
+                                    return (
+                                        <Accordion
+                                            key={table.id}
+                                            disableGutters
+                                            elevation={0}
+                                            sx={{ border: '1px solid', borderColor: 'divider', mb: 1 }}
+                                        >
+                                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                                <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+                                                    {table.codename}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                                                    {t('connectors.diffDialog.tableMeta', '{{fieldsCount}} fields, {{elementsCount}} elements', {
+                                                        fieldsCount: fields.length,
+                                                        elementsCount: table.predefinedElementsCount ?? 0
+                                                    })}
+                                                </Typography>
+                                            </AccordionSummary>
+                                            <AccordionDetails>
+                                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                                    {t('connectors.diffDialog.fields', 'Fields')}
+                                                </Typography>
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>{t('connectors.diffDialog.columns.codename', 'Codename')}</TableCell>
+                                                            <TableCell>{t('connectors.diffDialog.columns.type', 'Type')}</TableCell>
+                                                            <TableCell>{t('connectors.diffDialog.columns.required', 'Required')}</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {fields.map((f) => (
+                                                            <TableRow key={f.id}>
+                                                                <TableCell sx={{ fontFamily: 'monospace' }}>{f.codename}</TableCell>
+                                                                <TableCell>{formatDataType(f.dataType)}</TableCell>
+                                                                <TableCell>{f.isRequired ? t('common.yes', 'Yes') : t('common.no', 'No')}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+
+                                                {preview.length > 0 && (
+                                                    <Box sx={{ mt: 2 }}>
+                                                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                                            {t('connectors.diffDialog.predefinedElements', 'Predefined elements')}
+                                                        </Typography>
+                                                        <Table size="small">
+                                                            <TableHead>
+                                                                <TableRow>
+                                                                    {fields.map((f) => (
+                                                                        <TableCell key={f.id} sx={{ fontFamily: 'monospace' }}>
+                                                                            {f.codename}
+                                                                        </TableCell>
+                                                                    ))}
+                                                                </TableRow>
+                                                            </TableHead>
+                                                            <TableBody>
+                                                                {preview.map((row) => (
+                                                                    <TableRow key={row.id}>
+                                                                        {fields.map((f) => {
+                                                                            const value = row.data?.[f.codename]
+                                                                            const display =
+                                                                                value === null || value === undefined
+                                                                                    ? ''
+                                                                                    : typeof value === 'object'
+                                                                                        ? JSON.stringify(value)
+                                                                                        : String(value)
+                                                                            return <TableCell key={f.id}>{display}</TableCell>
+                                                                        })}
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </Box>
+                                                )}
+                                            </AccordionDetails>
+                                        </Accordion>
+                                    )
+                                })}
+                            </Box>
+                        ) : hasAdditiveChanges ? (
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}>
                                     {t('connectors.diffDialog.tablesWillBeCreated', 'Tables to be created')}
                                 </Typography>
                                 <List dense>
@@ -149,14 +284,20 @@ export function ConnectorDiffDialog({
                                                 <AddCircleOutlineIcon color="success" />
                                             </ListItemIcon>
                                             <ListItemText
-                                                primary={change}
-                                                primaryTypographyProps={{ fontFamily: 'monospace', fontSize: 13 }}
+                                                primary={formatChange(change)}
+                                                primaryTypographyProps={
+                                                    change === 'ui.layout.update' ||
+                                                    change === 'ui.layouts.update' ||
+                                                    change === 'schema.metadata.update'
+                                                        ? { fontSize: 13 }
+                                                        : { fontFamily: 'monospace', fontSize: 13 }
+                                                }
                                             />
                                         </ListItem>
                                     ))}
                                 </List>
                             </Box>
-                        )}
+                        ) : null}
                     </Box>
                 ) : !hasChanges ? (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -171,9 +312,9 @@ export function ConnectorDiffDialog({
                 ) : (
                     <Box>
                         {/* Summary */}
-                        {diffData?.diff?.summary && (
+                        {(diffData?.diff?.summaryKey || diffData?.diff?.summary) && (
                             <Alert severity="info" sx={{ mb: 2 }}>
-                                {diffData.diff.summary}
+                                {formatSummary(diffData?.diff?.summaryKey, diffData?.diff?.summaryParams, diffData?.diff?.summary)}
                             </Alert>
                         )}
 
@@ -193,8 +334,14 @@ export function ConnectorDiffDialog({
                                                 <AddCircleOutlineIcon color="success" />
                                             </ListItemIcon>
                                             <ListItemText
-                                                primary={change}
-                                                primaryTypographyProps={{ fontFamily: 'monospace', fontSize: 13 }}
+                                                primary={formatChange(change)}
+                                                primaryTypographyProps={
+                                                    change === 'ui.layout.update' ||
+                                                    change === 'ui.layouts.update' ||
+                                                    change === 'schema.metadata.update'
+                                                        ? { fontSize: 13 }
+                                                        : { fontFamily: 'monospace', fontSize: 13 }
+                                                }
                                             />
                                         </ListItem>
                                     ))}

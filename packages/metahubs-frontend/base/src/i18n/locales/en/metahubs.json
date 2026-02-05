@@ -113,6 +113,78 @@
             "externalDbDisabled": "Coming soon"
         }
     },
+    "layouts": {
+        "title": "Layouts",
+        "searchPlaceholder": "Search layouts...",
+        "empty": "No layouts yet",
+        "emptyDescription": "Create a layout to configure published applications UI",
+        "createSuccess": "Layout created",
+        "createError": "Failed to create layout",
+        "updateSuccess": "Layout updated",
+        "updateError": "Failed to update layout",
+        "deleteSuccess": "Layout deleted",
+        "deleteError": "Failed to delete layout",
+        "loadError": "Failed to load layout",
+        "validation": {
+            "defaultMustBeActive": "Default layout must be active"
+        },
+        "fields": {
+            "template": "Template",
+            "uiTemplate": "User interface template",
+            "isActive": "Active",
+            "isDefault": "Default",
+            "status": "Status"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive",
+            "default": "Default"
+        },
+        "templates": {
+            "dashboard": "Dashboard"
+        },
+        "actions": {
+            "configure": "Configure",
+            "setDefault": "Set as default",
+            "activate": "Activate",
+            "deactivate": "Deactivate",
+            "toggleActive": "Toggle active",
+            "backToList": "Back to layouts"
+        },
+        "createDialog": {
+            "title": "Create layout"
+        },
+        "editDialog": {
+            "title": "Edit layout"
+        },
+        "deleteDialog": {
+            "title": "Delete layout?",
+            "description": "This action cannot be undone."
+        },
+        "details": {
+            "title": "Layout",
+            "description": "Configure dashboard sections (show/hide)."
+        },
+        "dashboard": {
+            "sections": {
+                "showSideMenu": "Left menu",
+                "showAppNavbar": "Top navbar",
+                "showHeader": "Header",
+                "showBreadcrumbs": "Breadcrumbs",
+                "showSearch": "Search",
+                "showDatePicker": "Date picker",
+                "showOptionsMenu": "Notifications & theme",
+                "showOverviewTitle": "Overview title",
+                "showOverviewCards": "Overview cards",
+                "showSessionsChart": "Sessions chart",
+                "showPageViewsChart": "Page views chart",
+                "showDetailsTitle": "Details title",
+                "showDetailsTable": "Details table",
+                "showDetailsSidePanel": "Details side panel",
+                "showFooter": "Footer"
+            }
+        }
+    },
     "branches": {
         "title": "Branches",
         "description": "Workspaces for parallel development",

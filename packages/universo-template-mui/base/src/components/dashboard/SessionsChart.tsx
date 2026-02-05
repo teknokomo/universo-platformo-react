@@ -143,7 +143,7 @@ export default function SessionsChart({ title = 'Sessions', description = 'Sessi
                             fill: "url('#direct')"
                         }
                     }}
-                    legend={{ hidden: true }}
+                    hideLegend
                 >
                     <AreaGradient color={theme.palette.primary.dark} id='organic' />
                     <AreaGradient color={theme.palette.primary.main} id='referral' />

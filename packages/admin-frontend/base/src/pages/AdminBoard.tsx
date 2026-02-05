@@ -102,49 +102,42 @@ const AdminBoard = () => {
 
             {/* Dashboard Grid */}
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-                <Grid container spacing={2} columns={12}>
-                    {/* Overview Section */}
-                    <Grid item xs={12}>
-                        <Typography component='h2' variant='h6'>
-                            {t('board.overview', 'Overview')}
-                        </Typography>
-                    </Grid>
-
+                <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
+                    {t('board.overview', 'Overview')}
+                </Typography>
+                <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
                     {/* Total Global Users */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.totalUsers.title', 'Total Global Users')}
                             value={stats.totalGlobalUsers}
                             interval={t('board.stats.totalUsers.interval', 'All time')}
-                            description={t('board.stats.totalUsers.description', 'Users with global access')}
                             data={totalUsersData}
                         />
                     </Grid>
 
                     {/* Superadmins Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.superadmins.title', 'Superadmins')}
                             value={stats.superadmins}
                             interval={t('board.stats.superadmins.interval', 'Full access')}
-                            description={t('board.stats.superadmins.description', 'Can manage all global users')}
                             data={superadminsData}
                         />
                     </Grid>
 
                     {/* Supermoderators Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.supermoderators.title', 'Supermoderators')}
                             value={stats.supermoderators}
                             interval={t('board.stats.supermoderators.interval', 'View access')}
-                            description={t('board.stats.supermoderators.description', 'Can view global users')}
                             data={supermoderatorsData}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title', 'Documentation')}
@@ -156,7 +149,7 @@ const AdminBoard = () => {
                     </Grid>
 
                     {/* Activity Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <SessionsChart
                             title={t('board.charts.activity.title', 'Activity')}
                             description={t('board.charts.activity.description', 'Platform activity over time')}
@@ -164,7 +157,7 @@ const AdminBoard = () => {
                     </Grid>
 
                     {/* Global Users Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <PageViewsBarChart
                             title={t('board.charts.users.title', 'Global Users')}
                             description={t('board.charts.users.description', 'Distribution of global roles')}

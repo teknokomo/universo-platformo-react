@@ -100,16 +100,88 @@
             "general": "Основное",
             "storage": "Хранение"
         },
-        "storage": {
-            "mainDb": "Создать схему в основной базе данных",
-            "externalDb": "Создать схему в отдельной базе данных",
-            "externalDbDisabled": "Скоро будет доступно"
-        }
-    },
-    "branches": {
-        "title": "Ветки",
-        "description": "Рабочие пространства для параллельной разработки",
-        "searchPlaceholder": "Поиск веток...",
+	        "storage": {
+	            "mainDb": "Создать схему в основной базе данных",
+	            "externalDb": "Создать схему в отдельной базе данных",
+	            "externalDbDisabled": "Скоро будет доступно"
+	        }
+	    },
+	    "layouts": {
+	        "title": "Макеты",
+	        "searchPlaceholder": "Поиск макетов...",
+	        "empty": "Макетов пока нет",
+	        "emptyDescription": "Создайте макет, чтобы настроить интерфейс опубликованных приложений",
+	        "createSuccess": "Макет создан",
+	        "createError": "Не удалось создать макет",
+	        "updateSuccess": "Макет обновлён",
+	        "updateError": "Не удалось обновить макет",
+	        "deleteSuccess": "Макет удалён",
+	        "deleteError": "Не удалось удалить макет",
+	        "loadError": "Не удалось загрузить макет",
+	        "validation": {
+	            "defaultMustBeActive": "Макет по умолчанию должен быть активным"
+	        },
+	    "fields": {
+	        "template": "Шаблон",
+	        "uiTemplate": "Шаблон пользовательского интерфейса",
+	        "isActive": "Активный",
+	        "isDefault": "По умолчанию",
+	        "status": "Статус"
+	    },
+	        "status": {
+	            "active": "Активный",
+	            "inactive": "Неактивный",
+	            "default": "По умолчанию"
+	        },
+	        "templates": {
+	            "dashboard": "Дашборд"
+	        },
+	        "actions": {
+	            "configure": "Настроить",
+	            "setDefault": "Сделать по умолчанию",
+	            "activate": "Активировать",
+	            "deactivate": "Деактивировать",
+	            "toggleActive": "Активность",
+	            "backToList": "Назад к макетам"
+	        },
+	        "createDialog": {
+	            "title": "Создать макет"
+	        },
+	        "editDialog": {
+	            "title": "Редактировать макет"
+	        },
+	        "deleteDialog": {
+	            "title": "Удалить макет?",
+	            "description": "Это действие нельзя отменить."
+	        },
+	        "details": {
+	            "title": "Макет",
+	            "description": "Включайте и отключайте секции Dashboard (MVP: только show/hide)."
+	        },
+	        "dashboard": {
+	            "sections": {
+	                "showSideMenu": "Левое меню",
+	                "showAppNavbar": "Верхняя панель",
+	                "showHeader": "Шапка",
+	                "showBreadcrumbs": "Хлебные крошки",
+	                "showSearch": "Поиск",
+	                "showDatePicker": "Выбор даты",
+	                "showOptionsMenu": "Уведомления и тема",
+	                "showOverviewTitle": "Заголовок «Обзор»",
+	                "showOverviewCards": "Карточки «Обзор»",
+	                "showSessionsChart": "График «Сессии»",
+	                "showPageViewsChart": "График «Просмотры страниц»",
+	                "showDetailsTitle": "Заголовок «Детали»",
+	                "showDetailsTable": "Таблица «Детали»",
+	                "showDetailsSidePanel": "Правая панель «Детали»",
+	                "showFooter": "Футер"
+	            }
+	        }
+	    },
+	    "branches": {
+	        "title": "Ветки",
+	        "description": "Рабочие пространства для параллельной разработки",
+	        "searchPlaceholder": "Поиск веток...",
         "empty": "Веток пока нет",
         "emptyDescription": "Создайте первую ветку для работы",
         "create": "Создать ветку",
