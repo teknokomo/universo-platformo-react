@@ -20,6 +20,9 @@ export { default as UnikLayout } from './layout/MainLayoutMUI'
 // Will be replaced by real implementation in later integration phase.
 export const TemplateProvider = ({ children }: { children?: any }) => children as any
 
+// Utilities
+export { isAccessDeniedError } from './utils/httpErrors'
+
 // Components
 export {
     ErrorBoundary,

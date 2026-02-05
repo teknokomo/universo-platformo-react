@@ -218,6 +218,20 @@ export class MetahubLayoutsService {
             throw new Error('Default layout must be active')
         }
 
+        // Prevent unsetting the last default layout.
+        if (Boolean(existing.is_default) && !nextIsDefault) {
+            const defaultCountRow = await this.knex
+                .withSchema(schemaName)
+                .from('_mhb_layouts')
+                .where({ _upl_deleted: false, _mhb_deleted: false, is_default: true })
+                .count<{ count: string }[]>('* as count')
+                .first()
+            const defaultCount = defaultCountRow ? Number(defaultCountRow.count) : 0
+            if (Number.isFinite(defaultCount) && defaultCount <= 1) {
+                throw new Error('At least one default layout is required')
+            }
+        }
+
         // Prevent deactivating the last active layout.
         if (!nextIsActive) {
             const activeCountRow = await this.knex
@@ -318,4 +332,3 @@ export class MetahubLayoutsService {
             })
     }
 }
-

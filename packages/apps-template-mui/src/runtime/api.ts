@@ -58,7 +58,10 @@ export async function fetchApplicationRuntime(options: {
   locale: string
 }): Promise<ApplicationRuntimeResponse> {
   const { apiBaseUrl, applicationId, limit, offset, locale } = options
-  const url = new URL(`${apiBaseUrl.replace(/\/$/, '')}/applications/${applicationId}/runtime`, window.location.origin)
+  const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+  const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
+  const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase)
+  const url = isAbsoluteBase ? new URL(runtimePath) : new URL(runtimePath, window.location.origin)
   url.searchParams.set('limit', String(limit))
   url.searchParams.set('offset', String(offset))
   url.searchParams.set('locale', locale)

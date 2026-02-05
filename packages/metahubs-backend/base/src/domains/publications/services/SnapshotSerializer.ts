@@ -280,7 +280,7 @@ export class SnapshotSerializer {
             ? Object.entries(snapshot.elements)
                 .map(([objectId, list]) => ({
                     objectId,
-                    elements: [...list]
+                    elements: list
                         .map((element) => ({
                             id: element.id,
                             data: element.data ?? {},
@@ -295,7 +295,7 @@ export class SnapshotSerializer {
             : []
 
         const layouts = snapshot.layouts
-            ? [...snapshot.layouts]
+            ? snapshot.layouts
                 .map((layout) => ({
                     id: layout.id,
                     templateKey: layout.templateKey,

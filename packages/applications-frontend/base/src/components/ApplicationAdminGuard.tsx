@@ -1,8 +1,8 @@
 import React from 'react'
 import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AxiosError } from 'axios'
 import { Loader } from '@universo/template-mui'
+import { isAccessDeniedError } from '@universo/template-mui'
 import { useAuth } from '@universo/auth-frontend'
 import { getApplication } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
@@ -12,20 +12,6 @@ const ALLOWED_ROLES: ApplicationRole[] = ['owner', 'admin', 'editor']
 
 export interface ApplicationAdminGuardProps {
     children: React.ReactNode
-}
-
-const isAccessDenied = (error: unknown): boolean => {
-    if (error instanceof AxiosError) {
-        const status = error.response?.status
-        return status === 403 || status === 404
-    }
-
-    if (error && typeof error === 'object' && 'status' in error) {
-        const status = (error as { status: number }).status
-        return status === 403 || status === 404
-    }
-
-    return false
 }
 
 export const ApplicationAdminGuard: React.FC<ApplicationAdminGuardProps> = ({ children }) => {
@@ -63,7 +49,7 @@ export const ApplicationAdminGuard: React.FC<ApplicationAdminGuardProps> = ({ ch
     }
 
     if (applicationQuery.isError) {
-        if (isAccessDenied(applicationQuery.error)) {
+        if (isAccessDeniedError(applicationQuery.error)) {
             return <Navigate to={`/a/${applicationId}`} replace />
         }
         return <Navigate to='/' replace />

@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { createRoot } from 'react-dom/client'
-import { FormControlLabel, Switch } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
+import { FormControlLabel, Switch, Grid } from '@mui/material'
 
 // Project import
 import BaseBotSettings from './BaseBotSettings'
@@ -369,7 +368,7 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, canvasId: propCanvasI
             onColorChanged={handleColorChange}
             renderAdditionalSettings={() => (
                 <>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <FormControlLabel
                             control={
                                 <Switch

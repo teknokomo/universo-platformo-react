@@ -14,23 +14,24 @@ import { applicationsQueryKeys } from '../api/queryKeys'
 const DEFAULT_PAGE_SIZE = 50
 
 const withDashboardDefaults = (config: Record<string, unknown> | undefined): DashboardLayoutConfig => {
-    const c = (config ?? {}) as Partial<DashboardLayoutConfig>
+    const c = config ?? {}
+    const getBool = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback)
     return {
-        showSideMenu: c.showSideMenu ?? true,
-        showAppNavbar: c.showAppNavbar ?? true,
-        showHeader: c.showHeader ?? true,
-        showBreadcrumbs: c.showBreadcrumbs ?? true,
-        showSearch: c.showSearch ?? true,
-        showDatePicker: c.showDatePicker ?? true,
-        showOptionsMenu: c.showOptionsMenu ?? true,
-        showOverviewTitle: c.showOverviewTitle ?? true,
-        showOverviewCards: c.showOverviewCards ?? true,
-        showSessionsChart: c.showSessionsChart ?? true,
-        showPageViewsChart: c.showPageViewsChart ?? true,
-        showDetailsTitle: c.showDetailsTitle ?? true,
-        showDetailsTable: c.showDetailsTable ?? true,
-        showDetailsSidePanel: c.showDetailsSidePanel ?? true,
-        showFooter: c.showFooter ?? true
+        showSideMenu: getBool(c['showSideMenu'], true),
+        showAppNavbar: getBool(c['showAppNavbar'], true),
+        showHeader: getBool(c['showHeader'], true),
+        showBreadcrumbs: getBool(c['showBreadcrumbs'], true),
+        showSearch: getBool(c['showSearch'], true),
+        showDatePicker: getBool(c['showDatePicker'], true),
+        showOptionsMenu: getBool(c['showOptionsMenu'], true),
+        showOverviewTitle: getBool(c['showOverviewTitle'], true),
+        showOverviewCards: getBool(c['showOverviewCards'], true),
+        showSessionsChart: getBool(c['showSessionsChart'], true),
+        showPageViewsChart: getBool(c['showPageViewsChart'], true),
+        showDetailsTitle: getBool(c['showDetailsTitle'], true),
+        showDetailsTable: getBool(c['showDetailsTable'], true),
+        showDetailsSidePanel: getBool(c['showDetailsSidePanel'], true),
+        showFooter: getBool(c['showFooter'], true)
     }
 }
 
