@@ -48,7 +48,7 @@
     "dependencies": {
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
-        "@mui/lab": "^6.0.0-beta.32",
+        "@mui/lab": "catalog:",
         "@mui/material": "catalog:",
         "@tabler/icons-react": "^3.30.0",
         "@universo/auth-frontend": "workspace:*",

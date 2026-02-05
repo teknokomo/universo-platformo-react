@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { generateSchemaName } from '@universo/schema-ddl'
+import { generateSchemaName, isValidSchemaName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
 import { Connector } from '../database/entities/Connector'
@@ -14,6 +14,7 @@ import type { ApplicationRole } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
+import { getVLCString } from '@universo/utils/vlc'
 import { OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
@@ -32,6 +33,74 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as Request & { user?: RequestUser }).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+const IDENTIFIER_REGEX = /^[a-z_][a-z0-9_]*$/
+
+const quoteIdentifier = (identifier: string): string => {
+    if (!IDENTIFIER_REGEX.test(identifier)) {
+        throw new Error(`Unsafe identifier: ${identifier}`)
+    }
+    return `"${identifier}"`
+}
+
+const normalizeLocale = (locale?: string): string => {
+    if (!locale) return 'en'
+    return locale.split('-')[0].split('_')[0].toLowerCase()
+}
+
+const resolvePresentationName = (presentation: unknown, locale: string, fallback: string): string => {
+    if (!presentation || typeof presentation !== 'object') return fallback
+
+    const presentationObj = presentation as {
+        name?: {
+            _primary?: string
+            locales?: Record<string, { content?: string }>
+        }
+    }
+
+    const locales = presentationObj.name?.locales
+    if (!locales || typeof locales !== 'object') return fallback
+
+    const normalized = normalizeLocale(locale)
+    const direct = locales[normalized]?.content
+    if (typeof direct === 'string' && direct.trim().length > 0) return direct
+
+    const primary = presentationObj.name?._primary
+    const primaryValue = primary ? locales[primary]?.content : undefined
+    if (typeof primaryValue === 'string' && primaryValue.trim().length > 0) return primaryValue
+
+    const first = Object.values(locales).find((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    return first?.content ?? fallback
+}
+
+const resolveRuntimeValue = (value: unknown, dataType: 'BOOLEAN' | 'STRING' | 'NUMBER', locale: string): unknown => {
+    if (value === null || value === undefined) {
+        return null
+    }
+
+    if (dataType !== 'STRING') {
+        return value
+    }
+
+    if (typeof value === 'string') {
+        return value
+    }
+
+    if (typeof value === 'object') {
+        const localized = getVLCString(value as Record<string, unknown>, locale)
+        if (localized) {
+            return localized
+        }
+
+        try {
+            return JSON.stringify(value)
+        } catch {
+            return ''
+        }
+    }
+
+    return String(value)
 }
 
 export function createApplicationsRoutes(
@@ -127,6 +196,12 @@ export function createApplicationsRoutes(
             throw error
         }
     }
+
+    const runtimeQuerySchema = z.object({
+        limit: z.coerce.number().int().min(1).max(200).default(50),
+        offset: z.coerce.number().int().min(0).default(0),
+        locale: z.string().min(2).max(10).optional().default('en')
+    })
 
     // ============ LIST APPLICATIONS ============
     router.get(
@@ -290,6 +365,298 @@ export function createApplicationsRoutes(
                 accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
                 permissions
             })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME TABLE (SINGLE CATALOG MVP) ============
+    router.get(
+        '/:applicationId/runtime',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId } = req.params
+            const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+
+            const parsedQuery = runtimeQuerySchema.safeParse(req.query)
+            if (!parsedQuery.success) {
+                return res.status(400).json({ error: 'Invalid query', details: parsedQuery.error.flatten() })
+            }
+
+            const { limit, offset, locale } = parsedQuery.data
+            const requestedLocale = normalizeLocale(locale)
+            const { applicationRepo } = repos(req)
+            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            if (!application) return res.status(404).json({ error: 'Application not found' })
+
+            if (!application.schemaName) {
+                return res.status(400).json({ error: 'Application schema is not configured' })
+            }
+
+            const schemaName = application.schemaName
+            if (!IDENTIFIER_REGEX.test(schemaName)) {
+                return res.status(400).json({ error: 'Invalid application schema name' })
+            }
+
+            const schemaIdent = quoteIdentifier(schemaName)
+            const manager = getRequestManager(req, ds)
+
+            const catalogs = await manager.query(
+                `
+                    SELECT id, codename, table_name, presentation
+                    FROM ${schemaIdent}._app_objects
+                    WHERE kind = 'catalog'
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    ORDER BY codename ASC
+                `
+            )
+
+            if (catalogs.length === 0) {
+                return res.status(404).json({ error: 'No catalogs available in application runtime schema' })
+            }
+            if (catalogs.length > 1) {
+                return res.status(409).json({
+                    error: 'Multiple catalogs are not supported in runtime MVP',
+                    details: { catalogs: catalogs.length }
+                })
+            }
+
+            const catalog = catalogs[0] as {
+                id: string
+                codename: string
+                table_name: string
+                presentation?: unknown
+            }
+
+            if (!IDENTIFIER_REGEX.test(catalog.table_name)) {
+                return res.status(400).json({ error: 'Invalid runtime table name' })
+            }
+
+            const attributes = (await manager.query(
+                `
+                    SELECT id, codename, column_name, data_type, presentation, sort_order
+                    FROM ${schemaIdent}._app_attributes
+                    WHERE object_id = $1
+                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER')
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
+                `,
+                [catalog.id]
+            )) as Array<{
+                id: string
+                codename: string
+                column_name: string
+                data_type: 'BOOLEAN' | 'STRING' | 'NUMBER'
+                presentation?: unknown
+                sort_order?: number
+            }>
+
+            const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
+
+            const dataTableIdent = `${schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const selectColumns = ['id', ...safeAttributes.map((attr) => quoteIdentifier(attr.column_name))]
+
+            const [{ total }] = (await manager.query(
+                `
+                    SELECT COUNT(*)::int AS total
+                    FROM ${dataTableIdent}
+                    WHERE COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                `
+            )) as Array<{ total: number }>
+
+            const rawRows = (await manager.query(
+                `
+                    SELECT ${selectColumns.join(', ')}
+                    FROM ${dataTableIdent}
+                    WHERE COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    ORDER BY _upl_created_at ASC NULLS LAST, id ASC
+                    LIMIT $1 OFFSET $2
+                `,
+                [limit, offset]
+            )) as Array<Record<string, unknown>>
+
+            const rows = rawRows.map((row) => {
+                const mappedRow: Record<string, unknown> & { id: string } = {
+                    id: String(row.id)
+                }
+
+                for (const attribute of safeAttributes) {
+                    mappedRow[attribute.column_name] = resolveRuntimeValue(row[attribute.column_name], attribute.data_type, requestedLocale)
+                }
+
+                return mappedRow
+            })
+
+            // Optional layout config for runtime UI (Dashboard sections show/hide).
+            // Stored inside the application dynamic schema to keep configuration versioned with migrations.
+            let layoutConfig: Record<string, unknown> = {}
+            try {
+                const [{ exists }] = (await manager.query(
+                    `
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM information_schema.tables
+                            WHERE table_schema = $1 AND table_name = '_app_settings'
+                        ) AS exists
+                    `,
+                    [schemaName]
+                )) as Array<{ exists: boolean }>
+
+                if (exists) {
+                    const uiRows = (await manager.query(
+                        `
+                            SELECT value
+                            FROM ${schemaIdent}._app_settings
+                            WHERE key = 'layout'
+                              AND COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                            LIMIT 1
+                        `
+                    )) as Array<{ value: Record<string, unknown> | null }>
+                    layoutConfig = uiRows?.[0]?.value ?? {}
+                }
+            } catch (e) {
+                // Backward compatibility: older schemas may not have _app_settings yet.
+                // eslint-disable-next-line no-console
+                console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
+            }
+
+            return res.json({
+                catalog: {
+                    id: catalog.id,
+                    codename: catalog.codename,
+                    tableName: catalog.table_name,
+                    name: resolvePresentationName(catalog.presentation, requestedLocale, catalog.codename)
+                },
+                columns: safeAttributes.map((attribute) => ({
+                    id: attribute.id,
+                    codename: attribute.codename,
+                    field: attribute.column_name,
+                    dataType: attribute.data_type,
+                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename)
+                })),
+                rows,
+                pagination: {
+                    total: typeof total === 'number' ? total : Number(total) || 0,
+                    limit,
+                    offset
+                },
+                layoutConfig
+            })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME CELL UPDATE (BOOLEAN MVP) ============
+    const runtimeUpdateBodySchema = z.object({
+        field: z.string().min(1),
+        value: z.boolean().nullable()
+    })
+
+    router.patch(
+        '/:applicationId/runtime/:rowId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId, rowId } = req.params
+            const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+
+            const parsedBody = runtimeUpdateBodySchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+            }
+
+            const { field, value } = parsedBody.data
+            if (!IDENTIFIER_REGEX.test(field)) {
+                return res.status(400).json({ error: 'Invalid field name' })
+            }
+
+            const { applicationRepo } = repos(req)
+            const application = await applicationRepo.findOne({ where: { id: applicationId } })
+            if (!application) return res.status(404).json({ error: 'Application not found' })
+            if (!application.schemaName) {
+                return res.status(400).json({ error: 'Application schema is not configured' })
+            }
+
+            const schemaName = application.schemaName
+            if (!IDENTIFIER_REGEX.test(schemaName)) {
+                return res.status(400).json({ error: 'Invalid application schema name' })
+            }
+
+            const schemaIdent = quoteIdentifier(schemaName)
+            const manager = getRequestManager(req, ds)
+
+            const catalogs = await manager.query(
+                `
+                    SELECT id, codename, table_name
+                    FROM ${schemaIdent}._app_objects
+                    WHERE kind = 'catalog'
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    ORDER BY codename ASC
+                `
+            )
+
+            if (catalogs.length !== 1) {
+                return res.status(409).json({ error: 'Runtime update supports single catalog MVP only' })
+            }
+
+            const catalog = catalogs[0] as { id: string; table_name: string }
+            if (!IDENTIFIER_REGEX.test(catalog.table_name)) {
+                return res.status(400).json({ error: 'Invalid runtime table name' })
+            }
+
+            const attrs = (await manager.query(
+                `
+                    SELECT column_name, data_type
+                    FROM ${schemaIdent}._app_attributes
+                    WHERE object_id = $1
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                `,
+                [catalog.id]
+            )) as Array<{ column_name: string; data_type: string }>
+
+            const attr = attrs.find((a) => a.column_name === field)
+            if (!attr) {
+                return res.status(404).json({ error: 'Attribute not found' })
+            }
+            if (attr.data_type !== 'BOOLEAN') {
+                return res.status(400).json({ error: 'Only BOOLEAN fields are editable in runtime MVP' })
+            }
+
+            const dataTableIdent = `${schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const updated = (await manager.query(
+                `
+                    UPDATE ${dataTableIdent}
+                    SET ${quoteIdentifier(field)} = $1,
+                        _upl_updated_at = NOW(),
+                        _upl_version = COALESCE(_upl_version, 1) + 1
+                    WHERE id = $2
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    RETURNING id
+                `,
+                [value, rowId]
+            )) as Array<{ id: string }>
+
+            if (updated.length === 0) {
+                return res.status(404).json({ error: 'Row not found' })
+            }
+
+            return res.json({ status: 'ok' })
         })
     )
 
@@ -547,7 +914,30 @@ export function createApplicationsRoutes(
             const application = await applicationRepo.findOne({ where: { id: applicationId } })
             if (!application) return res.status(404).json({ error: 'Application not found' })
 
-            await applicationRepo.remove(application)
+            // Drop application runtime schema together with the application record.
+            // This prevents orphan schemas in PostgreSQL after deleting Applications.
+            const schemaName = application.schemaName
+            if (schemaName) {
+                // Safety: only allow dropping schemas that match our generated naming convention.
+                if (!schemaName.startsWith('app_') || !isValidSchemaName(schemaName) || !IDENTIFIER_REGEX.test(schemaName)) {
+                    return res.status(400).json({ error: 'Invalid application schema name' })
+                }
+            }
+
+            await ds.transaction(async (txManager) => {
+                if (schemaName) {
+                    const schemaIdent = quoteIdentifier(schemaName)
+                    await txManager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`)
+                }
+
+                const txRepo = txManager.getRepository(Application)
+                const txApplication = await txRepo.findOne({ where: { id: applicationId } })
+                if (!txApplication) {
+                    // If the application disappeared concurrently, treat as not found.
+                    return
+                }
+                await txRepo.remove(txApplication)
+            })
             return res.status(204).send()
         })
     )

@@ -26,6 +26,7 @@ export {
     useApplicationName,
     useMetahubApplicationName,
     useMetahubPublicationName,
+    useLayoutName,
     useHubName,
     useCatalogName,
     useCatalogNameStandalone,
@@ -45,6 +46,7 @@ export {
     truncateHubName,
     truncateCatalogName,
     truncateAttributeName,
-    truncateConnectorName
+    truncateConnectorName,
+    truncateLayoutName
 } from './useBreadcrumbName'
 export type { EntityNameHookConfig, EntityNameFetcher } from './useBreadcrumbName'

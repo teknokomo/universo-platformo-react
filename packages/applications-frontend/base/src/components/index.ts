@@ -1,5 +1,7 @@
 export { ApplicationGuard } from './ApplicationGuard'
 export type { ApplicationGuardProps } from './ApplicationGuard'
+export { ApplicationAdminGuard } from './ApplicationAdminGuard'
+export type { ApplicationAdminGuardProps } from './ApplicationAdminGuard'
 
 export { CodenameField } from './CodenameField'
 export type { CodenameFieldProps } from './CodenameField'

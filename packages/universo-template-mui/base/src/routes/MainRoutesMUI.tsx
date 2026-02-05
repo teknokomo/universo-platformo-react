@@ -120,6 +120,10 @@ const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo/app
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ApplicationsApplicationMigrations = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMigrations')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsApplicationRuntime = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationRuntime')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsApplicationAdminGuard = Loadable(lazy(() => import('@universo/applications-frontend/components/ApplicationAdminGuard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorBoard')))
@@ -133,6 +137,10 @@ const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((
 const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
 const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
+const MetahubLayouts = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayouts }))))
+const MetahubLayoutDetails = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails })))
+)
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
@@ -297,6 +305,14 @@ const MinimalRoutes = {
             element: (
                 <AuthGuard>
                     <Canvas />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'a/:applicationId/*',
+            element: (
+                <AuthGuard>
+                    <ApplicationsApplicationRuntime />
                 </AuthGuard>
             )
         }
@@ -480,8 +496,12 @@ const MainRoutesMUI = {
             ]
         },
         {
-            path: 'application/:applicationId',
-            element: <Outlet />,
+            path: 'a/:applicationId/admin',
+            element: (
+                <ApplicationsApplicationAdminGuard>
+                    <Outlet />
+                </ApplicationsApplicationAdminGuard>
+            ),
             children: [
                 {
                     index: true,
@@ -540,6 +560,14 @@ const MainRoutesMUI = {
                 {
                     path: 'catalogs',
                     element: <CatalogList />
+                },
+                {
+                    path: 'layouts',
+                    element: <MetahubLayouts />
+                },
+                {
+                    path: 'layouts/:layoutId',
+                    element: <MetahubLayoutDetails />
                 },
                 {
                     path: 'catalog/:catalogId/attributes',

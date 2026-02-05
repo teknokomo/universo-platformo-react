@@ -182,6 +182,33 @@ export interface ConnectorLocalizedPayload {
     publicationId?: string // Optional publication to link on creation
 }
 
+export interface ApplicationRuntimeColumn {
+    id: string
+    codename: string
+    field: string
+    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER'
+    headerName: string
+}
+
+export interface ApplicationRuntimeCatalog {
+    id: string
+    codename: string
+    tableName: string
+    name: string
+}
+
+export interface ApplicationRuntimeResponse {
+    catalog: ApplicationRuntimeCatalog
+    columns: ApplicationRuntimeColumn[]
+    rows: Array<Record<string, unknown> & { id: string }>
+    pagination: {
+        total: number
+        limit: number
+        offset: number
+    }
+    layoutConfig?: Record<string, unknown>
+}
+
 // ============ HELPER FUNCTIONS ============
 
 /**

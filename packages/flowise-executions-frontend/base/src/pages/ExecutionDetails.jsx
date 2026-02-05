@@ -7,18 +7,18 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView'
 import { Typography, Box, Drawer, Chip, Button, Tooltip } from '@mui/material'
 import { styled, alpha } from '@mui/material/styles'
-import { useTreeItem2 } from '@mui/x-tree-view/useTreeItem2'
+import { useTreeItem } from '@mui/x-tree-view/useTreeItem'
 import {
-    TreeItem2Content,
-    TreeItem2IconContainer,
-    TreeItem2GroupTransition,
-    TreeItem2Label,
-    TreeItem2Root,
-    TreeItem2Checkbox
-} from '@mui/x-tree-view/TreeItem2'
-import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon'
-import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider'
-import { TreeItem2DragAndDropOverlay } from '@mui/x-tree-view/TreeItem2DragAndDropOverlay'
+    TreeItemContent,
+    TreeItemIconContainer,
+    TreeItemGroupTransition,
+    TreeItemLabel,
+    TreeItemRoot,
+    TreeItemCheckbox
+} from '@mui/x-tree-view/TreeItem'
+import { TreeItemIcon } from '@mui/x-tree-view/TreeItemIcon'
+import { TreeItemProvider } from '@mui/x-tree-view/TreeItemProvider'
+import { TreeItemDragAndDropOverlay } from '@mui/x-tree-view/TreeItemDragAndDropOverlay'
 import DragHandleIcon from '@mui/icons-material/DragHandle'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import StopCircleIcon from '@mui/icons-material/StopCircle'
@@ -66,11 +66,11 @@ const getIconColor = (status) => {
     }
 }
 
-const StyledTreeItemRoot = styled(TreeItem2Root)(({ theme }) => ({
+const StyledTreeItemRoot = styled(TreeItemRoot)(({ theme }) => ({
     color: theme.palette.grey[400]
 }))
 
-const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({
+const CustomTreeItemContent = styled(TreeItemContent)(({ theme }) => ({
     flexDirection: 'row-reverse',
     borderRadius: theme.spacing(0.7),
     marginBottom: theme.spacing(0.5),
@@ -124,7 +124,7 @@ function CustomLabel({ icon: Icon, itemStatus, children, name, ...other }) {
     const isIterationNode = name === 'iterationAgentflow'
 
     return (
-        <TreeItem2Label
+        <TreeItemLabel
             {...other}
             sx={{
                 display: 'flex',
@@ -170,7 +170,7 @@ function CustomLabel({ icon: Icon, itemStatus, children, name, ...other }) {
             <StyledTreeItemLabelText sx={{ flex: 1 }}>{children}</StyledTreeItemLabelText>
 
             {Icon && <Box component={Icon} className='labelIcon' color={getIconColor(itemStatus)} sx={{ ml: 1, fontSize: '1.2rem' }} />}
-        </TreeItem2Label>
+        </TreeItemLabel>
     )
 }
 
@@ -224,6 +224,7 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(props, ref) {
     const theme = useTheme()
 
     const {
+        getContextProviderProps,
         getRootProps,
         getContentProps,
         getIconContainerProps,
@@ -233,7 +234,7 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(props, ref) {
         getDragAndDropOverlayProps,
         status,
         publicAPI
-    } = useTreeItem2({ id, itemId, children, label, disabled, rootRef: ref })
+    } = useTreeItem({ id, itemId, children, label, disabled, rootRef: ref })
 
     const item = publicAPI.getItem(itemId)
     const expandable = isExpandable(children)
@@ -243,13 +244,13 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(props, ref) {
     }
 
     return (
-        <TreeItem2Provider itemId={itemId}>
+        <TreeItemProvider {...getContextProviderProps()}>
             <StyledTreeItemRoot {...getRootProps(other)}>
                 <CustomTreeItemContent {...getContentProps()}>
-                    <TreeItem2IconContainer {...getIconContainerProps()}>
-                        <TreeItem2Icon status={status} />
-                    </TreeItem2IconContainer>
-                    <TreeItem2Checkbox {...getCheckboxProps()} />
+                    <TreeItemIconContainer {...getIconContainerProps()}>
+                        <TreeItemIcon status={status} />
+                    </TreeItemIconContainer>
+                    <TreeItemCheckbox {...getCheckboxProps()} />
                     <CustomLabel
                         {...getLabelProps({
                             icon,
@@ -258,10 +259,10 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(props, ref) {
                             name: item.name || item.id?.split('_')[0]
                         })}
                     />
-                    <TreeItem2DragAndDropOverlay {...getDragAndDropOverlayProps()} />
+                    <TreeItemDragAndDropOverlay {...getDragAndDropOverlayProps()} />
                 </CustomTreeItemContent>
                 {children && (
-                    <TreeItem2GroupTransition
+                    <TreeItemGroupTransition
                         {...getGroupTransitionProps()}
                         style={{
                             borderLeft: `${status.selected ? '3px solid' : '1px dashed'} ${(() => {
@@ -275,7 +276,7 @@ const CustomTreeItem = forwardRef(function CustomTreeItem(props, ref) {
                     />
                 )}
             </StyledTreeItemRoot>
-        </TreeItem2Provider>
+        </TreeItemProvider>
     )
 })
 

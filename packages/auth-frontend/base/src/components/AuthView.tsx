@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type MouseEvent, type ComponentType, type ReactNode } from 'react'
 import {
     Box,
+    Stack,
     TextField,
     Button,
     Typography,
     Alert,
     Container as MuiContainer,
-    Grid,
     Link,
     CircularProgress,
     FormControlLabel,
@@ -362,79 +362,73 @@ export const AuthView = ({
                         </Box>
                     ) : (
                         <Box component='form' onSubmit={handleSubmit}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        type='email'
-                                        label={labels.email}
-                                        value={email}
-                                        onChange={(event) => setEmail(event.target.value)}
-                                        disabled={submitting}
-                                        InputProps={{ startAdornment: adornment.email }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        type='password'
-                                        label={labels.password}
-                                        value={password}
-                                        onChange={(event) => setPassword(event.target.value)}
-                                        disabled={submitting}
-                                        InputProps={{ startAdornment: adornment.password }}
-                                    />
-                                </Grid>
+                            <Stack spacing={2}>
+                                <TextField
+                                    fullWidth
+                                    type='email'
+                                    label={labels.email}
+                                    value={email}
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    disabled={submitting}
+                                    InputProps={{ startAdornment: adornment.email }}
+                                />
+                                <TextField
+                                    fullWidth
+                                    type='password'
+                                    label={labels.password}
+                                    value={password}
+                                    onChange={(event) => setPassword(event.target.value)}
+                                    disabled={submitting}
+                                    InputProps={{ startAdornment: adornment.password }}
+                                />
+
                                 {/* Consent checkboxes - only shown in register mode when labels are provided */}
                                 {mode === 'register' && hasConsentLabels ? (
-                                    <>
-                                        <Grid item xs={12}>
-                                            <FormControlLabel
-                                                control={
-                                                    <Checkbox
-                                                        checked={termsAccepted}
-                                                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                                                        disabled={submitting}
-                                                        size='small'
-                                                    />
-                                                }
-                                                label={
-                                                    <Typography variant='body2'>
-                                                        {labels.termsCheckbox}{' '}
-                                                        <Link href='/terms' target='_blank' rel='noopener noreferrer' underline='hover'>
-                                                            {labels.termsLink}
-                                                        </Link>
-                                                    </Typography>
-                                                }
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sx={{ mt: -1 }}>
-                                            <FormControlLabel
-                                                control={
-                                                    <Checkbox
-                                                        checked={privacyAccepted}
-                                                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                                                        disabled={submitting}
-                                                        size='small'
-                                                    />
-                                                }
-                                                label={
-                                                    <Typography variant='body2'>
-                                                        {labels.privacyCheckbox}{' '}
-                                                        <Link href='/privacy' target='_blank' rel='noopener noreferrer' underline='hover'>
-                                                            {labels.privacyLink}
-                                                        </Link>
-                                                        {labels.privacySuffix}
-                                                    </Typography>
-                                                }
-                                            />
-                                        </Grid>
-                                    </>
+                                    <Stack spacing={0.5}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={termsAccepted}
+                                                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                                                    disabled={submitting}
+                                                    size='small'
+                                                />
+                                            }
+                                            label={
+                                                <Typography variant='body2'>
+                                                    {labels.termsCheckbox}{' '}
+                                                    <Link href='/terms' target='_blank' rel='noopener noreferrer' underline='hover'>
+                                                        {labels.termsLink}
+                                                    </Link>
+                                                </Typography>
+                                            }
+                                        />
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={privacyAccepted}
+                                                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                                    disabled={submitting}
+                                                    size='small'
+                                                />
+                                            }
+                                            label={
+                                                <Typography variant='body2'>
+                                                    {labels.privacyCheckbox}{' '}
+                                                    <Link href='/privacy' target='_blank' rel='noopener noreferrer' underline='hover'>
+                                                        {labels.privacyLink}
+                                                    </Link>
+                                                    {labels.privacySuffix}
+                                                </Typography>
+                                            }
+                                        />
+                                    </Stack>
                                 ) : null}
+
                                 {/* Captcha widget - shown for both login and register when enabled */}
                                 {/* key prop forces re-render on mode change, resetting the widget state */}
                                 {captchaEnabled ? (
-                                    <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                                         <SmartCaptcha
                                             key={`captcha-${mode}`}
                                             sitekey={siteKey}
@@ -449,22 +443,21 @@ export const AuthView = ({
                                             }}
                                             test={testMode}
                                         />
-                                    </Grid>
+                                    </Box>
                                 ) : null}
-                                <Grid item xs={12}>
-                                    <Button
-                                        fullWidth
-                                        type='submit'
-                                        variant='contained'
-                                        color='primary'
-                                        size='large'
-                                        disabled={submitting || isConsentBlockingRegister || isCaptchaBlocking}
-                                        startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
-                                    >
-                                        {submitLabel}
-                                    </Button>
-                                </Grid>
-                            </Grid>
+
+                                <Button
+                                    fullWidth
+                                    type='submit'
+                                    variant='contained'
+                                    color='primary'
+                                    size='large'
+                                    disabled={submitting || isConsentBlockingRegister || isCaptchaBlocking}
+                                    startIcon={submitting ? <CircularProgress size={20} color='inherit' /> : null}
+                                >
+                                    {submitLabel}
+                                </Button>
+                            </Stack>
                         </Box>
                     )}
                     {/* Mode switcher - shown for both enabled and disabled states (DRY) */}

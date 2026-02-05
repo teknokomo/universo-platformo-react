@@ -4,6 +4,7 @@
 
 export { templateConfig as config } from './config'
 export { default as Dashboard } from './views/dashboard/Dashboard'
+export type { DashboardLayoutConfig, DashboardDetailsSlot } from './components/dashboard/runtimeTypes'
 
 // New exports for universal MUI routing system
 export { default as MainLayoutMUI } from './layout/MainLayoutMUI'
@@ -18,6 +19,9 @@ export { default as UnikLayout } from './layout/MainLayoutMUI'
 // Placeholder type to avoid consumer breakage if they expect a TemplateProvider symbol.
 // Will be replaced by real implementation in later integration phase.
 export const TemplateProvider = ({ children }: { children?: any }) => children as any
+
+// Utilities
+export { isAccessDeniedError } from './utils/httpErrors'
 
 // Components
 export {

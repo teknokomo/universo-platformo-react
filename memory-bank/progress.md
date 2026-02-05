@@ -44,6 +44,100 @@
 
 ---
 
+## 2026-02-04
+
+### Applications Runtime UI + `/a/:applicationId` Routing (MVP)
+- **Objective**: Introduce user-facing application runtime entrypoint and separate it from admin control panel routing.
+- **Routing Changes**:
+  - Added user runtime route: `/a/:applicationId`
+  - Moved admin entry to: `/a/:applicationId/admin/*`
+  - Added role guard for admin area (`owner`, `admin`, `editor` only)
+  - Updated application list card/row links to point to runtime route by default
+  - Added role-gated "Control Panel" action in application item menu
+- **Backend Changes**:
+  - Added `GET /applications/:applicationId/runtime` endpoint in applications-backend
+  - Runtime API returns dynamic table metadata and rows from application schema (`_app_objects`, `_app_attributes`, data table)
+  - Enforced single-catalog MVP guard (`409` when more than one catalog exists)
+  - Hardened access control in application-scoped endpoints (connectors, sync/diff, migrations)
+  - Preserved singular route naming for single-entity metahubs endpoints (`/application/:applicationId/...`)
+- **Template Bootstrap**:
+  - Copied full `.backup/templates` into `packages/apps-template-mui`
+  - Added minimal scaffolding in `packages/apps-template-mui`:
+    - `layouts/MinimalRuntimeLayout.tsx`
+    - `components/RuntimeCatalogTable.tsx`
+    - `routes/RuntimeTableRoute.tsx`
+  - `@universo/apps-template-mui` is included as a workspace package and exports `AppsDashboard` used by `ApplicationRuntime` (`/a/:applicationId`)
+- **Tests/Validation**:
+  - Updated route-based tests to new `/a/:applicationId/admin/...` pattern
+  - Fixed connector create test payload to include required `publicationIds`
+  - Build checks passed:
+    - `@universo/applications-backend`
+    - `@universo/metahubs-backend`
+    - `@universo/applications-frontend` (i18n build entry)
+    - `@universo/metahubs-frontend`
+    - `@universo/template-mui`
+  - `ConnectorList` test file passes in isolated run with coverage disabled
+- **Known Baseline Gaps**:
+  - Workspace has pre-existing lint/test debt in applications-frontend (not introduced by this task)
+  - Full test run currently fails due existing unrelated issues and coverage thresholds
+
+### Runtime Routing Follow-up Hardening
+- **Objective**: Remove residual legacy application admin links and harden runtime scaffolding without introducing compatibility risk.
+- **Changes**:
+  - Updated `flowise-template-mui` sidebar application route detection and link generation to use `/a/:applicationId/admin/...` only.
+  - Fixed `ApplicationGuard` `ResourceGuard` prop wiring (`resourceIdParam`) and updated its unit test.
+  - Updated `apps-template-mui` minimal runtime scaffold to render Dashboard `CustomizedDataGrid` with dynamic props (no demo dataset import).
+  - Applied Dashboard-compatible `DataGrid` options on `ApplicationRuntime` (`disableColumnResize`, compact density, filter panel props).
+- **Validation**:
+  - `pnpm --filter @universo/applications-frontend build` passed.
+  - `ApplicationGuard` test passed in isolated run.
+  - `ConnectorList` + `ApplicationMembers` targeted tests passed; `ApplicationBoard` suite still fails on pre-existing MUI Charts fixture mismatch (x-axis vs series length).
+  - `pnpm --filter @flowise/template-mui lint` returned warnings only (no new errors).
+
+### Runtime Table Data Normalization (MVP)
+- **Objective**: Ensure `/a/:applicationId` displays business-friendly values (especially STRING/VLC) and visible checkbox UX for BOOLEAN fields.
+- **Backend Changes** (`applicationsRoutes` runtime endpoint):
+  - Added runtime value resolver for table rows:
+    - STRING + JSONB VLC values are converted to locale-specific strings using `getVLCString(...)`.
+    - Non-VLC JSON values fallback to serialized JSON text.
+  - Changed `_app_attributes` sort for runtime columns to creation order (`_upl_created_at ASC`, then `codename`) for stable visual order.
+- **Frontend Changes** (`ApplicationRuntime`):
+  - BOOLEAN cells render disabled `Checkbox` in table body (clear checkbox semantics).
+  - Added TanStack Query `keepPreviousData` to keep old page while loading next page.
+  - Preserved minimal layout and dashboard-style DataGrid options (compact, filter panel props, row selection checkboxes).
+- **Validation**:
+  - `pnpm --filter @universo/applications-backend build` passed.
+  - `pnpm --filter @universo/applications-frontend build` passed.
+
+### Applications Menu Delete + Drop Application Schema
+- **Objective**: Restore expected application actions menu and prevent orphan runtime schemas after deleting an application.
+- **Frontend**:
+  - Applications list item menu now includes "Delete" below "Edit" with a single divider after "Control Panel" (shown for `owner` only, matching backend authorization).
+- **Backend**:
+  - `DELETE /applications/:applicationId` now drops the application schema (`DROP SCHEMA IF EXISTS app_* CASCADE`) inside a transaction before removing the Application record.
+  - Safety checks restrict schema deletion to `app_*` schemas matching `isValidSchemaName(...)`.
+- **Validation**:
+  - `pnpm --filter @universo/applications-backend build` passed.
+  - Targeted backend test passed: `DELETE /applications/:applicationId` in `applicationsRoutes.test.ts`.
+  - `pnpm --filter @universo/applications-frontend build` passed.
+
+### UI Layout Sync + Dashboard Grid Fixes (MUI 7) + Auth Form Layout
+- **Objective**: Make UI layout config changes sync reliably into existing Applications, and restore MUI template layout consistency after MUI 7 upgrade.
+- **Backend Changes**:
+  - Application diff now includes an explicit UI-only marker (`ui.layout.update`) when `_app_ui_settings` differs from the active publication snapshot layout config.
+  - Connector sync persists `_app_ui_settings` even when there are no DDL changes, and records a meta-only migration to update the applied snapshot hash.
+  - Sync response returns `status: ui_updated` when only UI settings were updated (to avoid "no changes" confusion).
+  - UI settings persistence now proactively calls `SchemaGenerator.ensureSystemTables(...)` to create `_app_ui_settings` for pre-existing runtime schemas.
+- **Frontend Changes**:
+  - Connector diff dialog localizes the UI-only marker (EN/RU).
+  - Metahub "Layout" page updated to match UI style (no extra dividers) and uses i18n keys for all labels.
+  - Board dashboards across feature packages normalized to MUI 7 Grid v2 API (`size`, Overview title placement) and template-like StatCard heights (avoid `description` usage).
+  - Template dashboard `MainGrid` migrated from `GridLegacy` to Grid v2; `StatCard` clamps long labels to 1 line to keep card heights stable.
+  - AuthView login/register layout restored by switching form layout from Grid to Stack (prevents horizontal field collapse).
+- **Validation**:
+  - Targeted builds passed: `@universo/metahubs-backend`, `@universo/metahubs-frontend`, `@universo/auth-frontend`, feature frontends boards.
+  - `pnpm --filter @flowise/core-frontend build` passed.
+
 ## 2026-02-03
 
 ### Supabase Connection Pool Optimization

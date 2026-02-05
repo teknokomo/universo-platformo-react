@@ -39,7 +39,13 @@ export default defineConfig(async ({ mode }) => {
 
     dotenv.config()
     return {
-        plugins: [react(), supportedLanguagesPlugin()],
+        plugins: [
+            react(),
+            supportedLanguagesPlugin()
+        ],
+        esbuild: {
+            target: 'es2022'
+        },
         optimizeDeps: {
             // Disable pre-bundling to eliminate accidental duplicate singletons during dev
             // Re-enable later if needed after full stabilization
@@ -150,6 +156,7 @@ export default defineConfig(async ({ mode }) => {
         build: {
             outDir: './build',
             sourcemap: true,
+            target: 'es2022',
             commonjsOptions: {
                 include: [/@universo\//, /node_modules/],
                 transformMixedEsModules: true

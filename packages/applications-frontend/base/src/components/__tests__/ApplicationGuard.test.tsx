@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 
 describe('ApplicationGuard', () => {
     beforeEach(() => {
@@ -8,7 +9,7 @@ describe('ApplicationGuard', () => {
     })
 
     it('wires ResourceGuard with application-specific configuration', async () => {
-        const ResourceGuard = vi.fn(({ children }: any) => <div data-testid='rg'>{children}</div>)
+        const ResourceGuard = vi.fn(({ children }: { children: ReactNode }) => <div data-testid='rg'>{children}</div>)
 
         vi.doMock('@universo/template-mui', () => ({
             ResourceGuard
@@ -32,7 +33,7 @@ describe('ApplicationGuard', () => {
 
         const props = ResourceGuard.mock.calls[0][0]
         expect(props.resourceType).toBe('application')
-        expect(props.reconnectorIdParam).toBe('applicationId')
+        expect(props.resourceIdParam).toBe('applicationId')
         expect(props.accessDeniedRedirectTo).toBe('/x')
 
         await expect(props.fetchResource('m1')).resolves.toEqual({ id: 'm1', name: 'Test' })

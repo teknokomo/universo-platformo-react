@@ -30,7 +30,7 @@
     },
     "scripts": {
         "clean": "rimraf dist",
-        "build": "tsdown && tsc --emitDeclarationOnly",
+        "build": "NODE_OPTIONS='--max-old-space-size=8192' tsdown && NODE_OPTIONS='--max-old-space-size=8192' tsc --emitDeclarationOnly",
         "dev": "tsdown --watch",
         "lint": "eslint --ext .ts,.tsx,.jsx src/",
         "test": "NODE_OPTIONS='--require ./jest-canvas-mock.js' jest",
@@ -51,12 +51,12 @@
         "@tanstack/react-query": "^5.62.13",
         "@mui/material": "catalog:",
         "@mui/icons-material": "catalog:",
-        "@mui/x-charts": "^7.22.2",
-        "@mui/x-data-grid": "^7.22.2",
-        "@mui/x-data-grid-pro": "^7.22.2",
-        "@mui/x-date-pickers": "^7.22.2",
-        "@mui/x-date-pickers-pro": "^7.22.2",
-        "@mui/x-tree-view": "^7.22.2",
+        "@mui/x-charts": "catalog:",
+        "@mui/x-data-grid": "catalog:",
+        "@mui/x-data-grid-pro": "catalog:",
+        "@mui/x-date-pickers": "catalog:",
+        "@mui/x-date-pickers-pro": "catalog:",
+        "@mui/x-tree-view": "catalog:",
         "@universo/i18n": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
@@ -68,7 +68,8 @@
         "html-react-parser": "^5.1.10",
         "use-debounce": "^10.0.6",
         "react-hook-form": "catalog:",
-        "@hookform/resolvers": "catalog:"
+        "@hookform/resolvers": "catalog:",
+        "react-redux": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

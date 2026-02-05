@@ -14,6 +14,33 @@ export interface MetahubSnapshot {
     metahubId: string
     entities: Record<string, MetaEntitySnapshot>
     elements?: Record<string, MetaElementSnapshot[]>
+    /**
+     * Active UI layouts captured at publication time.
+     * MVP: only the Dashboard template is supported.
+     */
+    layouts?: MetahubLayoutSnapshot[]
+    /**
+     * Default layout id (must reference one of `layouts` when present).
+     */
+    defaultLayoutId?: string | null
+    /**
+     * UI layout configuration captured at publication time.
+     * This is used by runtime UI (apps-template-mui) to render Dashboard sections.
+     *
+     * NOTE: This represents the DEFAULT layout config for backward/forward compatibility.
+     */
+    layoutConfig?: Record<string, unknown>
+}
+
+export interface MetahubLayoutSnapshot {
+    id: string
+    templateKey: string
+    name: Record<string, unknown>
+    description?: Record<string, unknown> | null
+    config: Record<string, unknown>
+    isDefault: boolean
+    isActive: boolean
+    sortOrder: number
 }
 
 export interface MetaEntitySnapshot extends EntityDefinition {
@@ -253,7 +280,7 @@ export class SnapshotSerializer {
             ? Object.entries(snapshot.elements)
                 .map(([objectId, list]) => ({
                     objectId,
-                    elements: [...list]
+                    elements: list
                         .map((element) => ({
                             id: element.id,
                             data: element.data ?? {},
@@ -267,11 +294,33 @@ export class SnapshotSerializer {
                 .sort((a, b) => a.objectId.localeCompare(b.objectId))
             : []
 
+        const layouts = snapshot.layouts
+            ? snapshot.layouts
+                .map((layout) => ({
+                    id: layout.id,
+                    templateKey: layout.templateKey,
+                    name: layout.name ?? {},
+                    description: layout.description ?? null,
+                    config: layout.config ?? {},
+                    isDefault: Boolean(layout.isDefault),
+                    isActive: Boolean(layout.isActive),
+                    sortOrder: layout.sortOrder ?? 0
+                }))
+                .sort((a, b) => {
+                    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1
+                    return a.id.localeCompare(b.id)
+                })
+            : []
+
         return {
             version: snapshot.version,
             metahubId: snapshot.metahubId,
             entities,
-            elements
+            elements,
+            layouts,
+            defaultLayoutId: snapshot.defaultLayoutId ?? null,
+            layoutConfig: snapshot.layoutConfig ?? {}
         }
     }
 }

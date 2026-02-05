@@ -15,7 +15,7 @@ const MenuList = () => {
     const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = metaverseMatch ? metaverseMatch[1] : null
-    const applicationMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
+    const applicationMatch = location.pathname.match(/^\/a\/([^/]+)(?:\/admin(?:\/|$)|\/|$)/)
     const applicationId = applicationMatch ? applicationMatch[1] : null
     const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
     const metahubId = metahubMatch ? metahubMatch[1] : null
@@ -294,7 +294,7 @@ const MenuList = () => {
             ...applicationsDashboard,
             children: filteredChildren.map((item) => ({
                 ...item,
-                url: `/application/${applicationId}${item.url}`
+                url: `/a/${applicationId}/admin${item.url}`
             }))
         }
     } else if (metahubMatch && metahubId) {

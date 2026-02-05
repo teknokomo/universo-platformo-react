@@ -2,10 +2,10 @@ import React from 'react'
 import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { useQuery, QueryKey } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frontend'
-import { AxiosError } from 'axios'
 
 // Local imports
 import { Loader } from '../feedback/loading'
+import { isAccessDeniedError } from '../../utils/httpErrors'
 
 /**
  * Props for ResourceGuard component
@@ -49,22 +49,6 @@ export interface ResourceGuardProps {
      * @default '/'
      */
     accessDeniedRedirectTo?: string
-}
-
-/**
- * Helper to check if error is an access denied error (403 or 404)
- */
-const isAccessDeniedError = (error: unknown): boolean => {
-    if (error instanceof AxiosError) {
-        const status = error.response?.status
-        return status === 403 || status === 404
-    }
-    // Check for generic error with status
-    if (error && typeof error === 'object' && 'status' in error) {
-        const status = (error as { status: number }).status
-        return status === 403 || status === 404
-    }
-    return false
 }
 
 /**

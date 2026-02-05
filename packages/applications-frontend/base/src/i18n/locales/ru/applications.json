@@ -13,7 +13,8 @@
         "actions": {
             "edit": "Редактировать",
             "delete": "Удалить",
-            "backToList": "Назад к приложениям"
+            "backToList": "Назад к приложениям",
+            "controlPanel": "Панель управления"
         },
         "board": {
             "title": "Панель приложения",
@@ -25,6 +26,11 @@
                     "title": "Коннекторы",
                     "interval": "За всё время",
                     "description": "Всего коннекторов в этом приложении"
+                },
+                "migrations": {
+                    "title": "Миграции",
+                    "interval": "За всё время",
+                    "description": "Всего миграций в этом приложении (демо данные)"
                 },
                 "members": {
                     "title": "Участники",
@@ -60,6 +66,12 @@
             "role": "Роль",
             "connectors": "Коннекторы",
             "created": "Создано"
+        },
+        "runtime": {
+            "errors": {
+                "missingApplicationId": "В URL отсутствует ID приложения",
+                "loadFailed": "Не удалось загрузить данные пользовательского интерфейса"
+            }
         }
     },
     "connectors": {
@@ -164,16 +176,41 @@
             "loadError": "Не удалось загрузить изменения схемы",
             "noChanges": "Изменений схемы не обнаружено",
             "schemaUpToDate": "Схема соответствует текущей конфигурации",
+            "uiLayoutUpdate": "Будут применены настройки макета пользовательского интерфейса",
+            "uiLayoutsUpdate": "Будет обновлён список макетов пользовательского интерфейса",
+            "systemMetadataUpdate": "Будут обновлены системные метаданные",
             "schemaMissingTitle": "Схема ещё не создана",
             "schemaNotExists": "Схема ещё не существует. Она будет создана при первой синхронизации.",
             "schemaWillBeCreated": "Будет создана следующая схема:",
             "tablesWillBeCreated": "Таблицы для создания",
+            "tableMeta": "{{fieldsCount}} полей, {{elementsCount}} элементов",
+            "fields": "Поля",
+            "predefinedElements": "Элементы по умолчанию",
+            "columns": {
+                "codename": "Кодовое имя",
+                "type": "Тип",
+                "required": "Обязательно"
+            },
+            "dataTypes": {
+                "boolean": "Булево",
+                "string": "Строка",
+                "number": "Число",
+                "json": "JSON"
+            },
+            "summary": {
+                "create": "Создать {{tablesCount}} табл. в новой схеме",
+                "uiChanged": "Изменились настройки UI",
+                "upToDate": "Схема уже актуальна",
+                "metadataChanged": "Будут обновлены системные метаданные"
+            },
             "additive": "Добавления",
+            "additiveChanges": "Безопасные изменения (будут применены)",
             "destructive": "Деструктивные изменения",
             "destructiveWarning": "Следующие изменения могут привести к потере данных:",
             "confirmSync": "Применить изменения",
             "createSchema": "Создать схему",
             "confirmDestructive": "Применить включая деструктивные",
+            "applySafeChanges": "Применить только безопасные изменения",
             "cancel": "Отмена"
         },
         "board": {

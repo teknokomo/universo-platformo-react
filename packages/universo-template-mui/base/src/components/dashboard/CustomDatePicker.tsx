@@ -6,7 +6,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DatePicker, DatePickerFieldProps } from '@mui/x-date-pickers/DatePicker'
 
-interface ButtonFieldProps extends DatePickerFieldProps<Dayjs> {}
+interface ButtonFieldProps extends DatePickerFieldProps {}
 
 function ButtonField(props: ButtonFieldProps) {
     return (

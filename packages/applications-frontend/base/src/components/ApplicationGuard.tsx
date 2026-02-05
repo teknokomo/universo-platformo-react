@@ -30,7 +30,7 @@ export interface ApplicationGuardProps {
  * @example
  * ```tsx
  * <Route
- *   path="/application/:applicationId/*"
+ *   path="/a/:applicationId/admin/*"
  *   element={
  *     <ApplicationGuard>
  *       <Outlet />
@@ -43,7 +43,7 @@ export const ApplicationGuard: React.FC<ApplicationGuardProps> = ({ children, ac
     return (
         <ResourceGuard
             resourceType='application'
-            reconnectorIdParam='applicationId'
+            resourceIdParam='applicationId'
             fetchResource={async (id: string) => {
                 const response = await getApplication(id)
                 return response.data

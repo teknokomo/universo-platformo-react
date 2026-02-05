@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@microsoft/fetch-event-source": "^2.0.1",
-    "@mui/material": "5.15.0",
+    "@mui/material": "catalog:",
     "@mui/system": "^6.4.3",
     "@tabler/icons-react": "^3.30.0",
     "@universo/auth-frontend": "workspace:*",

@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography'
 // MVP: Box commented out - not used in current simplified layout
 // import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
-import Grid from '@mui/material/Grid2'
+import Grid from '@mui/material/Grid'
 // MVP: useColorScheme commented out - not used in current simplified layout
 // import { useColorScheme } from '@mui/material/styles'
 

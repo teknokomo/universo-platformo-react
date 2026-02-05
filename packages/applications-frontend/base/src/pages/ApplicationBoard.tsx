@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Typography, Stack, CircularProgress, Alert, Grid, Button } from '@mui/material'
+import { Box, Typography, Stack, CircularProgress, Alert, Button, Grid } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -91,6 +91,10 @@ const ApplicationBoard = () => {
 
     const membersData = [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
+    // TODO: Replace with real migrations count when backend analytics is ready.
+    const migrationsCount = 0
+    const migrationsData = Array(30).fill(migrationsCount)
+
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
             {/* ViewHeader with horizontal padding */}
@@ -104,38 +108,43 @@ const ApplicationBoard = () => {
 
             {/* Dashboard Grid */}
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-                <Grid container spacing={2} columns={12}>
-                    {/* Overview MetaSection */}
-                    <Grid item xs={12}>
-                        <Typography component='h2' variant='h6'>
-                            {t('board.overview', 'Overview')}
-                        </Typography>
-                    </Grid>
+                <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
+                    {t('board.overview', 'Overview')}
+                </Typography>
+                <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
 
                     {/* Connectors Count */}
-                    <Grid item xs={12} sm={6} lg={6}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.connectors.title')}
                             value={applicationDisplay.connectorsCount ?? 0}
                             interval={t('board.stats.connectors.interval')}
-                            description={t('board.stats.connectors.description')}
                             data={connectorsData}
                         />
                     </Grid>
 
+                    {/* Migrations Count (Demo Data) */}
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <StatCard
+                            title={t('board.stats.migrations.title')}
+                            value={migrationsCount}
+                            interval={t('board.stats.migrations.interval')}
+                            data={migrationsData}
+                        />
+                    </Grid>
+
                     {/* Members Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.members.title')}
                             value={applicationDisplay.membersCount ?? 0}
                             interval={t('board.stats.members.interval')}
-                            description={t('board.stats.members.description')}
                             data={membersData}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title')}
@@ -147,12 +156,12 @@ const ApplicationBoard = () => {
                     </Grid>
 
                     {/* Activity Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
                     </Grid>
 
                     {/* Resources Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <PageViewsBarChart
                             title={t('board.charts.resources.title')}
                             description={t('board.charts.resources.description')}

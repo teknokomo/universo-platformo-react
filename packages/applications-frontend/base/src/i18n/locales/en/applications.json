@@ -13,7 +13,8 @@
         "actions": {
             "edit": "Edit",
             "delete": "Delete",
-            "backToList": "Back to applications"
+            "backToList": "Back to applications",
+            "controlPanel": "Control panel"
         },
         "board": {
             "title": "Application Board",
@@ -25,6 +26,11 @@
                     "title": "Connectors",
                     "interval": "All time",
                     "description": "Total connectors in this application"
+                },
+                "migrations": {
+                    "title": "Migrations",
+                    "interval": "All time",
+                    "description": "Total migrations in this application (demo data)"
                 },
                 "members": {
                     "title": "Members",
@@ -60,6 +66,12 @@
             "role": "Role",
             "connectors": "Connectors",
             "created": "Created"
+        },
+        "runtime": {
+            "errors": {
+                "missingApplicationId": "Application ID is missing in URL",
+                "loadFailed": "Failed to load runtime data"
+            }
         }
     },
     "connectors": {
@@ -164,16 +176,41 @@
             "loadError": "Failed to load schema changes",
             "noChanges": "No schema changes detected",
             "schemaUpToDate": "Schema matches current configuration",
+            "uiLayoutUpdate": "UI layout settings will be updated",
+            "uiLayoutsUpdate": "UI layouts list will be updated",
+            "systemMetadataUpdate": "System metadata will be updated",
             "schemaMissingTitle": "Schema not created yet",
             "schemaNotExists": "Schema does not exist yet. It will be created on first sync.",
             "schemaWillBeCreated": "The following schema will be created:",
             "tablesWillBeCreated": "Tables to be created",
+            "tableMeta": "{{fieldsCount}} fields, {{elementsCount}} elements",
+            "fields": "Fields",
+            "predefinedElements": "Predefined elements",
+            "columns": {
+                "codename": "Codename",
+                "type": "Type",
+                "required": "Required"
+            },
+            "dataTypes": {
+                "boolean": "Boolean",
+                "string": "String",
+                "number": "Number",
+                "json": "JSON"
+            },
+            "summary": {
+                "create": "Create {{tablesCount}} table(s) in new schema",
+                "uiChanged": "UI settings have changed",
+                "upToDate": "Schema is already up to date",
+                "metadataChanged": "System metadata will be updated"
+            },
             "additive": "Additions",
+            "additiveChanges": "Safe Changes (will be applied)",
             "destructive": "Destructive Changes",
             "destructiveWarning": "The following changes may result in data loss:",
             "confirmSync": "Apply Changes",
             "createSchema": "Create Schema",
             "confirmDestructive": "Apply Including Destructive",
+            "applySafeChanges": "Apply Safe Changes Only",
             "cancel": "Cancel"
         },
         "board": {

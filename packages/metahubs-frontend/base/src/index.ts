@@ -17,6 +17,8 @@ export { default as HubList } from './domains/hubs/ui/HubList'
 export { default as CatalogList } from './domains/catalogs/ui/CatalogList'
 export { default as AttributeList } from './domains/attributes/ui/AttributeList'
 export { default as ElementList } from './domains/elements/ui/ElementList'
+export { default as MetahubLayouts } from './domains/layouts/ui/LayoutList'
+export { default as MetahubLayoutDetails } from './domains/layouts/ui/LayoutDetails'
 
 export { default as metahubsDashboard } from './menu-items/metahubDashboard'
 export { metahubsTranslations } from './i18n'

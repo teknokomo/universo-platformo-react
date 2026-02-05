@@ -83,7 +83,8 @@ vi.mock('@universo/template-mui', async () => {
                                     _schema: 'v1',
                                     _primary: 'en',
                                     locales: { en: { content: 'Test Description' } }
-                                }
+                                },
+                                publicationIds: ['publication-1']
                             })
                         }
                     >
@@ -227,7 +228,7 @@ const renderWithProviders = (route: string) => {
             <SnackbarProvider>
                 <MemoryRouter initialEntries={[route]}>
                     <Routes>
-                        <Route path='/application/:applicationId/connectors' element={<ConnectorList />} />
+                        <Route path='/a/:applicationId/admin/connectors' element={<ConnectorList />} />
                         <Route path='/connectors' element={<ConnectorList />} />
                     </Routes>
                 </MemoryRouter>
@@ -266,7 +267,7 @@ beforeEach(() => {
 describe('ConnectorList page', () => {
     it('renders connectors and can open create + delete flows (smoke)', async () => {
         const user = userEvent.setup()
-        renderWithProviders('/application/app-1/connectors')
+        renderWithProviders('/a/app-1/admin/connectors')
 
         expect(await screen.findByTestId('view-header-title')).toHaveTextContent('connectors.title')
 
@@ -322,7 +323,7 @@ describe('ConnectorList page', () => {
             error: new Error('boom')
         }
 
-        renderWithProviders('/application/app-1/connectors')
+        renderWithProviders('/a/app-1/admin/connectors')
         expect(await screen.findByTestId('empty-title')).toHaveTextContent('errors.connectionFailed')
     })
 })

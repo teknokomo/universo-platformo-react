@@ -127,17 +127,13 @@ const InstanceBoard = () => {
 
             {/* Dashboard Grid */}
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-                <Grid container spacing={2} columns={12}>
-                    {/* Overview Section */}
-                    <Grid item xs={12}>
-                        <Typography component='h2' variant='h6'>
-                            {t('board.overview', 'Overview')}
-                        </Typography>
-                    </Grid>
-
+                <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
+                    {t('board.overview', 'Overview')}
+                </Typography>
+                <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
                     {/* Stats not available warning for remote instances */}
                     {!stats?.available && (
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <Alert severity='info'>
                                 {stats?.message || t('board.statsNotAvailable', 'Statistics not available for remote instances in MVP')}
                             </Alert>
@@ -145,40 +141,37 @@ const InstanceBoard = () => {
                     )}
 
                     {/* Total Users */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.totalUsers.title', 'Total Users')}
                             value={totalUsers}
                             interval={t('board.stats.totalUsers.interval', 'All time')}
-                            description={t('board.stats.totalUsers.description', 'Registered users')}
                             data={totalUsersData}
                         />
                     </Grid>
 
                     {/* Superusers */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.superusers.title', 'Superusers')}
                             value={globalAccessUsers}
                             interval={t('board.stats.superusers.interval', 'With global roles')}
-                            description={t('board.stats.superusers.description', 'Users with admin access')}
                             data={globalUsersData}
                         />
                     </Grid>
 
                     {/* Roles */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
                             title={t('board.stats.roles.title', 'Roles')}
                             value={stats?.totalRoles ?? 0}
                             interval={t('board.stats.roles.interval', 'System + custom')}
-                            description={t('board.stats.roles.description', 'Permission roles')}
                             data={Array(30).fill(stats?.totalRoles ?? 0)}
                         />
                     </Grid>
 
                     {/* Documentation Banner */}
-                    <Grid item xs={12} sm={6} lg={3}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <HighlightedCard
                             icon={<MenuBookRoundedIcon sx={{ mb: 1 }} />}
                             title={t('board.documentation.title', 'Documentation')}
@@ -190,7 +183,7 @@ const InstanceBoard = () => {
                     </Grid>
 
                     {/* Activity Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <SessionsChart
                             title={t('board.charts.activity.title', 'Activity')}
                             description={t('board.charts.activity.description', 'Instance activity over time')}
@@ -198,7 +191,7 @@ const InstanceBoard = () => {
                     </Grid>
 
                     {/* Users Chart (Demo Data) */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <PageViewsBarChart
                             title={t('board.charts.users.title', 'Users')}
                             description={t('board.charts.users.description', 'User distribution')}

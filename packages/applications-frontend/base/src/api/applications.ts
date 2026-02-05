@@ -5,7 +5,8 @@ import {
     ApplicationAssignableRole,
     PaginationParams,
     PaginatedResponse,
-    ApplicationLocalizedPayload
+    ApplicationLocalizedPayload,
+    ApplicationRuntimeResponse
 } from '../types'
 
 // Input type for creating/updating applications with localized content
@@ -64,6 +65,30 @@ export const createApplication = (data: ApplicationInput) => apiClient.post<Appl
 export const updateApplication = (id: string, data: Partial<ApplicationInput>) => apiClient.patch<Application>(`/applications/${id}`, data)
 
 export const deleteApplication = (id: string) => apiClient.delete<void>(`/applications/${id}`)
+
+export const getApplicationRuntime = async (
+    applicationId: string,
+    params?: { limit?: number; offset?: number; locale?: string }
+): Promise<ApplicationRuntimeResponse> => {
+    const response = await apiClient.get<ApplicationRuntimeResponse>(`/applications/${applicationId}/runtime`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            locale: params?.locale
+        }
+    })
+    return response.data
+}
+
+export const updateApplicationRuntimeCell = async (params: {
+    applicationId: string
+    rowId: string
+    field: string
+    value: boolean | null
+}): Promise<void> => {
+    const { applicationId, rowId, field, value } = params
+    await apiClient.patch(`/applications/${applicationId}/runtime/${rowId}`, { field, value })
+}
 
 // ============ APPLICATION MEMBERS ============
 

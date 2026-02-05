@@ -10,13 +10,14 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
+import stableStringify from 'json-stable-stringify'
 import { AttributeDataType, AttributeValidationRules } from '@universo/types'
 import { validateNumberOrThrow } from '@universo/utils'
-import { Application, Connector, ConnectorPublication, ApplicationSchemaStatus } from '@universo/applications-backend'
+import { Application, Connector, ConnectorPublication, ApplicationSchemaStatus, ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
 import { Publication } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
 import { SnapshotSerializer, MetahubSnapshot } from '../../publications/services/SnapshotSerializer'
-import { getDDLServices, generateSchemaName, generateTableName, generateColumnName, KnexClient } from '../../ddl'
+import { getDDLServices, generateSchemaName, generateTableName, generateColumnName, generateMigrationName, KnexClient } from '../../ddl'
 import type { SchemaSnapshot, SchemaChange, EntityDefinition } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -40,33 +41,48 @@ const asyncHandler = (
     }
 }
 
-async function ensureApplicationAccess(
-    ds: DataSource,
-    userId: string,
-    applicationId: string,
-    allowedRoles: string[]
-): Promise<void> {
-    const result = await ds.query(
-        `SELECT role FROM applications.applications_users 
-         WHERE application_id = $1 AND user_id = $2`,
-        [applicationId, userId]
-    )
+const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin', 'editor']
 
-    const error = new Error('Access denied')
-        ; (error as NodeJS.ErrnoException).code = 'FORBIDDEN'
+// Dashboard layout config (MVP) - show/hide template sections.
+const dashboardLayoutConfigSchema = z.object({
+    showSideMenu: z.boolean().optional(),
+    showAppNavbar: z.boolean().optional(),
+    showHeader: z.boolean().optional(),
+    showBreadcrumbs: z.boolean().optional(),
+    showSearch: z.boolean().optional(),
+    showDatePicker: z.boolean().optional(),
+    showOptionsMenu: z.boolean().optional(),
+    showOverviewTitle: z.boolean().optional(),
+    showOverviewCards: z.boolean().optional(),
+    showSessionsChart: z.boolean().optional(),
+    showPageViewsChart: z.boolean().optional(),
+    showDetailsTitle: z.boolean().optional(),
+    showDetailsTable: z.boolean().optional(),
+    showDetailsSidePanel: z.boolean().optional(),
+    showFooter: z.boolean().optional()
+})
 
-    if (result.length === 0) {
-        throw error
-    }
+const defaultDashboardLayoutConfig = {
+    showSideMenu: true,
+    showAppNavbar: true,
+    showHeader: true,
+    showBreadcrumbs: true,
+    showSearch: true,
+    showDatePicker: true,
+    showOptionsMenu: true,
+    showOverviewTitle: true,
+    showOverviewCards: true,
+    showSessionsChart: true,
+    showPageViewsChart: true,
+    showDetailsTitle: true,
+    showDetailsTable: true,
+    showDetailsSidePanel: true,
+    showFooter: true
+} as const
 
-    if (result.length > 1) {
-        console.warn(`Multiple roles found for user ${userId} in application ${applicationId}`)
-    }
-
-    if (!allowedRoles.includes(result[0].role)) {
-        throw error
-    }
-}
+const UI_LAYOUT_DIFF_MARKER = 'ui.layout.update'
+const UI_LAYOUTS_DIFF_MARKER = 'ui.layouts.update'
+const SYSTEM_METADATA_DIFF_MARKER = 'schema.metadata.update'
 
 /**
  * Checks if a field stores VLC (versioned/localized content) as JSONB.
@@ -239,6 +255,230 @@ async function seedPredefinedElements(
     return warnings
 }
 
+async function persistDashboardLayoutConfig(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+    userId?: string | null
+}): Promise<void> {
+    const { schemaName, snapshot, userId } = options
+    const knex = KnexClient.getInstance()
+
+    // Ensure system tables exist. UI-only updates must still persist settings in runtime schema.
+    // This makes layout sync robust even when the dynamic schema was created before _app_settings existed.
+    try {
+        const { generator } = getDDLServices()
+        await generator.ensureSystemTables(schemaName)
+    } catch (e) {
+        // If we can't ensure system tables, do not block schema sync; runtime will fall back to defaults.
+        // eslint-disable-next-line no-console
+        console.warn('[SchemaSync] Failed to ensure _app_settings (ignored)', e)
+    }
+
+    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
+    if (!hasSettings) return
+
+    const parsed = dashboardLayoutConfigSchema.safeParse(snapshot.layoutConfig ?? {})
+    const merged = {
+        ...defaultDashboardLayoutConfig,
+        ...(parsed.success ? parsed.data : {})
+    }
+
+    const now = new Date()
+
+    const existing = await knex
+        .withSchema(schemaName)
+        .from('_app_settings')
+        .where({ key: 'layout', _upl_deleted: false, _app_deleted: false })
+        .select(['id'])
+        .first()
+
+    if (!existing) {
+        await knex
+            .withSchema(schemaName)
+            .into('_app_settings')
+            .insert({
+                key: 'layout',
+                value: merged,
+                _upl_created_at: now,
+                _upl_created_by: userId ?? null,
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null,
+                _upl_version: 1,
+                _upl_archived: false,
+                _upl_deleted: false,
+                _upl_locked: false,
+                _app_published: true,
+                _app_archived: false,
+                _app_deleted: false
+            })
+        return
+    }
+
+    await knex
+        .withSchema(schemaName)
+        .from('_app_settings')
+        .where({ key: 'layout', _upl_deleted: false, _app_deleted: false })
+        .update({
+            value: merged,
+            _upl_updated_at: now,
+            _upl_updated_by: userId ?? null,
+            _upl_version: knex.raw('_upl_version + 1')
+        })
+}
+
+async function persistPublishedLayouts(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+    userId?: string | null
+}): Promise<void> {
+    const { schemaName, snapshot, userId } = options
+    const knex = KnexClient.getInstance()
+
+    try {
+        const { generator } = getDDLServices()
+        await generator.ensureSystemTables(schemaName)
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[SchemaSync] Failed to ensure _app_settings for layouts (ignored)', e)
+    }
+
+    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
+    if (!hasSettings) return
+
+    const now = new Date()
+    const value = {
+        layouts: Array.isArray(snapshot.layouts) ? snapshot.layouts : [],
+        defaultLayoutId: snapshot.defaultLayoutId ?? null
+    }
+
+    const existing = await knex
+        .withSchema(schemaName)
+        .from('_app_settings')
+        .where({ key: 'layouts', _upl_deleted: false, _app_deleted: false })
+        .select(['id'])
+        .first()
+
+    if (!existing) {
+        await knex
+            .withSchema(schemaName)
+            .into('_app_settings')
+            .insert({
+                key: 'layouts',
+                value,
+                _upl_created_at: now,
+                _upl_created_by: userId ?? null,
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null,
+                _upl_version: 1,
+                _upl_archived: false,
+                _upl_deleted: false,
+                _upl_locked: false,
+                _app_published: true,
+                _app_archived: false,
+                _app_deleted: false
+            })
+        return
+    }
+
+    await knex
+        .withSchema(schemaName)
+        .from('_app_settings')
+        .where({ key: 'layouts', _upl_deleted: false, _app_deleted: false })
+        .update({
+            value,
+            _upl_updated_at: now,
+            _upl_updated_by: userId ?? null,
+            _upl_version: knex.raw('_upl_version + 1')
+        })
+}
+
+async function getPersistedDashboardLayoutConfig(options: {
+    schemaName: string
+}): Promise<Record<string, unknown>> {
+    const { schemaName } = options
+    const knex = KnexClient.getInstance()
+
+    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
+    if (!hasSettings) {
+        return {}
+    }
+
+    const existing = await knex
+        .withSchema(schemaName)
+        .from('_app_settings')
+        .where({ key: 'layout', _upl_deleted: false, _app_deleted: false })
+        .select(['value'])
+        .first()
+
+    const value = existing?.value as unknown
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+async function getPersistedPublishedLayouts(options: {
+    schemaName: string
+}): Promise<{ layouts: unknown[]; defaultLayoutId: string | null }> {
+    const { schemaName } = options
+    const knex = KnexClient.getInstance()
+
+    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
+    if (!hasSettings) {
+        return { layouts: [], defaultLayoutId: null }
+    }
+
+    const existing = await knex
+        .withSchema(schemaName)
+        .from('_app_settings')
+        .where({ key: 'layouts', _upl_deleted: false, _app_deleted: false })
+        .select(['value'])
+        .first()
+
+    const raw = existing?.value as unknown
+    if (!raw || typeof raw !== 'object') {
+        return { layouts: [], defaultLayoutId: null }
+    }
+
+    const obj = raw as Record<string, unknown>
+    const layouts = Array.isArray(obj.layouts) ? obj.layouts : []
+    const defaultLayoutId = typeof obj.defaultLayoutId === 'string' ? obj.defaultLayoutId : null
+    return { layouts, defaultLayoutId }
+}
+
+function buildMergedDashboardLayoutConfig(snapshot: MetahubSnapshot): Record<string, unknown> {
+    const parsed = dashboardLayoutConfigSchema.safeParse(snapshot.layoutConfig ?? {})
+    return {
+        ...defaultDashboardLayoutConfig,
+        ...(parsed.success ? parsed.data : {})
+    }
+}
+
+async function hasDashboardLayoutConfigChanges(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+}): Promise<boolean> {
+    const { schemaName, snapshot } = options
+
+    const current = await getPersistedDashboardLayoutConfig({ schemaName })
+    const next = buildMergedDashboardLayoutConfig(snapshot)
+
+    // Stable compare to avoid false positives due to key ordering.
+    return stableStringify(current) !== stableStringify(next)
+}
+
+async function hasPublishedLayoutsChanges(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+}): Promise<boolean> {
+    const { schemaName, snapshot } = options
+
+    const current = await getPersistedPublishedLayouts({ schemaName })
+    const next = {
+        layouts: Array.isArray(snapshot.layouts) ? snapshot.layouts : [],
+        defaultLayoutId: snapshot.defaultLayoutId ?? null
+    }
+
+    return stableStringify(current) !== stableStringify(next)
+}
+
 async function persistSeedWarnings(
     schemaName: string,
     migrationManager: ReturnType<typeof getDDLServices>['migrationManager'],
@@ -288,9 +528,10 @@ export function createApplicationSyncRoutes(
 
             // Check access
             try {
-                await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
+                await ensureApplicationAccess(ds, userId, applicationId, ADMIN_ROLES)
             } catch (error) {
-                if ((error as NodeJS.ErrnoException).code === 'FORBIDDEN') {
+                const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
+                if (status === 403) {
                     return res.status(403).json({ error: 'Access denied' })
                 }
                 throw error
@@ -380,14 +621,24 @@ export function createApplicationSyncRoutes(
                 const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
                 const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
                 if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
+                    const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
+                    const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
+
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
                     application.schemaSyncedAt = new Date()
                     await applicationRepo.save(application)
 
+                    // Keep system metadata in sync even when DDL didn't change.
+                    // This covers non-DDL evolutions (e.g., new metadata columns like sort_order) and keeps runtime UI stable.
+                    await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
+
+                    await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+
                     return res.json({
-                        status: 'no_changes',
-                        message: 'Schema is already up to date'
+                        status: uiNeedsUpdate || layoutsNeedUpdate ? 'ui_updated' : 'no_changes',
+                        message: uiNeedsUpdate || layoutsNeedUpdate ? 'UI layout settings updated' : 'Schema is already up to date'
                     })
                 }
             }
@@ -422,11 +673,14 @@ export function createApplicationSyncRoutes(
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
                     application.schemaSyncedAt = new Date()
-                    application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
-                    await applicationRepo.save(application)
+                application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
+                await applicationRepo.save(application)
 
-                    const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-                    await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+                await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
+                await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+
+                const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
+                await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                     return res.json({
                         status: 'created',
@@ -442,15 +696,52 @@ export function createApplicationSyncRoutes(
                 const hasDestructiveChanges = diff.destructive.length > 0
 
                 if (!diff.hasChanges) {
+                    const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
+                    const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
+
                     await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
 
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
+                    application.schemaSyncedAt = new Date()
                     await applicationRepo.save(application)
 
+                    await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+
+                    // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
+                    // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
+                    const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
+                    const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
+                    if (snapshotHash && lastAppliedHash !== snapshotHash) {
+                        const snapshotBefore = (application.schemaSnapshot as SchemaSnapshot | null) ?? null
+                        const snapshotAfter = generator.generateSnapshot(catalogDefs)
+                        const metaOnlyDiff = {
+                            hasChanges: false,
+                            additive: [],
+                            destructive: [],
+                            summary: 'System metadata updated (no DDL changes)'
+                        }
+
+                        await migrationManager.recordMigration(
+                            application.schemaName!,
+                            generateMigrationName('system_sync'),
+                            snapshotBefore,
+                            snapshotAfter,
+                            metaOnlyDiff,
+                            undefined,
+                            migrationMeta,
+                            publicationSnapshot,
+                            userId
+                        )
+
+                        application.schemaSnapshot = snapshotAfter as unknown as Record<string, unknown>
+                        await applicationRepo.save(application)
+                    }
+
                     return res.json({
-                        status: 'no_changes',
-                        message: 'Schema is already up to date'
+                        status: uiNeedsUpdate || layoutsNeedUpdate ? 'ui_updated' : 'no_changes',
+                        message: uiNeedsUpdate || layoutsNeedUpdate ? 'UI layout settings updated' : 'Schema is already up to date'
                     })
                 }
 
@@ -498,6 +789,9 @@ export function createApplicationSyncRoutes(
                 application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
                 await applicationRepo.save(application)
 
+                await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
+                await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+
                 const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                 await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
@@ -537,9 +831,10 @@ export function createApplicationSyncRoutes(
             const ds = getDataSource()
 
             try {
-                await ensureApplicationAccess(ds, userId, applicationId, ['member', 'editor', 'admin', 'owner'])
+                await ensureApplicationAccess(ds, userId, applicationId, ADMIN_ROLES)
             } catch (error) {
-                if ((error as NodeJS.ErrnoException).code === 'FORBIDDEN') {
+                const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
+                if (status === 403) {
                     return res.status(403).json({ error: 'Access denied' })
                 }
                 throw error
@@ -604,10 +899,37 @@ export function createApplicationSyncRoutes(
             const schemaExists = await generator.schemaExists(schemaName)
 
             if (!schemaExists) {
-                const additive = catalogDefs.map((cat) => {
-                    const fieldCount = cat.fields?.length ?? 0
-                    return `Create table "${cat.codename}" with ${fieldCount} field(s)`
+                const catalogEntities = catalogDefs.filter((e) => e.kind === 'catalog')
+                const createTables = catalogEntities.map((entity) => {
+                    const fields = (entity.fields ?? []).map((f) => ({
+                        id: f.id,
+                        codename: f.codename,
+                        dataType: f.dataType,
+                        isRequired: Boolean(f.isRequired)
+                    }))
+
+                    const elements = (snapshot.elements && (snapshot.elements as any)[entity.id]) as any[] | undefined
+                    const predefinedElements = Array.isArray(elements)
+                        ? elements.map((el) => ({
+                            id: String(el.id),
+                            data: (el.data as Record<string, unknown>) ?? {},
+                            sortOrder: typeof el.sortOrder === 'number' ? el.sortOrder : 0
+                        }))
+                        : []
+
+                    return {
+                        id: entity.id,
+                        codename: entity.codename,
+                        tableName: generateTableName(entity.id, entity.kind),
+                        fields,
+                        predefinedElementsCount: predefinedElements.length,
+                        predefinedElementsPreview: predefinedElements.slice(0, 50)
+                    }
                 })
+
+                // Keep human-readable additive strings for backward compatibility.
+                // Frontend should prefer `diff.details.create.tables` for i18n-friendly rendering.
+                const additive = createTables.map((t) => `Create table "${t.codename}" with ${t.fields.length} field(s)`)
 
                 return res.json({
                     schemaExists: false,
@@ -617,8 +939,16 @@ export function createApplicationSyncRoutes(
                         hasDestructiveChanges: false,
                         additive,
                         destructive: [],
-                        summary: `Create ${catalogDefs.length} table(s) in new schema`
+                        summaryKey: 'schema.create.summary',
+                        summaryParams: { tablesCount: createTables.length },
+                        summary: `Create ${createTables.length} table(s) in new schema`,
+                        details: {
+                            create: {
+                                tables: createTables
+                            }
+                        }
                     },
+                    messageKey: 'schema.create.message',
                     message: 'Schema does not exist yet. These tables will be created.'
                 })
             }
@@ -626,15 +956,21 @@ export function createApplicationSyncRoutes(
             const latestMigration = await migrationManager.getLatestMigration(schemaName)
             const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
             if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
+                const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
+                const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
                 return res.json({
                     schemaExists: true,
                     schemaName,
                     diff: {
-                        hasChanges: false,
+                        hasChanges: uiNeedsUpdate || layoutsNeedUpdate,
                         hasDestructiveChanges: false,
-                        additive: [],
+                        additive: [
+                            ...(uiNeedsUpdate ? [UI_LAYOUT_DIFF_MARKER] : []),
+                            ...(layoutsNeedUpdate ? [UI_LAYOUTS_DIFF_MARKER] : [])
+                        ],
                         destructive: [],
-                        summary: 'Schema is already up to date'
+                        summaryKey: uiNeedsUpdate || layoutsNeedUpdate ? 'ui.layout.changed' : 'schema.upToDate',
+                        summary: uiNeedsUpdate || layoutsNeedUpdate ? 'UI layout settings have changed' : 'Schema is already up to date'
                     }
                 })
             }
@@ -643,15 +979,46 @@ export function createApplicationSyncRoutes(
             const diff = migrator.calculateDiff(oldSnapshot, catalogDefs)
             const hasDestructiveChanges = diff.destructive.length > 0
 
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
+            const additive = diff.additive.map((c: SchemaChange) => c.description)
+            if (uiNeedsUpdate) {
+                additive.push(UI_LAYOUT_DIFF_MARKER)
+            }
+            if (layoutsNeedUpdate) {
+                additive.push(UI_LAYOUTS_DIFF_MARKER)
+            }
+
+            // Snapshot hash can change without any DDL changes (e.g., attribute reorder, labels, validations).
+            // We still need to allow users to "apply" changes so system metadata tables are synced and the
+            // applied snapshot hash is advanced by the sync endpoint.
+            const systemMetadataNeedsUpdate =
+                Boolean(snapshotHash && lastAppliedHash && snapshotHash !== lastAppliedHash) &&
+                !diff.hasChanges &&
+                !uiNeedsUpdate &&
+                !layoutsNeedUpdate
+            if (systemMetadataNeedsUpdate) {
+                additive.push(SYSTEM_METADATA_DIFF_MARKER)
+            }
+
             return res.json({
                 schemaExists: true,
                 schemaName,
                 diff: {
-                    hasChanges: diff.hasChanges,
+                    hasChanges: diff.hasChanges || uiNeedsUpdate || layoutsNeedUpdate || systemMetadataNeedsUpdate,
                     hasDestructiveChanges,
-                    additive: diff.additive.map((c: SchemaChange) => c.description),
+                    additive,
                     destructive: diff.destructive.map((c: SchemaChange) => c.description),
-                    summary: diff.summary
+                    summaryKey: systemMetadataNeedsUpdate
+                        ? 'schema.metadata.changed'
+                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate)
+                            ? 'ui.layout.changed'
+                            : undefined,
+                    summary: systemMetadataNeedsUpdate
+                        ? 'System metadata will be updated'
+                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate)
+                            ? 'UI layout settings have changed'
+                            : diff.summary
                 }
             })
         })

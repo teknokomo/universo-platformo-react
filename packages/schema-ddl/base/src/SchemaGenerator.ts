@@ -371,6 +371,8 @@ export class SchemaGenerator {
                 table.uuid('id').primary()
                 table.uuid('object_id').notNullable()
                 table.string('codename', 100).notNullable()
+                // Stable field order from metahub snapshot (1..N). Used by runtime UI rendering.
+                table.integer('sort_order').notNullable().defaultTo(0)
                 table.string('column_name', 255).notNullable()
                 table.string('data_type', 20).notNullable()
                 table.boolean('is_required').notNullable().defaultTo(false)
@@ -435,6 +437,26 @@ export class SchemaGenerator {
                 table.unique(['object_id', 'column_name'])
             })
             console.log(`[SchemaGenerator] _app_attributes created`)
+        } else {
+            // Backward compatibility: older schemas may have _app_attributes without sort_order.
+            const result = await knex.raw<{ rows: { exists: boolean }[] }>(
+                `
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = ? AND table_name = '_app_attributes' AND column_name = 'sort_order'
+                    ) AS exists
+                `,
+                [schemaName]
+            )
+            const hasSortOrder = result.rows?.[0]?.exists === true
+
+            if (!hasSortOrder) {
+                console.log(`[SchemaGenerator] Adding sort_order column to _app_attributes...`)
+                await knex.schema.withSchema(schemaName).table('_app_attributes', (t) => {
+                    t.integer('sort_order').notNullable().defaultTo(0)
+                })
+            }
         }
 
         const hasMigrations = await knex.schema.withSchema(schemaName).hasTable('_app_migrations')
@@ -493,6 +515,60 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_migrations created`)
         }
 
+        const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
+        console.log(`[SchemaGenerator] _app_settings exists: ${hasSettings}`)
+
+        if (!hasSettings) {
+            console.log(`[SchemaGenerator] Creating _app_settings...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.string('key', 100).notNullable()
+                table.jsonb('value').notNullable().defaultTo('{}')
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Application-level system fields (_app_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                // Archive fields
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.unique(['key'])
+            })
+            console.log(`[SchemaGenerator] _app_settings created`)
+        }
+
         console.log(`[SchemaGenerator] System tables ensured in schema: ${schemaName}`)
     }
 
@@ -536,6 +612,7 @@ export class SchemaGenerator {
                 id: field.id,
                 object_id: entity.id,
                 codename: field.codename,
+                sort_order: typeof (field as any)?.sortOrder === 'number' ? (field as any).sortOrder : 0,
                 column_name: generateColumnName(field.id),
                 data_type: field.dataType,
                 is_required: field.isRequired,
@@ -560,6 +637,7 @@ export class SchemaGenerator {
                 .merge([
                     'object_id',
                     'codename',
+                    'sort_order',
                     'column_name',
                     'data_type',
                     'is_required',

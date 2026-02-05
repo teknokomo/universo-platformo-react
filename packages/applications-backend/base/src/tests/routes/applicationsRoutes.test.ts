@@ -367,7 +367,7 @@ describe('Applications Routes', () => {
                     name: 'Test'
                 })
                 applicationUserRepo.findOne.mockResolvedValue({
-                    user_id: 'test-user-id',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -376,9 +376,9 @@ describe('Applications Routes', () => {
                     [
                         {
                             id: 'member-1',
-                            user_id: 'user-1',
+                            userId: 'user-1',
                             role: 'member',
-                            created_at: new Date()
+                            _uplCreatedAt: new Date()
                         }
                     ],
                     1

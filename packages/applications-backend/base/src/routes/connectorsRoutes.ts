@@ -9,6 +9,7 @@ import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { OptimisticLockError } from '@universo/utils'
+import { ensureApplicationAccess, type ApplicationRole } from './guards'
 
 // User ID resolution helper
 interface RequestUser {
@@ -73,6 +74,31 @@ export function createConnectorsRoutes(
         }
     }
 
+    const ensureAccess = async (
+        req: Request,
+        res: Response,
+        applicationId: string,
+        requiredRoles?: ApplicationRole[]
+    ): Promise<string | null> => {
+        const userId = resolveUserId(req)
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+
+        try {
+            await ensureApplicationAccess(getDataSource(), userId, applicationId, requiredRoles)
+            return userId
+        } catch (error) {
+            const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
+            if (status === 403) {
+                res.status(403).json({ error: 'Access denied' })
+                return null
+            }
+            throw error
+        }
+    }
+
     /**
      * GET /applications/:applicationId/connectors
      * List all connectors in an application
@@ -82,6 +108,8 @@ export function createConnectorsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId } = req.params
+            const userId = await ensureAccess(req, res, applicationId)
+            if (!userId) return
             const { connectorRepo } = repos(req)
 
             let validatedQuery
@@ -165,6 +193,8 @@ export function createConnectorsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
+            const userId = await ensureAccess(req, res, applicationId)
+            if (!userId) return
             const { connectorRepo } = repos(req)
 
             const connector = await connectorRepo.findOne({
@@ -196,10 +226,9 @@ export function createConnectorsRoutes(
         '/applications/:applicationId/connectors',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-
             const { applicationId } = req.params
+            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            if (!userId) return
             const { connectorRepo, applicationRepo } = repos(req)
 
             // Verify application exists
@@ -245,18 +274,21 @@ export function createConnectorsRoutes(
             // Wrap connector creation and optional publication link in a transaction
             const ds = getDataSource()
             const saved = await ds.transaction(async (manager) => {
-                const savedConnector = await manager.save(connector)
+                const txConnectorRepo = manager.getRepository(Connector)
+                const txConnectorPublicationRepo = manager.getRepository(ConnectorPublication)
+
+                const savedConnector = await txConnectorRepo.save(connector)
 
                 // If publicationId provided, create the link
                 if (publicationId) {
-                    const link = manager.getRepository(ConnectorPublication).create({
+                    const link = txConnectorPublicationRepo.create({
                         connectorId: savedConnector.id,
                         publicationId,
                         sortOrder: 0,
                         _uplCreatedBy: userId,
                         _uplUpdatedBy: userId
                     })
-                    await manager.save(link)
+                    await txConnectorPublicationRepo.save(link)
                 }
 
                 return savedConnector
@@ -283,10 +315,9 @@ export function createConnectorsRoutes(
         '/applications/:applicationId/connectors/:connectorId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-
             const { applicationId, connectorId } = req.params
+            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            if (!userId) return
             const { connectorRepo } = repos(req)
 
             const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
@@ -371,6 +402,8 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
+            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin'])
+            if (!userId) return
             const { connectorRepo } = repos(req)
 
             const connector = await connectorRepo.findOne({ where: { id: connectorId, applicationId } })
@@ -396,6 +429,8 @@ export function createConnectorsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId } = req.params
+            const userId = await ensureAccess(req, res, applicationId)
+            if (!userId) return
             const { connectorRepo } = repos(req)
             const ds = getDataSource()
             const manager = getRequestManager(req, ds)
@@ -469,10 +504,9 @@ export function createConnectorsRoutes(
         '/applications/:applicationId/connectors/:connectorId/publications',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-
             const { applicationId, connectorId } = req.params
+            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            if (!userId) return
             const { connectorRepo, connectorPublicationRepo } = repos(req)
 
             const bodySchema = z.object({
@@ -539,6 +573,8 @@ export function createConnectorsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, connectorId, linkId } = req.params
+            const userId = await ensureAccess(req, res, applicationId, ['owner', 'admin', 'editor'])
+            if (!userId) return
             const { connectorRepo, connectorPublicationRepo } = repos(req)
 
             // Verify connector belongs to application

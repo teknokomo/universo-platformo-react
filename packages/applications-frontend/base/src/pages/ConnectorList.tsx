@@ -292,7 +292,7 @@ const ConnectorList = () => {
                 sortable: true,
                 sortAccessor: (row: ConnectorDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: ConnectorDisplay) => {
-                    const href = applicationId ? `/application/${applicationId}/connector/${row.id}` : undefined
+                    const href = applicationId ? `/a/${applicationId}/admin/connector/${row.id}` : undefined
                     return href ? (
                         <Link to={href} style={{ textDecoration: 'none', color: 'inherit' }} onClick={(event) => event.stopPropagation()}>
                             <Typography
@@ -607,7 +607,7 @@ const ConnectorList = () => {
                                         const descriptors = [...connectorActions]
                                         // Navigate to connector board within Applications
                                         const connectorHref = applicationId
-                                            ? `/application/${applicationId}/connector/${connector.id}`
+                                            ? `/a/${applicationId}/admin/connector/${connector.id}`
                                             : undefined
 
                                         return (
@@ -660,7 +660,7 @@ const ConnectorList = () => {
                                         getRowLink={(row: any) => {
                                             // Navigate to connector board within Applications
                                             return applicationId && row?.id
-                                                ? `/application/${applicationId}/connector/${row.id}`
+                                                ? `/a/${applicationId}/admin/connector/${row.id}`
                                                 : undefined
                                         }}
                                         customColumns={connectorColumns}

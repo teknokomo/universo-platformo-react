@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
@@ -31,7 +32,7 @@ import {
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps } from '@universo/template-mui'
+import type { TriggerProps, ActionDescriptor } from '@universo/template-mui'
 
 import { useUpdateApplication, useDeleteApplication } from '../hooks/mutations'
 import { useViewPreference } from '../hooks/useViewPreference'
@@ -49,6 +50,8 @@ type ApplicationFormValues = {
     descriptionVlc?: VersionedLocalizedContent<string> | null
 }
 
+const ADMIN_PANEL_ROLES = new Set(['owner', 'admin', 'editor'])
+
 const ApplicationList = () => {
     // Use applications namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['applications', 'roles', 'access', 'flowList'])
@@ -56,6 +59,7 @@ const ApplicationList = () => {
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
+    const navigate = useNavigate()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useViewPreference(STORAGE_KEYS.APPLICATION_DISPLAY_STYLE)
@@ -264,7 +268,7 @@ const ApplicationList = () => {
                 sortable: true,
                 sortAccessor: (row: ApplicationDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: ApplicationDisplay) => (
-                    <Link to={`/application/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <Link to={`/a/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,
@@ -324,6 +328,7 @@ const ApplicationList = () => {
     const createApplicationContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
+            navigate,
             applicationMap,
             uiLocale: i18n.language,
             api: {
@@ -382,7 +387,62 @@ const ApplicationList = () => {
                 }
             }
         }),
-        [confirm, deleteApplicationMutation, enqueueSnackbar, i18n.language, applicationMap, queryClient, updateApplicationMutation]
+        [
+            confirm,
+            deleteApplicationMutation,
+            enqueueSnackbar,
+            i18n.language,
+            applicationMap,
+            navigate,
+            queryClient,
+            updateApplicationMutation
+        ]
+    )
+
+    const buildApplicationMenuDescriptors = useCallback(
+        (application: ApplicationDisplay): ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] => {
+            if (!application.role || !ADMIN_PANEL_ROLES.has(application.role)) return []
+
+            const deleteDescriptor = applicationActions.find((descriptor) => descriptor.id === 'delete')
+            const shouldShowDelete = Boolean(deleteDescriptor && application.role === 'owner')
+            const editDescriptor = applicationActions.find((descriptor) => descriptor.id === 'edit')
+
+            const descriptors: ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] = [
+                {
+                    id: 'control-panel',
+                    labelKey: 'actions.controlPanel',
+                    icon: <SettingsRoundedIcon />,
+                    order: 10,
+                    onSelect: (ctx) => {
+                        ctx.navigate?.(`/a/${ctx.entity.id}/admin`)
+                    },
+                    dividerAfter: Boolean(editDescriptor || shouldShowDelete)
+                }
+            ]
+
+            if (editDescriptor) {
+                descriptors.push({
+                    ...editDescriptor,
+                    // Render a divider after "Edit" only when "Delete" is present.
+                    dividerAfter: shouldShowDelete,
+                    order: 100,
+                    // Avoid implicit grouping dividers: we control separators explicitly via dividerAfter.
+                    group: undefined
+                })
+            }
+
+            if (deleteDescriptor && shouldShowDelete) {
+                descriptors.push({
+                    ...deleteDescriptor,
+                    // Avoid implicit grouping dividers: we control separators explicitly via dividerAfter.
+                    group: undefined,
+                    order: 110
+                })
+            }
+
+            return descriptors
+        },
+        []
     )
 
     return (
@@ -455,19 +515,14 @@ const ApplicationList = () => {
                                 >
                                     {applicationsDisplay.map((application: ApplicationDisplay) => {
                                         // Filter actions based on permissions (same logic as table view)
-                                        const descriptors = applicationActions.filter((descriptor) => {
-                                            if (descriptor.id === 'edit' || descriptor.id === 'delete') {
-                                                return application.permissions?.manageApplication
-                                            }
-                                            return true
-                                        })
+                                        const descriptors = buildApplicationMenuDescriptors(application)
 
                                         return (
                                             <ItemCard
                                                 key={application.id}
                                                 data={application}
                                                 images={images[application.id] || []}
-                                                href={`/application/${application.id}`}
+                                                href={`/a/${application.id}`}
                                                 footerEndContent={
                                                     application.role ? (
                                                         <RoleChip role={application.role} accessType={application.accessType} />
@@ -506,16 +561,11 @@ const ApplicationList = () => {
                                         data={applicationsDisplay}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: ApplicationDisplay) => (row?.id ? `/application/${row.id}` : undefined)}
+                                        getRowLink={(row: ApplicationDisplay) => (row?.id ? `/a/${row.id}` : undefined)}
                                         customColumns={applicationColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: ApplicationDisplay) => {
-                                            const descriptors = applicationActions.filter((descriptor) => {
-                                                if (descriptor.id === 'edit' || descriptor.id === 'delete') {
-                                                    return row.permissions?.manageApplication
-                                                }
-                                                return true
-                                            })
+                                            const descriptors = buildApplicationMenuDescriptors(row)
 
                                             if (!descriptors.length) return null
 

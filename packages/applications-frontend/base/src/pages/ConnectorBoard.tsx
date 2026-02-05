@@ -4,7 +4,7 @@
  * Displays connector details with schema sync functionality.
  * Adapted from metahubs PublicationBoard.
  *
- * This page is accessed via /application/:applicationId/connector/:connectorId
+ * This page is accessed via /a/:applicationId/admin/connector/:connectorId
  * It fetches the specific connector by ID.
  */
 
@@ -209,7 +209,7 @@ const ConnectorBoard = () => {
             <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, px: { xs: 1.5, md: 2 } }}>
                 <Grid container spacing={3} columns={12}>
                     {/* Schema Status Card */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <Card variant="outlined">
                             <CardContent>
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
@@ -268,7 +268,7 @@ const ConnectorBoard = () => {
                                 <Button
                                     variant="outlined"
                                     startIcon={<HistoryIcon />}
-                                    onClick={() => navigate(`/application/${applicationId}/migrations`)}
+                                    onClick={() => navigate(`/a/${applicationId}/admin/migrations`)}
                                     fullWidth
                                     sx={{ mt: 1 }}
                                 >
@@ -279,7 +279,7 @@ const ConnectorBoard = () => {
                     </Grid>
 
                     {/* Details Card */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <Card variant="outlined">
                             <CardContent>
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
@@ -321,7 +321,7 @@ const ConnectorBoard = () => {
                     <Button
                         variant="text"
                         startIcon={<ArrowBackRoundedIcon />}
-                        onClick={() => navigate(`/application/${applicationId}/connectors`)}
+                        onClick={() => navigate(`/a/${applicationId}/admin/connectors`)}
                     >
                         {t('connectors.board.backToConnectors', 'Back to Connectors')}
                     </Button>

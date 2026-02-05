@@ -59,9 +59,9 @@ export default function MenuContent() {
     const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
     const metahubId = metahubMatch ? metahubMatch[1] : null
 
-    // Check if we're in an application context (/application/:id)
-    const applicationMatch = location.pathname.match(/^\/applications?\/([^/]+)/)
-    const applicationId = applicationMatch ? applicationMatch[1] : null
+    // Check if we're in an application admin context (/a/:id/admin...)
+    const applicationAdminMatch = location.pathname.match(/^\/a\/([^/]+)\/admin(?:\/|$)/)
+    const applicationId = applicationAdminMatch ? applicationAdminMatch[1] : null
 
     // Check if we're in a cluster context (both /cluster/:id and /clusters/:id paths)
     const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
@@ -170,7 +170,7 @@ export default function MenuContent() {
                                 const isSelected =
                                     location.pathname === item.url ||
                                     location.pathname.startsWith('/applications') ||
-                                    location.pathname.startsWith('/application/')
+                                    location.pathname.match(/^\/a\/[^/]+\/admin(?:\/|$)/) !== null
                                 return (
                                     <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
                                         <ListItemButton component={NavLink} to={item.url} selected={isSelected}>

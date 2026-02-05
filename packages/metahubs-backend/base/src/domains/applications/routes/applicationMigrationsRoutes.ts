@@ -6,8 +6,8 @@
  * use the DDL module for all schema operations.
  *
  * Endpoints:
- * - GET    /application/:applicationId/migrations           - List migrations
- * - GET    /application/:applicationId/migration/:id        - Get single migration
+ * - GET    /application/:applicationId/migrations            - List migrations
+ * - GET    /application/:applicationId/migration/:id         - Get single migration
  * - GET    /application/:applicationId/migration/:id/analyze - Analyze rollback possibility
  * - POST   /application/:applicationId/migration/:id/rollback - Rollback to this migration
  */
@@ -16,7 +16,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { Application, Connector, ConnectorPublication } from '@universo/applications-backend'
+import { Application, Connector, ConnectorPublication, ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
 import { Publication } from '../../../database/entities/Publication'
 import { getDDLServices, KnexClient, ChangeType, buildFkConstraintName } from '../../ddl'
 import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl'
@@ -54,6 +54,7 @@ export function createApplicationMigrationsRoutes(
         }
 
     const { generator, migrationManager } = getDDLServices()
+    const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin', 'editor']
 
     // Helper to get application with schema name
     // If application.schemaName is not set, try to find it via Connector → ConnectorPublication → Publication chain
@@ -112,6 +113,27 @@ export function createApplicationMigrationsRoutes(
         return { application, schemaName: publication.schemaName }
     }
 
+    const ensureAdminAccess = async (req: Request, res: Response, applicationId: string): Promise<boolean> => {
+        const user = req.user as { id?: string; sub?: string } | undefined
+        const userId = user?.id ?? user?.sub
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return false
+        }
+
+        try {
+            await ensureApplicationAccess(getDataSource(), userId, applicationId, ADMIN_ROLES)
+            return true
+        } catch (error) {
+            const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
+            if (status === 403) {
+                res.status(403).json({ error: 'Access denied' })
+                return false
+            }
+            throw error
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // GET /application/:applicationId/migrations
     // List all migrations for an application
@@ -122,6 +144,8 @@ export function createApplicationMigrationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId } = req.params
+            const hasAccess = await ensureAdminAccess(req, res, applicationId)
+            if (!hasAccess) return
 
             const queryParsed = listMigrationsQuerySchema.safeParse(req.query)
             if (!queryParsed.success) {
@@ -169,6 +193,8 @@ export function createApplicationMigrationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, migrationId } = req.params
+            const hasAccess = await ensureAdminAccess(req, res, applicationId)
+            if (!hasAccess) return
 
             const result = await getApplicationWithSchema(req, res, applicationId)
             if (!result || 'statusCode' in result) return
@@ -209,6 +235,8 @@ export function createApplicationMigrationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, migrationId } = req.params
+            const hasAccess = await ensureAdminAccess(req, res, applicationId)
+            if (!hasAccess) return
 
             const result = await getApplicationWithSchema(req, res, applicationId)
             if (!result || 'statusCode' in result) return
@@ -243,6 +271,8 @@ export function createApplicationMigrationsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { applicationId, migrationId } = req.params
+            const hasAccess = await ensureAdminAccess(req, res, applicationId)
+            if (!hasAccess) return
 
             const parsed = rollbackSchema.safeParse(req.body)
             if (!parsed.success) {

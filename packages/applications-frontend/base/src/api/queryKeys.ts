@@ -78,7 +78,16 @@ export const applicationsQueryKeys = {
         [...applicationsQueryKeys.migrations(applicationId), 'detail', migrationId] as const,
 
     migrationAnalysis: (applicationId: string, migrationId: string) =>
-        [...applicationsQueryKeys.migrations(applicationId), 'analysis', migrationId] as const
+        [...applicationsQueryKeys.migrations(applicationId), 'analysis', migrationId] as const,
+
+    runtimeTable: (applicationId: string, params?: { limit?: number; offset?: number; locale?: string }) => {
+        const normalized = {
+            limit: params?.limit ?? 50,
+            offset: params?.offset ?? 0,
+            locale: params?.locale ?? 'en'
+        }
+        return [...applicationsQueryKeys.detail(applicationId), 'runtime', normalized] as const
+    }
 }
 
 /**
@@ -101,7 +110,7 @@ export const invalidateConnectorsQueries = {
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectors(applicationId) }),
 
     lists: (queryClient: QueryClient, applicationId: string) =>
-        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectorsList(applicationId, {}) }),
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectorsList(applicationId) }),
 
     detail: (queryClient: QueryClient, applicationId: string, connectorId: string) =>
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectorDetail(applicationId, connectorId) })
@@ -112,7 +121,7 @@ export const invalidateMigrationsQueries = {
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrations(applicationId) }),
 
     lists: (queryClient: QueryClient, applicationId: string) =>
-        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrationsList(applicationId, {}) }),
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrationsList(applicationId) }),
 
     detail: (queryClient: QueryClient, applicationId: string, migrationId: string) =>
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.migrationDetail(applicationId, migrationId) })

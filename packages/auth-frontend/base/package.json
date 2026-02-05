@@ -32,9 +32,9 @@
                 "axios": "catalog:"
         },
         "peerDependencies": {
-                "@mui/material": "^5.15.0",
-                "@mui/system": "^6.4.3",
-                "@mui/icons-material": "^5.0.3",
+                "@mui/material": ">=7",
+                "@mui/system": ">=7",
+                "@mui/icons-material": ">=7",
                 "@tabler/icons-react": "^3.30.0",
                 "@yandex/smart-captcha": "catalog:",
                 "react": "^18.2.0",
@@ -47,9 +47,9 @@
                 }
         },
         "devDependencies": {
-                "@mui/material": "^5.15.0",
-                "@mui/system": "^6.4.3",
-                "@mui/icons-material": "^5.0.3",
+                "@mui/material": "catalog:",
+                "@mui/system": "catalog:",
+                "@mui/icons-material": "catalog:",
                 "@tabler/icons-react": "^3.30.0",
                 "@types/react": "^18.3.3",
                 "@types/react-dom": "^18.3.2",

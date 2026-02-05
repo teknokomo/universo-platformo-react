@@ -112,7 +112,7 @@ export const ApplicationsPanel = ({
                             }}
                             secondaryAction={
                                 <MuiLink
-                                    href={`/application/${app.id}`}
+                                    href={`/a/${app.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
