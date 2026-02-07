@@ -6,25 +6,27 @@
 
 ---
 
-## Current Focus: Catalog Blocking Delete Stabilization (Completed)
+## Current Focus: PR #666 Review Feedback Hardening (Completed)
 
 **Status**: Completed implementation and targeted validation.
 
-### Implemented in Stabilization Round
-- Finalized backend-safe query shape for blocking catalog references:
-  - `MetahubAttributesService.findCatalogReferenceBlockers(...)` uses table aliases compatible with `withSchema(...)` (`'_mhb_attributes as attr'`, `'_mhb_objects as obj'`).
-  - Added active-row guards for both tables (`_upl_deleted=false`, `_mhb_deleted=false`) to avoid stale blockers.
-- Unified catalog delete behavior from list mini-menu with edit-dialog delete path:
-  - `CatalogActions` now routes delete action through `helpers.openDeleteDialog(...)` (same blocking-aware flow used by edit form delete button).
-  - Added fallback path via `helpers.confirm(...)` for contexts where `openDeleteDialog` is unavailable.
-- Updated action factory coverage test expectation to support descriptor shapes with `dialog` or `onSelect`.
+### Implemented
+- Reviewed all 5 bot comments from PR `#666` and classified actionable items against current code state.
+- Applied confirmed safe fixes:
+  - `applications-backend`: simplified runtime layout selection in `applicationsRoutes` to a single SQL query for `_app_layouts` (`is_default OR is_active`) with deterministic ordering.
+  - `metahubs-backend`: fixed deterministic name VLC fallback in layouts routes by forcing `fallbackPrimary='en'` for both create and update paths.
+  - `metahubs-frontend`: changed branch copy dialog General tab fallback label from RU to EN (`'General'`).
+  - `schema-ddl`: removed unused `generateSchemaName` import from `SchemaGenerator`.
+- Rejected no comments as invalid; one item was optimization-level, but implemented safely within current scope.
 
 ### Validation Summary
 - Passed:
-  - `pnpm --filter @universo/metahubs-backend build`
+  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts -t "Metahubs page action factories" --coverage=false`
+  - `pnpm --filter @universo/schema-ddl test -- SchemaCloner.test.ts`
   - `pnpm --filter @universo/metahubs-frontend build`
-  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts -t "CatalogActions exports edit/delete descriptors for localized forms" --coverage=false`
-  - `pnpm --filter @universo/metahubs-frontend exec eslint src/domains/catalogs/ui/CatalogActions.tsx src/domains/metahubs/ui/__tests__/actionsFactories.test.ts` (warnings only)
-  - `pnpm --filter @universo/metahubs-backend exec eslint src/domains/metahubs/services/MetahubAttributesService.ts` (warnings only)
-- Baseline limitations observed (not introduced by this stabilization):
-  - Full `@universo/metahubs-frontend` test run still has pre-existing failures/timeouts and CSS-import test environment issues outside the touched path.
+  - `pnpm --filter @universo/schema-ddl build`
+  - targeted eslint checks for touched files (warnings only, no new errors).
+- Baseline limitations observed (not introduced by this hardening):
+  - `pnpm --filter @universo/applications-backend build` fails due existing workspace module-resolution baseline (`@universo/schema-ddl` not resolved in package build context).
+  - `pnpm --filter @universo/metahubs-backend build` fails due existing cross-package/type baseline issues unrelated to touched lines.

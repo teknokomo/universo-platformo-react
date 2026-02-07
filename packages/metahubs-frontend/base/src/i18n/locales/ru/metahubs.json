@@ -166,7 +166,7 @@
         },
         "details": {
             "title": "Макет",
-            "description": "Включайте и отключайте секции Dashboard (MVP: только show/hide)."
+            "description": "Включайте и отключайте секции Dashboard (показать/скрыть)."
         },
         "dashboard": {
             "sections": {

@@ -46,6 +46,30 @@
 
 ## 2026-02-07
 
+### PR #666 Review Feedback Hardening
+- **Objective**: Validate and safely apply bot review recommendations from PR `#666` without regressing clone/delete flows.
+- **Review outcome (5 comments)**:
+  - Implemented:
+    - Runtime layout config lookup in `applicationsRoutes` refactored to a single `_app_layouts` query (`is_default OR is_active`) with deterministic ordering.
+    - Layout name VLC fallback in `layoutsRoutes` create/update normalized to `fallbackPrimary='en'`.
+    - Branch copy dialog `General` tab fallback string switched from RU to EN.
+    - Removed unused `generateSchemaName` import in `SchemaGenerator`.
+  - No unsafe recommendations were applied; all accepted changes were low-risk and local.
+- **External docs check**:
+  - Verified i18n fallback behavior using i18next docs (fallback/default value behavior).
+  - Verified query/binding safety patterns using Knex docs and PostgreSQL references for deterministic ordering.
+- **Validation**:
+  - Passed:
+    - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts`
+    - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts -t "Metahubs page action factories" --coverage=false`
+    - `pnpm --filter @universo/schema-ddl test -- SchemaCloner.test.ts`
+    - `pnpm --filter @universo/metahubs-frontend build`
+    - `pnpm --filter @universo/schema-ddl build`
+    - targeted eslint checks on touched files (warnings only).
+  - Baseline (pre-existing):
+    - `pnpm --filter @universo/applications-backend build` fails due workspace module-resolution baseline in package context.
+    - `pnpm --filter @universo/metahubs-backend build` fails due existing cross-package/type baseline issues outside this change set.
+
 ### Metahub/Application Copy + Safe Dynamic Schema Delete
 - **Objective**: Complete safe deletion of dynamic Metahub schemas and implement full copy workflows for Metahubs and Applications (metadata + runtime schemas + optional access copy).
 - **Backend**:

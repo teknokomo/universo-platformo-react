@@ -533,33 +533,19 @@ export function createApplicationsRoutes(
                 )) as Array<{ layoutsExists: boolean }>
 
                 if (layoutsExists) {
-                    const uiRows = (await manager.query(
+                    const layoutRows = (await manager.query(
                         `
                             SELECT config
                             FROM ${schemaIdent}._app_layouts
-                            WHERE is_default = true
+                            WHERE (is_default = true OR is_active = true)
                               AND COALESCE(_upl_deleted, false) = false
                               AND COALESCE(_app_deleted, false) = false
-                            ORDER BY sort_order ASC, _upl_created_at ASC
+                            ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
                             LIMIT 1
                         `
                     )) as Array<{ config: Record<string, unknown> | null }>
 
-                    const fallbackRows = uiRows.length
-                        ? uiRows
-                        : ((await manager.query(
-                              `
-                                  SELECT config
-                                  FROM ${schemaIdent}._app_layouts
-                                  WHERE is_active = true
-                                    AND COALESCE(_upl_deleted, false) = false
-                                    AND COALESCE(_app_deleted, false) = false
-                                  ORDER BY sort_order ASC, _upl_created_at ASC
-                                  LIMIT 1
-                              `
-                          )) as Array<{ config: Record<string, unknown> | null }>)
-
-                    layoutConfig = fallbackRows?.[0]?.config ?? {}
+                    layoutConfig = layoutRows?.[0]?.config ?? {}
                 } else {
                     // Backward compatibility for old schemas.
                     const [{ settingsExists }] = (await manager.query(

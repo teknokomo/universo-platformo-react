@@ -149,7 +149,7 @@ export function createLayoutsRoutes(
             }
 
             const sanitizedName = sanitizeLocalizedInput(toLocalizedInputRecord(parsed.data.name))
-            const nameVlc = buildLocalizedContent(sanitizedName, parsed.data.namePrimaryLocale, parsed.data.namePrimaryLocale ?? 'en')
+            const nameVlc = buildLocalizedContent(sanitizedName, parsed.data.namePrimaryLocale, 'en')
             if (!nameVlc) {
                 return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
             }
@@ -253,7 +253,7 @@ export function createLayoutsRoutes(
                 const incomingName = sanitizeLocalizedInput(toLocalizedInputRecord(parsed.data.name))
                 const mergedName = { ...existingName, ...incomingName }
                 const namePrimaryLocale = parsed.data.namePrimaryLocale ?? existingNamePrimary
-                const nameVlc = buildLocalizedContent(mergedName, namePrimaryLocale, namePrimaryLocale ?? 'en')
+                const nameVlc = buildLocalizedContent(mergedName, namePrimaryLocale, 'en')
                 if (!nameVlc) {
                     return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
                 }

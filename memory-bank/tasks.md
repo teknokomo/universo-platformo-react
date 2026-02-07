@@ -1,6 +1,13 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## COMPLETED (2026-02-07): PR #666 Review Feedback Hardening
+
+- [x] Validate bot review comments from PR #666 against current code and classify actionable items.
+- [x] Apply safe fixes for confirmed issues (layout config query efficiency, localized fallback handling, i18n fallback labels, unused imports).
+- [x] Run targeted lint/build validation for touched packages.
+- [x] Update memory-bank status files with implementation outcomes.
+
 ## COMPLETED (2026-02-07): Catalog Blocking Delete Stabilization
 
 - [x] Fix backend blocking references query for catalog delete (`[object Object]` SQL alias issue with Knex + `withSchema`).

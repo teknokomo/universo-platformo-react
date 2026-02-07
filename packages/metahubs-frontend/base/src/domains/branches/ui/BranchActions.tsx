@@ -365,7 +365,7 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                     tabs: ({ values, setValue, isLoading, errors }: any) => [
                         {
                             id: 'general',
-                            label: ctx.t('metahubs:branches.tabs.general', 'Основное'),
+                            label: ctx.t('metahubs:branches.tabs.general', 'General'),
                             content: (
                                 <BranchEditFields
                                     values={values}
