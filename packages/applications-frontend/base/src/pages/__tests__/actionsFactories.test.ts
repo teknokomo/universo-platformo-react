@@ -16,7 +16,7 @@ beforeEach(() => {
 })
 
 describe('Applications page action factories', () => {
-    it('ApplicationActions exports edit/delete descriptors for localized forms', async () => {
+    it('ApplicationActions exports edit/copy/delete descriptors for localized forms', async () => {
         const mod = await import('../ApplicationActions')
 
         expect(createEntityActions).not.toHaveBeenCalled()
@@ -25,10 +25,13 @@ describe('Applications page action factories', () => {
         expect(Array.isArray(descriptors)).toBe(true)
 
         const edit = descriptors.find((d) => d.id === 'edit')
+        const copy = descriptors.find((d) => d.id === 'copy')
         const del = descriptors.find((d) => d.id === 'delete')
 
         expect(edit).toBeTruthy()
         expect(edit.dialog).toBeTruthy()
+        expect(copy).toBeTruthy()
+        expect(copy.dialog).toBeTruthy()
         expect(del).toBeTruthy()
         expect(del.dialog).toBeTruthy()
     })

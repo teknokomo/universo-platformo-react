@@ -16,6 +16,10 @@ export interface ApplicationInput extends ApplicationLocalizedPayload {
     expectedVersion?: number
 }
 
+export interface ApplicationCopyInput extends Partial<ApplicationInput> {
+    copyAccess?: boolean
+}
+
 // Extended pagination params with showAll for admin users
 export interface ApplicationPaginationParams extends PaginationParams {
     showAll?: boolean
@@ -65,6 +69,9 @@ export const createApplication = (data: ApplicationInput) => apiClient.post<Appl
 export const updateApplication = (id: string, data: Partial<ApplicationInput>) => apiClient.patch<Application>(`/applications/${id}`, data)
 
 export const deleteApplication = (id: string) => apiClient.delete<void>(`/applications/${id}`)
+
+export const copyApplication = (id: string, data: ApplicationCopyInput = {}) =>
+    apiClient.post<Application>(`/applications/${id}/copy`, data)
 
 export const getApplicationRuntime = async (
     applicationId: string,

@@ -103,6 +103,8 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
         queryKey,
         queryFn: fetchBlockingEntities,
         enabled: open && Boolean(entityId),
+        // Avoid noisy repeated requests for deterministic blocker checks (404/409 should not auto-retry).
+        retry: false,
         // Must update on tab refocus even when data is "fresh"
         refetchOnWindowFocus: open ? 'always' : false
     })

@@ -35,6 +35,8 @@ export const createLayoutSchema = z.object({
     templateKey: layoutTemplateKeySchema.default('dashboard'),
     name: z.any(),
     description: z.any().optional().nullable(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional(),
     isActive: z.boolean().optional(),
     isDefault: z.boolean().optional(),
     sortOrder: z.number().int().optional()
@@ -44,6 +46,8 @@ export const updateLayoutSchema = z.object({
     templateKey: layoutTemplateKeySchema.optional(),
     name: z.any().optional(),
     description: z.any().optional().nullable(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional(),
     isActive: z.boolean().optional(),
     isDefault: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
@@ -52,7 +56,7 @@ export const updateLayoutSchema = z.object({
 })
 
 export class MetahubLayoutsService {
-    constructor(private readonly schemaService: MetahubSchemaService) { }
+    constructor(private readonly schemaService: MetahubSchemaService) {}
 
     private get knex() {
         return KnexClient.getInstance()
@@ -76,14 +80,7 @@ export class MetahubLayoutsService {
 
     async listLayouts(metahubId: string, options: LayoutListOptions, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const {
-            limit = 20,
-            offset = 0,
-            sortBy = 'updated',
-            sortOrder = 'desc',
-            search,
-            includeDeleted = false
-        } = options
+        const { limit = 20, offset = 0, sortBy = 'updated', sortOrder = 'desc', search, includeDeleted = false } = options
 
         const baseQuery = this.knex
             .withSchema(schemaName)
@@ -93,10 +90,10 @@ export class MetahubLayoutsService {
                     qb.where({ _upl_deleted: false, _mhb_deleted: false })
                 }
                 if (search) {
-                    qb.andWhereRaw(
-                        `(COALESCE(name::text, '') ILIKE ? OR COALESCE(description::text, '') ILIKE ?)`,
-                        [`%${search}%`, `%${search}%`]
-                    )
+                    qb.andWhereRaw(`(COALESCE(name::text, '') ILIKE ? OR COALESCE(description::text, '') ILIKE ?)`, [
+                        `%${search}%`,
+                        `%${search}%`
+                    ])
                 }
             })
 
@@ -107,8 +104,8 @@ export class MetahubLayoutsService {
             sortBy === 'name'
                 ? "COALESCE(name->'locales'->>(name->>'_primary'), name->'locales'->>'en', '')"
                 : sortBy === 'created'
-                    ? '_upl_created_at'
-                    : '_upl_updated_at'
+                ? '_upl_created_at'
+                : '_upl_updated_at'
 
         const rows = await baseQuery
             .clone()
@@ -135,11 +132,7 @@ export class MetahubLayoutsService {
         return row ? this.mapRow(row) : null
     }
 
-    async createLayout(
-        metahubId: string,
-        input: z.infer<typeof createLayoutSchema>,
-        userId?: string | null
-    ): Promise<MetahubLayoutRow> {
+    async createLayout(metahubId: string, input: z.infer<typeof createLayoutSchema>, userId?: string | null): Promise<MetahubLayoutRow> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const now = new Date()
 
@@ -274,18 +267,17 @@ export class MetahubLayoutsService {
             if (input.isActive !== undefined) updateData.is_active = nextIsActive
             if (input.isDefault !== undefined) updateData.is_default = nextIsDefault
 
-            const updated =
-                input.expectedVersion
-                    ? await updateWithVersionCheck({
-                        knex: trx as any,
-                        schemaName,
-                        tableName: '_mhb_layouts',
-                        entityId: layoutId,
-                        entityType: 'layout',
-                        expectedVersion: input.expectedVersion,
-                        updateData
-                    })
-                    : await incrementVersion(trx as any, schemaName, '_mhb_layouts', layoutId, updateData)
+            const updated = input.expectedVersion
+                ? await updateWithVersionCheck({
+                      knex: trx as any,
+                      schemaName,
+                      tableName: '_mhb_layouts',
+                      entityId: layoutId,
+                      entityType: 'layout',
+                      expectedVersion: input.expectedVersion,
+                      updateData
+                  })
+                : await incrementVersion(trx as any, schemaName, '_mhb_layouts', layoutId, updateData)
 
             return this.mapRow(updated)
         })

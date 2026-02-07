@@ -55,6 +55,7 @@ export function useUpdateLayout() {
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layouts(variables.metahubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: ['breadcrumb', 'layout', variables.metahubId, variables.layoutId] })
             enqueueSnackbar(t('layouts.updateSuccess', 'Layout updated'), { variant: 'success' })
         },
         onError: (error: Error) => {

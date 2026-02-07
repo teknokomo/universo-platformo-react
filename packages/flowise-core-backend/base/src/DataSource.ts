@@ -8,6 +8,7 @@ import { postgresMigrations } from './database/migrations/postgres'
 
 let appDataSource: DataSource
 let poolMonitorInterval: NodeJS.Timeout | null = null
+const ENABLE_POOL_DEBUG = process.env.DATABASE_POOL_DEBUG === 'true'
 
 /**
  * Pool monitoring configuration
@@ -59,7 +60,7 @@ const logPoolStatus = (context: string, force = false): void => {
  * Start periodic pool monitoring
  */
 const startPoolMonitor = (): void => {
-    if (poolMonitorInterval) return
+    if (!ENABLE_POOL_DEBUG || poolMonitorInterval) return
 
     poolMonitorInterval = setInterval(() => {
         logPoolStatus('status')
@@ -99,9 +100,7 @@ export const init = async (): Promise<void> => {
     }
 
     if (databaseType !== 'postgres') {
-        throw new Error(
-            `Unsupported database type "${databaseType}". This build supports only PostgreSQL configurations.`
-        )
+        throw new Error(`Unsupported database type "${databaseType}". This build supports only PostgreSQL configurations.`)
     }
 
     const flowisePath = path.join(getUserHome(), '.flowise')
@@ -157,9 +156,11 @@ export const init = async (): Promise<void> => {
     })
     console.log(`[DataSource] DataSource created successfully (pool max: ${poolMax})`)
 
-    // Start pool monitoring after initialization
-    startPoolMonitor()
-    logPoolStatus('initialized', true)
+    // Pool monitoring is disabled by default to reduce noisy logs in development.
+    if (ENABLE_POOL_DEBUG) {
+        startPoolMonitor()
+        logPoolStatus('initialized', true)
+    }
 }
 
 export function getDataSource(): DataSource {

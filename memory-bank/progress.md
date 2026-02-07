@@ -44,6 +44,129 @@
 
 ---
 
+## 2026-02-07
+
+### Metahub/Application Copy + Safe Dynamic Schema Delete
+- **Objective**: Complete safe deletion of dynamic Metahub schemas and implement full copy workflows for Metahubs and Applications (metadata + runtime schemas + optional access copy).
+- **Backend**:
+  - Added shared schema clone service in `@universo/schema-ddl`:
+    - new `SchemaCloner` and `cloneSchemaWithExecutor(...)` for full schema table/data/FK cloning.
+    - exported via package index and wired into `createDDLServices(...)`.
+  - Updated Metahub branch creation to use shared schema cloning for branch-from-branch flow.
+  - Fixed Metahub deletion order in `metahubsRoutes`:
+    - collect branch schemas first;
+    - `DROP SCHEMA ... CASCADE` in transaction;
+    - then remove Metahub metadata;
+    - clear schema cache.
+  - Added `POST /metahub/:metahubId/copy`:
+    - supports `copyDefaultBranchOnly` (default `true`) and `copyAccess` (default `false`);
+    - copies branch schemas (default branch only or all branches);
+    - remaps branch lineage/default branch;
+    - ensures copier is only `owner` (no duplicate copied role for requester).
+  - Added `POST /applications/:applicationId/copy`:
+    - supports `copyAccess` (default `false`);
+    - clones `app_*` dynamic schema when present;
+    - copies connectors and connector-publication links;
+    - ensures copier is only `owner`.
+- **Frontend**:
+  - Added copy API methods and mutation hooks:
+    - `copyMetahub(...)`, `useCopyMetahub()`;
+    - `copyApplication(...)`, `useCopyApplication()`.
+  - Added Copy action in list mini-menu under Edit for Metahubs and Applications.
+  - Implemented copy dialogs:
+    - localized title ("Copying"/"Копирование");
+    - default localized name suffix ` (copy)` / ` (копия)` per locale value;
+    - options:
+      - Metahub: `copyDefaultBranchOnly`, `copyAccess`;
+      - Application: `copyAccess`.
+  - Added EN/RU i18n keys for copy actions/messages/options.
+- **Tests**:
+  - Updated frontend API wrapper/mutation/action tests for copy flows.
+  - Added backend route tests for:
+    - application copy endpoint;
+    - metahub copy endpoint;
+    - dropping dynamic schema(s) on delete.
+  - Targeted runs passed:
+    - `applications-frontend` changed tests (vitest, coverage disabled for targeted run).
+    - `metahubs-frontend` changed tests (vitest, coverage disabled for targeted run).
+    - `applications-backend` route tests including new copy/delete-schema checks.
+    - `metahubs-backend` targeted copy/delete-schema tests.
+- **Build / Lint Validation**:
+  - Passed:
+    - `@universo/schema-ddl` build;
+    - `@universo/applications-frontend` build;
+    - `@universo/metahubs-frontend` build;
+    - targeted eslint on changed frontend files (warnings only).
+  - Existing baseline limitations observed (not introduced by this task):
+    - `@universo/applications-backend` / `@universo/metahubs-backend` package builds currently report workspace module-resolution/type debt in unrelated files.
+    - several legacy tests in `metahubsRoutes.test.ts` remain outdated and fail outside targeted new scenarios.
+
+### Post-QA Stabilization for Copy/Delete Flows
+- **Objective**: Address QA-reported branch creation failure (`Expected 1 bindings, saw 0`) and finalize copy/delete hardening.
+- **Code changes**:
+  - `@universo/schema-ddl`:
+    - Added safe placeholder mapping in `SchemaCloner` Knex adapter (`$n` -> `?`) for `knex.raw(...)`.
+    - Preserved PostgreSQL `$n` placeholders in generic executor path for TypeORM `manager.query(...)`.
+    - Added focused regression suite `SchemaCloner.test.ts` for both execution paths.
+  - `applications-frontend`:
+    - Removed divider between `Edit` and `Copy` menu items in Applications mini-menu.
+  - `applications-backend` + `metahubs-backend`:
+    - `copyAccess` now copies only active (non-soft-deleted) membership rows.
+    - Updated route tests to verify soft-delete filters are applied.
+- **Validation**:
+  - Passed:
+    - `pnpm --filter @universo/schema-ddl test -- SchemaCloner`
+    - `pnpm --filter @universo/schema-ddl build`
+    - `pnpm --filter @universo/applications-backend test -- applicationsRoutes`
+    - `pnpm --filter @universo/applications-backend build`
+    - `pnpm --filter @universo/metahubs-backend exec jest --config ./jest.config.js src/tests/routes/metahubsRoutes.test.ts -t "should copy metahub with default branch and access rules"`
+    - `pnpm --filter @universo/applications-frontend build`
+  - Baseline (pre-existing) failures observed during broader checks:
+    - `pnpm --filter @universo/metahubs-backend test -- metahubsRoutes`
+    - `pnpm --filter @universo/metahubs-backend build`
+    - package-wide lint in `applications-backend` / `applications-frontend` due unrelated legacy formatting/style debt.
+
+### Catalog Blocking Delete Stabilization
+- **Objective**: Fix catalog delete blocker check failures (`[object Object]` table reference) and ensure mini-menu delete uses the same blocking-aware UX as edit dialog delete.
+- **Backend**:
+  - Confirmed and stabilized `findCatalogReferenceBlockers(...)` query aliasing with `withSchema(...)` using string aliases (`'_mhb_attributes as attr'`, `'_mhb_objects as obj'`).
+  - Added active-row filters for both source attributes and source catalogs (`_upl_deleted=false`, `_mhb_deleted=false`) to avoid stale blockers.
+- **Frontend**:
+  - Reworked `CatalogActions` delete descriptor from dialog-driven flow to `onSelect` flow that calls `helpers.openDeleteDialog(...)`.
+  - Added safe fallback via `helpers.confirm(...)` + direct delete for contexts that do not provide `openDeleteDialog`.
+  - Updated action factory test expectation to allow both descriptor patterns (`dialog` or `onSelect`).
+- **Validation**:
+  - Passed:
+    - `pnpm --filter @universo/metahubs-backend build`
+    - `pnpm --filter @universo/metahubs-frontend build`
+    - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts -t "CatalogActions exports edit/delete descriptors for localized forms" --coverage=false`
+    - targeted eslint checks on touched files (warnings only).
+  - Baseline:
+    - full `@universo/metahubs-frontend` test run still reports pre-existing unrelated failures (timeouts + CSS import handling in legacy suites).
+
+## 2026-02-06
+
+### Layout Storage Alignment: `_app_layouts` + Safe Rename/Edit Path
+- **Objective**: Remove accidental layout section reset on layout metadata edits and align application schema storage with Metahub model (`layouts` separate from generic `settings`).
+- **Frontend (metahubs-frontend)**:
+  - Updated layout form payload flow so edit operation does not send default config.
+  - Added breadcrumb query invalidation for layout detail after update to immediately reflect renamed layout title in breadcrumbs.
+- **Backend (schema-ddl + metahubs-backend + applications-backend)**:
+  - Added dynamic system table `_app_layouts` in `SchemaGenerator.ensureSystemTables`.
+  - Kept `_app_settings` table creation for future generic settings (no behavioral coupling with layouts).
+  - Reworked publication sync layout persistence/comparison to use normalized `_app_layouts` rows instead of `_app_settings` key-value records.
+  - Runtime endpoint now resolves `layoutConfig` from `_app_layouts` (default active layout, fallback to first active), with compatibility fallback to legacy `_app_settings` (`key='layout'`).
+- **Compatibility and UX**:
+  - Preserved sync diff message keys (`ui.layout.update`, `ui.layouts.update`) and existing sync summary semantics.
+  - No route contract changes for runtime API consumers.
+- **Validation**:
+  - Target builds passed:
+    - `@universo/schema-ddl`
+    - `@universo/applications-backend`
+    - `@universo/metahubs-backend`
+    - `@universo/metahubs-frontend`
+  - Target lint on touched files passed with no errors (warnings only from baseline rules).
+
 ## 2026-02-04
 
 ### Applications Runtime UI + `/a/:applicationId` Routing (MVP)

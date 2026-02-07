@@ -4,10 +4,11 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { generateSchemaName, isValidSchemaName } from '@universo/schema-ddl'
+import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
 import { Connector } from '../database/entities/Connector'
+import { ConnectorPublication } from '../database/entities/ConnectorPublication'
 import { Profile } from '@universo/profile-backend'
 import { ensureApplicationAccess, ROLE_PERMISSIONS, assertNotOwner } from './guards'
 import type { ApplicationRole } from './guards'
@@ -103,6 +104,26 @@ const resolveRuntimeValue = (value: unknown, dataType: 'BOOLEAN' | 'STRING' | 'N
     return String(value)
 }
 
+const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
+    const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
+    const entries = Object.entries(locales)
+        .map(([locale, value]) => [normalizeLocale(locale), typeof value?.content === 'string' ? value.content.trim() : ''] as const)
+        .filter(([, content]) => content.length > 0)
+
+    if (entries.length === 0) {
+        return {
+            en: 'Copy (copy)'
+        }
+    }
+
+    const result: Record<string, string> = {}
+    for (const [locale, content] of entries) {
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        result[locale] = `${content}${suffix}`
+    }
+    return result
+}
+
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -125,6 +146,7 @@ export function createApplicationsRoutes(
             applicationRepo: manager.getRepository(Application),
             applicationUserRepo: manager.getRepository(ApplicationUser),
             connectorRepo: manager.getRepository(Connector),
+            connectorPublicationRepo: manager.getRepository(ConnectorPublication),
             authUserRepo: manager.getRepository(AuthUser)
         }
     }
@@ -496,35 +518,79 @@ export function createApplicationsRoutes(
             })
 
             // Optional layout config for runtime UI (Dashboard sections show/hide).
-            // Stored inside the application dynamic schema to keep configuration versioned with migrations.
+            // Source of truth: _app_layouts (default active layout). Kept in dynamic schema with migrations.
             let layoutConfig: Record<string, unknown> = {}
             try {
-                const [{ exists }] = (await manager.query(
+                const [{ layoutsExists }] = (await manager.query(
                     `
                         SELECT EXISTS (
                             SELECT 1
                             FROM information_schema.tables
-                            WHERE table_schema = $1 AND table_name = '_app_settings'
-                        ) AS exists
+                            WHERE table_schema = $1 AND table_name = '_app_layouts'
+                        ) AS "layoutsExists"
                     `,
                     [schemaName]
-                )) as Array<{ exists: boolean }>
+                )) as Array<{ layoutsExists: boolean }>
 
-                if (exists) {
+                if (layoutsExists) {
                     const uiRows = (await manager.query(
                         `
-                            SELECT value
-                            FROM ${schemaIdent}._app_settings
-                            WHERE key = 'layout'
+                            SELECT config
+                            FROM ${schemaIdent}._app_layouts
+                            WHERE is_default = true
                               AND COALESCE(_upl_deleted, false) = false
                               AND COALESCE(_app_deleted, false) = false
+                            ORDER BY sort_order ASC, _upl_created_at ASC
                             LIMIT 1
                         `
-                    )) as Array<{ value: Record<string, unknown> | null }>
-                    layoutConfig = uiRows?.[0]?.value ?? {}
+                    )) as Array<{ config: Record<string, unknown> | null }>
+
+                    const fallbackRows = uiRows.length
+                        ? uiRows
+                        : ((await manager.query(
+                              `
+                                  SELECT config
+                                  FROM ${schemaIdent}._app_layouts
+                                  WHERE is_active = true
+                                    AND COALESCE(_upl_deleted, false) = false
+                                    AND COALESCE(_app_deleted, false) = false
+                                  ORDER BY sort_order ASC, _upl_created_at ASC
+                                  LIMIT 1
+                              `
+                          )) as Array<{ config: Record<string, unknown> | null }>)
+
+                    layoutConfig = fallbackRows?.[0]?.config ?? {}
+                } else {
+                    // Backward compatibility for old schemas.
+                    const [{ settingsExists }] = (await manager.query(
+                        `
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM information_schema.tables
+                                WHERE table_schema = $1 AND table_name = '_app_settings'
+                            ) AS "settingsExists"
+                        `,
+                        [schemaName]
+                    )) as Array<{ settingsExists: boolean }>
+
+                    if (!settingsExists) {
+                        layoutConfig = {}
+                    } else {
+                        const uiRows = (await manager.query(
+                            `
+                                SELECT value
+                                FROM ${schemaIdent}._app_settings
+                                WHERE key = 'layout'
+                                  AND COALESCE(_upl_deleted, false) = false
+                                  AND COALESCE(_app_deleted, false) = false
+                                LIMIT 1
+                            `
+                        )) as Array<{ value: Record<string, unknown> | null }>
+                        layoutConfig = uiRows?.[0]?.value ?? {}
+                    }
                 }
             } catch (e) {
-                // Backward compatibility: older schemas may not have _app_settings yet.
+                // Backward compatibility: older schemas may not have UI settings tables yet.
                 // eslint-disable-next-line no-console
                 console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
             }
@@ -763,6 +829,255 @@ export function createApplicationsRoutes(
                 accessType: 'member',
                 permissions: ROLE_PERMISSIONS.owner
             })
+        })
+    )
+
+    // ============ COPY APPLICATION ============
+    router.post(
+        '/:applicationId/copy',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { applicationId } = req.params
+            const ds = getDataSource()
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureApplicationAccess(ds, userId, applicationId, ['owner', 'admin'], rlsRunner)
+
+            const localizedInputSchema = z
+                .union([z.string().min(1).max(255), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+            const optionalLocalizedInputSchema = z
+                .union([z.string(), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+            const schema = z.object({
+                name: localizedInputSchema.optional(),
+                description: optionalLocalizedInputSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
+                slug: z
+                    .string()
+                    .min(1)
+                    .max(100)
+                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
+                    .optional(),
+                isPublic: z.boolean().optional(),
+                copyAccess: z.boolean().optional().default(false)
+            })
+
+            const parsed = schema.safeParse(req.body ?? {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const manager = getRequestManager(req, ds)
+            const sourceApplicationRepo = manager.getRepository(Application)
+            const sourceApplicationUserRepo = manager.getRepository(ApplicationUser)
+            const sourceConnectorRepo = manager.getRepository(Connector)
+            const sourceConnectorPublicationRepo = manager.getRepository(ConnectorPublication)
+
+            const sourceApplication = await sourceApplicationRepo.findOne({ where: { id: applicationId } })
+            if (!sourceApplication) {
+                return res.status(404).json({ error: 'Application not found' })
+            }
+
+            const requestedName = parsed.data.name
+                ? sanitizeLocalizedInput(parsed.data.name)
+                : buildDefaultCopyNameInput(sourceApplication.name)
+            if (Object.keys(requestedName).length === 0) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const nameVlc = buildLocalizedContent(requestedName, parsed.data.namePrimaryLocale, sourceApplication.name?._primary ?? 'en')
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            let descriptionVlc = sourceApplication.description
+            if (parsed.data.description !== undefined) {
+                const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    descriptionVlc = buildLocalizedContent(
+                        sanitizedDescription,
+                        parsed.data.descriptionPrimaryLocale,
+                        parsed.data.namePrimaryLocale ?? sourceApplication.description?._primary ?? sourceApplication.name?._primary ?? 'en'
+                    )
+                } else {
+                    descriptionVlc = undefined
+                }
+            }
+
+            const slugCandidate = parsed.data.slug ?? (sourceApplication.slug ? `${sourceApplication.slug}-copy` : undefined)
+            if (slugCandidate) {
+                const existing = await sourceApplicationRepo.findOne({ where: { slug: slugCandidate } })
+                if (existing) {
+                    return res.status(409).json({ error: 'Application with this slug already exists' })
+                }
+            }
+
+            const [{ id: newApplicationId }] = (await manager.query(`SELECT public.uuid_generate_v7() AS id`)) as Array<{ id: string }>
+            const newSchemaName = generateSchemaName(newApplicationId)
+
+            if (!newSchemaName.startsWith('app_') || !isValidSchemaName(newSchemaName) || !IDENTIFIER_REGEX.test(newSchemaName)) {
+                return res.status(400).json({ error: 'Invalid generated application schema name' })
+            }
+
+            let schemaCloned = false
+            if (sourceApplication.schemaName) {
+                if (
+                    !sourceApplication.schemaName.startsWith('app_') ||
+                    !isValidSchemaName(sourceApplication.schemaName) ||
+                    !IDENTIFIER_REGEX.test(sourceApplication.schemaName)
+                ) {
+                    return res.status(400).json({ error: 'Invalid source application schema name' })
+                }
+
+                await cloneSchemaWithExecutor(
+                    {
+                        query: async <T>(sql: string, params: unknown[] = []) => {
+                            const rows = await manager.query(sql, params)
+                            return rows as T[]
+                        }
+                    },
+                    {
+                        sourceSchema: sourceApplication.schemaName,
+                        targetSchema: newSchemaName,
+                        dropTargetSchemaIfExists: true,
+                        createTargetSchema: true,
+                        copyData: true
+                    }
+                )
+                schemaCloned = true
+            }
+
+            try {
+                const copied = await ds.transaction(async (txManager) => {
+                    const txApplicationRepo = txManager.getRepository(Application)
+                    const txApplicationUserRepo = txManager.getRepository(ApplicationUser)
+                    const txConnectorRepo = txManager.getRepository(Connector)
+                    const txConnectorPublicationRepo = txManager.getRepository(ConnectorPublication)
+
+                    const copiedApplication = await txApplicationRepo.save(
+                        txApplicationRepo.create({
+                            id: newApplicationId,
+                            name: nameVlc,
+                            description: descriptionVlc,
+                            slug: slugCandidate,
+                            isPublic: parsed.data.isPublic ?? sourceApplication.isPublic,
+                            schemaName: newSchemaName,
+                            schemaStatus: sourceApplication.schemaStatus,
+                            schemaSyncedAt: sourceApplication.schemaSyncedAt,
+                            schemaError: sourceApplication.schemaError,
+                            schemaSnapshot: sourceApplication.schemaSnapshot,
+                            _uplCreatedBy: userId,
+                            _uplUpdatedBy: userId
+                        })
+                    )
+
+                    await txApplicationUserRepo.save(
+                        txApplicationUserRepo.create({
+                            applicationId: copiedApplication.id,
+                            userId,
+                            role: 'owner',
+                            _uplCreatedBy: userId,
+                            _uplUpdatedBy: userId
+                        })
+                    )
+
+                    if (parsed.data.copyAccess) {
+                        const sourceMembers = await sourceApplicationUserRepo.find({
+                            where: {
+                                applicationId,
+                                _uplDeleted: false,
+                                _appDeleted: false
+                            }
+                        })
+                        for (const sourceMember of sourceMembers) {
+                            if (sourceMember.userId === userId) continue
+                            await txApplicationUserRepo.save(
+                                txApplicationUserRepo.create({
+                                    applicationId: copiedApplication.id,
+                                    userId: sourceMember.userId,
+                                    role: sourceMember.role,
+                                    comment: sourceMember.comment,
+                                    _uplCreatedBy: userId,
+                                    _uplUpdatedBy: userId
+                                })
+                            )
+                        }
+                    }
+
+                    const sourceConnectors = await sourceConnectorRepo.find({
+                        where: { applicationId },
+                        order: { sortOrder: 'ASC' }
+                    })
+
+                    const connectorIdMap = new Map<string, string>()
+                    for (const sourceConnector of sourceConnectors) {
+                        const savedConnector = await txConnectorRepo.save(
+                            txConnectorRepo.create({
+                                applicationId: copiedApplication.id,
+                                name: sourceConnector.name,
+                                description: sourceConnector.description,
+                                sortOrder: sourceConnector.sortOrder,
+                                isSingleMetahub: sourceConnector.isSingleMetahub,
+                                isRequiredMetahub: sourceConnector.isRequiredMetahub,
+                                _uplCreatedBy: userId,
+                                _uplUpdatedBy: userId
+                            })
+                        )
+                        connectorIdMap.set(sourceConnector.id, savedConnector.id)
+                    }
+
+                    const sourceConnectorIds = sourceConnectors.map((connector) => connector.id)
+                    if (sourceConnectorIds.length > 0) {
+                        const sourceLinks = await sourceConnectorPublicationRepo.find({
+                            where: { connectorId: In(sourceConnectorIds) }
+                        })
+                        for (const sourceLink of sourceLinks) {
+                            const copiedConnectorId = connectorIdMap.get(sourceLink.connectorId)
+                            if (!copiedConnectorId) continue
+                            await txConnectorPublicationRepo.save(
+                                txConnectorPublicationRepo.create({
+                                    connectorId: copiedConnectorId,
+                                    publicationId: sourceLink.publicationId,
+                                    sortOrder: sourceLink.sortOrder,
+                                    _uplCreatedBy: userId,
+                                    _uplUpdatedBy: userId
+                                })
+                            )
+                        }
+                    }
+
+                    return copiedApplication
+                })
+
+                return res.status(201).json({
+                    id: copied.id,
+                    name: copied.name,
+                    description: copied.description,
+                    slug: copied.slug,
+                    isPublic: copied.isPublic,
+                    version: copied._uplVersion || 1,
+                    createdAt: copied._uplCreatedAt,
+                    updatedAt: copied._uplUpdatedAt,
+                    connectorsCount: undefined,
+                    membersCount: undefined,
+                    role: 'owner',
+                    accessType: 'member',
+                    permissions: ROLE_PERMISSIONS.owner
+                })
+            } catch (error) {
+                if (schemaCloned) {
+                    const schemaIdent = quoteIdentifier(newSchemaName)
+                    await manager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`).catch(() => undefined)
+                }
+                throw error
+            }
         })
     )
 

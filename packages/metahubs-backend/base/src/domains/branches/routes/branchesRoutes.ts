@@ -18,12 +18,11 @@ const resolveUserId = (req: Request): string | undefined => {
 }
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
-const optionalLocalizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
+const optionalLocalizedInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
 
-const sourceBranchIdSchema = z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().uuid().optional()
-)
+const sourceBranchIdSchema = z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().uuid().optional())
 
 const createBranchSchema = z.object({
     codename: z.string().min(1).max(100),
@@ -34,6 +33,20 @@ const createBranchSchema = z.object({
     sourceBranchId: sourceBranchIdSchema
 })
 
+const getDbErrorCode = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object') return undefined
+    const dbError = error as { code?: string; driverError?: { code?: string } }
+    return dbError.code ?? dbError.driverError?.code
+}
+
+const getDbErrorConstraint = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object') return undefined
+    const dbError = error as { constraint?: string; driverError?: { constraint?: string } }
+    return dbError.constraint ?? dbError.driverError?.constraint
+}
+
+const isUniqueViolation = (error: unknown): boolean => getDbErrorCode(error) === '23505'
+
 const updateBranchSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
     name: localizedInputSchema.optional(),
@@ -42,6 +55,22 @@ const updateBranchSchema = z.object({
     descriptionPrimaryLocale: z.string().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
+
+const DEBUG_LOG_LEVELS = new Set(['debug', 'verbose', 'silly', 'trace'])
+
+const isDebugLoggingEnabled = (): boolean => {
+    const logLevel = String(process.env.LOG_LEVEL ?? 'info').toLowerCase()
+    return DEBUG_LOG_LEVELS.has(logLevel)
+}
+
+const logBranchDebug = (message: string, payload?: unknown): void => {
+    if (!isDebugLoggingEnabled()) return
+    if (payload !== undefined) {
+        console.log(message, payload)
+        return
+    }
+    console.log(message)
+}
 
 export function createBranchesRoutes(
     ensureAuth: RequestHandler,
@@ -54,9 +83,9 @@ export function createBranchesRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const getService = (req: Request) => {
         const ds = getDataSource()
@@ -254,7 +283,10 @@ export function createBranchesRoutes(
 
             const existing = await branchesService.findByCodename(metahubId, normalizedCodename)
             if (existing) {
-                return res.status(409).json({ error: 'Branch with this codename already exists' })
+                return res.status(409).json({
+                    code: 'BRANCH_CODENAME_EXISTS',
+                    error: 'Branch with this codename already exists'
+                })
             }
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
@@ -298,14 +330,43 @@ export function createBranchesRoutes(
                     updatedAt: branch._uplUpdatedAt
                 })
             } catch (error: any) {
+                logBranchDebug('[branches:create] createBranch failed', {
+                    metahubId,
+                    sourceBranchId: sourceBranchId ?? null,
+                    codename: normalizedCodename,
+                    userId,
+                    dbCode: getDbErrorCode(error),
+                    constraint: getDbErrorConstraint(error),
+                    message: error?.message
+                })
+
                 if (error.message?.includes('Branch creation in progress')) {
-                    return res.status(409).json({ error: 'Branch creation in progress' })
+                    return res.status(409).json({
+                        code: 'BRANCH_CREATION_IN_PROGRESS',
+                        error: 'Branch creation in progress'
+                    })
                 }
                 if (error.message?.includes('Source branch not found')) {
                     return res.status(404).json({ error: 'Source branch not found' })
                 }
-                if (error.message?.includes('duplicate')) {
-                    return res.status(409).json({ error: 'Branch with this codename already exists' })
+                if (isUniqueViolation(error)) {
+                    const constraint = getDbErrorConstraint(error)
+                    if (constraint === 'idx_branches_metahub_codename_active') {
+                        return res.status(409).json({
+                            code: 'BRANCH_CODENAME_EXISTS',
+                            error: 'Branch with this codename already exists'
+                        })
+                    }
+                    if (constraint === 'idx_branches_metahub_number_active' || constraint === 'metahubs_branches_schema_name_key') {
+                        return res.status(409).json({
+                            code: 'BRANCH_NUMBER_CONFLICT',
+                            error: 'Branch numbering conflict. Please retry.'
+                        })
+                    }
+                    return res.status(409).json({
+                        code: 'BRANCH_UNIQUE_CONFLICT',
+                        error: 'Branch creation failed due to unique constraint conflict'
+                    })
                 }
                 throw error
             }
@@ -350,7 +411,10 @@ export function createBranchesRoutes(
 
                 const existing = await branchesService.findByCodename(metahubId, normalizedCodename)
                 if (existing && existing.id !== branchId) {
-                    return res.status(409).json({ error: 'Branch with this codename already exists' })
+                    return res.status(409).json({
+                        code: 'BRANCH_CODENAME_EXISTS',
+                        error: 'Branch with this codename already exists'
+                    })
                 }
                 updateData.codename = normalizedCodename
             }

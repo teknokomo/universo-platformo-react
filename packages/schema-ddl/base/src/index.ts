@@ -65,11 +65,13 @@ export { generateMigrationName } from './MigrationManager'
 import { SchemaGenerator } from './SchemaGenerator'
 import { SchemaMigrator } from './SchemaMigrator'
 import { MigrationManager } from './MigrationManager'
+import { SchemaCloner } from './SchemaCloner'
 
 // Re-export classes and types (require DI)
 export { SchemaGenerator, type GenerateFullSchemaOptions } from './SchemaGenerator'
 export { SchemaMigrator, type ApplyChangesOptions } from './SchemaMigrator'
 export { MigrationManager } from './MigrationManager'
+export { SchemaCloner, cloneSchemaWithExecutor, type SchemaCloneExecutor, type CloneSchemaOptions } from './SchemaCloner'
 
 /**
  * DDL Services container - provides all DDL classes instantiated with the same Knex instance
@@ -81,6 +83,8 @@ export interface DDLServices {
     migrator: import('./SchemaMigrator').SchemaMigrator
     /** Migration manager for recording and listing migrations */
     migrationManager: import('./MigrationManager').MigrationManager
+    /** Schema cloner for full schema copy between isolated schemas */
+    cloner: import('./SchemaCloner').SchemaCloner
 }
 
 /**
@@ -109,10 +113,12 @@ export function createDDLServices(knex: Knex): DDLServices {
     const generator = new SchemaGenerator(knex)
     const migrationManager = new MigrationManager(knex)
     const migrator = new SchemaMigrator(knex, generator, migrationManager)
+    const cloner = new SchemaCloner(knex)
 
     return {
         generator,
         migrator,
         migrationManager,
+        cloner,
     }
 }

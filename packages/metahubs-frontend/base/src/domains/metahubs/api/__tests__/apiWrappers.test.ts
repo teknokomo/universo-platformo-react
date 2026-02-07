@@ -77,6 +77,13 @@ describe('metahubs-frontend api wrappers', () => {
         api.deleteMetahub('m1')
         expect(del).toHaveBeenCalledWith('/metahub/m1')
 
+        api.copyMetahub('m1', { codename: 'test-copy', copyDefaultBranchOnly: true, copyAccess: false })
+        expect(post).toHaveBeenCalledWith('/metahub/m1/copy', {
+            codename: 'test-copy',
+            copyDefaultBranchOnly: true,
+            copyAccess: false
+        })
+
         const members = await api.listMetahubMembers('m1', { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' })
         expect(get).toHaveBeenCalledWith('/metahub/m1/members', {
             params: { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' }

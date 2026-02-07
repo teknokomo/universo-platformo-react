@@ -5,11 +5,19 @@
         "noApplicationsFound": "No applications found",
         "createApplication": "Create Application",
         "editTitle": "Edit Application",
+        "copyTitle": "Copying Application",
         "confirmDelete": "Delete Application?",
         "confirmDeleteDescription": "Are you sure you want to delete application \"{{name}}\"?",
         "deleteSuccess": "Application successfully deleted",
         "deleteError": "Failed to delete application",
+        "copySuccess": "Application successfully copied",
+        "copyError": "Failed to copy application",
         "saveError": "Failed to save application",
+        "copy": {
+            "action": "Copy",
+            "actionLoading": "Copying...",
+            "copyAccess": "Copy access permissions"
+        },
         "actions": {
             "edit": "Edit",
             "delete": "Delete",
@@ -201,7 +209,18 @@
                 "create": "Create {{tablesCount}} table(s) in new schema",
                 "uiChanged": "UI settings have changed",
                 "upToDate": "Schema is already up to date",
-                "metadataChanged": "System metadata will be updated"
+                "metadataChanged": "System metadata will be updated",
+                "changeCounts": "{{additiveCount}} additive change(s), {{destructiveCount}} destructive change(s)"
+            },
+            "structured": {
+                "addColumn": "Add column \"{{field}}\" ({{type}}) to \"{{table}}\"",
+                "dropColumn": "Drop column \"{{field}}\" from \"{{table}}\" (data loss)",
+                "addTable": "Create table \"{{table}}\"",
+                "dropTable": "Drop table \"{{table}}\" (data loss)",
+                "alterColumn": "Change column \"{{field}}\" in \"{{table}}\" ({{from}} -> {{to}})",
+                "addFk": "Add reference constraint for \"{{field}}\" in \"{{table}}\"",
+                "dropFk": "Drop reference constraint for \"{{field}}\" in \"{{table}}\"",
+                "modifyField": "Update metadata for \"{{field}}\" in \"{{table}}\""
             },
             "additive": "Additions",
             "additiveChanges": "Safe Changes (will be applied)",

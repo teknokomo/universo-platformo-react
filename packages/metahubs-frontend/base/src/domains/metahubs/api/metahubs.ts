@@ -8,6 +8,11 @@ export interface MetahubInput extends MetahubLocalizedPayload {
     expectedVersion?: number
 }
 
+export interface MetahubCopyInput extends Partial<MetahubInput> {
+    copyDefaultBranchOnly?: boolean
+    copyAccess?: boolean
+}
+
 // Extended pagination params with showAll for admin users
 export interface MetahubPaginationParams extends PaginationParams {
     showAll?: boolean
@@ -50,6 +55,8 @@ export const createMetahub = (data: MetahubInput) => apiClient.post<Metahub>('/m
 export const updateMetahub = (id: string, data: Partial<MetahubInput>) => apiClient.put<Metahub>(`/metahub/${id}`, data)
 
 export const deleteMetahub = (id: string) => apiClient.delete<void>(`/metahub/${id}`)
+
+export const copyMetahub = (id: string, data: MetahubCopyInput = {}) => apiClient.post<Metahub>(`/metahub/${id}/copy`, data)
 
 // ============ METAHUB MEMBERS ============
 

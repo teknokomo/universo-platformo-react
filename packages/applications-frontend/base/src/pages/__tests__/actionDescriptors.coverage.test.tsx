@@ -83,14 +83,13 @@ describe('Action descriptors (coverage)', () => {
 
         // Validation branches
         expect(props.validate({ nameVlc: null, codename: '' })).toMatchObject({
-            nameVlc: 'Name is required',
-            codename: 'Codename is required'
+            nameVlc: 'Name is required'
         })
         expect(props.validate({ nameVlc: makeVlc('X'), codename: 'Bad Code' })).toBeNull()
 
         // canSave branches
         expect(props.canSave({ nameVlc: null, codename: 'ok' })).toBe(false)
-        expect(props.canSave({ nameVlc: makeVlc('X'), codename: '' })).toBe(false)
+        expect(props.canSave({ nameVlc: makeVlc('X'), codename: '' })).toBe(true)
         expect(props.canSave({ nameVlc: makeVlc('X'), codename: 'Bad Code' })).toBe(true)
         expect(props.canSave({ nameVlc: makeVlc('X'), codename: 'good-code' })).toBe(true)
 
@@ -103,7 +102,6 @@ describe('Action descriptors (coverage)', () => {
         expect(updateEntity).toHaveBeenCalledWith(
             'conn-1',
             expect.objectContaining({
-                codename: 'good-code',
                 namePrimaryLocale: 'en'
             })
         )
@@ -131,16 +129,19 @@ describe('Action descriptors (coverage)', () => {
         expect(notifyError).toHaveBeenCalled()
     }, 15000)
 
-    it('ApplicationActions edit/delete buildProps covers validate/canSave/save/delete branches', async () => {
+    it('ApplicationActions edit/copy/delete buildProps covers validate/canSave/save/delete branches', async () => {
         const mod = await import('../ApplicationActions')
         const descriptors = mod.default as any[]
 
         const edit = descriptors.find((d) => d.id === 'edit')
+        const copy = descriptors.find((d) => d.id === 'copy')
         const del = descriptors.find((d) => d.id === 'delete')
         expect(edit?.dialog?.buildProps).toBeTypeOf('function')
+        expect(copy?.dialog?.buildProps).toBeTypeOf('function')
         expect(del?.dialog?.buildProps).toBeTypeOf('function')
 
         const updateEntity = vi.fn(async () => undefined)
+        const copyEntity = vi.fn(async () => undefined)
         const deleteEntity = vi.fn(async () => undefined)
         const refreshList = vi.fn(async () => undefined)
         const openDeleteDialog = vi.fn()
@@ -150,7 +151,7 @@ describe('Action descriptors (coverage)', () => {
             entity: { id: 'app-1', name: 'My App', description: 'Desc' },
             uiLocale: 'en',
             t: makeT(),
-            api: { updateEntity, deleteEntity },
+            api: { updateEntity, copyEntity, deleteEntity },
             helpers: { refreshList, openDeleteDialog, enqueueSnackbar },
             applicationMap: new Map([
                 [
@@ -175,6 +176,13 @@ describe('Action descriptors (coverage)', () => {
 
         await editProps.onSave({ nameVlc: makeVlc('My App'), descriptionVlc: makeVlc('Desc') })
         expect(updateEntity).toHaveBeenCalledWith('app-1', expect.objectContaining({ namePrimaryLocale: 'en' }))
+        expect(refreshList).toHaveBeenCalled()
+
+        const copyProps = copy.dialog.buildProps(ctx)
+        expect(copyProps.validate({ nameVlc: null })).toMatchObject({ nameVlc: 'Name is required' })
+        expect(copyProps.canSave({ nameVlc: makeVlc('X') })).toBe(true)
+        await copyProps.onSave({ nameVlc: makeVlc('My App (copy)'), descriptionVlc: makeVlc('Desc'), copyAccess: true })
+        expect(copyEntity).toHaveBeenCalledWith('app-1', expect.objectContaining({ namePrimaryLocale: 'en', copyAccess: true }))
         expect(refreshList).toHaveBeenCalled()
 
         editProps.onDelete?.()

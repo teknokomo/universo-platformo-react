@@ -568,6 +568,17 @@ const AttributeList = () => {
                     }
                 },
                 openDeleteDialog: (attribute: Attribute) => {
+                    const actualAttribute = attributeMap.get(attribute.id) ?? attribute
+                    if (actualAttribute?.isDisplayAttribute) {
+                        enqueueSnackbar(
+                            t(
+                                'attributes.deleteDisplayAttributeBlocked',
+                                'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
+                            ),
+                            { variant: 'warning' }
+                        )
+                        return
+                    }
                     setDeleteDialogState({ open: true, attribute })
                 }
             }
@@ -870,6 +881,18 @@ const AttributeList = () => {
                 onCancel={() => setDeleteDialogState({ open: false, attribute: null })}
                 onConfirm={async () => {
                     if (deleteDialogState.attribute) {
+                        const actualAttribute = attributeMap.get(deleteDialogState.attribute.id) ?? deleteDialogState.attribute
+                        if (actualAttribute?.isDisplayAttribute) {
+                            enqueueSnackbar(
+                                t(
+                                    'attributes.deleteDisplayAttributeBlocked',
+                                    'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
+                                ),
+                                { variant: 'warning' }
+                            )
+                            setDeleteDialogState({ open: false, attribute: null })
+                            return
+                        }
                         try {
                             await deleteAttributeMutation.mutateAsync({
                                 metahubId,

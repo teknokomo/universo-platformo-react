@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
         createMetahub: vi.fn(),
         updateMetahub: vi.fn(),
         deleteMetahub: vi.fn(),
+        copyMetahub: vi.fn(),
         inviteMetahubMember: vi.fn(),
         updateMetahubMemberRole: vi.fn(),
         removeMetahubMember: vi.fn()
@@ -41,6 +42,7 @@ beforeEach(() => {
     mocks.metahubsApi.createMetahub.mockReset()
     mocks.metahubsApi.updateMetahub.mockReset()
     mocks.metahubsApi.deleteMetahub.mockReset()
+    mocks.metahubsApi.copyMetahub.mockReset()
     mocks.metahubsApi.inviteMetahubMember.mockReset()
     mocks.metahubsApi.updateMetahubMemberRole.mockReset()
     mocks.metahubsApi.removeMetahubMember.mockReset()
@@ -63,6 +65,7 @@ describe('metahubs mutation hooks', () => {
         mocks.metahubsApi.createMetahub.mockResolvedValue({ data: { id: 'm1' } })
         mocks.metahubsApi.updateMetahub.mockResolvedValue({ data: { id: 'm1' } })
         mocks.metahubsApi.deleteMetahub.mockResolvedValue({ data: {} })
+        mocks.metahubsApi.copyMetahub.mockResolvedValue({ data: { id: 'm2' } })
         mocks.metahubsApi.inviteMetahubMember.mockResolvedValue({ data: {} })
         mocks.metahubsApi.updateMetahubMemberRole.mockResolvedValue({ data: {} })
         mocks.metahubsApi.removeMetahubMember.mockResolvedValue({ data: {} })
@@ -73,6 +76,7 @@ describe('metahubs mutation hooks', () => {
         let createMetahub: ReturnType<typeof hooks.useCreateMetahub> | undefined
         let updateMetahub: ReturnType<typeof hooks.useUpdateMetahub> | undefined
         let deleteMetahub: ReturnType<typeof hooks.useDeleteMetahub> | undefined
+        let copyMetahub: ReturnType<typeof hooks.useCopyMetahub> | undefined
 
         let memberMutations: ReturnType<typeof hooks.useMemberMutations> | undefined
 
@@ -80,6 +84,7 @@ describe('metahubs mutation hooks', () => {
             createMetahub = hooks.useCreateMetahub()
             updateMetahub = hooks.useUpdateMetahub()
             deleteMetahub = hooks.useDeleteMetahub()
+            copyMetahub = hooks.useCopyMetahub()
 
             memberMutations = hooks.useMemberMutations('m1')
 
@@ -96,6 +101,7 @@ describe('metahubs mutation hooks', () => {
             await createMetahub!.mutateAsync({ name: 'Name', description: 'Desc' })
             await updateMetahub!.mutateAsync({ id: 'm1', data: { name: 'Name2' } })
             await deleteMetahub!.mutateAsync('m1')
+            await copyMetahub!.mutateAsync({ id: 'm1', data: { codename: 'name-copy', copyDefaultBranchOnly: true, copyAccess: true } })
 
             await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
             await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
@@ -118,6 +124,11 @@ describe('metahubs mutation hooks', () => {
             descriptionPrimaryLocale: undefined
         })
         expect(mocks.metahubsApi.deleteMetahub).toHaveBeenCalledWith('m1')
+        expect(mocks.metahubsApi.copyMetahub).toHaveBeenCalledWith('m1', {
+            codename: 'name-copy',
+            copyDefaultBranchOnly: true,
+            copyAccess: true
+        })
 
         expect(mocks.metahubsApi.inviteMetahubMember).toHaveBeenCalledWith('m1', { email: 'a@b.c', role: 'viewer' })
         expect(mocks.metahubsApi.updateMetahubMemberRole).toHaveBeenCalledWith('m1', 'u1', { role: 'admin' })

@@ -17,6 +17,11 @@ interface UpdateMetahubParams {
     expectedVersion?: number
 }
 
+interface CopyMetahubParams {
+    id: string
+    data?: metahubsApi.MetahubCopyInput
+}
+
 interface UpdateMemberRoleParams {
     metahubId: string
     memberId: string
@@ -128,6 +133,26 @@ export function useDeleteMetahub() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('deleteError', 'Failed to delete metahub'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyMetahub() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ id, data }: CopyMetahubParams) => {
+            const response = await metahubsApi.copyMetahub(id, data ?? {})
+            return response.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.lists() })
+            enqueueSnackbar(t('copySuccess', 'Metahub copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('copyError', 'Failed to copy metahub'), { variant: 'error' })
         }
     })
 }

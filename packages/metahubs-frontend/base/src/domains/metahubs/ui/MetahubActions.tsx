@@ -1,6 +1,7 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography } from '@mui/material'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography, Checkbox } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -23,6 +24,67 @@ const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedP
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
         storageMode: 'main_db'
+    }
+}
+
+const appendLocalizedCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback?: string
+): VersionedLocalizedContent<string> | null => {
+    if (!value) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        const nextContent = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        return {
+            _schema: 'v1',
+            _primary: locale,
+            locales: {
+                [locale]: { content: nextContent }
+            }
+        }
+    }
+
+    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
+    const localeEntries = Object.entries(nextLocales)
+    for (const [locale, localeValue] of localeEntries) {
+        const normalizedLocale = normalizeLocale(locale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
+        }
+    }
+
+    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAnyContent) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        nextLocales[locale] = { content: content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}` }
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+const buildCopyInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>) => {
+    const initial = buildInitialValues(ctx)
+    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+
+    return {
+        ...initial,
+        nameVlc: appendLocalizedCopySuffix(
+            initial.nameVlc as VersionedLocalizedContent<string> | null | undefined,
+            uiLocale,
+            ctx.entity?.name || ''
+        ),
+        codenameTouched: false,
+        copyDefaultBranchOnly: true,
+        copyAccess: false
     }
 }
 
@@ -149,11 +211,12 @@ const buildEditTabs = (
         setValue: (name: string, value: any) => void
         isLoading: boolean
         errors?: Record<string, string>
-    }
+    },
+    options?: { includeCopyOptions?: boolean }
 ) => {
     const storageMode = values.storageMode ?? 'main_db'
 
-    return [
+    const tabs = [
         {
             id: 'general',
             label: ctx.t('tabs.general'),
@@ -174,19 +237,14 @@ const buildEditTabs = (
             content: (
                 <Box sx={{ mt: 2 }}>
                     <RadioGroup value={storageMode} onChange={(e) => setValue('storageMode', e.target.value)}>
+                        <FormControlLabel value='main_db' control={<Radio />} label={ctx.t('storage.mainDb')} disabled={isLoading} />
                         <FormControlLabel
-                            value="main_db"
-                            control={<Radio />}
-                            label={ctx.t('storage.mainDb')}
-                            disabled={isLoading}
-                        />
-                        <FormControlLabel
-                            value="external_db"
+                            value='external_db'
                             control={<Radio />}
                             label={
                                 <Box>
-                                    <Typography variant="body1">{ctx.t('storage.externalDb')}</Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant='body1'>{ctx.t('storage.externalDb')}</Typography>
+                                    <Typography variant='caption' color='text.secondary'>
                                         {ctx.t('storage.externalDbDisabled')}
                                     </Typography>
                                 </Box>
@@ -198,6 +256,39 @@ const buildEditTabs = (
             )
         }
     ]
+
+    if (options?.includeCopyOptions) {
+        tabs.push({
+            id: 'copy-options',
+            label: ctx.t('copy.optionsTab', 'Copy options'),
+            content: (
+                <Stack sx={{ mt: 1 }}>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={Boolean(values.copyDefaultBranchOnly ?? true)}
+                                onChange={(event) => setValue('copyDefaultBranchOnly', event.target.checked)}
+                                disabled={isLoading}
+                            />
+                        }
+                        label={ctx.t('copy.copyDefaultBranchOnly', 'Copy only default branch')}
+                    />
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={Boolean(values.copyAccess ?? false)}
+                                onChange={(event) => setValue('copyAccess', event.target.checked)}
+                                disabled={isLoading}
+                            />
+                        }
+                        label={ctx.t('copy.copyAccess', 'Copy access permissions')}
+                    />
+                </Stack>
+            )
+        })
+    }
+
+    return tabs
 }
 
 const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalizedPayload>[] = [
@@ -224,8 +315,12 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: (args: { values: Record<string, any>; setValue: (name: string, value: any) => void; isLoading: boolean; errors?: Record<string, string> }) =>
-                        buildEditTabs(ctx, args),
+                    tabs: (args: {
+                        values: Record<string, any>
+                        setValue: (name: string, value: any) => void
+                        isLoading: boolean
+                        errors?: Record<string, string>
+                    }) => buildEditTabs(ctx, args),
                     validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),
                     canSave: canSaveMetahubForm,
                     showDeleteButton: true,
@@ -248,6 +343,66 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
+                            await ctx.helpers?.refreshList?.()
+                        } catch (error: unknown) {
+                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                            throw error
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        id: 'copy',
+        labelKey: 'common:actions.copy',
+        icon: <ContentCopyIcon />,
+        order: 20,
+        dialog: {
+            loader: async () => {
+                const module = await import('@universo/template-mui/components/dialogs')
+                return { default: module.EntityFormDialog }
+            },
+            buildProps: (ctx) => {
+                const initial = buildCopyInitialValues(ctx)
+                return {
+                    open: true,
+                    mode: 'create' as const,
+                    title: ctx.t('copyTitle', 'Copying Metahub'),
+                    nameLabel: ctx.t('common:fields.name'),
+                    descriptionLabel: ctx.t('common:fields.description'),
+                    saveButtonText: ctx.t('copy.action', 'Copy'),
+                    savingButtonText: ctx.t('copy.actionLoading', 'Copying...'),
+                    cancelButtonText: ctx.t('common:actions.cancel'),
+                    hideDefaultFields: true,
+                    initialExtraValues: initial,
+                    tabs: (args: {
+                        values: Record<string, any>
+                        setValue: (name: string, value: any) => void
+                        isLoading: boolean
+                        errors?: Record<string, string>
+                    }) => buildEditTabs(ctx, args, { includeCopyOptions: true }),
+                    validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),
+                    canSave: canSaveMetahubForm,
+                    onClose: () => {
+                        // BaseEntityMenu handles dialog closing
+                    },
+                    onSuccess: async () => {
+                        try {
+                            await ctx.helpers?.refreshList?.()
+                        } catch (e) {
+                            // eslint-disable-next-line no-console
+                            console.error('Failed to refresh metahubs list after copy', e)
+                        }
+                    },
+                    onSave: async (data: Record<string, any>) => {
+                        try {
+                            const payload = toPayload(data)
+                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                                ...payload,
+                                copyDefaultBranchOnly: Boolean(data.copyDefaultBranchOnly ?? true),
+                                copyAccess: Boolean(data.copyAccess ?? false)
+                            })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)

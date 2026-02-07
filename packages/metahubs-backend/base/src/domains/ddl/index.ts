@@ -11,6 +11,7 @@ import {
     SchemaGenerator as SchemaGeneratorClass,
     SchemaMigrator as SchemaMigratorClass,
     MigrationManager as MigrationManagerClass,
+    SchemaCloner as SchemaClonerClass,
 } from '@universo/schema-ddl'
 
 // Re-export pure functions from @universo/schema-ddl
@@ -28,6 +29,7 @@ export {
     ChangeType,
     generateMigrationName,
     generateMetahubSchemaName,
+    cloneSchemaWithExecutor,
 } from '@universo/schema-ddl'
 
 // Re-export types from @universo/schema-ddl
@@ -47,12 +49,15 @@ export type {
     SchemaChange,
     GenerateFullSchemaOptions,
     ApplyChangesOptions,
+    SchemaCloneExecutor,
+    CloneSchemaOptions,
 } from '@universo/schema-ddl'
 
 // Re-export classes for type usage
 export { SchemaGeneratorClass as SchemaGenerator }
 export { SchemaMigratorClass as SchemaMigrator }
 export { MigrationManagerClass as MigrationManager }
+export { SchemaClonerClass as SchemaCloner }
 
 // Re-export local-only exports
 export { KnexClient } from './KnexClient'

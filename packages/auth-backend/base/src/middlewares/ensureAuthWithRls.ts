@@ -5,6 +5,17 @@ import { ensureAuth } from './ensureAuth'
 import { applyRlsContext } from '../utils/rlsContext'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
 
+const RLS_DEBUG = process.env.AUTH_RLS_DEBUG === 'true'
+
+const logRlsDebug = (message: string, payload?: unknown): void => {
+    if (!RLS_DEBUG) return
+    if (payload !== undefined) {
+        console.log(message, payload)
+        return
+    }
+    console.log(message)
+}
+
 /**
  * Extended request type with database context for RLS-enabled queries
  */
@@ -60,7 +71,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
         // Public endpoints must remain accessible without authentication.
         // This middleware wraps ensureAuth and would otherwise return 401 before the core whitelist is applied.
         if (isWhitelistedApiPath(requestPath)) {
-            console.log('[RLS] Whitelisted request - skipping auth/RLS', {
+            logRlsDebug('[RLS] Whitelisted request - skipping auth/RLS', {
                 originalUrl: req.originalUrl,
                 path: req.path,
                 method: req.method
@@ -71,7 +82,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
 
         // First, ensure authentication
         return ensureAuth(req, res, async () => {
-            console.log('[RLS] Middleware invoked', {
+            logRlsDebug('[RLS] Middleware invoked', {
                 path: req.path,
                 method: req.method,
                 timestamp: new Date().toISOString()
@@ -82,7 +93,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             // is applied at multiple router levels (e.g., parent + child routers).
             const existingContext = (req as RequestWithDbContext).dbContext
             if (existingContext?.queryRunner && !existingContext.queryRunner.isReleased) {
-                console.log('[RLS] Context already exists, reusing existing QueryRunner', {
+                logRlsDebug('[RLS] Context already exists, reusing existing QueryRunner', {
                     path: req.path
                 })
                 next()
@@ -92,7 +103,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             const authReq = req as AuthenticatedRequest
             const access = authReq.session?.tokens?.access
 
-            console.log('[RLS] Session token check', {
+            logRlsDebug('[RLS] Session token check', {
                 hasSession: !!authReq.session,
                 hasTokens: !!authReq.session?.tokens,
                 hasAccess: !!access,
@@ -109,7 +120,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 return
             }
 
-            console.log('[RLS] Creating QueryRunner', { path: req.path })
+            logRlsDebug('[RLS] Creating QueryRunner', { path: req.path })
             const ds = getDataSource()
             const runner = ds.createQueryRunner()
 
@@ -124,7 +135,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                     try {
                         // Reset request.jwt.claims before releasing the pooled connection.
                         try {
-                            console.log('[RLS] Resetting session context', { path: req.path })
+                            logRlsDebug('[RLS] Resetting session context', { path: req.path })
                             await runner.query(`SELECT set_config('request.jwt.claims', '', false)`)
                         } catch (resetErr) {
                             console.warn('[RLS] Failed to reset session context (continuing to release)', {
@@ -133,7 +144,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                             })
                         }
 
-                        console.log('[RLS] Releasing QueryRunner', { path: req.path })
+                        logRlsDebug('[RLS] Releasing QueryRunner', { path: req.path })
                         await runner.release()
                     } catch (err) {
                         console.error('[RLS] Error releasing QueryRunner:', err)
@@ -148,10 +159,10 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
 
             try {
                 // Connect and apply RLS context
-                console.log('[RLS] Connecting QueryRunner', { path: req.path })
+                logRlsDebug('[RLS] Connecting QueryRunner', { path: req.path })
                 await runner.connect()
 
-                console.log('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path })
+                logRlsDebug('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path })
                 await applyRlsContext(runner, access)
 
                 // Attach to request
@@ -160,7 +171,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                     manager: runner.manager
                 }
 
-                console.log('[RLS] ✅ Successfully applied RLS context', {
+                logRlsDebug('[RLS] ✅ Successfully applied RLS context', {
                     path: req.path,
                     userId: authReq.user?.id
                 })

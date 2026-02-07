@@ -2,6 +2,7 @@ export type MockRepository<_T> = {
     createQueryBuilder: jest.Mock
     find: jest.Mock
     findOne: jest.Mock
+    findOneOrFail: jest.Mock
     create: jest.Mock
     save: jest.Mock
     update: jest.Mock
@@ -38,6 +39,7 @@ export const createMockRepository = <T extends object>(): MockRepository<T> => {
         createQueryBuilder: jest.fn(() => queryBuilder),
         find: jest.fn().mockResolvedValue([]),
         findOne: jest.fn().mockResolvedValue(null),
+        findOneOrFail: jest.fn().mockResolvedValue({ id: 'mock-id' }),
         create: jest.fn().mockImplementation((entity: any) => ({ ...entity, id: 'mock-id' })),
         save: jest.fn().mockImplementation((entity: any) => Promise.resolve({ ...entity, id: entity.id || 'mock-id' })),
         update: jest.fn().mockResolvedValue({ affected: 1 }),

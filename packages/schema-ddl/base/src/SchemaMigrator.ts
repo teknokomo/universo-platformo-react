@@ -18,10 +18,7 @@ export interface ApplyChangesOptions {
     /** Description for migration name generation */
     migrationDescription?: string
     /** Optional metadata to store in migration record */
-    migrationMeta?: Pick<
-        import('./types').MigrationMeta,
-        'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
-    >
+    migrationMeta?: Pick<import('./types').MigrationMeta, 'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'>
     /** Optional Metahub snapshot stored separately from meta */
     publicationSnapshot?: Record<string, unknown> | null
     /** User ID for audit fields */
@@ -66,7 +63,7 @@ export class SchemaMigrator {
 
         try {
             await this.knex.transaction(async (trx) => {
-                for (const change of diff.additive) {
+                for (const change of this.orderChangesForApply(diff.additive, 'additive')) {
                     try {
                         await this.applyChange(schemaName, change, entities, trx)
                         result.changesApplied++
@@ -129,7 +126,7 @@ export class SchemaMigrator {
 
         try {
             await this.knex.transaction(async (trx) => {
-                for (const change of diff.destructive) {
+                for (const change of this.orderChangesForApply(diff.destructive, 'destructive')) {
                     try {
                         await this.applyChange(schemaName, change, entities, trx)
                         result.changesApplied++
@@ -139,7 +136,7 @@ export class SchemaMigrator {
                     }
                 }
 
-                for (const change of diff.additive) {
+                for (const change of this.orderChangesForApply(diff.additive, 'additive')) {
                     try {
                         await this.applyChange(schemaName, change, entities, trx)
                         result.changesApplied++
@@ -262,9 +259,7 @@ export class SchemaMigrator {
                     await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? DROP NOT NULL`, [schemaName, change.tableName, change.columnName])
                 } else {
                     // Type change - get field to access validationRules for type config
-                    const field = change.fieldId && change.entityId
-                        ? this.findField(entities, change.entityId, change.fieldId)
-                        : null
+                    const field = change.fieldId && change.entityId ? this.findField(entities, change.entityId, change.fieldId) : null
                     const newType = SchemaGenerator.mapDataType(
                         change.newValue as AttributeDataType,
                         field?.validationRules as Partial<AttributeValidationRules> | undefined
@@ -324,6 +319,62 @@ export class SchemaMigrator {
             default:
                 console.warn(`[SchemaMigrator] Unknown change type: ${change.type}`)
         }
+    }
+
+    /**
+     * Orders schema changes to avoid dependency violations.
+     *
+     * For destructive migrations this guarantees that:
+     * 1) FKs are removed first
+     * 2) dependent columns are dropped next
+     * 3) tables are dropped last
+     *
+     * This prevents PostgreSQL errors like dropping a referenced table
+     * before removing referencing constraints/columns.
+     */
+    private orderChangesForApply(changes: SchemaChange[], mode: 'additive' | 'destructive'): SchemaChange[] {
+        const rank = (change: SchemaChange): number => {
+            if (mode === 'destructive') {
+                switch (change.type) {
+                    case ChangeType.DROP_FK:
+                        return 10
+                    case ChangeType.DROP_COLUMN:
+                        return 20
+                    case ChangeType.ALTER_COLUMN:
+                        return 30
+                    case ChangeType.DROP_TABLE:
+                        return 40
+                    case ChangeType.RENAME_TABLE:
+                        return 50
+                    case ChangeType.MODIFY_FIELD:
+                        return 60
+                    default:
+                        return 100
+                }
+            }
+
+            switch (change.type) {
+                case ChangeType.ADD_TABLE:
+                    return 10
+                case ChangeType.ADD_COLUMN:
+                    return 20
+                case ChangeType.ALTER_COLUMN:
+                    return 30
+                case ChangeType.ADD_FK:
+                    return 40
+                case ChangeType.RENAME_TABLE:
+                    return 50
+                case ChangeType.MODIFY_FIELD:
+                    return 60
+                default:
+                    return 100
+            }
+        }
+
+        return changes
+            .map((change, index) => ({ change, index, rank: rank(change) }))
+            .sort((a, b) => a.rank - b.rank || a.index - b.index)
+            .map((item) => item.change)
     }
 }
 

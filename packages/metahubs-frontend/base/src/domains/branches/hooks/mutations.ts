@@ -31,6 +31,11 @@ interface SetDefaultBranchParams {
     branchId: string
 }
 
+interface CopyBranchParams {
+    metahubId: string
+    data: BranchLocalizedPayload
+}
+
 export function useCreateBranch() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -47,13 +52,68 @@ export function useCreateBranch() {
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.createSuccess', 'Branch created'), { variant: 'success' })
         },
-        onError: (error: Error & { response?: { status?: number } }) => {
+        onError: (error: Error & { response?: { status?: number; data?: { code?: string; error?: string } } }) => {
             const status = error?.response?.status
-            if (status === 409) {
-                enqueueSnackbar(t('branches.createLocked', 'Branch creation is already in progress. Please try again.'), { variant: 'warning' })
+            const errorCode = error?.response?.data?.code
+            const backendMessage = error?.response?.data?.error
+
+            if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
+                enqueueSnackbar(t('branches.createLocked', 'Branch creation is already in progress. Please try again.'), {
+                    variant: 'warning'
+                })
                 return
             }
-            enqueueSnackbar(error.message || t('branches.createError', 'Failed to create branch'), { variant: 'error' })
+            if (status === 409 && errorCode === 'BRANCH_CODENAME_EXISTS') {
+                enqueueSnackbar(t('branches.codenameExists', 'Branch with this codename already exists'), { variant: 'warning' })
+                return
+            }
+            if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
+                enqueueSnackbar(t('branches.numberConflict', 'Branch numbering conflict. Please try again.'), { variant: 'warning' })
+                return
+            }
+
+            enqueueSnackbar(backendMessage || error.message || t('branches.createError', 'Failed to create branch'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyBranch() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, data }: CopyBranchParams) => {
+            const response = await branchesApi.createBranch(metahubId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branches(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
+            queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
+            enqueueSnackbar(t('branches.copySuccess', 'Branch copied'), { variant: 'success' })
+        },
+        onError: (error: Error & { response?: { status?: number; data?: { code?: string; error?: string } } }) => {
+            const status = error?.response?.status
+            const errorCode = error?.response?.data?.code
+            const backendMessage = error?.response?.data?.error
+
+            if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
+                enqueueSnackbar(t('branches.createLocked', 'Branch creation is already in progress. Please try again.'), {
+                    variant: 'warning'
+                })
+                return
+            }
+            if (status === 409 && errorCode === 'BRANCH_CODENAME_EXISTS') {
+                enqueueSnackbar(t('branches.codenameExists', 'Branch with this codename already exists'), { variant: 'warning' })
+                return
+            }
+            if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
+                enqueueSnackbar(t('branches.numberConflict', 'Branch numbering conflict. Please try again.'), { variant: 'warning' })
+                return
+            }
+
+            enqueueSnackbar(backendMessage || error.message || t('branches.copyError', 'Failed to copy branch'), { variant: 'error' })
         }
     })
 }

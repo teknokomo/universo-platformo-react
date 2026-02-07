@@ -49,7 +49,7 @@ import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from
 import { CatalogDisplay, CatalogLocalizedPayload, Hub, PaginatedResponse, getVLCString, toCatalogDisplay } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { CodenameField, HubSelectionPanel } from '../../../components'
+import { CatalogDeleteDialog, CodenameField, HubSelectionPanel } from '../../../components'
 import catalogActions, { CatalogDisplayWithHub } from './CatalogActions'
 
 /**
@@ -265,8 +265,14 @@ const CatalogList = () => {
         delay: 0
     })
 
-    // State for independent ConfirmDeleteDialog
-    const [deleteDialogState, setDeleteDialogState] = useState<{
+    // State for simple confirmation delete flow (unlink or other non-blocking cases)
+    const [confirmDeleteDialogState, setConfirmDeleteDialogState] = useState<{
+        open: boolean
+        catalog: CatalogWithHubs | null
+    }>({ open: false, catalog: null })
+
+    // State for blocking-entities delete flow (actual catalog deletion)
+    const [blockingDeleteDialogState, setBlockingDeleteDialogState] = useState<{
         open: boolean
         catalog: CatalogWithHubs | null
     }>({ open: false, catalog: null })
@@ -691,7 +697,15 @@ const CatalogList = () => {
                 openDeleteDialog: (entity: CatalogDisplayWithHub | CatalogDisplay) => {
                     const catalog = catalogMap.get(entity.id)
                     if (!catalog) return
-                    setDeleteDialogState({ open: true, catalog })
+                    const hubsCount = Array.isArray(catalog.hubs) ? catalog.hubs.length : 0
+                    const willDeleteCatalog = !isHubScoped || (!catalog.isRequiredHub && hubsCount === 1)
+
+                    if (willDeleteCatalog) {
+                        setBlockingDeleteDialogState({ open: true, catalog })
+                        return
+                    }
+
+                    setConfirmDeleteDialogState({ open: true, catalog })
                 }
             }
         }),
@@ -1055,23 +1069,28 @@ const CatalogList = () => {
 
             {/* Independent ConfirmDeleteDialog */}
             <ConfirmDeleteDialog
-                open={deleteDialogState.open}
+                open={confirmDeleteDialogState.open}
                 title={t('catalogs.deleteDialog.title')}
                 description={t('catalogs.deleteDialog.message')}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, catalog: null })}
+                onCancel={() => setConfirmDeleteDialogState({ open: false, catalog: null })}
                 onConfirm={async () => {
-                    if (deleteDialogState.catalog && metahubId) {
+                    if (confirmDeleteDialogState.catalog && metahubId) {
                         try {
+                            const deletingCatalogId = confirmDeleteDialogState.catalog.id
                             // In hub-scoped mode, use hubId from URL; in global mode, use primary hub
-                            const targetHubId = isHubScoped ? hubId! : deleteDialogState.catalog.hubs?.[0]?.id || ''
+                            const targetHubId = isHubScoped ? hubId! : confirmDeleteDialogState.catalog.hubs?.[0]?.id || ''
                             await deleteCatalogMutation.mutateAsync({
                                 metahubId,
                                 hubId: targetHubId,
-                                catalogId: deleteDialogState.catalog.id,
+                                catalogId: deletingCatalogId,
                                 force: !isHubScoped // Force delete in global mode
+                            })
+                            setConfirmDeleteDialogState({ open: false, catalog: null })
+                            queryClient.removeQueries({
+                                queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, deletingCatalogId)
                             })
                             // Invalidate appropriate cache
                             if (isHubScoped && hubId) {
@@ -1079,7 +1098,6 @@ const CatalogList = () => {
                             } else {
                                 await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
                             }
-                            setDeleteDialogState({ open: false, catalog: null })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
@@ -1092,10 +1110,50 @@ const CatalogList = () => {
                                     ? err
                                     : t('catalogs.deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, catalog: null })
+                            setConfirmDeleteDialogState({ open: false, catalog: null })
                         }
                     }
                 }}
+            />
+
+            <CatalogDeleteDialog
+                open={blockingDeleteDialogState.open}
+                catalog={blockingDeleteDialogState.catalog}
+                metahubId={metahubId}
+                onClose={() => setBlockingDeleteDialogState({ open: false, catalog: null })}
+                onConfirm={async (catalog) => {
+                    try {
+                        const targetHubId = isHubScoped ? hubId : catalog.hubs?.[0]?.id
+                        await deleteCatalogMutation.mutateAsync({
+                            metahubId,
+                            hubId: targetHubId,
+                            catalogId: catalog.id,
+                            force: !isHubScoped
+                        })
+                        setBlockingDeleteDialogState({ open: false, catalog: null })
+                        queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, catalog.id) })
+                        if (isHubScoped && hubId) {
+                            await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
+                        } else {
+                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
+                        }
+                    } catch (err: unknown) {
+                        const responseMessage =
+                            err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                        const message =
+                            typeof responseMessage === 'string'
+                                ? responseMessage
+                                : err instanceof Error
+                                ? err.message
+                                : typeof err === 'string'
+                                ? err
+                                : t('catalogs.deleteError')
+                        enqueueSnackbar(message, { variant: 'error' })
+                        setBlockingDeleteDialogState({ open: false, catalog: null })
+                    }
+                }}
+                isDeleting={deleteCatalogMutation.isPending}
+                uiLocale={i18n.language}
             />
 
             {/* Conflict Resolution Dialog for optimistic locking */}
