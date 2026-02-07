@@ -47,8 +47,11 @@ export const createConnector = (applicationId: string, data: ConnectorLocalizedP
  * Update a connector
  * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
  */
-export const updateConnector = (applicationId: string, connectorId: string, data: Partial<ConnectorLocalizedPayload> & { expectedVersion?: number }) =>
-    apiClient.patch<Connector>(`/applications/${applicationId}/connectors/${connectorId}`, data)
+export const updateConnector = (
+    applicationId: string,
+    connectorId: string,
+    data: Partial<ConnectorLocalizedPayload> & { expectedVersion?: number }
+) => apiClient.patch<Connector>(`/applications/${applicationId}/connectors/${connectorId}`, data)
 
 /**
  * Delete a connector
@@ -94,6 +97,28 @@ export interface SchemaDiffResponse {
                     }>
                 }>
             }
+            changes?: {
+                additive: Array<{
+                    type: string
+                    description: string
+                    entityCodename?: string
+                    fieldCodename?: string
+                    tableName?: string
+                    dataType?: string
+                    oldValue?: unknown
+                    newValue?: unknown
+                }>
+                destructive: Array<{
+                    type: string
+                    description: string
+                    entityCodename?: string
+                    fieldCodename?: string
+                    tableName?: string
+                    dataType?: string
+                    oldValue?: unknown
+                    newValue?: unknown
+                }>
+            }
         }
     }
     message?: string
@@ -130,12 +155,8 @@ export interface PublicationSummary {
 /**
  * Get publications for a metahub (to find publication ID for sync operations)
  */
-export const getMetahubPublications = async (
-    metahubId: string
-): Promise<{ items: PublicationSummary[]; total: number }> => {
-    const response = await apiClient.get<{ items: PublicationSummary[]; total: number }>(
-        `/metahub/${metahubId}/publications`
-    )
+export const getMetahubPublications = async (metahubId: string): Promise<{ items: PublicationSummary[]; total: number }> => {
+    const response = await apiClient.get<{ items: PublicationSummary[]; total: number }>(`/metahub/${metahubId}/publications`)
     return response.data
 }
 
@@ -143,26 +164,16 @@ export const getMetahubPublications = async (
  * Get schema diff for an application
  * Uses the Application's linked Metahub via Connector
  */
-export const getApplicationDiff = async (
-    applicationId: string
-): Promise<SchemaDiffResponse> => {
-    const response = await apiClient.get<SchemaDiffResponse>(
-        `/application/${applicationId}/diff`
-    )
+export const getApplicationDiff = async (applicationId: string): Promise<SchemaDiffResponse> => {
+    const response = await apiClient.get<SchemaDiffResponse>(`/application/${applicationId}/diff`)
     return response.data
 }
 
 /**
  * Sync application schema with linked Metahub configuration
  */
-export const syncApplication = async (
-    applicationId: string,
-    confirmDestructive = false
-): Promise<SchemaSyncResponse> => {
-    const response = await apiClient.post<SchemaSyncResponse>(
-        `/application/${applicationId}/sync`,
-        { confirmDestructive }
-    )
+export const syncApplication = async (applicationId: string, confirmDestructive = false): Promise<SchemaSyncResponse> => {
+    const response = await apiClient.post<SchemaSyncResponse>(`/application/${applicationId}/sync`, { confirmDestructive })
     return response.data
 }
 

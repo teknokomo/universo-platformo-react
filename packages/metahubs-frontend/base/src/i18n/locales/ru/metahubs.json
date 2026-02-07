@@ -5,11 +5,21 @@
         "noMetahubsFound": "Метахабы не найдены",
         "createMetahub": "Создать метахаб",
         "editTitle": "Редактировать метахаб",
+        "copyTitle": "Копирование метахаба",
         "confirmDelete": "Удалить метахаб?",
         "confirmDeleteDescription": "Вы уверены, что хотите удалить метахаб \"{{name}}\"?",
         "deleteSuccess": "Метахаб успешно удалён",
         "deleteError": "Не удалось удалить метахаб",
+        "copySuccess": "Метахаб успешно скопирован",
+        "copyError": "Не удалось скопировать метахаб",
         "saveError": "Не удалось сохранить метахаб",
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "optionsTab": "Опции копирования",
+            "copyDefaultBranchOnly": "Копировать только ветку по умолчанию",
+            "copyAccess": "Копировать права доступа"
+        },
         "errors": {
             "invalidMetahub": "Неверный метахаб",
             "pleaseSelectMetahub": "Пожалуйста, выберите метахаб из списка"
@@ -100,92 +110,93 @@
             "general": "Основное",
             "storage": "Хранение"
         },
-	        "storage": {
-	            "mainDb": "Создать схему в основной базе данных",
-	            "externalDb": "Создать схему в отдельной базе данных",
-	            "externalDbDisabled": "Скоро будет доступно"
-	        }
-	    },
-	    "layouts": {
-	        "title": "Макеты",
-	        "searchPlaceholder": "Поиск макетов...",
-	        "empty": "Макетов пока нет",
-	        "emptyDescription": "Создайте макет, чтобы настроить интерфейс опубликованных приложений",
-	        "createSuccess": "Макет создан",
-	        "createError": "Не удалось создать макет",
-	        "updateSuccess": "Макет обновлён",
-	        "updateError": "Не удалось обновить макет",
-	        "deleteSuccess": "Макет удалён",
-	        "deleteError": "Не удалось удалить макет",
-	        "loadError": "Не удалось загрузить макет",
-	        "validation": {
-	            "defaultMustBeActive": "Макет по умолчанию должен быть активным"
-	        },
-	    "fields": {
-	        "template": "Шаблон",
-	        "uiTemplate": "Шаблон пользовательского интерфейса",
-	        "isActive": "Активный",
-	        "isDefault": "По умолчанию",
-	        "status": "Статус"
-	    },
-	        "status": {
-	            "active": "Активный",
-	            "inactive": "Неактивный",
-	            "default": "По умолчанию"
-	        },
-	        "templates": {
-	            "dashboard": "Дашборд"
-	        },
-	        "actions": {
-	            "configure": "Настроить",
-	            "setDefault": "Сделать по умолчанию",
-	            "activate": "Активировать",
-	            "deactivate": "Деактивировать",
-	            "toggleActive": "Активность",
-	            "backToList": "Назад к макетам"
-	        },
-	        "createDialog": {
-	            "title": "Создать макет"
-	        },
-	        "editDialog": {
-	            "title": "Редактировать макет"
-	        },
-	        "deleteDialog": {
-	            "title": "Удалить макет?",
-	            "description": "Это действие нельзя отменить."
-	        },
-	        "details": {
-	            "title": "Макет",
-	            "description": "Включайте и отключайте секции Dashboard (MVP: только show/hide)."
-	        },
-	        "dashboard": {
-	            "sections": {
-	                "showSideMenu": "Левое меню",
-	                "showAppNavbar": "Верхняя панель",
-	                "showHeader": "Шапка",
-	                "showBreadcrumbs": "Хлебные крошки",
-	                "showSearch": "Поиск",
-	                "showDatePicker": "Выбор даты",
-	                "showOptionsMenu": "Уведомления и тема",
-	                "showOverviewTitle": "Заголовок «Обзор»",
-	                "showOverviewCards": "Карточки «Обзор»",
-	                "showSessionsChart": "График «Сессии»",
-	                "showPageViewsChart": "График «Просмотры страниц»",
-	                "showDetailsTitle": "Заголовок «Детали»",
-	                "showDetailsTable": "Таблица «Детали»",
-	                "showDetailsSidePanel": "Правая панель «Детали»",
-	                "showFooter": "Футер"
-	            }
-	        }
-	    },
-	    "branches": {
-	        "title": "Ветки",
-	        "description": "Рабочие пространства для параллельной разработки",
-	        "searchPlaceholder": "Поиск веток...",
+        "storage": {
+            "mainDb": "Создать схему в основной базе данных",
+            "externalDb": "Создать схему в отдельной базе данных",
+            "externalDbDisabled": "Скоро будет доступно"
+        }
+    },
+    "layouts": {
+        "title": "Макеты",
+        "searchPlaceholder": "Поиск макетов...",
+        "empty": "Макетов пока нет",
+        "emptyDescription": "Создайте макет, чтобы настроить интерфейс опубликованных приложений",
+        "createSuccess": "Макет создан",
+        "createError": "Не удалось создать макет",
+        "updateSuccess": "Макет обновлён",
+        "updateError": "Не удалось обновить макет",
+        "deleteSuccess": "Макет удалён",
+        "deleteError": "Не удалось удалить макет",
+        "loadError": "Не удалось загрузить макет",
+        "validation": {
+            "defaultMustBeActive": "Макет по умолчанию должен быть активным"
+        },
+        "fields": {
+            "template": "Шаблон",
+            "uiTemplate": "Шаблон пользовательского интерфейса",
+            "isActive": "Активный",
+            "isDefault": "По умолчанию",
+            "status": "Статус"
+        },
+        "status": {
+            "active": "Активный",
+            "inactive": "Неактивный",
+            "default": "По умолчанию"
+        },
+        "templates": {
+            "dashboard": "Дашборд"
+        },
+        "actions": {
+            "configure": "Настроить",
+            "setDefault": "Сделать по умолчанию",
+            "activate": "Активировать",
+            "deactivate": "Деактивировать",
+            "toggleActive": "Активность",
+            "backToList": "Назад к макетам"
+        },
+        "createDialog": {
+            "title": "Создать макет"
+        },
+        "editDialog": {
+            "title": "Редактировать макет"
+        },
+        "deleteDialog": {
+            "title": "Удалить макет?",
+            "description": "Это действие нельзя отменить."
+        },
+        "details": {
+            "title": "Макет",
+            "description": "Включайте и отключайте секции Dashboard (показать/скрыть)."
+        },
+        "dashboard": {
+            "sections": {
+                "showSideMenu": "Левое меню",
+                "showAppNavbar": "Верхняя панель",
+                "showHeader": "Шапка",
+                "showBreadcrumbs": "Хлебные крошки",
+                "showSearch": "Поиск",
+                "showDatePicker": "Выбор даты",
+                "showOptionsMenu": "Уведомления и тема",
+                "showOverviewTitle": "Заголовок «Обзор»",
+                "showOverviewCards": "Карточки «Обзор»",
+                "showSessionsChart": "График «Сессии»",
+                "showPageViewsChart": "График «Просмотры страниц»",
+                "showDetailsTitle": "Заголовок «Детали»",
+                "showDetailsTable": "Таблица «Детали»",
+                "showDetailsSidePanel": "Правая панель «Детали»",
+                "showFooter": "Футер"
+            }
+        }
+    },
+    "branches": {
+        "title": "Ветки",
+        "description": "Рабочие пространства для параллельной разработки",
+        "searchPlaceholder": "Поиск веток...",
         "empty": "Веток пока нет",
         "emptyDescription": "Создайте первую ветку для работы",
         "create": "Создать ветку",
         "editTitle": "Редактировать ветку",
+        "copyTitle": "Копирование ветки",
         "createDialog": {
             "title": "Создать ветку"
         },
@@ -223,12 +234,16 @@
             "default": "По умолчанию"
         },
         "createSuccess": "Ветка создана",
+        "copySuccess": "Ветка скопирована",
         "createLocked": "Создание ветки уже выполняется. Повторите попытку.",
         "updateSuccess": "Ветка обновлена",
         "deleteSuccess": "Ветка удалена",
         "activateSuccess": "Ветка активирована",
         "setDefaultSuccess": "Ветка по умолчанию обновлена",
         "createError": "Не удалось создать ветку",
+        "copyError": "Не удалось скопировать ветку",
+        "codenameExists": "Ветка с таким кодовым именем уже существует",
+        "numberConflict": "Конфликт нумерации веток. Повторите попытку.",
         "updateError": "Не удалось обновить ветку",
         "deleteError": "Не удалось удалить ветку",
         "activateError": "Не удалось активировать ветку",
@@ -237,6 +252,10 @@
             "codenameRequired": "Кодовое имя обязательно",
             "codenameInvalid": "Разрешены только строчные буквы, цифры и дефисы",
             "sourceRequired": "Выберите исходную ветку"
+        },
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование..."
         }
     },
     "hubs": {
@@ -300,7 +319,15 @@
         },
         "deleteDialog": {
             "title": "Удалить каталог",
-            "message": "Вы уверены, что хотите удалить этот каталог? Все атрибуты и элементы будут безвозвратно удалены."
+            "message": "Вы уверены, что хотите удалить этот каталог? Все атрибуты и элементы будут безвозвратно удалены.",
+            "confirmMessage": "Вы уверены, что хотите удалить этот каталог? Это действие нельзя отменить.",
+            "fetchBlockingError": "Не удалось проверить блокирующие ссылки",
+            "hasBlockingReferences": "Нельзя удалить каталог. Сначала удалите ссылки на него из других каталогов:",
+            "resolutionHint": "Перейдите в каталоги из таблицы ниже и удалите или перенастройте ссылочные атрибуты.",
+            "blockingTable": {
+                "catalog": "Каталог",
+                "attribute": "Атрибут"
+            }
         },
         "deleted": "Каталог удалён",
         "deleteTitle": "Удалить каталог",
@@ -449,6 +476,7 @@
         "createError": "Не удалось создать атрибут",
         "updateError": "Не удалось обновить атрибут",
         "deleteError": "Не удалось удалить атрибут",
+        "deleteDisplayAttributeBlocked": "Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.",
         "moveSuccess": "Порядок атрибута обновлён",
         "moveError": "Не удалось изменить порядок атрибута",
         "setRequiredSuccess": "Атрибут помечен как обязательный",

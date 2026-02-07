@@ -34,7 +34,7 @@ import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from 
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps, ActionDescriptor } from '@universo/template-mui'
 
-import { useUpdateApplication, useDeleteApplication } from '../hooks/mutations'
+import { useUpdateApplication, useDeleteApplication, useCopyApplication } from '../hooks/mutations'
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as applicationsApi from '../api/applications'
@@ -108,6 +108,7 @@ const ApplicationList = () => {
 
     const updateApplicationMutation = useUpdateApplication()
     const deleteApplicationMutation = useDeleteApplication()
+    const copyApplicationMutation = useCopyApplication()
 
     // Convert applications to display format
     const applicationsDisplay = useMemo(() => {
@@ -350,6 +351,18 @@ const ApplicationList = () => {
                 },
                 deleteEntity: async (id: string) => {
                     await deleteApplicationMutation.mutateAsync(id)
+                },
+                copyEntity: async (
+                    id: string,
+                    payload: {
+                        name?: Record<string, string>
+                        description?: Record<string, string>
+                        namePrimaryLocale?: string
+                        descriptionPrimaryLocale?: string
+                        copyAccess?: boolean
+                    }
+                ) => {
+                    await copyApplicationMutation.mutateAsync({ id, data: payload })
                 }
             },
             helpers: {
@@ -389,6 +402,7 @@ const ApplicationList = () => {
         }),
         [
             confirm,
+            copyApplicationMutation,
             deleteApplicationMutation,
             enqueueSnackbar,
             i18n.language,
@@ -406,6 +420,7 @@ const ApplicationList = () => {
             const deleteDescriptor = applicationActions.find((descriptor) => descriptor.id === 'delete')
             const shouldShowDelete = Boolean(deleteDescriptor && application.role === 'owner')
             const editDescriptor = applicationActions.find((descriptor) => descriptor.id === 'edit')
+            const copyDescriptor = applicationActions.find((descriptor) => descriptor.id === 'copy')
 
             const descriptors: ActionDescriptor<ApplicationDisplay, ApplicationLocalizedPayload>[] = [
                 {
@@ -416,17 +431,25 @@ const ApplicationList = () => {
                     onSelect: (ctx) => {
                         ctx.navigate?.(`/a/${ctx.entity.id}/admin`)
                     },
-                    dividerAfter: Boolean(editDescriptor || shouldShowDelete)
+                    dividerAfter: Boolean(editDescriptor || copyDescriptor || shouldShowDelete)
                 }
             ]
 
             if (editDescriptor) {
                 descriptors.push({
                     ...editDescriptor,
-                    // Render a divider after "Edit" only when "Delete" is present.
-                    dividerAfter: shouldShowDelete,
+                    dividerAfter: false,
                     order: 100,
                     // Avoid implicit grouping dividers: we control separators explicitly via dividerAfter.
+                    group: undefined
+                })
+            }
+
+            if (copyDescriptor) {
+                descriptors.push({
+                    ...copyDescriptor,
+                    dividerAfter: shouldShowDelete,
+                    order: 105,
                     group: undefined
                 })
             }

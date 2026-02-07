@@ -32,6 +32,11 @@ interface UpdateApplicationParams {
     data: LegacyApplicationInput | ApplicationLocalizedPayload
 }
 
+interface CopyApplicationParams {
+    id: string
+    data?: applicationsApi.ApplicationCopyInput
+}
+
 interface UpdateMemberRoleParams {
     applicationId: string
     memberId: string
@@ -167,6 +172,29 @@ export function useDeleteApplication() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('deleteError', 'Failed to delete application'), { variant: 'error' })
+        }
+    })
+}
+
+/**
+ * Hook for copying an application
+ */
+export function useCopyApplication() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('applications')
+
+    return useMutation({
+        mutationFn: async ({ id, data }: CopyApplicationParams) => {
+            const response = await applicationsApi.copyApplication(id, data ?? {})
+            return response.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
+            enqueueSnackbar(t('copySuccess', 'Application copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('copyError', 'Failed to copy application'), { variant: 'error' })
         }
     })
 }

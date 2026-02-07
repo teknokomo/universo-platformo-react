@@ -44,6 +44,7 @@ describe('applications mutation hooks', () => {
             createApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             updateApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             deleteApplication: vi.fn().mockResolvedValue({ data: {} }),
+            copyApplication: vi.fn().mockResolvedValue({ data: { id: 'm2' } }),
             inviteApplicationMember: vi.fn().mockResolvedValue({ data: {} }),
             updateApplicationMemberRole: vi.fn().mockResolvedValue({ data: {} }),
             removeApplicationMember: vi.fn().mockResolvedValue({ data: {} })
@@ -66,6 +67,7 @@ describe('applications mutation hooks', () => {
         let createApplication: ReturnType<typeof hooks.useCreateApplication> | undefined
         let updateApplication: ReturnType<typeof hooks.useUpdateApplication> | undefined
         let deleteApplication: ReturnType<typeof hooks.useDeleteApplication> | undefined
+        let copyApplication: ReturnType<typeof hooks.useCopyApplication> | undefined
 
         let memberMutations: ReturnType<typeof hooks.useMemberMutations> | undefined
 
@@ -73,6 +75,7 @@ describe('applications mutation hooks', () => {
             createApplication = hooks.useCreateApplication()
             updateApplication = hooks.useUpdateApplication()
             deleteApplication = hooks.useDeleteApplication()
+            copyApplication = hooks.useCopyApplication()
 
             memberMutations = hooks.useMemberMutations('m1')
 
@@ -89,6 +92,7 @@ describe('applications mutation hooks', () => {
             await createApplication!.mutateAsync({ name: 'Name', description: 'Desc' })
             await updateApplication!.mutateAsync({ id: 'm1', data: { name: 'Name2' } })
             await deleteApplication!.mutateAsync('m1')
+            await copyApplication!.mutateAsync({ id: 'm1', data: { name: { en: 'Name copy' }, copyAccess: true } })
 
             await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
             await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
@@ -109,6 +113,7 @@ describe('applications mutation hooks', () => {
             descriptionPrimaryLocale: undefined
         })
         expect(applicationsApi.deleteApplication).toHaveBeenCalledWith('m1')
+        expect(applicationsApi.copyApplication).toHaveBeenCalledWith('m1', { name: { en: 'Name copy' }, copyAccess: true })
 
         expect(applicationsApi.inviteApplicationMember).toHaveBeenCalledWith('m1', { email: 'a@b.c', role: 'viewer' })
         expect(applicationsApi.updateApplicationMemberRole).toHaveBeenCalledWith('m1', 'u1', { role: 'admin' })
@@ -142,6 +147,7 @@ describe('applications mutation hooks', () => {
             createApplication: vi.fn().mockRejectedValue(new Error('boom')),
             updateApplication: vi.fn(),
             deleteApplication: vi.fn(),
+            copyApplication: vi.fn(),
             inviteApplicationMember: vi.fn(),
             updateApplicationMemberRole: vi.fn(),
             removeApplicationMember: vi.fn()

@@ -140,9 +140,9 @@ export function createAttributesRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const services = (req: Request) => {
         const schemaService = new MetahubSchemaService(getDataSource())
@@ -196,10 +196,16 @@ export function createAttributesRoutes(
                     if (typeof name === 'object') {
                         if ('locales' in name && name.locales && typeof name.locales === 'object') {
                             return Object.values(name.locales).some((entry: any) =>
-                                String(entry?.content ?? '').toLowerCase().includes(searchLower)
+                                String(entry?.content ?? '')
+                                    .toLowerCase()
+                                    .includes(searchLower)
                             )
                         }
-                        return Object.values(name).some((value: any) => String(value ?? '').toLowerCase().includes(searchLower))
+                        return Object.values(name).some((value: any) =>
+                            String(value ?? '')
+                                .toLowerCase()
+                                .includes(searchLower)
+                        )
                     }
                     return false
                 }
@@ -329,8 +335,20 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetEntityId, targetEntityKind, targetCatalogId, validationRules, uiConfig, isRequired, isDisplayAttribute, sortOrder } =
-                parsed.data
+            const {
+                codename,
+                dataType,
+                name,
+                namePrimaryLocale,
+                targetEntityId,
+                targetEntityKind,
+                targetCatalogId,
+                validationRules,
+                uiConfig,
+                isRequired,
+                isDisplayAttribute,
+                sortOrder
+            } = parsed.data
 
             // Resolve target entity: prefer new fields, fallback to legacy
             const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
@@ -388,20 +406,24 @@ export function createAttributesRoutes(
             // Better: get count/max.
             // But let's simplify: pass provided sortOrder or default.
 
-            const attribute = await attributesService.create(metahubId, {
-                catalogId,
-                codename: normalizedCodename,
-                dataType,
-                name: nameVlc,
-                targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
-                targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
-                validationRules: validationRules ?? {},
-                uiConfig: uiConfig ?? {},
-                isRequired: isRequired ?? false,
-                isDisplayAttribute: isDisplayAttribute ?? false,
-                sortOrder: sortOrder,
-                createdBy: userId
-            }, userId)
+            const attribute = await attributesService.create(
+                metahubId,
+                {
+                    catalogId,
+                    codename: normalizedCodename,
+                    dataType,
+                    name: nameVlc,
+                    targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
+                    targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
+                    validationRules: validationRules ?? {},
+                    uiConfig: uiConfig ?? {},
+                    isRequired: isRequired ?? false,
+                    isDisplayAttribute: isDisplayAttribute ?? false,
+                    sortOrder: sortOrder,
+                    createdBy: userId
+                },
+                userId
+            )
 
             // Normalize again to fit new item
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
@@ -411,7 +433,7 @@ export function createAttributesRoutes(
                 await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
             }
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -445,8 +467,21 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, dataType, name, namePrimaryLocale, targetEntityId, targetEntityKind, targetCatalogId, validationRules, uiConfig, isRequired, isDisplayAttribute, sortOrder, expectedVersion } =
-                parsed.data
+            const {
+                codename,
+                dataType,
+                name,
+                namePrimaryLocale,
+                targetEntityId,
+                targetEntityKind,
+                targetCatalogId,
+                validationRules,
+                uiConfig,
+                isRequired,
+                isDisplayAttribute,
+                sortOrder,
+                expectedVersion
+            } = parsed.data
 
             // MVP: Prevent data type change (would require schema migration)
             if (dataType && dataType !== attribute.dataType) {
@@ -481,7 +516,8 @@ export function createAttributesRoutes(
 
             // Resolve target entity: prefer new fields, fallback to legacy
             const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
-            const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId !== undefined && targetCatalogId !== null ? MetaEntityKind.CATALOG : undefined)
+            const resolvedTargetEntityKind =
+                targetEntityKind ?? (targetCatalogId !== undefined && targetCatalogId !== null ? MetaEntityKind.CATALOG : undefined)
 
             const updateData: any = {}
 
@@ -503,7 +539,6 @@ export function createAttributesRoutes(
             }
 
             // dataType is intentionally NOT updatable (see validation above)
-
 
             if (name !== undefined) {
                 const sanitizedName = sanitizeLocalizedInput(name)
@@ -557,7 +592,7 @@ export function createAttributesRoutes(
                 await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
             }
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -623,12 +658,17 @@ export function createAttributesRoutes(
             }
 
             const newValue = !attribute.isRequired
-            await attributesService.update(metahubId, attributeId, {
-                isRequired: newValue,
-                updatedBy: userId
-            }, userId)
+            await attributesService.update(
+                metahubId,
+                attributeId,
+                {
+                    isRequired: newValue,
+                    updatedBy: userId
+                },
+                userId
+            )
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -659,7 +699,7 @@ export function createAttributesRoutes(
 
             await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -690,7 +730,7 @@ export function createAttributesRoutes(
 
             await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -719,11 +759,17 @@ export function createAttributesRoutes(
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
+            if (attribute.isDisplayAttribute) {
+                return res.status(409).json({
+                    error: 'Cannot delete display attribute. Set another attribute as display first.'
+                })
+            }
+
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
             await attributesService.delete(metahubId, attributeId, userId)
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch(err => {
+            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 

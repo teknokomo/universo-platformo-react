@@ -13,7 +13,14 @@ import { z } from 'zod'
 import stableStringify from 'json-stable-stringify'
 import { AttributeDataType, AttributeValidationRules } from '@universo/types'
 import { validateNumberOrThrow } from '@universo/utils'
-import { Application, Connector, ConnectorPublication, ApplicationSchemaStatus, ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
+import {
+    Application,
+    Connector,
+    ConnectorPublication,
+    ApplicationSchemaStatus,
+    ensureApplicationAccess,
+    type ApplicationRole
+} from '@universo/applications-backend'
 import { Publication } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
 import { SnapshotSerializer, MetahubSnapshot } from '../../publications/services/SnapshotSerializer'
@@ -33,9 +40,7 @@ const resolveUserId = (req: Request): string | undefined => {
     return user?.id ?? user?.sub
 }
 
-const asyncHandler = (
-    fn: (req: Request, res: Response) => Promise<Response | void>
-): RequestHandler => {
+const asyncHandler = (fn: (req: Request, res: Response) => Promise<Response | void>): RequestHandler => {
     return (req, res, next) => {
         Promise.resolve(fn(req, res)).catch(next)
     }
@@ -142,21 +147,25 @@ function validateNumericValue(options: {
     const rules = field.validationRules as Partial<AttributeValidationRules> | undefined
 
     try {
-        return validateNumberOrThrow(value, {
-            precision: rules?.precision,
-            scale: rules?.scale,
-            min: rules?.min ?? undefined,
-            max: rules?.max ?? undefined,
-            nonNegative: rules?.nonNegative
-        }, {
-            fieldName: field.codename,
-            elementId
-        })
+        return validateNumberOrThrow(
+            value,
+            {
+                precision: rules?.precision,
+                scale: rules?.scale,
+                min: rules?.min ?? undefined,
+                max: rules?.max ?? undefined,
+                nonNegative: rules?.nonNegative
+            },
+            {
+                fieldName: field.codename,
+                elementId
+            }
+        )
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         throw new Error(
             `[SchemaSync] Failed to sync element ${elementId} to ${tableName}: ${message}. ` +
-            `This indicates the element contains invalid data that bypassed metahub validation.`
+                `This indicates the element contains invalid data that bypassed metahub validation.`
         )
     }
 }
@@ -177,7 +186,8 @@ async function seedPredefinedElements(
     const warnings: string[] = []
 
     await knex.transaction(async (trx) => {
-        for (const [objectId, elements] of Object.entries(snapshot.elements ?? {})) {
+        for (const [objectId, rawElements] of Object.entries(snapshot.elements ?? {})) {
+            const elements = (rawElements ?? []) as SnapshotElementRow[]
             if (!elements || elements.length === 0) continue
 
             const entity = entityMap.get(objectId)
@@ -185,24 +195,25 @@ async function seedPredefinedElements(
 
             const tableName = generateTableName(entity.id, entity.kind)
             // Build field map: codename -> { columnName, field definition }
-            const fieldByCodename = new Map<string, { columnName: string; field: typeof entity.fields[0] }>(
-                entity.fields.map((field) => [field.codename, { columnName: generateColumnName(field.id), field }])
+            const fieldByCodename = new Map<string, { columnName: string; field: EntityField }>(
+                entity.fields.map((field: EntityField) => [field.codename, { columnName: generateColumnName(field.id), field }])
             )
             const dataColumns = Array.from(fieldByCodename.values()).map((v) => v.columnName)
 
-            const rows = elements.map((element) => {
+            const rows = elements.map((element: SnapshotElementRow) => {
                 const data = element.data ?? {}
                 const missingRequired = entity.fields
-                    .filter((field) => field.isRequired)
-                    .filter((field) => {
+                    .filter((field: EntityField) => field.isRequired)
+                    .filter((field: EntityField) => {
                         if (!Object.prototype.hasOwnProperty.call(data, field.codename)) return true
                         const value = (data as Record<string, unknown>)[field.codename]
                         return value === null || value === undefined
                     })
 
                 if (missingRequired.length > 0) {
-                    const message = `[SchemaSync] Skipping predefined element ${element.id} for ${tableName} ` +
-                        `due to missing required fields: ${missingRequired.map((f) => f.codename).join(', ')}`
+                    const message =
+                        `[SchemaSync] Skipping predefined element ${element.id} for ${tableName} ` +
+                        `due to missing required fields: ${missingRequired.map((f: EntityField) => f.codename).join(', ')}`
                     console.warn(message)
                     warnings.push(message)
                     return null
@@ -213,7 +224,7 @@ async function seedPredefinedElements(
                     _upl_created_at: now,
                     _upl_created_by: userId ?? null,
                     _upl_updated_at: now,
-                    _upl_updated_by: userId ?? null,
+                    _upl_updated_by: userId ?? null
                 }
 
                 for (const [codename, { columnName, field }] of fieldByCodename.entries()) {
@@ -255,191 +266,288 @@ async function seedPredefinedElements(
     return warnings
 }
 
-async function persistDashboardLayoutConfig(options: {
-    schemaName: string
+type PersistedAppLayout = {
+    id: string
+    templateKey: string
+    name: Record<string, unknown>
+    description: Record<string, unknown> | null
+    config: Record<string, unknown>
+    isActive: boolean
+    isDefault: boolean
+    sortOrder: number
+}
+
+function normalizeSnapshotLayouts(snapshot: MetahubSnapshot): PersistedAppLayout[] {
+    const rows = (Array.isArray(snapshot.layouts) ? snapshot.layouts : [])
+        .map((layout) => ({
+            id: String(layout.id ?? ''),
+            templateKey: typeof layout.templateKey === 'string' && layout.templateKey.length > 0 ? layout.templateKey : 'dashboard',
+            name: layout.name && typeof layout.name === 'object' ? layout.name : {},
+            description: layout.description && typeof layout.description === 'object' ? layout.description : null,
+            config: layout.config && typeof layout.config === 'object' ? layout.config : {},
+            isActive: Boolean(layout.isActive),
+            isDefault: Boolean(layout.isDefault),
+            sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0
+        }))
+        .filter((layout) => layout.id.length > 0)
+
+    const desiredDefaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
+    if (desiredDefaultLayoutId) {
+        for (const row of rows) {
+            row.isDefault = row.id === desiredDefaultLayoutId
+        }
+    }
+
+    if (rows.length > 0 && !rows.some((row) => row.isDefault)) {
+        const fallback = rows.find((row) => row.isActive) ?? rows[0]
+        fallback.isDefault = true
+    }
+
+    return rows.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
+}
+
+type DiffTableFieldDetails = {
+    id: string
+    codename: string
+    dataType: string
+    isRequired: boolean
+}
+
+type DiffTableDetails = {
+    id: string
+    codename: string
+    tableName: string | null
+    fields: DiffTableFieldDetails[]
+    predefinedElementsCount: number
+    predefinedElementsPreview: Array<{
+        id: string
+        data: Record<string, unknown>
+        sortOrder: number
+    }>
+}
+
+type DiffStructuredChange = {
+    type: string
+    description: string
+    entityCodename?: string
+    fieldCodename?: string
+    tableName?: string
+    dataType?: string
+    oldValue?: unknown
+    newValue?: unknown
+}
+
+type EntityField = EntityDefinition['fields'][number]
+type SnapshotElementRow = {
+    id: string
+    data?: Record<string, unknown>
+    sortOrder?: number
+}
+
+function buildCreateTableDetails(options: {
+    entities: EntityDefinition[]
     snapshot: MetahubSnapshot
-    userId?: string | null
-}): Promise<void> {
+    includeEntityIds?: Set<string>
+}): DiffTableDetails[] {
+    const { entities, snapshot, includeEntityIds } = options
+    const catalogEntities = entities.filter((entity) => entity.kind === 'catalog')
+
+    return catalogEntities
+        .filter((entity) => (includeEntityIds ? includeEntityIds.has(entity.id) : true))
+        .map((entity) => {
+            const fields = (entity.fields ?? []).map((f: EntityField) => ({
+                id: f.id,
+                codename: f.codename,
+                dataType: f.dataType,
+                isRequired: Boolean(f.isRequired)
+            }))
+
+            const elements = (snapshot.elements && (snapshot.elements as Record<string, unknown[]>)[entity.id]) as unknown[] | undefined
+            const predefinedElements = Array.isArray(elements)
+                ? elements.map((el) => {
+                      const normalized = (el ?? {}) as Record<string, unknown>
+                      return {
+                          id: String(normalized.id ?? ''),
+                          data: (normalized.data as Record<string, unknown>) ?? {},
+                          sortOrder: typeof normalized.sortOrder === 'number' ? normalized.sortOrder : 0
+                      }
+                  })
+                : []
+
+            return {
+                id: entity.id,
+                codename: entity.codename,
+                tableName: generateTableName(entity.id, entity.kind),
+                fields,
+                predefinedElementsCount: predefinedElements.length,
+                predefinedElementsPreview: predefinedElements.slice(0, 50)
+            }
+        })
+}
+
+function mapStructuredChange(change: SchemaChange): DiffStructuredChange {
+    return {
+        type: String(change.type),
+        description: change.description,
+        entityCodename: change.entityCodename,
+        fieldCodename: change.fieldCodename,
+        tableName: change.tableName,
+        dataType: typeof change.newValue === 'string' ? change.newValue : undefined,
+        oldValue: change.oldValue,
+        newValue: change.newValue
+    }
+}
+
+async function persistPublishedLayouts(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
 
-    // Ensure system tables exist. UI-only updates must still persist settings in runtime schema.
-    // This makes layout sync robust even when the dynamic schema was created before _app_settings existed.
     try {
         const { generator } = getDDLServices()
         await generator.ensureSystemTables(schemaName)
     } catch (e) {
-        // If we can't ensure system tables, do not block schema sync; runtime will fall back to defaults.
         // eslint-disable-next-line no-console
-        console.warn('[SchemaSync] Failed to ensure _app_settings (ignored)', e)
+        console.warn('[SchemaSync] Failed to ensure _app_layouts for layouts (ignored)', e)
     }
 
-    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
-    if (!hasSettings) return
-
-    const parsed = dashboardLayoutConfigSchema.safeParse(snapshot.layoutConfig ?? {})
-    const merged = {
-        ...defaultDashboardLayoutConfig,
-        ...(parsed.success ? parsed.data : {})
-    }
+    const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
+    if (!hasLayouts) return
 
     const now = new Date()
+    const nextLayouts = normalizeSnapshotLayouts(snapshot)
 
-    const existing = await knex
-        .withSchema(schemaName)
-        .from('_app_settings')
-        .where({ key: 'layout', _upl_deleted: false, _app_deleted: false })
-        .select(['id'])
-        .first()
-
-    if (!existing) {
-        await knex
+    await knex.transaction(async (trx) => {
+        const existingRows = await trx
             .withSchema(schemaName)
-            .into('_app_settings')
-            .insert({
-                key: 'layout',
-                value: merged,
-                _upl_created_at: now,
-                _upl_created_by: userId ?? null,
-                _upl_updated_at: now,
-                _upl_updated_by: userId ?? null,
-                _upl_version: 1,
-                _upl_archived: false,
-                _upl_deleted: false,
-                _upl_locked: false,
-                _app_published: true,
-                _app_archived: false,
-                _app_deleted: false
-            })
-        return
-    }
+            .from('_app_layouts')
+            .where({ _upl_deleted: false, _app_deleted: false })
+            .select(['id'])
+        const existingIds = new Set(existingRows.map((row) => String(row.id)))
 
-    await knex
-        .withSchema(schemaName)
-        .from('_app_settings')
-        .where({ key: 'layout', _upl_deleted: false, _app_deleted: false })
-        .update({
-            value: merged,
-            _upl_updated_at: now,
-            _upl_updated_by: userId ?? null,
-            _upl_version: knex.raw('_upl_version + 1')
-        })
+        for (const row of nextLayouts) {
+            const payload = {
+                template_key: row.templateKey,
+                name: row.name,
+                description: row.description,
+                config: row.config,
+                is_active: row.isActive,
+                is_default: row.isDefault,
+                sort_order: row.sortOrder,
+                owner_id: null
+            }
+
+            if (existingIds.has(row.id)) {
+                await trx
+                    .withSchema(schemaName)
+                    .from('_app_layouts')
+                    .where({ id: row.id, _upl_deleted: false, _app_deleted: false })
+                    .update({
+                        ...payload,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+            } else {
+                await trx
+                    .withSchema(schemaName)
+                    .into('_app_layouts')
+                    .insert({
+                        id: row.id,
+                        ...payload,
+                        _upl_created_at: now,
+                        _upl_created_by: userId ?? null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _app_published: true,
+                        _app_archived: false,
+                        _app_deleted: false
+                    })
+            }
+        }
+
+        const nextIds = nextLayouts.map((row) => row.id)
+        if (nextIds.length > 0) {
+            await trx
+                .withSchema(schemaName)
+                .from('_app_layouts')
+                .where({ _upl_deleted: false, _app_deleted: false })
+                .whereNotIn('id', nextIds)
+                .del()
+        } else {
+            await trx.withSchema(schemaName).from('_app_layouts').where({ _upl_deleted: false, _app_deleted: false }).del()
+        }
+    })
 }
 
-async function persistPublishedLayouts(options: {
-    schemaName: string
-    snapshot: MetahubSnapshot
-    userId?: string | null
-}): Promise<void> {
-    const { schemaName, snapshot, userId } = options
-    const knex = KnexClient.getInstance()
-
-    try {
-        const { generator } = getDDLServices()
-        await generator.ensureSystemTables(schemaName)
-    } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[SchemaSync] Failed to ensure _app_settings for layouts (ignored)', e)
-    }
-
-    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
-    if (!hasSettings) return
-
-    const now = new Date()
-    const value = {
-        layouts: Array.isArray(snapshot.layouts) ? snapshot.layouts : [],
-        defaultLayoutId: snapshot.defaultLayoutId ?? null
-    }
-
-    const existing = await knex
-        .withSchema(schemaName)
-        .from('_app_settings')
-        .where({ key: 'layouts', _upl_deleted: false, _app_deleted: false })
-        .select(['id'])
-        .first()
-
-    if (!existing) {
-        await knex
-            .withSchema(schemaName)
-            .into('_app_settings')
-            .insert({
-                key: 'layouts',
-                value,
-                _upl_created_at: now,
-                _upl_created_by: userId ?? null,
-                _upl_updated_at: now,
-                _upl_updated_by: userId ?? null,
-                _upl_version: 1,
-                _upl_archived: false,
-                _upl_deleted: false,
-                _upl_locked: false,
-                _app_published: true,
-                _app_archived: false,
-                _app_deleted: false
-            })
-        return
-    }
-
-    await knex
-        .withSchema(schemaName)
-        .from('_app_settings')
-        .where({ key: 'layouts', _upl_deleted: false, _app_deleted: false })
-        .update({
-            value,
-            _upl_updated_at: now,
-            _upl_updated_by: userId ?? null,
-            _upl_version: knex.raw('_upl_version + 1')
-        })
-}
-
-async function getPersistedDashboardLayoutConfig(options: {
-    schemaName: string
-}): Promise<Record<string, unknown>> {
+async function getPersistedDashboardLayoutConfig(options: { schemaName: string }): Promise<Record<string, unknown>> {
     const { schemaName } = options
     const knex = KnexClient.getInstance()
 
-    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
-    if (!hasSettings) {
+    const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
+    if (!hasLayouts) {
         return {}
     }
 
-    const existing = await knex
+    const preferredDefault = await knex
         .withSchema(schemaName)
-        .from('_app_settings')
-        .where({ key: 'layout', _upl_deleted: false, _app_deleted: false })
-        .select(['value'])
+        .from('_app_layouts')
+        .where({ is_default: true, _upl_deleted: false, _app_deleted: false })
+        .select(['config'])
         .first()
 
-    const value = existing?.value as unknown
+    const fallbackActive = preferredDefault
+        ? null
+        : await knex
+              .withSchema(schemaName)
+              .from('_app_layouts')
+              .where({ is_active: true, _upl_deleted: false, _app_deleted: false })
+              .orderBy([
+                  { column: 'sort_order', order: 'asc' },
+                  { column: '_upl_created_at', order: 'asc' }
+              ])
+              .select(['config'])
+              .first()
+
+    const value = (preferredDefault?.config ?? fallbackActive?.config) as unknown
     return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 }
 
 async function getPersistedPublishedLayouts(options: {
     schemaName: string
-}): Promise<{ layouts: unknown[]; defaultLayoutId: string | null }> {
+}): Promise<{ layouts: PersistedAppLayout[]; defaultLayoutId: string | null }> {
     const { schemaName } = options
     const knex = KnexClient.getInstance()
 
-    const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
-    if (!hasSettings) {
+    const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
+    if (!hasLayouts) {
         return { layouts: [], defaultLayoutId: null }
     }
 
-    const existing = await knex
+    const rows = await knex
         .withSchema(schemaName)
-        .from('_app_settings')
-        .where({ key: 'layouts', _upl_deleted: false, _app_deleted: false })
-        .select(['value'])
-        .first()
+        .from('_app_layouts')
+        .where({ _upl_deleted: false, _app_deleted: false })
+        .select(['id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
+        .orderBy([
+            { column: 'sort_order', order: 'asc' },
+            { column: '_upl_created_at', order: 'asc' }
+        ])
 
-    const raw = existing?.value as unknown
-    if (!raw || typeof raw !== 'object') {
-        return { layouts: [], defaultLayoutId: null }
-    }
-
-    const obj = raw as Record<string, unknown>
-    const layouts = Array.isArray(obj.layouts) ? obj.layouts : []
-    const defaultLayoutId = typeof obj.defaultLayoutId === 'string' ? obj.defaultLayoutId : null
+    const layouts = rows.map((row: any) => ({
+        id: String(row.id),
+        templateKey: typeof row.template_key === 'string' && row.template_key.length > 0 ? row.template_key : 'dashboard',
+        name: row.name && typeof row.name === 'object' ? row.name : {},
+        description: row.description && typeof row.description === 'object' ? row.description : null,
+        config: row.config && typeof row.config === 'object' ? row.config : {},
+        isActive: Boolean(row.is_active),
+        isDefault: Boolean(row.is_default),
+        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
+    }))
+    const defaultLayoutId = layouts.find((layout) => layout.isDefault)?.id ?? null
     return { layouts, defaultLayoutId }
 }
 
@@ -451,10 +559,7 @@ function buildMergedDashboardLayoutConfig(snapshot: MetahubSnapshot): Record<str
     }
 }
 
-async function hasDashboardLayoutConfigChanges(options: {
-    schemaName: string
-    snapshot: MetahubSnapshot
-}): Promise<boolean> {
+async function hasDashboardLayoutConfigChanges(options: { schemaName: string; snapshot: MetahubSnapshot }): Promise<boolean> {
     const { schemaName, snapshot } = options
 
     const current = await getPersistedDashboardLayoutConfig({ schemaName })
@@ -464,16 +569,14 @@ async function hasDashboardLayoutConfigChanges(options: {
     return stableStringify(current) !== stableStringify(next)
 }
 
-async function hasPublishedLayoutsChanges(options: {
-    schemaName: string
-    snapshot: MetahubSnapshot
-}): Promise<boolean> {
+async function hasPublishedLayoutsChanges(options: { schemaName: string; snapshot: MetahubSnapshot }): Promise<boolean> {
     const { schemaName, snapshot } = options
 
     const current = await getPersistedPublishedLayouts({ schemaName })
+    const normalizedLayouts = normalizeSnapshotLayouts(snapshot)
     const next = {
-        layouts: Array.isArray(snapshot.layouts) ? snapshot.layouts : [],
-        defaultLayoutId: snapshot.defaultLayoutId ?? null
+        layouts: normalizedLayouts,
+        defaultLayoutId: normalizedLayouts.find((layout) => layout.isDefault)?.id ?? null
     }
 
     return stableStringify(current) !== stableStringify(next)
@@ -633,7 +736,6 @@ export function createApplicationSyncRoutes(
                     // This covers non-DDL evolutions (e.g., new metadata columns like sort_order) and keeps runtime UI stable.
                     await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
 
-                    await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
 
                     return res.json({
@@ -673,14 +775,13 @@ export function createApplicationSyncRoutes(
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
                     application.schemaSyncedAt = new Date()
-                application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
-                await applicationRepo.save(application)
+                    application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
+                    await applicationRepo.save(application)
 
-                await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
-                await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
 
-                const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-                await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+                    const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
+                    await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                     return res.json({
                         status: 'created',
@@ -706,7 +807,6 @@ export function createApplicationSyncRoutes(
                     application.schemaSyncedAt = new Date()
                     await applicationRepo.save(application)
 
-                    await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
 
                     // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
@@ -762,13 +862,13 @@ export function createApplicationSyncRoutes(
                     })
                 }
 
-                const migrationResult = await migrator.applyAllChanges(
-                    application.schemaName!,
-                    diff,
-                    catalogDefs,
-                    confirmDestructive,
-                    { recordMigration: true, migrationDescription: 'schema_sync', migrationMeta, publicationSnapshot, userId }
-                )
+                const migrationResult = await migrator.applyAllChanges(application.schemaName!, diff, catalogDefs, confirmDestructive, {
+                    recordMigration: true,
+                    migrationDescription: 'schema_sync',
+                    migrationMeta,
+                    publicationSnapshot,
+                    userId
+                })
 
                 if (!migrationResult.success) {
                     application.schemaStatus = ApplicationSchemaStatus.ERROR
@@ -789,7 +889,6 @@ export function createApplicationSyncRoutes(
                 application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
                 await applicationRepo.save(application)
 
-                await persistDashboardLayoutConfig({ schemaName: application.schemaName!, snapshot, userId })
                 await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
 
                 const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
@@ -899,33 +998,7 @@ export function createApplicationSyncRoutes(
             const schemaExists = await generator.schemaExists(schemaName)
 
             if (!schemaExists) {
-                const catalogEntities = catalogDefs.filter((e) => e.kind === 'catalog')
-                const createTables = catalogEntities.map((entity) => {
-                    const fields = (entity.fields ?? []).map((f) => ({
-                        id: f.id,
-                        codename: f.codename,
-                        dataType: f.dataType,
-                        isRequired: Boolean(f.isRequired)
-                    }))
-
-                    const elements = (snapshot.elements && (snapshot.elements as any)[entity.id]) as any[] | undefined
-                    const predefinedElements = Array.isArray(elements)
-                        ? elements.map((el) => ({
-                            id: String(el.id),
-                            data: (el.data as Record<string, unknown>) ?? {},
-                            sortOrder: typeof el.sortOrder === 'number' ? el.sortOrder : 0
-                        }))
-                        : []
-
-                    return {
-                        id: entity.id,
-                        codename: entity.codename,
-                        tableName: generateTableName(entity.id, entity.kind),
-                        fields,
-                        predefinedElementsCount: predefinedElements.length,
-                        predefinedElementsPreview: predefinedElements.slice(0, 50)
-                    }
-                })
+                const createTables = buildCreateTableDetails({ entities: catalogDefs, snapshot })
 
                 // Keep human-readable additive strings for backward compatibility.
                 // Frontend should prefer `diff.details.create.tables` for i18n-friendly rendering.
@@ -945,6 +1018,13 @@ export function createApplicationSyncRoutes(
                         details: {
                             create: {
                                 tables: createTables
+                            },
+                            changes: {
+                                additive: additive.map((description) => ({
+                                    type: 'CREATE_TABLE',
+                                    description
+                                })),
+                                destructive: []
                             }
                         }
                     },
@@ -981,6 +1061,16 @@ export function createApplicationSyncRoutes(
 
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
+            const addedTableEntityIds = new Set<string>(
+                diff.additive
+                    .filter((change: SchemaChange) => change.type === 'ADD_TABLE' && Boolean(change.entityId))
+                    .map((change: SchemaChange) => String(change.entityId))
+            )
+            const createTables = buildCreateTableDetails({
+                entities: catalogDefs,
+                snapshot,
+                includeEntityIds: addedTableEntityIds
+            })
             const additive = diff.additive.map((c: SchemaChange) => c.description)
             if (uiNeedsUpdate) {
                 additive.push(UI_LAYOUT_DIFF_MARKER)
@@ -1001,6 +1091,28 @@ export function createApplicationSyncRoutes(
                 additive.push(SYSTEM_METADATA_DIFF_MARKER)
             }
 
+            const additiveStructured: DiffStructuredChange[] = diff.additive.map((c: SchemaChange) => mapStructuredChange(c))
+            if (uiNeedsUpdate) {
+                additiveStructured.push({
+                    type: 'UI_LAYOUT_UPDATE',
+                    description: UI_LAYOUT_DIFF_MARKER
+                })
+            }
+            if (layoutsNeedUpdate) {
+                additiveStructured.push({
+                    type: 'UI_LAYOUTS_UPDATE',
+                    description: UI_LAYOUTS_DIFF_MARKER
+                })
+            }
+            if (systemMetadataNeedsUpdate) {
+                additiveStructured.push({
+                    type: 'SYSTEM_METADATA_UPDATE',
+                    description: SYSTEM_METADATA_DIFF_MARKER
+                })
+            }
+
+            const destructiveStructured: DiffStructuredChange[] = diff.destructive.map((c: SchemaChange) => mapStructuredChange(c))
+
             return res.json({
                 schemaExists: true,
                 schemaName,
@@ -1012,13 +1124,22 @@ export function createApplicationSyncRoutes(
                     summaryKey: systemMetadataNeedsUpdate
                         ? 'schema.metadata.changed'
                         : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate)
-                            ? 'ui.layout.changed'
-                            : undefined,
+                        ? 'ui.layout.changed'
+                        : undefined,
                     summary: systemMetadataNeedsUpdate
                         ? 'System metadata will be updated'
                         : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate)
-                            ? 'UI layout settings have changed'
-                            : diff.summary
+                        ? 'UI layout settings have changed'
+                        : diff.summary,
+                    details: {
+                        create: {
+                            tables: createTables
+                        },
+                        changes: {
+                            additive: additiveStructured,
+                            destructive: destructiveStructured
+                        }
+                    }
                 }
             })
         })

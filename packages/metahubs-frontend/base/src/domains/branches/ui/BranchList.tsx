@@ -41,19 +41,20 @@ import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useCreateBranch, useUpdateBranch, useDeleteBranch, useActivateBranch, useSetDefaultBranch } from '../hooks/mutations'
+import {
+    useCreateBranch,
+    useCopyBranch,
+    useUpdateBranch,
+    useDeleteBranch,
+    useActivateBranch,
+    useSetDefaultBranch
+} from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as branchesApi from '../api'
 import { metahubsQueryKeys, invalidateBranchesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
-import {
-    MetahubBranch,
-    MetahubBranchDisplay,
-    BranchLocalizedPayload,
-    getVLCString,
-    toBranchDisplay
-} from '../../../types'
+import { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload, getVLCString, toBranchDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -213,13 +214,7 @@ const BranchSourceFields = ({
 }: BranchSourceFieldsProps) => {
     const sourceBranchId = values.sourceBranchId as string | undefined
     const selectedSource = sourceOptions.find((option) => option.id === sourceBranchId)
-    const helperText =
-        errors.sourceBranchId ||
-        (selectedSource?.isEmpty
-            ? emptyHelper
-            : selectedSource?.isDefault
-              ? defaultHelper
-              : '')
+    const helperText = errors.sourceBranchId || (selectedSource?.isEmpty ? emptyHelper : selectedSource?.isDefault ? defaultHelper : '')
     const renderSourceValue = (selected: unknown) => {
         const id = typeof selected === 'string' ? selected : ''
         const option = sourceOptions.find((item) => item.id === id)
@@ -293,6 +288,7 @@ const BranchList = () => {
     }>({ open: false, conflict: null, pendingUpdate: null })
 
     const createBranchMutation = useCreateBranch()
+    const copyBranchMutation = useCopyBranch()
     const updateBranchMutation = useUpdateBranch()
     const deleteBranchMutation = useDeleteBranch()
     const activateBranchMutation = useActivateBranch()
@@ -446,9 +442,7 @@ const BranchList = () => {
 
     const getStatusChips = (branch: MetahubBranch) => (
         <Stack direction='row' spacing={0.5} flexWrap='wrap'>
-            {branch.isDefault ? (
-                <Chip size='small' label={t('metahubs:branches.badge.default', 'Default')} variant='outlined' />
-            ) : null}
+            {branch.isDefault ? <Chip size='small' label={t('metahubs:branches.badge.default', 'Default')} variant='outlined' /> : null}
             {branch.isActive ? (
                 <Chip size='small' label={t('metahubs:branches.badge.active', 'Active')} color='success' variant='outlined' />
             ) : null}
@@ -472,7 +466,12 @@ const BranchList = () => {
                                 <Chip size='small' label={t('metahubs:branches.badge.default', 'Default')} variant='outlined' />
                             ) : null}
                             {row.isActive ? (
-                                <Chip size='small' label={t('metahubs:branches.badge.active', 'Active')} color='success' variant='outlined' />
+                                <Chip
+                                    size='small'
+                                    label={t('metahubs:branches.badge.active', 'Active')}
+                                    color='success'
+                                    variant='outlined'
+                                />
                             ) : null}
                         </Stack>
                     </Stack>
@@ -537,7 +536,11 @@ const BranchList = () => {
                         if (isOptimisticLockConflict(error)) {
                             const conflict = extractConflictInfo(error)
                             if (conflict) {
-                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } } })
+                                setConflictState({
+                                    open: true,
+                                    conflict,
+                                    pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
+                                })
                                 return
                             }
                         }
@@ -547,6 +550,15 @@ const BranchList = () => {
                 deleteEntity: async (id: string) => {
                     if (!metahubId) return
                     await deleteBranchMutation.mutateAsync({ metahubId, branchId: id })
+                },
+                copyEntity: async (
+                    _id: string,
+                    payload: BranchLocalizedPayload & {
+                        sourceBranchId?: string
+                    }
+                ) => {
+                    if (!metahubId) return
+                    await copyBranchMutation.mutateAsync({ metahubId, data: payload })
                 }
             },
             runtime: {
@@ -584,6 +596,7 @@ const BranchList = () => {
         [
             activateBranchMutation,
             branchMap,
+            copyBranchMutation,
             deleteBranchMutation,
             enqueueSnackbar,
             i18n.language,
@@ -631,7 +644,8 @@ const BranchList = () => {
                 setDialogError(t('metahubs:branches.validation.codenameRequired', 'Codename is required'))
                 return
             }
-            const sourceBranchId = typeof data.sourceBranchId === 'string' && data.sourceBranchId.length > 0 ? data.sourceBranchId : undefined
+            const sourceBranchId =
+                typeof data.sourceBranchId === 'string' && data.sourceBranchId.length > 0 ? data.sourceBranchId : undefined
 
             await createBranchMutation.mutateAsync({
                 metahubId,
@@ -648,10 +662,16 @@ const BranchList = () => {
             setDialogOpen(false)
         } catch (error: any) {
             const status = error?.response?.status
-            if (status === 409) {
+            const errorCode = error?.response?.data?.code
+            const backendMessage = error?.response?.data?.error
+            if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
                 setDialogError(t('metahubs:branches.createLocked', 'Branch creation is already in progress. Please try again.'))
+            } else if (status === 409 && errorCode === 'BRANCH_CODENAME_EXISTS') {
+                setDialogError(t('metahubs:branches.codenameExists', 'Branch with this codename already exists'))
+            } else if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
+                setDialogError(t('metahubs:branches.numberConflict', 'Branch numbering conflict. Please try again.'))
             } else {
-                setDialogError(error.message || t('metahubs:branches.createError', 'Failed to create branch'))
+                setDialogError(backendMessage || error.message || t('metahubs:branches.createError', 'Failed to create branch'))
             }
         } finally {
             setCreating(false)

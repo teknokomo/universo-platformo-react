@@ -18,6 +18,7 @@ import knex, { Knex } from 'knex'
 class KnexClient {
     private static instance: Knex | null = null
     private static poolMonitorInterval: NodeJS.Timeout | null = null
+    private static readonly ENABLE_POOL_DEBUG = process.env.DATABASE_KNEX_POOL_DEBUG === 'true'
 
     /**
      * Pool monitoring configuration
@@ -49,7 +50,7 @@ class KnexClient {
         if (!host || !user || !password || !database) {
             throw new Error(
                 '[KnexClient] Missing required database configuration. ' +
-                'Ensure DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME are set.'
+                    'Ensure DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME are set.'
             )
         }
 
@@ -80,19 +81,19 @@ class KnexClient {
                 user,
                 password,
                 database,
-                ssl: sslConfig,
+                ssl: sslConfig
             },
             pool: {
                 min: 0,
                 max: poolMax, // Configurable, default 5 for Supabase Nano tier
                 // Shorter timeouts for better connection reuse
                 acquireTimeoutMillis: 30000, // Reduced from 60000
-                idleTimeoutMillis: 20000,    // Reduced from 30000
+                idleTimeoutMillis: 20000, // Reduced from 30000
                 reapIntervalMillis: 1000,
-                createTimeoutMillis: 15000,  // Reduced from 30000
+                createTimeoutMillis: 15000, // Reduced from 30000
                 destroyTimeoutMillis: 5000,
-                propagateCreateError: false,
-            },
+                propagateCreateError: false
+            }
         })
 
         // NOTE: Accessing internal Knex/tarn.js pool properties for error monitoring.
@@ -105,21 +106,23 @@ class KnexClient {
                 KnexClient.logPoolState('error', pool, error)
             })
 
-            // Additional event listeners for diagnostics
-            pool.on('acquireRequest', () => {
-                KnexClient.logPoolState('acquireRequest', pool)
-            })
+            if (KnexClient.ENABLE_POOL_DEBUG) {
+                // Additional event listeners for diagnostics
+                pool.on('acquireRequest', () => {
+                    KnexClient.logPoolState('acquireRequest', pool)
+                })
 
-            pool.on('acquireSuccess', () => {
-                KnexClient.logPoolState('acquireSuccess', pool)
-            })
+                pool.on('acquireSuccess', () => {
+                    KnexClient.logPoolState('acquireSuccess', pool)
+                })
 
-            pool.on('acquireFail', (eventId: number, err: Error) => {
+                pool.on('release', () => {
+                    KnexClient.logPoolState('release', pool)
+                })
+            }
+
+            pool.on('acquireFail', (_eventId: number, err: Error) => {
                 KnexClient.logPoolState('acquireFail', pool, err)
-            })
-
-            pool.on('release', () => {
-                KnexClient.logPoolState('release', pool)
             })
         }
 
@@ -149,8 +152,11 @@ class KnexClient {
 
         // Only log if under pressure, has errors, or explicit events
         const isUnderPressure = utilization >= KnexClient.POOL_PRESSURE_THRESHOLD || (pendingAcquires ?? 0) > 0
-        const shouldLog = context === 'error' || context === 'acquireFail' || context === 'status' ||
-            (isUnderPressure && (context === 'acquireRequest' || context === 'release'))
+        const shouldLog =
+            context === 'error' ||
+            context === 'acquireFail' ||
+            (KnexClient.ENABLE_POOL_DEBUG &&
+                (context === 'status' || (isUnderPressure && (context === 'acquireRequest' || context === 'release'))))
 
         if (!shouldLog) return
 
@@ -175,7 +181,7 @@ class KnexClient {
      * Start periodic pool monitoring
      */
     private static startPoolMonitor(pool: any): void {
-        if (KnexClient.poolMonitorInterval) return
+        if (!KnexClient.ENABLE_POOL_DEBUG || KnexClient.poolMonitorInterval) return
 
         KnexClient.poolMonitorInterval = setInterval(() => {
             KnexClient.logPoolState('status', pool)
@@ -203,7 +209,7 @@ class KnexClient {
         if (process.env.DATABASE_SSL_KEY_BASE64) {
             return {
                 rejectUnauthorized: false,
-                ca: Buffer.from(process.env.DATABASE_SSL_KEY_BASE64, 'base64').toString(),
+                ca: Buffer.from(process.env.DATABASE_SSL_KEY_BASE64, 'base64').toString()
             }
         } else if (process.env.DATABASE_SSL === 'true') {
             return { rejectUnauthorized: false }
@@ -238,10 +244,9 @@ class KnexClient {
 
         try {
             // Try to acquire exclusive session-level advisory lock
-            const result = await knexInstance.raw<{ rows: { pg_try_advisory_lock: boolean }[] }>(
-                `SELECT pg_try_advisory_lock(?)`,
-                [lockKey]
-            )
+            const result = await knexInstance.raw<{ rows: { pg_try_advisory_lock: boolean }[] }>(`SELECT pg_try_advisory_lock(?)`, [
+                lockKey
+            ])
             return result.rows[0]?.pg_try_advisory_lock === true
         } catch (error) {
             console.error('[KnexClient] Failed to acquire advisory lock:', error)
@@ -275,7 +280,7 @@ class KnexClient {
         let hash = 0
         for (let i = 0; i < cleanUuid.length; i++) {
             const char = cleanUuid.charCodeAt(i)
-            hash = ((hash << 5) - hash) + char
+            hash = (hash << 5) - hash + char
             hash = hash & hash // Convert to 32bit integer
         }
         return Math.abs(hash)

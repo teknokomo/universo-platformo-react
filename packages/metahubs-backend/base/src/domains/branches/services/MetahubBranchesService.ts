@@ -33,7 +33,7 @@ export interface BlockingBranchUser {
 }
 
 export class MetahubBranchesService {
-    constructor(private dataSource: DataSource, private manager?: EntityManager) { }
+    constructor(private dataSource: DataSource, private manager?: EntityManager) {}
 
     private get repoManager(): EntityManager {
         return this.manager ?? this.dataSource.manager
@@ -50,17 +50,9 @@ export class MetahubBranchesService {
 
     async listBranches(metahubId: string, options: BranchListOptions = {}) {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const {
-            limit = 100,
-            offset = 0,
-            sortBy = 'updated',
-            sortOrder = 'desc',
-            search
-        } = options
+        const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = options
 
-        const qb = branchRepo
-            .createQueryBuilder('b')
-            .where('b.metahub_id = :metahubId', { metahubId })
+        const qb = branchRepo.createQueryBuilder('b').where('b.metahub_id = :metahubId', { metahubId })
 
         if (search) {
             const escapedSearch = escapeLikeWildcards(search.toLowerCase())
@@ -78,10 +70,10 @@ export class MetahubBranchesService {
             sortBy === 'name'
                 ? "COALESCE(b.name->'locales'->>(b.name->>'_primary'), b.name->'locales'->>'en', '')"
                 : sortBy === 'codename'
-                    ? 'b.codename'
-                    : sortBy === 'created'
-                        ? 'b._upl_created_at'
-                        : 'b._upl_updated_at'
+                ? 'b.codename'
+                : sortBy === 'created'
+                ? 'b._upl_created_at'
+                : 'b._upl_updated_at'
 
         qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
         qb.skip(offset).take(limit)
@@ -94,9 +86,7 @@ export class MetahubBranchesService {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
         const { sortBy = 'updated', sortOrder = 'desc', search } = options
 
-        const qb = branchRepo
-            .createQueryBuilder('b')
-            .where('b.metahub_id = :metahubId', { metahubId })
+        const qb = branchRepo.createQueryBuilder('b').where('b.metahub_id = :metahubId', { metahubId })
 
         if (search) {
             const escapedSearch = escapeLikeWildcards(search.toLowerCase())
@@ -114,10 +104,10 @@ export class MetahubBranchesService {
             sortBy === 'name'
                 ? "COALESCE(b.name->'locales'->>(b.name->>'_primary'), b.name->'locales'->>'en', '')"
                 : sortBy === 'codename'
-                    ? 'b.codename'
-                    : sortBy === 'created'
-                        ? 'b._upl_created_at'
-                        : 'b._upl_updated_at'
+                ? 'b.codename'
+                : sortBy === 'created'
+                ? 'b._upl_created_at'
+                : 'b._upl_updated_at'
 
         qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
@@ -211,7 +201,9 @@ export class MetahubBranchesService {
         const { metahubId, sourceBranchId, codename, name, description, createdBy } = params
         const schemaService = new MetahubSchemaService(this.dataSource)
 
-        const lockKey = uuidToLockKey(metahubId)
+        // Use a dedicated lock namespace for branch creation.
+        // This avoids contention with ensureSchema() read paths that use metahub-wide lock keys.
+        const lockKey = uuidToLockKey(`${metahubId}:branch-create`)
         const acquired = await acquireAdvisoryLock(this.knex, lockKey)
         if (!acquired) {
             throw new Error('Branch creation in progress')
@@ -234,19 +226,33 @@ export class MetahubBranchesService {
                     throw new Error('Metahub not found')
                 }
 
-                const sourceBranch = sourceBranchId
-                    ? await branchRepo.findOne({ where: { id: sourceBranchId, metahubId } })
-                    : null
+                const sourceBranch = sourceBranchId ? await branchRepo.findOne({ where: { id: sourceBranchId, metahubId } }) : null
                 if (sourceBranchId && !sourceBranch) {
                     throw new Error('Source branch not found')
                 }
 
-                const nextNumber = (metahub.lastBranchNumber ?? 0) + 1
+                const maxBranchNumberRow = await branchRepo
+                    .createQueryBuilder('b')
+                    .select('COALESCE(MAX(b.branch_number), 0)', 'maxBranchNumber')
+                    .where('b.metahub_id = :metahubId', { metahubId })
+                    .getRawOne<{ maxBranchNumber: string | number }>()
+
+                const maxBranchNumber = Number(maxBranchNumberRow?.maxBranchNumber ?? 0)
+                const baseBranchNumber = Math.max(metahub.lastBranchNumber ?? 0, Number.isFinite(maxBranchNumber) ? maxBranchNumber : 0)
+                const nextNumber = baseBranchNumber + 1
                 schemaName = this.buildSchemaName(metahubId, nextNumber)
 
-                await schemaService.initializeSchema(schemaName)
                 if (sourceBranch) {
-                    await this.cloneSchemaData(sourceBranch.schemaName, schemaName, createdBy)
+                    const { cloner } = getDDLServices()
+                    await cloner.clone({
+                        sourceSchema: sourceBranch.schemaName,
+                        targetSchema: schemaName,
+                        dropTargetSchemaIfExists: true,
+                        createTargetSchema: true,
+                        copyData: true
+                    })
+                } else {
+                    await schemaService.initializeSchema(schemaName)
                 }
 
                 const branch = branchRepo.create({
@@ -367,7 +373,10 @@ export class MetahubBranchesService {
         return branch
     }
 
-    async getBranchLineage(metahubId: string, branchId: string): Promise<{
+    async getBranchLineage(
+        metahubId: string,
+        branchId: string
+    ): Promise<{
         sourceBranchId: string | null
         sourceChain: Array<{
             id: string
@@ -445,11 +454,7 @@ export class MetahubBranchesService {
         }))
     }
 
-    async deleteBranch(params: {
-        metahubId: string
-        branchId: string
-        requesterId: string
-    }): Promise<void> {
+    async deleteBranch(params: { metahubId: string; branchId: string; requesterId: string }): Promise<void> {
         const { metahubId, branchId, requesterId } = params
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
         const metahubRepo = this.repoManager.getRepository(Metahub)
@@ -474,41 +479,12 @@ export class MetahubBranchesService {
         }
 
         // Clear active branch for requester if it matches this branch
-        await memberRepo.update(
-            { metahubId, userId: requesterId, activeBranchId: branchId },
-            { activeBranchId: null }
-        )
+        await memberRepo.update({ metahubId, userId: requesterId, activeBranchId: branchId }, { activeBranchId: null })
 
         const { generator } = getDDLServices()
         await generator.dropSchema(branch.schemaName)
 
         await branchRepo.delete({ id: branchId })
         MetahubSchemaService.clearCache(metahubId)
-    }
-
-    private async cloneSchemaData(sourceSchema: string, targetSchema: string, userId?: string | null): Promise<void> {
-        await this.knex.transaction(async (trx) => {
-            // Clone objects with fresh audit timestamps
-            await trx.raw(`
-                INSERT INTO "${targetSchema}"._mhb_objects
-                    (id, kind, codename, table_name, presentation, config, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                SELECT id, kind, codename, table_name, presentation, config, now(), ?::uuid, now(), ?::uuid
-                FROM "${sourceSchema}"._mhb_objects
-            `, [userId ?? null, userId ?? null])
-            // Clone attributes with fresh audit timestamps
-            await trx.raw(`
-                INSERT INTO "${targetSchema}"._mhb_attributes
-                    (id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, is_display_attribute, target_object_id, target_object_kind, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                SELECT id, object_id, codename, data_type, presentation, validation_rules, ui_config, sort_order, is_required, is_display_attribute, target_object_id, target_object_kind, now(), ?::uuid, now(), ?::uuid
-                FROM "${sourceSchema}"._mhb_attributes
-            `, [userId ?? null, userId ?? null])
-            // Clone elements with fresh audit timestamps
-            await trx.raw(`
-                INSERT INTO "${targetSchema}"._mhb_elements
-                    (id, object_id, data, sort_order, owner_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                SELECT id, object_id, data, sort_order, owner_id, now(), ?::uuid, now(), ?::uuid
-                FROM "${sourceSchema}"._mhb_elements
-            `, [userId ?? null, userId ?? null])
-        })
     }
 }

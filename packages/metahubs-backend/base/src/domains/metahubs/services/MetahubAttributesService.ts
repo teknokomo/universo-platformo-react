@@ -7,7 +7,7 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
  * Replaces the old TypeORM Attribute entity logic.
  */
 export class MetahubAttributesService {
-    constructor(private schemaService: MetahubSchemaService) { }
+    constructor(private schemaService: MetahubSchemaService) {}
 
     private get knex() {
         return KnexClient.getInstance()
@@ -74,30 +74,62 @@ export class MetahubAttributesService {
 
     async findById(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ id })
-            .first()
+        const row = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
 
         return row ? this.mapRowToAttribute(row) : null
     }
 
     async findByCodename(metahubId: string, objectId: string, codename: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId, codename })
-            .first()
+        const row = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId, codename }).first()
 
         return row ? this.mapRowToAttribute(row) : null
+    }
+
+    /**
+     * Find REF attributes in other catalogs that reference the target catalog.
+     * Used to block catalog deletion when cross-catalog dependencies exist.
+     */
+    async findCatalogReferenceBlockers(metahubId: string, targetCatalogId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes as attr')
+            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
+            .where('attr.data_type', 'REF')
+            .andWhere('attr.target_object_id', targetCatalogId)
+            .andWhereNot('attr.object_id', targetCatalogId)
+            // Support both legacy uppercase and current lowercase enum values
+            .andWhere((qb) => qb.whereIn('attr.target_object_kind', ['catalog', 'CATALOG']).orWhereNull('attr.target_object_kind'))
+            .andWhere('attr._upl_deleted', false)
+            .andWhere('attr._mhb_deleted', false)
+            .andWhere('obj._upl_deleted', false)
+            .andWhere('obj._mhb_deleted', false)
+            .select(
+                'attr.id as attribute_id',
+                'attr.codename as attribute_codename',
+                'attr.presentation as attribute_presentation',
+                'attr.object_id as source_catalog_id',
+                'obj.codename as source_catalog_codename',
+                'obj.presentation as source_catalog_presentation'
+            )
+            .orderBy('obj.codename', 'asc')
+            .orderBy('attr.sort_order', 'asc')
+
+        return rows.map((row: any) => ({
+            attributeId: row.attribute_id,
+            attributeCodename: row.attribute_codename,
+            attributeName: row.attribute_presentation?.name ?? null,
+            sourceCatalogId: row.source_catalog_id,
+            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogName: row.source_catalog_presentation?.name ?? null
+        }))
     }
 
     async create(metahubId: string, data: any, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const sortOrder = data.sortOrder ?? await this.getNextSortOrder(schemaName, data.catalogId)
+        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId))
         const dbData = {
             object_id: data.catalogId, // Map catalogId to object_id
             codename: data.codename,
@@ -118,11 +150,7 @@ export class MetahubAttributesService {
             _upl_updated_by: data.createdBy ?? null
         }
 
-        const [created] = await this.knex
-            .withSchema(schemaName)
-            .into('_mhb_attributes')
-            .insert(dbData)
-            .returning('*')
+        const [created] = await this.knex.withSchema(schemaName).into('_mhb_attributes').insert(dbData).returning('*')
 
         return this.mapRowToAttribute(created)
     }
@@ -173,11 +201,7 @@ export class MetahubAttributesService {
 
     async delete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ id })
-            .delete()
+        await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id }).delete()
     }
 
     async moveAttribute(metahubId: string, objectId: string, attributeId: string, direction: 'up' | 'down', userId?: string) {
@@ -187,37 +211,30 @@ export class MetahubAttributesService {
             // Ensure sequential order first
             await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId)
 
-            const current = await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ id: attributeId })
-                .first()
+            const current = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
 
             if (!current) throw new Error('Attribute not found')
 
             const currentOrder = current.sort_order
 
             // Find neighbor
-            let neighborQuery = trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ object_id: objectId })
+            let neighborQuery = trx.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
 
             if (direction === 'up') {
-                neighborQuery = neighborQuery
-                    .where('sort_order', '<', currentOrder)
-                    .orderBy('sort_order', 'desc')
+                neighborQuery = neighborQuery.where('sort_order', '<', currentOrder).orderBy('sort_order', 'desc')
             } else {
-                neighborQuery = neighborQuery
-                    .where('sort_order', '>', currentOrder)
-                    .orderBy('sort_order', 'asc')
+                neighborQuery = neighborQuery.where('sort_order', '>', currentOrder).orderBy('sort_order', 'asc')
             }
 
             const neighbor = await neighborQuery.first()
 
             if (neighbor) {
                 // Swap
-                await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).update({ sort_order: neighbor.sort_order })
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_attributes')
+                    .where({ id: attributeId })
+                    .update({ sort_order: neighbor.sort_order })
                 await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: neighbor.id }).update({ sort_order: currentOrder })
             }
 
@@ -263,7 +280,7 @@ export class MetahubAttributesService {
 
     // Public wrapper if needed independently
     async ensureSequentialSortOrder(metahubId: string, objectId: string, userId?: string) {
-        return this.knex.transaction(trx => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId))
+        return this.knex.transaction((trx) => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId))
     }
 
     /**

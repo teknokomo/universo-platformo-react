@@ -1,6 +1,65 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## COMPLETED (2026-02-07): PR #666 Review Feedback Hardening
+
+- [x] Validate bot review comments from PR #666 against current code and classify actionable items.
+- [x] Apply safe fixes for confirmed issues (layout config query efficiency, localized fallback handling, i18n fallback labels, unused imports).
+- [x] Run targeted lint/build validation for touched packages.
+- [x] Update memory-bank status files with implementation outcomes.
+
+## COMPLETED (2026-02-07): Catalog Blocking Delete Stabilization
+
+- [x] Fix backend blocking references query for catalog delete (`[object Object]` SQL alias issue with Knex + `withSchema`).
+- [x] Unify catalog delete flow in frontend mini-menu to always use blocking-aware delete dialog logic.
+- [x] Run targeted validation for touched code paths (tests/build where feasible) and record outcomes in memory-bank.
+
+## COMPLETED (2026-02-07): Post-QA Stabilization for Copy/Delete Flows
+
+- [x] Fix `@universo/schema-ddl` `SchemaCloner` placeholder handling to support both Knex raw execution and TypeORM `manager.query` execution without binding mismatches.
+- [x] Add focused `schema-ddl` tests for schema clone query binding behavior (prevent regression of `Expected ... bindings` runtime errors).
+- [x] Remove divider between `Edit` and `Copy` actions in Applications mini-menu while preserving existing delete separator behavior.
+- [x] Harden `copyAccess` behavior to copy only active (non-soft-deleted) membership records for Applications and Metahubs.
+- [x] Run targeted validation (tests/build) for changed packages and update memory-bank status files (`activeContext.md`, `progress.md`, `tasks.md`).
+
+## COMPLETED (2026-02-07): Metahub/Application Copy + Safe Metahub Delete
+
+- [x] Fix Metahub delete flow to drop dynamic schemas before metadata removal (transaction-safe, identifier-safe)
+- [x] Add shared schema clone service in `@universo/schema-ddl` for safe full-schema cloning
+- [x] Extend Metahub branch cloning to copy all runtime tables (including `_mhb_settings` and `_mhb_layouts`) via shared clone service
+- [x] Implement backend endpoint to copy Metahub with options:
+  - [x] `copyDefaultBranchOnly` (default `true`)
+  - [x] `copyAccess` (default `false`)
+  - [x] ensure requester becomes only `owner` (no duplicate role rows)
+- [x] Implement backend endpoint to copy Application with options:
+  - [x] `copyAccess` (default `false`)
+  - [x] copy connectors/publication links
+  - [x] copy dynamic `app_*` schema when present
+  - [x] ensure requester becomes only `owner` (no duplicate role rows)
+- [x] Add frontend `Copy` action for Metahubs and Applications in mini-menu under `Edit`
+- [x] Add copy dialogs (based on create/edit form) with defaults:
+  - [x] localized title ("Copying")
+  - [x] localized name suffix ` (copy)` / ` (копия)` per locale variant
+  - [x] copy options checkboxes
+- [x] Add backend/frontend API client methods and mutation hooks for copy operations with correct TanStack Query invalidation
+- [x] Add i18n keys for copy dialogs, options, and success/error messages (en/ru)
+- [x] Add/update targeted tests for new copy endpoints and delete-schema safety behavior
+- [x] Run targeted lint/tests/build for touched packages and fix violations
+- [x] Update memory-bank progress after implementation
+
+## COMPLETED (2026-02-06): Layout Storage Alignment + Safe Layout Edit
+
+- [x] Prevent layout config reset on layout rename/edit in Metahubs frontend (`includeConfig=false` for update payload)
+- [x] Invalidate layout breadcrumb query after update to refresh renamed layout titles immediately
+- [x] Add `_app_layouts` as dedicated runtime layouts storage in dynamic application schema
+- [x] Keep `_app_settings` creation untouched (reserved for future app settings)
+- [x] Move sync persistence/comparison logic from `_app_settings` keys to normalized `_app_layouts` rows
+- [x] Keep diff markers (`ui.layout.update`, `ui.layouts.update`) and sync summary contract stable
+- [x] Switch runtime API layout source to `_app_layouts` (default/active), with fallback to legacy `_app_settings` key for compatibility
+- [x] Run targeted lint/build verification for touched packages and files
+
+---
+
 ## COMPLETED (2026-02-04): UI Layout Sync + Dashboard Grid Fixes (MUI 7) + Auth Form Layout
 
 - [x] Ensure Metahub Layout config changes are propagated to existing Applications during connector sync (UI-only diff marker + persist `_app_ui_settings` even with no DDL changes)

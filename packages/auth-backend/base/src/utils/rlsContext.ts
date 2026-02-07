@@ -1,6 +1,17 @@
 import type { QueryRunner } from 'typeorm'
 import { jwtVerify } from 'jose'
 
+const RLS_DEBUG = process.env.AUTH_RLS_DEBUG === 'true'
+
+const logRlsDebug = (message: string, payload?: unknown): void => {
+    if (!RLS_DEBUG) return
+    if (payload !== undefined) {
+        console.log(message, payload)
+        return
+    }
+    console.log(message)
+}
+
 /**
  * Apply RLS context to a TypeORM QueryRunner by setting PostgreSQL session variables.
  * This enables Row Level Security policies that depend on auth.uid() to work with TypeORM.
@@ -9,7 +20,7 @@ import { jwtVerify } from 'jose'
  * @param accessToken - JWT access token from Supabase session
  */
 export async function applyRlsContext(runner: QueryRunner, accessToken: string): Promise<void> {
-    console.log('[RLS:applyContext] Starting RLS context setup')
+    logRlsDebug('[RLS:applyContext] Starting RLS context setup')
 
     const secret = process.env.SUPABASE_JWT_SECRET
     if (!secret) {
@@ -17,13 +28,13 @@ export async function applyRlsContext(runner: QueryRunner, accessToken: string):
         throw new Error('SUPABASE_JWT_SECRET environment variable is required for RLS context')
     }
 
-    console.log('[RLS:applyContext] JWT secret found, length:', secret.length)
+    logRlsDebug('[RLS:applyContext] JWT secret found, length:', secret.length)
 
     try {
         // Verify and decode JWT
-        console.log('[RLS:applyContext] Verifying JWT token...')
+        logRlsDebug('[RLS:applyContext] Verifying JWT token...')
         const { payload } = await jwtVerify(accessToken, new TextEncoder().encode(secret))
-        console.log('[RLS:applyContext] ✅ JWT verified successfully', {
+        logRlsDebug('[RLS:applyContext] ✅ JWT verified successfully', {
             sub: payload.sub,
             role: payload.role,
             exp: payload.exp
@@ -40,11 +51,11 @@ export async function applyRlsContext(runner: QueryRunner, accessToken: string):
         // which is sufficient for auth.uid() and RLS policies.
 
         // Set JWT claims in session config (makes auth.uid() and auth.jwt() work)
-        console.log('[RLS:applyContext] Setting request.jwt.claims in PostgreSQL session')
+        logRlsDebug('[RLS:applyContext] Setting request.jwt.claims in PostgreSQL session')
         await runner.query(`SELECT set_config('request.jwt.claims', $1::text, false)`, [JSON.stringify(payload)])
-        console.log('[RLS:applyContext] ✅ JWT claims configured in session')
+        logRlsDebug('[RLS:applyContext] ✅ JWT claims configured in session')
 
-        console.log('[RLS:applyContext] ✅ RLS context fully applied')
+        logRlsDebug('[RLS:applyContext] ✅ RLS context fully applied')
     } catch (error) {
         console.error('[RLS:applyContext] ❌ Error during RLS context setup', {
             error: error instanceof Error ? error.message : String(error),

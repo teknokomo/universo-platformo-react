@@ -5,11 +5,19 @@
         "noApplicationsFound": "Приложения не найдены",
         "createApplication": "Создать приложение",
         "editTitle": "Редактировать приложение",
+        "copyTitle": "Копирование приложения",
         "confirmDelete": "Удалить приложение?",
         "confirmDeleteDescription": "Вы уверены, что хотите удалить приложение \"{{name}}\"?",
         "deleteSuccess": "Приложение успешно удалено",
         "deleteError": "Не удалось удалить приложение",
+        "copySuccess": "Приложение успешно скопировано",
+        "copyError": "Не удалось скопировать приложение",
         "saveError": "Не удалось сохранить приложение",
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "copyAccess": "Копировать права доступа"
+        },
         "actions": {
             "edit": "Редактировать",
             "delete": "Удалить",
@@ -201,7 +209,18 @@
                 "create": "Создать {{tablesCount}} табл. в новой схеме",
                 "uiChanged": "Изменились настройки UI",
                 "upToDate": "Схема уже актуальна",
-                "metadataChanged": "Будут обновлены системные метаданные"
+                "metadataChanged": "Будут обновлены системные метаданные",
+                "changeCounts": "{{additiveCount}} безопасных, {{destructiveCount}} деструктивных изменений"
+            },
+            "structured": {
+                "addColumn": "Добавить поле \"{{field}}\" ({{type}}) в \"{{table}}\"",
+                "dropColumn": "Удалить поле \"{{field}}\" из \"{{table}}\" (потеря данных)",
+                "addTable": "Создать таблицу \"{{table}}\"",
+                "dropTable": "Удалить таблицу \"{{table}}\" (потеря данных)",
+                "alterColumn": "Изменить поле \"{{field}}\" в \"{{table}}\" ({{from}} -> {{to}})",
+                "addFk": "Добавить ссылочное ограничение для \"{{field}}\" в \"{{table}}\"",
+                "dropFk": "Удалить ссылочное ограничение для \"{{field}}\" в \"{{table}}\"",
+                "modifyField": "Обновить метаданные поля \"{{field}}\" в \"{{table}}\""
             },
             "additive": "Добавления",
             "additiveChanges": "Безопасные изменения (будут применены)",

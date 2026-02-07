@@ -20,6 +20,13 @@ const resolveUserId = (req: Request): string | undefined => {
     return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
+const findBlockingCatalogReferences = async (
+    metahubId: string,
+    catalogId: string,
+    attributesService: MetahubAttributesService,
+    userId?: string
+) => attributesService.findCatalogReferenceBlockers(metahubId, catalogId, userId)
+
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 const optionalLocalizedInputSchema = z
@@ -62,9 +69,9 @@ export function createCatalogsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const services = (req: Request) => {
         const ds = getDataSource()
@@ -139,9 +146,10 @@ export function createCatalogsRoutes(
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter((item: any) =>
-                    item.codename.toLowerCase().includes(searchLower) ||
-                    Object.values(item.name).some((v: any) => String(v).toLowerCase().includes(searchLower))
+                items = items.filter(
+                    (item: any) =>
+                        item.codename.toLowerCase().includes(searchLower) ||
+                        Object.values(item.name).some((v: any) => String(v).toLowerCase().includes(searchLower))
                 )
             }
 
@@ -190,11 +198,14 @@ export function createCatalogsRoutes(
 
             const resultItems = paginatedItems.map((item: any) => {
                 const ids = hubIdsByCatalog.get(item.id) || []
-                const matchedHubs = ids.map(id => hubMap.get(id)).filter(Boolean).map(h => ({
-                    id: h.id,
-                    name: h.name,
-                    codename: h.codename
-                }))
+                const matchedHubs = ids
+                    .map((id) => hubMap.get(id))
+                    .filter(Boolean)
+                    .map((h) => ({
+                        id: h.id,
+                        name: h.name,
+                        codename: h.codename
+                    }))
                 return { ...item, hubs: matchedHubs }
             })
 
@@ -220,7 +231,17 @@ export function createCatalogsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds } = parsed.data
+            const {
+                codename,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                isSingleHub,
+                isRequiredHub,
+                hubIds
+            } = parsed.data
 
             const normalizedCodename = normalizeCodename(codename)
             if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -270,18 +291,22 @@ export function createCatalogsRoutes(
             }
 
             // Create catalog
-            const created = await objectsService.createCatalog(metahubId, {
-                codename: normalizedCodename,
-                name: nameVlc,
-                description: descriptionVlc,
-                config: {
-                    isSingleHub: isSingleHub ?? false,
-                    isRequiredHub: effectiveIsRequired,
-                    sortOrder: sortOrder ?? 0,
-                    hubs: targetHubIds
+            const created = await objectsService.createCatalog(
+                metahubId,
+                {
+                    codename: normalizedCodename,
+                    name: nameVlc,
+                    description: descriptionVlc,
+                    config: {
+                        isSingleHub: isSingleHub ?? false,
+                        isRequiredHub: effectiveIsRequired,
+                        sortOrder: sortOrder ?? 0,
+                        hubs: targetHubIds
+                    },
+                    createdBy: userId
                 },
-                createdBy: userId
-            }, userId)
+                userId
+            )
 
             // Fetch hubs for response
             const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
@@ -326,7 +351,18 @@ export function createCatalogsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds, expectedVersion } = parsed.data
+            const {
+                codename,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                isSingleHub,
+                isRequiredHub,
+                hubIds,
+                expectedVersion
+            } = parsed.data
 
             const currentPresentation = catalog.presentation || {}
             const currentConfig = catalog.config || {}
@@ -396,7 +432,11 @@ export function createCatalogsRoutes(
                 const sanitizedDescription = sanitizeLocalizedInput(description)
                 if (Object.keys(sanitizedDescription).length > 0) {
                     const primary =
-                        descriptionPrimaryLocale ?? currentPresentation.description?.['_primary'] ?? currentPresentation.name?.['_primary'] ?? namePrimaryLocale ?? 'en'
+                        descriptionPrimaryLocale ??
+                        currentPresentation.description?.['_primary'] ??
+                        currentPresentation.name?.['_primary'] ??
+                        namePrimaryLocale ??
+                        'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
                     if (descriptionVlc) {
                         finalDescription = descriptionVlc
@@ -425,23 +465,27 @@ export function createCatalogsRoutes(
                 }
             }
 
-            const updated: Record<string, any> = await objectsService.updateCatalog(metahubId, catalogId, {
-                codename: finalCodename !== catalog.codename ? finalCodename : undefined,
-                name: finalName,
-                description: finalDescription,
-                config: {
-                    hubs: targetHubIds,
-                    isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                    isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                    sortOrder: sortOrder ?? currentConfig.sortOrder
+            const updated: Record<string, any> = await objectsService.updateCatalog(
+                metahubId,
+                catalogId,
+                {
+                    codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                    name: finalName,
+                    description: finalDescription,
+                    config: {
+                        hubs: targetHubIds,
+                        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+                        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+                        sortOrder: sortOrder ?? currentConfig.sortOrder
+                    },
+                    updatedBy: userId,
+                    expectedVersion
                 },
-                updatedBy: userId,
-                expectedVersion
-            }, userId)
+                userId
+            )
 
             // Get updated hub associations for response
-            const hubs =
-                targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
+            const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
             res.json({
                 id: updated.id,
@@ -525,9 +569,10 @@ export function createCatalogsRoutes(
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter((item: any) =>
-                    item.codename.toLowerCase().includes(searchLower) ||
-                    Object.values(item.name).some((v: any) => String(v).toLowerCase().includes(searchLower))
+                items = items.filter(
+                    (item: any) =>
+                        item.codename.toLowerCase().includes(searchLower) ||
+                        Object.values(item.name).some((v: any) => String(v).toLowerCase().includes(searchLower))
                 )
             }
 
@@ -578,11 +623,14 @@ export function createCatalogsRoutes(
 
             const resultItems = paginatedItems.map((item: any) => {
                 const ids = hubIdsByCatalog.get(item.id) || []
-                const matchedHubs = ids.map(id => hubMap.get(id)).filter(Boolean).map(h => ({
-                    id: h.id,
-                    name: h.name,
-                    codename: h.codename
-                }))
+                const matchedHubs = ids
+                    .map((id) => hubMap.get(id))
+                    .filter(Boolean)
+                    .map((h) => ({
+                        id: h.id,
+                        name: h.name,
+                        codename: h.codename
+                    }))
                 return { ...item, hubs: matchedHubs }
             })
 
@@ -617,10 +665,7 @@ export function createCatalogsRoutes(
             }
 
             // Get all hub associations
-            const hubs =
-                currentHubs.length > 0
-                    ? await hubsService.findByIds(metahubId, currentHubs, userId)
-                    : []
+            const hubs = currentHubs.length > 0 ? await hubsService.findByIds(metahubId, currentHubs, userId) : []
 
             // TODO: Implement counts
             const attributesCount = 0
@@ -667,10 +712,7 @@ export function createCatalogsRoutes(
             const currentConfig = catalog.config || {}
             const hubIds = currentConfig.hubs || []
 
-            const hubs =
-                hubIds.length > 0
-                    ? await hubsService.findByIds(metahubId, hubIds, userId)
-                    : []
+            const hubs = hubIds.length > 0 ? await hubsService.findByIds(metahubId, hubIds, userId) : []
 
             // TODO: Implement counts using specialized services
             const attributesCount = 0
@@ -718,7 +760,17 @@ export function createCatalogsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds } = parsed.data
+            const {
+                codename,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                isSingleHub,
+                isRequiredHub,
+                hubIds
+            } = parsed.data
 
             const normalizedCodename = normalizeCodename(codename)
             if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -767,18 +819,22 @@ export function createCatalogsRoutes(
             }
 
             // Create catalog
-            const catalog = await objectsService.createCatalog(metahubId, {
-                codename: normalizedCodename,
-                name: nameVlc,
-                description: descriptionVlc,
-                config: {
-                    hubs: targetHubIds,
-                    isSingleHub: isSingleHub ?? false,
-                    isRequiredHub: effectiveIsRequired,
-                    sortOrder: sortOrder ?? 0
+            const catalog = await objectsService.createCatalog(
+                metahubId,
+                {
+                    codename: normalizedCodename,
+                    name: nameVlc,
+                    description: descriptionVlc,
+                    config: {
+                        hubs: targetHubIds,
+                        isSingleHub: isSingleHub ?? false,
+                        isRequiredHub: effectiveIsRequired,
+                        sortOrder: sortOrder ?? 0
+                    },
+                    createdBy: userId
                 },
-                createdBy: userId
-            }, userId)
+                userId
+            )
 
             // Return catalog with hubs
             const hubs = await hubsService.findByIds(metahubId, targetHubIds, userId)
@@ -834,7 +890,18 @@ export function createCatalogsRoutes(
             // Here we just forward the update but we need to respect the context if needed.
             // If user updates hubs, we must ensure consistency logic.
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds, expectedVersion } = parsed.data
+            const {
+                codename,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                isSingleHub,
+                isRequiredHub,
+                hubIds,
+                expectedVersion
+            } = parsed.data
 
             const currentPresentation = catalog.presentation || {}
             const currentConfig = catalog.config || {}
@@ -890,28 +957,32 @@ export function createCatalogsRoutes(
 
             if (description !== undefined) {
                 const sanitizedDescription = sanitizeLocalizedInput(description)
-                finalDescription = Object.keys(sanitizedDescription).length > 0
-                    ? buildLocalizedContent(sanitizedDescription, descriptionPrimaryLocale || 'en', 'en')
-                    : undefined
+                finalDescription =
+                    Object.keys(sanitizedDescription).length > 0
+                        ? buildLocalizedContent(sanitizedDescription, descriptionPrimaryLocale || 'en', 'en')
+                        : undefined
             }
 
-            const updated: Record<string, any> = await objectsService.updateCatalog(metahubId, catalogId, {
-                codename: finalCodename !== catalog.codename ? finalCodename : undefined,
-                name: finalName,
-                description: finalDescription,
-                config: {
-                    hubs: targetHubIds,
-                    isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                    isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                    sortOrder: sortOrder ?? currentConfig.sortOrder
+            const updated: Record<string, any> = await objectsService.updateCatalog(
+                metahubId,
+                catalogId,
+                {
+                    codename: finalCodename !== catalog.codename ? finalCodename : undefined,
+                    name: finalName,
+                    description: finalDescription,
+                    config: {
+                        hubs: targetHubIds,
+                        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+                        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+                        sortOrder: sortOrder ?? currentConfig.sortOrder
+                    },
+                    updatedBy: userId,
+                    expectedVersion
                 },
-                updatedBy: userId,
-                expectedVersion
-            }, userId)
+                userId
+            )
 
-            const outputHubs = targetHubIds.length > 0
-                ? await hubsService.findByIds(metahubId, targetHubIds, userId)
-                : []
+            const outputHubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
             res.json({
                 id: updated.id,
@@ -931,6 +1002,32 @@ export function createCatalogsRoutes(
     )
 
     /**
+     * GET /metahub/:metahubId/catalog/:catalogId/blocking-references
+     * Return cross-catalog REF attributes that block deleting this catalog.
+     */
+    router.get(
+        ['/metahub/:metahubId/catalog/:catalogId/blocking-references', '/metahub/:metahubId/catalogs/:catalogId/blocking-references'],
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { objectsService, attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const catalog = await objectsService.findById(metahubId, catalogId, userId)
+            if (!catalog) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+            return res.json({
+                catalogId,
+                blockingReferences,
+                canDelete: blockingReferences.length === 0
+            })
+        })
+    )
+
+    /**
      * DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId
      * Delete catalog association from a specific hub.
      * If it's the last hub and catalog requires hub, prevent unless force=true (which deletes catalog).
@@ -940,7 +1037,7 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, hubId, catalogId } = req.params
-            const { objectsService } = services(req)
+            const { objectsService, attributesService } = services(req)
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
@@ -966,13 +1063,25 @@ export function createCatalogsRoutes(
             if (currentHubIds.length > 1 && !forceDelete) {
                 // Remove only from this hub
                 const newHubIds = currentHubIds.filter((id) => id !== hubId)
-                await objectsService.updateCatalog(metahubId, catalogId, {
-                    config: { ...currentConfig, hubs: newHubIds },
-                    updatedBy: userId
-                }, userId)
+                await objectsService.updateCatalog(
+                    metahubId,
+                    catalogId,
+                    {
+                        config: { ...currentConfig, hubs: newHubIds },
+                        updatedBy: userId
+                    },
+                    userId
+                )
                 res.status(200).json({ message: 'Catalog removed from hub', remainingHubs: newHubIds.length })
             } else {
                 // Delete entire catalog
+                const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+                if (blockingReferences.length > 0) {
+                    return res.status(409).json({
+                        error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                        blockingReferences
+                    })
+                }
                 await objectsService.delete(metahubId, catalogId, userId)
                 res.status(204).send()
             }
@@ -988,12 +1097,20 @@ export function createCatalogsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { objectsService } = services(req)
+            const { objectsService, attributesService } = services(req)
             const userId = resolveUserId(req)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
                 return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+            if (blockingReferences.length > 0) {
+                return res.status(409).json({
+                    error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                    blockingReferences
+                })
             }
 
             await objectsService.delete(metahubId, catalogId, userId)

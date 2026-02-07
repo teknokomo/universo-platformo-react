@@ -29,6 +29,17 @@ jest.mock('@universo/admin-backend', () => ({
     hasSubjectPermissionByDataSource: jest.fn(async () => false)
 }))
 
+const mockCloneSchemaWithExecutor = jest.fn(async () => undefined)
+const mockGenerateSchemaName = jest.fn((id: string) => `app_${id.replace(/-/g, '')}`)
+const mockIsValidSchemaName = jest.fn(() => true)
+
+jest.mock('@universo/schema-ddl', () => ({
+    __esModule: true,
+    cloneSchemaWithExecutor: (...args: unknown[]) => mockCloneSchemaWithExecutor(...args),
+    generateSchemaName: (...args: unknown[]) => mockGenerateSchemaName(...(args as [string])),
+    isValidSchemaName: (...args: unknown[]) => mockIsValidSchemaName(...(args as [string]))
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -73,6 +84,7 @@ describe('Applications Routes', () => {
         const applicationRepo = createMockRepository<any>()
         const applicationUserRepo = createMockRepository<any>()
         const connectorRepo = createMockRepository<any>()
+        const connectorPublicationRepo = createMockRepository<any>()
         const authUserRepo = createMockRepository<any>()
         const profileRepo = createMockRepository<any>()
 
@@ -80,6 +92,7 @@ describe('Applications Routes', () => {
             Application: applicationRepo,
             ApplicationUser: applicationUserRepo,
             Connector: connectorRepo,
+            ConnectorPublication: connectorPublicationRepo,
             AuthUser: authUserRepo,
             Profile: profileRepo
         })
@@ -89,6 +102,7 @@ describe('Applications Routes', () => {
             applicationRepo,
             applicationUserRepo,
             connectorRepo,
+            connectorPublicationRepo,
             authUserRepo,
             profileRepo
         }
@@ -96,6 +110,10 @@ describe('Applications Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockCloneSchemaWithExecutor.mockClear()
+        mockGenerateSchemaName.mockClear()
+        mockIsValidSchemaName.mockClear()
+        mockIsValidSchemaName.mockReturnValue(true)
     })
 
     describe('GET /applications', () => {
@@ -240,6 +258,116 @@ describe('Applications Routes', () => {
         })
     })
 
+    describe('POST /applications/:applicationId/copy', () => {
+        it('should copy application, schema and access (excluding requester duplicate role)', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                applicationId: 'application-1',
+                role: 'owner'
+            })
+
+            const sourceApplication = {
+                id: 'application-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Source App' }, ru: { content: 'Исходное приложение' } }
+                },
+                description: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Source desc' } }
+                },
+                slug: 'source-app',
+                isPublic: false,
+                schemaName: 'app_source001',
+                schemaStatus: 'synced',
+                schemaSyncedAt: null,
+                schemaError: null,
+                schemaSnapshot: null,
+                _uplVersion: 1,
+                _uplCreatedAt: new Date(),
+                _uplUpdatedAt: new Date()
+            }
+
+            applicationRepo.findOne.mockResolvedValueOnce(sourceApplication).mockResolvedValueOnce(null)
+            applicationRepo.create.mockImplementation((entity: any) => entity)
+            applicationRepo.save.mockImplementation(async (entity: any) => ({
+                ...entity,
+                id: entity.id ?? 'copied-application-id'
+            }))
+
+            applicationUserRepo.find.mockResolvedValue([
+                { userId: 'test-user-id', role: 'admin', comment: null },
+                { userId: 'member-2', role: 'member', comment: 'Keep access' }
+            ])
+            connectorRepo.find.mockResolvedValue([
+                {
+                    id: 'connector-1',
+                    applicationId: 'application-1',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Connector 1' } } },
+                    description: null,
+                    sortOrder: 10,
+                    isSingleMetahub: true,
+                    isRequiredMetahub: true
+                }
+            ])
+            connectorPublicationRepo.find.mockResolvedValue([
+                {
+                    connectorId: 'connector-1',
+                    publicationId: 'publication-1',
+                    sortOrder: 1
+                }
+            ])
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications/application-1/copy')
+                .send({
+                    name: { en: 'Source App (copy)' },
+                    copyAccess: true
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334444')
+            expect(mockGenerateSchemaName).toHaveBeenCalledWith('018f8a78-7b8f-7c1d-a111-222233334444')
+            expect(mockCloneSchemaWithExecutor).toHaveBeenCalledWith(
+                expect.any(Object),
+                expect.objectContaining({
+                    sourceSchema: 'app_source001',
+                    targetSchema: 'app_018f8a787b8f7c1da111222233334444',
+                    copyData: true
+                })
+            )
+
+            expect(applicationUserRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    userId: 'test-user-id',
+                    role: 'owner'
+                })
+            )
+            expect(applicationUserRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    userId: 'member-2',
+                    role: 'member'
+                })
+            )
+            expect(applicationUserRepo.find).toHaveBeenCalledWith({
+                where: {
+                    applicationId: 'application-1',
+                    _uplDeleted: false,
+                    _appDeleted: false
+                }
+            })
+        })
+    })
+
     describe('GET /applications/:applicationId', () => {
         it('should return 403 when user has no access', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
@@ -322,7 +450,8 @@ describe('Applications Routes', () => {
 
             const mockApplication = {
                 id: 'application-1',
-                name: 'Test Application'
+                name: 'Test Application',
+                schemaName: 'app_1234567890abcdef1234567890abcdef'
             }
 
             applicationRepo.findOne.mockResolvedValue(mockApplication)
@@ -337,6 +466,7 @@ describe('Applications Routes', () => {
             await request(app).delete('/applications/application-1').expect(204)
 
             expect(applicationRepo.remove).toHaveBeenCalled()
+            expect(dataSource.manager.query).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "app_1234567890abcdef1234567890abcdef" CASCADE')
         })
 
         it('should return 403 for non-owner', async () => {

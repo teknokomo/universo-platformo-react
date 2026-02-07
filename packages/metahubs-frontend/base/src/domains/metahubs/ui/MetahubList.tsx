@@ -35,7 +35,7 @@ import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from 
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useUpdateMetahub, useDeleteMetahub } from '../hooks/mutations'
+import { useUpdateMetahub, useDeleteMetahub, useCopyMetahub } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as metahubsApi from '../api'
@@ -190,6 +190,7 @@ const MetahubList = () => {
 
     const updateMetahubMutation = useUpdateMetahub()
     const deleteMetahubMutation = useDeleteMetahub()
+    const copyMetahubMutation = useCopyMetahub()
 
     // Convert metahubs to display format
     const metahubsDisplay = useMemo(() => {
@@ -503,6 +504,20 @@ const MetahubList = () => {
                 },
                 deleteEntity: async (id: string) => {
                     await deleteMetahubMutation.mutateAsync(id)
+                },
+                copyEntity: async (
+                    id: string,
+                    payload: {
+                        name?: Record<string, string>
+                        description?: Record<string, string>
+                        namePrimaryLocale?: string
+                        descriptionPrimaryLocale?: string
+                        codename?: string
+                        copyDefaultBranchOnly?: boolean
+                        copyAccess?: boolean
+                    }
+                ) => {
+                    await copyMetahubMutation.mutateAsync({ id, data: payload })
                 }
             },
             helpers: {
@@ -540,7 +555,7 @@ const MetahubList = () => {
                 }
             }
         }),
-        [confirm, deleteMetahubMutation, enqueueSnackbar, i18n.language, metahubMap, queryClient, updateMetahubMutation]
+        [confirm, copyMetahubMutation, deleteMetahubMutation, enqueueSnackbar, i18n.language, metahubMap, queryClient, updateMetahubMutation]
     )
 
     return (
@@ -614,7 +629,7 @@ const MetahubList = () => {
                                     {metahubsDisplay.map((metahub: MetahubDisplay) => {
                                         // Filter actions based on permissions (same logic as table view)
                                         const descriptors = metahubActions.filter((descriptor) => {
-                                            if (descriptor.id === 'edit' || descriptor.id === 'delete') {
+                                            if (descriptor.id === 'edit' || descriptor.id === 'delete' || descriptor.id === 'copy') {
                                                 return metahub.permissions?.manageMetahub
                                             }
                                             return true
@@ -667,7 +682,7 @@ const MetahubList = () => {
                                         i18nNamespace='flowList'
                                         renderActions={(row: MetahubDisplay) => {
                                             const descriptors = metahubActions.filter((descriptor) => {
-                                                if (descriptor.id === 'edit' || descriptor.id === 'delete') {
+                                                if (descriptor.id === 'edit' || descriptor.id === 'delete' || descriptor.id === 'copy') {
                                                     return row.permissions?.manageMetahub
                                                 }
                                                 return true

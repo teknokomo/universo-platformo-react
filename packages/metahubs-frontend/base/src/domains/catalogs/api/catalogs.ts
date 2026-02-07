@@ -1,5 +1,6 @@
 import { apiClient } from '../../shared'
 import { Catalog, CatalogLocalizedPayload, PaginationParams, PaginatedResponse, HubRef } from '../../../types'
+import type { VersionedLocalizedContent } from '@universo/types'
 
 /**
  * Catalog with parent hubs info (for "all catalogs" view)
@@ -7,6 +8,21 @@ import { Catalog, CatalogLocalizedPayload, PaginationParams, PaginatedResponse, 
  */
 export interface CatalogWithHubs extends Catalog {
     hubs: HubRef[]
+}
+
+export interface BlockingCatalogReference {
+    sourceCatalogId: string
+    sourceCatalogCodename: string
+    sourceCatalogName: VersionedLocalizedContent<string> | null
+    attributeId: string
+    attributeCodename: string
+    attributeName: VersionedLocalizedContent<string> | null
+}
+
+export interface BlockingCatalogReferencesResponse {
+    catalogId: string
+    blockingReferences: BlockingCatalogReference[]
+    canDelete: boolean
 }
 
 /**
@@ -137,3 +153,29 @@ export const deleteCatalog = (metahubId: string, hubId: string, catalogId: strin
  */
 export const deleteCatalogDirect = (metahubId: string, catalogId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/catalog/${catalogId}`)
+
+/**
+ * Get cross-catalog REF attributes that block deleting this catalog.
+ */
+export const getBlockingCatalogReferences = async (metahubId: string, catalogId: string): Promise<BlockingCatalogReferencesResponse> => {
+    try {
+        const response = await apiClient.get<BlockingCatalogReferencesResponse>(
+            `/metahub/${metahubId}/catalog/${catalogId}/blocking-references`
+        )
+        return response.data
+    } catch (error: unknown) {
+        const status =
+            error &&
+            typeof error === 'object' &&
+            'response' in error &&
+            typeof (error as { response?: { status?: unknown } }).response?.status === 'number'
+                ? (error as { response?: { status?: number } }).response?.status ?? undefined
+                : undefined
+        if (status !== 404) throw error
+
+        const fallbackResponse = await apiClient.get<BlockingCatalogReferencesResponse>(
+            `/metahub/${metahubId}/catalogs/${catalogId}/blocking-references`
+        )
+        return fallbackResponse.data
+    }
+}

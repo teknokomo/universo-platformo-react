@@ -319,30 +319,27 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
         icon: <DeleteIcon />,
         order: 100,
         group: 'danger',
-        dialog: {
-            loader: async () => {
-                const module = await import('@universo/template-mui/components/dialogs')
-                return { default: module.ConfirmDeleteDialog }
-            },
-            buildProps: (ctx) => ({
-                open: true,
+        onSelect: async (ctx) => {
+            if (ctx.helpers?.openDeleteDialog) {
+                ctx.helpers.openDeleteDialog(ctx.entity)
+                return
+            }
+
+            const confirmed = await ctx.helpers?.confirm?.({
                 title: ctx.t('catalogs.deleteDialog.title', 'Delete Catalog'),
                 description: ctx.t('catalogs.deleteDialog.message'),
-                confirmButtonText: ctx.t('common:actions.delete'),
-                cancelButtonText: ctx.t('common:actions.cancel'),
-                onCancel: () => {
-                    // BaseEntityMenu handles dialog closing
-                },
-                onConfirm: async () => {
-                    try {
-                        await ctx.api?.deleteEntity?.(ctx.entity.id)
-                        await ctx.helpers?.refreshList?.()
-                    } catch (error: unknown) {
-                        notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                        throw error
-                    }
-                }
+                confirmButtonName: ctx.t('common:actions.delete'),
+                cancelButtonName: ctx.t('common:actions.cancel')
             })
+            if (!confirmed) return
+
+            try {
+                await ctx.api?.deleteEntity?.(ctx.entity.id)
+                await ctx.helpers?.refreshList?.()
+            } catch (error: unknown) {
+                notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                throw error
+            }
         }
     }
 ]

@@ -1,6 +1,7 @@
 import { Divider, Stack, Button, Chip, Typography, Box } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import FlagIcon from '@mui/icons-material/Flag'
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
@@ -30,6 +31,65 @@ const buildInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchLocal
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true
+    }
+}
+
+const appendLocalizedCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback?: string
+): VersionedLocalizedContent<string> | null => {
+    if (!value) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        const nextContent = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        return {
+            _schema: 'v1',
+            _primary: locale,
+            locales: {
+                [locale]: { content: nextContent }
+            }
+        }
+    }
+
+    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
+    const localeEntries = Object.entries(nextLocales)
+    for (const [locale, localeValue] of localeEntries) {
+        const normalizedLocale = normalizeLocale(locale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
+        }
+    }
+
+    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAnyContent) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        nextLocales[locale] = { content: content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}` }
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>) => {
+    const initial = buildInitialValues(ctx)
+    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+
+    return {
+        ...initial,
+        nameVlc: appendLocalizedCopySuffix(
+            initial.nameVlc as VersionedLocalizedContent<string> | null | undefined,
+            uiLocale,
+            ctx.entity?.name || ctx.entity?.codename || ''
+        ),
+        codenameTouched: false
     }
 }
 
@@ -80,7 +140,8 @@ const BranchEditFields = ({
     t,
     uiLocale,
     onActivate,
-    isActive
+    isActive,
+    showActivateControl = true
 }: {
     values: Record<string, any>
     setValue: (name: string, value: any) => void
@@ -90,6 +151,7 @@ const BranchEditFields = ({
     uiLocale?: string
     onActivate: () => void
     isActive?: boolean
+    showActivateControl?: boolean
 }) => {
     const fieldErrors = errors ?? {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -146,31 +208,21 @@ const BranchEditFields = ({
                 disabled={isLoading}
                 required
             />
-            <Stack direction='row' spacing={1} alignItems='center'>
-                <Button
-                    type='button'
-                    size='small'
-                    variant='outlined'
-                    disabled={Boolean(isActive) || isLoading}
-                    onClick={onActivate}
-                >
-                    {t('metahubs:branches.activate', 'Activate')}
-                </Button>
-                {isActive ? (
-                    <Chip size='small' label={t('metahubs:branches.badge.active', 'Active')} color='success' variant='outlined' />
-                ) : null}
-            </Stack>
+            {showActivateControl ? (
+                <Stack direction='row' spacing={1} alignItems='center'>
+                    <Button type='button' size='small' variant='outlined' disabled={Boolean(isActive) || isLoading} onClick={onActivate}>
+                        {t('metahubs:branches.activate', 'Activate')}
+                    </Button>
+                    {isActive ? (
+                        <Chip size='small' label={t('metahubs:branches.badge.active', 'Active')} color='success' variant='outlined' />
+                    ) : null}
+                </Stack>
+            ) : null}
         </Stack>
     )
 }
 
-const SourceInfoCard = ({
-    text,
-    tone = 'info'
-}: {
-    text: string
-    tone?: 'info' | 'warning'
-}) => (
+const SourceInfoCard = ({ text, tone = 'info' }: { text: string; tone?: 'info' | 'warning' }) => (
     <Box
         sx={{
             width: '100%',
@@ -313,7 +365,7 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                     tabs: ({ values, setValue, isLoading, errors }: any) => [
                         {
                             id: 'general',
-                            label: ctx.t('metahubs:branches.tabs.general', 'Основное'),
+                            label: ctx.t('metahubs:branches.tabs.general', 'General'),
                             content: (
                                 <BranchEditFields
                                     values={values}
@@ -370,6 +422,78 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
+                            await ctx.helpers?.refreshList?.()
+                        } catch (error: unknown) {
+                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                            throw error
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        id: 'copy',
+        labelKey: 'common:actions.copy',
+        icon: <ContentCopyIcon />,
+        order: 11,
+        group: 'main',
+        dialog: {
+            loader: async () => {
+                const module = await import('@universo/template-mui/components/dialogs')
+                return { default: module.EntityFormDialog }
+            },
+            buildProps: (ctx) => {
+                const initial = buildCopyInitialValues(ctx)
+                return {
+                    open: true,
+                    mode: 'create' as const,
+                    title: ctx.t('metahubs:branches.copyTitle', 'Copying Branch'),
+                    nameLabel: ctx.t('common:fields.name'),
+                    descriptionLabel: ctx.t('common:fields.description'),
+                    saveButtonText: ctx.t('metahubs:branches.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('metahubs:branches.copy.actionLoading', 'Copying...'),
+                    cancelButtonText: ctx.t('common:actions.cancel'),
+                    hideDefaultFields: true,
+                    initialExtraValues: initial,
+                    tabs: ({ values, setValue, isLoading, errors }: any) => [
+                        {
+                            id: 'general',
+                            label: ctx.t('metahubs:branches.tabs.general', 'Основное'),
+                            content: (
+                                <BranchEditFields
+                                    values={values}
+                                    setValue={setValue}
+                                    isLoading={isLoading}
+                                    errors={errors}
+                                    t={ctx.t}
+                                    uiLocale={ctx.uiLocale as string}
+                                    onActivate={() => undefined}
+                                    showActivateControl={false}
+                                />
+                            )
+                        }
+                    ],
+                    validate: (values: Record<string, any>) => validateBranchForm(ctx, values),
+                    canSave: canSaveBranchForm,
+                    onClose: () => {
+                        // BaseEntityMenu handles dialog closing
+                    },
+                    onSuccess: async () => {
+                        try {
+                            await ctx.helpers?.refreshList?.()
+                        } catch (e) {
+                            // eslint-disable-next-line no-console
+                            console.error('Failed to refresh branches list after copy', e)
+                        }
+                    },
+                    onSave: async (data: Record<string, any>) => {
+                        try {
+                            const payload = toPayload(data)
+                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                                ...payload,
+                                sourceBranchId: ctx.entity.id
+                            })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)

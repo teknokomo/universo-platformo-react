@@ -82,10 +82,13 @@ describe('applications-frontend api wrappers', () => {
         expect(post).toHaveBeenCalledWith('/applications', { name: { en: 'Name' }, description: { en: 'Desc' } })
 
         api.updateApplication('m1', { name: { en: 'N2' } })
-        expect(put).toHaveBeenCalledWith('/applications/m1', { name: { en: 'N2' } })
+        expect(patch).toHaveBeenCalledWith('/applications/m1', { name: { en: 'N2' } })
 
         api.deleteApplication('m1')
         expect(del).toHaveBeenCalledWith('/applications/m1')
+
+        api.copyApplication('m1', { name: { en: 'Copy Name' }, copyAccess: true })
+        expect(post).toHaveBeenCalledWith('/applications/m1/copy', { name: { en: 'Copy Name' }, copyAccess: true })
 
         const members = await api.listApplicationMembers('m1', { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' })
         expect(get).toHaveBeenCalledWith('/applications/m1/members', {

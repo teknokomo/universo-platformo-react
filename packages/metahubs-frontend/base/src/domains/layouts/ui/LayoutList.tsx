@@ -211,29 +211,46 @@ const LayoutList = () => {
         [t]
     )
 
-    const canSaveLayoutForm = useCallback(
-        (_values: Record<string, any>) => {
-            return hasPrimaryContent(_values.nameVlc) && (!Boolean(_values.isDefault) || Boolean(_values.isActive))
-        },
-        []
-    )
+    const canSaveLayoutForm = useCallback((_values: Record<string, any>) => {
+        return hasPrimaryContent(_values.nameVlc) && (!_values.isDefault || Boolean(_values.isActive))
+    }, [])
 
     const toPayload = useCallback(
-        (values: Record<string, any>, expectedVersion?: number): MetahubLayoutLocalizedPayload => {
+        (
+            values: Record<string, any>,
+            options?: { expectedVersion?: number; includeConfig?: boolean; existingLayout?: MetahubLayout | null }
+        ): MetahubLayoutLocalizedPayload => {
             const uiLocale = normalizeLocale(i18n.language)
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(values.nameVlc)
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(values.descriptionVlc)
-            return {
+            const existingName = options?.existingLayout
+                ? extractLocalizedInput(options.existingLayout.name)
+                : { input: undefined, primaryLocale: undefined }
+            const existingDescription = options?.existingLayout
+                ? extractLocalizedInput(options.existingLayout.description ?? null)
+                : { input: undefined, primaryLocale: undefined }
+            const mergedNameInput = {
+                ...(existingName.input ?? {}),
+                ...(nameInput ?? {})
+            }
+            const mergedDescriptionInput = {
+                ...(existingDescription.input ?? {}),
+                ...(descriptionInput ?? {})
+            }
+            const payload: MetahubLayoutLocalizedPayload = {
                 templateKey: 'dashboard',
-                name: nameInput ?? { [uiLocale]: '' },
-                description: descriptionInput,
-                namePrimaryLocale,
-                descriptionPrimaryLocale,
+                name: Object.keys(mergedNameInput).length > 0 ? mergedNameInput : { [uiLocale]: '' },
+                description: Object.keys(mergedDescriptionInput).length > 0 ? mergedDescriptionInput : undefined,
+                namePrimaryLocale: namePrimaryLocale ?? existingName.primaryLocale,
+                descriptionPrimaryLocale: descriptionPrimaryLocale ?? existingDescription.primaryLocale,
                 isActive: Boolean(values.isActive),
                 isDefault: Boolean(values.isDefault),
-                config: DEFAULT_DASHBOARD_CONFIG as unknown as Record<string, unknown>,
-                expectedVersion
+                expectedVersion: options?.expectedVersion
             }
+            if (options?.includeConfig) {
+                payload.config = DEFAULT_DASHBOARD_CONFIG as unknown as Record<string, unknown>
+            }
+            return payload
         },
         [i18n.language]
     )
@@ -242,7 +259,7 @@ const LayoutList = () => {
         if (!metahubId) return
         try {
             setDialogError(null)
-            const payload = toPayload(values)
+            const payload = toPayload(values, { includeConfig: true })
             await createLayoutMutation.mutateAsync({ metahubId, data: payload })
             await invalidateLayoutsQueries.all(queryClient, metahubId)
             setCreateDialogOpen(false)
@@ -256,7 +273,11 @@ const LayoutList = () => {
         if (!metahubId || !editingLayout) return
         try {
             setDialogError(null)
-            const payload = toPayload(values, editingLayout.version)
+            const payload = toPayload(values, {
+                expectedVersion: editingLayout.version,
+                includeConfig: false,
+                existingLayout: editingLayout
+            })
             await updateLayoutMutation.mutateAsync({ metahubId, layoutId: editingLayout.id, data: payload })
             await invalidateLayoutsQueries.all(queryClient, metahubId)
             setEditDialogOpen(false)
@@ -360,9 +381,7 @@ const LayoutList = () => {
                     <Divider />
                     <Stack spacing={1}>
                         <FormControlLabel
-                            control={
-                                <Switch checked={Boolean(values.isActive)} onChange={(_, checked) => setValue('isActive', checked)} />
-                            }
+                            control={<Switch checked={Boolean(values.isActive)} onChange={(_, checked) => setValue('isActive', checked)} />}
                             label={t('layouts.fields.isActive', 'Active')}
                         />
                         <FormControlLabel
@@ -370,7 +389,7 @@ const LayoutList = () => {
                                 <Switch
                                     checked={Boolean(values.isDefault)}
                                     onChange={(_, checked) => setValue('isDefault', checked)}
-                                    disabled={!Boolean(values.isActive)}
+                                    disabled={!values.isActive}
                                 />
                             }
                             label={t('layouts.fields.isDefault', 'Default')}
@@ -484,7 +503,7 @@ const LayoutList = () => {
     const menuLayout = menuState.layout
     const disableDeactivate = Boolean(menuLayout?.isDefault) || (Boolean(menuLayout?.isActive) && activeCount <= 1)
     const disableDelete = Boolean(menuLayout?.isDefault)
-    const disableSetDefault = !Boolean(menuLayout?.isActive) || Boolean(menuLayout?.isDefault)
+    const disableSetDefault = !menuLayout?.isActive || Boolean(menuLayout?.isDefault)
 
     return (
         <MainCard
@@ -681,9 +700,7 @@ const LayoutList = () => {
                     ) : (
                         <ToggleOnRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                     )}
-                    {menuLayout?.isActive
-                        ? t('layouts.actions.deactivate', 'Deactivate')
-                        : t('layouts.actions.activate', 'Activate')}
+                    {menuLayout?.isActive ? t('layouts.actions.deactivate', 'Deactivate') : t('layouts.actions.activate', 'Activate')}
                 </MenuItem>
                 <Divider />
                 <MenuItem

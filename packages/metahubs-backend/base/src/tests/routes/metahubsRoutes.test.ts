@@ -29,6 +29,17 @@ jest.mock('@universo/admin-backend', () => ({
     hasSubjectPermissionByDataSource: jest.fn(async () => false)
 }))
 
+const mockClone = jest.fn(async () => undefined)
+const mockDropSchema = jest.fn(async () => undefined)
+
+jest.mock('../../domains/ddl', () => ({
+    __esModule: true,
+    getDDLServices: () => ({
+        cloner: { clone: (...args: unknown[]) => mockClone(...args) },
+        generator: { dropSchema: (...args: unknown[]) => mockDropSchema(...args) }
+    })
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -63,7 +74,10 @@ describe('Metahubs Routes', () => {
     const buildApp = (dataSource: any) => {
         const app = express()
         app.use(express.json())
-        app.use('/', createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(
+            '/',
+            createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        )
         app.use(errorHandler) // Must be after routes to catch errors from asyncHandler
         return app
     }
@@ -71,20 +85,24 @@ describe('Metahubs Routes', () => {
     const buildDataSource = () => {
         const metahubRepo = createMockRepository<any>()
         const metahubUserRepo = createMockRepository<any>()
+        const metahubBranchRepo = createMockRepository<any>()
         const hubRepo = createMockRepository<any>()
         const catalogRepo = createMockRepository<any>()
         const attributeRepo = createMockRepository<any>()
         const hubElementRepo = createMockRepository<any>()
+        const publicationRepo = createMockRepository<any>()
         const authUserRepo = createMockRepository<any>()
         const profileRepo = createMockRepository<any>()
 
         const dataSource = createMockDataSource({
             Metahub: metahubRepo,
             MetahubUser: metahubUserRepo,
+            MetahubBranch: metahubBranchRepo,
             Hub: hubRepo,
             Catalog: catalogRepo,
             Attribute: attributeRepo,
             HubElement: hubElementRepo,
+            Publication: publicationRepo,
             AuthUser: authUserRepo,
             Profile: profileRepo
         })
@@ -93,10 +111,12 @@ describe('Metahubs Routes', () => {
             dataSource,
             metahubRepo,
             metahubUserRepo,
+            metahubBranchRepo,
             hubRepo,
             catalogRepo,
             attributeRepo,
             hubElementRepo,
+            publicationRepo,
             authUserRepo,
             profileRepo
         }
@@ -104,6 +124,8 @@ describe('Metahubs Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockClone.mockClear()
+        mockDropSchema.mockClear()
     })
 
     describe('GET /metahubs', () => {
@@ -171,10 +193,7 @@ describe('Metahubs Routes', () => {
 
             expect(mockQB.take).toHaveBeenCalledWith(5)
             expect(mockQB.skip).toHaveBeenCalledWith(10)
-            expect(mockQB.orderBy).toHaveBeenCalledWith(
-                "COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')",
-                'ASC'
-            )
+            expect(mockQB.orderBy).toHaveBeenCalledWith("COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')", 'ASC')
         })
 
         it('should validate pagination parameters', async () => {
@@ -224,7 +243,10 @@ describe('Metahubs Routes', () => {
             // Special case: test with noAuthMiddleware
             const app = express()
             app.use(express.json())
-            app.use('/', createMetahubsRoutes(noAuthMiddleware, () => dataSource, mockRateLimiter, mockRateLimiter))
+            app.use(
+                '/',
+                createMetahubsRoutes(noAuthMiddleware, () => dataSource, mockRateLimiter, mockRateLimiter)
+            )
             app.use(errorHandler)
 
             await request(app).get('/metahubs').expect(401)
@@ -300,12 +322,163 @@ describe('Metahubs Routes', () => {
     // These endpoints were removed in the metadata-driven platform refactoring.
     // New tests for /hubs, /attributes, and /elements should be added.
 
+    describe('POST /metahub/:metahubId/copy', () => {
+        it('should copy metahub with default branch and access rules', async () => {
+            const { dataSource, metahubRepo, metahubUserRepo, metahubBranchRepo } = buildDataSource()
+
+            metahubUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                metahubId: 'metahub-1',
+                role: 'admin'
+            })
+
+            metahubRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'metahub-1',
+                    codename: 'source-hub',
+                    slug: 'source-hub',
+                    isPublic: false,
+                    defaultBranchId: 'branch-1',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Source Metahub' }, ru: { content: 'Исходный метахаб' } }
+                    },
+                    description: null
+                })
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(null)
+            metahubRepo.create.mockImplementation((entity: any) => entity)
+
+            metahubBranchRepo.find.mockResolvedValue([
+                {
+                    id: 'branch-1',
+                    metahubId: 'metahub-1',
+                    sourceBranchId: null,
+                    branchNumber: 1,
+                    codename: 'main',
+                    schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main' } } },
+                    description: null
+                },
+                {
+                    id: 'branch-2',
+                    metahubId: 'metahub-1',
+                    sourceBranchId: 'branch-1',
+                    branchNumber: 2,
+                    codename: 'feature',
+                    schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Feature' } } },
+                    description: null
+                }
+            ])
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }])
+            metahubRepo.findOneOrFail.mockResolvedValue({
+                id: '018f8a78-7b8f-7c1d-a111-222233334444',
+                codename: 'source-hub-copy',
+                slug: 'source-hub-copy',
+                isPublic: false,
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Source Metahub (copy)' } } },
+                description: null,
+                _uplVersion: 1,
+                _uplCreatedAt: new Date(),
+                _uplUpdatedAt: new Date()
+            })
+
+            metahubUserRepo.find.mockResolvedValue([
+                { userId: 'test-user-id', role: 'admin', comment: null, activeBranchId: 'branch-1' },
+                { userId: 'member-2', role: 'member', comment: 'Keep', activeBranchId: 'branch-1' }
+            ])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/metahub/metahub-1/copy')
+                .send({
+                    name: { en: 'Source Metahub (copy)' },
+                    codename: 'source-hub-copy',
+                    copyDefaultBranchOnly: true,
+                    copyAccess: true
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334444')
+            expect(mockClone).toHaveBeenCalledTimes(1)
+            expect(mockClone).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    sourceSchema: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                    targetSchema: 'mhb_018f8a787b8f7c1da111222233334444_b1',
+                    copyData: true
+                })
+            )
+            expect(metahubUserRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    userId: 'test-user-id',
+                    role: 'owner'
+                })
+            )
+            expect(metahubUserRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    userId: 'member-2',
+                    role: 'member'
+                })
+            )
+            expect(metahubUserRepo.find).toHaveBeenCalledWith({
+                where: {
+                    metahubId: 'metahub-1',
+                    _uplDeleted: false,
+                    _mhbDeleted: false
+                }
+            })
+            expect(metahubUserRepo.create).not.toHaveBeenCalledWith(
+                expect.objectContaining({
+                    metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    userId: 'test-user-id',
+                    role: 'admin'
+                })
+            )
+        })
+    })
+
+    describe('DELETE /metahub/:metahubId', () => {
+        it('should drop branch schemas before deleting metahub metadata', async () => {
+            const { dataSource, metahubRepo, metahubUserRepo, metahubBranchRepo } = buildDataSource()
+
+            metahubUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                metahubId: 'metahub-1',
+                role: 'owner'
+            })
+            metahubRepo.findOne.mockResolvedValue({
+                id: 'metahub-1',
+                codename: 'source-hub'
+            })
+            metahubBranchRepo.find.mockResolvedValue([
+                { id: 'branch-1', metahubId: 'metahub-1', schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
+                { id: 'branch-2', metahubId: 'metahub-1', schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2' }
+            ])
+
+            const app = buildApp(dataSource)
+
+            await request(app).delete('/metahub/metahub-1').expect(204)
+
+            expect(dataSource.manager.query).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "mhb_a1b2c3d4e5f67890abcdef1234567890_b1" CASCADE')
+            expect(dataSource.manager.query).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "mhb_a1b2c3d4e5f67890abcdef1234567890_b2" CASCADE')
+            expect(metahubRepo.remove).toHaveBeenCalled()
+        })
+    })
+
     describe('Members management endpoints', () => {
         const buildApp = () => {
             const context = buildDataSource()
             const app = express()
             app.use(express.json())
-            app.use('/', createMetahubsRoutes(ensureAuth, () => context.dataSource, mockRateLimiter, mockRateLimiter))
+            app.use(
+                '/',
+                createMetahubsRoutes(ensureAuth, () => context.dataSource, mockRateLimiter, mockRateLimiter)
+            )
             app.use(errorHandler) // Add error handler for http-errors
             return { app, ...context }
         }
@@ -502,7 +675,7 @@ describe('Metahubs Routes', () => {
 
         describe('Members data enrichment', () => {
             it('should fetch nickname from profiles table via batch query', async () => {
-            const { app, metahubUserRepo, dataSource } = buildApp()
+                const { app, metahubUserRepo, dataSource } = buildApp()
 
                 const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -538,15 +711,15 @@ describe('Metahubs Routes', () => {
                     2
                 ])
 
-            dataSource.manager.find
-                .mockResolvedValueOnce([
-                    { id: 'owner-id', email: 'owner@example.com' },
-                    { id: 'editor-id', email: 'editor@example.com' }
-                ])
-                .mockResolvedValueOnce([
-                    { user_id: 'owner-id', nickname: 'OwnerNick' },
-                    { user_id: 'editor-id', nickname: 'EditorNick' }
-                ])
+                dataSource.manager.find
+                    .mockResolvedValueOnce([
+                        { id: 'owner-id', email: 'owner@example.com' },
+                        { id: 'editor-id', email: 'editor@example.com' }
+                    ])
+                    .mockResolvedValueOnce([
+                        { user_id: 'owner-id', nickname: 'OwnerNick' },
+                        { user_id: 'editor-id', nickname: 'EditorNick' }
+                    ])
 
                 const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
@@ -571,7 +744,7 @@ describe('Metahubs Routes', () => {
             })
 
             it('should fetch comment from metahubs_users table', async () => {
-            const { app, metahubUserRepo, dataSource } = buildApp()
+                const { app, metahubUserRepo, dataSource } = buildApp()
 
                 const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -597,9 +770,9 @@ describe('Metahubs Routes', () => {
                     1
                 ])
 
-            dataSource.manager.find
-                .mockResolvedValueOnce([{ id: 'editor-id', email: 'editor@example.com' }])
-                .mockResolvedValueOnce([{ user_id: 'editor-id', nickname: 'EditorNick' }])
+                dataSource.manager.find
+                    .mockResolvedValueOnce([{ id: 'editor-id', email: 'editor@example.com' }])
+                    .mockResolvedValueOnce([{ user_id: 'editor-id', nickname: 'EditorNick' }])
 
                 const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
@@ -615,7 +788,7 @@ describe('Metahubs Routes', () => {
             })
 
             it('should handle null email and nickname gracefully', async () => {
-            const { app, metahubUserRepo, dataSource } = buildApp()
+                const { app, metahubUserRepo, dataSource } = buildApp()
 
                 const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -641,9 +814,7 @@ describe('Metahubs Routes', () => {
                     1
                 ])
 
-            dataSource.manager.find
-                .mockResolvedValueOnce([{ id: 'orphan-user-id', email: null }])
-                .mockResolvedValueOnce([])
+                dataSource.manager.find.mockResolvedValueOnce([{ id: 'orphan-user-id', email: null }]).mockResolvedValueOnce([])
 
                 const response = await request(app).get('/metahub/metahub-1/members').expect(200)
 
@@ -826,10 +997,7 @@ describe('Metahubs Routes', () => {
             }
 
             // POST should still work (separate write counter)
-            await request(app)
-                .post('/metahubs')
-                .send({ name: 'test', description: 'test', codename: 'test-metahub' })
-                .expect(201)
+            await request(app).post('/metahubs').send({ name: 'test', description: 'test', codename: 'test-metahub' }).expect(201)
         })
 
         it.skip('should include rate limit headers in response (requires real Redis)', async () => {

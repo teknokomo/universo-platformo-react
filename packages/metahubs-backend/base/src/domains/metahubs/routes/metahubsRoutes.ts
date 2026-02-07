@@ -15,11 +15,13 @@ import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
 import { OptimisticLockError } from '@universo/utils'
+import { isValidSchemaName } from '@universo/schema-ddl'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
+import { getDDLServices } from '../../ddl'
 
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner
@@ -29,6 +31,37 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+const IDENTIFIER_REGEX = /^[a-z_][a-z0-9_]*$/
+
+const quoteIdentifier = (identifier: string): string => {
+    if (!IDENTIFIER_REGEX.test(identifier)) {
+        throw new Error(`Unsafe identifier: ${identifier}`)
+    }
+    return `"${identifier}"`
+}
+
+const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
+
+const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
+    const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
+    const entries = Object.entries(locales)
+        .map(([locale, value]) => [normalizeLocaleCode(locale), typeof value?.content === 'string' ? value.content.trim() : ''] as const)
+        .filter(([, content]) => content.length > 0)
+
+    if (entries.length === 0) {
+        return {
+            en: 'Copy (copy)'
+        }
+    }
+
+    const result: Record<string, string> = {}
+    for (const [locale, content] of entries) {
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        result[locale] = `${content}${suffix}`
+    }
+    return result
 }
 
 export function createMetahubsRoutes(
@@ -42,9 +75,9 @@ export function createMetahubsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<any>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const repos = (req: Request) => {
         const ds = getDataSource()
@@ -103,8 +136,8 @@ export function createMetahubsRoutes(
                     sortBy === 'email'
                         ? '(SELECT u.email FROM auth.users u WHERE u.id = mu.userId)'
                         : sortBy === 'role'
-                            ? 'mu.role'
-                            : 'mu._upl_created_at'
+                        ? 'mu.role'
+                        : 'mu._upl_created_at'
                 qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
                 qb.skip(offset).take(limit)
             }
@@ -182,10 +215,10 @@ export function createMetahubsRoutes(
                 sortBy === 'name'
                     ? "COALESCE(m.name->>(m.name->>'_primary'), m.name->>'en', '')"
                     : sortBy === 'codename'
-                        ? 'm.codename'
-                        : sortBy === 'created'
-                            ? 'm._upl_created_at'
-                            : 'm._upl_updated_at'
+                    ? 'm.codename'
+                    : sortBy === 'created'
+                    ? 'm._upl_created_at'
+                    : 'm._upl_updated_at'
             qb = qb.orderBy(orderColumn, sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC')
 
             // Pagination
@@ -198,8 +231,8 @@ export function createMetahubsRoutes(
             const memberships =
                 metahubIds.length > 0
                     ? await metahubUserRepo.find({
-                        where: { metahubId: In(metahubIds), userId }
-                    })
+                          where: { metahubId: In(metahubIds), userId }
+                      })
                     : []
             const membershipMap = new Map(memberships.map((m) => [m.metahubId, m]))
 
@@ -212,12 +245,12 @@ export function createMetahubsRoutes(
             const memberCounts =
                 metahubIds.length > 0
                     ? await metahubUserRepo
-                        .createQueryBuilder('mu')
-                        .select('mu.metahub_id', 'metahubId')
-                        .addSelect('COUNT(*)', 'count')
-                        .where('mu.metahub_id IN (:...ids)', { ids: metahubIds })
-                        .groupBy('mu.metahub_id')
-                        .getRawMany<{ metahubId: string; count: string }>()
+                          .createQueryBuilder('mu')
+                          .select('mu.metahub_id', 'metahubId')
+                          .addSelect('COUNT(*)', 'count')
+                          .where('mu.metahub_id IN (:...ids)', { ids: metahubIds })
+                          .groupBy('mu.metahub_id')
+                          .getRawMany<{ metahubId: string; count: string }>()
                     : []
             const memberCountMap = new Map(memberCounts.map((c) => [c.metahubId, parseInt(c.count, 10)]))
 
@@ -350,12 +383,8 @@ export function createMetahubsRoutes(
                     const manager = getRequestManager(req, ds)
                     try {
                         const [hubsResult, catalogsResult] = await Promise.all([
-                            manager.query(
-                                `SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'HUB'`
-                            ),
-                            manager.query(
-                                `SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'CATALOG'`
-                            )
+                            manager.query(`SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'HUB'`),
+                            manager.query(`SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'CATALOG'`)
                         ])
                         hubsCount = parseInt(hubsResult?.[0]?.count ?? '0', 10)
                         catalogsCount = parseInt(catalogsResult?.[0]?.count ?? '0', 10)
@@ -541,6 +570,269 @@ export function createMetahubsRoutes(
         })
     )
 
+    // ============ COPY METAHUB ============
+    router.post(
+        '/metahub/:metahubId/copy',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { metahubId } = req.params
+            const ds = getDataSource()
+            const manager = getRequestManager(req, ds)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+
+            const localizedInputSchema = z
+                .union([z.string().min(1).max(255), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+            const optionalLocalizedInputSchema = z
+                .union([z.string(), z.record(z.string())])
+                .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+            const schema = z.object({
+                name: localizedInputSchema.optional(),
+                description: optionalLocalizedInputSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
+                codename: z.string().min(1).max(100).optional(),
+                slug: z
+                    .string()
+                    .min(1)
+                    .max(100)
+                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
+                    .optional(),
+                isPublic: z.boolean().optional(),
+                copyDefaultBranchOnly: z.boolean().optional().default(true),
+                copyAccess: z.boolean().optional().default(false)
+            })
+
+            const parsed = schema.safeParse(req.body ?? {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const sourceMetahubRepo = manager.getRepository(Metahub)
+            const sourceBranchRepo = manager.getRepository(MetahubBranch)
+            const sourceMemberRepo = manager.getRepository(MetahubUser)
+
+            const sourceMetahub = await sourceMetahubRepo.findOne({ where: { id: metahubId } })
+            if (!sourceMetahub) {
+                return res.status(404).json({ error: 'Metahub not found' })
+            }
+
+            const sourceBranches = await sourceBranchRepo.find({
+                where: { metahubId },
+                order: { branchNumber: 'ASC' }
+            })
+            if (sourceBranches.length === 0) {
+                return res.status(409).json({ error: 'Metahub has no branches to copy' })
+            }
+
+            const defaultSourceBranch = sourceBranches.find((branch) => branch.id === sourceMetahub.defaultBranchId) ?? sourceBranches[0]
+
+            const selectedSourceBranches = parsed.data.copyDefaultBranchOnly ? [defaultSourceBranch] : sourceBranches
+
+            const requestedName = parsed.data.name
+                ? sanitizeLocalizedInput(parsed.data.name)
+                : buildDefaultCopyNameInput(sourceMetahub.name)
+            if (Object.keys(requestedName).length === 0) {
+                return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
+            }
+
+            const nameVlc = buildLocalizedContent(requestedName, parsed.data.namePrimaryLocale, sourceMetahub.name?._primary ?? 'en')
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Invalid input', details: { name: ['Name is required'] } })
+            }
+
+            let descriptionVlc = sourceMetahub.description
+            if (parsed.data.description !== undefined) {
+                const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    descriptionVlc = buildLocalizedContent(
+                        sanitizedDescription,
+                        parsed.data.descriptionPrimaryLocale,
+                        parsed.data.namePrimaryLocale ?? sourceMetahub.description?._primary ?? sourceMetahub.name?._primary ?? 'en'
+                    )
+                } else {
+                    descriptionVlc = undefined
+                }
+            }
+
+            const normalizedCodename = normalizeCodename(parsed.data.codename ?? `${sourceMetahub.codename}-copy`)
+            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                return res.status(400).json({
+                    error: 'Invalid input',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
+
+            const existingCodename = await sourceMetahubRepo.findOne({ where: { codename: normalizedCodename } })
+            if (existingCodename) {
+                return res.status(409).json({ error: 'Codename already in use' })
+            }
+
+            const slugCandidate = parsed.data.slug ?? (sourceMetahub.slug ? `${sourceMetahub.slug}-copy` : undefined)
+            if (slugCandidate) {
+                const existingSlug = await sourceMetahubRepo.findOne({ where: { slug: slugCandidate } })
+                if (existingSlug) {
+                    return res.status(409).json({ error: 'Slug already in use' })
+                }
+            }
+
+            const [{ id: newMetahubId }] = (await manager.query(`SELECT public.uuid_generate_v7() AS id`)) as Array<{ id: string }>
+
+            const cleanMetahubId = newMetahubId.replace(/-/g, '')
+            const branchClonePlan = selectedSourceBranches.map((sourceBranch, index) => ({
+                sourceBranch,
+                branchNumber: index + 1,
+                schemaName: `mhb_${cleanMetahubId}_b${index + 1}`
+            }))
+
+            for (const planItem of branchClonePlan) {
+                if (!isValidSchemaName(planItem.schemaName) || !IDENTIFIER_REGEX.test(planItem.schemaName)) {
+                    return res.status(400).json({ error: 'Invalid generated schema name for copied branch' })
+                }
+            }
+
+            const { cloner, generator } = getDDLServices()
+            const createdSchemas: string[] = []
+            try {
+                for (const planItem of branchClonePlan) {
+                    await cloner.clone({
+                        sourceSchema: planItem.sourceBranch.schemaName,
+                        targetSchema: planItem.schemaName,
+                        dropTargetSchemaIfExists: true,
+                        createTargetSchema: true,
+                        copyData: true
+                    })
+                    createdSchemas.push(planItem.schemaName)
+                }
+            } catch (error) {
+                for (const schemaName of createdSchemas.slice().reverse()) {
+                    await generator.dropSchema(schemaName).catch(() => undefined)
+                }
+                throw error
+            }
+
+            try {
+                const copied = await ds.transaction(async (txManager) => {
+                    const txMetahubRepo = txManager.getRepository(Metahub)
+                    const txBranchRepo = txManager.getRepository(MetahubBranch)
+                    const txMemberRepo = txManager.getRepository(MetahubUser)
+
+                    const copiedMetahub = txMetahubRepo.create({
+                        id: newMetahubId,
+                        name: nameVlc,
+                        description: descriptionVlc,
+                        codename: normalizedCodename,
+                        slug: slugCandidate,
+                        isPublic: parsed.data.isPublic ?? sourceMetahub.isPublic,
+                        defaultBranchId: null,
+                        lastBranchNumber: branchClonePlan.length,
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
+                    })
+                    await txMetahubRepo.save(copiedMetahub)
+
+                    const branchIdMap = new Map<string, string>()
+                    for (const planItem of branchClonePlan) {
+                        const savedBranch = await txBranchRepo.save(
+                            txBranchRepo.create({
+                                metahubId: copiedMetahub.id,
+                                sourceBranchId: null,
+                                name: planItem.sourceBranch.name,
+                                description: planItem.sourceBranch.description ?? null,
+                                codename: planItem.sourceBranch.codename,
+                                branchNumber: planItem.branchNumber,
+                                schemaName: planItem.schemaName,
+                                _uplCreatedBy: userId,
+                                _uplUpdatedBy: userId
+                            })
+                        )
+                        branchIdMap.set(planItem.sourceBranch.id, savedBranch.id)
+                    }
+
+                    for (const planItem of branchClonePlan) {
+                        if (!planItem.sourceBranch.sourceBranchId) continue
+                        const branchId = branchIdMap.get(planItem.sourceBranch.id)
+                        const mappedSourceId = branchIdMap.get(planItem.sourceBranch.sourceBranchId)
+                        if (!branchId || !mappedSourceId) continue
+                        await txBranchRepo.update({ id: branchId }, { sourceBranchId: mappedSourceId, _uplUpdatedBy: userId })
+                    }
+
+                    const copiedDefaultBranchId = branchIdMap.get(defaultSourceBranch.id) ?? null
+                    await txMetahubRepo.update(
+                        { id: copiedMetahub.id },
+                        { defaultBranchId: copiedDefaultBranchId, lastBranchNumber: branchClonePlan.length, _uplUpdatedBy: userId }
+                    )
+
+                    await txMemberRepo.save(
+                        txMemberRepo.create({
+                            metahubId: copiedMetahub.id,
+                            userId,
+                            role: 'owner',
+                            activeBranchId: copiedDefaultBranchId,
+                            _uplCreatedBy: userId,
+                            _uplUpdatedBy: userId
+                        })
+                    )
+
+                    if (parsed.data.copyAccess) {
+                        const sourceMembers = await sourceMemberRepo.find({
+                            where: {
+                                metahubId,
+                                _uplDeleted: false,
+                                _mhbDeleted: false
+                            }
+                        })
+                        for (const sourceMember of sourceMembers) {
+                            if (sourceMember.userId === userId) continue
+                            await txMemberRepo.save(
+                                txMemberRepo.create({
+                                    metahubId: copiedMetahub.id,
+                                    userId: sourceMember.userId,
+                                    role: sourceMember.role,
+                                    comment: sourceMember.comment,
+                                    activeBranchId: sourceMember.activeBranchId
+                                        ? branchIdMap.get(sourceMember.activeBranchId) ?? null
+                                        : null,
+                                    _uplCreatedBy: userId,
+                                    _uplUpdatedBy: userId
+                                })
+                            )
+                        }
+                    }
+
+                    return txMetahubRepo.findOneOrFail({ where: { id: copiedMetahub.id } })
+                })
+
+                return res.status(201).json({
+                    id: copied.id,
+                    name: copied.name,
+                    description: copied.description,
+                    codename: copied.codename,
+                    slug: copied.slug,
+                    isPublic: copied.isPublic,
+                    version: copied._uplVersion || 1,
+                    createdAt: copied._uplCreatedAt,
+                    updatedAt: copied._uplUpdatedAt,
+                    role: 'owner',
+                    accessType: 'member',
+                    permissions: ROLE_PERMISSIONS.owner
+                })
+            } catch (error) {
+                for (const schemaName of createdSchemas.slice().reverse()) {
+                    await generator.dropSchema(schemaName).catch(() => undefined)
+                }
+                throw error
+            }
+        })
+    )
+
     // ============ UPDATE METAHUB ============
     router.put(
         '/metahub/:metahubId',
@@ -690,7 +982,9 @@ export function createMetahubsRoutes(
 
             const { metahubId } = req.params
             const ds = getDataSource()
-            const { metahubRepo, schemaService } = repos(req)
+            const { metahubRepo } = repos(req)
+            const manager = getRequestManager(req, ds)
+            const branchRepo = manager.getRepository(MetahubBranch)
 
             const rlsRunner = getRequestQueryRunner(req)
 
@@ -700,10 +994,35 @@ export function createMetahubsRoutes(
                 return res.status(403).json({ error: 'Only the owner can delete this metahub' })
             }
 
-            await metahubRepo.delete(metahubId)
+            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            // Drop schema
-            await schemaService.dropSchema(metahubId)
+            const branches = await branchRepo.find({ where: { metahubId } })
+            const schemasToDrop = branches
+                .map((branch) => branch.schemaName)
+                .filter((schemaName): schemaName is string => Boolean(schemaName))
+
+            for (const schemaName of schemasToDrop) {
+                if (!schemaName.startsWith('mhb_') || !isValidSchemaName(schemaName) || !IDENTIFIER_REGEX.test(schemaName)) {
+                    return res.status(400).json({ error: 'Invalid metahub schema name' })
+                }
+            }
+
+            await ds.transaction(async (txManager) => {
+                for (const schemaName of schemasToDrop) {
+                    const schemaIdent = quoteIdentifier(schemaName)
+                    await txManager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`)
+                }
+
+                const txRepo = txManager.getRepository(Metahub)
+                const txMetahub = await txRepo.findOne({ where: { id: metahubId } })
+                if (!txMetahub) {
+                    return
+                }
+                await txRepo.remove(txMetahub)
+            })
+
+            MetahubSchemaService.clearCache(metahubId)
 
             return res.status(204).send()
         })

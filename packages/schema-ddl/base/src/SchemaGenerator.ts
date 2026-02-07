@@ -2,13 +2,7 @@ import type { Knex } from 'knex'
 import { AttributeDataType, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildSchemaSnapshot } from './snapshot'
-import {
-    buildFkConstraintName,
-    generateColumnName,
-    generateSchemaName,
-    generateTableName,
-    isValidSchemaName,
-} from './naming'
+import { buildFkConstraintName, generateColumnName, generateTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
@@ -25,10 +19,7 @@ export interface GenerateFullSchemaOptions {
     /** MigrationManager instance for recording migrations (required if recordMigration is true) */
     migrationManager?: MigrationManager
     /** Optional metadata to store in migration record */
-    migrationMeta?: Pick<
-        import('./types').MigrationMeta,
-        'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
-    >
+    migrationMeta?: Pick<import('./types').MigrationMeta, 'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'>
     /** Optional Metahub snapshot stored separately from meta */
     publicationSnapshot?: Record<string, unknown> | null
     /** User ID for audit fields */
@@ -37,7 +28,7 @@ export interface GenerateFullSchemaOptions {
 
 /**
  * SchemaGenerator - Creates PostgreSQL schemas and tables from Metahub configuration.
- * 
+ *
  * Uses Dependency Injection pattern: receives Knex instance via constructor
  * instead of using a singleton.
  */
@@ -55,10 +46,7 @@ export class SchemaGenerator {
      * @param config - Type-specific configuration from validationRules
      * @returns PostgreSQL type string
      */
-    public static mapDataType(
-        dataType: AttributeDataType,
-        config?: Partial<AttributeValidationRules>
-    ): string {
+    public static mapDataType(dataType: AttributeDataType, config?: Partial<AttributeValidationRules>): string {
         const info = getPhysicalDataType(dataType, config)
         return formatPhysicalType(info)
     }
@@ -96,7 +84,7 @@ export class SchemaGenerator {
             success: false,
             schemaName,
             tablesCreated: [],
-            errors: [],
+            errors: []
         }
 
         try {
@@ -109,9 +97,7 @@ export class SchemaGenerator {
                 }
 
                 for (const entity of entities) {
-                    const refFields = entity.fields.filter(
-                        (field) => field.dataType === AttributeDataType.REF && field.targetEntityId
-                    )
+                    const refFields = entity.fields.filter((field) => field.dataType === AttributeDataType.REF && field.targetEntityId)
                     for (const field of refFields) {
                         await this.addForeignKey(schemaName, entity, field, entities, trx)
                     }
@@ -160,11 +146,7 @@ export class SchemaGenerator {
         return result
     }
 
-    public async createEntityTable(
-        schemaName: string,
-        entity: EntityDefinition,
-        trx?: Knex.Transaction
-    ): Promise<void> {
+    public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
         const tableName = generateTableName(entity.id, entity.kind)
         console.log(`[SchemaGenerator] Creating table: ${schemaName}.${tableName} (entity: ${entity.codename})`)
 
@@ -262,9 +244,7 @@ export class SchemaGenerator {
 
         const targetEntity = entities.find((item) => item.id === field.targetEntityId)
         if (!targetEntity) {
-            console.warn(
-                `[SchemaGenerator] Target entity ${field.targetEntityId} not found for REF field ${field.id}`
-            )
+            console.warn(`[SchemaGenerator] Target entity ${field.targetEntityId} not found for REF field ${field.id}`)
             return
         }
 
@@ -273,9 +253,7 @@ export class SchemaGenerator {
         const columnName = generateColumnName(field.id)
         const constraintName = buildFkConstraintName(sourceTableName, columnName)
 
-        console.log(
-            `[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> ${targetTableName}.id`
-        )
+        console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> ${targetTableName}.id`)
 
         const knex = trx ?? this.knex
         await knex.raw(
@@ -423,16 +401,8 @@ export class SchemaGenerator {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
                 table.uuid('_app_deleted_by').nullable()
 
-                table
-                    .foreign('object_id')
-                    .references('id')
-                    .inTable(`${schemaName}._app_objects`)
-                    .onDelete('CASCADE')
-                table
-                    .foreign('target_object_id')
-                    .references('id')
-                    .inTable(`${schemaName}._app_objects`)
-                    .onDelete('SET NULL')
+                table.foreign('object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
+                table.foreign('target_object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('SET NULL')
                 table.unique(['object_id', 'codename'])
                 table.unique(['object_id', 'column_name'])
             })
@@ -518,6 +488,75 @@ export class SchemaGenerator {
         const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
         console.log(`[SchemaGenerator] _app_settings exists: ${hasSettings}`)
 
+        const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
+        console.log(`[SchemaGenerator] _app_layouts exists: ${hasLayouts}`)
+
+        if (!hasLayouts) {
+            console.log(`[SchemaGenerator] Creating _app_layouts...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_layouts', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.string('template_key', 100).notNullable().defaultTo('dashboard')
+                table.jsonb('name').notNullable().defaultTo('{}')
+                table.jsonb('description').nullable()
+                table.jsonb('config').notNullable().defaultTo('{}')
+                table.boolean('is_active').notNullable().defaultTo(true)
+                table.boolean('is_default').notNullable().defaultTo(false)
+                table.integer('sort_order').notNullable().defaultTo(0)
+                table.uuid('owner_id').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Platform-level system fields (_upl_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                // Archive fields
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                // Lock fields
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // Application-level system fields (_app_*)
+                // ═══════════════════════════════════════════════════════════════════════
+                // Publication status
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                // Archive fields
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                // Soft delete fields
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['template_key'], 'idx_app_layouts_template_key')
+                table.index(['is_active'], 'idx_app_layouts_is_active')
+                table.index(['is_default'], 'idx_app_layouts_is_default')
+                table.index(['sort_order'], 'idx_app_layouts_sort_order')
+            })
+
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_layouts_default_active
+                ON "${schemaName}"._app_layouts (is_default)
+                WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
+            `)
+            console.log(`[SchemaGenerator] _app_layouts created`)
+        }
+
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
             await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {
@@ -595,7 +634,7 @@ export class SchemaGenerator {
             _upl_created_at: knex.fn.now(),
             _upl_created_by: userId,
             _upl_updated_at: knex.fn.now(),
-            _upl_updated_by: userId,
+            _upl_updated_by: userId
         }))
 
         if (objectRows.length > 0) {
@@ -624,7 +663,7 @@ export class SchemaGenerator {
                 _upl_created_at: knex.fn.now(),
                 _upl_created_by: userId,
                 _upl_updated_at: knex.fn.now(),
-                _upl_updated_by: userId,
+                _upl_updated_by: userId
             }))
         )
 
@@ -647,7 +686,7 @@ export class SchemaGenerator {
                     'validation_rules',
                     'ui_config',
                     '_upl_updated_at',
-                    '_upl_updated_by',
+                    '_upl_updated_by'
                 ])
         }
 

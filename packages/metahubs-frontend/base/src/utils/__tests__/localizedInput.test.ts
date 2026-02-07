@@ -1,3 +1,4 @@
+import type { VersionedLocalizedContent } from '@universo/types'
 import { describe, expect, it } from 'vitest'
 import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
 
@@ -61,5 +62,18 @@ describe('localizedInput utils', () => {
                 }
             }
         })
+    })
+
+    it('preserves all locales from legacy plain localized map', () => {
+        const legacy = {
+            en: 'Dashboard',
+            ru: 'Дашборд'
+        }
+
+        const normalized = ensureLocalizedContent(legacy as unknown as VersionedLocalizedContent<string>, 'ru', '')
+
+        expect(normalized._primary).toBe('ru')
+        expect(normalized.locales.en?.content).toBe('Dashboard')
+        expect(normalized.locales.ru?.content).toBe('Дашборд')
     })
 })

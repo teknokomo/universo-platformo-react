@@ -26,7 +26,7 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
         codenameTouched: true,
         dataType: raw?.dataType ?? ctx.entity?.dataType ?? 'STRING',
         isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false,
-        isDisplayAttribute: isSingleAttribute ? true : (raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false),
+        isDisplayAttribute: isSingleAttribute ? true : raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false,
         validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
         targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
         targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null
@@ -105,6 +105,12 @@ const getCurrentSortOrder = (ctx: ActionContext<AttributeDisplay, AttributeLocal
     return resolveSortOrder(fromMap) ?? resolveSortOrder(ctx.entity)
 }
 
+const isDisplayAttributeEntity = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+    const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+    const raw = attributeMap?.get(ctx.entity.id)
+    return Boolean(raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false)
+}
+
 const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = [
     {
         id: 'edit',
@@ -145,7 +151,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                 dataTypeLabel={ctx.t('attributes.dataType', 'Data Type')}
                                 requiredLabel={ctx.t('attributes.isRequiredLabel', 'Required')}
                                 displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                                displayAttributeHelper={ctx.t('attributes.isDisplayAttributeHelper', 'Use as representation when referencing elements of this catalog')}
+                                displayAttributeHelper={ctx.t(
+                                    'attributes.isDisplayAttributeHelper',
+                                    'Use as representation when referencing elements of this catalog'
+                                )}
                                 displayAttributeLocked={displayAttributeLocked}
                                 dataTypeOptions={[
                                     { value: 'STRING', label: ctx.t('attributes.dataTypeOptions.string', 'String') },
@@ -169,13 +178,19 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                 dateCompositionOptions={[
                                     { value: 'date', label: ctx.t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
                                     { value: 'time', label: ctx.t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
-                                    { value: 'datetime', label: ctx.t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time') }
+                                    {
+                                        value: 'datetime',
+                                        label: ctx.t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time')
+                                    }
                                 ]}
                                 physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
                                 metahubId={(ctx as any).metahubId as string}
                                 currentCatalogId={(ctx as any).catalogId as string | undefined}
                                 dataTypeDisabled
-                                dataTypeHelperText={ctx.t('attributes.edit.typeChangeDisabled', 'Data type cannot be changed after creation')}
+                                dataTypeHelperText={ctx.t(
+                                    'attributes.edit.typeChangeDisabled',
+                                    'Data type cannot be changed after creation'
+                                )}
                                 disableVlcToggles
                             />
                         )
@@ -183,6 +198,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     validate: (values: Record<string, any>) => validateAttributeForm(ctx, values),
                     canSave: canSaveAttributeForm,
                     showDeleteButton: true,
+                    deleteButtonDisabled: isDisplayAttributeEntity(ctx),
                     deleteButtonText: ctx.t('common:actions.delete'),
                     onDelete: () => {
                         ctx.helpers?.openDeleteDialog?.(ctx.entity)
@@ -333,6 +349,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         icon: <DeleteIcon />,
         order: 100,
         group: 'danger',
+        enabled: (ctx) => !isDisplayAttributeEntity(ctx),
         dialog: {
             loader: async () => {
                 const module = await import('@universo/template-mui/components/dialogs')

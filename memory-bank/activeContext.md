@@ -1,49 +1,32 @@
 # Active Context
 
-> **Last Updated**: 2026-02-04
+> **Last Updated**: 2026-02-07
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Applications Runtime UI + `/a/:applicationId` Routing (Completed)
+## Current Focus: PR #666 Review Feedback Hardening (Completed)
 
-**Status**: Completed implementation for MVP runtime flow.
+**Status**: Completed implementation and targeted validation.
 
 ### Implemented
-- New runtime endpoint: `GET /applications/:applicationId/runtime` (single-catalog MVP, dynamic columns/rows)
-- Role hardening on application-scoped backend routes (connectors, sync, diff, migrations)
-- New user route: `/a/:applicationId` (available for all application members)
-- New admin route: `/a/:applicationId/admin/*` (owner/admin/editor only via `ApplicationAdminGuard`)
-- Applications list now opens runtime URL by default and exposes role-gated "Control Panel" action
-- Follow-up cleanup: removed remaining legacy admin sidebar links in `flowise-template-mui` and normalized them to `/a/:applicationId/admin/...`
-- Follow-up hardening: fixed `ApplicationGuard` parameter wiring (`resourceIdParam`) and kept unit coverage
-- Runtime normalization: backend now resolves VLC/JSONB `STRING` field values to requested locale strings before returning table rows
-- Runtime UX: boolean attribute cells now render explicit checkboxes; pagination uses `keepPreviousData` to avoid full-page flicker
-- Applications list item menu now shows "Delete" under "Edit" (single divider after "Control Panel") for `owner` only (backend enforces owner-only delete)
-- Application delete now drops the application schema (`DROP SCHEMA ... CASCADE`) to avoid orphan schemas
-- Copied `.backup/templates` to `packages/apps-template-mui`
-- Added minimal layout/route/table scaffolding in `packages/apps-template-mui` for next iterations, now reusing Dashboard `CustomizedDataGrid` without demo data
-- `@universo/apps-template-mui` is part of the workspace and is used by `ApplicationRuntime` to render the runtime Dashboard layout (MUI template) in `/a/:applicationId`
-
-### Follow-up Fixes (2026-02-04)
-- UI-only layout changes now propagate to existing Applications during connector sync:
-  - Diff endpoint marks `ui.layout.update` as additive change when `_app_ui_settings` differs.
-  - Sync persists `_app_ui_settings` even when there are no DDL changes.
-- Dashboard pages across feature packages were normalized to MUI 7 Grid v2 API and template-like StatCard heights (avoid `description` usage).
-- AuthView layout regression fixed by using `Stack` instead of Grid for the login/register form.
+- Reviewed all 5 bot comments from PR `#666` and classified actionable items against current code state.
+- Applied confirmed safe fixes:
+  - `applications-backend`: simplified runtime layout selection in `applicationsRoutes` to a single SQL query for `_app_layouts` (`is_default OR is_active`) with deterministic ordering.
+  - `metahubs-backend`: fixed deterministic name VLC fallback in layouts routes by forcing `fallbackPrimary='en'` for both create and update paths.
+  - `metahubs-frontend`: changed branch copy dialog General tab fallback label from RU to EN (`'General'`).
+  - `schema-ddl`: removed unused `generateSchemaName` import from `SchemaGenerator`.
+- Rejected no comments as invalid; one item was optimization-level, but implemented safely within current scope.
 
 ### Validation Summary
-- `@universo/applications-backend` build: passed
-- `@universo/metahubs-backend` build: passed
-- `@universo/template-mui` build: passed
-- `@universo/metahubs-frontend` build: passed
-- `@universo/applications-frontend` build: passed (package build script compiles i18n entry)
-- `ApplicationGuard` unit test: passed
-- `@flowise/template-mui` lint: no errors (warnings only, baseline debt)
-- `ConnectorList` test file updated and passes when run directly with coverage disabled
-
-### Known Baseline Issues (Not Introduced by This Task)
-- `@universo/applications-frontend` lint has many pre-existing Prettier/typing errors across unrelated files
-- Full frontend test suite has existing failing/timeouting tests and coverage-threshold failures
-- `ApplicationBoard` test suite currently fails due MUI X Charts axis/series length mismatch in existing chart fixtures (unrelated to runtime route changes)
+- Passed:
+  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts -t "Metahubs page action factories" --coverage=false`
+  - `pnpm --filter @universo/schema-ddl test -- SchemaCloner.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `pnpm --filter @universo/schema-ddl build`
+  - targeted eslint checks for touched files (warnings only, no new errors).
+- Baseline limitations observed (not introduced by this hardening):
+  - `pnpm --filter @universo/applications-backend build` fails due existing workspace module-resolution baseline (`@universo/schema-ddl` not resolved in package build context).
+  - `pnpm --filter @universo/metahubs-backend build` fails due existing cross-package/type baseline issues unrelated to touched lines.
