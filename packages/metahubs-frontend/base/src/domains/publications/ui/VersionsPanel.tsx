@@ -390,7 +390,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                         </FormControl>
                     </Stack>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
                     <Button onClick={handleCloseCreateDialog}>{t('common.cancel', 'Отмена')}</Button>
                     <Button
                         onClick={handleCreate}
@@ -449,7 +449,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                         />
                     </Stack>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
                     <Button onClick={handleCloseEditDialog}>{t('common.cancel', 'Cancel')}</Button>
                     <Button
                         onClick={handleUpdate}

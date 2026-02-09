@@ -166,7 +166,72 @@
         },
         "details": {
             "title": "Макет",
-            "description": "Включайте и отключайте секции Dashboard (показать/скрыть)."
+            "description": "Настраивайте зоны дашборда и размещённые в них виджеты.",
+            "dragHint": "Перетаскивайте виджеты между зонами, чтобы изменить состав рантайм-интерфейса.",
+            "addWidget": "Добавить виджет",
+            "widgetCatalogTitle": "Доступные виджеты"
+        },
+        "menuEditor": {
+            "title": "Настройка меню",
+            "createTitle": "Создать меню",
+            "editTitle": "Редактировать меню",
+            "titleLabel": "Заголовок меню",
+            "showTitle": "Показывать заголовок",
+            "autoShowAllCatalogs": "Автоматически показывать все каталоги",
+            "autoShowAllCatalogsHint": "Если включено, все существующие каталоги будут автоматически добавлены в меню при отображении.",
+            "items": "Пункты меню",
+            "itemsEmpty": "Пунктов меню пока нет. Добавьте первый пункт.",
+            "addItem": "Добавить пункт",
+            "editItem": "Редактировать пункт",
+            "deleteItem": "Удалить пункт?",
+            "deleteItemDescription": "Этот пункт будет удалён из меню.",
+            "itemKind": "Тип пункта",
+            "itemTitle": "Заголовок",
+            "itemIcon": "Иконка",
+            "itemHref": "URL ссылки",
+            "itemCatalog": "Каталог",
+            "itemActive": "Активен",
+            "selectCatalog": "Выберите каталог",
+            "noCatalogs": "Нет доступных каталогов",
+            "kindCatalog": "Каталог",
+            "kindCatalogsAll": "Все каталоги",
+            "kindLink": "Ссылка",
+            "saveSuccess": "Настройка меню сохранена",
+            "saveError": "Не удалось сохранить настройку меню"
+        },
+        "zones": {
+            "left": "Левая зона",
+            "top": "Верхняя зона",
+            "center": "Центральная зона",
+            "right": "Правая зона",
+            "bottom": "Нижняя зона"
+        },
+        "widgets": {
+            "brandSelector": "Выбор бренда",
+            "divider": "Разделитель",
+            "menuWidget": "Меню",
+            "spacer": "Отступ",
+            "infoCard": "Информационная карточка",
+            "userProfile": "Профиль пользователя",
+            "sideMenu": "Боковое меню",
+            "appNavbar": "Мобильная верхняя панель",
+            "header": "Шапка",
+            "breadcrumbs": "Хлебные крошки",
+            "search": "Поиск",
+            "datePicker": "Выбор даты",
+            "optionsMenu": "Панель опций",
+            "overviewTitle": "Заголовок обзора",
+            "overviewCards": "Карточки обзора",
+            "sessionsChart": "График сессий",
+            "pageViewsChart": "График просмотров",
+            "detailsTitle": "Заголовок деталей",
+            "detailsTable": "Таблица деталей",
+            "detailsSidePanel": "Боковая панель деталей",
+            "footer": "Футер"
+        },
+        "zoneErrors": {
+            "load": "Не удалось загрузить зоны макета",
+            "save": "Не удалось сохранить зоны макета"
         },
         "dashboard": {
             "sections": {

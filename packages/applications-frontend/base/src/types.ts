@@ -197,8 +197,30 @@ export interface ApplicationRuntimeCatalog {
     name: string
 }
 
+export interface ApplicationRuntimeMenuItem {
+    id: string
+    kind: 'catalog' | 'catalogs_all' | 'link'
+    title: string
+    icon?: string | null
+    href?: string | null
+    catalogId?: string | null
+    sortOrder?: number
+    isActive?: boolean
+}
+
+export interface ApplicationRuntimeMenu {
+    id: string
+    widgetId: string
+    showTitle?: boolean
+    title?: string
+    autoShowAllCatalogs?: boolean
+    items: ApplicationRuntimeMenuItem[]
+}
+
 export interface ApplicationRuntimeResponse {
     catalog: ApplicationRuntimeCatalog
+    catalogs?: ApplicationRuntimeCatalog[]
+    activeCatalogId?: string
     columns: ApplicationRuntimeColumn[]
     rows: Array<Record<string, unknown> & { id: string }>
     pagination: {
@@ -207,6 +229,16 @@ export interface ApplicationRuntimeResponse {
         offset: number
     }
     layoutConfig?: Record<string, unknown>
+    zoneWidgets?: {
+        left: Array<{
+            id: string
+            widgetKey: string
+            sortOrder: number
+            config: Record<string, unknown>
+        }>
+    }
+    menus?: ApplicationRuntimeMenu[]
+    activeMenuId?: string | null
 }
 
 // ============ HELPER FUNCTIONS ============

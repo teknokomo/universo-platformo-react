@@ -5,7 +5,8 @@ import {
     IconDatabase,
     IconApps,
     IconGitBranch,
-    IconLayoutDashboard
+    IconLayoutDashboard,
+    IconFiles
 } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
@@ -14,12 +15,12 @@ export interface MenuItem {
     title: string
     type: 'item' | 'group' | 'collapse' | 'divider'
     url?: string
-    icon?: ComponentType<any>
+    icon?: ComponentType<unknown>
     breadcrumbs?: boolean
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch, IconLayoutDashboard }
+const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch, IconLayoutDashboard, IconFiles }
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
 

@@ -87,6 +87,7 @@ const defaultDashboardLayoutConfig = {
 
 const UI_LAYOUT_DIFF_MARKER = 'ui.layout.update'
 const UI_LAYOUTS_DIFF_MARKER = 'ui.layouts.update'
+const UI_LAYOUT_ZONES_DIFF_MARKER = 'ui.layout.zones.update'
 const SYSTEM_METADATA_DIFF_MARKER = 'schema.metadata.update'
 
 /**
@@ -306,6 +307,37 @@ function normalizeSnapshotLayouts(snapshot: MetahubSnapshot): PersistedAppLayout
     return rows.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
 }
 
+type PersistedAppLayoutZoneWidget = {
+    id: string
+    layoutId: string
+    zone: string
+    widgetKey: string
+    sortOrder: number
+    config: Record<string, unknown>
+}
+
+/** @deprecated Use PersistedAppLayoutZoneWidget instead. */
+type PersistedAppLayoutZoneModule = PersistedAppLayoutZoneWidget
+
+function normalizeSnapshotLayoutZoneWidgets(snapshot: MetahubSnapshot): PersistedAppLayoutZoneWidget[] {
+    return (Array.isArray(snapshot.layoutZoneWidgets) ? snapshot.layoutZoneWidgets : [])
+        .map((item) => ({
+            id: String(item.id ?? ''),
+            layoutId: String(item.layoutId ?? ''),
+            zone: typeof item.zone === 'string' ? item.zone : 'center',
+            widgetKey: typeof item.widgetKey === 'string' ? item.widgetKey : '',
+            sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
+            config: item.config && typeof item.config === 'object' ? item.config : {}
+        }))
+        .filter((item) => item.id.length > 0 && item.layoutId.length > 0 && item.widgetKey.length > 0)
+        .sort((a, b) => {
+            if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
+            if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
+            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+            return a.id.localeCompare(b.id)
+        })
+}
+
 type DiffTableFieldDetails = {
     id: string
     codename: string
@@ -483,6 +515,82 @@ async function persistPublishedLayouts(options: { schemaName: string; snapshot: 
     })
 }
 
+async function persistPublishedLayoutZoneWidgets(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+    userId?: string | null
+}): Promise<void> {
+    const { schemaName, snapshot, userId } = options
+    const knex = KnexClient.getInstance()
+    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_layout_zone_widgets')
+    if (!hasTable) return
+
+    const now = new Date()
+    const nextRows = normalizeSnapshotLayoutZoneWidgets(snapshot)
+
+    await knex.transaction(async (trx) => {
+        const existingRows = await trx
+            .withSchema(schemaName)
+            .from('_app_layout_zone_widgets')
+            .where({ _upl_deleted: false, _app_deleted: false })
+            .select(['id'])
+        const existingIds = new Set(existingRows.map((row) => String(row.id)))
+
+        for (const row of nextRows) {
+            const payload = {
+                layout_id: row.layoutId,
+                zone: row.zone,
+                widget_key: row.widgetKey,
+                sort_order: row.sortOrder,
+                config: row.config
+            }
+            if (existingIds.has(row.id)) {
+                await trx
+                    .withSchema(schemaName)
+                    .from('_app_layout_zone_widgets')
+                    .where({ id: row.id, _upl_deleted: false, _app_deleted: false })
+                    .update({
+                        ...payload,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+            } else {
+                await trx
+                    .withSchema(schemaName)
+                    .into('_app_layout_zone_widgets')
+                    .insert({
+                        id: row.id,
+                        ...payload,
+                        _upl_created_at: now,
+                        _upl_created_by: userId ?? null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _app_published: true,
+                        _app_archived: false,
+                        _app_deleted: false
+                    })
+            }
+        }
+
+        const nextIds = nextRows.map((row) => row.id)
+        if (nextIds.length > 0) {
+            await trx
+                .withSchema(schemaName)
+                .from('_app_layout_zone_widgets')
+                .where({ _upl_deleted: false, _app_deleted: false })
+                .whereNotIn('id', nextIds)
+                .del()
+        } else {
+            await trx.withSchema(schemaName).from('_app_layout_zone_widgets').where({ _upl_deleted: false, _app_deleted: false }).del()
+        }
+    })
+}
+
 async function getPersistedDashboardLayoutConfig(options: { schemaName: string }): Promise<Record<string, unknown>> {
     const { schemaName } = options
     const knex = KnexClient.getInstance()
@@ -551,6 +659,37 @@ async function getPersistedPublishedLayouts(options: {
     return { layouts, defaultLayoutId }
 }
 
+async function getPersistedPublishedLayoutZoneWidgets(options: { schemaName: string }): Promise<PersistedAppLayoutZoneWidget[]> {
+    const { schemaName } = options
+    const knex = KnexClient.getInstance()
+
+    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_layout_zone_widgets')
+    if (!hasTable) {
+        return []
+    }
+
+    const rows = await knex
+        .withSchema(schemaName)
+        .from('_app_layout_zone_widgets')
+        .where({ _upl_deleted: false, _app_deleted: false })
+        .select(['id', 'layout_id', 'zone', 'widget_key', 'sort_order', 'config'])
+        .orderBy([
+            { column: 'layout_id', order: 'asc' },
+            { column: 'zone', order: 'asc' },
+            { column: 'sort_order', order: 'asc' },
+            { column: '_upl_created_at', order: 'asc' }
+        ])
+
+    return rows.map((row: any) => ({
+        id: String(row.id),
+        layoutId: String(row.layout_id),
+        zone: String(row.zone),
+        widgetKey: String(row.widget_key),
+        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+        config: row.config && typeof row.config === 'object' ? row.config : {}
+    }))
+}
+
 function buildMergedDashboardLayoutConfig(snapshot: MetahubSnapshot): Record<string, unknown> {
     const parsed = dashboardLayoutConfigSchema.safeParse(snapshot.layoutConfig ?? {})
     return {
@@ -579,6 +718,13 @@ async function hasPublishedLayoutsChanges(options: { schemaName: string; snapsho
         defaultLayoutId: normalizedLayouts.find((layout) => layout.isDefault)?.id ?? null
     }
 
+    return stableStringify(current) !== stableStringify(next)
+}
+
+async function hasPublishedLayoutZoneWidgetsChanges(options: { schemaName: string; snapshot: MetahubSnapshot }): Promise<boolean> {
+    const { schemaName, snapshot } = options
+    const current = await getPersistedPublishedLayoutZoneWidgets({ schemaName })
+    const next = normalizeSnapshotLayoutZoneWidgets(snapshot)
     return stableStringify(current) !== stableStringify(next)
 }
 
@@ -726,6 +872,11 @@ export function createApplicationSyncRoutes(
                 if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
                     const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
                     const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
+                    const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({
+                        schemaName: application.schemaName!,
+                        snapshot
+                    })
+                    const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate
 
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
@@ -737,10 +888,11 @@ export function createApplicationSyncRoutes(
                     await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
 
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
 
                     return res.json({
-                        status: uiNeedsUpdate || layoutsNeedUpdate ? 'ui_updated' : 'no_changes',
-                        message: uiNeedsUpdate || layoutsNeedUpdate ? 'UI layout settings updated' : 'Schema is already up to date'
+                        status: hasUiChanges ? 'ui_updated' : 'no_changes',
+                        message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
                     })
                 }
             }
@@ -779,6 +931,7 @@ export function createApplicationSyncRoutes(
                     await applicationRepo.save(application)
 
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
 
                     const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                     await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
@@ -799,6 +952,11 @@ export function createApplicationSyncRoutes(
                 if (!diff.hasChanges) {
                     const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
                     const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
+                    const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({
+                        schemaName: application.schemaName!,
+                        snapshot
+                    })
+                    const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate
 
                     await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
 
@@ -808,6 +966,7 @@ export function createApplicationSyncRoutes(
                     await applicationRepo.save(application)
 
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
 
                     // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
                     // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
@@ -840,8 +999,8 @@ export function createApplicationSyncRoutes(
                     }
 
                     return res.json({
-                        status: uiNeedsUpdate || layoutsNeedUpdate ? 'ui_updated' : 'no_changes',
-                        message: uiNeedsUpdate || layoutsNeedUpdate ? 'UI layout settings updated' : 'Schema is already up to date'
+                        status: hasUiChanges ? 'ui_updated' : 'no_changes',
+                        message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
                     })
                 }
 
@@ -890,6 +1049,7 @@ export function createApplicationSyncRoutes(
                 await applicationRepo.save(application)
 
                 await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
 
                 const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                 await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
@@ -1038,19 +1198,22 @@ export function createApplicationSyncRoutes(
             if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
                 const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
                 const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
+                const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({ schemaName, snapshot })
+                const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate
                 return res.json({
                     schemaExists: true,
                     schemaName,
                     diff: {
-                        hasChanges: uiNeedsUpdate || layoutsNeedUpdate,
+                        hasChanges: hasUiChanges,
                         hasDestructiveChanges: false,
                         additive: [
                             ...(uiNeedsUpdate ? [UI_LAYOUT_DIFF_MARKER] : []),
-                            ...(layoutsNeedUpdate ? [UI_LAYOUTS_DIFF_MARKER] : [])
+                            ...(layoutsNeedUpdate ? [UI_LAYOUTS_DIFF_MARKER] : []),
+                            ...(layoutZonesNeedUpdate ? [UI_LAYOUT_ZONES_DIFF_MARKER] : [])
                         ],
                         destructive: [],
-                        summaryKey: uiNeedsUpdate || layoutsNeedUpdate ? 'ui.layout.changed' : 'schema.upToDate',
-                        summary: uiNeedsUpdate || layoutsNeedUpdate ? 'UI layout settings have changed' : 'Schema is already up to date'
+                        summaryKey: hasUiChanges ? 'ui.layout.changed' : 'schema.upToDate',
+                        summary: hasUiChanges ? 'UI layout settings have changed' : 'Schema is already up to date'
                     }
                 })
             }
@@ -1061,6 +1224,7 @@ export function createApplicationSyncRoutes(
 
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
+            const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({ schemaName, snapshot })
             const addedTableEntityIds = new Set<string>(
                 diff.additive
                     .filter((change: SchemaChange) => change.type === 'ADD_TABLE' && Boolean(change.entityId))
@@ -1078,7 +1242,9 @@ export function createApplicationSyncRoutes(
             if (layoutsNeedUpdate) {
                 additive.push(UI_LAYOUTS_DIFF_MARKER)
             }
-
+            if (layoutZonesNeedUpdate) {
+                additive.push(UI_LAYOUT_ZONES_DIFF_MARKER)
+            }
             // Snapshot hash can change without any DDL changes (e.g., attribute reorder, labels, validations).
             // We still need to allow users to "apply" changes so system metadata tables are synced and the
             // applied snapshot hash is advanced by the sync endpoint.
@@ -1086,7 +1252,8 @@ export function createApplicationSyncRoutes(
                 Boolean(snapshotHash && lastAppliedHash && snapshotHash !== lastAppliedHash) &&
                 !diff.hasChanges &&
                 !uiNeedsUpdate &&
-                !layoutsNeedUpdate
+                !layoutsNeedUpdate &&
+                !layoutZonesNeedUpdate
             if (systemMetadataNeedsUpdate) {
                 additive.push(SYSTEM_METADATA_DIFF_MARKER)
             }
@@ -1104,6 +1271,12 @@ export function createApplicationSyncRoutes(
                     description: UI_LAYOUTS_DIFF_MARKER
                 })
             }
+            if (layoutZonesNeedUpdate) {
+                additiveStructured.push({
+                    type: 'UI_LAYOUT_ZONES_UPDATE',
+                    description: UI_LAYOUT_ZONES_DIFF_MARKER
+                })
+            }
             if (systemMetadataNeedsUpdate) {
                 additiveStructured.push({
                     type: 'SYSTEM_METADATA_UPDATE',
@@ -1117,18 +1290,23 @@ export function createApplicationSyncRoutes(
                 schemaExists: true,
                 schemaName,
                 diff: {
-                    hasChanges: diff.hasChanges || uiNeedsUpdate || layoutsNeedUpdate || systemMetadataNeedsUpdate,
+                    hasChanges:
+                        diff.hasChanges ||
+                        uiNeedsUpdate ||
+                        layoutsNeedUpdate ||
+                        layoutZonesNeedUpdate ||
+                        systemMetadataNeedsUpdate,
                     hasDestructiveChanges,
                     additive,
                     destructive: diff.destructive.map((c: SchemaChange) => c.description),
                     summaryKey: systemMetadataNeedsUpdate
                         ? 'schema.metadata.changed'
-                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate)
+                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate)
                         ? 'ui.layout.changed'
                         : undefined,
                     summary: systemMetadataNeedsUpdate
                         ? 'System metadata will be updated'
-                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate)
+                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate)
                         ? 'UI layout settings have changed'
                         : diff.summary,
                     details: {

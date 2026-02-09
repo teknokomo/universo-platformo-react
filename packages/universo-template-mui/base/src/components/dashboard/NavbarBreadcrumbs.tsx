@@ -805,7 +805,7 @@ export default function NavbarBreadcrumbs() {
                 }}
                 aria-label='Home'
             >
-                 <HomeRoundedIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle', transform: 'translateY(-0.04rem)' }} />
+                <HomeRoundedIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle', transform: 'translateY(-0.04rem)' }} />
             </Link>
             {crumbs.map((crumb, index) => {
                 const isLast = index === crumbs.length - 1

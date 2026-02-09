@@ -1,714 +1,778 @@
 {
-    "metahubs": {
-        "title": "Metahubs",
-        "searchPlaceholder": "Search metahubs...",
-        "noMetahubsFound": "No metahubs found",
-        "createMetahub": "Create Metahub",
-        "editTitle": "Edit Metahub",
-        "copyTitle": "Copying Metahub",
-        "confirmDelete": "Delete Metahub?",
-        "confirmDeleteDescription": "Are you sure you want to delete metahub \"{{name}}\"?",
-        "deleteSuccess": "Metahub successfully deleted",
-        "deleteError": "Failed to delete metahub",
-        "copySuccess": "Metahub successfully copied",
-        "copyError": "Failed to copy metahub",
-        "saveError": "Failed to save metahub",
-        "copy": {
-            "action": "Copy",
-            "actionLoading": "Copying...",
-            "optionsTab": "Copy options",
-            "copyDefaultBranchOnly": "Copy only default branch",
-            "copyAccess": "Copy access permissions"
-        },
-        "errors": {
-            "invalidMetahub": "Invalid metahub",
-            "pleaseSelectMetahub": "Please select a metahub from the list"
-        },
-        "actions": {
-            "edit": "Edit",
-            "delete": "Delete",
-            "backToList": "Back to metahubs"
-        },
-        "codename": "Codename",
-        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
-        "validation": {
-            "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
-            "stringLengthRange": "Length: {{min}}–{{max}}",
-            "stringMinLength": "Min length: {{min}}",
-            "stringMaxLength": "Max length: {{max}}",
-            "numberRange": "Range: {{min}}–{{max}}",
-            "numberMin": "Min value: {{min}}",
-            "numberMax": "Max value: {{max}}",
-            "numberNonNegative": "Non-negative value"
-        },
-        "board": {
-            "title": "Metahub Board",
-            "description": "Analytics and statistics for this metahub (in development)",
-            "defaultDescription": "Metahub analytics and statistics",
-            "overview": "Overview",
-            "stats": {
-                "branches": {
-                    "title": "Branches",
-                    "interval": "All time",
-                    "description": "Total branches in this metahub"
-                },
-                "applications": {
-                    "title": "Applications",
-                    "interval": "All time",
-                    "description": "Applications linked to this metahub"
-                },
-                "hubs": {
-                    "title": "Hubs",
-                    "interval": "All time",
-                    "description": "Total hubs in this metahub"
-                },
-                "catalogs": {
-                    "title": "Catalogs",
-                    "interval": "All time",
-                    "description": "Total catalogs across all hubs"
-                },
-                "publications": {
-                    "title": "Publications",
-                    "interval": "All time",
-                    "description": "Total publications in this metahub"
-                },
-                "versions": {
-                    "title": "Publication versions",
-                    "interval": "All time",
-                    "description": "Total publication versions in this metahub"
-                },
-                "members": {
-                    "title": "Members",
-                    "interval": "All time",
-                    "description": "Users with access to this metahub"
-                }
-            },
-            "documentation": {
-                "title": "Explore Documentation",
-                "description": "Learn about metahub features, API and best practices",
-                "button": "Open Documentation"
-            },
-            "charts": {
-                "activity": {
-                    "title": "User Activity",
-                    "interval": "Last 30 days",
-                    "description": "Activity metrics (demo data - in development)"
-                },
-                "resources": {
-                    "title": "Resources",
-                    "interval": "Last 6 months",
-                    "description": "Resource usage (demo data - in development)"
-                }
-            },
-            "loading": "Loading dashboard...",
-            "error": "Failed to load dashboard data"
-        },
-        "detail": {
-            "title": "Metahub Details"
-        },
-        "table": {
-            "description": "Description",
-            "role": "Role",
-            "hubs": "Hubs",
-            "catalogs": "Catalogs"
-        },
-        "tabs": {
-            "general": "General",
-            "storage": "Storage"
-        },
-        "storage": {
-            "mainDb": "Create schema in main database",
-            "externalDb": "Create schema in external database",
-            "externalDbDisabled": "Coming soon"
-        }
-    },
-    "layouts": {
-        "title": "Layouts",
-        "searchPlaceholder": "Search layouts...",
-        "empty": "No layouts yet",
-        "emptyDescription": "Create a layout to configure published applications UI",
-        "createSuccess": "Layout created",
-        "createError": "Failed to create layout",
-        "updateSuccess": "Layout updated",
-        "updateError": "Failed to update layout",
-        "deleteSuccess": "Layout deleted",
-        "deleteError": "Failed to delete layout",
-        "loadError": "Failed to load layout",
-        "validation": {
-            "defaultMustBeActive": "Default layout must be active"
-        },
-        "fields": {
-            "template": "Template",
-            "uiTemplate": "User interface template",
-            "isActive": "Active",
-            "isDefault": "Default",
-            "status": "Status"
-        },
-        "status": {
-            "active": "Active",
-            "inactive": "Inactive",
-            "default": "Default"
-        },
-        "templates": {
-            "dashboard": "Dashboard"
-        },
-        "actions": {
-            "configure": "Configure",
-            "setDefault": "Set as default",
-            "activate": "Activate",
-            "deactivate": "Deactivate",
-            "toggleActive": "Toggle active",
-            "backToList": "Back to layouts"
-        },
-        "createDialog": {
-            "title": "Create layout"
-        },
-        "editDialog": {
-            "title": "Edit layout"
-        },
-        "deleteDialog": {
-            "title": "Delete layout?",
-            "description": "This action cannot be undone."
-        },
-        "details": {
-            "title": "Layout",
-            "description": "Configure dashboard sections (show/hide)."
-        },
-        "dashboard": {
-            "sections": {
-                "showSideMenu": "Left menu",
-                "showAppNavbar": "Top navbar",
-                "showHeader": "Header",
-                "showBreadcrumbs": "Breadcrumbs",
-                "showSearch": "Search",
-                "showDatePicker": "Date picker",
-                "showOptionsMenu": "Notifications & theme",
-                "showOverviewTitle": "Overview title",
-                "showOverviewCards": "Overview cards",
-                "showSessionsChart": "Sessions chart",
-                "showPageViewsChart": "Page views chart",
-                "showDetailsTitle": "Details title",
-                "showDetailsTable": "Details table",
-                "showDetailsSidePanel": "Details side panel",
-                "showFooter": "Footer"
-            }
-        }
-    },
-    "branches": {
-        "title": "Branches",
-        "description": "Workspaces for parallel development",
-        "searchPlaceholder": "Search branches...",
-        "empty": "No branches yet",
-        "emptyDescription": "Create your first branch to start iterating",
-        "create": "Create Branch",
-        "editTitle": "Edit Branch",
-        "copyTitle": "Copying Branch",
-        "createDialog": {
-            "title": "Create Branch"
-        },
-        "editDialog": {
-            "title": "Edit Branch"
-        },
-        "deleteDialog": {
-            "title": "Delete Branch",
-            "confirmMessage": "Are you sure you want to delete this branch? This action cannot be undone.",
-            "fetchError": "Failed to check for blocking users",
-            "hasBlockingUsers": "Cannot delete branch. The following users have it active:",
-            "resolutionHint": "Ask users to switch to another branch before deleting."
-        },
-        "codename": "Codename",
-        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
-        "sourceBranch": "Source branch",
-        "sourceBranchHelper": "Default branch",
-        "sourceEmpty": "Empty branch",
-        "sourceEmptyHelper": "Empty branch (no data will be copied)",
-        "sourceEmptyInfo": "This branch was created without a source.",
-        "sourceMissing": "Source branch is missing",
-        "sourceMissingItem": "Deleted branch",
-        "sourceChainTitle": "Source chain",
-        "tabs": {
-            "general": "General",
-            "source": "Source"
-        },
-        "activate": "Activate",
-        "actions": {
-            "activate": "Make active",
-            "setDefault": "Set as default"
-        },
-        "badge": {
-            "active": "Active",
-            "default": "Default"
-        },
-        "createSuccess": "Branch created",
-        "copySuccess": "Branch copied",
-        "createLocked": "Branch creation is already in progress. Please try again.",
-        "updateSuccess": "Branch updated",
-        "deleteSuccess": "Branch deleted",
-        "activateSuccess": "Branch activated",
-        "setDefaultSuccess": "Default branch updated",
-        "createError": "Failed to create branch",
-        "copyError": "Failed to copy branch",
-        "codenameExists": "Branch with this codename already exists",
-        "numberConflict": "Branch numbering conflict. Please try again.",
-        "updateError": "Failed to update branch",
-        "deleteError": "Failed to delete branch",
-        "activateError": "Failed to activate branch",
-        "setDefaultError": "Failed to set default branch",
-        "validation": {
-            "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
-            "sourceRequired": "Select a source branch"
-        },
-        "copy": {
-            "action": "Copy",
-            "actionLoading": "Copying..."
-        }
-    },
-    "hubs": {
-        "title": "Hubs",
-        "description": "Data containers that define the structure of your metahub",
-        "searchPlaceholder": "Search hubs...",
-        "empty": "No hubs yet",
-        "emptyDescription": "Create your first hub to start defining data structures",
-        "create": "Create Hub",
-        "editTitle": "Edit Hub",
-        "createDialog": {
-            "title": "Create Hub"
-        },
-        "editDialog": {
-            "title": "Edit Hub"
-        },
-        "deleteDialog": {
-            "title": "Delete Hub",
-            "message": "Are you sure you want to delete this hub? All catalogs, attributes and elements will be permanently removed.",
-            "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
-            "fetchError": "Failed to check for blocking catalogs",
-            "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
-            "resolutionHint": "To delete this hub, first add another hub to these catalogs or disable the \"Hub required\" option."
-        },
-        "codename": "Codename",
-        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
-        "nameEn": "Name (English)",
-        "nameRu": "Name (Russian)",
-        "descriptionEn": "Description (English)",
-        "catalogsCount": "catalogs",
-        "catalogsCount_one": "{{count}} catalog",
-        "catalogsCount_other": "{{count}} catalogs",
-        "createError": "Failed to create hub",
-        "updateError": "Failed to update hub",
-        "deleteError": "Failed to delete hub",
-        "validation": {
-            "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
-        }
-    },
-    "catalogs": {
-        "title": "Catalogs",
-        "allTitle": "Catalogs",
-        "allDescription": "All catalogs across all hubs in this metahub",
-        "description": "Directories that organize attributes and elements within a hub",
-        "searchPlaceholder": "Search catalogs...",
-        "empty": "No catalogs yet",
-        "emptyDescription": "Create your first catalog to organize attributes and elements",
-        "emptyHint": "Create catalogs in specific hubs",
-        "noSearchResults": "No catalogs found",
-        "noSearchResultsHint": "Try different search terms",
-        "create": "Create Catalog",
-        "editTitle": "Edit Catalog",
-        "createDialog": {
-            "title": "Create Catalog"
-        },
-        "editDialog": {
-            "title": "Edit Catalog"
-        },
-        "deleteDialog": {
-            "title": "Delete Catalog",
-            "message": "Are you sure you want to delete this catalog? All attributes and elements will be permanently removed.",
-            "confirmMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
-            "fetchBlockingError": "Failed to check for blocking references",
-            "hasBlockingReferences": "Cannot delete catalog. The following references from other catalogs must be removed first:",
-            "resolutionHint": "Open the source catalogs from the table and remove or reconfigure reference attributes.",
-            "blockingTable": {
-                "catalog": "Catalog",
-                "attribute": "Attribute"
-            }
-        },
-        "deleted": "Catalog deleted",
-        "deleteTitle": "Delete Catalog",
-        "deleteMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
-        "codename": "Codename",
-        "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
-        "nameEn": "Name (English)",
-        "nameRu": "Name (Russian)",
-        "descriptionEn": "Description (English)",
-        "attributesHeader": "Attributes",
-        "attributesCount_one": "{{count}} attribute",
-        "attributesCount_other": "{{count}} attributes",
-        "elementsHeader": "Elements",
-        "elementsCount_one": "{{count}} elem",
-        "elementsCount_other": "{{count}} elem",
-        "countsHeader": "Items",
-        "createError": "Failed to create catalog",
-        "updateError": "Failed to update catalog",
-        "deleteError": "Failed to delete catalog",
-        "validation": {
-            "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
-            "hubRequired": "Please select a hub"
-        },
-        "tabs": {
-            "general": "General",
-            "hubs": "Hubs"
-        },
-        "addHub": "Add",
-        "removeHub": "Remove",
-        "selectHubs": "Select Hubs",
-        "noHubsSelected": "No hubs selected",
-        "requiredHubWarning": "At least one hub must be selected",
-        "noHubsAvailable": "No available hubs",
-        "addSelected": "Add",
-        "isRequiredHub": "Hub required",
-        "isRequiredHubEnabled": "Catalog must have at least one hub",
-        "isRequiredHubDisabled": "Catalog can exist without hubs",
-        "isSingleHub": "Single hub only",
-        "isSingleHubEnabled": "Catalog can only be in one hub",
-        "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
-        "isSingleHubWarning": "Cannot enable while multiple hubs are selected"
-    },
-    "attributes": {
-        "title": "Attributes",
-        "description": "Define the fields for this catalog",
-        "searchPlaceholder": "Search attributes...",
-        "empty": "No attributes yet",
-        "emptyDescription": "Add attributes to define the structure of your catalog data",
-        "limitReached": "Limit reached: maximum {{limit}} attributes per catalog. Remove an attribute to add a new one.",
-        "create": "Add Attribute",
-        "createDialog": {
-            "title": "Add Attribute"
-        },
-        "editDialog": {
-            "title": "Edit Attribute"
-        },
-        "actions": {
-            "moveUp": "Move up",
-            "moveDown": "Move down",
-            "setRequired": "Mark as required",
-            "setOptional": "Mark as optional",
-            "setDisplayAttribute": "Set as display attribute",
-            "clearDisplayAttribute": "Clear display attribute"
-        },
-        "deleteDialog": {
-            "title": "Delete Attribute",
-            "message": "Are you sure you want to delete this attribute? All data in this field will be lost."
-        },
-        "table": {
-            "order": "#"
-        },
-        "codename": "Codename",
-        "codenameHelper": "Unique field identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
-        "dataType": "Data Type",
-        "dataTypeOptions": {
-            "string": "String",
-            "number": "Number",
-            "boolean": "Boolean",
-            "date": "Date",
-            "ref": "Reference",
-            "json": "JSON"
-        },
-        "typeSettings": {
-            "title": "Type Settings",
-            "string": {
-                "maxLength": "Max Length",
-                "minLength": "Min Length",
-                "versioned": "Versioned (VLC)",
-                "localized": "Localized (VLC)",
-                "backendType": {
-                    "jsonbVlc": "JSONB (VLC)",
-                    "textUnlimited": "TEXT (unlimited)",
-                    "varchar": "VARCHAR({{maxLength}})"
-                }
-            },
-            "number": {
-                "precision": "Length",
-                "scale": "Decimal places",
-                "min": "Min Value",
-                "max": "Max Value",
-                "nonNegative": "Non-negative only"
-            },
-            "date": {
-                "composition": "Date Composition",
-                "compositionOptions": {
-                    "date": "Date only",
-                    "time": "Time only",
-                    "datetime": "Date and Time"
-                }
-            }
-        },
-        "physicalType": {
-            "label": "PostgreSQL type",
-            "tooltip": "PostgreSQL: {{type}}"
-        },
-        "edit": {
-            "typeChangeDisabled": "Data type cannot be changed after creation",
-            "settingsReadOnly": "Type settings cannot be modified after creation"
-        },
-        "isRequiredLabel": "Required",
-        "isDisplayAttributeLabel": "Display attribute",
-        "isDisplayAttributeHelper": "Use this attribute as representation when referencing elements of this catalog",
-        "isDisplayAttributeTooltip": "This attribute is the display representation for this catalog",
-        "required": "Required",
-        "nameEn": "Name (English)",
-        "nameRu": "Name (Russian)",
-        "descriptionEn": "Description (English)",
-        "validation": {
-            "codenameRequired": "Codename is required",
-            "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
-            "targetEntityKindRequired": "Target entity type is required for Reference",
-            "targetEntityIdRequired": "Target entity is required for Reference"
-        },
-        "createError": "Failed to create attribute",
-        "updateError": "Failed to update attribute",
-        "deleteError": "Failed to delete attribute",
-        "deleteDisplayAttributeBlocked": "Display attribute cannot be deleted. Set another attribute as display first.",
-        "moveSuccess": "Attribute order updated",
-        "moveError": "Failed to update attribute order",
-        "setRequiredSuccess": "Attribute marked as required",
-        "setOptionalSuccess": "Attribute marked as optional",
-        "toggleRequiredError": "Failed to update attribute",
-        "setDisplaySuccess": "Attribute set as display attribute",
-        "setDisplayError": "Failed to set display attribute",
-        "clearDisplaySuccess": "Display attribute flag cleared",
-        "clearDisplayError": "Failed to clear display attribute"
-    },
-    "ref": {
-        "targetEntityKind": "Target Entity Type",
-        "notSelected": "Not selected",
-        "targetCatalog": "Target Catalog",
-        "selectCatalog": "Select catalog...",
-        "selectElement": "Select element...",
-        "catalogRequired": "Please select a catalog",
-        "noCatalogsAvailable": "No catalogs available",
-        "noElementsAvailable": "No elements available",
-        "loadingElements": "Loading elements...",
-        "targetEntityMissing": "Target entity is not configured for this reference.",
-        "unknownElement": "Element {{id}}",
-        "entityKindNotSupported": "This entity type is not yet supported for references.",
-        "entityKind": {
-            "catalog": "Catalog",
-            "document": "Document",
-            "hub": "Hub"
-        }
-    },
-    "elements": {
-        "title": "Elements",
-        "description": "Data entries for this catalog",
-        "searchPlaceholder": "Search elements...",
-        "empty": "No elements yet",
-        "emptyDescription": "Add elements to store data in this catalog",
-        "addAttributesFirst": "Define attributes for this catalog before adding elements",
-        "noAttributes": "No attributes defined for this catalog. Add attributes first.",
-        "create": "Add Element",
-        "createDialog": {
-            "title": "Add Element"
-        },
-        "editDialog": {
-            "title": "Edit Element"
-        },
-        "deleteDialog": {
-            "title": "Delete Element",
-            "message": "Are you sure you want to delete this element? This action cannot be undone."
-        },
-        "table": {
-            "updated": "Updated"
-        },
-        "createError": "Failed to create element",
-        "updateError": "Failed to update element",
-        "deleteError": "Failed to delete element"
-    },
-    "members": {
-        "title": "Members",
-        "searchPlaceholder": "Search members...",
-        "noMembersFound": "No members found",
-        "inviteMember": "Invite Member",
-        "editRole": "Change Role",
-        "removeMember": "Remove Member",
-        "inviteSuccess": "Member successfully invited",
-        "inviteError": "Failed to invite member",
-        "updateSuccess": "Member role successfully updated",
-        "updateError": "Failed to update member role",
-        "removeSuccess": "Member successfully removed",
-        "removeError": "Failed to remove member",
-        "confirmRemove": "Remove Member?",
-        "confirmRemoveDescription": "Are you sure you want to remove {{email}} from this metahub?",
-        "table": {
-            "email": "Email",
-            "nickname": "Nickname",
-            "role": "Role",
-            "joinedAt": "Joined"
-        }
-    },
-    "publications": {
-        "title": "Publications",
-        "editTitle": "Edit Publication",
-        "description": "Runtime instances of this metahub configuration with real database tables",
-        "searchPlaceholder": "Search publications...",
-        "empty": "No publications yet",
-        "emptyDescription": "Create a publication to generate real database tables from your configuration",
-        "noResults": "No results",
-        "noResultsDescription": "Try changing your search query",
-        "singlePublicationLimit": "Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions of Universo Platformo.",
-        "create": "Create Publication",
-        "createDialog": {
-            "title": "Create Publication",
-            "description": "A new PostgreSQL schema will be created with tables matching your metahub structure"
-        },
-        "tabs": {
-            "general": "General",
-            "versions": "Versions",
-            "metahubs": "Metahubs",
-            "access": "Access",
-            "applications": "Applications"
-        },
-        "access": {
-            "modeLabel": "Access Mode",
-            "modeFull": "Full Access",
-            "modeFullDescription": "All Metahub data is accessible through the Publication",
-            "modeRestricted": "Restricted Access",
-            "modeRestrictedDescription": "Access is controlled by configuration (coming soon)",
-            "configPlaceholder": "Restricted access configuration will be available in future versions."
-        },
-        "applications": {
-            "empty": "No linked applications",
-            "emptyHint": "Applications are linked to publications via connectors.",
-            "count": "Linked applications",
-            "noDescription": "No description"
-        },
-        "create": {
-            "metahubLocked": "Metahub is pre-selected based on the current context. Connector constraints are temporarily locked.",
-            "metahubsTitle": "Metahubs",
-            "linkedMetahub": "Linked Metahub",
-            "selectMetahub": "Select metahub",
-            "noMetahubSelected": "Metahub not selected",
-            "noMetahubsAvailable": "No metahubs available",
-            "metahubNotFound": "Metahub not found",
-            "connectorConstraints": "Connector Constraints",
-            "isSingleMetahub": "Single Metahub only",
-            "isSingleMetahubLocked": "This setting is currently locked to \"On\"",
-            "isSingleMetahubHelp": "Connector can only be linked to one Metahub",
-            "isSingleMetahubEnabled": "Connector can only be linked to one Metahub",
-            "isSingleMetahubDisabled": "Connector can be linked to multiple Metahubs",
-            "isSingleMetahubWarning": "Cannot enable while multiple Metahubs are selected",
-            "isRequiredMetahub": "Metahub is required",
-            "isRequiredMetahubLocked": "This setting is currently locked to \"On\"",
-            "isRequiredMetahubHelp": "Connector must have at least one Metahub linked",
-            "isRequiredMetahubEnabled": "Connector must have at least one Metahub linked",
-            "isRequiredMetahubDisabled": "Connector can exist without linked Metahubs"
-        },
-        "sync": "Sync Schema",
-        "syncDescription": "Update database schema to match current configuration",
-        "viewDiff": "View Changes",
-        "actions": {
-            "edit": "Edit",
-            "view": "View",
-            "sync": "Sync Schema",
-            "delete": "Delete"
-        },
-        "status": {
-            "draft": "Draft",
-            "pending": "Syncing...",
-            "synced": "Synced",
-            "outdated": "Outdated",
-            "error": "Error"
-        },
-        "statusDescription": {
-            "draft": "Schema not yet created",
-            "pending": "Schema synchronization in progress",
-            "synced": "Schema matches current configuration",
-            "outdated": "Configuration changed, sync required",
-            "error": "Schema sync failed"
-        },
-        "diffDialog": {
-            "title": "Schema Changes",
-            "noChanges": "No changes detected",
-            "additiveChanges": "Safe Changes (will be applied)",
-            "destructiveChanges": "Destructive Changes (require confirmation)",
-            "destructiveWarning": "These changes will delete data. Review carefully before confirming.",
-            "confirmSync": "Apply Changes",
-            "applySafeChanges": "Apply Safe Changes Only",
-            "confirmDestructive": "Apply Including Destructive"
-        },
-        "deleteDialog": {
-            "title": "Delete Publication",
-            "warning": "This will permanently delete the database schema and ALL DATA stored in it!",
-            "confirmMessage": "Type the schema name to confirm deletion:"
-        },
-        "messages": {
-            "createSuccess": "Publication created successfully",
-            "createError": "Failed to create publication",
-            "updateSuccess": "Publication updated",
-            "updateError": "Failed to update publication",
-            "syncSuccess": "Schema synchronized successfully",
-            "syncPending": "Destructive changes detected. Confirm to proceed.",
-            "syncError": "Schema synchronization failed",
-            "deleteSuccess": "Publication deleted",
-            "deleteError": "Failed to delete publication"
-        },
-        "table": {
-            "name": "Name",
-            "description": "Description",
-            "accessMode": "Access"
-        },
-        "accessMode": {
-            "full": "Full Access",
-            "restricted": "Restricted"
-        },
-        "versions": {
-            "title": "Versions",
-            "create": "Create Version",
-            "addButton": "Add",
-            "createSuccess": "Version created successfully",
-            "createFirstDescription": "When creating a publication, the first version will be created. Provide its name and description.",
-            "versionName": "Version name",
-            "versionDescription": "Version description",
-            "branchLabel": "Branch for version",
-            "branchHelper": "The version snapshot will be created from the selected branch.",
-            "branchMissing": "Deleted branch",
-            "duplicateWarning": "This version matches the previous snapshot",
-            "activate": "Activate",
-            "activateConfirm": "Are you sure you want to activate this version? It will be used for all future syncs.",
-            "activateSuccess": "Version activated successfully",
-            "active": "Active",
-            "edit": "Edit version",
-            "list": {
-                "version": "Version",
-                "date": "Date",
-                "status": "Status",
-                "hash": "Hash",
-                "actions": "Actions"
-            },
-            "empty": "No versions found. Create a snapshot to start versioning."
-        }
-    },
-    "common": {
-        "loading": "Loading...",
-        "error": "Error",
-        "retry": "Retry",
-        "cancel": "Cancel",
-        "save": "Save",
-        "create": "Create",
-        "edit": "Edit",
-        "delete": "Delete",
-        "actions": "Actions",
-        "details": "Details",
-        "updated": "Updated"
-    },
-    "actions": {
-        "backToList": "Back to List"
+  "metahubs": {
+    "title": "Metahubs",
+    "searchPlaceholder": "Search metahubs...",
+    "noMetahubsFound": "No metahubs found",
+    "createMetahub": "Create Metahub",
+    "editTitle": "Edit Metahub",
+    "copyTitle": "Copying Metahub",
+    "confirmDelete": "Delete Metahub?",
+    "confirmDeleteDescription": "Are you sure you want to delete metahub \"{{name}}\"?",
+    "deleteSuccess": "Metahub successfully deleted",
+    "deleteError": "Failed to delete metahub",
+    "copySuccess": "Metahub successfully copied",
+    "copyError": "Failed to copy metahub",
+    "saveError": "Failed to save metahub",
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying...",
+      "optionsTab": "Copy options",
+      "copyDefaultBranchOnly": "Copy only default branch",
+      "copyAccess": "Copy access permissions"
     },
     "errors": {
-        "connectionFailed": "Connection Failed",
-        "checkConnection": "Please check your network connection and try again",
-        "pleaseTryLater": "Please try again later"
+      "invalidMetahub": "Invalid metahub",
+      "pleaseSelectMetahub": "Please select a metahub from the list"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "backToList": "Back to metahubs"
+    },
+    "codename": "Codename",
+    "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+    },
+    "board": {
+      "title": "Metahub Board",
+      "description": "Analytics and statistics for this metahub (in development)",
+      "defaultDescription": "Metahub analytics and statistics",
+      "overview": "Overview",
+      "stats": {
+        "branches": {
+          "title": "Branches",
+          "interval": "All time",
+          "description": "Total branches in this metahub"
+        },
+        "applications": {
+          "title": "Applications",
+          "interval": "All time",
+          "description": "Applications linked to this metahub"
+        },
+        "hubs": {
+          "title": "Hubs",
+          "interval": "All time",
+          "description": "Total hubs in this metahub"
+        },
+        "catalogs": {
+          "title": "Catalogs",
+          "interval": "All time",
+          "description": "Total catalogs across all hubs"
+        },
+        "publications": {
+          "title": "Publications",
+          "interval": "All time",
+          "description": "Total publications in this metahub"
+        },
+        "versions": {
+          "title": "Publication versions",
+          "interval": "All time",
+          "description": "Total publication versions in this metahub"
+        },
+        "members": {
+          "title": "Members",
+          "interval": "All time",
+          "description": "Users with access to this metahub"
+        }
+      },
+      "documentation": {
+        "title": "Explore Documentation",
+        "description": "Learn about metahub features, API and best practices",
+        "button": "Open Documentation"
+      },
+      "charts": {
+        "activity": {
+          "title": "User Activity",
+          "interval": "Last 30 days",
+          "description": "Activity metrics (demo data - in development)"
+        },
+        "resources": {
+          "title": "Resources",
+          "interval": "Last 6 months",
+          "description": "Resource usage (demo data - in development)"
+        }
+      },
+      "loading": "Loading dashboard...",
+      "error": "Failed to load dashboard data"
+    },
+    "detail": {
+      "title": "Metahub Details"
+    },
+    "table": {
+      "description": "Description",
+      "role": "Role",
+      "hubs": "Hubs",
+      "catalogs": "Catalogs"
+    },
+    "tabs": {
+      "general": "General",
+      "storage": "Storage"
+    },
+    "storage": {
+      "mainDb": "Create schema in main database",
+      "externalDb": "Create schema in external database",
+      "externalDbDisabled": "Coming soon"
     }
+  },
+  "layouts": {
+    "title": "Layouts",
+    "searchPlaceholder": "Search layouts...",
+    "empty": "No layouts yet",
+    "emptyDescription": "Create a layout to configure published applications UI",
+    "createSuccess": "Layout created",
+    "createError": "Failed to create layout",
+    "updateSuccess": "Layout updated",
+    "updateError": "Failed to update layout",
+    "deleteSuccess": "Layout deleted",
+    "deleteError": "Failed to delete layout",
+    "loadError": "Failed to load layout",
+    "validation": {
+      "defaultMustBeActive": "Default layout must be active"
+    },
+    "fields": {
+      "template": "Template",
+      "uiTemplate": "User interface template",
+      "isActive": "Active",
+      "isDefault": "Default",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "default": "Default"
+    },
+    "templates": {
+      "dashboard": "Dashboard"
+    },
+    "actions": {
+      "configure": "Configure",
+      "setDefault": "Set as default",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "toggleActive": "Toggle active",
+      "backToList": "Back to layouts"
+    },
+    "createDialog": {
+      "title": "Create layout"
+    },
+    "editDialog": {
+      "title": "Edit layout"
+    },
+    "deleteDialog": {
+      "title": "Delete layout?",
+      "description": "This action cannot be undone."
+    },
+    "details": {
+      "title": "Layout",
+      "description": "Configure dashboard zones and widgets.",
+      "dragHint": "Drag widgets between zones to change runtime composition.",
+      "addWidget": "Add widget",
+      "widgetCatalogTitle": "Available widgets"
+    },
+    "menuEditor": {
+      "title": "Menu configuration",
+      "createTitle": "Create menu",
+      "editTitle": "Edit menu",
+      "titleLabel": "Menu title",
+      "showTitle": "Show title",
+      "autoShowAllCatalogs": "Automatically show all catalogs",
+      "autoShowAllCatalogsHint": "When enabled, all existing catalogs will be automatically added to the menu at runtime.",
+      "items": "Menu items",
+      "itemsEmpty": "No menu items yet. Add the first item.",
+      "addItem": "Add item",
+      "editItem": "Edit item",
+      "deleteItem": "Delete item?",
+      "deleteItemDescription": "This item will be removed from the menu.",
+      "itemKind": "Item type",
+      "itemTitle": "Title",
+      "itemIcon": "Icon",
+      "itemHref": "Link URL",
+      "itemCatalog": "Catalog",
+      "itemActive": "Active",
+      "selectCatalog": "Select catalog",
+      "noCatalogs": "No catalogs available",
+      "kindCatalog": "Catalog",
+      "kindCatalogsAll": "All catalogs",
+      "kindLink": "Link",
+      "saveSuccess": "Menu configuration saved",
+      "saveError": "Failed to save menu configuration"
+    },
+    "zones": {
+      "left": "Left zone",
+      "top": "Top zone",
+      "center": "Center zone",
+      "right": "Right zone",
+      "bottom": "Bottom zone"
+    },
+    "widgets": {
+      "brandSelector": "Brand selector",
+      "divider": "Divider",
+      "menuWidget": "Menu",
+      "spacer": "Spacer",
+      "infoCard": "Info card",
+      "userProfile": "User profile",
+      "sideMenu": "Side menu",
+      "appNavbar": "Mobile app bar",
+      "header": "Header",
+      "breadcrumbs": "Breadcrumbs",
+      "search": "Search",
+      "datePicker": "Date picker",
+      "optionsMenu": "Options menu",
+      "overviewTitle": "Overview title",
+      "overviewCards": "Overview cards",
+      "sessionsChart": "Sessions chart",
+      "pageViewsChart": "Page views chart",
+      "detailsTitle": "Details title",
+      "detailsTable": "Details table",
+      "detailsSidePanel": "Details side panel",
+      "footer": "Footer"
+    },
+    "zoneErrors": {
+      "load": "Failed to load layout zones",
+      "save": "Failed to save layout zones"
+    },
+    "dashboard": {
+      "sections": {
+        "showSideMenu": "Left menu",
+        "showAppNavbar": "Top navbar",
+        "showHeader": "Header",
+        "showBreadcrumbs": "Breadcrumbs",
+        "showSearch": "Search",
+        "showDatePicker": "Date picker",
+        "showOptionsMenu": "Notifications & theme",
+        "showOverviewTitle": "Overview title",
+        "showOverviewCards": "Overview cards",
+        "showSessionsChart": "Sessions chart",
+        "showPageViewsChart": "Page views chart",
+        "showDetailsTitle": "Details title",
+        "showDetailsTable": "Details table",
+        "showDetailsSidePanel": "Details side panel",
+        "showFooter": "Footer"
+      }
+    }
+  },
+  "branches": {
+    "title": "Branches",
+    "description": "Workspaces for parallel development",
+    "searchPlaceholder": "Search branches...",
+    "empty": "No branches yet",
+    "emptyDescription": "Create your first branch to start iterating",
+    "create": "Create Branch",
+    "editTitle": "Edit Branch",
+    "copyTitle": "Copying Branch",
+    "createDialog": {
+      "title": "Create Branch"
+    },
+    "editDialog": {
+      "title": "Edit Branch"
+    },
+    "deleteDialog": {
+      "title": "Delete Branch",
+      "confirmMessage": "Are you sure you want to delete this branch? This action cannot be undone.",
+      "fetchError": "Failed to check for blocking users",
+      "hasBlockingUsers": "Cannot delete branch. The following users have it active:",
+      "resolutionHint": "Ask users to switch to another branch before deleting."
+    },
+    "codename": "Codename",
+    "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "sourceBranch": "Source branch",
+    "sourceBranchHelper": "Default branch",
+    "sourceEmpty": "Empty branch",
+    "sourceEmptyHelper": "Empty branch (no data will be copied)",
+    "sourceEmptyInfo": "This branch was created without a source.",
+    "sourceMissing": "Source branch is missing",
+    "sourceMissingItem": "Deleted branch",
+    "sourceChainTitle": "Source chain",
+    "tabs": {
+      "general": "General",
+      "source": "Source"
+    },
+    "activate": "Activate",
+    "actions": {
+      "activate": "Make active",
+      "setDefault": "Set as default"
+    },
+    "badge": {
+      "active": "Active",
+      "default": "Default"
+    },
+    "createSuccess": "Branch created",
+    "copySuccess": "Branch copied",
+    "createLocked": "Branch creation is already in progress. Please try again.",
+    "updateSuccess": "Branch updated",
+    "deleteSuccess": "Branch deleted",
+    "activateSuccess": "Branch activated",
+    "setDefaultSuccess": "Default branch updated",
+    "createError": "Failed to create branch",
+    "copyError": "Failed to copy branch",
+    "codenameExists": "Branch with this codename already exists",
+    "numberConflict": "Branch numbering conflict. Please try again.",
+    "updateError": "Failed to update branch",
+    "deleteError": "Failed to delete branch",
+    "activateError": "Failed to activate branch",
+    "setDefaultError": "Failed to set default branch",
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+      "sourceRequired": "Select a source branch"
+    },
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying..."
+    }
+  },
+  "hubs": {
+    "title": "Hubs",
+    "description": "Data containers that define the structure of your metahub",
+    "searchPlaceholder": "Search hubs...",
+    "empty": "No hubs yet",
+    "emptyDescription": "Create your first hub to start defining data structures",
+    "create": "Create Hub",
+    "editTitle": "Edit Hub",
+    "createDialog": {
+      "title": "Create Hub"
+    },
+    "editDialog": {
+      "title": "Edit Hub"
+    },
+    "deleteDialog": {
+      "title": "Delete Hub",
+      "message": "Are you sure you want to delete this hub? All catalogs, attributes and elements will be permanently removed.",
+      "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
+      "fetchError": "Failed to check for blocking catalogs",
+      "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
+      "resolutionHint": "To delete this hub, first add another hub to these catalogs or disable the \"Hub required\" option."
+    },
+    "codename": "Codename",
+    "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "nameEn": "Name (English)",
+    "nameRu": "Name (Russian)",
+    "descriptionEn": "Description (English)",
+    "catalogsCount": "catalogs",
+    "catalogsCount_one": "{{count}} catalog",
+    "catalogsCount_other": "{{count}} catalogs",
+    "createError": "Failed to create hub",
+    "updateError": "Failed to update hub",
+    "deleteError": "Failed to delete hub",
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+    }
+  },
+  "catalogs": {
+    "title": "Catalogs",
+    "allTitle": "Catalogs",
+    "allDescription": "All catalogs across all hubs in this metahub",
+    "description": "Directories that organize attributes and elements within a hub",
+    "searchPlaceholder": "Search catalogs...",
+    "empty": "No catalogs yet",
+    "emptyDescription": "Create your first catalog to organize attributes and elements",
+    "emptyHint": "Create catalogs in specific hubs",
+    "noSearchResults": "No catalogs found",
+    "noSearchResultsHint": "Try different search terms",
+    "create": "Create Catalog",
+    "editTitle": "Edit Catalog",
+    "createDialog": {
+      "title": "Create Catalog"
+    },
+    "editDialog": {
+      "title": "Edit Catalog"
+    },
+    "deleteDialog": {
+      "title": "Delete Catalog",
+      "message": "Are you sure you want to delete this catalog? All attributes and elements will be permanently removed.",
+      "confirmMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
+      "fetchBlockingError": "Failed to check for blocking references",
+      "hasBlockingReferences": "Cannot delete catalog. The following references from other catalogs must be removed first:",
+      "resolutionHint": "Open the source catalogs from the table and remove or reconfigure reference attributes.",
+      "blockingTable": {
+        "catalog": "Catalog",
+        "attribute": "Attribute"
+      }
+    },
+    "deleted": "Catalog deleted",
+    "deleteTitle": "Delete Catalog",
+    "deleteMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
+    "codename": "Codename",
+    "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "nameEn": "Name (English)",
+    "nameRu": "Name (Russian)",
+    "descriptionEn": "Description (English)",
+    "attributesHeader": "Attributes",
+    "attributesCount_one": "{{count}} attribute",
+    "attributesCount_other": "{{count}} attributes",
+    "elementsHeader": "Elements",
+    "elementsCount_one": "{{count}} elem",
+    "elementsCount_other": "{{count}} elem",
+    "countsHeader": "Items",
+    "createError": "Failed to create catalog",
+    "updateError": "Failed to update catalog",
+    "deleteError": "Failed to delete catalog",
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+      "hubRequired": "Please select a hub"
+    },
+    "tabs": {
+      "general": "General",
+      "hubs": "Hubs"
+    },
+    "addHub": "Add",
+    "removeHub": "Remove",
+    "selectHubs": "Select Hubs",
+    "noHubsSelected": "No hubs selected",
+    "requiredHubWarning": "At least one hub must be selected",
+    "noHubsAvailable": "No available hubs",
+    "addSelected": "Add",
+    "isRequiredHub": "Hub required",
+    "isRequiredHubEnabled": "Catalog must have at least one hub",
+    "isRequiredHubDisabled": "Catalog can exist without hubs",
+    "isSingleHub": "Single hub only",
+    "isSingleHubEnabled": "Catalog can only be in one hub",
+    "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
+    "isSingleHubWarning": "Cannot enable while multiple hubs are selected"
+  },
+  "attributes": {
+    "title": "Attributes",
+    "description": "Define the fields for this catalog",
+    "searchPlaceholder": "Search attributes...",
+    "empty": "No attributes yet",
+    "emptyDescription": "Add attributes to define the structure of your catalog data",
+    "limitReached": "Limit reached: maximum {{limit}} attributes per catalog. Remove an attribute to add a new one.",
+    "create": "Add Attribute",
+    "createDialog": {
+      "title": "Add Attribute"
+    },
+    "editDialog": {
+      "title": "Edit Attribute"
+    },
+    "actions": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "setRequired": "Mark as required",
+      "setOptional": "Mark as optional",
+      "setDisplayAttribute": "Set as display attribute",
+      "clearDisplayAttribute": "Clear display attribute"
+    },
+    "deleteDialog": {
+      "title": "Delete Attribute",
+      "message": "Are you sure you want to delete this attribute? All data in this field will be lost."
+    },
+    "table": {
+      "order": "#"
+    },
+    "codename": "Codename",
+    "codenameHelper": "Unique field identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "dataType": "Data Type",
+    "dataTypeOptions": {
+      "string": "String",
+      "number": "Number",
+      "boolean": "Boolean",
+      "date": "Date",
+      "ref": "Reference",
+      "json": "JSON"
+    },
+    "typeSettings": {
+      "title": "Type Settings",
+      "string": {
+        "maxLength": "Max Length",
+        "minLength": "Min Length",
+        "versioned": "Versioned (VLC)",
+        "localized": "Localized (VLC)",
+        "backendType": {
+          "jsonbVlc": "JSONB (VLC)",
+          "textUnlimited": "TEXT (unlimited)",
+          "varchar": "VARCHAR({{maxLength}})"
+        }
+      },
+      "number": {
+        "precision": "Length",
+        "scale": "Decimal places",
+        "min": "Min Value",
+        "max": "Max Value",
+        "nonNegative": "Non-negative only"
+      },
+      "date": {
+        "composition": "Date Composition",
+        "compositionOptions": {
+          "date": "Date only",
+          "time": "Time only",
+          "datetime": "Date and Time"
+        }
+      }
+    },
+    "physicalType": {
+      "label": "PostgreSQL type",
+      "tooltip": "PostgreSQL: {{type}}"
+    },
+    "edit": {
+      "typeChangeDisabled": "Data type cannot be changed after creation",
+      "settingsReadOnly": "Type settings cannot be modified after creation"
+    },
+    "isRequiredLabel": "Required",
+    "isDisplayAttributeLabel": "Display attribute",
+    "isDisplayAttributeHelper": "Use this attribute as representation when referencing elements of this catalog",
+    "isDisplayAttributeTooltip": "This attribute is the display representation for this catalog",
+    "required": "Required",
+    "nameEn": "Name (English)",
+    "nameRu": "Name (Russian)",
+    "descriptionEn": "Description (English)",
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+      "stringLengthRange": "Length: {{min}}–{{max}}",
+      "stringMinLength": "Min length: {{min}}",
+      "stringMaxLength": "Max length: {{max}}",
+      "numberRange": "Range: {{min}}–{{max}}",
+      "numberMin": "Min value: {{min}}",
+      "numberMax": "Max value: {{max}}",
+      "numberNonNegative": "Non-negative value",
+      "targetEntityKindRequired": "Target entity type is required for Reference",
+      "targetEntityIdRequired": "Target entity is required for Reference"
+    },
+    "createError": "Failed to create attribute",
+    "updateError": "Failed to update attribute",
+    "deleteError": "Failed to delete attribute",
+    "deleteDisplayAttributeBlocked": "Display attribute cannot be deleted. Set another attribute as display first.",
+    "moveSuccess": "Attribute order updated",
+    "moveError": "Failed to update attribute order",
+    "setRequiredSuccess": "Attribute marked as required",
+    "setOptionalSuccess": "Attribute marked as optional",
+    "toggleRequiredError": "Failed to update attribute",
+    "setDisplaySuccess": "Attribute set as display attribute",
+    "setDisplayError": "Failed to set display attribute",
+    "clearDisplaySuccess": "Display attribute flag cleared",
+    "clearDisplayError": "Failed to clear display attribute"
+  },
+  "ref": {
+    "targetEntityKind": "Target Entity Type",
+    "notSelected": "Not selected",
+    "targetCatalog": "Target Catalog",
+    "selectCatalog": "Select catalog...",
+    "selectElement": "Select element...",
+    "catalogRequired": "Please select a catalog",
+    "noCatalogsAvailable": "No catalogs available",
+    "noElementsAvailable": "No elements available",
+    "loadingElements": "Loading elements...",
+    "targetEntityMissing": "Target entity is not configured for this reference.",
+    "unknownElement": "Element {{id}}",
+    "entityKindNotSupported": "This entity type is not yet supported for references.",
+    "entityKind": {
+      "catalog": "Catalog",
+      "document": "Document",
+      "hub": "Hub"
+    }
+  },
+  "elements": {
+    "title": "Elements",
+    "description": "Data entries for this catalog",
+    "searchPlaceholder": "Search elements...",
+    "empty": "No elements yet",
+    "emptyDescription": "Add elements to store data in this catalog",
+    "addAttributesFirst": "Define attributes for this catalog before adding elements",
+    "noAttributes": "No attributes defined for this catalog. Add attributes first.",
+    "create": "Add Element",
+    "createDialog": {
+      "title": "Add Element"
+    },
+    "editDialog": {
+      "title": "Edit Element"
+    },
+    "deleteDialog": {
+      "title": "Delete Element",
+      "message": "Are you sure you want to delete this element? This action cannot be undone."
+    },
+    "table": {
+      "updated": "Updated"
+    },
+    "createError": "Failed to create element",
+    "updateError": "Failed to update element",
+    "deleteError": "Failed to delete element"
+  },
+  "members": {
+    "title": "Members",
+    "searchPlaceholder": "Search members...",
+    "noMembersFound": "No members found",
+    "inviteMember": "Invite Member",
+    "editRole": "Change Role",
+    "removeMember": "Remove Member",
+    "inviteSuccess": "Member successfully invited",
+    "inviteError": "Failed to invite member",
+    "updateSuccess": "Member role successfully updated",
+    "updateError": "Failed to update member role",
+    "removeSuccess": "Member successfully removed",
+    "removeError": "Failed to remove member",
+    "confirmRemove": "Remove Member?",
+    "confirmRemoveDescription": "Are you sure you want to remove {{email}} from this metahub?",
+    "table": {
+      "email": "Email",
+      "nickname": "Nickname",
+      "role": "Role",
+      "joinedAt": "Joined"
+    }
+  },
+  "publications": {
+    "title": "Publications",
+    "editTitle": "Edit Publication",
+    "description": "Runtime instances of this metahub configuration with real database tables",
+    "searchPlaceholder": "Search publications...",
+    "empty": "No publications yet",
+    "emptyDescription": "Create a publication to generate real database tables from your configuration",
+    "noResults": "No results",
+    "noResultsDescription": "Try changing your search query",
+    "singlePublicationLimit": "Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions of Universo Platformo.",
+    "create": {
+      "metahubLocked": "Metahub is pre-selected based on the current context. Connector constraints are temporarily locked.",
+      "metahubsTitle": "Metahubs",
+      "linkedMetahub": "Linked Metahub",
+      "selectMetahub": "Select metahub",
+      "noMetahubSelected": "Metahub not selected",
+      "noMetahubsAvailable": "No metahubs available",
+      "metahubNotFound": "Metahub not found",
+      "connectorConstraints": "Connector Constraints",
+      "isSingleMetahub": "Single Metahub only",
+      "isSingleMetahubLocked": "This setting is currently locked to \"On\"",
+      "isSingleMetahubHelp": "Connector can only be linked to one Metahub",
+      "isSingleMetahubEnabled": "Connector can only be linked to one Metahub",
+      "isSingleMetahubDisabled": "Connector can be linked to multiple Metahubs",
+      "isSingleMetahubWarning": "Cannot enable while multiple Metahubs are selected",
+      "isRequiredMetahub": "Metahub is required",
+      "isRequiredMetahubLocked": "This setting is currently locked to \"On\"",
+      "isRequiredMetahubHelp": "Connector must have at least one Metahub linked",
+      "isRequiredMetahubEnabled": "Connector must have at least one Metahub linked",
+      "isRequiredMetahubDisabled": "Connector can exist without linked Metahubs"
+    },
+    "createDialog": {
+      "title": "Create Publication",
+      "description": "A new PostgreSQL schema will be created with tables matching your metahub structure"
+    },
+    "tabs": {
+      "general": "General",
+      "versions": "Versions",
+      "metahubs": "Metahubs",
+      "access": "Access",
+      "applications": "Applications"
+    },
+    "access": {
+      "modeLabel": "Access Mode",
+      "modeFull": "Full Access",
+      "modeFullDescription": "All Metahub data is accessible through the Publication",
+      "modeRestricted": "Restricted Access",
+      "modeRestrictedDescription": "Access is controlled by configuration (coming soon)",
+      "configPlaceholder": "Restricted access configuration will be available in future versions."
+    },
+    "applications": {
+      "empty": "No linked applications",
+      "emptyHint": "Applications are linked to publications via connectors.",
+      "count": "Linked applications",
+      "noDescription": "No description"
+    },
+    "sync": "Sync Schema",
+    "syncDescription": "Update database schema to match current configuration",
+    "viewDiff": "View Changes",
+    "actions": {
+      "edit": "Edit",
+      "view": "View",
+      "sync": "Sync Schema",
+      "delete": "Delete"
+    },
+    "status": {
+      "draft": "Draft",
+      "pending": "Syncing...",
+      "synced": "Synced",
+      "outdated": "Outdated",
+      "error": "Error"
+    },
+    "statusDescription": {
+      "draft": "Schema not yet created",
+      "pending": "Schema synchronization in progress",
+      "synced": "Schema matches current configuration",
+      "outdated": "Configuration changed, sync required",
+      "error": "Schema sync failed"
+    },
+    "diffDialog": {
+      "title": "Schema Changes",
+      "noChanges": "No changes detected",
+      "additiveChanges": "Safe Changes (will be applied)",
+      "destructiveChanges": "Destructive Changes (require confirmation)",
+      "destructiveWarning": "These changes will delete data. Review carefully before confirming.",
+      "confirmSync": "Apply Changes",
+      "applySafeChanges": "Apply Safe Changes Only",
+      "confirmDestructive": "Apply Including Destructive"
+    },
+    "deleteDialog": {
+      "title": "Delete Publication",
+      "warning": "This will permanently delete the database schema and ALL DATA stored in it!",
+      "confirmMessage": "Type the schema name to confirm deletion:"
+    },
+    "messages": {
+      "createSuccess": "Publication created successfully",
+      "createError": "Failed to create publication",
+      "updateSuccess": "Publication updated",
+      "updateError": "Failed to update publication",
+      "syncSuccess": "Schema synchronized successfully",
+      "syncPending": "Destructive changes detected. Confirm to proceed.",
+      "syncError": "Schema synchronization failed",
+      "deleteSuccess": "Publication deleted",
+      "deleteError": "Failed to delete publication"
+    },
+    "table": {
+      "name": "Name",
+      "description": "Description",
+      "accessMode": "Access"
+    },
+    "accessMode": {
+      "full": "Full Access",
+      "restricted": "Restricted"
+    },
+    "versions": {
+      "title": "Versions",
+      "create": "Create Version",
+      "addButton": "Add",
+      "createSuccess": "Version created successfully",
+      "createFirstDescription": "When creating a publication, the first version will be created. Provide its name and description.",
+      "versionName": "Version name",
+      "versionDescription": "Version description",
+      "branchLabel": "Branch for version",
+      "branchHelper": "The version snapshot will be created from the selected branch.",
+      "branchMissing": "Deleted branch",
+      "duplicateWarning": "This version matches the previous snapshot",
+      "activate": "Activate",
+      "activateConfirm": "Are you sure you want to activate this version? It will be used for all future syncs.",
+      "activateSuccess": "Version activated successfully",
+      "active": "Active",
+      "edit": "Edit version",
+      "list": {
+        "version": "Version",
+        "date": "Date",
+        "status": "Status",
+        "hash": "Hash",
+        "actions": "Actions"
+      },
+      "empty": "No versions found. Create a snapshot to start versioning."
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "actions": "Actions",
+    "details": "Details",
+    "updated": "Updated"
+  },
+  "actions": {
+    "backToList": "Back to List"
+  },
+  "errors": {
+    "connectionFailed": "Connection Failed",
+    "checkConnection": "Please check your network connection and try again",
+    "pleaseTryLater": "Please try again later"
+  }
 }

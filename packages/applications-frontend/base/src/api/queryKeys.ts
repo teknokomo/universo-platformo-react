@@ -80,11 +80,12 @@ export const applicationsQueryKeys = {
     migrationAnalysis: (applicationId: string, migrationId: string) =>
         [...applicationsQueryKeys.migrations(applicationId), 'analysis', migrationId] as const,
 
-    runtimeTable: (applicationId: string, params?: { limit?: number; offset?: number; locale?: string }) => {
+    runtimeTable: (applicationId: string, params?: { limit?: number; offset?: number; locale?: string; catalogId?: string }) => {
         const normalized = {
             limit: params?.limit ?? 50,
             offset: params?.offset ?? 0,
-            locale: params?.locale ?? 'en'
+            locale: params?.locale ?? 'en',
+            catalogId: params?.catalogId ?? 'default'
         }
         return [...applicationsQueryKeys.detail(applicationId), 'runtime', normalized] as const
     }

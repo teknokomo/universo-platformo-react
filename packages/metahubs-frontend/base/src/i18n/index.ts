@@ -7,6 +7,7 @@ import ruMetahubs from './locales/ru/metahubs.json'
 interface MetahubsBundle {
     metahubs?: Record<string, unknown>
     layouts?: Record<string, unknown>
+    menus?: Record<string, unknown>
     meta_sections?: Record<string, unknown>
     meta_entities?: Record<string, unknown>
     members?: Record<string, unknown>
@@ -38,6 +39,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         },
         branches: bundle?.branches ?? {},
         layouts: bundle?.layouts ?? {},
+        menus: bundle?.menus ?? {},
         meta_sections: bundle?.meta_sections ?? {},
         meta_entities: bundle?.meta_entities ?? {},
         members: bundle?.members ?? {},
@@ -63,6 +65,7 @@ type LanguageCode = 'en' | 'ru'
 interface MetahubsTranslation {
     metahubs: Record<string, unknown>
     layouts?: Record<string, unknown>
+    menus?: Record<string, unknown>
     meta_sections?: Record<string, unknown>
     meta_entities?: Record<string, unknown>
     members?: Record<string, unknown>

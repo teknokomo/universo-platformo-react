@@ -75,13 +75,14 @@ export const copyApplication = (id: string, data: ApplicationCopyInput = {}) =>
 
 export const getApplicationRuntime = async (
     applicationId: string,
-    params?: { limit?: number; offset?: number; locale?: string }
+    params?: { limit?: number; offset?: number; locale?: string; catalogId?: string }
 ): Promise<ApplicationRuntimeResponse> => {
     const response = await apiClient.get<ApplicationRuntimeResponse>(`/applications/${applicationId}/runtime`, {
         params: {
             limit: params?.limit,
             offset: params?.offset,
-            locale: params?.locale
+            locale: params?.locale,
+            catalogId: params?.catalogId
         }
     })
     return response.data

@@ -75,6 +75,33 @@ const resolvePresentationName = (presentation: unknown, locale: string, fallback
     return first?.content ?? fallback
 }
 
+const resolveLocalizedContent = (value: unknown, locale: string, fallback: string): string => {
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed.length > 0 ? trimmed : fallback
+    }
+
+    if (value && typeof value === 'object') {
+        const normalizedLocale = normalizeLocale(locale)
+        const localized = getVLCString(value as Record<string, unknown>, normalizedLocale)
+        if (localized && localized.trim().length > 0) {
+            return localized
+        }
+
+        const plain = value as Record<string, unknown>
+        const direct = plain[normalizedLocale]
+        if (typeof direct === 'string' && direct.trim().length > 0) {
+            return direct
+        }
+        const en = plain.en
+        if (typeof en === 'string' && en.trim().length > 0) {
+            return en
+        }
+    }
+
+    return fallback
+}
+
 const resolveRuntimeValue = (value: unknown, dataType: 'BOOLEAN' | 'STRING' | 'NUMBER', locale: string): unknown => {
     if (value === null || value === undefined) {
         return null
@@ -222,7 +249,8 @@ export function createApplicationsRoutes(
     const runtimeQuerySchema = z.object({
         limit: z.coerce.number().int().min(1).max(200).default(50),
         offset: z.coerce.number().int().min(0).default(0),
-        locale: z.string().min(2).max(10).optional().default('en')
+        locale: z.string().min(2).max(10).optional().default('en'),
+        catalogId: z.string().uuid().optional()
     })
 
     // ============ LIST APPLICATIONS ============
@@ -411,6 +439,7 @@ export function createApplicationsRoutes(
 
             const { limit, offset, locale } = parsedQuery.data
             const requestedLocale = normalizeLocale(locale)
+            const requestedCatalogId = parsedQuery.data.catalogId ?? null
             const { applicationRepo } = repos(req)
             const application = await applicationRepo.findOne({ where: { id: applicationId } })
             if (!application) return res.status(404).json({ error: 'Application not found' })
@@ -441,21 +470,23 @@ export function createApplicationsRoutes(
             if (catalogs.length === 0) {
                 return res.status(404).json({ error: 'No catalogs available in application runtime schema' })
             }
-            if (catalogs.length > 1) {
-                return res.status(409).json({
-                    error: 'Multiple catalogs are not supported in runtime MVP',
-                    details: { catalogs: catalogs.length }
-                })
-            }
 
-            const catalog = catalogs[0] as {
+            const typedCatalogs = catalogs as Array<{
                 id: string
                 codename: string
                 table_name: string
                 presentation?: unknown
+            }>
+            const activeCatalog =
+                (requestedCatalogId ? typedCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
+                typedCatalogs[0]
+            if (!activeCatalog) {
+                return res
+                    .status(404)
+                    .json({ error: 'Requested catalog not found in runtime schema', details: { catalogId: requestedCatalogId } })
             }
 
-            if (!IDENTIFIER_REGEX.test(catalog.table_name)) {
+            if (!IDENTIFIER_REGEX.test(activeCatalog.table_name)) {
                 return res.status(400).json({ error: 'Invalid runtime table name' })
             }
 
@@ -469,7 +500,7 @@ export function createApplicationsRoutes(
                       AND COALESCE(_app_deleted, false) = false
                     ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
                 `,
-                [catalog.id]
+                [activeCatalog.id]
             )) as Array<{
                 id: string
                 codename: string
@@ -481,7 +512,7 @@ export function createApplicationsRoutes(
 
             const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
 
-            const dataTableIdent = `${schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
             const selectColumns = ['id', ...safeAttributes.map((attr) => quoteIdentifier(attr.column_name))]
 
             const [{ total }] = (await manager.query(
@@ -581,13 +612,145 @@ export function createApplicationsRoutes(
                 console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
             }
 
+            const catalogsForRuntime = typedCatalogs.map((catalogRow) => ({
+                id: catalogRow.id,
+                codename: catalogRow.codename,
+                tableName: catalogRow.table_name,
+                name: resolvePresentationName(catalogRow.presentation, requestedLocale, catalogRow.codename)
+            }))
+
+            // Zone widgets for runtime UI (left-zone sidebar composition).
+            let zoneWidgets: {
+                left: Array<{
+                    id: string
+                    widgetKey: string
+                    sortOrder: number
+                    config: Record<string, unknown>
+                }>
+            } = { left: [] }
+
+            try {
+                const [{ zoneWidgetsExists }] = (await manager.query(
+                    `
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM information_schema.tables
+                            WHERE table_schema = $1 AND table_name = '_app_layout_zone_widgets'
+                        ) AS "zoneWidgetsExists"
+                    `,
+                    [schemaName]
+                )) as Array<{ zoneWidgetsExists: boolean }>
+
+                if (zoneWidgetsExists) {
+                    // Get the default/active layout id
+                    const defaultLayoutRows = (await manager.query(
+                        `
+                            SELECT id
+                            FROM ${schemaIdent}._app_layouts
+                            WHERE (is_default = true OR is_active = true)
+                              AND COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                            ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
+                            LIMIT 1
+                        `
+                    )) as Array<{ id: string }>
+                    const activeLayoutId = defaultLayoutRows[0]?.id
+
+                    if (activeLayoutId) {
+                        const widgetRows = (await manager.query(
+                            `
+                                SELECT id, widget_key, sort_order, config
+                                FROM ${schemaIdent}._app_layout_zone_widgets
+                                WHERE layout_id = $1
+                                  AND zone = 'left'
+                                  AND COALESCE(_upl_deleted, false) = false
+                                  AND COALESCE(_app_deleted, false) = false
+                                ORDER BY sort_order ASC, _upl_created_at ASC
+                            `,
+                            [activeLayoutId]
+                        )) as Array<{
+                            id: string
+                            widget_key: string
+                            sort_order: number
+                            config: Record<string, unknown> | null
+                        }>
+
+                        zoneWidgets.left = widgetRows.map((row) => ({
+                            id: row.id,
+                            widgetKey: row.widget_key,
+                            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+                            config: row.config && typeof row.config === 'object' ? row.config : {}
+                        }))
+                    }
+                }
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[ApplicationsRuntime] Failed to load zone widgets (ignored)', e)
+            }
+
+            // Build menus from menuWidget config stored in zone widgets.
+            // Menu data is now embedded inside widget config (JSONB) rather than separate _app_menus/_app_menu_items tables.
+            let menus: Array<{
+                id: string
+                widgetId: string
+                showTitle: boolean
+                title: string
+                autoShowAllCatalogs: boolean
+                items: Array<{
+                    id: string
+                    kind: string
+                    title: string
+                    icon: string | null
+                    href: string | null
+                    catalogId: string | null
+                    sortOrder: number
+                    isActive: boolean
+                }>
+            }> = []
+            let activeMenuId: string | null = null
+
+            try {
+                for (const widget of zoneWidgets.left) {
+                    if (widget.widgetKey !== 'menuWidget') continue
+                    const cfg = widget.config as Record<string, unknown>
+                    const rawItems = Array.isArray(cfg.items) ? cfg.items : []
+                    const menuEntry = {
+                        id: widget.id,
+                        widgetId: widget.id,
+                        showTitle: Boolean(cfg.showTitle),
+                        title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
+                        autoShowAllCatalogs: Boolean(cfg.autoShowAllCatalogs),
+                        items: rawItems
+                            .filter((item: any) => item && Boolean(item.isActive !== false))
+                            .map((item: any) => ({
+                                id: String(item.id ?? ''),
+                                kind: String(item.kind ?? 'link'),
+                                title: resolveLocalizedContent(item.title, requestedLocale, String(item.kind ?? 'link')),
+                                icon: typeof item.icon === 'string' ? item.icon : null,
+                                href: typeof item.href === 'string' ? item.href : null,
+                                catalogId: typeof item.catalogId === 'string' ? item.catalogId : null,
+                                sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
+                                isActive: Boolean(item.isActive !== false)
+                            }))
+                            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+                    }
+                    menus.push(menuEntry)
+                }
+                activeMenuId = menus[0]?.id ?? null
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[ApplicationsRuntime] Failed to build menus from widget config (ignored)', e)
+            }
+
             return res.json({
                 catalog: {
-                    id: catalog.id,
-                    codename: catalog.codename,
-                    tableName: catalog.table_name,
-                    name: resolvePresentationName(catalog.presentation, requestedLocale, catalog.codename)
+                    id: activeCatalog.id,
+                    codename: activeCatalog.codename,
+                    tableName: activeCatalog.table_name,
+                    name: resolvePresentationName(activeCatalog.presentation, requestedLocale, activeCatalog.codename)
                 },
+                catalogs: catalogsForRuntime,
+                activeCatalogId: activeCatalog.id,
                 columns: safeAttributes.map((attribute) => ({
                     id: attribute.id,
                     codename: attribute.codename,
@@ -601,7 +764,10 @@ export function createApplicationsRoutes(
                     limit,
                     offset
                 },
-                layoutConfig
+                layoutConfig,
+                zoneWidgets,
+                menus,
+                activeMenuId
             })
         })
     )
@@ -609,7 +775,8 @@ export function createApplicationsRoutes(
     // ============ APPLICATION RUNTIME CELL UPDATE (BOOLEAN MVP) ============
     const runtimeUpdateBodySchema = z.object({
         field: z.string().min(1),
-        value: z.boolean().nullable()
+        value: z.boolean().nullable(),
+        catalogId: z.string().uuid().optional()
     })
 
     router.patch(
@@ -630,7 +797,7 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
             }
 
-            const { field, value } = parsedBody.data
+            const { field, value, catalogId: requestedCatalogId } = parsedBody.data
             if (!IDENTIFIER_REGEX.test(field)) {
                 return res.status(400).json({ error: 'Invalid field name' })
             }
@@ -661,11 +828,19 @@ export function createApplicationsRoutes(
                 `
             )
 
-            if (catalogs.length !== 1) {
-                return res.status(409).json({ error: 'Runtime update supports single catalog MVP only' })
+            if (catalogs.length === 0) {
+                return res.status(404).json({ error: 'No catalogs available in application runtime schema' })
             }
 
-            const catalog = catalogs[0] as { id: string; table_name: string }
+            const typedCatalogs = catalogs as Array<{ id: string; table_name: string }>
+            const catalog =
+                (requestedCatalogId ? typedCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
+                typedCatalogs[0]
+            if (!catalog) {
+                return res
+                    .status(404)
+                    .json({ error: 'Requested catalog not found in runtime schema', details: { catalogId: requestedCatalogId } })
+            }
             if (!IDENTIFIER_REGEX.test(catalog.table_name)) {
                 return res.status(400).json({ error: 'Invalid runtime table name' })
             }

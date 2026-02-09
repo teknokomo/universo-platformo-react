@@ -138,9 +138,7 @@ const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').th
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
 const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
 const MetahubLayouts = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayouts }))))
-const MetahubLayoutDetails = Loadable(
-    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails })))
-)
+const MetahubLayoutDetails = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails }))))
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)

@@ -195,11 +195,14 @@ export function ConnectorDiffDialog({
     const {
         data: diffData,
         isLoading: isDiffLoading,
+        isFetching: isDiffFetching,
         error: diffError,
         refetch: refetchDiff
     } = useApplicationDiff(applicationId, {
         enabled: open && Boolean(applicationId)
     })
+
+    const isDiffPending = isDiffLoading || isDiffFetching
 
     // Refetch diff when dialog opens
     useEffect(() => {
@@ -234,7 +237,7 @@ export function ConnectorDiffDialog({
                 )}
             </DialogTitle>
             <DialogContent dividers>
-                {isDiffLoading ? (
+                {isDiffPending ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                         <CircularProgress />
                     </Box>

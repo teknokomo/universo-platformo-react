@@ -53,7 +53,14 @@ export type { PaginationParams, PaginationMeta, PaginatedResponse } from './type
 export type { VersatileLocalizedContent, SimpleLocalizedInput } from './types'
 
 // Display converters
-export { toMetahubDisplay, toBranchDisplay, toHubDisplay, toCatalogDisplay, toAttributeDisplay, toHubElementDisplay } from './types'
+export {
+    toMetahubDisplay,
+    toBranchDisplay,
+    toHubDisplay,
+    toCatalogDisplay,
+    toAttributeDisplay,
+    toHubElementDisplay
+} from './types'
 
 // VLC utilities
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from './types'

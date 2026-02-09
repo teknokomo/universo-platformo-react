@@ -37,6 +37,8 @@ export type {
     ApplicationRuntimeResponse,
     ApplicationRuntimeCatalog,
     ApplicationRuntimeColumn,
+    ApplicationRuntimeMenu,
+    ApplicationRuntimeMenuItem,
     PaginationParams,
     PaginationMeta,
     PaginatedResponse

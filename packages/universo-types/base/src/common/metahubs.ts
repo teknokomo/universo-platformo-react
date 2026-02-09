@@ -216,16 +216,18 @@ export function formatPhysicalType(info: PhysicalTypeInfo): string {
     }
 }
 
-export const MetaEntityKind = {
+const _META_ENTITY_KIND_MAP = {
     CATALOG: 'catalog',
     HUB: 'hub',
     DOCUMENT: 'document',
 } as const
 
-export type MetaEntityKind = (typeof MetaEntityKind)[keyof typeof MetaEntityKind]
+export const MetaEntityKind = _META_ENTITY_KIND_MAP
+
+export type MetaEntityKind = (typeof _META_ENTITY_KIND_MAP)[keyof typeof _META_ENTITY_KIND_MAP]
 
 /** Array of valid MetaEntityKind values for Zod validation */
-export const META_ENTITY_KINDS = Object.values(MetaEntityKind) as [MetaEntityKind, ...MetaEntityKind[]]
+export const META_ENTITY_KINDS = Object.values(_META_ENTITY_KIND_MAP) as [MetaEntityKind, ...MetaEntityKind[]]
 
 export interface MetaPresentation {
     name: VersionedLocalizedContent<string>
@@ -255,3 +257,80 @@ export interface MetaEntityDefinition {
     presentation: MetaPresentation
     fields: MetaFieldDefinition[]
 }
+
+// ========= Dashboard layout zones/widgets (Metahubs + Runtime UI) =========
+
+export const DASHBOARD_LAYOUT_ZONES = ['left', 'top', 'right', 'bottom', 'center'] as const
+export type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
+
+export const DASHBOARD_LAYOUT_WIDGETS = [
+    // Left zone widgets (decomposed from former monolithic sideMenu)
+    { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: false },
+    { key: 'divider', allowedZones: ['left', 'top', 'bottom'] as const, multiInstance: true },
+    { key: 'menuWidget', allowedZones: ['left'] as const, multiInstance: true },
+    { key: 'spacer', allowedZones: ['left'] as const, multiInstance: true },
+    { key: 'infoCard', allowedZones: ['left'] as const, multiInstance: false },
+    { key: 'userProfile', allowedZones: ['left'] as const, multiInstance: false },
+    // Top zone widgets
+    { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'header', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'breadcrumbs', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'search', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'datePicker', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'optionsMenu', allowedZones: ['top'] as const, multiInstance: false },
+    // Center zone widgets
+    { key: 'overviewTitle', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'overviewCards', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'sessionsChart', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'pageViewsChart', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
+    // Right zone widgets
+    { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
+    // Bottom zone widgets
+    { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: false },
+] as const
+
+export type DashboardLayoutWidgetKey = (typeof DASHBOARD_LAYOUT_WIDGETS)[number]['key']
+
+export type DashboardLayoutWidgetDefinition = {
+    key: DashboardLayoutWidgetKey
+    allowedZones: readonly DashboardLayoutZone[]
+    multiInstance: boolean
+}
+
+/** Configuration for the menuWidget — embeds menu definition directly in widget config. */
+export interface MenuWidgetConfig {
+    showTitle: boolean
+    title: VersionedLocalizedContent<string>
+    /** When true, runtime automatically includes all catalogs as menu items. */
+    autoShowAllCatalogs: boolean
+    items: MenuWidgetConfigItem[]
+}
+
+/** A single menu item embedded in MenuWidgetConfig. */
+export interface MenuWidgetConfigItem {
+    /** Client-generated UUID for stable DnD identity. */
+    id: string
+    kind: MetahubMenuItemKind
+    title: VersionedLocalizedContent<string>
+    icon?: string | null
+    href?: string | null
+    catalogId?: string | null
+    sortOrder: number
+    isActive: boolean
+}
+
+export interface DashboardLayoutZoneWidget {
+    id: string
+    layoutId: string
+    zone: DashboardLayoutZone
+    widgetKey: DashboardLayoutWidgetKey
+    sortOrder: number
+    config: Record<string, unknown>
+}
+
+// ========= Menu item kinds (used by MenuWidgetConfig) =========
+
+export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'link'] as const
+export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
