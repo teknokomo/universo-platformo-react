@@ -28,7 +28,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { MenuWidgetConfig, MenuWidgetConfigItem, MetahubMenuItemKind, VersionedLocalizedContent } from '@universo/types'
 import { METAHUB_MENU_ITEM_KINDS } from '@universo/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
-import { createLocalizedContent, updateLocalizedContentLocale, isLocalizedContent, generateUuidV7, buildVLC as utilsBuildVLC, ensureVLC as utilsEnsureVLC } from '@universo/utils'
+import { createLocalizedContent, generateUuidV7, buildVLC as utilsBuildVLC, ensureVLC as utilsEnsureVLC } from '@universo/utils'
 
 import { metahubsQueryKeys } from '../../shared'
 import * as catalogsApi from '../../catalogs/api'

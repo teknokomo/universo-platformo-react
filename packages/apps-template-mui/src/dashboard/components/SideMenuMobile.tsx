@@ -20,9 +20,9 @@ interface SideMenuMobileProps {
 }
 
 export default function SideMenuMobile({ open, toggleDrawer, menu, menus }: SideMenuMobileProps) {
-    // Resolve effective menu for mobile: first from menus map, or fallback to legacy menu prop
-    const firstKey = menus ? Object.keys(menus)[0] : undefined
-    const effectiveMenu = (firstKey ? menus?.[firstKey] : undefined) ?? menu
+    // Resolve effective menu for mobile: first from menus map (sorted by widget ID for stability), or fallback to legacy menu prop
+    const firstEntry = menus ? Object.values(menus)[0] : undefined
+    const effectiveMenu = firstEntry ?? menu
     return (
         <Drawer
             anchor='right'

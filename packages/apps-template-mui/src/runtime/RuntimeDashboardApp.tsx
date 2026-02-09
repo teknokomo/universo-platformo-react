@@ -96,7 +96,6 @@ export default function RuntimeDashboardApp(props: RuntimeDashboardAppProps) {
         }
         return (
             runtime.menus.find((menu) => menu.id === runtime.activeMenuId) ??
-            runtime.menus.find((menu) => menu.isDefault) ??
             runtime.menus[0]
         )
     }, [runtime])
@@ -167,7 +166,7 @@ export default function RuntimeDashboardApp(props: RuntimeDashboardAppProps) {
             layoutConfig={layoutConfig}
             zoneWidgets={runtime?.zoneWidgets}
             menu={{
-                title: activeMenu?.showTitle ? activeMenu?.name ?? null : null,
+                title: activeMenu?.showTitle ? activeMenu?.title ?? null : null,
                 showTitle: Boolean(activeMenu?.showTitle),
                 items: dashboardMenuItems,
                 activeCatalogId: activeCatalogId ?? null,

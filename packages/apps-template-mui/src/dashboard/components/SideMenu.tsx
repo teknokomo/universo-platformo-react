@@ -44,11 +44,6 @@ function resolveMenuForWidget(
     if (menus?.[widget.id]) {
         return menus[widget.id]
     }
-    // Fallback: try first entry in menus map
-    if (menus) {
-        const firstKey = Object.keys(menus)[0]
-        if (firstKey) return menus[firstKey]
-    }
     return fallbackMenu
 }
 

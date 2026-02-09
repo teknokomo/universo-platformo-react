@@ -3,7 +3,6 @@ import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
 import { buildLocalizedContent } from '@universo/utils/vlc'
-import { DASHBOARD_LAYOUT_WIDGETS } from '@universo/types'
 import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 

@@ -74,23 +74,18 @@ export const runtimeResponseSchema = z.object({
         .array(
             z.object({
                 id: z.string(),
-                codename: z.string(),
-                name: z.string(),
-                description: z.string().nullable().optional(),
+                widgetId: z.string(),
                 showTitle: z.boolean().optional().default(true),
-                isDefault: z.boolean().optional().default(false),
-                isActive: z.boolean().optional().default(true),
-                sortOrder: z.number().optional().default(0),
+                title: z.string(),
+                autoShowAllCatalogs: z.boolean().optional().default(false),
                 items: z.array(
                     z.object({
                         id: z.string(),
-                        menuId: z.string(),
                         kind: z.enum(['catalog', 'catalogs_all', 'link']),
                         title: z.string(),
                         icon: z.string().nullable().optional(),
                         href: z.string().nullable().optional(),
                         catalogId: z.string().nullable().optional(),
-                        seqId: z.number().optional().default(0),
                         sortOrder: z.number().optional().default(0),
                         isActive: z.boolean().optional().default(true)
                     })

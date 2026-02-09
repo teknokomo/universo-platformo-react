@@ -1,6 +1,33 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Active: PR #668 Bot Review Fixes (2026-02-09)
+
+### BUG: Zod schema mismatch in runtime API response (Comments 3+4)
+- [ ] 1.1 Update runtimeResponseSchema menus to match backend: widgetId, title, autoShowAllCatalogs (remove required codename/name/isDefault)
+- [ ] 1.2 Update menu items schema: remove required menuId/seqId
+- [ ] 1.3 Fix RuntimeDashboardApp `activeMenu?.name` → `activeMenu?.title`
+- [ ] 1.4 Remove dead `menu.isDefault` fallback in RuntimeDashboardApp
+
+### Cleanup: Non-deterministic Object.keys fallback (Comments 1+2)
+- [ ] 2.1 SideMenu.tsx: Remove Object.keys(menus)[0] fallback, go straight to fallbackMenu
+- [ ] 2.2 SideMenuMobile.tsx: Use Object.values for deterministic ordering
+
+### Cleanup: Unused imports (Comments 5+8)
+- [ ] 3.1 MenuWidgetEditorDialog.tsx: Remove unused updateLocalizedContentLocale, isLocalizedContent
+- [ ] 3.2 MetahubSchemaService.ts: Remove unused DASHBOARD_LAYOUT_WIDGETS import
+
+### Cleanup: Unused initial value (Comment 9)
+- [ ] 4.1 LayoutDetails.tsx: Initialize targetIndex to 0
+
+### Validation
+- [ ] 5.1 pnpm build (targeted packages)
+- [ ] 5.2 Commit and push
+
+### NOT FIXING (with justification)
+- Comment 6 (layoutDefaults.ts `default-catalogs-all`): Deliberate readable seed ID for static default. UUID adds no value here.
+- Comment 7 (applicationsRoutes.ts tests): Valid recommendation but separate task scope, not a bug.
+
 ## Active: Layout Defaults + Menu Creation + Schema Diff (2026-02-09)
 
 - [ ] Add second left-zone divider in default layout seeds (layouts + schema services)

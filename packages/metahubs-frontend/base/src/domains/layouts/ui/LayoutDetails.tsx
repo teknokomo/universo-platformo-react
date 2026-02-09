@@ -239,7 +239,7 @@ export default function LayoutDetails() {
         if (!currentItem) return
 
         let targetZone = currentItem.zone
-        let targetIndex = zoneToItems[targetZone].length
+        let targetIndex = 0
 
         if (overId.startsWith('zone:')) {
             const zoneValue = overId.replace('zone:', '') as DashboardLayoutZone
