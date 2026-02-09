@@ -557,6 +557,51 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_layouts created`)
         }
 
+        const hasLayoutZoneWidgets = await knex.schema.withSchema(schemaName).hasTable('_app_layout_zone_widgets')
+        console.log(`[SchemaGenerator] _app_layout_zone_widgets exists: ${hasLayoutZoneWidgets}`)
+        if (!hasLayoutZoneWidgets) {
+            console.log(`[SchemaGenerator] Creating _app_layout_zone_widgets...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_layout_zone_widgets', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('layout_id').notNullable().references('id').inTable(`${schemaName}._app_layouts`).onDelete('CASCADE')
+                table.string('zone', 20).notNullable()
+                table.string('widget_key', 100).notNullable()
+                table.integer('sort_order').notNullable().defaultTo(1)
+                table.jsonb('config').notNullable().defaultTo('{}')
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['layout_id'], 'idx_app_layout_zone_widgets_layout_id')
+                table.index(['layout_id', 'zone', 'sort_order'], 'idx_app_layout_zone_widgets_layout_zone_sort')
+            })
+            console.log(`[SchemaGenerator] _app_layout_zone_widgets created`)
+        }
+
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
             await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {

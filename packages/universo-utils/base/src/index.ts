@@ -119,6 +119,9 @@ export { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled, isEmailCon
 // Error classes for common error handling patterns
 export { OptimisticLockError, type ConflictInfo, isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors'
 
+// UUID utilities
+export { generateUuidV7, isValidUuid } from './uuid'
+
 // Number validation utilities for precision/scale constraints
 export {
     validateNumber,

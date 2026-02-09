@@ -1,5 +1,13 @@
 import { apiClient } from '../../shared'
-import { MetahubLayout, MetahubLayoutLocalizedPayload, PaginationParams, PaginatedResponse } from '../../../types'
+import type {
+    DashboardLayoutWidgetCatalogItem,
+    MetahubLayout,
+    MetahubLayoutLocalizedPayload,
+    MetahubLayoutZoneWidget,
+    PaginationParams,
+    PaginatedResponse
+} from '../../../types'
+import type { DashboardLayoutWidgetKey, DashboardLayoutZone } from '@universo/types'
 
 /**
  * List layouts for a specific metahub
@@ -54,3 +62,46 @@ export const updateLayout = (metahubId: string, layoutId: string, data: Partial<
  * Delete a layout
  */
 export const deleteLayout = (metahubId: string, layoutId: string) => apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}`)
+
+export const getLayoutZoneWidgetsCatalog = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetCatalogItem[]> => {
+    const response = await apiClient.get<{ items: DashboardLayoutWidgetCatalogItem[] }>(
+        `/metahub/${metahubId}/layout/${layoutId}/zone-widgets/catalog`
+    )
+    return response.data.items ?? []
+}
+
+export const listLayoutZoneWidgets = async (metahubId: string, layoutId: string): Promise<MetahubLayoutZoneWidget[]> => {
+    const response = await apiClient.get<{ items: MetahubLayoutZoneWidget[] }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widgets`)
+    return response.data.items ?? []
+}
+
+export const assignLayoutZoneWidget = (
+    metahubId: string,
+    layoutId: string,
+    data: {
+        zone: DashboardLayoutZone
+        widgetKey: DashboardLayoutWidgetKey
+        sortOrder?: number
+        config?: Record<string, unknown>
+    }
+) => apiClient.put<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget`, data)
+
+export const moveLayoutZoneWidget = (
+    metahubId: string,
+    layoutId: string,
+    data: {
+        widgetId: string
+        targetZone?: DashboardLayoutZone
+        targetIndex?: number
+    }
+) => apiClient.patch<{ items: MetahubLayoutZoneWidget[] }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widgets/move`, data)
+
+export const removeLayoutZoneWidget = (metahubId: string, layoutId: string, widgetId: string) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}`)
+
+export const updateLayoutZoneWidgetConfig = (
+    metahubId: string,
+    layoutId: string,
+    widgetId: string,
+    config: Record<string, unknown>
+) => apiClient.patch<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`, { config })

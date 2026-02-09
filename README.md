@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.49.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.50.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 ## Basic Information
@@ -58,7 +58,7 @@ The project aims to create a unified platform for developing interactive 3D appl
 
 ## Current Status
 
-**Current Sprint**: 0.49.0-alpha (February 2026)
+**Current Sprint**: 0.50.0-alpha (February 2026)
 
 **Primary Focus**:
 

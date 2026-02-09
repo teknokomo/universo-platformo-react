@@ -1,6 +1,260 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Active: Layout Defaults + Menu Creation + Schema Diff (2026-02-09)
+
+- [ ] Add second left-zone divider in default layout seeds (layouts + schema services)
+- [ ] Reset new menu widget defaults (empty title, auto-show off, no items)
+- [ ] Prevent stale diff flash in connector schema sync dialog
+- [ ] Validation: pnpm build (full workspace)
+
+## QA Fixes: Menu Widget System (6 Issues) ✅ COMPLETED
+
+### Fix 1: Rewrite MenuWidgetEditorDialog with standard components
+- [x] 1.1 Replace raw TextField title fields with LocalizedInlineField (VLC format)
+- [x] 1.2 Replace raw TextField in ItemFormDialog with LocalizedInlineField for item title
+- [x] 1.3 Update menu title in config to use VLC format (VersionedLocalizedContent)
+
+### Fix 2: Default menu name "Главное"/"Main"
+- [x] 2.1 Update makeDefaultConfig() title to VLC format `{ en: 'Main', ru: 'Главное' }`
+- [x] 2.2 Update DEFAULT_DASHBOARD_ZONE_WIDGETS in MetahubLayoutsService.ts
+- [x] 2.3 Update DEFAULT_DASHBOARD_ZONE_MODULES in MetahubSchemaService.ts
+
+### Fix 3: Add Edit button to editable widget chips
+- [x] 3.1 Add EditRoundedIcon + Tooltip to SortableWidgetChip in LayoutDetails.tsx
+
+### Fix 4: Remove "Меню" legacy nav item
+- [x] 4.1 Confirmed clean in source — stale build artifact. Fresh build resolved it.
+
+### Fix 5: Runtime shows demo data instead of real catalogs
+- [x] 5.1 Remove mainListItems demo array from MenuContent.tsx
+- [x] 5.2 Show empty state when no runtime items
+
+### Fix 6: Menu title not showing in runtime
+- [x] 6.1 Verify title data flow (backend resolves VLC title → runtime passes to MenuContent)
+- [x] 6.2 Fix MenuContent to show title even when items come from menusMap
+
+### Validation
+- [x] 7.1 pnpm build (full) — 65/65 passed
+- [x] 7.2 Update memory-bank
+
+## QA Fixes: Metahub Menu Cleanup + Menu Editor UX
+
+### Remove legacy metahub menus nav
+- [x] 1.1 Drop "menus" item from metahub navigation config
+- [x] 1.2 Remove menu breadcrumbs + hooks in template-mui
+
+### Layout editor polish
+- [x] 2.1 Add delete tooltip to widget chip remove button
+
+### Menu editor dialog UX alignment
+- [x] 3.1 Switch MenuWidgetEditorDialog to EntityFormDialog (no close icon/dividers)
+- [x] 3.2 Use create/edit titles and standard "Name" label
+- [x] 3.3 Reorder "Show title" toggle below name field + adjust spacing
+
+### Validation
+- [x] 4.1 pnpm build (full)
+- [x] 4.2 Update memory-bank
+
+## QA Fixes: Menu Editor Alignment + Item Dialog
+
+### Main menu editor alignment
+- [x] 1.1 Align toggle controls to left edge and normalize spacing
+
+### Menu item dialog UX
+- [x] 2.1 Switch item dialog to EntityFormDialog
+- [x] 2.2 Reorder fields: Name first, then settings
+- [x] 2.3 Use normal field sizes (no size='small')
+- [x] 2.4 Add i18n for "Active" label
+
+### Validation
+- [x] 3.1 pnpm build (full)
+- [x] 3.2 Update memory-bank
+
+## QA Fixes: Publication Version Dialog
+
+### Align create/edit version dialog actions
+- [x] 1.1 Normalize DialogActions padding for version create/edit dialogs
+
+### Validation
+- [x] 2.1 pnpm build (full)
+- [x] 2.2 Update memory-bank
+
+## Move Menu Functionality Into Layout Widget System ✅ COMPLETED
+
+### Phase 1: Types & Definitions (@universo/types) ✅
+- [x] 1.1 Update MenuWidgetConfig with embedded items/title/showTitle/autoShowAllCatalogs
+- [x] 1.2 Remove MetahubMenuDefinition, MetahubMenuItemDefinition (move METAHUB_MENU_ITEM_KINDS into MenuWidgetConfig scope)
+- [x] 1.3 Build types package
+
+### Phase 2: Backend — Remove Menus Domain ✅
+- [x] 2.1 Delete domains/menus/ directory (service + routes)
+- [x] 2.2 Remove createMenusRoutes from router.ts and index.ts
+- [x] 2.3 Remove menus route registration from start-backend
+
+### Phase 3: Backend — MetahubSchemaService (DDL) ✅
+- [x] 3.1 Remove DDL for _mhb_menus / _mhb_menu_items tables
+- [x] 3.2 Remove default menu seed data
+- [x] 3.3 Update DEFAULT_DASHBOARD_ZONE_MODULES config for menuWidget
+
+### Phase 4: Backend — MetahubLayoutsService ✅
+- [x] 4.1 Update DEFAULT_DASHBOARD_ZONE_WIDGETS config for menuWidget
+- [x] 4.2 Add updateLayoutZoneWidgetConfig() method
+- [x] 4.3 Add PATCH route for widget config update
+
+### Phase 5: Backend — Publication Pipeline ✅
+- [x] 5.1 Remove menus reading from publicationsRoutes snapshot
+- [x] 5.2 Remove MetahubMenuSnapshot from SnapshotSerializer
+- [x] 5.3 Remove normalizeSnapshotMenus + persistPublishedMenus from applicationSyncRoutes
+- [x] 5.4 Remove _app_menus / _app_menu_items DDL from SchemaGenerator
+
+### Phase 6: Backend — Runtime API (applications-backend) ✅
+- [x] 6.1 Remove _app_menus/_app_menu_items reading, build menus from _app_layout_zone_widgets config
+
+### Phase 7: Frontend — Remove Menus Domain ✅
+- [x] 7.1 Delete domains/menus/ directory
+- [x] 7.2 Remove MetahubMenus / MetahubMenuDetails exports from index.ts
+- [x] 7.3 Remove menus query keys from shared/queryKeys.ts
+- [x] 7.4 Remove menus i18n keys, add layouts.menuEditor keys
+
+### Phase 8: Frontend — Navigation & Routes ✅
+- [x] 8.1 Remove "Menus" item from metahubDashboard.ts
+- [x] 8.2 Remove menus routes from MainRoutesMUI.tsx
+
+### Phase 9: Frontend — MenuWidgetEditorDialog in LayoutDetails ✅
+- [x] 9.1 Create MenuWidgetEditorDialog with DnD, item CRUD, config editing
+- [x] 9.2 Integrate into LayoutDetails (add/edit menuWidget opens editor)
+- [x] 9.3 Add MenuItemFormDialog for individual item editing
+- [x] 9.4 Add frontend API function for updateZoneWidgetConfig
+
+### Phase 10: Frontend — Runtime Updates ✅
+- [x] 10.1 Update SideMenu resolveMenuForWidget to use widget.id instead of menuCodename
+- [x] 10.2 Update ApplicationRuntime to build menusMap keyed by widgetId
+- [x] 10.3 Update ApplicationRuntimeMenu/MenuItem types (remove codename/isDefault, add widgetId/title)
+- [x] 10.4 Update DashboardMenusMap to be keyed by widget ID
+
+### Phase 11: Validation ✅
+- [x] 11.1 Full pnpm build (65/65)
+- [x] 11.2 Update memory-bank
+
+## COMPLETED (2026-02-08): Fix Menu Highlight Width + Remove demoMenu Widget
+
+### Task 1: Fix menu item highlight width
+- [x] 1.1 Restructure MenuContent.tsx: replace Stack wrappers with flat List layout matching DemoMenuContent
+- [x] 1.2 Remove explicit `component='button'` for catalog items (use MUI default)
+
+### Task 2: Remove demoMenu widget from system
+- [x] 2.1 Remove `demoMenu` from DASHBOARD_LAYOUT_WIDGETS in @universo/types
+- [x] 2.2 Remove `demoMenu` from DEFAULT_DASHBOARD_ZONE_WIDGETS in MetahubLayoutsService.ts
+- [x] 2.3 Remove `demoMenu` from DEFAULT_DASHBOARD_ZONE_MODULES in MetahubSchemaService.ts
+- [x] 2.4 Remove `demoMenu` case from SideMenu.tsx renderWidget() + remove import
+- [x] 2.5 Delete DemoMenuContent.tsx file
+- [x] 2.6 Remove `demoMenu` i18n labels from en/ru
+- [x] 2.7 Build validation — 65/65 successful
+
+## COMPLETED (2026-02-08): Fix QA Issues #1-3 (menuWidget runtime, menu picker UI, cascade delete)
+
+### Problem #1: menuWidget ignores config.menuCodename at runtime
+- [x] 1.1 Dashboard.tsx: Add `DashboardMenusMap` type + `menus` prop
+- [x] 1.2 SideMenu.tsx: Add `resolveMenuForWidget()` with 3-level fallback (codename → first in map → legacy prop)
+- [x] 1.3 SideMenuMobile.tsx: Add `menus` prop, resolve first/fallback menu for mobile
+- [x] 1.4 AppNavbar.tsx: Forward `menus` prop to SideMenuMobile
+- [x] 1.5 index.ts: Export `DashboardMenusMap` from package
+- [x] 1.6 ApplicationRuntime.tsx: Build `menusMap` from ALL runtime menus, pass `menus` + `menu` (backward compat)
+
+### Problem #2: No UI to select menu when adding menuWidget in DnD editor
+- [x] 2.1 LayoutDetails.tsx: Add menus query + MenuPickerDialog state
+- [x] 2.2 LayoutDetails.tsx: Intercept menuWidget in add-widget Menu → open picker dialog
+- [x] 2.3 LayoutDetails.tsx: Widget chip label shows menu name for menuWidget
+- [x] 2.4 i18n en/ru: `layouts.menuPicker.title/empty/defaultMenu` keys
+
+### Problem #3: Soft-delete layout doesn't cascade to zone widgets
+- [x] 3.1 MetahubLayoutsService.deleteLayout(): Transaction-wrapped cascade soft-delete of zone widgets
+- [x] 3.2 publicationsRoutes.ts: Snapshot filters zone widgets by active layout IDs
+
+### Validation
+- [x] Full build: pnpm build — 65/65 successful, 0 errors
+
+## COMPLETED (2026-02-08): Decompose sideMenu into Widgets + Rename module → widget
+
+### Phase 1: Types & Definitions (`@universo/types`)
+- [x] 1.1 Replace DASHBOARD_LAYOUT_MODULES with DASHBOARD_LAYOUT_WIDGETS (21 widgets, 7 new left-zone)
+- [x] 1.2 Add multiInstance flag to widget definitions
+- [x] 1.3 Add MenuWidgetConfig type for menuWidget config
+- [x] 1.4 Rename DashboardLayoutModuleKey → DashboardLayoutWidgetKey with deprecated aliases
+- [x] 1.5 Build verified
+
+### Phase 2: DB Schema (schema-ddl + metahubs-backend)
+- [x] 2.1 Rename _mhb_layout_zone_modules → _mhb_layout_zone_widgets (column module_key → widget_key)
+- [x] 2.2 Rename _app_layout_zone_modules → _app_layout_zone_widgets (column module_key → widget_key)
+- [x] 2.3 Remove unique indexes on both tables for multi-instance support
+
+### Phase 3: Backend — MetahubLayoutsService
+- [x] 3.1 Full rewrite: UUID-based CRUD, multi-instance logic, sync layoutConfig from zone widgets
+- [x] 3.2 Deprecated method aliases for backward compat
+
+### Phase 4: Backend — layoutsRoutes.ts
+- [x] 4.1 Routes: zone-modules → zone-widgets, zone-module → zone-widget, :moduleKey → :widgetId
+- [x] 4.2 Catalog returns multiInstance field
+
+### Phase 5: Publication & Sync pipeline
+- [x] 5.1 SnapshotSerializer: layoutZoneModules → layoutZoneWidgets
+- [x] 5.2 publicationsRoutes: reads _mhb_layout_zone_widgets
+- [x] 5.3 applicationSyncRoutes: all functions renamed, reads _app_layout_zone_widgets
+
+### Phase 6: Runtime API (applications-backend)
+- [x] 6.1 Added zoneWidgets reading from _app_layout_zone_widgets
+- [x] 6.2 Returns zoneWidgets: { left: [...] } in JSON response
+
+### Phase 7: Frontend — apps-template-mui
+- [x] 7.1 Dashboard.tsx: ZoneWidgetItem, ZoneWidgets interfaces, passes to SideMenu
+- [x] 7.2 SideMenu.tsx: widget-based rendering with renderWidget() + legacy fallback
+- [x] 7.3 Created DemoMenuContent.tsx
+- [x] 7.4 api.ts: zoneWidgets zod schema in runtime response
+- [x] 7.5 RuntimeDashboardApp.tsx: passes zoneWidgets
+- [x] 7.6 index.ts: exports new types
+
+### Phase 8: Frontend — applications-frontend
+- [x] 8.1 types.ts: added zoneWidgets to ApplicationRuntimeResponse
+- [x] 8.2 ApplicationRuntime.tsx: passes zoneWidgets to AppsDashboard
+
+### Phase 9: Frontend — metahubs-frontend (DnD editor)
+- [x] 9.1 types.ts: MetahubLayoutZoneWidget, DashboardLayoutWidgetCatalogItem + deprecated aliases
+- [x] 9.2 queryKeys.ts: layoutZoneWidgets, layoutZoneWidgetsCatalog
+- [x] 9.3 layouts.ts API: all methods renamed, URLs updated, widgetId-based move/remove
+- [x] 9.4 LayoutDetails.tsx: DnD by UUID, multi-instance filter, widgetKey throughout
+- [x] 9.5 i18n en/ru: widgets section with 21 widget labels
+
+### Phase 10: Validation & Build
+- [x] 10.1 Full build pnpm build — 65/65 successful, 0 errors
+- [x] 10.2 Updated memory-bank
+
+## COMPLETED (2026-02-08): Fix Runtime Menu Rendering in ApplicationRuntime
+
+- [x] Export `DashboardMenuSlot` and `DashboardMenuItem` types from `@universo/apps-template-mui` index.
+- [x] Add `ApplicationRuntimeMenu` and `ApplicationRuntimeMenuItem` interfaces to `@universo/applications-frontend` types.
+- [x] Extend `ApplicationRuntimeResponse` with `menus`, `activeMenuId`, `catalogs`, `activeCatalogId` fields.
+- [x] Add `catalogId` parameter to `runtimeTable` query key factory and `getApplicationRuntime` API function.
+- [x] Port menu rendering logic from standalone `RuntimeDashboardApp.tsx` to production `ApplicationRuntime.tsx` page.
+- [x] Export new types from `@universo/applications-frontend` public index.
+- [x] Run targeted builds (`apps-template-mui`, `applications-frontend`) and full workspace build (`pnpm build`, 65/65 tasks).
+- [x] Update memory-bank with implementation results.
+
+## COMPLETED (2026-02-07): Metahub Layout Zones + Menus + Runtime Integration
+
+- [x] Introduce shared contracts for layout zones/menu entities in `@universo/types` with UUID v7-safe identifiers.
+- [x] Extend metahub schema initialization with menu tables and layout zone module tables (indexes, sort order, safety constraints).
+- [x] Implement metahubs backend API for menus (CRUD + reorder + up/down actions) and layout zone module assignments with allowed-zone validation.
+- [x] Extend publication snapshot/hash/sync pipeline to include menus and layout zone assignments.
+- [x] Extend applications runtime API to provide menu payload and support multi-catalog navigation metadata.
+- [x] Add Metahubs frontend "Menus" domain (list/cards/table/forms/actions) reusing layout UX patterns and i18n-first strings.
+- [x] Upgrade layout details UI to zone-based module editor with drag-and-drop reordering and safe drop constraints.
+- [x] Add shell navigation route for "Menus" under "Layouts" in metahub context.
+- [x] Integrate runtime dashboard menu rendering in `apps-template-mui` replacing current demo left menu only (keep lower demo menu untouched).
+- [x] Run targeted lint/build/tests for touched packages and resolve newly introduced violations.
+- [x] Run full workspace build (`pnpm build`) after integration changes.
+- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) with implementation results.
+
 ## COMPLETED (2026-02-07): PR #666 Review Feedback Hardening
 
 - [x] Validate bot review comments from PR #666 against current code and classify actionable items.

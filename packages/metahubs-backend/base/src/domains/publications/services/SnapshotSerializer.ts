@@ -20,6 +20,10 @@ export interface MetahubSnapshot {
      */
     layouts?: MetahubLayoutSnapshot[]
     /**
+     * Zone/widget assignments for layouts.
+     */
+    layoutZoneWidgets?: MetahubLayoutZoneWidgetSnapshot[]
+    /**
      * Default layout id (must reference one of `layouts` when present).
      */
     defaultLayoutId?: string | null
@@ -42,6 +46,18 @@ export interface MetahubLayoutSnapshot {
     isActive: boolean
     sortOrder: number
 }
+
+export interface MetahubLayoutZoneWidgetSnapshot {
+    id: string
+    layoutId: string
+    zone: string
+    widgetKey: string
+    sortOrder: number
+    config: Record<string, unknown>
+}
+
+/** @deprecated Use MetahubLayoutZoneWidgetSnapshot instead. */
+export type MetahubLayoutZoneModuleSnapshot = MetahubLayoutZoneWidgetSnapshot
 
 export interface MetaEntitySnapshot extends EntityDefinition {
     fields: MetaFieldSnapshot[]
@@ -66,12 +82,16 @@ export class SnapshotSerializer {
         private readonly objectsService: MetahubObjectsService,
         private readonly attributesService: MetahubAttributesService,
         private readonly elementsService?: MetahubElementsService,
-        private readonly hubsService?: MetahubHubsService
-        // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
-    ) { }
+        private readonly hubsService?: MetahubHubsService // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
+    ) {}
 
     /**
-     * Serializes the entire Metahub metadata tree into a JSON snapshot
+     * Serializes the entire Metahub metadata tree into a JSON snapshot.
+     *
+     * **Important:** The snapshot returned here does NOT include layout data.
+     * Callers MUST also invoke `attachLayoutsToSnapshot()` (from publicationsRoutes)
+     * after this method to inject layout and zone-widget information into the
+     * snapshot before it is persisted or published.
      */
     async serializeMetahub(metahubId: string): Promise<MetahubSnapshot> {
         // Fetch catalogs from dynamic schema
@@ -83,9 +103,8 @@ export class SnapshotSerializer {
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
 
         const objectIds = catalogs.map((catalog) => catalog.id)
-        const allElements = this.elementsService && objectIds.length > 0
-            ? await this.elementsService.findAllByObjectIds(metahubId, objectIds)
-            : []
+        const allElements =
+            this.elementsService && objectIds.length > 0 ? await this.elementsService.findAllByObjectIds(metahubId, objectIds) : []
         const elementsMap = new Map<string, MetaElementSnapshot[]>()
 
         for (const element of allElements) {
@@ -140,7 +159,7 @@ export class SnapshotSerializer {
                     isSingleHub: catalog.config?.isSingleHub ?? false,
                     isRequiredHub: catalog.config?.isRequiredHub ?? false
                 },
-                fields: attributes.map(attr => {
+                fields: attributes.map((attr) => {
                     const resolvedTargetEntityId = attr.targetEntityId ?? attr.targetCatalogId ?? undefined
                     const resolvedTargetEntityKind: MetaEntityKind | undefined =
                         attr.targetEntityKind ?? (attr.targetCatalogId ? MetaEntityKind.CATALOG : undefined)
@@ -187,15 +206,15 @@ export class SnapshotSerializer {
 
         while (iteration < maxIterations) {
             const { items, total } = await this.hubsService.findAll(metahubId, { limit, offset })
-            
+
             // Detect duplicate items (service bug protection)
-            const newItems = items.filter(item => {
+            const newItems = items.filter((item) => {
                 const id = item.id as string
                 if (seenIds.has(id)) return false
                 seenIds.add(id)
                 return true
             })
-            
+
             if (newItems.length === 0) break // No new items, stop
             all.push(...newItems)
 
@@ -205,7 +224,7 @@ export class SnapshotSerializer {
             offset += items.length
             iteration++
         }
-        
+
         if (iteration >= maxIterations) {
             console.warn(`[SnapshotSerializer] Hit max iterations (${maxIterations}) fetching hubs for metahub ${metahubId}`)
         }
@@ -278,39 +297,57 @@ export class SnapshotSerializer {
 
         const elements = snapshot.elements
             ? Object.entries(snapshot.elements)
-                .map(([objectId, list]) => ({
-                    objectId,
-                    elements: list
-                        .map((element) => ({
-                            id: element.id,
-                            data: element.data ?? {},
-                            sortOrder: element.sortOrder ?? 0
-                        }))
-                        .sort((a, b) => {
-                            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                            return a.id.localeCompare(b.id)
-                        })
-                }))
-                .sort((a, b) => a.objectId.localeCompare(b.objectId))
+                  .map(([objectId, list]) => ({
+                      objectId,
+                      elements: list
+                          .map((element) => ({
+                              id: element.id,
+                              data: element.data ?? {},
+                              sortOrder: element.sortOrder ?? 0
+                          }))
+                          .sort((a, b) => {
+                              if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                              return a.id.localeCompare(b.id)
+                          })
+                  }))
+                  .sort((a, b) => a.objectId.localeCompare(b.objectId))
             : []
 
         const layouts = snapshot.layouts
             ? snapshot.layouts
-                .map((layout) => ({
-                    id: layout.id,
-                    templateKey: layout.templateKey,
-                    name: layout.name ?? {},
-                    description: layout.description ?? null,
-                    config: layout.config ?? {},
-                    isDefault: Boolean(layout.isDefault),
-                    isActive: Boolean(layout.isActive),
-                    sortOrder: layout.sortOrder ?? 0
-                }))
-                .sort((a, b) => {
-                    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-                    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1
-                    return a.id.localeCompare(b.id)
-                })
+                  .map((layout) => ({
+                      id: layout.id,
+                      templateKey: layout.templateKey,
+                      name: layout.name ?? {},
+                      description: layout.description ?? null,
+                      config: layout.config ?? {},
+                      isDefault: Boolean(layout.isDefault),
+                      isActive: Boolean(layout.isActive),
+                      sortOrder: layout.sortOrder ?? 0
+                  }))
+                  .sort((a, b) => {
+                      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1
+                      return a.id.localeCompare(b.id)
+                  })
+            : []
+
+        const layoutZoneWidgets = snapshot.layoutZoneWidgets
+            ? snapshot.layoutZoneWidgets
+                  .map((item) => ({
+                      id: item.id,
+                      layoutId: item.layoutId,
+                      zone: item.zone,
+                      widgetKey: item.widgetKey,
+                      sortOrder: item.sortOrder ?? 0,
+                      config: item.config ?? {}
+                  }))
+                  .sort((a, b) => {
+                      if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
+                      if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
+                      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                      return a.id.localeCompare(b.id)
+                  })
             : []
 
         return {
@@ -319,6 +356,7 @@ export class SnapshotSerializer {
             entities,
             elements,
             layouts,
+            layoutZoneWidgets,
             defaultLayoutId: snapshot.defaultLayoutId ?? null,
             layoutConfig: snapshot.layoutConfig ?? {}
         }

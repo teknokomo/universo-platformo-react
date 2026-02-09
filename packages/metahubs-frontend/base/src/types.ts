@@ -7,7 +7,15 @@
  * @packageDocumentation
  */
 
-import type { MetahubRole, GlobalRole, VersionedLocalizedContent, AttributeDataType, AttributeValidationRules, MetaEntityKind } from '@universo/types'
+import type {
+    MetahubRole,
+    GlobalRole,
+    VersionedLocalizedContent,
+    AttributeDataType,
+    MetaEntityKind,
+    DashboardLayoutZone,
+    DashboardLayoutWidgetKey
+} from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from '@universo/utils/vlc'
@@ -202,6 +210,29 @@ export interface MetahubLayoutLocalizedPayload {
     config?: Record<string, unknown>
     expectedVersion?: number
 }
+
+export interface MetahubLayoutZoneWidget {
+    id: string
+    layoutId: string
+    zone: DashboardLayoutZone
+    widgetKey: DashboardLayoutWidgetKey
+    sortOrder: number
+    config: Record<string, unknown>
+    createdAt?: string
+    updatedAt?: string
+}
+
+/** @deprecated Use MetahubLayoutZoneWidget instead. */
+export type MetahubLayoutZoneModule = MetahubLayoutZoneWidget
+
+export interface DashboardLayoutWidgetCatalogItem {
+    key: DashboardLayoutWidgetKey
+    allowedZones: DashboardLayoutZone[]
+    multiInstance: boolean
+}
+
+/** @deprecated Use DashboardLayoutWidgetCatalogItem instead. */
+export type DashboardLayoutModuleCatalogItem = DashboardLayoutWidgetCatalogItem
 
 // ============ PUBLICATION ENTITY ============
 

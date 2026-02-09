@@ -517,7 +517,7 @@ const LayoutList = () => {
             {error ? (
                 <EmptyListState
                     image={APIEmptySVG}
-                    imageAlt='Connection error'
+                    imageAlt={t('errors.connectionFailed', 'Connection error')}
                     title={t('errors.connectionFailed')}
                     description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
                     action={{ label: t('actions.retry'), onClick: () => paginationResult.actions.goToPage(1) }}
@@ -553,7 +553,7 @@ const LayoutList = () => {
                     ) : !isLoading && layouts.length === 0 ? (
                         <EmptyListState
                             image={APIEmptySVG}
-                            imageAlt='No layouts'
+                            imageAlt={t('layouts.empty', 'No layouts')}
                             title={t('layouts.empty', 'No layouts')}
                             description={t('layouts.emptyDescription', 'Create a layout to configure published applications UI')}
                         />

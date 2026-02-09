@@ -468,3 +468,4 @@ export const truncateConnectorName = createTruncateFunction(30)
 
 /** Truncate layout name with ellipsis (default: 30 chars) */
 export const truncateLayoutName = createTruncateFunction(30)
+

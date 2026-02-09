@@ -29,8 +29,8 @@ let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 export async function initializeRateLimiters(): Promise<void> {
     rateLimiters = await createRateLimiters({
         keyPrefix: 'metahubs-backend',
-        maxRead: 600,   // Increased from 100 for normal workflow
-        maxWrite: 240   // Increased from 60 for active editing
+        maxRead: 600, // Increased from 100 for normal workflow
+        maxWrite: 240 // Increased from 60 for active editing
     })
     console.info('[Metahubs] Rate limiters initialized (read: 600/15min, write: 240/15min)')
 }

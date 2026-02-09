@@ -29,9 +29,7 @@ const resolveUserId = (req: Request): string | undefined => {
 }
 
 // Validation Schemas
-const localizedInputSchema = z
-    .union([z.string(), z.record(z.string())])
-    .transform((val) => (typeof val === 'string' ? { en: val } : val))
+const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 
 const createPublicationSchema = z.object({
     name: localizedInputSchema.optional(),
@@ -59,6 +57,12 @@ const syncSchema = z.object({
     confirmDestructive: z.boolean().optional().default(false)
 })
 
+/**
+ * Injects layout + zone-widget data into an existing MetahubSnapshot **in place**.
+ * Must be called after `serializeMetahub()` to produce a complete snapshot.
+ *
+ * @see SnapshotSerializer.serializeMetahub — produces the base snapshot without layouts.
+ */
 const attachLayoutsToSnapshot = async (options: {
     schemaService: MetahubSchemaService
     snapshot: MetahubSnapshot
@@ -67,16 +71,19 @@ const attachLayoutsToSnapshot = async (options: {
 }): Promise<void> => {
     const { schemaService, snapshot, metahubId, userId } = options
 
-    // Attach metahub UI layouts to the snapshot (if present).
-    // This keeps runtime UI configuration versioned via publication_versions.snapshot_json.
     try {
+        const knex = KnexClient.getInstance()
         const branchSchemaName = await schemaService.ensureSchema(metahubId, userId)
-        const layoutRows = await KnexClient.getInstance()
+
+        const layoutRows = await knex
             .withSchema(branchSchemaName)
             .from('_mhb_layouts')
             .where({ _upl_deleted: false, _mhb_deleted: false })
             .select(['id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
-            .orderBy([{ column: 'sort_order', order: 'asc' }, { column: '_upl_created_at', order: 'asc' }])
+            .orderBy([
+                { column: 'sort_order', order: 'asc' },
+                { column: '_upl_created_at', order: 'asc' }
+            ])
 
         const layouts = (layoutRows ?? []).map((r: any) => ({
             id: String(r.id),
@@ -89,17 +96,50 @@ const attachLayoutsToSnapshot = async (options: {
             sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0
         }))
 
-        const activeLayouts = layouts.filter((l) => l.isActive)
-        const defaultLayout = activeLayouts.find((l) => l.isDefault) ?? activeLayouts[0] ?? null
+        const activeLayouts = layouts.filter((layout) => layout.isActive)
+        const defaultLayout = activeLayouts.find((layout) => layout.isDefault) ?? activeLayouts[0] ?? null
 
         snapshot.layouts = activeLayouts
         snapshot.defaultLayoutId = defaultLayout?.id ?? null
         snapshot.layoutConfig = defaultLayout?.config ?? {}
+
+        const hasLayoutZoneWidgets = await knex.schema.withSchema(branchSchemaName).hasTable('_mhb_layout_zone_widgets')
+        if (hasLayoutZoneWidgets) {
+            // Collect active (non-deleted) layout IDs to exclude orphan widgets
+            const activeLayoutIds = (snapshot.layouts ?? []).map((l) => l.id)
+
+            const zoneRows = await knex
+                .withSchema(branchSchemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ _upl_deleted: false, _mhb_deleted: false })
+                .modify((qb) => {
+                    if (activeLayoutIds.length > 0) {
+                        qb.whereIn('layout_id', activeLayoutIds)
+                    }
+                })
+                .select(['id', 'layout_id', 'zone', 'widget_key', 'sort_order', 'config'])
+                .orderBy([
+                    { column: 'layout_id', order: 'asc' },
+                    { column: 'zone', order: 'asc' },
+                    { column: 'sort_order', order: 'asc' },
+                    { column: '_upl_created_at', order: 'asc' }
+                ])
+
+            snapshot.layoutZoneWidgets = (zoneRows ?? []).map((row: any) => ({
+                id: String(row.id),
+                layoutId: String(row.layout_id),
+                zone: String(row.zone),
+                widgetKey: String(row.widget_key),
+                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+                config: row.config && typeof row.config === 'object' ? row.config : {}
+            }))
+        } else {
+            snapshot.layoutZoneWidgets = []
+        }
     } catch (e) {
-        // Backward compatibility: older branch schemas may not have _mhb_layouts yet.
-        // eslint-disable-next-line no-console
         console.warn('[Publications] Failed to load metahub layout config (ignored)', e)
         snapshot.layouts = []
+        snapshot.layoutZoneWidgets = []
         snapshot.defaultLayoutId = null
         snapshot.layoutConfig = {}
     }
@@ -116,9 +156,9 @@ export function createPublicationsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     // Helper to get repositories and services
     const repos = (req: Request) => {
@@ -155,7 +195,8 @@ export function createPublicationsRoutes(
             const offset = Math.max(parseInt(req.query.offset as string) || 0, 0)
 
             const manager = getRequestManager(req, ds)
-            const publications = await manager.query(`
+            const publications = await manager.query(
+                `
                 SELECT
                     p.id,
                     p.schema_name as "codename",
@@ -173,7 +214,9 @@ export function createPublicationsRoutes(
                 WHERE mu.user_id = $1
                 ORDER BY p._upl_created_at DESC
                 LIMIT $2 OFFSET $3
-            `, [userId, limit, offset])
+            `,
+                [userId, limit, offset]
+            )
 
             const items = publications.map((pub: any) => ({
                 id: pub.id,
@@ -190,13 +233,16 @@ export function createPublicationsRoutes(
                 }
             }))
 
-            const countResult = await manager.query(`
+            const countResult = await manager.query(
+                `
                 SELECT COUNT(*) as total
                 FROM metahubs.publications p
                 JOIN metahubs.metahubs m ON m.id = p.metahub_id
                 JOIN metahubs.metahubs_users mu ON mu.metahub_id = m.id
                 WHERE mu.user_id = $1
-            `, [userId])
+            `,
+                [userId]
+            )
 
             return res.json({
                 items,
@@ -269,8 +315,15 @@ export function createPublicationsRoutes(
             }
 
             const {
-                name, description, namePrimaryLocale, descriptionPrimaryLocale, autoCreateApplication,
-                versionName, versionDescription, versionNamePrimaryLocale, versionDescriptionPrimaryLocale,
+                name,
+                description,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                autoCreateApplication,
+                versionName,
+                versionDescription,
+                versionNamePrimaryLocale,
+                versionDescriptionPrimaryLocale,
                 versionBranchId
             } = parsed.data
 
@@ -285,7 +338,8 @@ export function createPublicationsRoutes(
             if (existingPublicationsCount > 0) {
                 return res.status(400).json({
                     error: 'Single publication limit reached',
-                    message: 'Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions.'
+                    message:
+                        'Currently, only one Publication per Metahub is supported. This restriction will be removed in future versions.'
                 })
             }
 
@@ -401,14 +455,16 @@ export function createPublicationsRoutes(
                 // Use provided version data or defaults
                 const defaultVersionName = { en: 'Initial Version', ru: 'Начальная версия' }
 
-                firstVersion.name = versionName && Object.keys(versionName).length > 0
-                    ? buildLocalizedContent(sanitizeLocalizedInput(versionName), versionNamePrimaryLocale || 'en')!
-                    : buildLocalizedContent(defaultVersionName, 'en')!
+                firstVersion.name =
+                    versionName && Object.keys(versionName).length > 0
+                        ? buildLocalizedContent(sanitizeLocalizedInput(versionName), versionNamePrimaryLocale || 'en')!
+                        : buildLocalizedContent(defaultVersionName, 'en')!
 
                 // Description is optional - only set if provided
-                firstVersion.description = versionDescription && Object.keys(versionDescription).length > 0
-                    ? buildLocalizedContent(sanitizeLocalizedInput(versionDescription), versionDescriptionPrimaryLocale || 'en')!
-                    : null
+                firstVersion.description =
+                    versionDescription && Object.keys(versionDescription).length > 0
+                        ? buildLocalizedContent(sanitizeLocalizedInput(versionDescription), versionDescriptionPrimaryLocale || 'en')!
+                        : null
 
                 firstVersion.isActive = true
                 firstVersion.snapshotJson = snapshot as unknown as Record<string, unknown>
@@ -796,7 +852,7 @@ export function createPublicationsRoutes(
                     }
 
                     // Generate snapshot
-                    // Use SnapshotSerializer which now handles new services logic wrapper if handy, 
+                    // Use SnapshotSerializer which now handles new services logic wrapper if handy,
                     // OR use generic generator snapshot.
                     // But SnapshotSerializer includes Hubs info which DDL generator might miss (DDL generator is generic).
                     // Let's use SnapshotSerializer to be safe and consistent with logic.
@@ -852,13 +908,10 @@ export function createPublicationsRoutes(
                     })
                 }
 
-                const migrationResult = await migrator.applyAllChanges(
-                    publication.schemaName!,
-                    diff,
-                    catalogDefs,
-                    confirmDestructive,
-                    { recordMigration: true, migrationDescription: 'schema_sync' }
-                )
+                const migrationResult = await migrator.applyAllChanges(publication.schemaName!, diff, catalogDefs, confirmDestructive, {
+                    recordMigration: true,
+                    migrationDescription: 'schema_sync'
+                })
 
                 if (!migrationResult.success) {
                     publication.schemaStatus = PublicationSchemaStatus.ERROR
@@ -903,7 +956,7 @@ export function createPublicationsRoutes(
             })
 
             // Map internal field names to API response format
-            const mappedVersions = versions.map(v => ({
+            const mappedVersions = versions.map((v) => ({
                 id: v.id,
                 versionNumber: v.versionNumber,
                 name: v.name,
@@ -985,9 +1038,10 @@ export function createPublicationsRoutes(
                 version.publicationId = publicationId
                 version.versionNumber = nextVersionNumber
                 version.name = buildLocalizedContent(sanitizeLocalizedInput(name), namePrimaryLocale || 'en')!
-                version.description = description && Object.keys(description).length > 0
-                    ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')!
-                    : null
+                version.description =
+                    description && Object.keys(description).length > 0
+                        ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')!
+                        : null
                 version.snapshotJson = snapshot as unknown as Record<string, unknown>
                 version.snapshotHash = snapshotHash
                 version.branchId = effectiveBranchId
@@ -1066,9 +1120,10 @@ export function createPublicationsRoutes(
             }
 
             if (description !== undefined) {
-                version.description = description && Object.keys(description).length > 0
-                    ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')!
-                    : null
+                version.description =
+                    description && Object.keys(description).length > 0
+                        ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')!
+                        : null
             }
 
             await versionRepo.save(version)

@@ -33,7 +33,7 @@ export {
     generateSchemaName,
     generateTableName,
     generateColumnName,
-    buildCatalogDefinitions,
+    buildCatalogDefinitions
 } from './domains/ddl'
 export type {
     EntityDefinition,
@@ -46,5 +46,5 @@ export type {
     MigrationChangeRecord,
     RollbackAnalysis,
     SchemaDiff,
-    SchemaChange,
+    SchemaChange
 } from './domains/ddl'

@@ -90,6 +90,10 @@ export const metahubsQueryKeys = {
     },
 
     layoutDetail: (metahubId: string, layoutId: string) => [...metahubsQueryKeys.layouts(metahubId), 'detail', layoutId] as const,
+    layoutZoneWidgets: (metahubId: string, layoutId: string) =>
+        [...metahubsQueryKeys.layoutDetail(metahubId, layoutId), 'zoneWidgets'] as const,
+    layoutZoneWidgetsCatalog: (metahubId: string, layoutId: string) =>
+        [...metahubsQueryKeys.layoutDetail(metahubId, layoutId), 'zoneWidgetsCatalog'] as const,
 
     // Blocking catalogs for hub deletion (catalogs with isRequiredHub=true that would become orphaned)
     blockingCatalogs: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'blockingCatalogs'] as const,

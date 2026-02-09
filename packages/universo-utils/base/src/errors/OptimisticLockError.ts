@@ -5,7 +5,19 @@ export interface ConflictInfo {
     /** ID of the entity that was modified */
     entityId: string
     /** Type of entity */
-    entityType: 'metahub' | 'branch' | 'publication' | 'hub' | 'catalog' | 'attribute' | 'element' | 'layout' | 'application' | 'connector'
+    entityType:
+        | 'metahub'
+        | 'branch'
+        | 'publication'
+        | 'hub'
+        | 'catalog'
+        | 'attribute'
+        | 'element'
+        | 'layout'
+        | 'menu'
+        | 'menu_item'
+        | 'application'
+        | 'connector'
     /** Version the client expected */
     expectedVersion: number
     /** Actual current version in the database */
@@ -54,9 +66,7 @@ export class OptimisticLockError extends Error {
     /**
      * Create an OptimisticLockError from an API response.
      */
-    static fromResponse(response: {
-        conflict: ConflictInfo
-    }): OptimisticLockError {
+    static fromResponse(response: { conflict: ConflictInfo }): OptimisticLockError {
         return new OptimisticLockError({
             ...response.conflict,
             updatedAt: new Date(response.conflict.updatedAt)

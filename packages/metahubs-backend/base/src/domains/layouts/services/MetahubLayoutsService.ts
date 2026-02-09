@@ -1,8 +1,16 @@
 import { z } from 'zod'
-import type { VersionedLocalizedContent } from '@universo/types'
+import {
+    DASHBOARD_LAYOUT_WIDGETS,
+    DASHBOARD_LAYOUT_ZONES,
+    type DashboardLayoutWidgetKey,
+    type DashboardLayoutZone,
+    type VersionedLocalizedContent
+} from '@universo/types'
+import { escapeLikeWildcards } from '@universo/utils'
 import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig, type DefaultZoneWidget } from '../../shared'
 
 export type LayoutTemplateKey = 'dashboard'
 
@@ -20,6 +28,17 @@ export interface MetahubLayoutRow {
     updatedAt: string
 }
 
+export interface DashboardLayoutZoneWidgetRow {
+    id: string
+    layoutId: string
+    zone: DashboardLayoutZone
+    widgetKey: DashboardLayoutWidgetKey
+    sortOrder: number
+    config: Record<string, unknown>
+    createdAt: string
+    updatedAt: string
+}
+
 export interface LayoutListOptions {
     limit?: number
     offset?: number
@@ -30,6 +49,18 @@ export interface LayoutListOptions {
 }
 
 const layoutTemplateKeySchema = z.literal('dashboard')
+const layoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
+const layoutWidgetKeySchema = z.enum(
+    DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
+)
+
+const allowedZonesMap = new Map<DashboardLayoutWidgetKey, readonly DashboardLayoutZone[]>(
+    DASHBOARD_LAYOUT_WIDGETS.map((w) => [w.key, w.allowedZones])
+)
+
+const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(
+    DASHBOARD_LAYOUT_WIDGETS.filter((w) => w.multiInstance).map((w) => w.key)
+)
 
 export const createLayoutSchema = z.object({
     templateKey: layoutTemplateKeySchema.default('dashboard'),
@@ -39,7 +70,8 @@ export const createLayoutSchema = z.object({
     descriptionPrimaryLocale: z.string().optional(),
     isActive: z.boolean().optional(),
     isDefault: z.boolean().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    config: z.record(z.unknown()).optional()
 })
 
 export const updateLayoutSchema = z.object({
@@ -53,6 +85,23 @@ export const updateLayoutSchema = z.object({
     sortOrder: z.number().int().optional(),
     config: z.record(z.unknown()).optional(),
     expectedVersion: z.number().int().positive().optional()
+})
+
+export const assignLayoutZoneWidgetSchema = z.object({
+    zone: layoutZoneSchema,
+    widgetKey: layoutWidgetKeySchema,
+    sortOrder: z.number().int().positive().optional(),
+    config: z.record(z.unknown()).optional()
+})
+
+export const moveLayoutZoneWidgetSchema = z.object({
+    widgetId: z.string().uuid(),
+    targetZone: layoutZoneSchema.optional(),
+    targetIndex: z.number().int().min(0).optional()
+})
+
+export const updateLayoutZoneWidgetConfigSchema = z.object({
+    config: z.record(z.unknown())
 })
 
 export class MetahubLayoutsService {
@@ -78,6 +127,121 @@ export class MetahubLayoutsService {
         }
     }
 
+    private mapZoneWidgetRow(row: any): DashboardLayoutZoneWidgetRow {
+        return {
+            id: String(row.id),
+            layoutId: String(row.layout_id),
+            zone: String(row.zone) as DashboardLayoutZone,
+            widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
+            config: (row.config as Record<string, unknown>) ?? {},
+            createdAt: String(row._upl_created_at),
+            updatedAt: String(row._upl_updated_at)
+        }
+    }
+
+    private assertWidgetAllowedInZone(widgetKey: DashboardLayoutWidgetKey, zone: DashboardLayoutZone): void {
+        const allowedZones = allowedZonesMap.get(widgetKey)
+        if (!allowedZones || !allowedZones.includes(zone)) {
+            throw new Error(`Widget "${widgetKey}" is not allowed in zone "${zone}"`)
+        }
+    }
+
+    private async normalizeZoneSortOrders(
+        trx: any,
+        schemaName: string,
+        layoutId: string,
+        zone: DashboardLayoutZone,
+        userId?: string | null
+    ): Promise<void> {
+        const rows = await trx
+            .withSchema(schemaName)
+            .from('_mhb_layout_zone_widgets')
+            .where({ layout_id: layoutId, zone, _upl_deleted: false, _mhb_deleted: false })
+            .orderBy([
+                { column: 'sort_order', order: 'asc' },
+                { column: '_upl_created_at', order: 'asc' }
+            ])
+            .select(['id', 'sort_order'])
+
+        for (let i = 0; i < rows.length; i += 1) {
+            const nextOrder = i + 1
+            if (rows[i].sort_order === nextOrder) continue
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: rows[i].id })
+                .update({
+                    sort_order: nextOrder,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+        }
+    }
+
+    private async syncLayoutConfigFromZoneWidgets(trx: any, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
+        const widgets = await trx
+            .withSchema(schemaName)
+            .from('_mhb_layout_zone_widgets')
+            .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+            .select(['widget_key', 'zone'])
+
+        const nextConfig = buildDashboardLayoutConfig(
+            widgets.map((row: any) => ({ widgetKey: row.widget_key as DashboardLayoutWidgetKey, zone: row.zone as DashboardLayoutZone }))
+        )
+
+        await trx
+            .withSchema(schemaName)
+            .from('_mhb_layouts')
+            .where({ id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+            .update({
+                config: nextConfig,
+                _upl_updated_at: new Date(),
+                _upl_updated_by: userId ?? null,
+                _upl_version: trx.raw('_upl_version + 1')
+            })
+    }
+
+    private async ensureDefaultZoneWidgets(trx: any, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
+        const countRow = (await trx
+            .withSchema(schemaName)
+            .from('_mhb_layout_zone_widgets')
+            .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+            .count('* as count')
+            .first()) as { count?: string | number } | undefined
+        const count = countRow ? Number(countRow.count) : 0
+        if (Number.isFinite(count) && count > 0) {
+            return
+        }
+
+        const now = new Date()
+        await trx
+            .withSchema(schemaName)
+            .into('_mhb_layout_zone_widgets')
+            .insert(
+                DEFAULT_DASHBOARD_ZONE_WIDGETS.map((item) => ({
+                    layout_id: layoutId,
+                    zone: item.zone,
+                    widget_key: item.widgetKey,
+                    sort_order: item.sortOrder,
+                    config: item.config ?? {},
+                    _upl_created_at: now,
+                    _upl_created_by: userId ?? null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                }))
+            )
+        await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId)
+    }
+
     async listLayouts(metahubId: string, options: LayoutListOptions, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const { limit = 20, offset = 0, sortBy = 'updated', sortOrder = 'desc', search, includeDeleted = false } = options
@@ -90,9 +254,10 @@ export class MetahubLayoutsService {
                     qb.where({ _upl_deleted: false, _mhb_deleted: false })
                 }
                 if (search) {
+                    const escaped = escapeLikeWildcards(search)
                     qb.andWhereRaw(`(COALESCE(name::text, '') ILIKE ? OR COALESCE(description::text, '') ILIKE ?)`, [
-                        `%${search}%`,
-                        `%${search}%`
+                        `%${escaped}%`,
+                        `%${escaped}%`
                     ])
                 }
             })
@@ -163,7 +328,7 @@ export class MetahubLayoutsService {
                     template_key: input.templateKey ?? 'dashboard',
                     name: input.name,
                     description: input.description ?? null,
-                    config: {},
+                    config: input.config ?? buildDashboardLayoutConfig(DEFAULT_DASHBOARD_ZONE_WIDGETS),
                     is_active: isActive,
                     is_default: isDefault,
                     sort_order: input.sortOrder ?? 0,
@@ -182,6 +347,7 @@ export class MetahubLayoutsService {
                 })
                 .returning('*')
 
+            await this.ensureDefaultZoneWidgets(trx, schemaName, created.id, userId ?? null)
             return this.mapRow(created)
         })
     }
@@ -195,52 +361,53 @@ export class MetahubLayoutsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const now = new Date()
 
-        const existing = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_layouts')
-            .where({ id: layoutId, _upl_deleted: false, _mhb_deleted: false })
-            .first()
-        if (!existing) {
-            throw new Error('Layout not found')
-        }
-
-        const nextIsActive = input.isActive ?? Boolean(existing.is_active)
-        const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
-
-        if (nextIsDefault && !nextIsActive) {
-            throw new Error('Default layout must be active')
-        }
-
-        // Prevent unsetting the last default layout.
-        if (Boolean(existing.is_default) && !nextIsDefault) {
-            const defaultCountRow = await this.knex
-                .withSchema(schemaName)
-                .from('_mhb_layouts')
-                .where({ _upl_deleted: false, _mhb_deleted: false, is_default: true })
-                .count<{ count: string }[]>('* as count')
-                .first()
-            const defaultCount = defaultCountRow ? Number(defaultCountRow.count) : 0
-            if (Number.isFinite(defaultCount) && defaultCount <= 1) {
-                throw new Error('At least one default layout is required')
-            }
-        }
-
-        // Prevent deactivating the last active layout.
-        if (!nextIsActive) {
-            const activeCountRow = await this.knex
-                .withSchema(schemaName)
-                .from('_mhb_layouts')
-                .where({ _upl_deleted: false, _mhb_deleted: false, is_active: true })
-                .count<{ count: string }[]>('* as count')
-                .first()
-            const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
-            if (Number.isFinite(activeCount) && activeCount <= 1) {
-                throw new Error('At least one active layout is required')
-            }
-        }
-
-        // If setting default, unset other defaults in one transaction.
+        // BUG-3 fix: All reads + writes inside a single transaction to prevent TOCTOU races
         return this.knex.transaction(async (trx) => {
+            const existing = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .forUpdate()
+                .first()
+            if (!existing) {
+                throw new Error('Layout not found')
+            }
+
+            const nextIsActive = input.isActive ?? Boolean(existing.is_active)
+            const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
+
+            if (nextIsDefault && !nextIsActive) {
+                throw new Error('Default layout must be active')
+            }
+
+            // Prevent unsetting the last default layout.
+            if (Boolean(existing.is_default) && !nextIsDefault) {
+                const defaultCountRow = await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_layouts')
+                    .where({ _upl_deleted: false, _mhb_deleted: false, is_default: true })
+                    .count<{ count: string }[]>('* as count')
+                    .first()
+                const defaultCount = defaultCountRow ? Number(defaultCountRow.count) : 0
+                if (Number.isFinite(defaultCount) && defaultCount <= 1) {
+                    throw new Error('At least one default layout is required')
+                }
+            }
+
+            // Prevent deactivating the last active layout.
+            if (!nextIsActive) {
+                const activeCountRow = await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_layouts')
+                    .where({ _upl_deleted: false, _mhb_deleted: false, is_active: true })
+                    .count<{ count: string }[]>('* as count')
+                    .first()
+                const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
+                if (Number.isFinite(activeCount) && activeCount <= 1) {
+                    throw new Error('At least one active layout is required')
+                }
+            }
+
             if (nextIsDefault) {
                 await trx
                     .withSchema(schemaName)
@@ -287,40 +454,322 @@ export class MetahubLayoutsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const now = new Date()
 
-        const existing = await this.knex
+        // BUG-2 fix: All reads + writes inside a single transaction to prevent TOCTOU races
+        await this.knex.transaction(async (trx) => {
+            const existing = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .forUpdate()
+                .first()
+            if (!existing) {
+                throw new Error('Layout not found')
+            }
+            if (existing.is_default) {
+                throw new Error('Cannot delete default layout')
+            }
+
+            const activeCountRow = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layouts')
+                .where({ _upl_deleted: false, _mhb_deleted: false, is_active: true })
+                .count<{ count: string }[]>('* as count')
+                .first()
+            const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
+            if (Number.isFinite(activeCount) && activeCount <= 1) {
+                throw new Error('At least one active layout is required')
+            }
+
+            // Cascade: soft-delete all zone widgets belonging to this layout
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .update({
+                    _mhb_deleted: true,
+                    _mhb_deleted_at: now,
+                    _mhb_deleted_by: userId ?? null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+
+            // Soft-delete the layout itself
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId })
+                .update({
+                    _mhb_deleted: true,
+                    _mhb_deleted_at: now,
+                    _mhb_deleted_by: userId ?? null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+        })
+    }
+
+    async listLayoutZoneWidgets(metahubId: string, layoutId: string, userId?: string | null): Promise<DashboardLayoutZoneWidgetRow[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+
+        const layout = await this.knex
             .withSchema(schemaName)
             .from('_mhb_layouts')
             .where({ id: layoutId, _upl_deleted: false, _mhb_deleted: false })
             .first()
-        if (!existing) {
+        if (!layout) {
             throw new Error('Layout not found')
         }
-        if (existing.is_default) {
-            throw new Error('Cannot delete default layout')
-        }
 
-        const activeCountRow = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_layouts')
-            .where({ _upl_deleted: false, _mhb_deleted: false, is_active: true })
-            .count<{ count: string }[]>('* as count')
-            .first()
-        const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
-        if (Number.isFinite(activeCount) && activeCount <= 1) {
-            throw new Error('At least one active layout is required')
-        }
+        return this.knex.transaction(async (trx) => {
+            await this.ensureDefaultZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+            const rows = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .orderBy([
+                    { column: 'zone', order: 'asc' },
+                    { column: 'sort_order', order: 'asc' },
+                    { column: '_upl_created_at', order: 'asc' }
+                ])
+            return rows.map((row: any) => this.mapZoneWidgetRow(row))
+        })
+    }
 
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_layouts')
-            .where({ id: layoutId })
-            .update({
-                _mhb_deleted: true,
-                _mhb_deleted_at: now,
-                _mhb_deleted_by: userId ?? null,
-                _upl_updated_at: now,
-                _upl_updated_by: userId ?? null,
-                _upl_version: this.knex.raw('_upl_version + 1')
-            })
+    async assignLayoutZoneWidget(
+        metahubId: string,
+        layoutId: string,
+        input: z.infer<typeof assignLayoutZoneWidgetSchema>,
+        userId?: string | null
+    ): Promise<DashboardLayoutZoneWidgetRow> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        this.assertWidgetAllowedInZone(input.widgetKey, input.zone)
+
+        return this.knex.transaction(async (trx) => {
+            await this.ensureDefaultZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+
+            const now = new Date()
+            const zoneRows = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ layout_id: layoutId, zone: input.zone, _upl_deleted: false, _mhb_deleted: false })
+                .select(['id'])
+            const nextSortOrder = input.sortOrder ?? zoneRows.length + 1
+
+            const isMulti = multiInstanceSet.has(input.widgetKey)
+
+            if (!isMulti) {
+                // Single-instance widget: update existing or insert new
+                const existing = await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_layout_zone_widgets')
+                    .where({ layout_id: layoutId, widget_key: input.widgetKey, _upl_deleted: false, _mhb_deleted: false })
+                    .first()
+
+                if (existing) {
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_layout_zone_widgets')
+                        .where({ id: existing.id })
+                        .update({
+                            zone: input.zone,
+                            sort_order: nextSortOrder,
+                            config: input.config ?? existing.config ?? {},
+                            _upl_updated_at: now,
+                            _upl_updated_by: userId ?? null,
+                            _upl_version: trx.raw('_upl_version + 1')
+                        })
+                    if (existing.zone !== input.zone) {
+                        await this.normalizeZoneSortOrders(trx, schemaName, layoutId, existing.zone as DashboardLayoutZone, userId ?? null)
+                    }
+
+                    await this.normalizeZoneSortOrders(trx, schemaName, layoutId, input.zone, userId ?? null)
+                    await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+
+                    const updated = await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_layout_zone_widgets')
+                        .where({ id: existing.id })
+                        .first()
+                    return this.mapZoneWidgetRow(updated)
+                }
+            }
+
+            // Multi-instance widget always inserts; single-instance falls through here when no existing row
+            const [inserted] = await trx
+                .withSchema(schemaName)
+                .into('_mhb_layout_zone_widgets')
+                .insert({
+                    layout_id: layoutId,
+                    zone: input.zone,
+                    widget_key: input.widgetKey,
+                    sort_order: nextSortOrder,
+                    config: input.config ?? {},
+                    _upl_created_at: now,
+                    _upl_created_by: userId ?? null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+                .returning('*')
+
+            await this.normalizeZoneSortOrders(trx, schemaName, layoutId, input.zone, userId ?? null)
+            await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+
+            return this.mapZoneWidgetRow(inserted)
+        })
+    }
+
+    async moveLayoutZoneWidget(
+        metahubId: string,
+        layoutId: string,
+        input: z.infer<typeof moveLayoutZoneWidgetSchema>,
+        userId?: string | null
+    ): Promise<DashboardLayoutZoneWidgetRow[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+
+        return this.knex.transaction(async (trx) => {
+            await this.ensureDefaultZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: input.widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .first()
+            if (!current) throw new Error('Layout widget not found')
+
+            const widgetKey = String(current.widget_key) as DashboardLayoutWidgetKey
+            const sourceZone = String(current.zone) as DashboardLayoutZone
+            const targetZone = input.targetZone ?? sourceZone
+            this.assertWidgetAllowedInZone(widgetKey, targetZone)
+
+            const targetRows = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ layout_id: layoutId, zone: targetZone, _upl_deleted: false, _mhb_deleted: false })
+                .whereNot({ id: input.widgetId })
+                .orderBy([
+                    { column: 'sort_order', order: 'asc' },
+                    { column: '_upl_created_at', order: 'asc' }
+                ])
+                .select(['id', 'sort_order'])
+
+            const clampedIndex =
+                typeof input.targetIndex === 'number' ? Math.max(0, Math.min(input.targetIndex, targetRows.length)) : targetRows.length
+            const targetSortOrder = clampedIndex + 1
+
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: current.id })
+                .update({
+                    zone: targetZone,
+                    sort_order: targetSortOrder,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+
+            await this.normalizeZoneSortOrders(trx, schemaName, layoutId, sourceZone, userId ?? null)
+            if (targetZone !== sourceZone) {
+                await this.normalizeZoneSortOrders(trx, schemaName, layoutId, targetZone, userId ?? null)
+            }
+
+            await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+
+            const rows = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .orderBy([
+                    { column: 'zone', order: 'asc' },
+                    { column: 'sort_order', order: 'asc' },
+                    { column: '_upl_created_at', order: 'asc' }
+                ])
+            return rows.map((row: any) => this.mapZoneWidgetRow(row))
+        })
+    }
+
+    async removeLayoutZoneWidget(
+        metahubId: string,
+        layoutId: string,
+        widgetId: string,
+        userId?: string | null
+    ): Promise<void> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        await this.knex.transaction(async (trx) => {
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .first()
+            if (!current) return
+
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: current.id })
+                .update({
+                    _mhb_deleted: true,
+                    _mhb_deleted_at: new Date(),
+                    _mhb_deleted_by: userId ?? null,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+
+            await this.normalizeZoneSortOrders(trx, schemaName, layoutId, current.zone as DashboardLayoutZone, userId ?? null)
+            await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+        })
+    }
+
+    /**
+     * Update the JSONB config of a specific zone widget.
+     * Used primarily to store menu configuration inside menuWidget.
+     */
+    async updateLayoutZoneWidgetConfig(
+        metahubId: string,
+        layoutId: string,
+        widgetId: string,
+        config: Record<string, unknown>,
+        userId?: string | null
+    ): Promise<DashboardLayoutZoneWidgetRow> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        return this.knex.transaction(async (trx) => {
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .first()
+            if (!current) {
+                throw new Error('Zone widget not found')
+            }
+
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: current.id })
+                .update({
+                    config: JSON.stringify(config),
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+
+            const updated = await trx
+                .withSchema(schemaName)
+                .from('_mhb_layout_zone_widgets')
+                .where({ id: current.id })
+                .first()
+
+            return this.mapZoneWidgetRow(updated)
+        })
     }
 }
