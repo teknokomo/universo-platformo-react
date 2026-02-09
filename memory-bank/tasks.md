@@ -4,25 +4,25 @@
 ## Active: PR #668 Bot Review Fixes (2026-02-09)
 
 ### BUG: Zod schema mismatch in runtime API response (Comments 3+4)
-- [ ] 1.1 Update runtimeResponseSchema menus to match backend: widgetId, title, autoShowAllCatalogs (remove required codename/name/isDefault)
-- [ ] 1.2 Update menu items schema: remove required menuId/seqId
-- [ ] 1.3 Fix RuntimeDashboardApp `activeMenu?.name` → `activeMenu?.title`
-- [ ] 1.4 Remove dead `menu.isDefault` fallback in RuntimeDashboardApp
+- [x] 1.1 Update runtimeResponseSchema menus to match backend: widgetId, title, autoShowAllCatalogs (remove required codename/name/isDefault)
+- [x] 1.2 Update menu items schema: remove required menuId/seqId
+- [x] 1.3 Fix RuntimeDashboardApp `activeMenu?.name` → `activeMenu?.title`
+- [x] 1.4 Remove dead `menu.isDefault` fallback in RuntimeDashboardApp
 
 ### Cleanup: Non-deterministic Object.keys fallback (Comments 1+2)
-- [ ] 2.1 SideMenu.tsx: Remove Object.keys(menus)[0] fallback, go straight to fallbackMenu
-- [ ] 2.2 SideMenuMobile.tsx: Use Object.values for deterministic ordering
+- [x] 2.1 SideMenu.tsx: Remove Object.keys(menus)[0] fallback, go straight to fallbackMenu
+- [x] 2.2 SideMenuMobile.tsx: Use Object.values for deterministic ordering
 
 ### Cleanup: Unused imports (Comments 5+8)
-- [ ] 3.1 MenuWidgetEditorDialog.tsx: Remove unused updateLocalizedContentLocale, isLocalizedContent
-- [ ] 3.2 MetahubSchemaService.ts: Remove unused DASHBOARD_LAYOUT_WIDGETS import
+- [x] 3.1 MenuWidgetEditorDialog.tsx: Remove unused updateLocalizedContentLocale, isLocalizedContent
+- [x] 3.2 MetahubSchemaService.ts: Remove unused DASHBOARD_LAYOUT_WIDGETS import
 
 ### Cleanup: Unused initial value (Comment 9)
-- [ ] 4.1 LayoutDetails.tsx: Initialize targetIndex to 0
+- [x] 4.1 LayoutDetails.tsx: Initialize targetIndex to 0
 
 ### Validation
-- [ ] 5.1 pnpm build (targeted packages)
-- [ ] 5.2 Commit and push
+- [x] 5.1 pnpm build (targeted packages) — 19/19 OK
+- [x] 5.2 Commit and push — cce98c89
 
 ### NOT FIXING (with justification)
 - Comment 6 (layoutDefaults.ts `default-catalogs-all`): Deliberate readable seed ID for static default. UUID adds no value here.
