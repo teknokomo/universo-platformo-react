@@ -167,6 +167,38 @@ export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedConte
     return typeof obj === 'object' && obj !== null && '_schema' in obj && (obj as Record<string, unknown>)._schema === '1'
 }
 
+/**
+ * Quickly build a VLC object with en + ru content.
+ * Convenience wrapper over createLocalizedContent + updateLocalizedContentLocale
+ * designed for frontend code that always provides exactly two locales.
+ */
+export function buildVLC(enContent: string, ruContent: string): VersionedLocalizedContent<string> {
+    let vlc = createLocalizedContent('en', enContent)
+    if (ruContent) {
+        vlc = updateLocalizedContentLocale(vlc, 'ru', ruContent)
+    }
+    return vlc
+}
+
+/**
+ * Ensure a value is in VLC format.
+ * - If already VLC, returns it as-is.
+ * - If a plain string, wraps it into a VLC using the given locale.
+ * - Otherwise returns null.
+ */
+export function ensureVLC(
+    value: unknown,
+    locale: LocaleCode
+): VersionedLocalizedContent<string> | null {
+    if (isLocalizedContent(value)) {
+        return value as VersionedLocalizedContent<string>
+    }
+    if (typeof value === 'string') {
+        return createLocalizedContent(locale, value)
+    }
+    return null
+}
+
 // Re-export sanitize utilities for backend use
 export { sanitizeLocalizedInput, buildLocalizedContent } from './sanitize'
 

@@ -7,6 +7,7 @@ import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { Publication } from '../../../database/entities/Publication'
+import { Template } from '../../../database/entities/Template'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
 import { Profile } from '@universo/profile-backend'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } from '../../shared/guards'
@@ -22,6 +23,7 @@ import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 import { getDDLServices } from '../../ddl'
+import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner
@@ -271,6 +273,8 @@ export function createMetahubsRoutes(
                     codename: m.codename,
                     slug: m.slug,
                     isPublic: m.isPublic,
+                    templateId: m.templateId ?? null,
+                    templateVersionId: m.templateVersionId ?? null,
                     version: m._uplVersion || 1,
                     createdAt: m._uplCreatedAt,
                     updatedAt: m._uplUpdatedAt,
@@ -335,6 +339,8 @@ export function createMetahubsRoutes(
                 codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
+                templateId: metahub.templateId ?? null,
+                templateVersionId: metahub.templateVersionId ?? null,
                 version: metahub._uplVersion || 1,
                 createdAt: metahub._uplCreatedAt,
                 updatedAt: metahub._uplUpdatedAt,
@@ -405,7 +411,7 @@ export function createMetahubsRoutes(
             const versionsResult = await manager.query(
                 `
                 SELECT COUNT(*)::int as count
-                FROM metahubs.publication_versions pv
+                FROM metahubs.publications_versions pv
                 JOIN metahubs.publications p ON p.id = pv.publication_id
                 WHERE p.metahub_id = $1
             `,
@@ -466,7 +472,8 @@ export function createMetahubsRoutes(
                     .max(100)
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .optional(),
-                isPublic: z.boolean().optional()
+                isPublic: z.boolean().optional(),
+                templateId: z.string().uuid().optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -519,26 +526,38 @@ export function createMetahubsRoutes(
                 }
             }
 
-            const metahub = metahubRepo.create({
-                name: nameVlc,
-                description: descriptionVlc,
-                codename: normalizedCodename,
-                slug: result.data.slug,
-                isPublic: result.data.isPublic ?? false,
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
-            await metahubRepo.save(metahub)
-
-            // Create owner membership
-            const membership = metahubUserRepo.create({
-                metahubId: metahub.id,
-                userId,
-                role: 'owner',
-                _uplCreatedBy: userId,
-                _uplUpdatedBy: userId
-            })
-            await metahubUserRepo.save(membership)
+            // Resolve template (optional — falls back to default)
+            let templateId: string | undefined
+            let templateVersionId: string | undefined
+            if (result.data.templateId) {
+                const ds = getDataSource()
+                const templateRepo = ds.getRepository(Template)
+                const template = await templateRepo.findOne({
+                    where: { id: result.data.templateId, isActive: true, _uplDeleted: false },
+                    relations: ['activeVersion']
+                })
+                if (!template) {
+                    return res.status(404).json({ error: 'Template not found or inactive' })
+                }
+                if (!template.activeVersionId) {
+                    return res.status(400).json({ error: 'Template has no active version' })
+                }
+                templateId = template.id
+                templateVersionId = template.activeVersionId
+            } else {
+                // Auto-assign default template when none specified
+                const ds = getDataSource()
+                const templateRepo = ds.getRepository(Template)
+                const defaultTemplate = await templateRepo.findOne({
+                    where: { codename: DEFAULT_TEMPLATE_CODENAME, isActive: true, _uplDeleted: false }
+                })
+                if (defaultTemplate?.activeVersionId) {
+                    templateId = defaultTemplate.id
+                    templateVersionId = defaultTemplate.activeVersionId
+                }
+                // If default template not found (e.g. seeder hasn't run), proceed without template —
+                // MetahubSchemaService will fall back to built-in manifest
+            }
 
             const branchName = buildLocalizedContent({ en: 'Main', ru: 'Главная' }, 'en', 'en')
             const branchDescription = buildLocalizedContent({ en: 'Your first branch', ru: 'Ваша первая ветка' }, 'en', 'en')
@@ -546,12 +565,52 @@ export function createMetahubsRoutes(
                 return res.status(500).json({ error: 'Failed to build default branch name' })
             }
 
-            await branchesService.createInitialBranch({
-                metahubId: metahub.id,
-                name: branchName,
-                description: branchDescription ?? null,
-                createdBy: userId
+            // Create metahub + owner membership atomically
+            const ds = getDataSource()
+            const metahub = await ds.transaction(async (tx) => {
+                const txMetahubRepo = tx.getRepository(Metahub)
+                const txMemberRepo = tx.getRepository(MetahubUser)
+
+                const m = txMetahubRepo.create({
+                    name: nameVlc,
+                    description: descriptionVlc,
+                    codename: normalizedCodename,
+                    slug: result.data.slug,
+                    isPublic: result.data.isPublic ?? false,
+                    templateId: templateId ?? null,
+                    templateVersionId: templateVersionId ?? null,
+                    _uplCreatedBy: userId,
+                    _uplUpdatedBy: userId
+                })
+                const saved = await txMetahubRepo.save(m)
+
+                await txMemberRepo.save(
+                    txMemberRepo.create({
+                        metahubId: saved.id,
+                        userId,
+                        role: 'owner',
+                        _uplCreatedBy: userId,
+                        _uplUpdatedBy: userId
+                    })
+                )
+
+                return saved
             })
+
+            // Create initial branch (includes DDL schema + entity save).
+            // branchesService.createInitialBranch already cleans up DDL on its own failure.
+            try {
+                await branchesService.createInitialBranch({
+                    metahubId: metahub.id,
+                    name: branchName,
+                    description: branchDescription ?? null,
+                    createdBy: userId
+                })
+            } catch (error) {
+                // Cleanup: remove the metahub + membership created above (CASCADE deletes membership)
+                await ds.getRepository(Metahub).remove(metahub).catch(() => undefined)
+                throw error
+            }
 
             return res.status(201).json({
                 id: metahub.id,
@@ -560,6 +619,8 @@ export function createMetahubsRoutes(
                 codename: metahub.codename,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
+                templateId: metahub.templateId ?? null,
+                templateVersionId: metahub.templateVersionId ?? null,
                 version: metahub._uplVersion || 1,
                 createdAt: metahub._uplCreatedAt,
                 updatedAt: metahub._uplUpdatedAt,
@@ -733,6 +794,8 @@ export function createMetahubsRoutes(
                         isPublic: parsed.data.isPublic ?? sourceMetahub.isPublic,
                         defaultBranchId: null,
                         lastBranchNumber: branchClonePlan.length,
+                        templateId: sourceMetahub.templateId ?? null,
+                        templateVersionId: sourceMetahub.templateVersionId ?? null,
                         _uplCreatedBy: userId,
                         _uplUpdatedBy: userId
                     })
@@ -749,6 +812,7 @@ export function createMetahubsRoutes(
                                 codename: planItem.sourceBranch.codename,
                                 branchNumber: planItem.branchNumber,
                                 schemaName: planItem.schemaName,
+                                structureVersion: planItem.sourceBranch.structureVersion ?? 1,
                                 _uplCreatedBy: userId,
                                 _uplUpdatedBy: userId
                             })

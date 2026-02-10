@@ -115,7 +115,7 @@ describe('Metahub Board Summary', () => {
             if (sql.includes("_mhb_objects") && sql.includes("kind = 'CATALOG'")) {
                 return [{ count: 4 }]
             }
-            if (sql.includes('FROM metahubs.publication_versions')) {
+            if (sql.includes('FROM metahubs.publications_versions')) {
                 return [{ count: 7 }]
             }
             if (sql.includes('FROM applications.applications')) {

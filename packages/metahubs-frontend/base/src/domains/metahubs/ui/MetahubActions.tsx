@@ -10,6 +10,7 @@ import { getVLCString } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
+import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 
 const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>) => {
     const metahubMap = ctx.metahubMap as Map<string, Metahub> | undefined
@@ -23,7 +24,8 @@ const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedP
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
-        storageMode: 'main_db'
+        storageMode: 'main_db',
+        templateId: raw?.templateId ?? undefined
     }
 }
 
@@ -182,6 +184,11 @@ const MetahubEditFields = ({
                 uiLocale={uiLocale as string}
                 multiline
                 rows={2}
+            />
+            <TemplateSelector
+                value={values.templateId}
+                onChange={() => {}} // Read-only in edit mode
+                disabled
             />
             <Divider />
             <CodenameField

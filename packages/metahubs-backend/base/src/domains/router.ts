@@ -9,6 +9,7 @@ import { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
 import { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 import { createElementsRoutes } from './elements/routes/elementsRoutes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
+import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
@@ -76,6 +77,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     router.use('/', createElementsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Templates catalog (read-only)
+    router.use('/', createTemplatesRoutes(ensureAuth, getDataSource, read))
+
     return router
 }
 
@@ -95,6 +99,7 @@ export { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
 export { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
+export { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'

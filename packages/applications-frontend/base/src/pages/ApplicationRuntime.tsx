@@ -45,22 +45,6 @@ const ApplicationRuntime = () => {
     })
     const [selectedCatalogId, setSelectedCatalogId] = useState<string | undefined>(undefined)
 
-    const updateCellMutation = useMutation({
-        mutationFn: async (params: { rowId: string; field: string; value: boolean | null }) => {
-            if (!applicationId) throw new Error('Application ID is missing')
-            await updateApplicationRuntimeCell({
-                applicationId,
-                rowId: params.rowId,
-                field: params.field,
-                value: params.value
-            })
-        },
-        onSuccess: async () => {
-            if (!applicationId) return
-            await queryClient.invalidateQueries({ queryKey: [...applicationsQueryKeys.detail(applicationId), 'runtime'] })
-        }
-    })
-
     const runtimeQuery = useQuery({
         queryKey: applicationId
             ? applicationsQueryKeys.runtimeTable(applicationId, {
@@ -86,6 +70,23 @@ const ApplicationRuntime = () => {
 
     const runtime = runtimeQuery.data
     const activeCatalogId = runtime?.activeCatalogId ?? runtime?.catalog.id
+
+    const updateCellMutation = useMutation({
+        mutationFn: async (params: { rowId: string; field: string; value: boolean | null }) => {
+            if (!applicationId) throw new Error('Application ID is missing')
+            await updateApplicationRuntimeCell({
+                applicationId,
+                rowId: params.rowId,
+                field: params.field,
+                value: params.value,
+                catalogId: selectedCatalogId ?? activeCatalogId
+            })
+        },
+        onSuccess: async () => {
+            if (!applicationId) return
+            await queryClient.invalidateQueries({ queryKey: [...applicationsQueryKeys.detail(applicationId), 'runtime'] })
+        }
+    })
 
     // Initialize selected catalog from backend response
     useEffect(() => {

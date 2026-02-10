@@ -8,6 +8,11 @@ import { PaginationParams } from '../../types'
 export const metahubsQueryKeys = {
     all: ['metahubs'] as const,
 
+    // ============ TEMPLATES ============
+    templates: () => [...metahubsQueryKeys.all, 'templates'] as const,
+    templatesList: () => [...metahubsQueryKeys.templates(), 'list'] as const,
+    templateDetail: (templateId: string) => [...metahubsQueryKeys.templates(), 'detail', templateId] as const,
+
     lists: () => [...metahubsQueryKeys.all, 'list'] as const,
 
     list: (params?: PaginationParams) => {

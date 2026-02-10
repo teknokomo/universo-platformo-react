@@ -45,6 +45,7 @@ import metahubActions from './MetahubActions'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { CodenameField } from '../../../components'
+import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 
 // Type for metahub update/create data
 type MetahubFormValues = {
@@ -65,6 +66,8 @@ type GeneralTabFieldsProps = {
     descriptionLabel: string
     codenameLabel: string
     codenameHelper: string
+    /** Show TemplateSelector between description and codename */
+    showTemplateSelector?: boolean
 }
 
 const GeneralTabFields = ({
@@ -76,7 +79,8 @@ const GeneralTabFields = ({
     nameLabel,
     descriptionLabel,
     codenameLabel,
-    codenameHelper
+    codenameHelper,
+    showTemplateSelector
 }: GeneralTabFieldsProps) => {
     const fieldErrors = errors ?? {}
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
@@ -118,6 +122,14 @@ const GeneralTabFields = ({
                 multiline
                 rows={2}
             />
+            {showTemplateSelector && (
+                <TemplateSelector
+                    value={values.templateId}
+                    onChange={(id) => setValue('templateId', id)}
+                    disabled={isLoading}
+                    autoSelectDefault
+                />
+            )}
             <Divider />
             <CodenameField
                 value={codename}
@@ -252,6 +264,7 @@ const MetahubList = () => {
                             descriptionLabel={tc('fields.description', 'Description')}
                             codenameLabel={t('codename', 'Codename')}
                             codenameHelper={t('codenameHelper', 'Unique identifier')}
+                            showTemplateSelector
                         />
                     )
                 },
@@ -356,9 +369,8 @@ const MetahubList = () => {
                 name: nameInput,
                 description: descriptionInput,
                 namePrimaryLocale,
-                descriptionPrimaryLocale
-                // storageMode handles automatically in backend logic for now (default) or we pass it if API supports
-                // For now, API doesn't support storageMode, so we just assume default behavior (Phase 1 UI only)
+                descriptionPrimaryLocale,
+                templateId: data.templateId || undefined
             })
 
             // Invalidate cache to refetch metahubs list

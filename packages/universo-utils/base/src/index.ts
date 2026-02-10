@@ -71,6 +71,8 @@ export {
     getLocalizedContentLocales,
     filterLocalizedContent,
     isLocalizedContent,
+    buildVLC,
+    ensureVLC,
     // Getter utilities for frontend/backend
     getVLCString,
     getVLCStringWithFallback,

@@ -40,6 +40,12 @@ Frontend application for managing metahubs, hubs, catalogs, attributes, and elem
 - **Form Validation**: Comprehensive validation with Zod schemas
 - **API Integration**: RESTful API client with authentication
 
+### 📋 Template Selection
+- **TemplateSelector Component**: Dropdown selector for choosing metahub templates during creation
+- **Templates API**: Fetches available templates via `GET /templates` endpoint
+- **TanStack Query Hook**: `useTemplates()` hook with caching and loading states
+- **Default Template**: When no template is explicitly selected, the default "basic" template is auto-assigned by the backend
+
 ## Installation & Setup
 
 ### Prerequisites
@@ -123,6 +129,7 @@ packages/metahubs-frontend/base/
 │   │   ├── catalogs.ts   # Catalog operations
 │   │   ├── attributes.ts # Attribute operations
 │   │   ├── elements.ts   # Element operations
+│   │   ├── templates.ts  # Template listing
 │   │   └── queryKeys.ts  # React Query keys
 │   ├── hooks/            # Custom React hooks
 │   │   ├── mutations.ts  # useMutation hooks
@@ -210,6 +217,19 @@ import { AttributeList, ElementList } from '@universo/metahubs-frontend'
 // - Attribute ordering (drag & drop)
 // - Dynamic element forms based on attributes
 // - Data type support (string, with extensibility)
+```
+
+### TemplateSelector
+Component for selecting a metahub template during creation:
+
+```tsx
+import { TemplateSelector } from '@universo/metahubs-frontend'
+
+// Features:
+// - Fetches available templates via useTemplates() hook
+// - Dropdown with template name, description, and version
+// - Integrated into MetahubList create dialog
+// - Loading and empty states handled
 ```
 
 ## API Integration

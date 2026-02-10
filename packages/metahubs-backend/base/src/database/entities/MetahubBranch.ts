@@ -27,6 +27,10 @@ export class MetahubBranch {
     @Column({ name: 'schema_name', type: 'varchar', length: 100 })
     schemaName!: string
 
+    /** DDL structure version used when this branch schema was created */
+    @Column({ name: 'structure_version', type: 'integer', default: 1 })
+    structureVersion!: number
+
     // ═══════════════════════════════════════════════════════════════════════════
     // Platform-level system fields (_upl_*)
     // ═══════════════════════════════════════════════════════════════════════════

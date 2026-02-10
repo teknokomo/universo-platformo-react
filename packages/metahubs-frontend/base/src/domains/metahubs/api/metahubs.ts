@@ -6,6 +6,7 @@ export interface MetahubInput extends MetahubLocalizedPayload {
     slug?: string
     isPublic?: boolean
     expectedVersion?: number
+    templateId?: string
 }
 
 export interface MetahubCopyInput extends Partial<MetahubInput> {

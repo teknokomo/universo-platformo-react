@@ -93,9 +93,10 @@ export const updateApplicationRuntimeCell = async (params: {
     rowId: string
     field: string
     value: boolean | null
+    catalogId?: string
 }): Promise<void> => {
-    const { applicationId, rowId, field, value } = params
-    await apiClient.patch(`/applications/${applicationId}/runtime/${rowId}`, { field, value })
+    const { applicationId, rowId, field, value, catalogId } = params
+    await apiClient.patch(`/applications/${applicationId}/runtime/${rowId}`, { field, value, catalogId })
 }
 
 // ============ APPLICATION MEMBERS ============

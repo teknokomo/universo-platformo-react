@@ -1,21 +1,25 @@
 # Active Context
 
-> **Last Updated**: 2026-02-09
+> **Last Updated**: 2026-02-10
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Completed: Publication Version Dialog Alignment
+## Completed: Metahubs UX + Application Runtime Fixes ✅
 
-**Status**: Version create/edit dialogs updated to match standard action spacing. Full build passes (65/65). Ready for user re-testing.
+**Status**: UI truncation and runtime update fix shipped; KnexClient warning reviewed and documented.
 
-### Summary
-Aligned the action buttons in the metahub Publications version dialogs so they are not flush to the edge. Both create and edit dialogs now use the same padding and spacing as other standard dialogs.
+### What Was Done
+- TemplateSelector description now clamps with ellipsis to avoid overlapping the Select caret
+- Application runtime checkbox updates now include `catalogId` to target the correct runtime table
+- KnexClient transaction pooler warning traced to port 6543 detection (Supabase transaction pooler) and confirmed as expected
 
-### Key Design Decisions
-- Reused the `EntityFormDialog` action spacing values (`p: 3`, `pt: 2`, `gap: 1`) for visual consistency.
+### Pending
+- No active tasks. Ready for next feature or release.
 
-### Next Steps
-- Manual browser re-testing by user
-- Proceed to QA mode when user confirms
+---
+
+## Previous: QA Deep Fixes — DDL Phase 2 Findings ✅
+
+All 8 QA findings addressed. Full workspace build 65/65, lint 0 errors. See progress.md for details.

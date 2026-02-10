@@ -48,6 +48,14 @@ export class Metahub {
     @Column({ type: 'boolean', default: false, name: 'is_public' })
     isPublic!: boolean
 
+    /** Template used to create this metahub (nullable for legacy metahubs) */
+    @Column({ name: 'template_id', type: 'uuid', nullable: true })
+    templateId?: string | null
+
+    /** Specific template version used at creation time */
+    @Column({ name: 'template_version_id', type: 'uuid', nullable: true })
+    templateVersionId?: string | null
+
     // ═══════════════════════════════════════════════════════════════════════════
     // Platform-level system fields (_upl_*)
     // ═══════════════════════════════════════════════════════════════════════════
