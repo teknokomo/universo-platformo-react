@@ -88,6 +88,8 @@ export interface Metahub {
     description?: VersatileLocalizedContent
     slug?: string
     isPublic?: boolean
+    templateId?: string | null
+    templateVersionId?: string | null
     createdAt: string
     updatedAt: string
     // Aggregated counters

@@ -1,10 +1,16 @@
 import { DataSource } from 'typeorm'
+import type { MetahubTemplateManifest } from '@universo/types'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
-import { buildLocalizedContent } from '@universo/utils/vlc'
+import { TemplateVersion } from '../../../database/entities/TemplateVersion'
 import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
-import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
+import { getStructureVersion, CURRENT_STRUCTURE_VERSION } from './structureVersions'
+import { SystemTableMigrator } from './SystemTableMigrator'
+import { TemplateSeedExecutor } from '../../templates/services/TemplateSeedExecutor'
+import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigrator'
+import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
+import { builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 
 /**
  * In-memory cache for schema existence.
@@ -134,9 +140,17 @@ export class MetahubSchemaService {
             schemaCache.set(cacheKey, resolved.schemaName)
 
             // Initialize tables only once per schema
+            let manifest: MetahubTemplateManifest | undefined
             if (!tablesInitCache.has(resolved.schemaName)) {
-                await this.initSystemTables(resolved.schemaName)
+                manifest = await this.loadManifest(metahubId)
+                await this.initSystemTables(resolved.schemaName, manifest)
                 tablesInitCache.add(resolved.schemaName)
+            }
+
+            // Auto-migrate if branch structure version is behind current
+            if (resolved.structureVersion < CURRENT_STRUCTURE_VERSION) {
+                manifest ??= await this.loadManifest(metahubId)
+                await this.migrateStructure(resolved.schemaName, resolved.branchId, resolved.structureVersion, manifest)
             }
 
             return resolved.schemaName
@@ -156,16 +170,21 @@ export class MetahubSchemaService {
     /**
      * Ensures schema and system tables exist for a known schema name.
      * Does not resolve branches or cache keys.
+     * Optionally accepts a template manifest; falls back to default built-in template.
      */
-    async initializeSchema(schemaName: string): Promise<void> {
+    async initializeSchema(schemaName: string, manifest?: MetahubTemplateManifest): Promise<void> {
         await this.createEmptySchemaIfNeeded(schemaName)
         if (!tablesInitCache.has(schemaName)) {
-            await this.initSystemTables(schemaName)
+            const resolvedManifest = manifest ?? this.getDefaultManifest()
+            await this.initSystemTables(schemaName, resolvedManifest)
             tablesInitCache.add(schemaName)
         }
     }
 
-    private async resolveBranchSchema(metahubId: string, userId?: string): Promise<{ branchId: string; schemaName: string }> {
+    private async resolveBranchSchema(
+        metahubId: string,
+        userId?: string
+    ): Promise<{ branchId: string; schemaName: string; structureVersion: number }> {
         const metaRepo = this.dataSource.getRepository(Metahub)
         const branchRepo = this.dataSource.getRepository(MetahubBranch)
         const memberRepo = this.dataSource.getRepository(MetahubUser)
@@ -188,7 +207,7 @@ export class MetahubSchemaService {
         if (!branch) {
             throw new Error('Branch not found')
         }
-        return { branchId, schemaName: branch.schemaName }
+        return { branchId, schemaName: branch.schemaName, structureVersion: branch.structureVersion ?? 1 }
     }
 
     /**
@@ -209,476 +228,110 @@ export class MetahubSchemaService {
     }
 
     /**
-     * Initialize system tables in the isolated schema.
-     * Uses UUID v7 for better indexing performance.
-     *
-     * System fields follow the three-level architecture:
-     * - _upl_* (Platform level): audit trail, optimistic locking, archive, soft delete, lock
-     * - _mhb_* (Metahub level): design-time soft delete and publication status
+     * Loads the template manifest for a metahub.
+     * If the metahub has a templateVersionId, loads from the DB with runtime validation.
+     * Falls back to the default built-in template.
      */
-    private async initSystemTables(schemaName: string): Promise<void> {
-        // _mhb_objects: Unified registry for all object types (Catalogs, Hubs, Documents, etc.)
-        const hasObjects = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_objects')
-        if (!hasObjects) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_objects', (t) => {
-                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
-                t.string('kind').notNullable().index() // 'CATALOG', 'HUB', 'DOCUMENT', etc.
-                t.string('codename').notNullable()
-                t.string('table_name').nullable() // Only for data-bearing objects (Catalogs, Documents)
-                t.jsonb('presentation').defaultTo('{}')
-                t.jsonb('config').defaultTo('{}')
+    private async loadManifest(metahubId: string): Promise<MetahubTemplateManifest> {
+        const metahub = await this.dataSource.getRepository(Metahub).findOneByOrFail({ id: metahubId })
 
-                // ═══════════════════════════════════════════════════════════════════════
-                // Platform-level system fields (_upl_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_created_by').nullable()
-                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_updated_by').nullable()
-                t.integer('_upl_version').notNullable().defaultTo(1)
-                // Archive fields
-                t.boolean('_upl_archived').notNullable().defaultTo(false)
-                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
-                t.uuid('_upl_archived_by').nullable()
-                // Soft delete fields
-                t.boolean('_upl_deleted').notNullable().defaultTo(false)
-                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-                t.uuid('_upl_deleted_by').nullable()
-                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
-                // Lock fields
-                t.boolean('_upl_locked').notNullable().defaultTo(false)
-                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
-                t.uuid('_upl_locked_by').nullable()
-                t.text('_upl_locked_reason').nullable()
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Metahub-level system fields (_mhb_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                // Publication status
-                t.boolean('_mhb_published').notNullable().defaultTo(true)
-                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
-                t.uuid('_mhb_published_by').nullable()
-                // Archive fields (design-time)
-                t.boolean('_mhb_archived').notNullable().defaultTo(false)
-                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
-                t.uuid('_mhb_archived_by').nullable()
-                // Soft delete fields (design-time)
-                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
-                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
-                t.uuid('_mhb_deleted_by').nullable()
-            })
-
-            // Partial unique index (exclude soft-deleted records at both levels)
-            await this.knex.raw(`
-                CREATE UNIQUE INDEX idx_mhb_objects_kind_codename_active
-                ON "${schemaName}"._mhb_objects (kind, codename)
-                WHERE _upl_deleted = false AND _mhb_deleted = false
-            `)
-
-            // Index for trash queries (metahub-level)
-            await this.knex.raw(`
-                CREATE INDEX idx_mhb_objects_mhb_deleted
-                ON "${schemaName}"._mhb_objects (_mhb_deleted_at)
-                WHERE _mhb_deleted = true
-            `)
-
-            // Index for platform-level trash queries
-            await this.knex.raw(`
-                CREATE INDEX idx_mhb_objects_upl_deleted
-                ON "${schemaName}"._mhb_objects (_upl_deleted_at)
-                WHERE _upl_deleted = true
-            `)
-        }
-
-        // _mhb_attributes: Field definitions for objects
-        const hasAttributes = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_attributes')
-        if (!hasAttributes) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_attributes', (t) => {
-                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
-                t.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._mhb_objects`).onDelete('CASCADE')
-                t.string('codename').notNullable()
-                t.string('data_type').notNullable()
-                t.jsonb('presentation').defaultTo('{}')
-                t.jsonb('validation_rules').defaultTo('{}')
-                t.jsonb('ui_config').defaultTo('{}')
-                t.integer('sort_order').defaultTo(0)
-                t.boolean('is_required').defaultTo(false)
-                t.boolean('is_display_attribute').defaultTo(false)
-                // Polymorphic reference: target entity ID and kind
-                t.uuid('target_object_id').nullable()
-                t.string('target_object_kind', 20).nullable() // 'catalog', 'document', 'hub', etc.
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Platform-level system fields (_upl_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_created_by').nullable()
-                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_updated_by').nullable()
-                t.integer('_upl_version').notNullable().defaultTo(1)
-                // Archive fields
-                t.boolean('_upl_archived').notNullable().defaultTo(false)
-                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
-                t.uuid('_upl_archived_by').nullable()
-                // Soft delete fields
-                t.boolean('_upl_deleted').notNullable().defaultTo(false)
-                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-                t.uuid('_upl_deleted_by').nullable()
-                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
-                // Lock fields
-                t.boolean('_upl_locked').notNullable().defaultTo(false)
-                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
-                t.uuid('_upl_locked_by').nullable()
-                t.text('_upl_locked_reason').nullable()
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Metahub-level system fields (_mhb_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                // Publication status
-                t.boolean('_mhb_published').notNullable().defaultTo(true)
-                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
-                t.uuid('_mhb_published_by').nullable()
-                // Archive fields (design-time)
-                t.boolean('_mhb_archived').notNullable().defaultTo(false)
-                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
-                t.uuid('_mhb_archived_by').nullable()
-                // Soft delete fields (design-time)
-                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
-                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
-                t.uuid('_mhb_deleted_by').nullable()
-
-                // Performance indexes
-                t.index(['object_id'], 'idx_mhb_attributes_object_id')
-                t.index(['target_object_id'], 'idx_mhb_attributes_target_object_id')
-            })
-
-            // Partial unique index (exclude soft-deleted records at both levels)
-            await this.knex.raw(`
-                CREATE UNIQUE INDEX idx_mhb_attributes_object_codename_active
-                ON "${schemaName}"._mhb_attributes (object_id, codename)
-                WHERE _upl_deleted = false AND _mhb_deleted = false
-            `)
-        }
-
-        // _mhb_elements: Predefined data for catalogs (synced to publications/versions)
-        const hasElements = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_elements')
-        if (!hasElements) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_elements', (t) => {
-                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
-                t.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._mhb_objects`).onDelete('CASCADE')
-                t.jsonb('data').notNullable().defaultTo('{}')
-                t.integer('sort_order').defaultTo(0)
-                t.uuid('owner_id').nullable()
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Platform-level system fields (_upl_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_created_by').nullable()
-                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_updated_by').nullable()
-                t.integer('_upl_version').notNullable().defaultTo(1)
-                // Archive fields
-                t.boolean('_upl_archived').notNullable().defaultTo(false)
-                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
-                t.uuid('_upl_archived_by').nullable()
-                // Soft delete fields
-                t.boolean('_upl_deleted').notNullable().defaultTo(false)
-                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-                t.uuid('_upl_deleted_by').nullable()
-                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
-                // Lock fields
-                t.boolean('_upl_locked').notNullable().defaultTo(false)
-                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
-                t.uuid('_upl_locked_by').nullable()
-                t.text('_upl_locked_reason').nullable()
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Metahub-level system fields (_mhb_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                // Publication status
-                t.boolean('_mhb_published').notNullable().defaultTo(true)
-                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
-                t.uuid('_mhb_published_by').nullable()
-                // Archive fields (design-time)
-                t.boolean('_mhb_archived').notNullable().defaultTo(false)
-                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
-                t.uuid('_mhb_archived_by').nullable()
-                // Soft delete fields (design-time)
-                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
-                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
-                t.uuid('_mhb_deleted_by').nullable()
-
-                // Performance indexes
-                t.index(['object_id'], 'idx_mhb_elements_object_id')
-                t.index(['object_id', 'sort_order'], 'idx_mhb_elements_object_sort')
-                t.index(['owner_id'], 'idx_mhb_elements_owner_id')
-            })
-
-            // GIN index for JSONB search (requires raw SQL)
-            await this.knex.raw(`
-                CREATE INDEX IF NOT EXISTS idx_mhb_elements_data_gin
-                ON "${schemaName}"._mhb_elements USING GIN(data)
-            `)
-
-            // Index for trash queries (metahub-level)
-            await this.knex.raw(`
-                CREATE INDEX idx_mhb_elements_mhb_deleted
-                ON "${schemaName}"._mhb_elements (_mhb_deleted_at)
-                WHERE _mhb_deleted = true
-            `)
-
-            // Index for platform-level trash queries
-            await this.knex.raw(`
-                CREATE INDEX idx_mhb_elements_upl_deleted
-                ON "${schemaName}"._mhb_elements (_upl_deleted_at)
-                WHERE _upl_deleted = true
-            `)
-        }
-
-        // _mhb_settings: Metahub branch settings (UI and other settings that must be published to Applications).
-        const hasSettings = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_settings')
-        if (!hasSettings) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_settings', (t) => {
-                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
-                t.string('key', 100).notNullable()
-                t.jsonb('value').notNullable().defaultTo('{}')
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Platform-level system fields (_upl_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_created_by').nullable()
-                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_updated_by').nullable()
-                t.integer('_upl_version').notNullable().defaultTo(1)
-                // Archive fields
-                t.boolean('_upl_archived').notNullable().defaultTo(false)
-                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
-                t.uuid('_upl_archived_by').nullable()
-                // Soft delete fields
-                t.boolean('_upl_deleted').notNullable().defaultTo(false)
-                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-                t.uuid('_upl_deleted_by').nullable()
-                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
-                // Lock fields
-                t.boolean('_upl_locked').notNullable().defaultTo(false)
-                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
-                t.uuid('_upl_locked_by').nullable()
-                t.text('_upl_locked_reason').nullable()
-
-                // ═══════════════════════════════════════════════════════════════════════
-                // Metahub-level system fields (_mhb_*)
-                // ═══════════════════════════════════════════════════════════════════════
-                // Publication status
-                t.boolean('_mhb_published').notNullable().defaultTo(true)
-                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
-                t.uuid('_mhb_published_by').nullable()
-                // Archive fields (design-time)
-                t.boolean('_mhb_archived').notNullable().defaultTo(false)
-                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
-                t.uuid('_mhb_archived_by').nullable()
-                // Soft delete fields (design-time)
-                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
-                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
-                t.uuid('_mhb_deleted_by').nullable()
-
-                t.unique(['key'])
-            })
-        }
-
-        // _mhb_layouts: UI layouts/templates for published Applications.
-        const hasLayouts = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_layouts')
-        if (!hasLayouts) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_layouts', (t) => {
-                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
-                t.string('template_key', 100).notNullable().defaultTo('dashboard')
-                t.jsonb('name').notNullable().defaultTo('{}')
-                t.jsonb('description').nullable()
-                t.jsonb('config').notNullable().defaultTo('{}')
-                t.boolean('is_active').notNullable().defaultTo(true)
-                t.boolean('is_default').notNullable().defaultTo(false)
-                t.integer('sort_order').notNullable().defaultTo(0)
-                t.uuid('owner_id').nullable()
-
-                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_created_by').nullable()
-                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_updated_by').nullable()
-                t.integer('_upl_version').notNullable().defaultTo(1)
-                t.boolean('_upl_archived').notNullable().defaultTo(false)
-                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
-                t.uuid('_upl_archived_by').nullable()
-                t.boolean('_upl_deleted').notNullable().defaultTo(false)
-                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-                t.uuid('_upl_deleted_by').nullable()
-                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
-                t.boolean('_upl_locked').notNullable().defaultTo(false)
-                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
-                t.uuid('_upl_locked_by').nullable()
-                t.text('_upl_locked_reason').nullable()
-
-                t.boolean('_mhb_published').notNullable().defaultTo(true)
-                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
-                t.uuid('_mhb_published_by').nullable()
-                t.boolean('_mhb_archived').notNullable().defaultTo(false)
-                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
-                t.uuid('_mhb_archived_by').nullable()
-                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
-                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
-                t.uuid('_mhb_deleted_by').nullable()
-
-                t.index(['template_key'], 'idx_mhb_layouts_template_key')
-                t.index(['is_active'], 'idx_mhb_layouts_is_active')
-                t.index(['is_default'], 'idx_mhb_layouts_is_default')
-                t.index(['sort_order'], 'idx_mhb_layouts_sort_order')
-            })
-
-            await this.knex.raw(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_mhb_layouts_default_active
-                ON "${schemaName}"._mhb_layouts (is_default)
-                WHERE is_default = true AND _upl_deleted = false AND _mhb_deleted = false
-            `)
-        }
-
-        const layoutsCountRow = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_layouts')
-            .where({ _upl_deleted: false, _mhb_deleted: false })
-            .count<{ count: string }[]>('* as count')
-            .first()
-        const layoutsCount = layoutsCountRow ? Number(layoutsCountRow.count) : 0
-        if (Number.isFinite(layoutsCount) && layoutsCount === 0) {
-            const now = new Date()
-            const defaultName = buildLocalizedContent({ en: 'Dashboard', ru: 'Дашборд' }, 'en', 'en') ?? {}
-            const defaultDescription =
-                buildLocalizedContent(
-                    { en: 'Default layout for published applications', ru: 'Макет по умолчанию для опубликованных приложений' },
-                    'en',
-                    'en'
-                ) ?? null
-            const defaultConfig = buildDashboardLayoutConfig(DEFAULT_DASHBOARD_ZONE_WIDGETS)
-
-            await this.knex.withSchema(schemaName).into('_mhb_layouts').insert({
-                template_key: 'dashboard',
-                name: defaultName,
-                description: defaultDescription,
-                config: defaultConfig,
-                is_active: true,
-                is_default: true,
-                sort_order: 0,
-                owner_id: null,
-                _upl_created_at: now,
-                _upl_created_by: null,
-                _upl_updated_at: now,
-                _upl_updated_by: null,
-                _upl_version: 1,
-                _upl_archived: false,
-                _upl_deleted: false,
-                _upl_locked: false,
-                _mhb_published: true,
-                _mhb_archived: false,
-                _mhb_deleted: false
-            })
-        }
-
-        // _mhb_layout_zone_widgets: assigned dashboard widgets by layout zone.
-        const hasLayoutZoneWidgets = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_layout_zone_widgets')
-        if (!hasLayoutZoneWidgets) {
-            await this.knex.schema.withSchema(schemaName).createTable('_mhb_layout_zone_widgets', (t) => {
-                t.uuid('id').primary().defaultTo(this.knex.raw('public.uuid_generate_v7()'))
-                t.uuid('layout_id').notNullable().references('id').inTable(`${schemaName}._mhb_layouts`).onDelete('CASCADE')
-                t.string('zone', 20).notNullable()
-                t.string('widget_key', 100).notNullable()
-                t.integer('sort_order').notNullable().defaultTo(1)
-                t.jsonb('config').notNullable().defaultTo('{}')
-
-                t.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_created_by').nullable()
-                t.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(this.knex.fn.now())
-                t.uuid('_upl_updated_by').nullable()
-                t.integer('_upl_version').notNullable().defaultTo(1)
-                t.boolean('_upl_archived').notNullable().defaultTo(false)
-                t.timestamp('_upl_archived_at', { useTz: true }).nullable()
-                t.uuid('_upl_archived_by').nullable()
-                t.boolean('_upl_deleted').notNullable().defaultTo(false)
-                t.timestamp('_upl_deleted_at', { useTz: true }).nullable()
-                t.uuid('_upl_deleted_by').nullable()
-                t.timestamp('_upl_purge_after', { useTz: true }).nullable()
-                t.boolean('_upl_locked').notNullable().defaultTo(false)
-                t.timestamp('_upl_locked_at', { useTz: true }).nullable()
-                t.uuid('_upl_locked_by').nullable()
-                t.text('_upl_locked_reason').nullable()
-
-                t.boolean('_mhb_published').notNullable().defaultTo(true)
-                t.timestamp('_mhb_published_at', { useTz: true }).nullable()
-                t.uuid('_mhb_published_by').nullable()
-                t.boolean('_mhb_archived').notNullable().defaultTo(false)
-                t.timestamp('_mhb_archived_at', { useTz: true }).nullable()
-                t.uuid('_mhb_archived_by').nullable()
-                t.boolean('_mhb_deleted').notNullable().defaultTo(false)
-                t.timestamp('_mhb_deleted_at', { useTz: true }).nullable()
-                t.uuid('_mhb_deleted_by').nullable()
-
-                t.index(['layout_id'], 'idx_mhb_layout_zone_widgets_layout_id')
-                t.index(['layout_id', 'zone', 'sort_order'], 'idx_mhb_layout_zone_widgets_layout_zone_sort')
-            })
-        }
-
-        const defaultLayout = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_layouts')
-            .where({ _upl_deleted: false, _mhb_deleted: false, is_default: true })
-            .orderBy('sort_order', 'asc')
-            .first()
-        const fallbackLayout =
-            defaultLayout ??
-            (await this.knex
-                .withSchema(schemaName)
-                .from('_mhb_layouts')
-                .where({ _upl_deleted: false, _mhb_deleted: false })
-                .orderBy('sort_order', 'asc')
-                .first())
-
-        if (fallbackLayout) {
-            const existingZoneWidgetCountRow = await this.knex
-                .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
-                .where({
-                    layout_id: fallbackLayout.id,
-                    _upl_deleted: false,
-                    _mhb_deleted: false
-                })
-                .count<{ count: string }[]>('* as count')
-                .first()
-
-            const existingZoneWidgetCount = existingZoneWidgetCountRow ? Number(existingZoneWidgetCountRow.count) : 0
-            if (Number.isFinite(existingZoneWidgetCount) && existingZoneWidgetCount === 0) {
-                const now = new Date()
-                await this.knex
-                    .withSchema(schemaName)
-                    .into('_mhb_layout_zone_widgets')
-                    .insert(
-                        DEFAULT_DASHBOARD_ZONE_WIDGETS.map((item) => ({
-                            layout_id: fallbackLayout.id,
-                            zone: item.zone,
-                            widget_key: item.widgetKey,
-                            sort_order: item.sortOrder,
-                            config: item.config ?? {},
-                            _upl_created_at: now,
-                            _upl_created_by: null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: null,
-                            _upl_version: 1,
-                            _upl_archived: false,
-                            _upl_deleted: false,
-                            _upl_locked: false,
-                            _mhb_published: true,
-                            _mhb_archived: false,
-                            _mhb_deleted: false
-                        }))
+        if (metahub.templateVersionId) {
+            const version = await this.dataSource.getRepository(TemplateVersion).findOneBy({ id: metahub.templateVersionId })
+            if (version?.manifestJson) {
+                try {
+                    return validateTemplateManifest(version.manifestJson)
+                } catch (error) {
+                    console.warn(
+                        `[MetahubSchemaService] Invalid manifest in template version ${version.id}, falling back to default:`,
+                        error
                     )
+                }
             }
         }
+
+        return this.getDefaultManifest()
+    }
+
+    /**
+     * Returns the default built-in template manifest.
+     */
+    private getDefaultManifest(): MetahubTemplateManifest {
+        const defaultTemplate = builtinTemplates.find((t) => t.codename === DEFAULT_TEMPLATE_CODENAME)
+        if (!defaultTemplate) {
+            throw new Error(`Default template '${DEFAULT_TEMPLATE_CODENAME}' not found in built-in templates`)
+        }
+        return defaultTemplate
+    }
+
+    /**
+     * Initialize system tables in the isolated schema.
+     *
+     * Delegates DDL creation to structure version registry and
+     * seed data population to TemplateSeedExecutor.
+     */
+    private async initSystemTables(schemaName: string, manifest: MetahubTemplateManifest): Promise<void> {
+        // 1. Create DDL structure (tables + indexes) based on structure version
+        const structureVersion = manifest.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+        const versionHandler = getStructureVersion(structureVersion)
+        await versionHandler.init(this.knex, schemaName)
+
+        // 2. Seed data from template manifest
+        const executor = new TemplateSeedExecutor(this.knex, schemaName)
+        await executor.apply(manifest.seed)
+    }
+
+    /**
+     * Migrate system tables from an older structure version to CURRENT_STRUCTURE_VERSION.
+     * Also applies incremental seed data from the template manifest.
+     * Updates the branch record after successful migration.
+     */
+    private async migrateStructure(
+        schemaName: string,
+        branchId: string,
+        fromVersion: number,
+        manifest: MetahubTemplateManifest
+    ): Promise<void> {
+        // 1. DDL migration (tables, columns, indexes, FKs)
+        const migrator = new SystemTableMigrator(this.knex, schemaName)
+        const result = await migrator.migrate(fromVersion, CURRENT_STRUCTURE_VERSION)
+
+        if (!result.success) {
+            console.error(`[MetahubSchemaService] Structure migration failed for ${schemaName}:`, result.error)
+            throw new Error(`Structure migration V${fromVersion}→V${CURRENT_STRUCTURE_VERSION} failed: ${result.error}`)
+        }
+
+        if (result.applied.length > 0) {
+            console.info(
+                `[MetahubSchemaService] Migrated ${schemaName} V${fromVersion}→V${CURRENT_STRUCTURE_VERSION}: ${result.applied.length} changes applied`
+            )
+        }
+
+        if (result.skippedDestructive.length > 0) {
+            console.warn(`[MetahubSchemaService] ${result.skippedDestructive.length} destructive changes skipped for ${schemaName}`)
+        }
+
+        // 2. Seed data migration (new layouts, settings, entities, elements from template)
+        const seedMigrator = new TemplateSeedMigrator(this.knex, schemaName)
+        const seedResult = await seedMigrator.migrateSeed(manifest.seed)
+
+        const hasChanges =
+            seedResult.layoutsAdded > 0 ||
+            seedResult.zoneWidgetsAdded > 0 ||
+            seedResult.settingsAdded > 0 ||
+            seedResult.entitiesAdded > 0 ||
+            seedResult.elementsAdded > 0
+
+        if (hasChanges) {
+            console.info(
+                `[MetahubSchemaService] Seed migration for ${schemaName}: ` +
+                    `+${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
+                    `+${seedResult.settingsAdded} settings, +${seedResult.entitiesAdded} entities, ` +
+                    `+${seedResult.attributesAdded} attributes, +${seedResult.elementsAdded} elements`
+            )
+        }
+
+        // 3. Update branch structure version in DB
+        const branchRepo = this.dataSource.getRepository(MetahubBranch)
+        await branchRepo.update({ id: branchId }, { structureVersion: CURRENT_STRUCTURE_VERSION })
     }
 }

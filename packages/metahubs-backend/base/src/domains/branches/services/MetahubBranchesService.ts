@@ -1,13 +1,16 @@
 import type { DataSource, EntityManager } from 'typeorm'
+import type { VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
+import { TemplateVersion } from '../../../database/entities/TemplateVersion'
+import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
 import { AuthUser } from '@universo/auth-backend'
 import { Profile } from '@universo/profile-backend'
 import { KnexClient, getDDLServices, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { CURRENT_STRUCTURE_VERSION } from '../../metahubs/services/structureVersions'
 import { escapeLikeWildcards } from '../../../utils'
-import type { VersionedLocalizedContent } from '@universo/types'
 import { OptimisticLockError } from '@universo/utils'
 
 export interface BranchListOptions {
@@ -46,6 +49,27 @@ export class MetahubBranchesService {
     private buildSchemaName(metahubId: string, branchNumber: number): string {
         const cleanId = metahubId.replace(/-/g, '')
         return `mhb_${cleanId}_b${branchNumber}`
+    }
+
+    /**
+     * Loads the template manifest for a metahub entity with runtime validation.
+     * Returns undefined if no template is assigned (initializeSchema will use default).
+     */
+    private async loadManifestForMetahub(metahub: Metahub): Promise<MetahubTemplateManifest | undefined> {
+        if (!metahub.templateVersionId) {
+            return undefined
+        }
+        const versionRepo = this.repoManager.getRepository(TemplateVersion)
+        const version = await versionRepo.findOneBy({ id: metahub.templateVersionId })
+        if (version?.manifestJson) {
+            try {
+                return validateTemplateManifest(version.manifestJson)
+            } catch (error) {
+                console.warn(`[MetahubBranchesService] Invalid manifest in template version ${version.id}, falling back to default:`, error)
+                return undefined
+            }
+        }
+        return undefined
     }
 
     async listBranches(metahubId: string, options: BranchListOptions = {}) {
@@ -160,8 +184,11 @@ export class MetahubBranchesService {
         const branchNumber = 1
         const schemaName = this.buildSchemaName(metahubId, branchNumber)
 
-        await schemaService.initializeSchema(schemaName)
+        // Load template manifest from the metahub's assigned template (if any)
+        const manifest = await this.loadManifestForMetahub(metahub)
+        await schemaService.initializeSchema(schemaName, manifest)
 
+        const structureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
         const branch = branchRepo.create({
             metahubId,
             name,
@@ -169,6 +196,7 @@ export class MetahubBranchesService {
             codename,
             branchNumber,
             schemaName,
+            structureVersion,
             _uplCreatedBy: createdBy ?? null,
             _uplUpdatedBy: createdBy ?? null
         })
@@ -252,8 +280,13 @@ export class MetahubBranchesService {
                         copyData: true
                     })
                 } else {
-                    await schemaService.initializeSchema(schemaName)
+                    // Load template manifest for new branch from scratch
+                    const manifest = await this.loadManifestForMetahub(metahub)
+                    await schemaService.initializeSchema(schemaName, manifest)
                 }
+
+                // Inherit structure version from source branch, or use current for fresh schemas
+                const branchStructureVersion = sourceBranch?.structureVersion ?? CURRENT_STRUCTURE_VERSION
 
                 const branch = branchRepo.create({
                     metahubId,
@@ -263,6 +296,7 @@ export class MetahubBranchesService {
                     codename,
                     branchNumber: nextNumber,
                     schemaName,
+                    structureVersion: branchStructureVersion,
                     _uplCreatedBy: createdBy ?? null,
                     _uplUpdatedBy: createdBy ?? null
                 })

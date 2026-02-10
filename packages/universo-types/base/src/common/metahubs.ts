@@ -334,3 +334,143 @@ export interface DashboardLayoutZoneWidget {
 
 export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'link'] as const
 export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
+
+// ========= Template Manifest Types =========
+
+/** Schema version discriminator for future manifest format evolution. */
+export type MetahubTemplateSchemaVersion = 'metahub-template/v1'
+
+/** Template metadata (author, tags, icon). */
+export interface MetahubTemplateMeta {
+    author?: string
+    tags?: string[]
+    icon?: string
+    previewUrl?: string
+}
+
+/** Seed layout definition (codename-based, no UUIDs). */
+export interface TemplateSeedLayout {
+    codename: string
+    templateKey: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string> | null
+    isDefault: boolean
+    isActive: boolean
+    sortOrder: number
+    config?: Record<string, unknown>
+}
+
+/** Seed zone widget assignment. */
+export interface TemplateSeedZoneWidget {
+    zone: DashboardLayoutZone
+    widgetKey: DashboardLayoutWidgetKey
+    sortOrder: number
+    config?: Record<string, unknown>
+}
+
+/** Seed setting key/value pair. */
+export interface TemplateSeedSetting {
+    key: string
+    value: Record<string, unknown> | string | number | boolean
+}
+
+/** Seed entity attribute (uses codenames for REF targets). */
+export interface TemplateSeedAttribute {
+    codename: string
+    dataType: AttributeDataType
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    isRequired?: boolean
+    isDisplayAttribute?: boolean
+    sortOrder?: number
+    targetEntityCodename?: string
+    targetEntityKind?: MetaEntityKind
+    validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
+}
+
+/** Seed entity definition (catalog, hub, document). */
+export interface TemplateSeedEntity {
+    codename: string
+    kind: MetaEntityKind
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    config?: Record<string, unknown>
+    attributes?: TemplateSeedAttribute[]
+    hubs?: string[]
+}
+
+/** Seed element (predefined data row for an entity). */
+export interface TemplateSeedElement {
+    codename: string
+    data: Record<string, unknown>
+    sortOrder: number
+}
+
+/** All seed data that populates system tables when creating a metahub from a template. */
+export interface MetahubTemplateSeed {
+    layouts: TemplateSeedLayout[]
+    /** Zone widget assignments keyed by layout codename. */
+    layoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]>
+    settings?: TemplateSeedSetting[]
+    entities?: TemplateSeedEntity[]
+    /** Predefined elements keyed by entity codename. */
+    elements?: Record<string, TemplateSeedElement[]>
+}
+
+/**
+ * Root template manifest — stored as JSON file in the codebase
+ * and as JSONB in templates_versions.manifest_json.
+ */
+export interface MetahubTemplateManifest {
+    $schema: MetahubTemplateSchemaVersion
+    codename: string
+    version: string
+    minStructureVersion: number
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    meta?: MetahubTemplateMeta
+    seed: MetahubTemplateSeed
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template API DTOs — shared response types for template catalog endpoints
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Template version summary DTO (GET /templates response element). */
+export interface TemplateVersionSummaryDTO {
+    id: string
+    versionNumber: number
+    versionLabel: string
+    changelog?: string | null
+}
+
+/** Template summary DTO (GET /templates response element). */
+export interface TemplateSummaryDTO {
+    id: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    icon?: string | null
+    isSystem: boolean
+    sortOrder: number
+    activeVersion: TemplateVersionSummaryDTO | null
+}
+
+/** Template detail DTO (GET /templates/:templateId response). */
+export interface TemplateDetailDTO extends Omit<TemplateSummaryDTO, 'activeVersion'> {
+    isActive: boolean
+    activeVersionId: string | null
+    versions: Array<
+        TemplateVersionSummaryDTO & {
+            isActive: boolean
+            createdAt: string
+        }
+    >
+}
+
+/** Paginated templates list response DTO. */
+export interface TemplatesListResponseDTO {
+    data: TemplateSummaryDTO[]
+    total: number
+}

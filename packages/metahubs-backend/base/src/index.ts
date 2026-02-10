@@ -3,6 +3,11 @@ export { metahubsEntities } from './database/entities/index'
 export { Metahub } from './database/entities/Metahub'
 export { MetahubUser } from './database/entities/MetahubUser'
 export { Publication, PublicationAccessMode, PublicationSchemaStatus } from './database/entities/Publication'
+export { Template } from './database/entities/Template'
+export { TemplateVersion } from './database/entities/TemplateVersion'
+
+// Template seeder (call at startup after DataSource initialization)
+export { seedTemplates } from './domains/templates/services/TemplateSeeder'
 
 // Route exports
 export { createMetahubsRoutes } from './domains/metahubs/routes/metahubsRoutes'

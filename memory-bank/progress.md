@@ -44,7 +44,157 @@
 
 ---
 
+## 2026-02-10
+
+### Metahubs UX + Application Runtime Fixes
+- **TemplateSelector truncation**: description line now clamps with ellipsis to avoid overlapping the Select caret in create/edit dialogs.
+- **Runtime checkbox update**: runtime cell PATCH now includes `catalogId`, ensuring updates target the correct runtime table and avoid 404 on multi-catalog apps.
+- **KnexClient warning**: transaction pooler log traced to port 6543 detection; warning is expected and aligns with shorter pool timeouts.
+- **Lint**: `pnpm --filter @universo/metahubs-frontend lint` failed due to pre-existing prettier errors; `@universo/applications-frontend` lint was not executed because the first command failed.
+
+## 2026-02-12
+
+### README Documentation — metahubs-backend
+- **README.md (EN)** — 609 lines. Comprehensive architecture documentation covering: Domain Model, Declarative DDL & System Tables (7 tables across V1/V2), Migration Engine (diff-based, additive-only), Template System (seeder, executor, migrator, Zod validation), Data Isolation. Includes: Schema Lifecycle diagram, DDL Flow diagram, Seed Flow diagram, System Fields architecture (16 _upl_* + 9 _mhb_* columns), Optimistic Locking with HTTP examples, full API Reference (all endpoint groups), Data Model tables, File Structure tree, Integration Points, Key Design Decisions.
+- **README-RU.md (RU)** — 609 lines. Exact structural mirror of EN. Same heading hierarchy, identical code blocks, translated prose.
+- **Verified**: Line count parity confirmed (609 == 609).
+
+---
+
+## 2026-02-10
+
+### DDL Phase 2 — Migrations, FK Diff, Seed Enrichment
+- **Phase 6 (DRY)**: Extracted `buildIndexSQL()` shared helper into `systemTableDefinitions.ts`. Both `SystemTableDDLGenerator.createIndex()` and `SystemTableMigrator.addIndex()` now use it, eliminating duplicate GIN/btree index creation logic.
+- **Phase 3 (FK Diff)**: Extended `systemTableDiff.ts` with 3 new change types: `ADD_FK`, `DROP_FK`, `ALTER_COLUMN`. Diff engine now detects foreign key additions/removals and column type/nullable changes. Refactored diff logic into separate `diffColumns()`, `diffIndexes()`, `diffForeignKeys()` functions.
+- **Phase 2 (V2)**: Added `_mhb_migrations` system table (structure migration history). Created `SYSTEM_TABLES_V2` (7 tables = V1 + _mhb_migrations). Updated `CURRENT_STRUCTURE_VERSION` to 2. `_mhb_migrations` stores: id, name, applied_at, from_version, to_version, meta (JSONB).
+- **Phase 4 (Migrator)**: Added `ADD_FK` support in `SystemTableMigrator.applyDiff()` with idempotent `addForeignKey()` method (checks `information_schema.table_constraints`). Added `recordMigration()` method that writes history to `_mhb_migrations` within the migration transaction.
+- **Phase 1 (Seed)**: Enriched `basic.template.ts` v1.0.0 → v1.1.0 with: `settings` (general.language, general.timezone), `entities` (catalog "tags" with label/color attributes), `elements` (3 predefined tags: Important, Draft, Published). Updated `minStructureVersion` to 2.
+- **Phase 5 (SeedMigrator)**: Created `TemplateSeedMigrator.ts` — applies incremental seed data (settings, entities, elements) to existing schemas without overwriting user data. Integrated into `MetahubSchemaService.migrateStructure()` (DDL migration → seed migration → version update).
+- **Build**: Lint 0 errors in modified files, metahubs-backend 8/8, full workspace 65/65.
+
+---
+
+## 2026-02-11
+
+### QA Deep Fixes — DDL Phase 2 Findings (All 8 QA Findings Addressed)
+- **FINDING-1 (HIGH)**: Removed `JSON.stringify()` wrapping JSONB `meta` column in `SystemTableMigrator.recordMigration()`. PostgreSQL JSONB columns accept plain objects via Knex — double-stringifying caused `"\"...\""`-nested strings.
+- **FINDING-4 (MEDIUM)**: Replaced `Date.now()` with `${Date.now()}_${randomBytes(4).toString('hex')}` for migration name uniqueness. Added `import { randomBytes } from 'crypto'`.
+- **FINDING-3 (MEDIUM)**: Quoted all SQL identifiers in `buildIndexSQL()`: table name `"schema"."table"`, index name `"idx_name"`, columns `"col1", "col2"`. WHERE clause intentionally left unquoted (SQL expression).
+- **FINDING-2 (MEDIUM)**: Added `kind: entity.kind` to WHERE clause in both `TemplateSeedMigrator.migrateEntities()` and `TemplateSeedExecutor.createEntities()`. Prevents cross-kind codename collisions.
+- **FINDING-6 (NEW FEATURE)**: Implemented full layouts + zone widgets incremental migration in `TemplateSeedMigrator`:
+  - `migrateLayouts()` — lookup by `template_key`, respects existing default layout (doesn't override user's choice)
+  - `migrateZoneWidgets()` — inserts widgets + updates layout config via `buildDashboardLayoutConfig()`
+  - Extended `SeedMigrationResult` with `layoutsAdded`, `zoneWidgetsAdded`
+  - Updated `migrateSeed()` flow: layouts → zone widgets → settings → entities → elements
+- **FINDING-7 (LOW)**: Eliminated double `loadManifest()` call in `MetahubSchemaService`. Manifest loaded once with lazy `??=` pattern, passed to `migrateStructure()` as parameter instead of `metahubId`.
+- **FINDING-5, FINDING-8**: Documented for future — `_mhb_migrations` extra system fields acceptable for consistency; element dedup by count is conservative but safe.
+- **Build**: Lint 0 errors in modified files, metahubs-backend 8/8, full workspace 65/65.
+
+---
+
+## 2026-02-11
+
+### QA Fixes — Declarative DDL & Migration Engine
+- **FINDING-1 (MEDIUM)**: Copy route (`POST /metahub/:metahubId/copy`) now passes `structureVersion: planItem.sourceBranch.structureVersion ?? 1` when creating branch records. Copied metahubs preserve their source schema version.
+- **FINDING-2 (MEDIUM)**: `createInitialBranch()` loads manifest and sets `structureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION`. `createBranch()` sets `structureVersion = sourceBranch?.structureVersion ?? CURRENT_STRUCTURE_VERSION`. All new branches now have explicit structure version.
+- **FINDING-3 (LOW)**: Extracted `buildColumnOnTable(t, col, knex, forceNullable?)` shared helper into `systemTableDefinitions.ts`. Both `SystemTableDDLGenerator` and `SystemTableMigrator` now use it, eliminating ~40 lines of duplicated column-builder logic.
+- **FINDING-5 (LOW)**: Removed dead `expression` field from `SystemIndexDef` type (was never used in any code path).
+- **FINDING-6 (LOW)**: Fixed all prettier formatting errors across 6 files via `npx prettier --write`. Includes: console.warn single-line, method signatures, FK chains, raw SQL strings, VLC descriptions.
+- **Not fixed**: FINDING-4 (FK diff detection) — acceptable for MVP, documented for future. FINDING-7-10 — informational only.
+- **Build**: 65/65 workspace packages compiled. Lint: 0 new errors in modified files.
+
+---
+
+## 2026-02-10
+
+### Declarative DDL & Migration Engine
+- **Phase 1 — Declarative DDL**: Created `systemTableDefinitions.ts` with full type system (`SystemTableDef`, `SystemColumnDef`, `SystemIndexDef`, `SystemForeignKeyDef`), shared field sets (`UPL_SYSTEM_FIELDS` 16 fields, `MHB_SYSTEM_FIELDS` 9 fields), 6 V1 table definitions, and `SYSTEM_TABLE_VERSIONS` Map.
+- **Phase 2 — DDL Generator**: Created `SystemTableDDLGenerator.ts` converting declarative defs to Knex DDL. Supports special defaults (`$uuid_v7`, `$now`), `t.foreign()` FK pattern (avoids duplicate column creation).
+- **Phase 3 — Rewrite structureVersions.ts**: Replaced 364-line imperative `initSystemTablesV1()` with 54-line declarative auto-builder. Public API preserved (`getStructureVersion()`, `CURRENT_STRUCTURE_VERSION`).
+- **Phase 4 — Diff Engine**: Created `systemTableDiff.ts` with `calculateSystemTableDiff()` detecting ADD/DROP for tables, columns, indexes. Classifies changes as additive (safe) vs destructive (warning-only).
+- **Phase 5 — SystemTableMigrator**: Created `SystemTableMigrator.ts` applying additive changes in transaction, chaining V→V+1 steps. Destructive changes logged as warnings, never auto-applied.
+- **Phase 6 — Auto-migration**: Modified `MetahubSchemaService.ensureSchema()` to compare branch's `structureVersion` vs `CURRENT_STRUCTURE_VERSION` and trigger migration automatically.
+- **Phase 7 — Deduplication**: Made `basic.template.ts` import `DEFAULT_DASHBOARD_ZONE_WIDGETS` from `layoutDefaults.ts` via `buildSeedZoneWidgets()` + `enrichConfigWithVlcTimestamps()`. Eliminated 22-widget duplication.
+- **Bug fixed**: `t.uuid(fk.column).references()` creates duplicate column → changed to `t.foreign(fk.column).references()` which adds FK constraint to existing column.
+- **Build**: 65/65 workspace packages compiled successfully.
+
+### Template Selector Chip Layout
+- **Chip placement**: Moved system chip to the top row next to the template name + version, preventing overlap with the select caret.
+- **Layout**: Title row uses a wrapped flex line; description stays on its own line.
+- **Build**: `pnpm build --filter '@universo/metahubs-frontend'` OK.
+
+### Template Selector Localization + Edit Display
+- **i18n**: Added `templates` bundle to consolidated metahubs namespace so labels resolve (`templates.selectTemplate`, `templates.systemTemplate`).
+- **Version display**: Render template version inline with name as "Name (v.x.y.z)" to avoid overlap with select caret.
+- **Edit dialog**: Included `templateId`/`templateVersionId` in metahub list + single responses, enabling disabled TemplateSelector to show the creation template.
+- **Build**: `pnpm build --filter '@universo/metahubs-frontend' --filter '@universo/metahubs-backend'` OK.
+
+### Template Selector UX Improvements
+- **Position**: Moved TemplateSelector from after GeneralTabFields to inside it (between Description and Divider+Codename). Now TemplateSelector appears in the logical form flow.
+- **Styling**: Removed `size="small"` and `mt: 2` from FormControl for consistent sizing with other form fields.
+- **Default Selection**: Added `autoSelectDefault` prop + `useEffect` auto-selection of the first system template when no value is set. Users no longer need to manually select the template.
+- **i18n**: Russian translations already existed (`templates.selectTemplate: "Выберите шаблон"`, etc.). No changes needed.
+- **Author Typo**: Fixed `"universo-platform"` → `"universo-platformo"` in `basic.template.ts`.
+- **Edit Dialog**: Added disabled TemplateSelector to MetahubEditFields showing which template was used. Added `templateId` to `buildInitialValues()` from metahub entity. Added `templateId`/`templateVersionId` to Metahub TypeScript interface.
+- **Build**: 65/65 workspace packages compiled successfully.
+
+---
+
+### QA Hardening — Template System (4 Findings)
+- **FINDING-1 (MEDIUM)**: Wrapped POST /metahubs entity creation (metahub + membership) in `ds.transaction()` for atomicity. Added try-catch around `createInitialBranch()` with cleanup (remove metahub if branch DDL fails, CASCADE FK handles membership).
+- **FINDING-2 (LOW)**: Changed `_schema: z.string()` → `_schema: z.literal('1')` in `TemplateManifestValidator.ts` vlcSchema for strict VLC version pinning.
+- **FINDING-3 (LOW)**: Added `validateTemplateManifest()` runtime validation in both `MetahubSchemaService.loadManifest()` (falls back to default manifest) and `MetahubBranchesService.loadManifestForMetahub()` (returns undefined). Prevents corrupt/tampered manifests from causing runtime errors.
+- **FINDING-4 (LOW)**: Moved 4 DTO interfaces (`TemplateVersionSummaryDTO`, `TemplateSummaryDTO`, `TemplateDetailDTO`, `TemplatesListResponseDTO`) from frontend-local definitions to `@universo/types`. Frontend re-exports with backward-compatible aliases.
+- **Fix**: Corrected `widgetKeys` cast from `[string, ...string[]]` to `[DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]` in `TemplateManifestValidator.ts` to preserve literal union types through Zod inference, fixing TS2322 widgetKey type mismatch in consumers.
+- **Build**: 65/65 workspace packages compiled successfully.
+
+---
+
+## 2026-02-09 (session 4)
+
+### Migration Merge & P0 Bug Fixes
+- **Migration Merge**: Consolidated `AddTemplatesTables1770681600000` into `CreateMetahubsSchema1766351182000`. Template tables (`templates`, `templates_versions`), columns (`template_id`/`template_version_id` on metahubs, `structure_version` on branches), indexes, RLS policies, and FKs are now part of the single initial migration. Deleted the separate migration file and updated `migrations/postgres/index.ts`.
+- **BUG-1 (P0) Fixed**: Changed `SYSTEM_SEEDER_ID` from `'system:template-seeder'` (invalid for UUID column type) to `undefined`. PostgreSQL UUID columns reject non-UUID strings; `undefined` in TypeORM results in `NULL` (column is nullable), correctly indicating system-created records.
+- **BUG-2 (P0) Fixed**: Copy Metahub route (`POST /metahub/:metahubId/copy`) now preserves `templateId` and `templateVersionId` from source metahub in the copied entity.
+- **README Updated**: Updated audit trail description in EN+RU READMEs to reflect `null` instead of `system:template-seeder`.
+- **Build**: 65/65 workspace packages compiled successfully.
+
+---
+
+## 2026-02-09 (session 3)
+- **BUG-3 Fixed**: Added `createdAt` and `updatedAt` to Zod vlcSchema locale entry in `TemplateManifestValidator.ts`. Previously Zod silently stripped these required VLC fields.
+- **WARN-3 Fixed**: Auto-assign default template in POST /metahubs when no `templateId` provided. Uses `DEFAULT_TEMPLATE_CODENAME` to resolve from DB; gracefully falls back if seeder hasn't run.
+- **BUG-1 Fixed**: Added `SYSTEM_SEEDER_ID = 'system:template-seeder'` constant in `TemplateSeeder.ts`. Applied to `_uplCreatedBy`/`_uplUpdatedBy` in create and update operations.
+- **WARN-4 Fixed**: Wrapped `TemplateSeedExecutor.apply()` in Knex transaction. All private methods now accept `qb: Knex` parameter instead of using `this.knex` directly. Partial failures trigger full rollback.
+- **README Updated**: Added Template System documentation to metahubs-backend (EN+RU) and TemplateSelector documentation to metahubs-frontend (EN+RU). Line count parity verified for frontend files.
+- **Build**: 65/65 workspace packages compiled successfully.
+
+---
+
 ## 2026-02-09
+
+### Metahub Template System — Full Implementation
+- **Objective**: Replace hardcoded `MetahubSchemaService.initSystemTables()` with a JSON-driven template/versioning system. Two-layer architecture: Structure Version (DDL) + Template Version (seed data).
+- **Scope**: 3 shared packages (`@universo/types`, `@universo/utils`, `@universo/metahubs-backend`) + 2 app packages (`flowise-core-backend`, `metahubs-frontend`). ~15 new files, ~12 modified files.
+- **New DB tables**: `metahubs.templates` (codename, VLC name/description, icon, is_system, active_version_id), `metahubs.templates_versions` (JSONB manifest, SHA-256 hash, version number/label).
+- **New types** (`@universo/types`): `MetahubTemplateManifest`, `MetahubTemplateMeta`, `MetahubTemplateSeed`, `TemplateSeedLayout`, `TemplateSeedZoneWidget`, `TemplateSeedSetting`, `TemplateSeedAttribute`, `TemplateSeedEntity`, `TemplateSeedElement`, `MetahubTemplateSchemaVersion`.
+- **Backend**:
+  - `structureVersions.ts` — DDL registry with `CURRENT_STRUCTURE_VERSION=1` and `initSystemTablesV1()` (6 system tables).
+  - `TemplateSeedExecutor.ts` — Populates system tables from template manifest seed data (layouts → widgets → settings → entities → elements).
+  - `TemplateSeeder.ts` — Idempotent startup seeder with SHA-256 hash deduplication; creates/updates template records and versions.
+  - `TemplateManifestValidator.ts` — Zod schema validation for template manifests.
+  - `basic.template.ts` — "Basic" starter template with dashboard layout + 22 zone widgets (replaces hardcoded seed).
+  - `templatesRoutes.ts` — Read-only API: `GET /templates` (list active), `GET /templates/:templateId` (detail with versions).
+  - `MetahubSchemaService.ts` refactored from 688 → 263 lines; delegates DDL to structure versions and seed to TemplateSeedExecutor.
+  - `POST /metahubs` now accepts optional `templateId`, resolves to template+version, stores on metahub record.
+  - `MetahubBranchesService` loads manifest from TemplateVersion when creating branches.
+- **Frontend**:
+  - `TemplateSelector.tsx` — MUI Select dropdown with system template chip badges.
+  - `useTemplates` hook — TanStack Query with 5-minute staleTime.
+  - i18n keys added for en/ru.
+  - Integrated into MetahubList create dialog.
+- **Rename**: `publication_versions` → `publications_versions` across migration, entities, routes, tests (clean-slate DB).
+- **Build**: 65/65 packages passed.
 
 ### QA Fixes: Menu Widget System (6 Issues)
 - **Trigger**: Manual browser testing after prior session's "Move Menu Functionality Into Layout Widget System" implementation.

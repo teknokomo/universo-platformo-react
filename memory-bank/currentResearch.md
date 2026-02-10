@@ -1,5 +1,10 @@
 # Current Research
 
+## 2026-02-10: Application Runtime 404 on Checkbox Update
+
+- Root cause: runtime update requests did not include `catalogId`, so backend defaulted to the first catalog by codename and returned 404 (row not found) for other catalogs.
+- Fix: include `catalogId` in runtime cell update payloads to target the correct runtime table.
+
 ## 2026-02-03: Display Attribute UX Fixes
 
 - No new external research required; changes were internal UX and default-value adjustments.

@@ -9,8 +9,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * Schema includes:
  * - metahubs: Main configuration entity (like a "database")
  * - metahubs_users: User-metahub membership (roles: owner, member, viewer)
+ * - metahubs_branches: Isolated per-metahub schemas with structure versioning
+ * - templates: Template catalog (system + user templates)
+ * - templates_versions: Versioned template manifests with seed data
  * - publications: External interfaces of Metahubs with access control
- * - publication_versions: Versioned snapshots of Metahub schemas
+ * - publications_versions: Versioned snapshots of Metahub schemas
  *
  * Note: Hubs, Catalogs, Attributes and Elements are stored in isolated per-metahub schemas
  * (e.g., mhb_<metahubId>) using tables: _mhb_hubs, _mhb_objects, _mhb_attributes.
@@ -83,6 +86,10 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 last_branch_number INT NOT NULL DEFAULT 0,
                 is_public BOOLEAN NOT NULL DEFAULT false,
 
+                -- Template provenance (which template was used to create this metahub)
+                template_id UUID,
+                template_version_id UUID,
+
                 -- Platform-level system fields (_upl_*)
                 _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 _upl_created_by UUID,
@@ -154,6 +161,7 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 codename VARCHAR(100) NOT NULL,
                 branch_number INT NOT NULL,
                 schema_name VARCHAR(100) NOT NULL,
+                structure_version INTEGER NOT NULL DEFAULT 1,
 
                 -- Platform-level system fields (_upl_*)
                 _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -212,6 +220,122 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
             ALTER TABLE metahubs.metahubs
             ADD CONSTRAINT fk_metahubs_default_branch
             FOREIGN KEY (default_branch_id) REFERENCES metahubs.metahubs_branches(id) ON DELETE SET NULL
+        `)
+
+        // ===== 3.1) Templates table =====
+        await queryRunner.query(`
+            CREATE TABLE metahubs.templates (
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+                codename VARCHAR(100) NOT NULL,
+                name JSONB NOT NULL DEFAULT '{}',
+                description JSONB DEFAULT '{}',
+                icon VARCHAR(50),
+                is_system BOOLEAN NOT NULL DEFAULT false,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                active_version_id UUID,
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT
+            )
+        `)
+
+        // Partial unique on codename (excluding soft-deleted)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_templates_codename_active
+            ON metahubs.templates (codename)
+            WHERE _upl_deleted = false
+        `)
+
+        // ===== 3.2) Templates versions table =====
+        await queryRunner.query(`
+            CREATE TABLE metahubs.templates_versions (
+                id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+                template_id UUID NOT NULL,
+                version_number INTEGER NOT NULL,
+                version_label VARCHAR(20) NOT NULL,
+                min_structure_version INTEGER NOT NULL DEFAULT 1,
+                manifest_json JSONB NOT NULL,
+                manifest_hash VARCHAR(64) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT false,
+                changelog JSONB,
+
+                -- Platform-level system fields (_upl_*)
+                _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_created_by UUID,
+                _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                _upl_updated_by UUID,
+                _upl_version INTEGER NOT NULL DEFAULT 1,
+
+                _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                _upl_archived_at TIMESTAMPTZ,
+                _upl_archived_by UUID,
+
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _upl_deleted_at TIMESTAMPTZ,
+                _upl_deleted_by UUID,
+                _upl_purge_after TIMESTAMPTZ,
+
+                _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                _upl_locked_at TIMESTAMPTZ,
+                _upl_locked_by UUID,
+                _upl_locked_reason TEXT,
+
+                CONSTRAINT fk_template_versions_template
+                    FOREIGN KEY (template_id) REFERENCES metahubs.templates(id) ON DELETE CASCADE
+            )
+        `)
+
+        // Unique version per template
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX idx_template_versions_number
+            ON metahubs.templates_versions (template_id, version_number)
+            WHERE _upl_deleted = false
+        `)
+
+        // Only one active version per template
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX uq_template_active_version
+            ON metahubs.templates_versions (template_id, is_active)
+            WHERE is_active = true
+        `)
+
+        // ===== 3.3) Circular FK: templates.active_version_id → templates_versions.id =====
+        await queryRunner.query(`
+            ALTER TABLE metahubs.templates
+            ADD CONSTRAINT fk_templates_active_version
+            FOREIGN KEY (active_version_id) REFERENCES metahubs.templates_versions(id) ON DELETE SET NULL
+        `)
+
+        // ===== 3.4) Template provenance FKs on metahubs =====
+        await queryRunner.query(`
+            ALTER TABLE metahubs.metahubs
+            ADD CONSTRAINT fk_metahubs_template
+            FOREIGN KEY (template_id) REFERENCES metahubs.templates(id) ON DELETE SET NULL
+        `)
+
+        await queryRunner.query(`
+            ALTER TABLE metahubs.metahubs
+            ADD CONSTRAINT fk_metahubs_template_version
+            FOREIGN KEY (template_version_id) REFERENCES metahubs.templates_versions(id) ON DELETE SET NULL
         `)
 
         // ===== 4) User-metahub relationship table =====
@@ -354,7 +478,7 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
 
         // Publication versions
         await queryRunner.query(`
-            CREATE TABLE "metahubs"."publication_versions" (
+            CREATE TABLE "metahubs"."publications_versions" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
                 "publication_id" uuid NOT NULL,
                 "branch_id" uuid,
@@ -399,22 +523,22 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 "_mhb_deleted_at" TIMESTAMPTZ,
                 "_mhb_deleted_by" uuid,
 
-                CONSTRAINT "pk_publication_versions" PRIMARY KEY ("id"),
-                CONSTRAINT "fk_publication_versions_publication" FOREIGN KEY ("publication_id") REFERENCES "metahubs"."publications"("id") ON DELETE CASCADE,
-                CONSTRAINT "fk_publication_versions_user" FOREIGN KEY ("_upl_created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL
+                CONSTRAINT "pk_publications_versions" PRIMARY KEY ("id"),
+                CONSTRAINT "fk_publications_versions_publication" FOREIGN KEY ("publication_id") REFERENCES "metahubs"."publications"("id") ON DELETE CASCADE,
+                CONSTRAINT "fk_publications_versions_user" FOREIGN KEY ("_upl_created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL
             )
         `)
 
         // Partial unique index for publication version number (exclude soft-deleted at both levels)
         await queryRunner.query(`
-            CREATE UNIQUE INDEX idx_publication_versions_number_active
-            ON metahubs.publication_versions (publication_id, version_number)
+            CREATE UNIQUE INDEX idx_publications_versions_number_active
+            ON metahubs.publications_versions (publication_id, version_number)
             WHERE _upl_deleted = false AND _mhb_deleted = false
         `)
 
         // Partial unique index for active version (only one active per publication)
         await queryRunner.query(`
-            CREATE UNIQUE INDEX "uq_active_version" ON "metahubs"."publication_versions" ("publication_id", "is_active")
+            CREATE UNIQUE INDEX "uq_active_version" ON "metahubs"."publications_versions" ("publication_id", "is_active")
             WHERE is_active = true
         `)
 
@@ -430,6 +554,13 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_branch_number ON metahubs.metahubs_branches(branch_number)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_branch_source ON metahubs.metahubs_branches(source_branch_id)`)
 
+        // Template indexes
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_templates_active ON metahubs.templates (is_active) WHERE is_active = true`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_templates_system ON metahubs.templates (is_system) WHERE is_system = true`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_template_versions_template ON metahubs.templates_versions (template_id)`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_template_versions_hash ON metahubs.templates_versions (manifest_hash)`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_metahubs_template ON metahubs.metahubs (template_id)`)
+
         // GIN indexes for JSONB name fields (for text search)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_metahub_name_gin ON metahubs.metahubs USING GIN (name)`)
 
@@ -437,17 +568,46 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pub_schema_name ON metahubs.publications(schema_name)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pub_status ON metahubs.publications(schema_status)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pub_name_gin ON metahubs.publications USING GIN (name)`)
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_publication_versions_publication ON metahubs.publication_versions(publication_id)`)
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_publication_versions_branch ON metahubs.publication_versions(branch_id)`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_publications_versions_publication ON metahubs.publications_versions(publication_id)`)
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_publications_versions_branch ON metahubs.publications_versions(branch_id)`)
 
         // ===== 7) Enable RLS on all tables =====
         await queryRunner.query(`ALTER TABLE metahubs.metahubs ENABLE ROW LEVEL SECURITY;`)
         await queryRunner.query(`ALTER TABLE metahubs.metahubs_branches ENABLE ROW LEVEL SECURITY;`)
         await queryRunner.query(`ALTER TABLE metahubs.metahubs_users ENABLE ROW LEVEL SECURITY;`)
         await queryRunner.query(`ALTER TABLE metahubs.publications ENABLE ROW LEVEL SECURITY;`)
-        await queryRunner.query(`ALTER TABLE metahubs.publication_versions ENABLE ROW LEVEL SECURITY;`)
+        await queryRunner.query(`ALTER TABLE metahubs.publications_versions ENABLE ROW LEVEL SECURITY;`)
+        await queryRunner.query(`ALTER TABLE metahubs.templates ENABLE ROW LEVEL SECURITY`)
+        await queryRunner.query(`ALTER TABLE metahubs.templates_versions ENABLE ROW LEVEL SECURITY`)
 
         // ===== 8) RLS Policies WITH global admin bypass =====
+
+        // Templates are readable by all authenticated users, writable only by superusers
+        await queryRunner.query(`
+            CREATE POLICY "templates_read_all" ON metahubs.templates
+            FOR SELECT
+            USING (true)
+        `)
+
+        await queryRunner.query(`
+            CREATE POLICY "templates_write_superuser" ON metahubs.templates
+            FOR ALL
+            USING (admin.is_superuser(auth.uid()))
+            WITH CHECK (admin.is_superuser(auth.uid()))
+        `)
+
+        await queryRunner.query(`
+            CREATE POLICY "template_versions_read_all" ON metahubs.templates_versions
+            FOR SELECT
+            USING (true)
+        `)
+
+        await queryRunner.query(`
+            CREATE POLICY "template_versions_write_superuser" ON metahubs.templates_versions
+            FOR ALL
+            USING (admin.is_superuser(auth.uid()))
+            WITH CHECK (admin.is_superuser(auth.uid()))
+        `)
 
         // Policy for metahubs_users
         await queryRunner.query(`
@@ -527,9 +687,9 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         `)
 
         // Publication versions policy - access via metahub membership
-        await queryRunner.query(`DROP POLICY IF EXISTS "publication_versions_policy" ON metahubs.publication_versions;`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "publications_versions_policy" ON metahubs.publications_versions;`)
         await queryRunner.query(`
-            CREATE POLICY "publication_versions_policy" ON metahubs.publication_versions
+            CREATE POLICY "publications_versions_policy" ON metahubs.publications_versions
             USING (
                 publication_id IN (
                     SELECT p.id FROM metahubs.publications p
@@ -548,8 +708,16 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        // Drop template RLS policies
+        await queryRunner.query(`DROP POLICY IF EXISTS "template_versions_write_superuser" ON metahubs.templates_versions`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "template_versions_read_all" ON metahubs.templates_versions`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "templates_write_superuser" ON metahubs.templates`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "templates_read_all" ON metahubs.templates`)
+        await queryRunner.query(`ALTER TABLE metahubs.templates_versions DISABLE ROW LEVEL SECURITY`)
+        await queryRunner.query(`ALTER TABLE metahubs.templates DISABLE ROW LEVEL SECURITY`)
+
         // Drop RLS policies
-        await queryRunner.query(`DROP POLICY IF EXISTS "publication_versions_policy" ON metahubs.publication_versions;`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "publications_versions_policy" ON metahubs.publications_versions;`)
         await queryRunner.query(`DROP POLICY IF EXISTS "pub_access_via_metahub" ON metahubs.publications;`)
         await queryRunner.query(`DROP POLICY IF EXISTS "branches_access_via_metahub" ON metahubs.metahubs_branches;`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage their own metahubs" ON metahubs.metahubs;`)
@@ -560,12 +728,12 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE metahubs.metahubs_branches DISABLE ROW LEVEL SECURITY;`)
         await queryRunner.query(`ALTER TABLE metahubs.metahubs_users DISABLE ROW LEVEL SECURITY;`)
         await queryRunner.query(`ALTER TABLE metahubs.publications DISABLE ROW LEVEL SECURITY;`)
-        await queryRunner.query(`ALTER TABLE metahubs.publication_versions DISABLE ROW LEVEL SECURITY;`)
+        await queryRunner.query(`ALTER TABLE metahubs.publications_versions DISABLE ROW LEVEL SECURITY;`)
 
         // Drop indexes
-        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publication_versions_publication`)
-        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publication_versions_branch`)
-        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publication_versions_number_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publications_versions_publication`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publications_versions_branch`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_publications_versions_number_active`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_name_gin`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_status`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_pub_schema_name`)
@@ -589,9 +757,27 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_mu_metahub`)
         await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahubs_users_active`)
 
+        // Drop template indexes
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_metahubs_template`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_template_versions_hash`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_template_versions_template`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_templates_system`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_templates_active`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.uq_template_active_version`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_template_versions_number`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metahubs.idx_templates_codename_active`)
+
         // Drop tables
-        await queryRunner.query(`DROP TABLE IF EXISTS metahubs.publication_versions`)
+        await queryRunner.query(`DROP TABLE IF EXISTS metahubs.publications_versions`)
         await queryRunner.query(`DROP TABLE IF EXISTS metahubs.publications`)
+
+        // Drop template FKs and tables
+        await queryRunner.query(`ALTER TABLE metahubs.metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template_version`)
+        await queryRunner.query(`ALTER TABLE metahubs.metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template`)
+        await queryRunner.query(`ALTER TABLE metahubs.templates DROP CONSTRAINT IF EXISTS fk_templates_active_version`)
+        await queryRunner.query(`DROP TABLE IF EXISTS metahubs.templates_versions`)
+        await queryRunner.query(`DROP TABLE IF EXISTS metahubs.templates`)
+
         await queryRunner.query(`ALTER TABLE metahubs.metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_default_branch`)
         await queryRunner.query(`DROP TABLE IF EXISTS metahubs.metahubs_users`)
         await queryRunner.query(`DROP TABLE IF EXISTS metahubs.metahubs_branches`)

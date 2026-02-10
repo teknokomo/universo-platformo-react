@@ -105,6 +105,7 @@ if (!userId) return
 **Pooler mode detection**:
 - Port 6543 = Supavisor transaction mode (shorter timeouts, prepared statement warnings)
 - Port 5432 = Direct connection or session mode
+- KnexClient emits a warning and switches to shorter pool timeouts when port 6543 is detected
 
 **Observability**:
 - Pool status logged every 10s when utilization >70% or waiting connections exist

@@ -781,5 +781,23 @@
         "connectionFailed": "Ошибка подключения",
         "checkConnection": "Пожалуйста, проверьте подключение к сети и попробуйте снова",
         "pleaseTryLater": "Пожалуйста, попробуйте позже"
+    },
+    "templates": {
+        "title": "Шаблоны",
+        "description": "Выберите шаблон для вашего метахаба",
+        "selectTemplate": "Выберите шаблон",
+        "noTemplates": "Нет доступных шаблонов",
+        "defaultTemplate": "По умолчанию",
+        "systemTemplate": "Системный",
+        "version": "Версия {{version}}",
+        "loading": "Загрузка шаблонов...",
+        "loadError": "Ошибка загрузки шаблонов",
+        "fields": {
+            "name": "Название",
+            "description": "Описание",
+            "codename": "Кодовое имя",
+            "version": "Версия",
+            "icon": "Иконка"
+        }
     }
 }

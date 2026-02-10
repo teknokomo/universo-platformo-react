@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Publication } from './Publication'
 
-@Entity({ name: 'publication_versions', schema: 'metahubs' })
+@Entity({ name: 'publications_versions', schema: 'metahubs' })
 export class PublicationVersion {
     @PrimaryGeneratedColumn('uuid')
     id!: string

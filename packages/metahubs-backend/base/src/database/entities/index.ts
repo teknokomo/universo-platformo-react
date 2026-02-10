@@ -3,12 +3,16 @@ import { MetahubBranch } from './MetahubBranch'
 import { MetahubUser } from './MetahubUser'
 import { Publication } from './Publication'
 import { PublicationVersion } from './PublicationVersion'
+import { Template } from './Template'
+import { TemplateVersion } from './TemplateVersion'
 
 export * from './Metahub'
 export * from './MetahubBranch'
 export * from './MetahubUser'
 export * from './Publication'
 export * from './PublicationVersion'
+export * from './Template'
+export * from './TemplateVersion'
 
 /**
  * TypeORM entities for the metahubs schema.
@@ -21,5 +25,7 @@ export const metahubsEntities = [
     MetahubBranch,
     MetahubUser,
     Publication,
-    PublicationVersion
+    PublicationVersion,
+    Template,
+    TemplateVersion
 ]

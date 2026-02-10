@@ -198,6 +198,11 @@ export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... }
 **Migration Format**: `YYYYMMDD_HHMMSS_<description>` (e.g., `20260117_143000_add_products_table`).
 **Components**:
 - `MigrationManager`: CRUD for migrations, rollback analysis.
+
+## Applications Runtime Update Targeting (MVP)
+
+**Rule**: Runtime cell updates should include `catalogId` when the application has multiple catalogs.
+**Why**: Backend defaults to the first catalog by codename; without `catalogId`, updates can target the wrong table and return 404 (row not found).
 - `SchemaMigrator.applyAllChanges({ recordMigration: true, description })`: records migration with snapshot.
 **Rollback Policy**: Block rollback if path contains destructive changes (DROP_TABLE, DROP_COLUMN, destructive ALTER_COLUMN).
 **Detection**: `rg "recordMigration" packages`.
@@ -505,4 +510,22 @@ export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'fa
 - When a catalog has a single attribute, the Display Attribute switch must be auto-enabled and locked (create + edit).
 - Action menu should expose explicit set/clear actions (no dynamic icon/label callbacks) to avoid undefined context crashes.
 
-**Last Updated**: 2026-02-03
+---
+
+## Metahub Template/Versioning System
+
+**Architecture**: Two-layer separation of concerns for metahub schema initialization.
+- **Structure Version** (integer, code-owned): DDL for system tables (`_mhb_layouts`, `_mhb_zone_widgets`, etc.) in `structureVersions.ts`. Registry pattern: `getStructureVersion(n).init(knex, schemaName)`.
+- **Template Version** (SemVer, JSON-driven): Seed data (layouts, widgets, settings, entities, elements) in typed TS files under `templates/data/`. Applied by `TemplateSeedExecutor.apply(knex, schemaName, manifest)`.
+
+**Key Patterns**:
+- Template files use **codenames** for cross-references (not UUIDs). UUIDs generated at seed time with `generateUuidV7()`.
+- VLC entries in seed files use a `vlc()` helper with epoch-zero timestamps for `createdAt`/`updatedAt`.
+- `TemplateSeeder` is idempotent: SHA-256 hash of manifest (via `json-stable-stringify`) compared before upsert.
+- Template entities are platform-level only (`_upl_*` fields, no `_mhb_*`).
+- `MetahubSchemaService.initSystemTables()` delegates to structure version init + template seed executor.
+- Template manifest is loaded from DB (`TemplateVersion.manifestJson`) when `metahub.templateVersionId` exists, falls back to built-in default.
+
+**DB Tables**: `metahubs.templates` (codename, VLC name/desc, active_version_id FK → templates_versions), `metahubs.templates_versions` (JSONB manifest, SHA-256 hash, version_number, version_label).
+
+**Last Updated**: 2026-02-09

@@ -27,7 +27,7 @@ import { Telemetry } from './utils/telemetry'
 import flowiseApiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
 import { initializeRateLimiters } from '@universo/metaverses-backend'
-import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
+import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates as seedMetahubTemplates } from '@universo/metahubs-backend'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
 import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-backend'
 import { initializeRateLimiters as initializeProjectsRateLimiters } from '@universo/projects-backend'
@@ -355,6 +355,13 @@ export class App {
 
         // Initialize rate limiters for start (onboarding) service
         await initializeStartRateLimiters()
+
+        // Seed metahub templates into DB (idempotent, non-fatal)
+        try {
+            await seedMetahubTemplates(this.AppDataSource)
+        } catch (error) {
+            logger.error('[server]: Failed to seed metahub templates:', error)
+        }
 
         this.app.use('/api/v1', flowiseApiV1Router)
 

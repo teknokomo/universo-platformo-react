@@ -774,5 +774,23 @@
     "connectionFailed": "Connection Failed",
     "checkConnection": "Please check your network connection and try again",
     "pleaseTryLater": "Please try again later"
+  },
+  "templates": {
+    "title": "Templates",
+    "description": "Select a template for your metahub",
+    "selectTemplate": "Select template",
+    "noTemplates": "No templates available",
+    "defaultTemplate": "Default",
+    "systemTemplate": "System",
+    "version": "Version {{version}}",
+    "loading": "Loading templates...",
+    "loadError": "Failed to load templates",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "codename": "Codename",
+      "version": "Version",
+      "icon": "Icon"
+    }
   }
 }

@@ -38,7 +38,9 @@ export {
     resolveLocalizedContent,
     getLocalizedContentLocales,
     filterLocalizedContent,
-    isLocalizedContent
+    isLocalizedContent,
+    buildVLC,
+    ensureVLC
 } from './vlc'
 
 // Number validation utilities for precision/scale constraints
