@@ -146,7 +146,7 @@ export class TemplateSeeder {
                 .select('MAX(v.versionNumber)', 'max')
                 .where('v.templateId = :templateId', { templateId: existing.id })
                 .getRawOne()
-            const nextVersionNumber = ((maxVersion?.max as number) ?? 0) + 1
+            const nextVersionNumber = Number(maxVersion?.max ?? 0) + 1
 
             // Deactivate current active version
             await versionRepo

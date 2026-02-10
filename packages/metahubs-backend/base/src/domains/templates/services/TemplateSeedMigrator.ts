@@ -260,6 +260,7 @@ export class TemplateSeedMigrator {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
 
+        // ── Pass 1: Insert/resolve all entities, build complete codename→id map ──
         for (const entity of entities) {
             // Check if entity already exists by codename + kind
             const existing = await trx
@@ -299,40 +300,43 @@ export class TemplateSeedMigrator {
 
             entityIdMap.set(entity.codename, inserted.id)
             result.entitiesAdded++
+        }
 
-            // Create attributes for this entity
-            if (entity.attributes?.length) {
-                for (let i = 0; i < entity.attributes.length; i++) {
-                    const attr = entity.attributes[i]
-                    await trx
-                        .withSchema(this.schemaName)
-                        .into('_mhb_attributes')
-                        .insert({
-                            object_id: inserted.id,
-                            codename: attr.codename,
-                            data_type: attr.dataType,
-                            presentation: { name: attr.name, description: attr.description },
-                            validation_rules: attr.validationRules ?? {},
-                            ui_config: attr.uiConfig ?? {},
-                            sort_order: attr.sortOrder ?? i,
-                            is_required: attr.isRequired ?? false,
-                            is_display_attribute: attr.isDisplayAttribute ?? false,
-                            target_object_id: attr.targetEntityCodename ? entityIdMap.get(attr.targetEntityCodename) ?? null : null,
-                            target_object_kind: attr.targetEntityKind ?? null,
-                            _upl_created_at: now,
-                            _upl_created_by: null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: null,
-                            _upl_version: 1,
-                            _upl_archived: false,
-                            _upl_deleted: false,
-                            _upl_locked: false,
-                            _mhb_published: true,
-                            _mhb_archived: false,
-                            _mhb_deleted: false
-                        })
-                    result.attributesAdded++
-                }
+        // ── Pass 2: Insert attributes using the complete entity map ──
+        for (const entity of entities) {
+            const entityId = entityIdMap.get(entity.codename)
+            if (!entityId || !entity.attributes?.length) continue
+
+            for (let i = 0; i < entity.attributes.length; i++) {
+                const attr = entity.attributes[i]
+                await trx
+                    .withSchema(this.schemaName)
+                    .into('_mhb_attributes')
+                    .insert({
+                        object_id: entityId,
+                        codename: attr.codename,
+                        data_type: attr.dataType,
+                        presentation: { name: attr.name, description: attr.description },
+                        validation_rules: attr.validationRules ?? {},
+                        ui_config: attr.uiConfig ?? {},
+                        sort_order: attr.sortOrder ?? i,
+                        is_required: attr.isRequired ?? false,
+                        is_display_attribute: attr.isDisplayAttribute ?? false,
+                        target_object_id: attr.targetEntityCodename ? entityIdMap.get(attr.targetEntityCodename) ?? null : null,
+                        target_object_kind: attr.targetEntityKind ?? null,
+                        _upl_created_at: now,
+                        _upl_created_by: null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: true,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                result.attributesAdded++
             }
         }
 

@@ -198,11 +198,6 @@ export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... }
 **Migration Format**: `YYYYMMDD_HHMMSS_<description>` (e.g., `20260117_143000_add_products_table`).
 **Components**:
 - `MigrationManager`: CRUD for migrations, rollback analysis.
-
-## Applications Runtime Update Targeting (MVP)
-
-**Rule**: Runtime cell updates should include `catalogId` when the application has multiple catalogs.
-**Why**: Backend defaults to the first catalog by codename; without `catalogId`, updates can target the wrong table and return 404 (row not found).
 - `SchemaMigrator.applyAllChanges({ recordMigration: true, description })`: records migration with snapshot.
 **Rollback Policy**: Block rollback if path contains destructive changes (DROP_TABLE, DROP_COLUMN, destructive ALTER_COLUMN).
 **Detection**: `rg "recordMigration" packages`.
@@ -210,7 +205,11 @@ export const createXService = ({ getDataSource, telemetryProvider }) => ({ ... }
 - Schema changes not tracked.
 - Rollback fails silently.
 **Fix**: Always pass `recordMigration: true` when applying schema changes that should be reversible.
-**Why**: keeps services testable and side-effect free.
+
+## Applications Runtime Update Targeting (MVP)
+
+**Rule**: Runtime cell updates should include `catalogId` when the application has multiple catalogs.
+**Why**: Backend defaults to the first catalog by codename; without `catalogId`, updates can target the wrong table and return 404 (row not found).
 
 ## TanStack Query Cache Correctness + v5 Patterns (CRITICAL)
 

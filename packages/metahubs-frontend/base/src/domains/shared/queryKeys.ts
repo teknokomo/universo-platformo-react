@@ -9,7 +9,7 @@ export const metahubsQueryKeys = {
     all: ['metahubs'] as const,
 
     // ============ TEMPLATES ============
-    templates: () => ['templates'] as const,
+    templates: () => [...metahubsQueryKeys.all, 'templates'] as const,
     templatesList: () => [...metahubsQueryKeys.templates(), 'list'] as const,
     templateDetail: (templateId: string) => [...metahubsQueryKeys.templates(), 'detail', templateId] as const,
 
