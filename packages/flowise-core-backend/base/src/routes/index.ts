@@ -53,7 +53,7 @@ import { createAssistantsService, createAssistantsController, createAssistantsRo
 import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@flowise/leads-backend'
 import { createExecutionsService, createExecutionsRouter, createPublicExecutionsRouter } from '@flowise/executions-backend'
 import { createValidationRouter } from '@flowise/agents-backend'
-import { OptimisticLockError, lookupUserEmail } from '@universo/utils'
+import { OptimisticLockError, lookupUserEmail, isDatabaseConnectTimeoutError } from '@universo/utils'
 import {
     createChatMessagesService,
     createChatMessagesController,
@@ -680,12 +680,6 @@ function isOptimisticLockError(err: unknown): err is OptimisticLockError {
         return hasValidConflict && (e.name === 'OptimisticLockError' || e.code === 'OPTIMISTIC_LOCK_CONFLICT')
     }
     return false
-}
-
-function isDatabaseConnectTimeoutError(err: unknown): err is Error {
-    if (!(err instanceof Error)) return false
-    const message = err.message.toLowerCase()
-    return message.includes('timeout exceeded when trying to connect') || message.includes('connection terminated unexpectedly')
 }
 
 router.use(async (err: Error & { statusCode?: number }, req: Request, res: Response, next: NextFunction) => {

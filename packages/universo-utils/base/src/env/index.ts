@@ -3,6 +3,7 @@
 
 // Re-export admin config utilities
 export * from './adminConfig'
+export * from './numberParsing'
 
 /**
  * Get API base URL from environment or window.location

@@ -5,20 +5,11 @@ import { DataSource } from 'typeorm'
 import { getUserHome } from './utils'
 import { entities } from './database/entities'
 import { postgresMigrations } from './database/migrations/postgres'
+import { parseNonNegativeInt, parsePositiveInt } from '@universo/utils'
 
 let appDataSource: DataSource
 let poolMonitorInterval: NodeJS.Timeout | null = null
 const ENABLE_POOL_DEBUG = process.env.DATABASE_POOL_DEBUG === 'true'
-
-const parsePositiveInt = (value: string | undefined, fallback: number): number => {
-    const parsed = Number.parseInt(value ?? '', 10)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
-}
-
-const parseNonNegativeInt = (value: string | undefined, fallback: number): number => {
-    const parsed = Number.parseInt(value ?? '', 10)
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
-}
 
 /**
  * Pool monitoring configuration

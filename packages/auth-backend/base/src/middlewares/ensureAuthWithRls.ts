@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import type { DataSource, QueryRunner } from 'typeorm'
-import { isWhitelistedApiPath } from '@universo/utils'
+import { isDatabaseConnectTimeoutError, isWhitelistedApiPath } from '@universo/utils'
 import { ensureAuth } from './ensureAuth'
 import { applyRlsContext } from '../utils/rlsContext'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
@@ -14,12 +14,6 @@ const logRlsDebug = (message: string, payload?: unknown): void => {
         return
     }
     console.log(message)
-}
-
-const isDatabaseConnectTimeoutError = (error: unknown): error is Error => {
-    if (!(error instanceof Error)) return false
-    const message = error.message.toLowerCase()
-    return message.includes('timeout exceeded when trying to connect') || message.includes('connection terminated unexpectedly')
 }
 
 /**

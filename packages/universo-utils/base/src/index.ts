@@ -36,7 +36,7 @@ export { createTimeSyncEstimator, updateSeqState, reconcileAck, ensurePortAvaila
 export { UPDLProcessor } from './updl/UPDLProcessor'
 
 // Direct exports for commonly used environment utilities
-export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env'
+export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction, parsePositiveInt, parseNonNegativeInt } from './env'
 export {
     isAdminPanelEnabled,
     isGlobalRolesEnabled,
@@ -81,7 +81,7 @@ export {
 } from './vlc'
 
 // Database utilities
-export { escapeLikeWildcards, lookupUserEmail } from './database'
+export { escapeLikeWildcards, lookupUserEmail, isDatabaseConnectTimeoutError } from './database'
 
 // System fields utilities for three-level architecture
 export {

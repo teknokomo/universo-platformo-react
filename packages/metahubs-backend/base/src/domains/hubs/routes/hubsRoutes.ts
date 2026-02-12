@@ -7,6 +7,7 @@ import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
@@ -85,7 +86,7 @@ export function createHubsRoutes(
         const catalogs = await knex
             .withSchema(schemaName)
             .from('_mhb_objects')
-            .where({ kind: 'catalog' })
+            .where({ kind: MetaEntityKind.CATALOG })
             // hubId exists in config.hubs array
             .whereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
             // isRequiredHub is true

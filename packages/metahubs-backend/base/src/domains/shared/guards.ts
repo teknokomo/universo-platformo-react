@@ -160,7 +160,7 @@ export function assertNotOwner(membership: MetahubUser, operation: 'modify' | 'r
 // ============ HUB ACCESS GUARDS ============
 
 /**
- * Hub data shape returned from _mhb_objects table with kind='HUB'
+ * Hub data shape returned from _mhb_objects table with kind='hub'
  */
 export interface HubData {
     id: string
