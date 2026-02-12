@@ -1,12 +1,7 @@
 import { useMemo } from 'react'
 import { Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import {
-    BlockingEntitiesDeleteDialog,
-    type BlockingEntitiesDeleteDialogLabels,
-    type TableColumn,
-    RoleChip
-} from '@universo/template-mui'
+import { BlockingEntitiesDeleteDialog, type BlockingEntitiesDeleteDialogLabels, type TableColumn, RoleChip } from '@universo/template-mui'
 import type { MetahubBranch, BlockingBranchUser } from '../types'
 import { getBlockingUsers } from '../domains/branches'
 import { metahubsQueryKeys } from '../domains/shared'
@@ -24,14 +19,7 @@ interface BlockingUserRow extends BlockingBranchUser {
     displayName: string
 }
 
-export const BranchDeleteDialog = ({
-    open,
-    branch,
-    metahubId,
-    onClose,
-    onConfirm,
-    isDeleting = false
-}: BranchDeleteDialogProps) => {
+export const BranchDeleteDialog = ({ open, branch, metahubId, onClose, onConfirm, isDeleting = false }: BranchDeleteDialogProps) => {
     const { t } = useTranslation('metahubs')
     const branchId = branch?.id ?? ''
 
@@ -46,10 +34,7 @@ export const BranchDeleteDialog = ({
                 'branches.deleteDialog.hasBlockingUsers',
                 'This branch cannot be deleted. The following users are using it as their active branch:'
             ),
-            resolutionHint: t(
-                'branches.deleteDialog.resolutionHint',
-                'To delete the branch, ask users to switch to another branch.'
-            ),
+            resolutionHint: t('branches.deleteDialog.resolutionHint', 'To delete the branch, ask users to switch to another branch.'),
             fetchError: t('branches.deleteDialog.fetchError', 'Failed to check for blocking users'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             deleteButton: t('common:actions.delete', 'Delete'),
@@ -70,9 +55,7 @@ export const BranchDeleteDialog = ({
             {
                 id: 'name',
                 label: t('table.name', 'Name'),
-                render: (row) => (
-                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.displayName}</Typography>
-                )
+                render: (row) => <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.displayName}</Typography>
             },
             {
                 id: 'email',

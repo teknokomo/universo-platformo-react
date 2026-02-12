@@ -21,10 +21,10 @@ const parseRetryAfter = (value) => {
 
 /**
  * Create global QueryClient for the entire application
- * 
+ *
  * This is the SINGLE QueryClient instance used across the whole app.
  * Following TanStack Query v5 best practices: one QueryClient per application.
- * 
+ *
  * Features:
  * - 5min stale time for most queries (reduces API calls significantly)
  * - 30min garbage collection (memory management)
@@ -32,7 +32,7 @@ const parseRetryAfter = (value) => {
  * - Exponential backoff with Retry-After header respect
  * - Automatic request deduplication (prevents duplicate concurrent requests)
  * - Persistent cache across component lifecycle
- * 
+ *
  * @returns {QueryClient} Global QueryClient instance
  */
 export const createGlobalQueryClient = () =>
@@ -57,23 +57,22 @@ export const createGlobalQueryClient = () =>
                     if (!status) return failureCount < 1
 
                     // Never retry these status codes
-                    if ([401, 403, 404, 429].includes(status)) {
+                    if ([400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504].includes(status)) {
                         return false
                     }
 
-                    // Retry 5xx errors up to 2 times
-                    if (status >= 500 && status < 600) {
-                        return failureCount < 2
-                    }
-
-                    return false
+                    // For rare transient statuses (for example 408), allow one retry.
+                    return failureCount < 1
                 },
+
+                // Prevent automatic re-retries on remount for errored queries.
+                // Users can still retry manually via UI actions.
+                retryOnMount: false,
 
                 // Exponential backoff with Retry-After header respect
                 retryDelay: (attempt, error) => {
                     // Check for Retry-After header (RFC 7231)
-                    const retryAfter =
-                        error?.response?.headers?.['retry-after'] || error?.response?.headers?.['Retry-After']
+                    const retryAfter = error?.response?.headers?.['retry-after'] || error?.response?.headers?.['Retry-After']
 
                     const parsed = parseRetryAfter(retryAfter)
                     if (parsed !== null) {

@@ -24,19 +24,12 @@ export interface VersionedUpdateOptions {
  * @throws OptimisticLockError if version mismatch detected
  * @throws Error if entity not found
  */
-export async function updateWithVersionCheck(
-    options: VersionedUpdateOptions
-): Promise<Record<string, unknown>> {
+export async function updateWithVersionCheck(options: VersionedUpdateOptions): Promise<Record<string, unknown>> {
     const { knex, schemaName, tableName, entityId, entityType, expectedVersion, updateData } = options
 
     return knex.transaction(async (trx) => {
         // 1. Lock row and fetch current state
-        const current = await trx
-            .withSchema(schemaName)
-            .from(tableName)
-            .where({ id: entityId })
-            .forUpdate()
-            .first()
+        const current = await trx.withSchema(schemaName).from(tableName).where({ id: entityId }).forUpdate().first()
 
         if (!current) {
             throw new Error(`${entityType} not found`)

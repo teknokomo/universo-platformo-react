@@ -1,12 +1,11 @@
 import { MigrationManager, generateMigrationName } from '../MigrationManager'
 import { ChangeType } from '../diff'
 import type { SchemaDiff, SchemaSnapshot } from '../types'
-import type { SchemaChange } from '../diff'
 
 // Create mock Knex instance
 const mockSchemaBuilder = {
     withSchema: jest.fn().mockReturnThis(),
-    hasTable: jest.fn().mockResolvedValue(true),
+    hasTable: jest.fn().mockResolvedValue(true)
 }
 
 const mockQueryBuilder = {
@@ -20,7 +19,7 @@ const mockQueryBuilder = {
     orderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     offset: jest.fn().mockReturnThis(),
-    count: jest.fn().mockReturnThis(),
+    count: jest.fn().mockReturnThis()
 }
 
 const mockKnex = Object.assign(
@@ -28,7 +27,7 @@ const mockKnex = Object.assign(
     {
         raw: jest.fn().mockResolvedValue({ rows: [{ exists: true }] }),
         schema: mockSchemaBuilder,
-        withSchema: jest.fn().mockReturnValue(mockQueryBuilder),
+        withSchema: jest.fn().mockReturnValue(mockQueryBuilder)
     }
 )
 
@@ -104,7 +103,7 @@ describe('MigrationManager', () => {
             version: 3,
             generatedAt: new Date().toISOString(),
             hasSystemTables: true,
-            entities: {},
+            entities: {}
         })
 
         const createTestDiff = (hasDestructive = false): SchemaDiff => ({
@@ -115,8 +114,8 @@ describe('MigrationManager', () => {
                     entityCodename: 'products',
                     tableName: 'cat_products',
                     isDestructive: false,
-                    description: 'Create table "products"',
-                },
+                    description: 'Create table "products"'
+                }
             ],
             destructive: hasDestructive
                 ? [
@@ -125,24 +124,18 @@ describe('MigrationManager', () => {
                           entityCodename: 'old_table',
                           tableName: 'cat_old',
                           isDestructive: true,
-                          description: 'Drop table "old_table"',
-                      },
+                          description: 'Drop table "old_table"'
+                      }
                   ]
                 : [],
-            summary: hasDestructive ? '1 additive, 1 destructive' : '1 additive change',
+            summary: hasDestructive ? '1 additive, 1 destructive' : '1 additive change'
         })
 
         it('should record migration with correct data', async () => {
             const snapshotAfter = createTestSnapshot()
             const diff = createTestDiff()
 
-            const migrationId = await manager.recordMigration(
-                'app_test123',
-                '20260117_143022_add_products',
-                null,
-                snapshotAfter,
-                diff
-            )
+            const migrationId = await manager.recordMigration('app_test123', '20260117_143022_add_products', null, snapshotAfter, diff)
 
             expect(migrationId).toBe('migration-id-123')
             // Knex.withSchema is called on the knex instance
@@ -156,13 +149,7 @@ describe('MigrationManager', () => {
             const snapshotAfter = createTestSnapshot()
             const diff = createTestDiff()
 
-            await manager.recordMigration(
-                'app_test123',
-                '20260117_143022_test',
-                snapshotBefore,
-                snapshotAfter,
-                diff
-            )
+            await manager.recordMigration('app_test123', '20260117_143022_test', snapshotBefore, snapshotAfter, diff)
 
             // Verify insert was called with stringified meta
             const insertCall = mockQueryBuilder.insert.mock.calls[0][0]
@@ -220,15 +207,15 @@ describe('MigrationManager', () => {
                         summary: 'test',
                         changes: [],
                         snapshotBefore: null,
-                        snapshotAfter: {},
-                    }),
+                        snapshotAfter: {}
+                    })
                 },
                 {
                     id: 'mig-2',
                     name: '20260117_150000_second',
                     applied_at: '2026-01-17T15:00:00Z',
-                    meta: { hasDestructive: true, summary: 'test2', changes: [], snapshotBefore: null, snapshotAfter: {} },
-                },
+                    meta: { hasDestructive: true, summary: 'test2', changes: [], snapshotBefore: null, snapshotAfter: {} }
+                }
             ])
 
             const result = await manager.listMigrations('app_test123')
@@ -288,8 +275,8 @@ describe('MigrationManager', () => {
                     summary: 'Test migration',
                     changes: [],
                     snapshotBefore: null,
-                    snapshotAfter: { version: 3 },
-                }),
+                    snapshotAfter: { version: 3 }
+                })
             })
 
             const result = await manager.getMigration('app_test123', 'mig-123')

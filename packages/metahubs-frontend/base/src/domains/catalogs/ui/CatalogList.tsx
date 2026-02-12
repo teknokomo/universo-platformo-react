@@ -43,7 +43,7 @@ import { STORAGE_KEYS } from '../../../constants/storage'
 import * as catalogsApi from '../api'
 import type { CatalogWithHubs } from '../api'
 import * as hubsApi from '../../hubs'
-import { metahubsQueryKeys, invalidateCatalogsQueries } from '../../shared'
+import { invalidateCatalogsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { CatalogDisplay, CatalogLocalizedPayload, Hub, PaginatedResponse, getVLCString, toCatalogDisplay } from '../../../types'
@@ -234,9 +234,14 @@ const CatalogList = () => {
             }
             return hubsApi.listHubs(metahubId, { limit: 100 })
         },
-        enabled: !!metahubId
+        enabled: !!metahubId,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        retryOnMount: false,
+        staleTime: 5 * 60 * 1000,
+        retry: false
     })
-    const hubs = hubsData?.items ?? []
+    const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
 
     // Use paginated hook for catalogs list - conditional API based on isHubScoped
     const paginationResult = usePaginated<CatalogWithHubs, 'codename' | 'created' | 'updated'>({
@@ -804,12 +809,7 @@ const CatalogList = () => {
                     // In hub-scoped mode: if primary hub differs from current, redirect
                     if (primaryHubId !== hubId) {
                         navigate(`/metahub/${metahubId}/hub/${primaryHubId}/catalogs`)
-                    } else {
-                        await invalidateCatalogsQueries.all(queryClient, metahubId!, hubId!)
                     }
-                } else {
-                    // In global mode: just invalidate the all catalogs cache
-                    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId!) })
                 }
             } else {
                 // No hubs selected - use metahub-level endpoint
@@ -826,8 +826,6 @@ const CatalogList = () => {
                         isRequiredHub
                     }
                 })
-                // Just invalidate all catalogs cache
-                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId!) })
             }
             handleDialogSave()
         } catch (e: unknown) {
@@ -1092,12 +1090,6 @@ const CatalogList = () => {
                             queryClient.removeQueries({
                                 queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, deletingCatalogId)
                             })
-                            // Invalidate appropriate cache
-                            if (isHubScoped && hubId) {
-                                await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
-                            } else {
-                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
-                            }
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
@@ -1132,11 +1124,6 @@ const CatalogList = () => {
                         })
                         setBlockingDeleteDialogState({ open: false, catalog: null })
                         queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingCatalogReferences(metahubId, catalog.id) })
-                        if (isHubScoped && hubId) {
-                            await invalidateCatalogsQueries.all(queryClient, metahubId, hubId)
-                        } else {
-                            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(metahubId) })
-                        }
                     } catch (err: unknown) {
                         const responseMessage =
                             err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

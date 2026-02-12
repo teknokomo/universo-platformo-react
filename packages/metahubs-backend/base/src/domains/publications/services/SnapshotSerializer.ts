@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
-import { MetaEntityKind } from '@universo/types'
+import { MetaEntityKind, type MetahubSnapshotVersionEnvelope } from '@universo/types'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
@@ -10,6 +10,7 @@ import { generateTableName } from '../../ddl'
 
 export interface MetahubSnapshot {
     version: 1
+    versionEnvelope: MetahubSnapshotVersionEnvelope
     generatedAt: string
     metahubId: string
     entities: Record<string, MetaEntitySnapshot>
@@ -93,7 +94,7 @@ export class SnapshotSerializer {
      * after this method to inject layout and zone-widget information into the
      * snapshot before it is persisted or published.
      */
-    async serializeMetahub(metahubId: string): Promise<MetahubSnapshot> {
+    async serializeMetahub(metahubId: string, versionEnvelope?: Partial<MetahubSnapshotVersionEnvelope>): Promise<MetahubSnapshot> {
         // Fetch catalogs from dynamic schema
         const catalogs = await this.objectsService.findAll(metahubId)
         // Note: findAll already orders by created_at, but we might want sortOrder if we add it to _mhb_objects
@@ -189,6 +190,11 @@ export class SnapshotSerializer {
             metahubId,
             generatedAt: new Date().toISOString(),
             version: 1,
+            versionEnvelope: {
+                structureVersion: versionEnvelope?.structureVersion ?? 1,
+                templateVersion: versionEnvelope?.templateVersion ?? null,
+                snapshotFormatVersion: 1
+            },
             entities,
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined
         }
@@ -352,6 +358,11 @@ export class SnapshotSerializer {
 
         return {
             version: snapshot.version,
+            versionEnvelope: snapshot.versionEnvelope ?? {
+                structureVersion: 1,
+                templateVersion: null,
+                snapshotFormatVersion: 1
+            },
             metahubId: snapshot.metahubId,
             entities,
             elements,

@@ -1,17 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-    Box,
-    Skeleton,
-    Stack,
-    Typography,
-    Chip,
-    Divider,
-    Alert,
-    ToggleButtonGroup,
-    ToggleButton,
-    Tooltip
-} from '@mui/material'
+import { Box, Skeleton, Stack, Typography, Chip, Alert, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import TableRowsIcon from '@mui/icons-material/TableRows'
@@ -38,16 +27,24 @@ import {
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateAttribute, useUpdateAttribute, useDeleteAttribute, useMoveAttribute, useToggleAttributeRequired, useSetDisplayAttribute, useClearDisplayAttribute } from '../hooks/mutations'
+import {
+    useCreateAttribute,
+    useUpdateAttribute,
+    useDeleteAttribute,
+    useMoveAttribute,
+    useToggleAttributeRequired,
+    useSetDisplayAttribute,
+    useClearDisplayAttribute
+} from '../hooks/mutations'
 import * as attributesApi from '../api'
 import { getCatalogById } from '../../catalogs'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
-import { 
-    Attribute, 
-    AttributeDisplay, 
-    AttributeDataType, 
-    AttributeLocalizedPayload, 
+import {
+    Attribute,
+    AttributeDisplay,
+    AttributeDataType,
+    AttributeLocalizedPayload,
     toAttributeDisplay,
     AttributeValidationRules,
     getPhysicalDataType,
@@ -246,10 +243,16 @@ const AttributeList = () => {
             // REF type requires target entity
             if (values.dataType === 'REF') {
                 if (!values.targetEntityKind) {
-                    errors.targetEntityKind = t('attributes.validation.targetEntityKindRequired', 'Target entity type is required for Reference type')
+                    errors.targetEntityKind = t(
+                        'attributes.validation.targetEntityKindRequired',
+                        'Target entity type is required for Reference type'
+                    )
                 }
                 if (!values.targetEntityId) {
-                    errors.targetEntityId = t('attributes.validation.targetEntityIdRequired', 'Target entity is required for Reference type')
+                    errors.targetEntityId = t(
+                        'attributes.validation.targetEntityIdRequired',
+                        'Target entity is required for Reference type'
+                    )
                 }
             }
             return Object.keys(errors).length > 0 ? errors : null
@@ -295,7 +298,10 @@ const AttributeList = () => {
                     dataTypeLabel={t('attributes.dataType', 'Data Type')}
                     requiredLabel={t('attributes.isRequiredLabel', 'Required')}
                     displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                    displayAttributeHelper={t('attributes.isDisplayAttributeHelper', 'Use as representation when referencing elements of this catalog')}
+                    displayAttributeHelper={t(
+                        'attributes.isDisplayAttributeHelper',
+                        'Use as representation when referencing elements of this catalog'
+                    )}
                     displayAttributeLocked={(attributes?.length ?? 0) === 0}
                     dataTypeOptions={[
                         { value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') },
@@ -354,9 +360,16 @@ const AttributeList = () => {
                     const rawAttribute = attributeMap.get(row.id)
                     const isDisplayAttr = rawAttribute?.isDisplayAttribute ?? (row as any)?.isDisplayAttribute ?? false
                     return (
-                        <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Stack direction='row' spacing={0.5} alignItems='center'>
                             {isDisplayAttr && (
-                                <Tooltip title={t('attributes.isDisplayAttributeTooltip', 'This attribute is the display representation for this catalog')} arrow placement="top">
+                                <Tooltip
+                                    title={t(
+                                        'attributes.isDisplayAttributeTooltip',
+                                        'This attribute is the display representation for this catalog'
+                                    )}
+                                    arrow
+                                    placement='top'
+                                >
                                     <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                                 </Tooltip>
                             )}
@@ -406,11 +419,11 @@ const AttributeList = () => {
                     const physicalTypeStr = formatPhysicalType(physicalInfo)
                     const tooltipTitle = t('attributes.physicalType.tooltip', 'PostgreSQL: {{type}}', { type: physicalTypeStr })
                     return (
-                        <Tooltip title={tooltipTitle} arrow placement="top">
-                            <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center" sx={{ cursor: 'help' }}>
+                        <Tooltip title={tooltipTitle} arrow placement='top'>
+                            <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' sx={{ cursor: 'help' }}>
                                 <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
-                                {hasVersioned && <Chip label="V" size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
-                                {hasLocalized && <Chip label="L" size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                                {hasVersioned && <Chip label='V' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
+                                {hasLocalized && <Chip label='L' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
                             </Stack>
                         </Tooltip>
                     )
@@ -463,7 +476,14 @@ const AttributeList = () => {
                         if (isOptimisticLockConflict(error)) {
                             const conflict = extractConflictInfo(error)
                             if (conflict) {
-                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired } } })
+                                setConflictState({
+                                    open: true,
+                                    conflict,
+                                    pendingUpdate: {
+                                        id,
+                                        patch: { ...patch, codename: normalizedCodename, dataType, isRequired: patch.isRequired }
+                                    }
+                                })
                                 return
                             }
                         }
@@ -697,8 +717,7 @@ const AttributeList = () => {
             await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
             handleDialogSave()
         } catch (e: unknown) {
-            const responseData =
-                e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data : undefined
+            const responseData = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data : undefined
             const responseMessage = responseData?.message
             const message =
                 responseData?.code === 'ATTRIBUTE_LIMIT_REACHED'

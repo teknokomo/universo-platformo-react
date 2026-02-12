@@ -42,14 +42,13 @@ export function useCreateCatalogAtMetahub() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        retry: false,
         mutationFn: async ({ metahubId, data }: CreateCatalogAtMetahubParams) => {
             const response = await catalogsApi.createCatalogAtMetahub(metahubId, data)
             return response.data
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
-            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
-            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             const hubIds = variables.data.hubIds ?? []
             hubIds.forEach((hubId: string) => {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, hubId) })
@@ -68,6 +67,7 @@ export function useCreateCatalog() {
     const { t } = useTranslation('metahubs')
 
     return useMutation({
+        retry: false,
         mutationFn: async ({ metahubId, hubId, data }: CreateCatalogParams) => {
             const response = await catalogsApi.createCatalog(metahubId, hubId, data)
             return response.data
@@ -75,8 +75,6 @@ export function useCreateCatalog() {
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
-            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
-            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
             enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
         },
         onError: (error: Error) => {

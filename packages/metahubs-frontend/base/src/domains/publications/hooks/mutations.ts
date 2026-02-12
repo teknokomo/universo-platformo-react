@@ -52,7 +52,9 @@ export function useCreatePublication() {
             enqueueSnackbar(t('publications.messages.createSuccess', 'Information base created'), { variant: 'success' })
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('publications.messages.createError', 'Failed to create information base'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('publications.messages.createError', 'Failed to create information base'), {
+                variant: 'error'
+            })
         }
     })
 }
@@ -93,7 +95,9 @@ export function useSyncPublication() {
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
 
             if (data.status === 'pending_confirmation') {
-                enqueueSnackbar(t('publications.messages.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })
+                enqueueSnackbar(t('publications.messages.syncPending', 'Destructive changes detected. Confirm to proceed.'), {
+                    variant: 'warning'
+                })
             } else {
                 enqueueSnackbar(t('publications.messages.syncSuccess', 'Schema synchronized'), { variant: 'success' })
             }
@@ -119,7 +123,9 @@ export function useDeletePublication() {
             enqueueSnackbar(t('publications.messages.deleteSuccess', 'Information base deleted'), { variant: 'success' })
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('publications.messages.deleteError', 'Failed to delete information base'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('publications.messages.deleteError', 'Failed to delete information base'), {
+                variant: 'error'
+            })
         }
     })
 }

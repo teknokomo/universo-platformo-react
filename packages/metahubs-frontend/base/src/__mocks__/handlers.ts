@@ -82,6 +82,45 @@ export const mockMembersList = [
     }
 ]
 
+const createVlc = (en: string, ru: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: {
+            content: en,
+            version: 1,
+            isActive: true,
+            createdAt: CREATED_30_DAYS_AGO,
+            updatedAt: UPDATED_1_DAY_AGO
+        },
+        ru: {
+            content: ru,
+            version: 1,
+            isActive: true,
+            createdAt: CREATED_30_DAYS_AGO,
+            updatedAt: UPDATED_1_DAY_AGO
+        }
+    }
+})
+
+const mockTemplatesList = [
+    {
+        id: 'template-basic',
+        codename: 'basic',
+        name: createVlc('Basic template', 'Базовый шаблон'),
+        description: createVlc('Default template for metahubs', 'Шаблон по умолчанию для метахабов'),
+        icon: 'Dashboard',
+        isSystem: true,
+        sortOrder: 1,
+        activeVersion: {
+            id: 'template-basic-v1',
+            versionNumber: 1,
+            versionLabel: '1.0.0',
+            changelog: 'Baseline template version'
+        }
+    }
+]
+
 /**
  * MSW request handlers
  */
@@ -95,6 +134,47 @@ export const handlers = [
                 theme: 'light',
                 timezone: 'UTC'
             }
+        })
+    }),
+
+    // List templates (used by metahub create/edit forms)
+    http.get(`${API_BASE_URL}/templates`, async () => {
+        await delay(20)
+        return HttpResponse.json({
+            data: mockTemplatesList,
+            total: mockTemplatesList.length
+        })
+    }),
+
+    // Get template details by id
+    http.get(`${API_BASE_URL}/templates/:templateId`, async ({ params }) => {
+        await delay(20)
+        const template = mockTemplatesList.find((item) => item.id === params.templateId)
+
+        if (!template) {
+            return HttpResponse.json({ message: 'Template not found' }, { status: 404 })
+        }
+
+        return HttpResponse.json({
+            id: template.id,
+            codename: template.codename,
+            name: template.name,
+            description: template.description,
+            icon: template.icon,
+            isSystem: template.isSystem,
+            isActive: true,
+            sortOrder: template.sortOrder,
+            activeVersionId: template.activeVersion?.id ?? null,
+            versions: [
+                {
+                    id: template.activeVersion?.id ?? 'template-version-1',
+                    versionNumber: template.activeVersion?.versionNumber ?? 1,
+                    versionLabel: template.activeVersion?.versionLabel ?? '1.0.0',
+                    changelog: template.activeVersion?.changelog ?? null,
+                    isActive: true,
+                    createdAt: CREATED_30_DAYS_AGO
+                }
+            ]
         })
     }),
 

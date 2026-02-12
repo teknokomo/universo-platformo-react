@@ -26,15 +26,11 @@ export {
     generateColumnName,
     buildFkConstraintName,
     isValidSchemaName,
-    generateMetahubSchemaName,
+    generateMetahubSchemaName
 } from './naming'
 
 // Locking utilities
-export {
-    uuidToLockKey,
-    acquireAdvisoryLock,
-    releaseAdvisoryLock,
-} from './locking'
+export { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
 
 // Type definitions
 export type {
@@ -48,7 +44,7 @@ export type {
     MigrationRecord,
     MigrationMeta,
     MigrationChangeRecord,
-    RollbackAnalysis,
+    RollbackAnalysis
 } from './types'
 
 // Snapshot utilities
@@ -119,6 +115,6 @@ export function createDDLServices(knex: Knex): DDLServices {
         generator,
         migrator,
         migrationManager,
-        cloner,
+        cloner
     }
 }

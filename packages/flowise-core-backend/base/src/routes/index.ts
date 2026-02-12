@@ -682,6 +682,12 @@ function isOptimisticLockError(err: unknown): err is OptimisticLockError {
     return false
 }
 
+function isDatabaseConnectTimeoutError(err: unknown): err is Error {
+    if (!(err instanceof Error)) return false
+    const message = err.message.toLowerCase()
+    return message.includes('timeout exceeded when trying to connect') || message.includes('connection terminated unexpectedly')
+}
+
 router.use(async (err: Error & { statusCode?: number }, req: Request, res: Response, next: NextFunction) => {
     if (isOptimisticLockError(err)) {
         const conflict = err.conflict
@@ -700,7 +706,12 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
     }
 
     // Determine HTTP status code - respect statusCode from custom errors (e.g., InternalFlowiseError)
-    const statusCode = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
+    const statusCode =
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600
+            ? err.statusCode
+            : isDatabaseConnectTimeoutError(err)
+              ? 503
+              : 500
 
     // Only log non-404 errors at error level to reduce noise
     if (statusCode !== 404) {
@@ -720,9 +731,11 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
     }
 
     // Send error response with correct status code
+    const isDbTimeout = statusCode === 503 && isDatabaseConnectTimeoutError(err)
     res.status(statusCode).json({
-        error: statusCode === 404 ? 'Not Found' : 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : (statusCode === 404 ? 'Resource not found' : 'An error occurred'),
+        error: statusCode === 404 ? 'Not Found' : statusCode === 503 ? 'Service Unavailable' : 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : statusCode === 404 ? 'Resource not found' : 'An error occurred',
+        code: isDbTimeout ? 'DB_CONNECTION_TIMEOUT' : undefined,
         path: req.path
     })
 })

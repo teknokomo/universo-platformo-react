@@ -274,19 +274,14 @@ const MetahubList = () => {
                     content: (
                         <Box sx={{ mt: 2 }}>
                             <RadioGroup value={storageMode} onChange={(e) => setValue('storageMode', e.target.value)}>
+                                <FormControlLabel value='main_db' control={<Radio />} label={t('storage.mainDb')} disabled={isLoading} />
                                 <FormControlLabel
-                                    value="main_db"
-                                    control={<Radio />}
-                                    label={t('storage.mainDb')}
-                                    disabled={isLoading}
-                                />
-                                <FormControlLabel
-                                    value="external_db"
+                                    value='external_db'
                                     control={<Radio />}
                                     label={
                                         <Box>
-                                            <Typography variant="body1">{t('storage.externalDb')}</Typography>
-                                            <Typography variant="caption" color="text.secondary">
+                                            <Typography variant='body1'>{t('storage.externalDb')}</Typography>
+                                            <Typography variant='caption' color='text.secondary'>
                                                 {t('storage.externalDbDisabled')}
                                             </Typography>
                                         </Box>
@@ -385,10 +380,10 @@ const MetahubList = () => {
                 typeof responseMessage === 'string'
                     ? responseMessage
                     : e instanceof Error
-                        ? e.message
-                        : typeof e === 'string'
-                            ? e
-                            : t('errors.saveFailed')
+                    ? e.message
+                    : typeof e === 'string'
+                    ? e
+                    : t('errors.saveFailed')
             setDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to create metahub', e)
@@ -567,7 +562,16 @@ const MetahubList = () => {
                 }
             }
         }),
-        [confirm, copyMetahubMutation, deleteMetahubMutation, enqueueSnackbar, i18n.language, metahubMap, queryClient, updateMetahubMutation]
+        [
+            confirm,
+            copyMetahubMutation,
+            deleteMetahubMutation,
+            enqueueSnackbar,
+            i18n.language,
+            metahubMap,
+            queryClient,
+            updateMetahubMutation
+        ]
     )
 
     return (
@@ -777,10 +781,10 @@ const MetahubList = () => {
                                 typeof responseMessage === 'string'
                                     ? responseMessage
                                     : err instanceof Error
-                                        ? err.message
-                                        : typeof err === 'string'
-                                            ? err
-                                            : t('deleteError')
+                                    ? err.message
+                                    : typeof err === 'string'
+                                    ? err
+                                    : t('deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
                             setDeleteDialogState({ open: false, metahub: null })
                         }

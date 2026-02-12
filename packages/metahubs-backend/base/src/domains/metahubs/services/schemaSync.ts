@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm'
+import type { DataSource, EntityManager } from 'typeorm'
 import { MetahubSchemaService } from './MetahubSchemaService'
 
 /**
@@ -17,8 +17,8 @@ import { MetahubSchemaService } from './MetahubSchemaService'
  * @param ds - TypeORM DataSource
  * @returns The schema name (mhb_<uuid>)
  */
-export async function syncMetahubSchema(metahubId: string, ds: DataSource, userId?: string): Promise<string> {
-    const schemaService = new MetahubSchemaService(ds)
+export async function syncMetahubSchema(metahubId: string, ds: DataSource, userId?: string, manager?: EntityManager): Promise<string> {
+    const schemaService = new MetahubSchemaService(ds, undefined, manager)
 
     // Only ensure schema and system tables exist - NO physical table creation
     const schemaName = await schemaService.ensureSchema(metahubId, userId)

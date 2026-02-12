@@ -13,6 +13,9 @@ jest.mock(
             VersionColumn: decorator,
             ManyToOne: decorator,
             OneToMany: decorator,
+            OneToOne: decorator,
+            ManyToMany: decorator,
+            JoinTable: decorator,
             JoinColumn: decorator,
             Index: decorator,
             Unique: decorator,
@@ -59,7 +62,10 @@ describe('Metahub Board Summary', () => {
     const buildApp = (dataSource: any) => {
         const app = express()
         app.use(express.json())
-        app.use('/', createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(
+            '/',
+            createMetahubsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        )
         app.use(errorHandler)
         return app
     }
@@ -92,16 +98,16 @@ describe('Metahub Board Summary', () => {
         })
 
         metahubUserRepo.findOne.mockResolvedValue({
-            metahub_id: metahubId,
-            user_id: 'test-user-id',
+            metahubId,
+            userId: 'test-user-id',
             role: 'owner',
-            active_branch_id: branchId
+            activeBranchId: branchId
         })
 
         branchRepo.findOne.mockResolvedValue({
             id: branchId,
-            metahub_id: metahubId,
-            schema_name: 'mhb_abcdef_b1'
+            metahubId,
+            schemaName: 'mhb_abcdef_b1'
         })
 
         branchRepo.count.mockResolvedValue(3)
@@ -109,10 +115,10 @@ describe('Metahub Board Summary', () => {
         metahubUserRepo.count.mockResolvedValue(5)
 
         dataSource.manager.query = jest.fn(async (sql: string) => {
-            if (sql.includes("_mhb_objects") && sql.includes("kind = 'HUB'")) {
+            if (sql.includes('_mhb_objects') && sql.includes("kind = 'hub'")) {
                 return [{ count: 2 }]
             }
-            if (sql.includes("_mhb_objects") && sql.includes("kind = 'CATALOG'")) {
+            if (sql.includes('_mhb_objects') && sql.includes("kind = 'catalog'")) {
                 return [{ count: 4 }]
             }
             if (sql.includes('FROM metahubs.publications_versions')) {

@@ -61,6 +61,8 @@ declare module '@universo/metahubs-frontend' {
     export const ElementList: ComponentType<any>
     export const MetahubLayouts: ComponentType<any>
     export const MetahubLayoutDetails: ComponentType<any>
+    export const MetahubMigrations: ComponentType<any>
+    export const MetahubMigrationGuard: ComponentType<any>
 }
 
 declare module '@flowise/tools-frontend/pages/Tools' {

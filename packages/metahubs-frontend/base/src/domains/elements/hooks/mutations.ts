@@ -48,7 +48,9 @@ export function useCreateElement() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(variables.metahubId, variables.catalogId) })
@@ -78,7 +80,9 @@ export function useUpdateElement() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(variables.metahubId, variables.catalogId) })
@@ -107,7 +111,9 @@ export function useDeleteElement() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(variables.metahubId, variables.catalogId) })

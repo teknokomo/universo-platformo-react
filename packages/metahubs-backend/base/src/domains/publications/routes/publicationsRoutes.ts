@@ -1,16 +1,18 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { localizedContent, OptimisticLockError } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestManager } from '../../../utils'
+import { ensureMetahubAccess } from '../../shared/guards'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { Publication, PublicationSchemaStatus } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
+import { TemplateVersion } from '../../../database/entities/TemplateVersion'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
-import { getDDLServices, generateSchemaName, KnexClient } from '../../ddl'
+import { getDDLServices, generateSchemaName, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 // Import applications entities for auto-create feature
 import { Application, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
@@ -26,6 +28,22 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as unknown as { user?: { id?: string; sub?: string; user_id?: string; userId?: string } }).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+interface RequestWithDbContext extends Request {
+    dbContext?: {
+        queryRunner?: QueryRunner
+    }
+}
+
+const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
+    return (req as RequestWithDbContext).dbContext?.queryRunner
+}
+
+const resolveTemplateVersionLabel = async (dataSource: DataSource, templateVersionId?: string | null): Promise<string | null> => {
+    if (!templateVersionId) return null
+    const templateVersion = await dataSource.getRepository(TemplateVersion).findOneBy({ id: templateVersionId })
+    return templateVersion?.versionLabel ?? null
 }
 
 // Validation Schemas
@@ -103,14 +121,14 @@ const attachLayoutsToSnapshot = async (options: {
         snapshot.defaultLayoutId = defaultLayout?.id ?? null
         snapshot.layoutConfig = defaultLayout?.config ?? {}
 
-        const hasLayoutZoneWidgets = await knex.schema.withSchema(branchSchemaName).hasTable('_mhb_layout_zone_widgets')
+        const hasLayoutZoneWidgets = await knex.schema.withSchema(branchSchemaName).hasTable('_mhb_widgets')
         if (hasLayoutZoneWidgets) {
             // Collect active (non-deleted) layout IDs to exclude orphan widgets
             const activeLayoutIds = (snapshot.layouts ?? []).map((l) => l.id)
 
             const zoneRows = await knex
                 .withSchema(branchSchemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ _upl_deleted: false, _mhb_deleted: false })
                 .modify((qb) => {
                     if (activeLayoutIds.length > 0) {
@@ -160,17 +178,34 @@ export function createPublicationsRoutes(
             fn(req, res).catch(next)
         }
 
+    const ensureMetahubRouteAccess = async (
+        req: Request,
+        res: Response,
+        metahubId: string,
+        permission?: 'manageMembers' | 'manageMetahub' | 'createContent' | 'editContent' | 'deleteContent'
+    ): Promise<string | null> => {
+        const userId = resolveUserId(req)
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+
+        await ensureMetahubAccess(getDataSource(), userId, metahubId, permission, getRequestQueryRunner(req))
+        return userId
+    }
+
     // Helper to get repositories and services
     const repos = (req: Request) => {
         const ds = getDataSource()
         const manager = getRequestManager(req, ds)
 
-        const schemaService = new MetahubSchemaService(ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
+            manager,
             publicationRepo: manager.getRepository(Publication),
             metahubRepo: manager.getRepository(Metahub),
             versionRepo: manager.getRepository(PublicationVersion),
@@ -257,6 +292,8 @@ export function createPublicationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
             const { publicationRepo, metahubRepo } = repos(req)
 
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
@@ -300,11 +337,9 @@ export function createPublicationsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
             const ds = getDataSource()
-
-            const userId = resolveUserId(req)
-            if (!userId) {
-                return res.status(401).json({ error: 'Unauthorized' })
-            }
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
+            const manager = getRequestManager(req, ds)
 
             const parsed = createPublicationSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -327,13 +362,13 @@ export function createPublicationsRoutes(
                 versionBranchId
             } = parsed.data
 
-            const metahubRepo = ds.getRepository(Metahub)
+            const metahubRepo = manager.getRepository(Metahub)
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found' })
             }
 
-            const publicationRepo = ds.getRepository(Publication)
+            const publicationRepo = manager.getRepository(Publication)
             const existingPublicationsCount = await publicationRepo.count({ where: { metahubId } })
             if (existingPublicationsCount > 0) {
                 return res.status(400).json({
@@ -343,7 +378,7 @@ export function createPublicationsRoutes(
                 })
             }
 
-            const branchRepo = ds.getRepository(MetahubBranch)
+            const branchRepo = manager.getRepository(MetahubBranch)
             const effectiveBranchId = versionBranchId ?? metahub.defaultBranchId ?? null
             if (!effectiveBranchId) {
                 return res.status(400).json({ error: 'Default branch is not configured' })
@@ -353,13 +388,17 @@ export function createPublicationsRoutes(
                 return res.status(400).json({ error: 'Branch not found' })
             }
 
-            const schemaService = new MetahubSchemaService(ds, effectiveBranchId)
+            const schemaService = new MetahubSchemaService(ds, effectiveBranchId, manager)
             const objectsService = new MetahubObjectsService(schemaService)
             const attributesService = new MetahubAttributesService(schemaService)
             const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
             const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
-            const snapshot = await serializer.serializeMetahub(metahubId)
+            const templateVersionLabel = await resolveTemplateVersionLabel(ds, metahub.templateVersionId)
+            const snapshot = await serializer.serializeMetahub(metahubId, {
+                structureVersion: branch.structureVersion ?? 1,
+                templateVersion: templateVersionLabel
+            })
 
             await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
             const snapshotHash = serializer.calculateHash(snapshot)
@@ -511,6 +550,8 @@ export function createPublicationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
             const { publicationRepo, metahubRepo } = repos(req)
 
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
@@ -554,8 +595,8 @@ export function createPublicationsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
             const { publicationRepo, metahubRepo } = repos(req)
 
             const parsed = updatePublicationSchema.safeParse(req.body)
@@ -636,18 +677,21 @@ export function createPublicationsRoutes(
             const { metahubId, publicationId } = req.params
             const confirm = req.query.confirm === 'true'
             const ds = getDataSource()
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
 
             if (!confirm) {
                 return res.status(400).json({ error: 'Deletion requires confirmation' })
             }
 
-            const metahubRepo = ds.getRepository(Metahub)
+            const manager = getRequestManager(req, ds)
+            const metahubRepo = manager.getRepository(Metahub)
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
             if (!metahub) {
                 return res.status(404).json({ error: 'Metahub not found' })
             }
 
-            const publicationRepo = ds.getRepository(Publication)
+            const publicationRepo = manager.getRepository(Publication)
             const publication = await publicationRepo.findOneBy({ id: publicationId })
             if (!publication) {
                 return res.status(404).json({ error: 'Publication not found' })
@@ -657,20 +701,58 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
-            if (publication.schemaName) {
-                try {
-                    const { generator } = getDDLServices()
-                    await generator.dropSchema(publication.schemaName)
-                } catch (err) {
-                    console.warn(`[Publications] Failed to drop schema ${publication.schemaName}:`, err)
-                }
+            const lockKey = uuidToLockKey(`publication-delete:${publicationId}`)
+            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            if (!lockAcquired) {
+                return res.status(409).json({
+                    error: 'Could not acquire publication delete lock. Please retry.'
+                })
             }
 
-            await publicationRepo.remove(publication)
+            let deletedSchemaName: string | null = publication.schemaName
+            try {
+                await ds.transaction(async (txManager) => {
+                    const metahubRepoTx = txManager.getRepository(Metahub)
+                    const publicationRepoTx = txManager.getRepository(Publication)
+
+                    const metahubLocked = await metahubRepoTx
+                        .createQueryBuilder('metahub')
+                        .setLock('pessimistic_write')
+                        .where('metahub.id = :id', { id: metahubId })
+                        .getOne()
+                    if (!metahubLocked) {
+                        throw new Error('Metahub not found')
+                    }
+
+                    const publicationLocked = await publicationRepoTx
+                        .createQueryBuilder('publication')
+                        .setLock('pessimistic_write')
+                        .where('publication.id = :id', { id: publicationId })
+                        .andWhere('publication.metahubId = :metahubId', { metahubId })
+                        .getOne()
+                    if (!publicationLocked) {
+                        throw new Error('Publication not found')
+                    }
+
+                    deletedSchemaName = publicationLocked.schemaName
+                    if (deletedSchemaName) {
+                        const { generator } = getDDLServices()
+                        await generator.dropSchema(deletedSchemaName)
+                    }
+
+                    await publicationRepoTx.remove(publicationLocked)
+                })
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Failed to delete publication'
+                const statusCode = message === 'Metahub not found' || message === 'Publication not found' ? 404 : 500
+                return res.status(statusCode).json({ error: message })
+            } finally {
+                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
+            }
 
             return res.json({
                 success: true,
-                message: `Publication and schema "${publication.schemaName}" deleted`
+                message: `Publication and schema "${deletedSchemaName}" deleted`
             })
         })
     )
@@ -683,13 +765,16 @@ export function createPublicationsRoutes(
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
             const ds = getDataSource()
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
+            const manager = getRequestManager(req, ds)
 
-            const metahubRepo = ds.getRepository(Metahub)
+            const metahubRepo = manager.getRepository(Metahub)
             if (!(await metahubRepo.findOneBy({ id: metahubId }))) {
                 return res.status(404).json({ error: 'Metahub not found' })
             }
 
-            const publicationRepo = ds.getRepository(Publication)
+            const publicationRepo = manager.getRepository(Publication)
             const publication = await publicationRepo.findOneBy({ id: publicationId })
             if (!publication) {
                 return res.status(404).json({ error: 'Publication not found' })
@@ -699,7 +784,7 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
-            const linkedApps = await ds.query(
+            const linkedApps = await manager.query(
                 `
                 SELECT DISTINCT a.id, a.name, a.description, a.slug, a._upl_created_at as "createdAt"
                 FROM applications.applications a
@@ -721,7 +806,9 @@ export function createPublicationsRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
-            const { publicationRepo, metahubRepo, objectsService, attributesService } = repos(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
+            const { publicationRepo, metahubRepo, versionRepo, objectsService, attributesService } = repos(req)
 
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
             if (!metahub) {
@@ -744,7 +831,6 @@ export function createPublicationsRoutes(
                 })
             }
 
-            const versionRepo = getDataSource().getRepository(PublicationVersion)
             const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
             if (!activeVersion) {
                 return res.status(404).json({ error: 'Active version data not found' })
@@ -783,8 +869,9 @@ export function createPublicationsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
-            const { publicationRepo, metahubRepo, objectsService, attributesService } = repos(req)
-            const ds = getDataSource()
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
+            const { publicationRepo, metahubRepo, versionRepo, objectsService, attributesService } = repos(req)
 
             const parsed = syncSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -814,7 +901,6 @@ export function createPublicationsRoutes(
                 })
             }
 
-            const versionRepo = ds.getRepository(PublicationVersion)
             const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
             if (!activeVersion) {
                 return res.status(404).json({ error: 'Active version data not found' })
@@ -945,9 +1031,15 @@ export function createPublicationsRoutes(
         '/metahub/:metahubId/publication/:publicationId/versions',
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { publicationId } = req.params
-            console.log('[Versions] GET /metahub/:metahubId/publication/:publicationId/versions', { publicationId })
-            const { versionRepo } = repos(req)
+            const { metahubId, publicationId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
+            const { versionRepo, publicationRepo } = repos(req)
+
+            const publication = await publicationRepo.findOneBy({ id: publicationId })
+            if (!publication || publication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
+            }
 
             const versions = await versionRepo.find({
                 where: { publicationId },
@@ -967,7 +1059,6 @@ export function createPublicationsRoutes(
                 branchId: v.branchId
             }))
 
-            console.log('[Versions] Found versions:', mappedVersions.length, mappedVersions)
             return res.json({ items: mappedVersions })
         })
     )
@@ -978,16 +1069,16 @@ export function createPublicationsRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, publicationId } = req.params
-            const { versionRepo, publicationRepo, metahubRepo } = repos(req)
-            const userId = resolveUserId(req)
-
-            if (!userId) {
-                return res.status(401).json({ error: 'Unauthorized' })
-            }
+            const { versionRepo, publicationRepo, metahubRepo, manager } = repos(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
 
             const publication = await publicationRepo.findOneBy({ id: publicationId })
             if (!publication) {
                 return res.status(404).json({ error: 'Publication not found' })
+            }
+            if (publication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
             const { name, description, namePrimaryLocale, descriptionPrimaryLocale, branchId } = req.body
@@ -1011,13 +1102,17 @@ export function createPublicationsRoutes(
                 return res.status(400).json({ error: 'Branch not found' })
             }
 
-            const schemaService = new MetahubSchemaService(getDataSource(), effectiveBranchId)
+            const schemaService = new MetahubSchemaService(getDataSource(), effectiveBranchId, manager)
             const objectsService = new MetahubObjectsService(schemaService)
             const attributesService = new MetahubAttributesService(schemaService)
             const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
             const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
-            const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId)
+            const templateVersionLabel = await resolveTemplateVersionLabel(getDataSource(), metahub.templateVersionId)
+            const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId, {
+                structureVersion: branch.structureVersion ?? 1,
+                templateVersion: templateVersionLabel
+            })
 
             await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId: metahubId ?? publication.metahubId, userId })
             const snapshotHash = serializer.calculateHash(snapshot)
@@ -1070,12 +1165,17 @@ export function createPublicationsRoutes(
         '/metahub/:metahubId/publication/:publicationId/versions/:versionId/activate',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { publicationId, versionId } = req.params
+            const { metahubId, publicationId, versionId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
             const { versionRepo, publicationRepo } = repos(req)
 
             const publication = await publicationRepo.findOneBy({ id: publicationId })
             if (!publication) {
                 return res.status(404).json({ error: 'Publication not found' })
+            }
+            if (publication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
             const version = await versionRepo.findOneBy({ id: versionId, publicationId })
@@ -1100,12 +1200,17 @@ export function createPublicationsRoutes(
         '/metahub/:metahubId/publication/:publicationId/versions/:versionId',
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
-            const { publicationId, versionId } = req.params
+            const { metahubId, publicationId, versionId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
             const { versionRepo, publicationRepo } = repos(req)
 
             const publication = await publicationRepo.findOneBy({ id: publicationId })
             if (!publication) {
                 return res.status(404).json({ error: 'Publication not found' })
+            }
+            if (publication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
             const version = await versionRepo.findOneBy({ id: versionId, publicationId })

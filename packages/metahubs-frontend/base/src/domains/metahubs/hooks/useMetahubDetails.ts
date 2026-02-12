@@ -2,6 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { metahubsQueryKeys } from '../../shared'
 import { getMetahub } from '../api'
 
+const isRetryableMetahubDetailsError = (error: unknown): boolean => {
+    const status = (error as { response?: { status?: number } } | null)?.response?.status
+    if (typeof status !== 'number') return true
+    return ![400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504].includes(status)
+}
+
 interface UseMetahubDetailsOptions {
     /**
      * Whether to enable automatic refetching
@@ -17,7 +23,7 @@ interface UseMetahubDetailsOptions {
 
     /**
      * Number of retry attempts on failure
-     * @default 3
+     * @default 1
      */
     retry?: number
 }
@@ -44,7 +50,7 @@ interface UseMetahubDetailsOptions {
  * ```
  */
 export function useMetahubDetails(metahubId: string, options?: UseMetahubDetailsOptions) {
-    const { enabled = true, staleTime = 5 * 60 * 1000, retry = 3 } = options ?? {}
+    const { enabled = true, staleTime = 5 * 60 * 1000, retry = 1 } = options ?? {}
 
     return useQuery({
         queryKey: metahubsQueryKeys.detail(metahubId),
@@ -54,11 +60,15 @@ export function useMetahubDetails(metahubId: string, options?: UseMetahubDetails
         },
         enabled: enabled && Boolean(metahubId),
         staleTime,
-        retry,
+        retry: (failureCount, error) => {
+            if (retry === 0) return false
+            if (!isRetryableMetahubDetailsError(error)) return false
+            return failureCount < retry
+        },
         // Prevent refetching on window focus (stats don't change frequently)
         refetchOnWindowFocus: false,
-        // Use cached data while revalidating in background
-        refetchOnMount: 'always'
+        // Avoid forced refetch loops on mount when backend is temporarily overloaded.
+        refetchOnMount: false
     })
 }
 

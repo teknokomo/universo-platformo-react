@@ -22,7 +22,10 @@
         "dist/i18n/index.mjs",
         "dist/i18n/index.js"
     ],
-    "files": ["dist", "src"],
+    "files": [
+        "dist",
+        "src"
+    ],
     "scripts": {
         "clean": "rimraf dist",
         "build": "tsdown",
@@ -49,7 +52,9 @@
         "@dnd-kit/utilities": "^3.2.2",
         "@universo/auth-frontend": "workspace:*",
         "@universo/template-mui": "workspace:*",
+        "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
+        "@tanstack/react-query": "catalog:",
         "react": "catalog:",
         "react-i18next": "catalog:",
         "typescript": "catalog:",
@@ -74,7 +79,6 @@
         "msw": "^2.0.0",
         "jest-axe": "^9.0.0",
         "axe-core": "^4.8.0",
-        "@tanstack/react-query": "catalog:",
         "notistack": "catalog:",
         "react-router-dom": "^6.0.0",
         "@mui/icons-material": "catalog:",

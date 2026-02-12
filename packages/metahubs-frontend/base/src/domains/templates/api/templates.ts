@@ -1,9 +1,5 @@
 import { apiClient } from '../../shared'
-import type {
-    TemplateSummaryDTO,
-    TemplateDetailDTO,
-    TemplatesListResponseDTO
-} from '@universo/types'
+import type { TemplateSummaryDTO, TemplateDetailDTO, TemplatesListResponseDTO } from '@universo/types'
 
 // Re-export shared DTO types for convenience
 export type { TemplateSummaryDTO as TemplateSummary } from '@universo/types'

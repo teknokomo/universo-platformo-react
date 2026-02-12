@@ -18,19 +18,16 @@ export const listAttributes = async (
         items: Attribute[]
         pagination: { total: number; limit: number; offset: number }
         meta?: AttributesListMeta
-    }>(
-        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attributes`,
-        {
-            params: {
-                limit: params?.limit,
-                offset: params?.offset,
-                sortBy: params?.sortBy,
-                sortOrder: params?.sortOrder,
-                search: params?.search,
-                locale: params?.locale
-            }
+    }>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attributes`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search,
+            locale: params?.locale
         }
-    )
+    })
 
     // Backend returns { items, pagination } object
     const backendPagination = response.data.pagination
@@ -118,19 +115,16 @@ export const listAttributesDirect = async (
         items: Attribute[]
         pagination: { total: number; limit: number; offset: number }
         meta?: AttributesListMeta
-    }>(
-        `/metahub/${metahubId}/catalog/${catalogId}/attributes`,
-        {
-            params: {
-                limit: params?.limit,
-                offset: params?.offset,
-                sortBy: params?.sortBy,
-                sortOrder: params?.sortOrder,
-                search: params?.search,
-                locale: params?.locale
-            }
+    }>(`/metahub/${metahubId}/catalog/${catalogId}/attributes`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search,
+            locale: params?.locale
         }
-    )
+    })
 
     const backendPagination = response.data.pagination
     return {
@@ -200,84 +194,39 @@ export const moveAttributeDirect = (metahubId: string, catalogId: string, attrib
 /**
  * Toggle required flag for an attribute (with hubId)
  */
-export const toggleAttributeRequired = (
-    metahubId: string,
-    hubId: string,
-    catalogId: string,
-    attributeId: string,
-    isRequired: boolean
-) =>
-    apiClient.patch<Attribute>(
-        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/toggle-required`,
-        { isRequired }
-    )
+export const toggleAttributeRequired = (metahubId: string, hubId: string, catalogId: string, attributeId: string, isRequired: boolean) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/toggle-required`, {
+        isRequired
+    })
 
 /**
  * Toggle required flag for an attribute (without hubId)
  */
-export const toggleAttributeRequiredDirect = (
-    metahubId: string,
-    catalogId: string,
-    attributeId: string,
-    isRequired: boolean
-) =>
-    apiClient.patch<Attribute>(
-        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/toggle-required`,
-        { isRequired }
-    )
+export const toggleAttributeRequiredDirect = (metahubId: string, catalogId: string, attributeId: string, isRequired: boolean) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/toggle-required`, { isRequired })
 
 // ============ Display Attribute API functions ============
 
 /**
  * Set attribute as display attribute for catalog (with hubId)
  */
-export const setDisplayAttribute = (
-    metahubId: string,
-    hubId: string,
-    catalogId: string,
-    attributeId: string
-) =>
-    apiClient.patch<Attribute>(
-        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/set-display`,
-        {}
-    )
+export const setDisplayAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/set-display`, {})
 
 /**
  * Set attribute as display attribute for catalog (without hubId)
  */
-export const setDisplayAttributeDirect = (
-    metahubId: string,
-    catalogId: string,
-    attributeId: string
-) =>
-    apiClient.patch<Attribute>(
-        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/set-display`,
-        {}
-    )
+export const setDisplayAttributeDirect = (metahubId: string, catalogId: string, attributeId: string) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/set-display`, {})
 
 /**
  * Clear display attribute flag (with hubId)
  */
-export const clearDisplayAttribute = (
-    metahubId: string,
-    hubId: string,
-    catalogId: string,
-    attributeId: string
-) =>
-    apiClient.patch<Attribute>(
-        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`,
-        {}
-    )
+export const clearDisplayAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`, {})
 
 /**
  * Clear display attribute flag (without hubId)
  */
-export const clearDisplayAttributeDirect = (
-    metahubId: string,
-    catalogId: string,
-    attributeId: string
-) =>
-    apiClient.patch<Attribute>(
-        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`,
-        {}
-    )
+export const clearDisplayAttributeDirect = (metahubId: string, catalogId: string, attributeId: string) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`, {})

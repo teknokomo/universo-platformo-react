@@ -31,11 +31,7 @@ interface UsePublicationDetailsOptions {
 /**
  * Hook for fetching a single publication details
  */
-export function usePublicationDetails(
-    metahubId: string,
-    publicationId: string,
-    options?: UsePublicationDetailsOptions
-) {
+export function usePublicationDetails(metahubId: string, publicationId: string, options?: UsePublicationDetailsOptions) {
     const { enabled = true, staleTime = 30 * 1000 } = options ?? {}
 
     return useQuery({
@@ -54,11 +50,7 @@ interface UsePublicationDiffOptions {
 /**
  * Hook for fetching schema diff for a publication
  */
-export function usePublicationDiff(
-    metahubId: string,
-    publicationId: string,
-    options?: UsePublicationDiffOptions
-) {
+export function usePublicationDiff(metahubId: string, publicationId: string, options?: UsePublicationDiffOptions) {
     const { enabled = true } = options ?? {}
 
     return useQuery({

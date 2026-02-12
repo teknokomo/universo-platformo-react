@@ -1,6 +1,37 @@
 import type { Knex } from 'knex'
-import type { MetahubTemplateSeed, TemplateSeedElement, TemplateSeedLayout, TemplateSeedZoneWidget } from '@universo/types'
+import type {
+    MetahubTemplateSeed,
+    TemplateSeedElement,
+    TemplateSeedLayout,
+    TemplateSeedZoneWidget,
+    DashboardLayoutWidgetKey,
+    DashboardLayoutZone
+} from '@universo/types'
 import { buildDashboardLayoutConfig } from '../../shared'
+import { resolveWidgetTableName } from './widgetTableResolver'
+
+const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
+
+const resolveEntityIdByCodename = (entityIdMap: Map<string, string>, codename: string, preferredKind?: string): string | null => {
+    if (preferredKind) {
+        return entityIdMap.get(buildEntityMapKey(preferredKind, codename)) ?? null
+    }
+
+    let resolved: string | null = null
+    const suffix = `:${codename}`
+    for (const [key, id] of entityIdMap.entries()) {
+        if (!key.endsWith(suffix)) continue
+        if (resolved && resolved !== id) {
+            return null
+        }
+        resolved = id
+    }
+    return resolved
+}
+
+const hasNonEmptyConfigObject = (value: unknown): value is Record<string, unknown> => {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0)
+}
 
 /**
  * Result of an incremental seed data migration.
@@ -13,6 +44,10 @@ export interface SeedMigrationResult {
     attributesAdded: number
     elementsAdded: number
     skipped: string[]
+}
+
+export interface SeedMigrationOptions {
+    dryRun?: boolean
 }
 
 /**
@@ -32,7 +67,8 @@ export class TemplateSeedMigrator {
      * Compare current schema state with new seed and apply missing items.
      * All operations run within a single transaction.
      */
-    async migrateSeed(newSeed: MetahubTemplateSeed): Promise<SeedMigrationResult> {
+    async migrateSeed(newSeed: MetahubTemplateSeed, options?: SeedMigrationOptions): Promise<SeedMigrationResult> {
+        const dryRun = options?.dryRun === true
         const result: SeedMigrationResult = {
             layoutsAdded: 0,
             zoneWidgetsAdded: 0,
@@ -46,25 +82,25 @@ export class TemplateSeedMigrator {
         await this.knex.transaction(async (trx) => {
             // 1. Migrate layouts → zone widgets (order matters: widgets reference layouts)
             if (newSeed.layouts?.length) {
-                const layoutIdMap = await this.migrateLayouts(trx, newSeed.layouts, result)
+                const layoutIdMap = await this.migrateLayouts(trx, newSeed.layouts, result, dryRun)
 
                 if (newSeed.layoutZoneWidgets && Object.keys(newSeed.layoutZoneWidgets).length > 0) {
-                    await this.migrateZoneWidgets(trx, newSeed.layoutZoneWidgets, layoutIdMap, result)
+                    await this.migrateZoneWidgets(trx, newSeed.layoutZoneWidgets, layoutIdMap, result, dryRun)
                 }
             }
 
             // 2. Migrate settings
             if (newSeed.settings?.length) {
-                result.settingsAdded = await this.migrateSettings(trx, newSeed.settings)
+                result.settingsAdded = await this.migrateSettings(trx, newSeed.settings, dryRun)
             }
 
             // 3. Migrate entities + attributes
             if (newSeed.entities?.length) {
-                const entityIdMap = await this.migrateEntities(trx, newSeed.entities, result)
+                const entityIdMap = await this.migrateEntities(trx, newSeed.entities, result, dryRun)
 
                 // 4. Migrate elements (requires entity ID map)
                 if (newSeed.elements) {
-                    result.elementsAdded = await this.migrateElements(trx, newSeed.elements, entityIdMap, result)
+                    result.elementsAdded = await this.migrateElements(trx, newSeed.elements, entityIdMap, result, dryRun)
                 }
             }
         })
@@ -77,7 +113,8 @@ export class TemplateSeedMigrator {
     private async migrateLayouts(
         trx: Knex,
         layouts: TemplateSeedLayout[],
-        result: SeedMigrationResult
+        result: SeedMigrationResult,
+        dryRun: boolean
     ): Promise<Map<string, string>> {
         const layoutIdMap = new Map<string, string>()
         const now = new Date()
@@ -113,33 +150,37 @@ export class TemplateSeedMigrator {
 
             const config = layout.config ?? {}
 
-            const [inserted] = await trx
-                .withSchema(this.schemaName)
-                .into('_mhb_layouts')
-                .insert({
-                    template_key: layout.templateKey,
-                    name: layout.name,
-                    description: layout.description ?? null,
-                    config,
-                    is_active: layout.isActive,
-                    is_default: isDefault,
-                    sort_order: layout.sortOrder,
-                    owner_id: null,
-                    _upl_created_at: now,
-                    _upl_created_by: null,
-                    _upl_updated_at: now,
-                    _upl_updated_by: null,
-                    _upl_version: 1,
-                    _upl_archived: false,
-                    _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
-                })
-                .returning('id')
+            if (dryRun) {
+                layoutIdMap.set(layout.codename, `dry-run:layout:${layout.codename}`)
+            } else {
+                const [inserted] = await trx
+                    .withSchema(this.schemaName)
+                    .into('_mhb_layouts')
+                    .insert({
+                        template_key: layout.templateKey,
+                        name: layout.name,
+                        description: layout.description ?? null,
+                        config,
+                        is_active: layout.isActive,
+                        is_default: isDefault,
+                        sort_order: layout.sortOrder,
+                        owner_id: null,
+                        _upl_created_at: now,
+                        _upl_created_by: null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: true,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                    .returning('id')
 
-            layoutIdMap.set(layout.codename, inserted.id)
+                layoutIdMap.set(layout.codename, inserted.id)
+            }
             result.layoutsAdded++
         }
 
@@ -152,9 +193,11 @@ export class TemplateSeedMigrator {
         trx: Knex,
         widgetsByLayout: Record<string, TemplateSeedZoneWidget[]>,
         layoutIdMap: Map<string, string>,
-        result: SeedMigrationResult
+        result: SeedMigrationResult,
+        dryRun: boolean
     ): Promise<void> {
         const now = new Date()
+        const widgetTableName = await resolveWidgetTableName(trx, this.schemaName)
 
         for (const [layoutCodename, widgets] of Object.entries(widgetsByLayout)) {
             const layoutId = layoutIdMap.get(layoutCodename)
@@ -163,30 +206,106 @@ export class TemplateSeedMigrator {
                 continue
             }
 
-            // Check if widgets already exist for this layout
-            const existingCount = await trx
-                .withSchema(this.schemaName)
-                .from('_mhb_layout_zone_widgets')
-                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
-                .count<{ count: string }[]>('* as count')
-                .first()
+            let insertedAny = false
+            for (const w of widgets) {
+                if (dryRun && layoutId.startsWith('dry-run:')) {
+                    insertedAny = true
+                    result.zoneWidgetsAdded++
+                    continue
+                }
 
-            if (Number(existingCount?.count ?? 0) > 0) {
-                result.skipped.push(`zoneWidgets:${layoutCodename} (${existingCount?.count} already exist)`)
-                continue
-            }
-
-            // Insert widgets
-            await trx
-                .withSchema(this.schemaName)
-                .into('_mhb_layout_zone_widgets')
-                .insert(
-                    widgets.map((w) => ({
+                const exists = await trx
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({
                         layout_id: layoutId,
                         zone: w.zone,
                         widget_key: w.widgetKey,
                         sort_order: w.sortOrder,
-                        config: w.config ?? {},
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (exists) {
+                    result.skipped.push(`zoneWidget:${layoutCodename}:${w.widgetKey} (already exists)`)
+                    continue
+                }
+
+                if (!dryRun) {
+                    await trx
+                        .withSchema(this.schemaName)
+                        .into(widgetTableName)
+                        .insert({
+                            layout_id: layoutId,
+                            zone: w.zone,
+                            widget_key: w.widgetKey,
+                            sort_order: w.sortOrder,
+                            config: w.config ?? {},
+                            _upl_created_at: now,
+                            _upl_created_by: null,
+                            _upl_updated_at: now,
+                            _upl_updated_by: null,
+                            _upl_version: 1,
+                            _upl_archived: false,
+                            _upl_deleted: false,
+                            _upl_locked: false,
+                            _mhb_published: true,
+                            _mhb_archived: false,
+                            _mhb_deleted: false
+                        })
+                }
+                insertedAny = true
+                result.zoneWidgetsAdded++
+            }
+
+            if (!insertedAny) {
+                continue
+            }
+
+            if (dryRun) {
+                continue
+            }
+
+            const layoutRow = await trx.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).select('config').first()
+            if (hasNonEmptyConfigObject(layoutRow?.config)) {
+                result.skipped.push(`layoutConfig:${layoutCodename} (preserved existing config)`)
+                continue
+            }
+
+            const activeWidgets = await trx
+                .withSchema(this.schemaName)
+                .from(widgetTableName)
+                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .select('widget_key', 'zone')
+            const layoutConfig = buildDashboardLayoutConfig(
+                activeWidgets.map((row: { widget_key: DashboardLayoutWidgetKey; zone: DashboardLayoutZone }) => ({
+                    widgetKey: row.widget_key as DashboardLayoutWidgetKey,
+                    zone: row.zone as DashboardLayoutZone
+                }))
+            )
+            await trx.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).update({ config: layoutConfig })
+        }
+    }
+
+    // ─── Settings ─────────────────────────────────────────────────────────
+
+    private async migrateSettings(trx: Knex, settings: NonNullable<MetahubTemplateSeed['settings']>, dryRun: boolean): Promise<number> {
+        const now = new Date()
+        let added = 0
+
+        for (const setting of settings) {
+            const exists = await trx.withSchema(this.schemaName).from('_mhb_settings').where({ key: setting.key }).first()
+
+            if (exists) continue
+
+            if (!dryRun) {
+                await trx
+                    .withSchema(this.schemaName)
+                    .into('_mhb_settings')
+                    .insert({
+                        key: setting.key,
+                        value: typeof setting.value === 'object' ? setting.value : { _value: setting.value },
                         _upl_created_at: now,
                         _upl_created_by: null,
                         _upl_updated_at: now,
@@ -198,52 +317,8 @@ export class TemplateSeedMigrator {
                         _mhb_published: true,
                         _mhb_archived: false,
                         _mhb_deleted: false
-                    }))
-                )
-
-            // Update layout config based on actual widgets inserted
-            const layoutConfig = buildDashboardLayoutConfig(
-                widgets.map((w) => ({ widgetKey: w.widgetKey, zone: w.zone }))
-            )
-            await trx
-                .withSchema(this.schemaName)
-                .from('_mhb_layouts')
-                .where({ id: layoutId })
-                .update({ config: layoutConfig })
-
-            result.zoneWidgetsAdded += widgets.length
-        }
-    }
-
-    // ─── Settings ─────────────────────────────────────────────────────────
-
-    private async migrateSettings(trx: Knex, settings: NonNullable<MetahubTemplateSeed['settings']>): Promise<number> {
-        const now = new Date()
-        let added = 0
-
-        for (const setting of settings) {
-            const exists = await trx.withSchema(this.schemaName).from('_mhb_settings').where({ key: setting.key }).first()
-
-            if (exists) continue
-
-            await trx
-                .withSchema(this.schemaName)
-                .into('_mhb_settings')
-                .insert({
-                    key: setting.key,
-                    value: typeof setting.value === 'object' ? setting.value : { _value: setting.value },
-                    _upl_created_at: now,
-                    _upl_created_by: null,
-                    _upl_updated_at: now,
-                    _upl_updated_by: null,
-                    _upl_version: 1,
-                    _upl_archived: false,
-                    _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
-                })
+                    })
+            }
             added++
         }
 
@@ -255,7 +330,8 @@ export class TemplateSeedMigrator {
     private async migrateEntities(
         trx: Knex,
         entities: NonNullable<MetahubTemplateSeed['entities']>,
-        result: SeedMigrationResult
+        result: SeedMigrationResult,
+        dryRun: boolean
     ): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
@@ -270,60 +346,23 @@ export class TemplateSeedMigrator {
                 .first()
 
             if (existing) {
-                entityIdMap.set(entity.codename, existing.id)
+                entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
                 result.skipped.push(`entity:${entity.codename} (already exists)`)
                 continue
             }
 
-            const [inserted] = await trx
-                .withSchema(this.schemaName)
-                .into('_mhb_objects')
-                .insert({
-                    kind: entity.kind,
-                    codename: entity.codename,
-                    table_name: null,
-                    presentation: { name: entity.name, description: entity.description },
-                    config: entity.config ?? {},
-                    _upl_created_at: now,
-                    _upl_created_by: null,
-                    _upl_updated_at: now,
-                    _upl_updated_by: null,
-                    _upl_version: 1,
-                    _upl_archived: false,
-                    _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
-                })
-                .returning('id')
-
-            entityIdMap.set(entity.codename, inserted.id)
-            result.entitiesAdded++
-        }
-
-        // ── Pass 2: Insert attributes using the complete entity map ──
-        for (const entity of entities) {
-            const entityId = entityIdMap.get(entity.codename)
-            if (!entityId || !entity.attributes?.length) continue
-
-            for (let i = 0; i < entity.attributes.length; i++) {
-                const attr = entity.attributes[i]
-                await trx
+            if (dryRun) {
+                entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), `dry-run:entity:${entity.kind}:${entity.codename}`)
+            } else {
+                const [inserted] = await trx
                     .withSchema(this.schemaName)
-                    .into('_mhb_attributes')
+                    .into('_mhb_objects')
                     .insert({
-                        object_id: entityId,
-                        codename: attr.codename,
-                        data_type: attr.dataType,
-                        presentation: { name: attr.name, description: attr.description },
-                        validation_rules: attr.validationRules ?? {},
-                        ui_config: attr.uiConfig ?? {},
-                        sort_order: attr.sortOrder ?? i,
-                        is_required: attr.isRequired ?? false,
-                        is_display_attribute: attr.isDisplayAttribute ?? false,
-                        target_object_id: attr.targetEntityCodename ? entityIdMap.get(attr.targetEntityCodename) ?? null : null,
-                        target_object_kind: attr.targetEntityKind ?? null,
+                        kind: entity.kind,
+                        codename: entity.codename,
+                        table_name: null,
+                        presentation: { name: entity.name, description: entity.description },
+                        config: entity.config ?? {},
                         _upl_created_at: now,
                         _upl_created_by: null,
                         _upl_updated_at: now,
@@ -336,6 +375,67 @@ export class TemplateSeedMigrator {
                         _mhb_archived: false,
                         _mhb_deleted: false
                     })
+                    .returning('id')
+
+                entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
+            }
+            result.entitiesAdded++
+        }
+
+        // ── Pass 2: Insert attributes using the complete entity map ──
+        for (const entity of entities) {
+            const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
+            if (!entityId || !entity.attributes?.length) continue
+
+            for (let i = 0; i < entity.attributes.length; i++) {
+                const attr = entity.attributes[i]
+                const attrExists = await trx
+                    .withSchema(this.schemaName)
+                    .from('_mhb_attributes')
+                    .where({
+                        object_id: entityId,
+                        codename: attr.codename,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (attrExists) {
+                    result.skipped.push(`attribute:${entity.codename}.${attr.codename} (already exists)`)
+                    continue
+                }
+
+                if (!dryRun) {
+                    await trx
+                        .withSchema(this.schemaName)
+                        .into('_mhb_attributes')
+                        .insert({
+                            object_id: entityId,
+                            codename: attr.codename,
+                            data_type: attr.dataType,
+                            presentation: { name: attr.name, description: attr.description },
+                            validation_rules: attr.validationRules ?? {},
+                            ui_config: attr.uiConfig ?? {},
+                            sort_order: attr.sortOrder ?? i,
+                            is_required: attr.isRequired ?? false,
+                            is_display_attribute: attr.isDisplayAttribute ?? false,
+                            target_object_id: attr.targetEntityCodename
+                                ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
+                                : null,
+                            target_object_kind: attr.targetEntityKind ?? null,
+                            _upl_created_at: now,
+                            _upl_created_by: null,
+                            _upl_updated_at: now,
+                            _upl_updated_by: null,
+                            _upl_version: 1,
+                            _upl_archived: false,
+                            _upl_deleted: false,
+                            _upl_locked: false,
+                            _mhb_published: true,
+                            _mhb_archived: false,
+                            _mhb_deleted: false
+                        })
+                }
                 result.attributesAdded++
             }
         }
@@ -349,49 +449,61 @@ export class TemplateSeedMigrator {
         trx: Knex,
         elementsByEntity: Record<string, TemplateSeedElement[]>,
         entityIdMap: Map<string, string>,
-        result: SeedMigrationResult
+        result: SeedMigrationResult,
+        dryRun: boolean
     ): Promise<number> {
         const now = new Date()
         let added = 0
 
         for (const [entityCodename, elements] of Object.entries(elementsByEntity)) {
-            const objectId = entityIdMap.get(entityCodename)
+            const objectId = resolveEntityIdByCodename(entityIdMap, entityCodename)
             if (!objectId) {
-                result.skipped.push(`elements:${entityCodename} (entity not found)`)
-                continue
-            }
-
-            // Check how many elements already exist for this entity
-            const existingCount = await trx
-                .withSchema(this.schemaName)
-                .from('_mhb_elements')
-                .where({ object_id: objectId, _upl_deleted: false, _mhb_deleted: false })
-                .count<{ count: string }[]>('* as count')
-                .first()
-
-            if (Number(existingCount?.count ?? 0) > 0) {
-                result.skipped.push(`elements:${entityCodename} (${existingCount?.count} already exist)`)
+                result.skipped.push(`elements:${entityCodename} (entity not found or ambiguous)`)
                 continue
             }
 
             for (const element of elements) {
-                await trx.withSchema(this.schemaName).into('_mhb_elements').insert({
-                    object_id: objectId,
-                    data: element.data,
-                    sort_order: element.sortOrder,
-                    owner_id: null,
-                    _upl_created_at: now,
-                    _upl_created_by: null,
-                    _upl_updated_at: now,
-                    _upl_updated_by: null,
-                    _upl_version: 1,
-                    _upl_archived: false,
-                    _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
-                })
+                if (dryRun && objectId.startsWith('dry-run:')) {
+                    added++
+                    continue
+                }
+
+                const existingElement = await trx
+                    .withSchema(this.schemaName)
+                    .from('_mhb_elements')
+                    .where({
+                        object_id: objectId,
+                        sort_order: element.sortOrder,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .whereRaw('data = ?::jsonb', [JSON.stringify(element.data ?? {})])
+                    .first()
+
+                if (existingElement) {
+                    result.skipped.push(`element:${entityCodename}:${element.codename} (already exists)`)
+                    continue
+                }
+
+                if (!dryRun) {
+                    await trx.withSchema(this.schemaName).into('_mhb_elements').insert({
+                        object_id: objectId,
+                        data: element.data,
+                        sort_order: element.sortOrder,
+                        owner_id: null,
+                        _upl_created_at: now,
+                        _upl_created_by: null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: true,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                }
                 added++
             }
         }

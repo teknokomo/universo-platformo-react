@@ -24,11 +24,7 @@ interface ApplicationsPanelProps {
  * Applications are linked via the connectors_metahubs junction table.
  * This is a read-only view showing which apps consume this publication's data.
  */
-export const ApplicationsPanel = ({
-    metahubId,
-    publicationId,
-    uiLocale = 'en'
-}: ApplicationsPanelProps) => {
+export const ApplicationsPanel = ({ metahubId, publicationId, uiLocale = 'en' }: ApplicationsPanelProps) => {
     const { t } = useTranslation(['metahubs', 'common'])
     const [applications, setApplications] = useState<LinkedApplication[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -58,9 +54,9 @@ export const ApplicationsPanel = ({
     if (isLoading) {
         return (
             <Stack spacing={2}>
-                <Skeleton variant="text" width="60%" height={28} />
+                <Skeleton variant='text' width='60%' height={28} />
                 {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                    <Skeleton key={i} variant='rectangular' width='100%' height={60} sx={{ borderRadius: 1 }} />
                 ))}
             </Stack>
         )
@@ -69,9 +65,7 @@ export const ApplicationsPanel = ({
     if (error) {
         return (
             <Box sx={{ p: 2, bgcolor: 'error.lighter', borderRadius: 1 }}>
-                <Typography color="error.main">
-                    {error}
-                </Typography>
+                <Typography color='error.main'>{error}</Typography>
             </Box>
         )
     }
@@ -79,10 +73,10 @@ export const ApplicationsPanel = ({
     if (applications.length === 0) {
         return (
             <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant='body1' color='text.secondary'>
                     {t('publications.applications.empty', 'Нет связанных приложений')}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
                     {t('publications.applications.emptyHint', 'Приложения связываются с публикацией через коннекторы.')}
                 </Typography>
             </Box>
@@ -91,7 +85,7 @@ export const ApplicationsPanel = ({
 
     return (
         <Stack spacing={2}>
-            <Typography variant="subtitle2" color="text.secondary">
+            <Typography variant='subtitle2' color='text.secondary'>
                 {t('publications.applications.count', 'Связанные приложения')}: {applications.length}
             </Typography>
 
@@ -113,17 +107,17 @@ export const ApplicationsPanel = ({
                             secondaryAction={
                                 <MuiLink
                                     href={`/a/${app.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    target='_blank'
+                                    rel='noopener noreferrer'
                                     sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                                 >
-                                    <OpenInNewIcon fontSize="small" />
+                                    <OpenInNewIcon fontSize='small' />
                                 </MuiLink>
                             }
                         >
                             <ListItemText
                                 primary={
-                                    <Typography variant="body1" fontWeight={500}>
+                                    <Typography variant='body1' fontWeight={500}>
                                         {name}
                                     </Typography>
                                 }

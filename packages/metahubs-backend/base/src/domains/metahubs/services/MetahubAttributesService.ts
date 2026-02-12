@@ -99,8 +99,7 @@ export class MetahubAttributesService {
             .where('attr.data_type', 'REF')
             .andWhere('attr.target_object_id', targetCatalogId)
             .andWhereNot('attr.object_id', targetCatalogId)
-            // Support both legacy uppercase and current lowercase enum values
-            .andWhere((qb) => qb.whereIn('attr.target_object_kind', ['catalog', 'CATALOG']).orWhereNull('attr.target_object_kind'))
+            .andWhere((qb) => qb.where('attr.target_object_kind', 'catalog').orWhereNull('attr.target_object_kind'))
             .andWhere('attr._upl_deleted', false)
             .andWhere('attr._mhb_deleted', false)
             .andWhere('obj._upl_deleted', false)

@@ -1,4 +1,4 @@
-import { Router, type RequestHandler } from 'express'
+import { Router, type ErrorRequestHandler, type RequestHandler } from 'express'
 import type { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'
@@ -11,9 +11,11 @@ import { createElementsRoutes } from './elements/routes/elementsRoutes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
+import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 import { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
+import { isMetahubDomainError } from './shared/domainErrors'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
 
@@ -64,6 +66,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     // Publications (Information Bases) - imports entities from @universo/applications-backend
     router.use('/', createPublicationsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Metahub migration history and controlled apply/dry-run endpoints
+    router.use('/', createMetahubMigrationsRoutes(ensureAuth, getDataSource, read, write))
+
     // Application migrations - runtime schema migration history and rollback
     router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDataSource, read, write))
 
@@ -79,6 +84,25 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
 
     // Templates catalog (read-only)
     router.use('/', createTemplatesRoutes(ensureAuth, getDataSource, read))
+
+    const domainErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+        if (!isMetahubDomainError(err)) {
+            next(err)
+            return
+        }
+
+        if (res.headersSent) {
+            next(err)
+            return
+        }
+
+        res.status(err.statusCode).json({
+            error: err.message,
+            code: err.code,
+            details: err.details ?? null
+        })
+    }
+    router.use(domainErrorHandler)
 
     return router
 }
@@ -101,6 +125,7 @@ export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 export { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
+export { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 export { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'

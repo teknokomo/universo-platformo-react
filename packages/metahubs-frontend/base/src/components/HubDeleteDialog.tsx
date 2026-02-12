@@ -1,11 +1,7 @@
 import { useMemo } from 'react'
 import { Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import {
-    BlockingEntitiesDeleteDialog,
-    type BlockingEntitiesDeleteDialogLabels,
-    type TableColumn
-} from '@universo/template-mui'
+import { BlockingEntitiesDeleteDialog, type BlockingEntitiesDeleteDialogLabels, type TableColumn } from '@universo/template-mui'
 import type { Hub } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingCatalogs, type BlockingCatalog } from '../domains/hubs'
@@ -56,10 +52,7 @@ export const HubDeleteDialog = ({
     const labels: BlockingEntitiesDeleteDialogLabels = useMemo(
         () => ({
             title: t('hubs.deleteDialog.title', 'Удалить хаб'),
-            confirmMessage: t(
-                'hubs.deleteDialog.confirmMessage',
-                'Вы уверены, что хотите удалить этот хаб? Это действие нельзя отменить.'
-            ),
+            confirmMessage: t('hubs.deleteDialog.confirmMessage', 'Вы уверены, что хотите удалить этот хаб? Это действие нельзя отменить.'),
             blockingWarning: t(
                 'hubs.deleteDialog.hasBlockingCatalogs',
                 'Нельзя удалить хаб. Следующие каталоги требуют хотя бы один хаб и привязаны только к этому:'
@@ -88,9 +81,7 @@ export const HubDeleteDialog = ({
             {
                 id: 'name',
                 label: t('table.name', 'Название'),
-                render: (row) => (
-                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.displayName}</Typography>
-                )
+                render: (row) => <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.displayName}</Typography>
             },
             {
                 id: 'codename',

@@ -34,7 +34,7 @@ export function TemplateSelector({ value, onChange, disabled, autoSelectDefault 
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
                 <CircularProgress size={16} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant='body2' color='text.secondary'>
                     {t('templates.loading', 'Loading templates...')}
                 </Typography>
             </Box>
@@ -47,9 +47,9 @@ export function TemplateSelector({ value, onChange, disabled, autoSelectDefault 
 
     return (
         <FormControl fullWidth>
-            <InputLabel id="template-selector-label">{t('templates.selectTemplate', 'Select template')}</InputLabel>
+            <InputLabel id='template-selector-label'>{t('templates.selectTemplate', 'Select template')}</InputLabel>
             <Select
-                labelId="template-selector-label"
+                labelId='template-selector-label'
                 value={value ?? ''}
                 label={t('templates.selectTemplate', 'Select template')}
                 onChange={(e) => onChange(e.target.value || undefined)}
@@ -65,20 +65,20 @@ export function TemplateSelector({ value, onChange, disabled, autoSelectDefault 
                         <MenuItem key={tmpl.id} value={tmpl.id}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%', minWidth: 0 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                    <Typography variant="body2">{nameWithVersion}</Typography>
+                                    <Typography variant='body2'>{nameWithVersion}</Typography>
                                     {tmpl.isSystem && (
                                         <Chip
                                             label={t('templates.systemTemplate', 'System')}
-                                            size="small"
-                                            color="info"
-                                            variant="outlined"
+                                            size='small'
+                                            color='info'
+                                            variant='outlined'
                                         />
                                     )}
                                 </Box>
                                 {desc && (
                                     <Typography
-                                        variant="caption"
-                                        color="text.secondary"
+                                        variant='caption'
+                                        color='text.secondary'
                                         noWrap
                                         sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
                                     >

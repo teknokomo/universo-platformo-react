@@ -16,6 +16,7 @@ export { createCatalogsRoutes } from './domains/catalogs/routes/catalogsRoutes'
 export { createAttributesRoutes } from './domains/attributes/routes/attributesRoutes'
 export { createElementsRoutes } from './domains/elements/routes/elementsRoutes'
 export { createPublicMetahubsRoutes } from './domains/metahubs/routes/publicMetahubsRoutes'
+export { createMetahubMigrationsRoutes } from './domains/metahubs/routes/metahubMigrationsRoutes'
 export { createApplicationMigrationsRoutes } from './domains/applications/routes/applicationMigrationsRoutes'
 export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './domains/router'
 

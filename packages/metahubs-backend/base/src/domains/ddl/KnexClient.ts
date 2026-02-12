@@ -1,5 +1,10 @@
 import knex, { Knex } from 'knex'
 
+const parsePositiveInt = (value: string | undefined, fallback: number): number => {
+    const parsed = Number.parseInt(value ?? '', 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
 /**
  * KnexClient - Singleton wrapper for Knex instance
  *
@@ -10,10 +15,10 @@ import knex, { Knex } from 'knex'
  * - SchemaGenerator: Creates PostgreSQL schemas for Publications
  * - SchemaMigrator: Alters tables when configuration changes
  *
- * Pool Configuration (Supabase Nano tier - 15 connections max):
- * - TypeORM: 5 connections (static entities)
- * - Knex: 5 connections (DDL operations)
- * - Reserved: 5 connections for Supabase internal services
+ * Pool Configuration:
+ * - Production defaults remain conservative for shared Supabase limits.
+ * - Development defaults prioritize TypeORM/RLS request traffic
+ *   (TypeORM 8, Knex 4 by default unless env overrides are provided).
  */
 class KnexClient {
     private static instance: Knex | null = null
@@ -41,7 +46,7 @@ class KnexClient {
      */
     private static createInstance(): Knex {
         const host = process.env.DATABASE_HOST
-        const port = parseInt(process.env.DATABASE_PORT || '5432', 10)
+        const port = parsePositiveInt(process.env.DATABASE_PORT, 5432)
         const user = process.env.DATABASE_USER
         const password = process.env.DATABASE_PASSWORD
         const database = process.env.DATABASE_NAME
@@ -56,8 +61,15 @@ class KnexClient {
 
         const sslConfig = KnexClient.getSSLConfig()
 
-        // Pool size from env or default 5 (for Supabase Nano tier compatibility)
-        const poolMax = parseInt(process.env.DATABASE_KNEX_POOL_MAX || '5', 10)
+        // Knex receives a smaller slice of the shared connection budget.
+        // This leaves headroom for request-scoped TypeORM RLS runners.
+        const defaultConnectionBudget = process.env.NODE_ENV === 'development' ? 12 : 8
+        const connectionBudget = parsePositiveInt(process.env.DATABASE_CONNECTION_BUDGET, defaultConnectionBudget)
+        const defaultPoolMax = Math.max(2, Math.min(4, Math.floor(connectionBudget / 4)))
+        const poolMax = parsePositiveInt(process.env.DATABASE_KNEX_POOL_MAX, defaultPoolMax)
+        const acquireTimeoutMillis = parsePositiveInt(process.env.DATABASE_KNEX_ACQUIRE_TIMEOUT_MS, 10000)
+        const idleTimeoutMillis = parsePositiveInt(process.env.DATABASE_KNEX_IDLE_TIMEOUT_MS, 15000)
+        const createTimeoutMillis = parsePositiveInt(process.env.DATABASE_KNEX_CREATE_TIMEOUT_MS, 10000)
 
         console.log('[KnexClient] Creating Knex instance', {
             host,
@@ -66,6 +78,7 @@ class KnexClient {
             user: '***',
             ssl: sslConfig ? 'enabled' : 'disabled',
             poolMax,
+            connectionBudget,
             poolerMode: isTransactionPooler ? 'transaction' : 'session/direct'
         })
 
@@ -87,10 +100,10 @@ class KnexClient {
                 min: 0,
                 max: poolMax, // Configurable, default 5 for Supabase Nano tier
                 // Shorter timeouts for better connection reuse
-                acquireTimeoutMillis: 30000, // Reduced from 60000
-                idleTimeoutMillis: 20000, // Reduced from 30000
+                acquireTimeoutMillis,
+                idleTimeoutMillis,
                 reapIntervalMillis: 1000,
-                createTimeoutMillis: 15000, // Reduced from 30000
+                createTimeoutMillis,
                 destroyTimeoutMillis: 5000,
                 propagateCreateError: false
             }
@@ -226,64 +239,6 @@ class KnexClient {
             KnexClient.instance = null
             console.log('[KnexClient] Instance destroyed')
         }
-    }
-
-    /**
-     * Acquire an advisory lock for DDL operations
-     * This prevents concurrent schema modifications
-     *
-     * @param lockKey - Unique numeric key for the lock (use applicationId hash)
-     * @param timeoutMs - How long to wait for the lock (default: 30s)
-     * @returns true if lock acquired, false if timeout
-     */
-    public static async acquireAdvisoryLock(lockKey: number, timeoutMs = 30000): Promise<boolean> {
-        const knexInstance = KnexClient.getInstance()
-
-        // Set statement timeout for this session
-        await knexInstance.raw(`SET LOCAL statement_timeout = ${timeoutMs}`)
-
-        try {
-            // Try to acquire exclusive session-level advisory lock
-            const result = await knexInstance.raw<{ rows: { pg_try_advisory_lock: boolean }[] }>(`SELECT pg_try_advisory_lock(?)`, [
-                lockKey
-            ])
-            return result.rows[0]?.pg_try_advisory_lock === true
-        } catch (error) {
-            console.error('[KnexClient] Failed to acquire advisory lock:', error)
-            return false
-        }
-    }
-
-    /**
-     * Release an advisory lock
-     *
-     * @param lockKey - The same key used to acquire the lock
-     */
-    public static async releaseAdvisoryLock(lockKey: number): Promise<void> {
-        const knexInstance = KnexClient.getInstance()
-        try {
-            await knexInstance.raw(`SELECT pg_advisory_unlock(?)`, [lockKey])
-        } catch (error) {
-            console.error('[KnexClient] Failed to release advisory lock:', error)
-        }
-    }
-
-    /**
-     * Generate a numeric lock key from a UUID string
-     * Uses a simple hash function to convert UUID to int32
-     *
-     * @param uuid - Application UUID
-     * @returns Numeric lock key
-     */
-    public static uuidToLockKey(uuid: string): number {
-        const cleanUuid = uuid.replace(/-/g, '')
-        let hash = 0
-        for (let i = 0; i < cleanUuid.length; i++) {
-            const char = cleanUuid.charCodeAt(i)
-            hash = (hash << 5) - hash + char
-            hash = hash & hash // Convert to 32bit integer
-        }
-        return Math.abs(hash)
     }
 }
 

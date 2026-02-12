@@ -35,6 +35,8 @@ export interface SystemIndexDef {
     name: string
     columns: string[]
     unique?: boolean
+    /** Previous index names (used to detect explicit index rename migrations). */
+    renamedFrom?: string[]
     /** Optional raw WHERE clause for partial indexes. */
     where?: string
     /** Index method (default: btree). */
@@ -43,6 +45,8 @@ export interface SystemIndexDef {
 
 export interface SystemTableDef {
     name: string
+    /** Previous table names (used to detect explicit table rename migrations). */
+    renamedFrom?: string[]
     description: string
     /** Own columns (excluding shared _upl_* / _mhb_* fields). */
     columns: SystemColumnDef[]
@@ -258,29 +262,105 @@ const mhbMigrations: SystemTableDef = {
     uniqueConstraints: [['name']]
 }
 
+const mhbWidgets: SystemTableDef = {
+    name: '_mhb_widgets',
+    renamedFrom: ['_mhb_layout_zone_widgets'],
+    description: 'Widget assignments per layout zone',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'layout_id', type: 'uuid', nullable: false },
+        { name: 'zone', type: 'string', length: 20, nullable: false },
+        { name: 'widget_key', type: 'string', length: 100, nullable: false },
+        { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 1 },
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
+    ],
+    foreignKeys: [{ column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_widgets_layout_id', renamedFrom: ['idx_mhb_layout_zone_widgets_layout_id'], columns: ['layout_id'] },
+        {
+            name: 'idx_mhb_widgets_layout_zone_sort',
+            renamedFrom: ['idx_mhb_layout_zone_widgets_layout_zone_sort'],
+            columns: ['layout_id', 'zone', 'sort_order']
+        }
+    ]
+}
+
 // ─── Version registry ────────────────────────────────────────────────────────
 
 /**
- * Structure version 1 — the initial set of 6 system tables.
+ * Structure version 1 — baseline system tables, including migration history.
  */
-export const SYSTEM_TABLES_V1: SystemTableDef[] = [mhbObjects, mhbAttributes, mhbElements, mhbSettings, mhbLayouts, mhbLayoutZoneWidgets]
+export const SYSTEM_TABLES_V1: SystemTableDef[] = [
+    mhbObjects,
+    mhbAttributes,
+    mhbElements,
+    mhbSettings,
+    mhbLayouts,
+    mhbLayoutZoneWidgets,
+    mhbMigrations
+]
 
 /**
- * Structure version 2 — V1 tables + migration history table.
+ * Structure version 2 — `_mhb_layout_zone_widgets` renamed to `_mhb_widgets`.
  */
-export const SYSTEM_TABLES_V2: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbMigrations]
+export const SYSTEM_TABLES_V2: SystemTableDef[] = [
+    mhbObjects,
+    mhbAttributes,
+    mhbElements,
+    mhbSettings,
+    mhbLayouts,
+    mhbWidgets,
+    mhbMigrations
+]
 
 /**
  * Maps a structure version number to its table definitions.
  * Each entry is the COMPLETE set of tables for that version.
  *
- * When adding V3, list ALL tables (V2 tables + new ones).
+ * When adding a new version, list ALL tables from the previous version plus new ones.
  * The diff engine compares consecutive versions to produce migrations.
  */
 export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
     [1, SYSTEM_TABLES_V1],
     [2, SYSTEM_TABLES_V2]
 ])
+
+export interface SystemStructureSnapshotTable {
+    name: string
+    columns: SystemColumnDef[]
+    indexes: SystemIndexDef[]
+    foreignKeys: SystemForeignKeyDef[]
+    uniqueConstraints: string[][]
+}
+
+export interface SystemStructureSnapshot {
+    version: number
+    tables: SystemStructureSnapshotTable[]
+}
+
+const cloneColumn = (column: SystemColumnDef): SystemColumnDef => ({ ...column })
+const cloneIndex = (index: SystemIndexDef): SystemIndexDef => ({ ...index, columns: [...index.columns] })
+const cloneForeignKey = (foreignKey: SystemForeignKeyDef): SystemForeignKeyDef => ({ ...foreignKey })
+
+/**
+ * Builds a JSON-safe structure snapshot from declarative system table definitions.
+ * Returns null if the structure version is unknown.
+ */
+export function buildSystemStructureSnapshot(version: number): SystemStructureSnapshot | null {
+    const definitions = SYSTEM_TABLE_VERSIONS.get(version)
+    if (!definitions) return null
+
+    return {
+        version,
+        tables: definitions.map((table) => ({
+            name: table.name,
+            columns: table.columns.map(cloneColumn),
+            indexes: (table.indexes ?? []).map(cloneIndex),
+            foreignKeys: (table.foreignKeys ?? []).map(cloneForeignKey),
+            uniqueConstraints: (table.uniqueConstraints ?? []).map((constraint) => [...constraint])
+        }))
+    }
+}
 
 // ─── Shared column builder ───────────────────────────────────────────────────
 

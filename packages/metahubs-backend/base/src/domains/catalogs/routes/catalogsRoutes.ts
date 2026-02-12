@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
-import { escapeLikeWildcards, getRequestManager } from '../../../utils'
+import { getRequestManager } from '../../../utils'
 import { localizedContent, validation } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
@@ -76,7 +76,7 @@ export function createCatalogsRoutes(
     const services = (req: Request) => {
         const ds = getDataSource()
         const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
         const objectsService = new MetahubObjectsService(schemaService)
         const hubsService = new MetahubHubsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)

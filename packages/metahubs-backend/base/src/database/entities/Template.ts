@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, VersionColumn, OneToOne, JoinColumn } from 'typeorm'
-import type { VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { TemplateVersion } from './TemplateVersion'
 
 /**

@@ -151,7 +151,12 @@ export function createAccessGuards<TRole extends string, TMembership>(config: Ac
      * @param queryRunner - Optional QueryRunner for RLS-aware database operations
      * @returns Membership if found, null otherwise
      */
-    async function getMembershipSafe(ds: DataSource, userId: string, entityId: string, queryRunner?: QueryRunner): Promise<TMembership | null> {
+    async function getMembershipSafe(
+        ds: DataSource,
+        userId: string,
+        entityId: string,
+        queryRunner?: QueryRunner
+    ): Promise<TMembership | null> {
         return getMembership(ds, userId, entityId, queryRunner)
     }
 

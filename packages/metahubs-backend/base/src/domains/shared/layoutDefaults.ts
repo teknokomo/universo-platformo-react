@@ -18,14 +18,37 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
     // Left zone — decomposed sidebar widgets
     { zone: 'left', widgetKey: 'brandSelector', sortOrder: 1 },
     { zone: 'left', widgetKey: 'divider', sortOrder: 2 },
-    { zone: 'left', widgetKey: 'menuWidget', sortOrder: 3, config: {
-        showTitle: true,
-        title: { _schema: '1', _primary: 'en', locales: { en: { content: 'Main', version: 1, isActive: true }, ru: { content: 'Главное', version: 1, isActive: true } } },
-        autoShowAllCatalogs: true,
-        items: [
-            { id: 'default-catalogs-all', kind: 'catalogs_all', title: { _schema: '1', _primary: 'en', locales: { en: { content: 'Catalogs', version: 1, isActive: true }, ru: { content: 'Каталоги', version: 1, isActive: true } } }, icon: 'database', sortOrder: 1, isActive: true }
-        ]
-    } },
+    {
+        zone: 'left',
+        widgetKey: 'menuWidget',
+        sortOrder: 3,
+        config: {
+            showTitle: true,
+            title: {
+                _schema: '1',
+                _primary: 'en',
+                locales: { en: { content: 'Main', version: 1, isActive: true }, ru: { content: 'Главное', version: 1, isActive: true } }
+            },
+            autoShowAllCatalogs: true,
+            items: [
+                {
+                    id: 'default-catalogs-all',
+                    kind: 'catalogs_all',
+                    title: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Catalogs', version: 1, isActive: true },
+                            ru: { content: 'Каталоги', version: 1, isActive: true }
+                        }
+                    },
+                    icon: 'database',
+                    sortOrder: 1,
+                    isActive: true
+                }
+            ]
+        }
+    },
     { zone: 'left', widgetKey: 'spacer', sortOrder: 4 },
     { zone: 'left', widgetKey: 'divider', sortOrder: 5 },
     { zone: 'left', widgetKey: 'infoCard', sortOrder: 6 },
@@ -53,7 +76,9 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
  * Builds a boolean config map from a list of active widgets.
  * Keys like `showSideMenu`, `showHeader`, etc. toggle dashboard sections.
  */
-export const buildDashboardLayoutConfig = (items: Array<{ widgetKey: DashboardLayoutWidgetKey; zone?: DashboardLayoutZone }>): Record<string, boolean> => {
+export const buildDashboardLayoutConfig = (
+    items: Array<{ widgetKey: DashboardLayoutWidgetKey; zone?: DashboardLayoutZone }>
+): Record<string, boolean> => {
     const active = new Set(items.map((item) => item.widgetKey))
     const hasLeftWidget = items.some((item) => item.zone === 'left')
     return {

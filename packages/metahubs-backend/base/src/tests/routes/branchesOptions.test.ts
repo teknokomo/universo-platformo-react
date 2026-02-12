@@ -13,6 +13,9 @@ jest.mock(
             VersionColumn: decorator,
             ManyToOne: decorator,
             OneToMany: decorator,
+            OneToOne: decorator,
+            ManyToMany: decorator,
+            JoinTable: decorator,
             JoinColumn: decorator,
             Index: decorator,
             Unique: decorator,
@@ -22,6 +25,13 @@ jest.mock(
     { virtual: true }
 )
 
+jest.mock('@universo/admin-backend', () => ({
+    __esModule: true,
+    isSuperuserByDataSource: jest.fn(async () => false),
+    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
+    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -29,6 +39,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createBranchesRoutes } from '../../domains/branches/routes/branchesRoutes'
+import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
 
 describe('Branches Options Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -52,13 +63,20 @@ describe('Branches Options Routes', () => {
     const buildApp = (dataSource: any) => {
         const app = express()
         app.use(express.json())
-        app.use('/', createBranchesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
+        app.use(
+            '/',
+            createBranchesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        )
         app.use(errorHandler)
         return app
     }
 
     beforeEach(() => {
         jest.clearAllMocks()
+    })
+
+    afterEach(() => {
+        jest.restoreAllMocks()
     })
 
     it('returns all branches without pagination', async () => {
@@ -101,7 +119,7 @@ describe('Branches Options Routes', () => {
         ])
 
         metahubRepo.findOne.mockResolvedValue({ id: metahubId, defaultBranchId })
-        metahubUserRepo.findOne.mockResolvedValue({ metahub_id: metahubId, user_id: 'test-user-id', active_branch_id: activeBranchId })
+        metahubUserRepo.findOne.mockResolvedValue({ metahubId, userId: 'test-user-id', role: 'owner', activeBranchId })
 
         const app = buildApp(dataSource)
 
@@ -111,6 +129,32 @@ describe('Branches Options Routes', () => {
         expect(response.body.meta).toMatchObject({
             defaultBranchId,
             activeBranchId
+        })
+    })
+
+    it('maps branch deletion lock contention to HTTP 409', async () => {
+        const metahubUserRepo = createMockRepository<any>()
+        const dataSource = createMockDataSource({
+            MetahubUser: metahubUserRepo
+        })
+
+        const metahubId = 'metahub-1'
+        const branchId = 'branch-1'
+        metahubUserRepo.findOne.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            role: 'owner'
+        })
+
+        jest.spyOn(MetahubBranchesService.prototype, 'getBlockingUsers').mockResolvedValue([])
+        jest.spyOn(MetahubBranchesService.prototype, 'deleteBranch').mockRejectedValue(new Error('Branch deletion in progress'))
+
+        const app = buildApp(dataSource)
+        const response = await request(app).delete(`/metahub/${metahubId}/branch/${branchId}`).expect(409)
+
+        expect(response.body).toEqual({
+            code: 'BRANCH_DELETION_IN_PROGRESS',
+            error: 'Branch deletion in progress'
         })
     })
 })

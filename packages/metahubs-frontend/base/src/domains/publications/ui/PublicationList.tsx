@@ -130,7 +130,12 @@ const PublicationList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Use publications list hook
-    const { data: publicationsResponse, isLoading, error, refetch } = usePublicationsList(metahubId ?? '', {
+    const {
+        data: publicationsResponse,
+        isLoading,
+        error,
+        refetch
+    } = usePublicationsList(metahubId ?? '', {
         enabled: !!metahubId
     })
 
@@ -153,9 +158,7 @@ const PublicationList = () => {
             if (!branchId) return ''
             const branch = branches.find((item) => item.id === branchId)
             if (!branch) return `${t('publications.versions.branchMissing', 'Удалённая ветка')} (${branchId})`
-            const name = getVLCString(branch.name, i18n.language)
-                || getVLCString(branch.name, 'en')
-                || branch.codename
+            const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || branch.codename
             return `${name} (${branch.codename})`
         },
         [branches, i18n.language, t]
@@ -352,8 +355,11 @@ const PublicationList = () => {
                     label: t('publications.tabs.versions', 'Версии'),
                     content: (
                         <Stack spacing={2}>
-                            <Typography variant="body2" color="text.secondary">
-                                {t('publications.versions.createFirstDescription', 'При создании публикации будет создана первая версия. Укажите её название и описание.')}
+                            <Typography variant='body2' color='text.secondary'>
+                                {t(
+                                    'publications.versions.createFirstDescription',
+                                    'При создании публикации будет создана первая версия. Укажите её название и описание.'
+                                )}
                             </Typography>
                             <LocalizedInlineField
                                 mode='localized'
@@ -374,11 +380,11 @@ const PublicationList = () => {
                                 rows={2}
                             />
                             <FormControl fullWidth disabled={isFormLoading}>
-                                <InputLabel id="publication-version-branch-label">
+                                <InputLabel id='publication-version-branch-label'>
                                     {t('publications.versions.branchLabel', 'Ветка для версии')}
                                 </InputLabel>
                                 <Select
-                                    labelId="publication-version-branch-label"
+                                    labelId='publication-version-branch-label'
                                     value={values.versionBranchId ?? defaultBranchId ?? ''}
                                     label={t('publications.versions.branchLabel', 'Ветка для версии')}
                                     onChange={(event) => setValue('versionBranchId', event.target.value)}
@@ -390,10 +396,7 @@ const PublicationList = () => {
                                     ))}
                                 </Select>
                                 <FormHelperText>
-                                    {t(
-                                        'publications.versions.branchHelper',
-                                        'Снапшот версии будет создан на основе выбранной ветки.'
-                                    )}
+                                    {t('publications.versions.branchHelper', 'Снапшот версии будет создан на основе выбранной ветки.')}
                                 </FormHelperText>
                             </FormControl>
                         </Stack>
@@ -478,7 +481,7 @@ const PublicationList = () => {
                     <Chip
                         label={t(`publications.accessMode.${row.accessMode}`, row.accessMode === 'full' ? 'Full Access' : 'Restricted')}
                         color={accessModeColors[row.accessMode]}
-                        size="small"
+                        size='small'
                     />
                 )
             }
@@ -558,7 +561,21 @@ const PublicationList = () => {
                 navigate
             }
         }),
-        [publicationMap, confirm, deletePublicationMutation, enqueueSnackbar, i18n.language, isMetahubLoading, metahub, metahubId, navigate, queryClient, setDeleteDialogState, syncPublicationMutation, updatePublicationMutation]
+        [
+            publicationMap,
+            confirm,
+            deletePublicationMutation,
+            enqueueSnackbar,
+            i18n.language,
+            isMetahubLoading,
+            metahub,
+            metahubId,
+            navigate,
+            queryClient,
+            setDeleteDialogState,
+            syncPublicationMutation,
+            updatePublicationMutation
+        ]
     )
 
     // Validate metahubId from URL AFTER all hooks
@@ -602,7 +619,8 @@ const PublicationList = () => {
             const versionNameVlc = data.versionNameVlc as VersionedLocalizedContent<string> | null | undefined
             const versionDescriptionVlc = data.versionDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: versionNameInput, primaryLocale: versionNamePrimaryLocale } = extractLocalizedInput(versionNameVlc)
-            const { input: versionDescriptionInput, primaryLocale: versionDescriptionPrimaryLocale } = extractLocalizedInput(versionDescriptionVlc)
+            const { input: versionDescriptionInput, primaryLocale: versionDescriptionPrimaryLocale } =
+                extractLocalizedInput(versionDescriptionVlc)
             const versionBranchId = (data.versionBranchId as string | null | undefined) ?? defaultBranchId ?? undefined
 
             await createPublicationMutation.mutateAsync({
@@ -700,7 +718,7 @@ const PublicationList = () => {
                     {/* Info banner: temporary single-publication limit - shown below header, above content */}
                     {publications.length > 0 && (
                         <Alert
-                            severity="info"
+                            severity='info'
                             icon={<InfoIcon />}
                             sx={{
                                 mx: { xs: -1.5, md: -2 },
@@ -708,7 +726,10 @@ const PublicationList = () => {
                                 mb: 2
                             }}
                         >
-                            {t('publications.singlePublicationLimit', 'Currently, only one Publication per Metahub is supported. Also, after creating a Publication, it cannot be deleted separately, only together with the entire Metahub. In future versions of Universo Platformo, these restrictions will be removed.')}
+                            {t(
+                                'publications.singlePublicationLimit',
+                                'Currently, only one Publication per Metahub is supported. Also, after creating a Publication, it cannot be deleted separately, only together with the entire Metahub. In future versions of Universo Platformo, these restrictions will be removed.'
+                            )}
                         </Alert>
                     )}
 
@@ -753,9 +774,12 @@ const PublicationList = () => {
                                                 images={images[publication.id] || []}
                                                 footerEndContent={
                                                     <Chip
-                                                        label={t(`publications.accessMode.${cardData.accessMode}`, cardData.accessMode === 'full' ? 'Full Access' : 'Restricted')}
+                                                        label={t(
+                                                            `publications.accessMode.${cardData.accessMode}`,
+                                                            cardData.accessMode === 'full' ? 'Full Access' : 'Restricted'
+                                                        )}
                                                         color={cardData.accessMode === 'full' ? 'success' : 'warning'}
-                                                        size="small"
+                                                        size='small'
                                                     />
                                                 }
                                                 headerAction={

@@ -99,9 +99,5 @@ export const moveLayoutZoneWidget = (
 export const removeLayoutZoneWidget = (metahubId: string, layoutId: string, widgetId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}`)
 
-export const updateLayoutZoneWidgetConfig = (
-    metahubId: string,
-    layoutId: string,
-    widgetId: string,
-    config: Record<string, unknown>
-) => apiClient.patch<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`, { config })
+export const updateLayoutZoneWidgetConfig = (metahubId: string, layoutId: string, widgetId: string, config: Record<string, unknown>) =>
+    apiClient.patch<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`, { config })

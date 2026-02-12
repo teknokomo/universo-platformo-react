@@ -88,20 +88,15 @@ export interface SchemaSyncResponse {
  * List publications for a specific metahub
  */
 export const listPublications = async (metahubId: string): Promise<PublicationsListResponse> => {
-    const response = await apiClient.get<PublicationsListResponse>(
-        `/metahub/${metahubId}/publications`
-    )
+    const response = await apiClient.get<PublicationsListResponse>(`/metahub/${metahubId}/publications`)
     return response.data
 }
-
 
 /**
  * Get a single publication
  */
 export const getPublication = async (metahubId: string, publicationId: string): Promise<Publication> => {
-    const response = await apiClient.get<Publication>(
-        `/metahub/${metahubId}/publication/${publicationId}`
-    )
+    const response = await apiClient.get<Publication>(`/metahub/${metahubId}/publication/${publicationId}`)
     return response.data
 }
 
@@ -125,37 +120,23 @@ export const updatePublication = async (
     publicationId: string,
     payload: UpdatePublicationPayload
 ): Promise<Publication> => {
-    const response = await apiClient.patch<Publication>(
-        `/metahub/${metahubId}/publication/${publicationId}`,
-        payload
-    )
+    const response = await apiClient.patch<Publication>(`/metahub/${metahubId}/publication/${publicationId}`, payload)
     return response.data
 }
 
 /**
  * Create a new publication (information base)
  */
-export const createPublication = async (
-    metahubId: string,
-    payload: CreatePublicationPayload
-): Promise<Publication> => {
-    const response = await apiClient.post<Publication>(
-        `/metahub/${metahubId}/publications`,
-        payload
-    )
+export const createPublication = async (metahubId: string, payload: CreatePublicationPayload): Promise<Publication> => {
+    const response = await apiClient.post<Publication>(`/metahub/${metahubId}/publications`, payload)
     return response.data
 }
 
 /**
  * Get schema diff without applying changes
  */
-export const getPublicationDiff = async (
-    metahubId: string,
-    publicationId: string
-): Promise<SchemaDiffResponse> => {
-    const response = await apiClient.get<SchemaDiffResponse>(
-        `/metahub/${metahubId}/publication/${publicationId}/diff`
-    )
+export const getPublicationDiff = async (metahubId: string, publicationId: string): Promise<SchemaDiffResponse> => {
+    const response = await apiClient.get<SchemaDiffResponse>(`/metahub/${metahubId}/publication/${publicationId}/diff`)
     return response.data
 }
 
@@ -167,25 +148,19 @@ export const syncPublication = async (
     publicationId: string,
     confirmDestructive = false
 ): Promise<SchemaSyncResponse> => {
-    const response = await apiClient.post<SchemaSyncResponse>(
-        `/metahub/${metahubId}/publication/${publicationId}/sync`,
-        { confirmDestructive }
-    )
+    const response = await apiClient.post<SchemaSyncResponse>(`/metahub/${metahubId}/publication/${publicationId}/sync`, {
+        confirmDestructive
+    })
     return response.data
 }
-
 
 /**
  * Delete a publication and its schema
  */
-export const deletePublication = async (
-    metahubId: string,
-    publicationId: string
-): Promise<{ success: boolean; message: string }> => {
-    const response = await apiClient.delete<{ success: boolean; message: string }>(
-        `/metahub/${metahubId}/publication/${publicationId}`,
-        { params: { confirm: 'true' } }
-    )
+export const deletePublication = async (metahubId: string, publicationId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`/metahub/${metahubId}/publication/${publicationId}`, {
+        params: { confirm: 'true' }
+    })
     return response.data
 }
 
@@ -211,12 +186,7 @@ export interface LinkedApplicationsResponse {
 /**
  * Get applications linked to this publication via connectors
  */
-export const getPublicationApplications = async (
-    metahubId: string,
-    publicationId: string
-): Promise<LinkedApplicationsResponse> => {
-    const response = await apiClient.get<LinkedApplicationsResponse>(
-        `/metahub/${metahubId}/publication/${publicationId}/applications`
-    )
+export const getPublicationApplications = async (metahubId: string, publicationId: string): Promise<LinkedApplicationsResponse> => {
+    const response = await apiClient.get<LinkedApplicationsResponse>(`/metahub/${metahubId}/publication/${publicationId}/applications`)
     return response.data
 }

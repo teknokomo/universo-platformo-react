@@ -78,12 +78,12 @@ const baseGuards = createAccessGuards<MetahubRole, MetahubUser>({
     isSuperuser: isSuperuserByDataSource,
     getGlobalRoleName: getGlobalRoleCodenameByDataSource,
     createGlobalAdminMembership: (userId, entityId, _globalRole) =>
-    ({
-        userId,
-        metahubId: entityId,
-        role: 'owner', // Global admins get owner-level access
-        _uplCreatedAt: new Date()
-    } as MetahubUser)
+        ({
+            userId,
+            metahubId: entityId,
+            role: 'owner', // Global admins get owner-level access
+            _uplCreatedAt: new Date()
+        } as MetahubUser)
 })
 
 // Re-export base guards
@@ -198,7 +198,7 @@ export async function ensureHubAccess(
     const { MetahubSchemaService } = await import('../metahubs/services/MetahubSchemaService.js')
     const { MetahubHubsService } = await import('../metahubs/services/MetahubHubsService.js')
 
-    const schemaService = new MetahubSchemaService(ds)
+    const schemaService = new MetahubSchemaService(ds, undefined, getManager(ds, queryRunner))
     const hubsService = new MetahubHubsService(schemaService)
 
     const hubData = await hubsService.findById(metahubId, hubId)
@@ -234,4 +234,3 @@ export async function ensureHubAccess(
 
 // Suppress unused variable warning for createError (used in assertNotOwner)
 void createError
-

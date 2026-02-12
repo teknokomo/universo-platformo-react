@@ -5,11 +5,13 @@ import { UPL_SYSTEM_FIELDS, MHB_SYSTEM_FIELDS } from './systemTableDefinitions'
 
 export enum SystemChangeType {
     ADD_TABLE = 'ADD_TABLE',
+    RENAME_TABLE = 'RENAME_TABLE',
     DROP_TABLE = 'DROP_TABLE',
     ADD_COLUMN = 'ADD_COLUMN',
     DROP_COLUMN = 'DROP_COLUMN',
     ALTER_COLUMN = 'ALTER_COLUMN',
     ADD_INDEX = 'ADD_INDEX',
+    RENAME_INDEX = 'RENAME_INDEX',
     DROP_INDEX = 'DROP_INDEX',
     ADD_FK = 'ADD_FK',
     DROP_FK = 'DROP_FK'
@@ -18,8 +20,10 @@ export enum SystemChangeType {
 export interface SystemTableChange {
     type: SystemChangeType
     tableName: string
+    fromTableName?: string
     columnName?: string
     indexName?: string
+    fromIndexName?: string
     /** True if this change removes data or structure. */
     isDestructive: boolean
     description: string
@@ -71,41 +75,60 @@ export function calculateSystemTableDiff(
     }
 
     const oldByName = new Map(oldTables.map((t) => [t.name, t]))
-    const newByName = new Map(newTables.map((t) => [t.name, t]))
+    const matchedOldTableNames = new Set<string>()
+    const tablePairs: Array<{ oldName: string; oldTable: SystemTableDef; newName: string; newTable: SystemTableDef }> = []
 
-    // 1. New tables (ADD_TABLE)
-    for (const [name, newTable] of newByName) {
-        if (!oldByName.has(name)) {
+    // 1. Resolve table pairs, supporting explicit rename mappings via `renamedFrom`.
+    for (const newTable of newTables) {
+        const directMatch = oldByName.get(newTable.name)
+        if (directMatch) {
+            matchedOldTableNames.add(newTable.name)
+            tablePairs.push({ oldName: newTable.name, oldTable: directMatch, newName: newTable.name, newTable })
+            continue
+        }
+
+        const renamedFrom = (newTable.renamedFrom ?? []).find(
+            (candidate) => oldByName.has(candidate) && !matchedOldTableNames.has(candidate)
+        )
+        if (!renamedFrom) {
             diff.additive.push({
                 type: SystemChangeType.ADD_TABLE,
-                tableName: name,
+                tableName: newTable.name,
                 isDestructive: false,
-                description: `Add table "${name}": ${newTable.description}`,
+                description: `Add table "${newTable.name}": ${newTable.description}`,
                 definition: newTable
             })
+            continue
         }
+
+        const oldTable = oldByName.get(renamedFrom)!
+        matchedOldTableNames.add(renamedFrom)
+        tablePairs.push({ oldName: renamedFrom, oldTable, newName: newTable.name, newTable })
+        diff.additive.push({
+            type: SystemChangeType.RENAME_TABLE,
+            tableName: newTable.name,
+            fromTableName: renamedFrom,
+            isDestructive: false,
+            description: `Rename table "${renamedFrom}" to "${newTable.name}"`
+        })
     }
 
     // 2. Dropped tables (DROP_TABLE) — destructive, not auto-applied
-    for (const [name] of oldByName) {
-        if (!newByName.has(name)) {
-            diff.destructive.push({
-                type: SystemChangeType.DROP_TABLE,
-                tableName: name,
-                isDestructive: true,
-                description: `Drop table "${name}" (requires manual migration)`
-            })
-        }
+    for (const [oldName] of oldByName) {
+        if (matchedOldTableNames.has(oldName)) continue
+        diff.destructive.push({
+            type: SystemChangeType.DROP_TABLE,
+            tableName: oldName,
+            isDestructive: true,
+            description: `Drop table "${oldName}" (requires manual migration)`
+        })
     }
 
-    // 3. Detailed changes for tables that exist in both versions
-    for (const [name, newTable] of newByName) {
-        const oldTable = oldByName.get(name)
-        if (!oldTable) continue
-
-        diffColumns(diff, name, oldTable, newTable)
-        diffIndexes(diff, name, oldTable, newTable)
-        diffForeignKeys(diff, name, oldTable, newTable)
+    // 3. Detailed changes for matched table pairs
+    for (const pair of tablePairs) {
+        diffColumns(diff, pair.newName, pair.oldTable, pair.newTable)
+        diffIndexes(diff, pair.newName, pair.oldTable, pair.newTable)
+        diffForeignKeys(diff, pair.newName, pair.oldTable, pair.newTable)
     }
 
     diff.hasChanges = diff.additive.length > 0 || diff.destructive.length > 0
@@ -140,17 +163,21 @@ function diffColumns(diff: SystemTableDiff, tableName: string, oldTable: SystemT
             continue
         }
 
-        // Altered columns — compare type and nullable
+        // Altered columns — compare type and nullable semantics.
+        // Undefined nullable means "nullable" in our DDL model.
         const typeChanged = col.type !== oldCol.type
-        const nullableChanged = Boolean(col.nullable) !== Boolean(oldCol.nullable)
+        const oldIsNullable = oldCol.nullable !== false
+        const newIsNullable = col.nullable !== false
+        const nullableChanged = oldIsNullable !== newIsNullable
 
         if (typeChanged || nullableChanged) {
             const details: string[] = []
             if (typeChanged) details.push(`type ${oldCol.type}→${col.type}`)
-            if (nullableChanged) details.push(`nullable ${oldCol.nullable ?? true}→${col.nullable ?? true}`)
+            if (nullableChanged) details.push(`nullable ${oldIsNullable}→${newIsNullable}`)
 
-            // Type change is destructive; nullable-only change is additive
-            const isDestructive = typeChanged
+            // Type change and nullable tightening (true -> false) are destructive.
+            // Nullable relaxation (false -> true) is additive.
+            const isDestructive = typeChanged || (oldIsNullable && !newIsNullable)
             const target = isDestructive ? diff.destructive : diff.additive
             target.push({
                 type: SystemChangeType.ALTER_COLUMN,
@@ -180,32 +207,48 @@ function diffColumns(diff: SystemTableDiff, tableName: string, oldTable: SystemT
 // ─── Index diff ──────────────────────────────────────────────────────────────
 
 function diffIndexes(diff: SystemTableDiff, tableName: string, oldTable: SystemTableDef, newTable: SystemTableDef): void {
-    const oldIdxNames = new Set((oldTable.indexes ?? []).map((i) => i.name))
-    const newIdxNames = new Set((newTable.indexes ?? []).map((i) => i.name))
+    const oldByName = new Map((oldTable.indexes ?? []).map((idx) => [idx.name, idx]))
+    const matchedOldIndexNames = new Set<string>()
 
     for (const idx of newTable.indexes ?? []) {
-        if (!oldIdxNames.has(idx.name)) {
+        if (oldByName.has(idx.name)) {
+            matchedOldIndexNames.add(idx.name)
+            continue
+        }
+
+        const renamedFrom = (idx.renamedFrom ?? []).find((candidate) => oldByName.has(candidate) && !matchedOldIndexNames.has(candidate))
+        if (renamedFrom) {
+            matchedOldIndexNames.add(renamedFrom)
             diff.additive.push({
-                type: SystemChangeType.ADD_INDEX,
+                type: SystemChangeType.RENAME_INDEX,
                 tableName,
                 indexName: idx.name,
+                fromIndexName: renamedFrom,
                 isDestructive: false,
-                description: `Add index "${idx.name}" on "${tableName}"`,
-                definition: idx
+                description: `Rename index "${renamedFrom}" to "${idx.name}" on "${tableName}"`
             })
+            continue
         }
+
+        diff.additive.push({
+            type: SystemChangeType.ADD_INDEX,
+            tableName,
+            indexName: idx.name,
+            isDestructive: false,
+            description: `Add index "${idx.name}" on "${tableName}"`,
+            definition: idx
+        })
     }
 
-    for (const idx of oldTable.indexes ?? []) {
-        if (!newIdxNames.has(idx.name)) {
-            diff.destructive.push({
-                type: SystemChangeType.DROP_INDEX,
-                tableName,
-                indexName: idx.name,
-                isDestructive: true,
-                description: `Drop index "${idx.name}" from "${tableName}" (requires manual migration)`
-            })
-        }
+    for (const oldIdx of oldTable.indexes ?? []) {
+        if (matchedOldIndexNames.has(oldIdx.name)) continue
+        diff.destructive.push({
+            type: SystemChangeType.DROP_INDEX,
+            tableName,
+            indexName: oldIdx.name,
+            isDestructive: true,
+            description: `Drop index "${oldIdx.name}" from "${tableName}" (requires manual migration)`
+        })
     }
 }
 

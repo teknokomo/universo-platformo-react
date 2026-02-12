@@ -11,6 +11,8 @@ export { default as PublicationList } from './domains/publications/ui/Publicatio
 
 // Branches
 export { default as BranchList } from './domains/branches/ui/BranchList'
+export { default as MetahubMigrations } from './domains/migrations/ui/MetahubMigrations'
+export { default as MetahubMigrationGuard } from './domains/migrations/ui/MetahubMigrationGuard'
 
 // New Hub/Catalog/Attribute/Element pages
 export { default as HubList } from './domains/hubs/ui/HubList'
@@ -53,14 +55,7 @@ export type { PaginationParams, PaginationMeta, PaginatedResponse } from './type
 export type { VersatileLocalizedContent, SimpleLocalizedInput } from './types'
 
 // Display converters
-export {
-    toMetahubDisplay,
-    toBranchDisplay,
-    toHubDisplay,
-    toCatalogDisplay,
-    toAttributeDisplay,
-    toHubElementDisplay
-} from './types'
+export { toMetahubDisplay, toBranchDisplay, toHubDisplay, toCatalogDisplay, toAttributeDisplay, toHubElementDisplay } from './types'
 
 // VLC utilities
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from './types'

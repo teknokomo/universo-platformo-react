@@ -12,6 +12,33 @@ type SimpleLocalizedInputLike = {
     [key: string]: unknown
 }
 
+type QueryErrorWithStatus = Error & {
+    status?: number
+    response?: { status?: number }
+}
+
+const NON_RETRYABLE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504] as const
+
+function createHttpStatusError(status: number): QueryErrorWithStatus {
+    const error = new Error(`HTTP error! status: ${status}`) as QueryErrorWithStatus
+    error.status = status
+    return error
+}
+
+function extractHttpStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined
+    const value = error as QueryErrorWithStatus
+    return typeof value.status === 'number' ? value.status : value.response?.status
+}
+
+function shouldRetryBreadcrumbQuery(failureCount: number, error: unknown): boolean {
+    const status = extractHttpStatus(error)
+    if (typeof status === 'number') {
+        return !NON_RETRYABLE_HTTP_STATUSES.includes(status as (typeof NON_RETRYABLE_HTTP_STATUSES)[number]) && failureCount < 1
+    }
+    return failureCount < 1
+}
+
 function extractLocalizedString(value: unknown): string {
     if (typeof value === 'string') return value
     if (!value || typeof value !== 'object') return ''
@@ -72,7 +99,7 @@ function createDefaultFetcher(apiPath: string, nameField: string): EntityNameFet
         })
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
+            throw createHttpStatusError(response.status)
         }
 
         const data = await response.json()
@@ -123,7 +150,8 @@ export function createEntityNameHook(config: EntityNameHookConfig) {
             queryFn: () => fetchEntityName(entityId!),
             enabled: Boolean(entityId),
             staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
-            retry: 2, // Retry failed requests twice
+            retry: shouldRetryBreadcrumbQuery,
+            retryOnMount: false,
             refetchOnWindowFocus: false // Don't refetch on tab focus
         })
 
@@ -237,13 +265,14 @@ export function useHubName(metahubId: string | null, hubId: string | null): stri
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
         enabled: Boolean(metahubId && hubId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -264,13 +293,14 @@ export function useCatalogName(metahubId: string | null, hubId: string | null, c
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
         enabled: Boolean(metahubId && hubId && catalogId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -291,13 +321,14 @@ export function useCatalogNameStandalone(metahubId: string | null, catalogId: st
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
         enabled: Boolean(metahubId && catalogId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -323,13 +354,14 @@ export function useAttributeName(
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
         enabled: Boolean(metahubId && hubId && catalogId && attributeId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -350,13 +382,14 @@ export function useMetahubPublicationName(metahubId: string | null, publicationI
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
         enabled: Boolean(metahubId && publicationId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -380,13 +413,14 @@ export function useLayoutName(metahubId: string | null, layoutId: string | null)
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.templateKey ?? null
         },
         enabled: Boolean(metahubId && layoutId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -407,13 +441,14 @@ export function useConnectorName(applicationId: string | null, connectorId: stri
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             })
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+            if (!response.ok) throw createHttpStatusError(response.status)
             const entity = await response.json()
             return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
         },
         enabled: Boolean(applicationId && connectorId),
         staleTime: 5 * 60 * 1000,
-        retry: 2,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
         refetchOnWindowFocus: false
     })
 
@@ -468,4 +503,3 @@ export const truncateConnectorName = createTruncateFunction(30)
 
 /** Truncate layout name with ellipsis (default: 30 chars) */
 export const truncateLayoutName = createTruncateFunction(30)
-

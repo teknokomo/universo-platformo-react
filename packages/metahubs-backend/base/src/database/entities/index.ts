@@ -20,12 +20,4 @@ export * from './TemplateVersion'
  * Note: Hub entity was removed. Hubs are now stored in isolated schemas
  * as rows in _mhb_objects table with kind='HUB'.
  */
-export const metahubsEntities = [
-    Metahub,
-    MetahubBranch,
-    MetahubUser,
-    Publication,
-    PublicationVersion,
-    Template,
-    TemplateVersion
-]
+export const metahubsEntities = [Metahub, MetahubBranch, MetahubUser, Publication, PublicationVersion, Template, TemplateVersion]

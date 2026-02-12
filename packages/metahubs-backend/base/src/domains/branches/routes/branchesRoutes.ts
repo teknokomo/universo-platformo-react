@@ -1,5 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
@@ -7,14 +7,36 @@ import { getRequestManager } from '../../../utils'
 import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { ensureMetahubAccess } from '../../shared/guards'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
 
+interface AuthLikeUser {
+    id?: string
+    sub?: string
+    user_id?: string
+    userId?: string
+}
+
+interface RequestWithAuthUser extends Request {
+    user?: AuthLikeUser
+}
+
 const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as any).user
+    const user = (req as RequestWithAuthUser).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+interface RequestWithDbContext extends Request {
+    dbContext?: {
+        queryRunner?: QueryRunner
+    }
+}
+
+const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
+    return (req as RequestWithDbContext).dbContext?.queryRunner
 }
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -47,6 +69,10 @@ const getDbErrorConstraint = (error: unknown): string | undefined => {
 
 const isUniqueViolation = (error: unknown): boolean => getDbErrorCode(error) === '23505'
 
+const getErrorMessage = (error: unknown): string => {
+    return error instanceof Error ? error.message : ''
+}
+
 const updateBranchSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
     name: localizedInputSchema.optional(),
@@ -55,22 +81,6 @@ const updateBranchSchema = z.object({
     descriptionPrimaryLocale: z.string().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
-
-const DEBUG_LOG_LEVELS = new Set(['debug', 'verbose', 'silly', 'trace'])
-
-const isDebugLoggingEnabled = (): boolean => {
-    const logLevel = String(process.env.LOG_LEVEL ?? 'info').toLowerCase()
-    return DEBUG_LOG_LEVELS.has(logLevel)
-}
-
-const logBranchDebug = (message: string, payload?: unknown): void => {
-    if (!isDebugLoggingEnabled()) return
-    if (payload !== undefined) {
-        console.log(message, payload)
-        return
-    }
-    console.log(message)
-}
 
 export function createBranchesRoutes(
     ensureAuth: RequestHandler,
@@ -93,6 +103,22 @@ export function createBranchesRoutes(
         return new MetahubBranchesService(ds, manager)
     }
 
+    const ensureMetahubRouteAccess = async (
+        req: Request,
+        res: Response,
+        metahubId: string,
+        permission?: 'manageMembers' | 'manageMetahub' | 'createContent' | 'editContent' | 'deleteContent'
+    ): Promise<string | null> => {
+        const userId = resolveUserId(req)
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
+
+        await ensureMetahubAccess(getDataSource(), userId, metahubId, permission, getRequestQueryRunner(req))
+        return userId
+    }
+
     /**
      * GET /metahub/:metahubId/branches
      * List branches for a metahub
@@ -102,7 +128,8 @@ export function createBranchesRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
             const branchesService = getService(req)
 
             let validatedQuery
@@ -157,7 +184,8 @@ export function createBranchesRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
             const branchesService = getService(req)
 
             let validatedQuery
@@ -218,7 +246,8 @@ export function createBranchesRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
             const branchesService = getService(req)
 
             const branch = await branchesService.getBranchById(metahubId, branchId)
@@ -261,8 +290,8 @@ export function createBranchesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId } = req.params
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
 
             const branchesService = getService(req)
 
@@ -329,24 +358,15 @@ export function createBranchesRoutes(
                     createdAt: branch._uplCreatedAt,
                     updatedAt: branch._uplUpdatedAt
                 })
-            } catch (error: any) {
-                logBranchDebug('[branches:create] createBranch failed', {
-                    metahubId,
-                    sourceBranchId: sourceBranchId ?? null,
-                    codename: normalizedCodename,
-                    userId,
-                    dbCode: getDbErrorCode(error),
-                    constraint: getDbErrorConstraint(error),
-                    message: error?.message
-                })
-
-                if (error.message?.includes('Branch creation in progress')) {
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error)
+                if (errorMessage.includes('Branch creation in progress')) {
                     return res.status(409).json({
                         code: 'BRANCH_CREATION_IN_PROGRESS',
                         error: 'Branch creation in progress'
                     })
                 }
-                if (error.message?.includes('Source branch not found')) {
+                if (errorMessage.includes('Source branch not found')) {
                     return res.status(404).json({ error: 'Source branch not found' })
                 }
                 if (isUniqueViolation(error)) {
@@ -382,8 +402,8 @@ export function createBranchesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
             const branchesService = getService(req)
 
             const parsed = updateBranchSchema.safeParse(req.body)
@@ -458,8 +478,9 @@ export function createBranchesRoutes(
                     createdAt: updated._uplCreatedAt,
                     updatedAt: updated._uplUpdatedAt
                 })
-            } catch (error: any) {
-                if (error.message?.includes('Branch not found')) {
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error)
+                if (errorMessage.includes('Branch not found')) {
                     return res.status(404).json({ error: 'Branch not found' })
                 }
                 if (error instanceof OptimisticLockError) {
@@ -479,8 +500,8 @@ export function createBranchesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId)
+            if (!userId) return
 
             const branchesService = getService(req)
 
@@ -490,11 +511,12 @@ export function createBranchesRoutes(
                     metahubId,
                     branchId: branch.id
                 })
-            } catch (error: any) {
-                if (error.message?.includes('Branch not found')) {
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error)
+                if (errorMessage.includes('Branch not found')) {
                     return res.status(404).json({ error: 'Branch not found' })
                 }
-                if (error.message?.includes('Membership not found')) {
+                if (errorMessage.includes('Membership not found')) {
                     return res.status(403).json({ error: 'Membership not found' })
                 }
                 throw error
@@ -511,6 +533,8 @@ export function createBranchesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
             const branchesService = getService(req)
 
             try {
@@ -519,8 +543,8 @@ export function createBranchesRoutes(
                     metahubId,
                     branchId: branch.id
                 })
-            } catch (error: any) {
-                if (error.message?.includes('Branch not found')) {
+            } catch (error: unknown) {
+                if (getErrorMessage(error).includes('Branch not found')) {
                     return res.status(404).json({ error: 'Branch not found' })
                 }
                 throw error
@@ -537,7 +561,8 @@ export function createBranchesRoutes(
         readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
-            const userId = resolveUserId(req)
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
             const branchesService = getService(req)
 
             const branch = await branchesService.getBranchById(metahubId, branchId)
@@ -566,8 +591,8 @@ export function createBranchesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, branchId } = req.params
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
 
             const branchesService = getService(req)
 
@@ -582,12 +607,19 @@ export function createBranchesRoutes(
             try {
                 await branchesService.deleteBranch({ metahubId, branchId, requesterId: userId })
                 res.status(204).send()
-            } catch (error: any) {
-                if (error.message?.includes('Branch not found')) {
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error)
+                if (errorMessage.includes('Branch not found')) {
                     return res.status(404).json({ error: 'Branch not found' })
                 }
-                if (error.message?.includes('Default branch cannot be deleted')) {
+                if (errorMessage.includes('Default branch cannot be deleted')) {
                     return res.status(409).json({ error: 'Default branch cannot be deleted' })
+                }
+                if (errorMessage.includes('Branch deletion in progress')) {
+                    return res.status(409).json({
+                        code: 'BRANCH_DELETION_IN_PROGRESS',
+                        error: 'Branch deletion in progress'
+                    })
                 }
                 throw error
             }

@@ -21,7 +21,7 @@ export class MetahubElementsService {
         private schemaService: MetahubSchemaService,
         private objectsService: MetahubObjectsService,
         private attributesService: MetahubAttributesService
-    ) { }
+    ) {}
 
     private get knex() {
         return KnexClient.getInstance()
@@ -90,13 +90,18 @@ export class MetahubElementsService {
     /**
      * Find all elements for a catalog with pagination and search.
      */
-    async findAll(metahubId: string, catalogId: string, options: {
-        limit?: number
-        offset?: number
-        sortBy?: string
-        sortOrder?: 'asc' | 'desc'
-        search?: string
-    } = {}, userId?: string) {
+    async findAll(
+        metahubId: string,
+        catalogId: string,
+        options: {
+            limit?: number
+            offset?: number
+            sortBy?: string
+            sortOrder?: 'asc' | 'desc'
+            search?: string
+        } = {},
+        userId?: string
+    ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
@@ -104,19 +109,15 @@ export class MetahubElementsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Query _mhb_elements table with object_id filter
-        let query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ object_id: catalogId })
+        let query = this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId })
 
         if (options.search) {
             const escapedSearch = escapeLikeWildcards(options.search)
             query = query.whereRaw('data::text ILIKE ?', [`%${escapedSearch}%`])
         }
 
-        const sortColumn = options.sortBy === 'created' ? '_upl_created_at'
-            : options.sortBy === 'updated' ? '_upl_updated_at'
-                : 'sort_order'
+        const sortColumn =
+            options.sortBy === 'created' ? '_upl_created_at' : options.sortBy === 'updated' ? '_upl_updated_at' : 'sort_order'
         query = query.orderBy(sortColumn, options.sortOrder || 'asc')
 
         if (options.limit) query = query.limit(options.limit)
@@ -129,13 +130,18 @@ export class MetahubElementsService {
     /**
      * Find all elements for a catalog with count (for pagination).
      */
-    async findAllAndCount(metahubId: string, catalogId: string, options: {
-        limit?: number
-        offset?: number
-        sortBy?: string
-        sortOrder?: 'asc' | 'desc'
-        search?: string
-    } = {}, userId?: string) {
+    async findAllAndCount(
+        metahubId: string,
+        catalogId: string,
+        options: {
+            limit?: number
+            offset?: number
+            sortBy?: string
+            sortOrder?: 'asc' | 'desc'
+            search?: string
+        } = {},
+        userId?: string
+    ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
@@ -143,10 +149,7 @@ export class MetahubElementsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Base query with object_id filter
-        let query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ object_id: catalogId })
+        let query = this.knex.withSchema(schemaName).from('_mhb_elements').where({ object_id: catalogId })
 
         if (options.search) {
             const escapedSearch = escapeLikeWildcards(options.search)
@@ -158,9 +161,8 @@ export class MetahubElementsService {
         const total = countResult ? parseInt(countResult.total as string, 10) : 0
 
         // Apply sorting
-        const sortColumn = options.sortBy === 'created' ? '_upl_created_at'
-            : options.sortBy === 'updated' ? '_upl_updated_at'
-                : 'sort_order'
+        const sortColumn =
+            options.sortBy === 'created' ? '_upl_created_at' : options.sortBy === 'updated' ? '_upl_updated_at' : 'sort_order'
         query = query.orderBy(sortColumn, options.sortOrder || 'asc')
 
         // Apply pagination
@@ -181,11 +183,7 @@ export class MetahubElementsService {
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ id, object_id: catalogId })
-            .first()
+        const row = await this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId }).first()
 
         return row ? this.mapRowToElement(row) : null
     }
@@ -193,11 +191,16 @@ export class MetahubElementsService {
     /**
      * Create a new element in a catalog.
      */
-    async create(metahubId: string, catalogId: string, input: {
-        data: Record<string, unknown>
-        sortOrder?: number
-        createdBy?: string | null
-    }, userId?: string) {
+    async create(
+        metahubId: string,
+        catalogId: string,
+        input: {
+            data: Record<string, unknown>
+            sortOrder?: number
+            createdBy?: string | null
+        },
+        userId?: string
+    ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
@@ -233,12 +236,18 @@ export class MetahubElementsService {
     /**
      * Update an existing element.
      */
-    async update(metahubId: string, catalogId: string, id: string, input: {
-        data?: Record<string, unknown>
-        sortOrder?: number
-        updatedBy?: string | null
-        expectedVersion?: number
-    }, userId?: string) {
+    async update(
+        metahubId: string,
+        catalogId: string,
+        id: string,
+        input: {
+            data?: Record<string, unknown>
+            sortOrder?: number
+            updatedBy?: string | null
+            expectedVersion?: number
+        },
+        userId?: string
+    ) {
         // Verify catalog exists
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
@@ -246,11 +255,7 @@ export class MetahubElementsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // Find existing element
-        const existing = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ id, object_id: catalogId })
-            .first()
+        const existing = await this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId }).first()
 
         if (!existing) throw new Error('Element not found')
 
@@ -302,11 +307,7 @@ export class MetahubElementsService {
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const deleted = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_elements')
-            .where({ id, object_id: catalogId })
-            .delete()
+        const deleted = await this.knex.withSchema(schemaName).from('_mhb_elements').where({ id, object_id: catalogId }).delete()
 
         if (deleted === 0) {
             throw new Error('Element not found')
@@ -439,7 +440,9 @@ export class MetahubElementsService {
                     if (!regex.test(stringValue)) {
                         errors.push(`Field "${fieldName}": does not match pattern`)
                     }
-                } catch { /* ignore invalid regex */ }
+                } catch {
+                    /* ignore invalid regex */
+                }
             }
             if (rules.options && !rules.options.includes(stringValue)) {
                 errors.push(`Field "${fieldName}": must be one of [${rules.options.join(', ')}]`)

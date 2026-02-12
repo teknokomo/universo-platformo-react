@@ -10,6 +10,16 @@ let appDataSource: DataSource
 let poolMonitorInterval: NodeJS.Timeout | null = null
 const ENABLE_POOL_DEBUG = process.env.DATABASE_POOL_DEBUG === 'true'
 
+const parsePositiveInt = (value: string | undefined, fallback: number): number => {
+    const parsed = Number.parseInt(value ?? '', 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const parseNonNegativeInt = (value: string | undefined, fallback: number): number => {
+    const parsed = Number.parseInt(value ?? '', 10)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
 /**
  * Pool monitoring configuration
  * Logs pool status periodically when pool is under pressure
@@ -82,7 +92,7 @@ export const stopPoolMonitor = (): void => {
 
 export const init = async (): Promise<void> => {
     const databaseType = process.env.DATABASE_TYPE ?? 'postgres'
-    const port = parseInt(process.env.DATABASE_PORT || '5432')
+    const port = parsePositiveInt(process.env.DATABASE_PORT, 5432)
     const isTransactionPooler = port === 6543
 
     console.log('[DataSource] Initializing', {
@@ -125,15 +135,21 @@ export const init = async (): Promise<void> => {
         }
     }
 
-    // Pool size configuration for Supabase Nano tier (15 connections max)
-    // Reserve headroom for: Supabase internal services (Storage, PostgREST, health checks)
-    // Split: TypeORM 5 + Knex 5 = 10, leaving 5 for Supabase services
-    const poolMax = parseInt(process.env.DATABASE_POOL_MAX || '5')
+    // Connection budget for mixed TypeORM + Knex traffic.
+    // TypeORM carries request-scoped RLS QueryRunners, so it gets most of the budget.
+    const defaultConnectionBudget = process.env.NODE_ENV === 'development' ? 12 : 8
+    const connectionBudget = parsePositiveInt(process.env.DATABASE_CONNECTION_BUDGET, defaultConnectionBudget)
+    const defaultKnexReserve = Math.max(2, Math.floor(connectionBudget / 4))
+    const defaultPoolMax = Math.max(4, connectionBudget - defaultKnexReserve)
+    const poolMax = parsePositiveInt(process.env.DATABASE_POOL_MAX, defaultPoolMax)
+    const poolMin = parseNonNegativeInt(process.env.DATABASE_POOL_MIN, 0)
+    const idleTimeoutMillis = parsePositiveInt(process.env.DATABASE_IDLE_TIMEOUT_MS, 20000)
+    const connectionTimeoutMillis = parsePositiveInt(process.env.DATABASE_CONNECTION_TIMEOUT_MS, 10000)
 
     appDataSource = new DataSource({
         type: 'postgres',
         host: process.env.DATABASE_HOST,
-        port: parseInt(process.env.DATABASE_PORT || '5432'),
+        port,
         username: process.env.DATABASE_USER,
         password: process.env.DATABASE_PASSWORD,
         database: process.env.DATABASE_NAME,
@@ -143,18 +159,20 @@ export const init = async (): Promise<void> => {
         entities: Object.values(entities),
         migrations: postgresMigrations,
         logging: ['error', 'warn', 'migration'], // Enable SQL logging for debugging
-        // Pool configuration optimized for Supabase Nano tier (15 connections)
+        // Pool configuration tuned for mixed TypeORM + Knex workloads.
         extra: {
             max: poolMax,
-            min: 1, // Keep at least 1 connection warm
-            idleTimeoutMillis: 20000, // Release idle connections faster (was 30000)
-            connectionTimeoutMillis: 10000,
+            min: poolMin,
+            idleTimeoutMillis,
+            connectionTimeoutMillis,
             // Allow exit on idle for serverless-like deployments
             allowExitOnIdle: true
         },
         poolErrorHandler: logPoolError
     })
-    console.log(`[DataSource] DataSource created successfully (pool max: ${poolMax})`)
+    console.log(
+        `[DataSource] DataSource created successfully (pool max: ${poolMax}, min: ${poolMin}, budget: ${connectionBudget})`
+    )
 
     // Pool monitoring is disabled by default to reduce noisy logs in development.
     if (ENABLE_POOL_DEBUG) {

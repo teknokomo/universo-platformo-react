@@ -10,7 +10,7 @@ const mockTableBuilder = {
     timestamp: jest.fn().mockReturnThis(),
     notNullable: jest.fn().mockReturnThis(),
     nullable: jest.fn().mockReturnThis(),
-    specificType: jest.fn().mockReturnThis(),
+    specificType: jest.fn().mockReturnThis()
 }
 
 const mockSchemaBuilder = {
@@ -20,7 +20,7 @@ const mockSchemaBuilder = {
         return Promise.resolve()
     }),
     hasTable: jest.fn().mockResolvedValue(false),
-    dropTableIfExists: jest.fn().mockResolvedValue(undefined),
+    dropTableIfExists: jest.fn().mockResolvedValue(undefined)
 }
 
 const mockKnex = jest.fn(() => ({
@@ -28,7 +28,7 @@ const mockKnex = jest.fn(() => ({
     returning: jest.fn().mockResolvedValue([{ id: 'test-id' }]),
     select: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
-    first: jest.fn().mockResolvedValue(null),
+    first: jest.fn().mockResolvedValue(null)
 })) as unknown as jest.Mock & {
     raw: jest.Mock
     schema: typeof mockSchemaBuilder
@@ -93,8 +93,8 @@ describe('SchemaGenerator', () => {
                 expect(SchemaGenerator.mapDataType(AttributeDataType.STRING, { maxLength: 255 })).toBe('VARCHAR(255)')
             })
 
-            it('should map NUMBER to NUMERIC(10,2) by default', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER)).toBe('NUMERIC(10,2)')
+            it('should map NUMBER to NUMERIC(10,0) by default', () => {
+                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER)).toBe('NUMERIC(10,0)')
             })
 
             it('should map NUMBER with custom precision and scale', () => {
@@ -139,22 +139,15 @@ describe('SchemaGenerator', () => {
         it('should create schema with valid name', async () => {
             await generator.createSchema('app_abc123def456')
 
-            expect(mockKnex.raw).toHaveBeenCalledWith(
-                'CREATE SCHEMA IF NOT EXISTS ??',
-                ['app_abc123def456']
-            )
+            expect(mockKnex.raw).toHaveBeenCalledWith('CREATE SCHEMA IF NOT EXISTS ??', ['app_abc123def456'])
         })
 
         it('should throw error for invalid schema name', async () => {
-            await expect(generator.createSchema('invalid-schema-name')).rejects.toThrow(
-                'Invalid schema name format: invalid-schema-name'
-            )
+            await expect(generator.createSchema('invalid-schema-name')).rejects.toThrow('Invalid schema name format: invalid-schema-name')
         })
 
         it('should throw error for schema name without app_ prefix', async () => {
-            await expect(generator.createSchema('schema_abc123')).rejects.toThrow(
-                'Invalid schema name format'
-            )
+            await expect(generator.createSchema('schema_abc123')).rejects.toThrow('Invalid schema name format')
         })
     })
 
@@ -162,16 +155,11 @@ describe('SchemaGenerator', () => {
         it('should drop schema with valid name', async () => {
             await generator.dropSchema('app_abc123def456')
 
-            expect(mockKnex.raw).toHaveBeenCalledWith(
-                'DROP SCHEMA IF EXISTS ?? CASCADE',
-                ['app_abc123def456']
-            )
+            expect(mockKnex.raw).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS ?? CASCADE', ['app_abc123def456'])
         })
 
         it('should throw error for invalid schema name', async () => {
-            await expect(generator.dropSchema('invalid')).rejects.toThrow(
-                'Invalid schema name format'
-            )
+            await expect(generator.dropSchema('invalid')).rejects.toThrow('Invalid schema name format')
         })
     })
 
@@ -186,10 +174,10 @@ describe('SchemaGenerator', () => {
                         id: 'field-1111-2222-3333-444455556666',
                         codename: 'name',
                         dataType: AttributeDataType.STRING,
-                        isRequired: true,
-                    },
-                ],
-            },
+                        isRequired: true
+                    }
+                ]
+            }
         ]
 
         it('should use transaction for atomic operations', async () => {

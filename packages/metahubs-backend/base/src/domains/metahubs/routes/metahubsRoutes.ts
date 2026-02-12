@@ -22,7 +22,7 @@ import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubHubsService } from '../services/MetahubHubsService'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
-import { getDDLServices } from '../../ddl'
+import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 
 const getRequestQueryRunner = (req: Request) => {
@@ -42,6 +42,79 @@ const quoteIdentifier = (identifier: string): string => {
         throw new Error(`Unsafe identifier: ${identifier}`)
     }
     return `"${identifier}"`
+}
+
+const safeErrorMessage = (error: unknown): string => {
+    return error instanceof Error ? error.message : String(error)
+}
+
+const cleanupClonedSchemas = async (
+    generator: { dropSchema: (schemaName: string) => Promise<void> },
+    schemaNames: string[]
+): Promise<string[]> => {
+    const cleanupFailures: string[] = []
+    for (const schemaName of schemaNames.slice().reverse()) {
+        try {
+            await generator.dropSchema(schemaName)
+        } catch (error) {
+            cleanupFailures.push(`${schemaName}: ${safeErrorMessage(error)}`)
+        }
+    }
+    return cleanupFailures
+}
+
+interface UniqueViolationErrorLike {
+    code?: string
+    constraint?: string
+    message?: string
+    driverError?: UniqueViolationErrorLike
+    cause?: unknown
+}
+
+const extractUniqueViolationError = (error: unknown): UniqueViolationErrorLike | null => {
+    if (!error || typeof error !== 'object') return null
+
+    const root = error as UniqueViolationErrorLike
+    const nestedDriver = root.driverError
+    const nestedCause = root.cause && typeof root.cause === 'object' ? (root.cause as UniqueViolationErrorLike) : null
+    const nestedCauseDriver = nestedCause?.driverError
+
+    const candidates: Array<UniqueViolationErrorLike | null | undefined> = [root, nestedDriver, nestedCause, nestedCauseDriver]
+    for (const candidate of candidates) {
+        if (candidate?.code === '23505') {
+            return candidate
+        }
+    }
+    return null
+}
+
+const resolveMetahubUniqueConflictError = (error: unknown): string | null => {
+    const uniqueViolation = extractUniqueViolationError(error)
+    if (!uniqueViolation) return null
+
+    const constraint = uniqueViolation.constraint ?? ''
+    if (constraint.includes('idx_metahubs_codename_active')) {
+        return 'Codename already in use'
+    }
+    if (constraint.includes('idx_metahubs_slug_active')) {
+        return 'Slug already in use'
+    }
+    if (constraint.includes('idx_branches_metahub_codename_active')) {
+        return 'Branch codename already in use'
+    }
+    if (constraint.includes('idx_branches_metahub_number_active')) {
+        return 'Branch number already in use'
+    }
+    return 'Unique constraint conflict'
+}
+
+const resolveMetahubCopyConflictError = (error: unknown): string | null => {
+    const knownConflict = resolveMetahubUniqueConflictError(error)
+    if (knownConflict) return knownConflict
+    if (extractUniqueViolationError(error)) {
+        return 'Unique constraint conflict while copying metahub'
+    }
+    return null
 }
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
@@ -84,10 +157,11 @@ export function createMetahubsRoutes(
     const repos = (req: Request) => {
         const ds = getDataSource()
         const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
         const objectsService = new MetahubObjectsService(schemaService)
         const branchesService = new MetahubBranchesService(ds, manager)
         return {
+            manager,
             metahubRepo: manager.getRepository(Metahub),
             metahubUserRepo: manager.getRepository(MetahubUser),
             // hubRepo removed - hubs are in isolated schemas now
@@ -300,7 +374,7 @@ export function createMetahubsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { metahubId } = req.params
-            const { metahubRepo, objectsService } = repos(req)
+            const { metahubRepo, objectsService, manager } = repos(req)
             const ds = getDataSource()
             const rlsRunner = getRequestQueryRunner(req)
 
@@ -310,7 +384,7 @@ export function createMetahubsRoutes(
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
             // Load counts from active branch (user-specific)
-            const hubsService = new MetahubHubsService(new MetahubSchemaService(ds))
+            const hubsService = new MetahubHubsService(new MetahubSchemaService(ds, undefined, manager))
             let hubsCount = 0
             try {
                 const { total } = await hubsService.findAll(metahubId, { limit: 1, offset: 0 }, userId)
@@ -322,7 +396,7 @@ export function createMetahubsRoutes(
             // Count catalogs by active branch schema
             let catalogsCount = 0
             try {
-                catalogsCount = await objectsService.countByKind(metahubId, 'CATALOG', userId)
+                catalogsCount = await objectsService.countByKind(metahubId, 'catalog', userId)
             } catch (e) {
                 // Ignore error (e.g. schema not found)
             }
@@ -389,8 +463,8 @@ export function createMetahubsRoutes(
                     const manager = getRequestManager(req, ds)
                     try {
                         const [hubsResult, catalogsResult] = await Promise.all([
-                            manager.query(`SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'HUB'`),
-                            manager.query(`SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'CATALOG'`)
+                            manager.query(`SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'hub'`),
+                            manager.query(`SELECT COUNT(*)::int as count FROM "${schemaName}"._mhb_objects WHERE kind = 'catalog'`)
                         ])
                         hubsCount = parseInt(hubsResult?.[0]?.count ?? '0', 10)
                         catalogsCount = parseInt(catalogsResult?.[0]?.count ?? '0', 10)
@@ -491,14 +565,18 @@ export function createMetahubsRoutes(
                 })
             }
 
-            const existingCodename = await metahubRepo.findOne({ where: { codename: normalizedCodename } })
+            const existingCodename = await metahubRepo.findOne({
+                where: { codename: normalizedCodename, _uplDeleted: false, _mhbDeleted: false }
+            })
             if (existingCodename) {
                 return res.status(409).json({ error: 'Codename already in use' })
             }
 
             // Check slug uniqueness if provided
             if (result.data.slug) {
-                const existing = await metahubRepo.findOne({ where: { slug: result.data.slug } })
+                const existing = await metahubRepo.findOne({
+                    where: { slug: result.data.slug, _uplDeleted: false, _mhbDeleted: false }
+                })
                 if (existing) {
                     return res.status(409).json({ error: 'Slug already in use' })
                 }
@@ -567,35 +645,44 @@ export function createMetahubsRoutes(
 
             // Create metahub + owner membership atomically
             const ds = getDataSource()
-            const metahub = await ds.transaction(async (tx) => {
-                const txMetahubRepo = tx.getRepository(Metahub)
-                const txMemberRepo = tx.getRepository(MetahubUser)
+            let metahub: Metahub
+            try {
+                metahub = await ds.transaction(async (tx) => {
+                    const txMetahubRepo = tx.getRepository(Metahub)
+                    const txMemberRepo = tx.getRepository(MetahubUser)
 
-                const m = txMetahubRepo.create({
-                    name: nameVlc,
-                    description: descriptionVlc,
-                    codename: normalizedCodename,
-                    slug: result.data.slug,
-                    isPublic: result.data.isPublic ?? false,
-                    templateId: templateId ?? null,
-                    templateVersionId: templateVersionId ?? null,
-                    _uplCreatedBy: userId,
-                    _uplUpdatedBy: userId
-                })
-                const saved = await txMetahubRepo.save(m)
-
-                await txMemberRepo.save(
-                    txMemberRepo.create({
-                        metahubId: saved.id,
-                        userId,
-                        role: 'owner',
+                    const m = txMetahubRepo.create({
+                        name: nameVlc,
+                        description: descriptionVlc,
+                        codename: normalizedCodename,
+                        slug: result.data.slug,
+                        isPublic: result.data.isPublic ?? false,
+                        templateId: templateId ?? null,
+                        templateVersionId: templateVersionId ?? null,
                         _uplCreatedBy: userId,
                         _uplUpdatedBy: userId
                     })
-                )
+                    const saved = await txMetahubRepo.save(m)
 
-                return saved
-            })
+                    await txMemberRepo.save(
+                        txMemberRepo.create({
+                            metahubId: saved.id,
+                            userId,
+                            role: 'owner',
+                            _uplCreatedBy: userId,
+                            _uplUpdatedBy: userId
+                        })
+                    )
+
+                    return saved
+                })
+            } catch (error) {
+                const conflictMessage = resolveMetahubUniqueConflictError(error)
+                if (conflictMessage) {
+                    return res.status(409).json({ error: conflictMessage })
+                }
+                throw error
+            }
 
             // Create initial branch (includes DDL schema + entity save).
             // branchesService.createInitialBranch already cleans up DDL on its own failure.
@@ -608,7 +695,10 @@ export function createMetahubsRoutes(
                 })
             } catch (error) {
                 // Cleanup: remove the metahub + membership created above (CASCADE deletes membership)
-                await ds.getRepository(Metahub).remove(metahub).catch(() => undefined)
+                await ds
+                    .getRepository(Metahub)
+                    .remove(metahub)
+                    .catch(() => undefined)
                 throw error
             }
 
@@ -686,7 +776,7 @@ export function createMetahubsRoutes(
             }
 
             const sourceBranches = await sourceBranchRepo.find({
-                where: { metahubId },
+                where: { metahubId, _uplDeleted: false, _mhbDeleted: false },
                 order: { branchNumber: 'ASC' }
             })
             if (sourceBranches.length === 0) {
@@ -731,14 +821,18 @@ export function createMetahubsRoutes(
                 })
             }
 
-            const existingCodename = await sourceMetahubRepo.findOne({ where: { codename: normalizedCodename } })
+            const existingCodename = await sourceMetahubRepo.findOne({
+                where: { codename: normalizedCodename, _uplDeleted: false, _mhbDeleted: false }
+            })
             if (existingCodename) {
                 return res.status(409).json({ error: 'Codename already in use' })
             }
 
             const slugCandidate = parsed.data.slug ?? (sourceMetahub.slug ? `${sourceMetahub.slug}-copy` : undefined)
             if (slugCandidate) {
-                const existingSlug = await sourceMetahubRepo.findOne({ where: { slug: slugCandidate } })
+                const existingSlug = await sourceMetahubRepo.findOne({
+                    where: { slug: slugCandidate, _uplDeleted: false, _mhbDeleted: false }
+                })
                 if (existingSlug) {
                     return res.status(409).json({ error: 'Slug already in use' })
                 }
@@ -773,8 +867,13 @@ export function createMetahubsRoutes(
                     createdSchemas.push(planItem.schemaName)
                 }
             } catch (error) {
-                for (const schemaName of createdSchemas.slice().reverse()) {
-                    await generator.dropSchema(schemaName).catch(() => undefined)
+                const cleanupFailures = await cleanupClonedSchemas(generator, createdSchemas)
+                if (cleanupFailures.length > 0) {
+                    console.error('[metahub:copy] Failed to cleanup cloned schemas after clone failure', {
+                        metahubId,
+                        cleanupFailures
+                    })
+                    throw new Error(`Copy rollback cleanup failed: ${cleanupFailures.join('; ')}`)
                 }
                 throw error
             }
@@ -813,6 +912,9 @@ export function createMetahubsRoutes(
                                 branchNumber: planItem.branchNumber,
                                 schemaName: planItem.schemaName,
                                 structureVersion: planItem.sourceBranch.structureVersion ?? 1,
+                                lastTemplateVersionId: planItem.sourceBranch.lastTemplateVersionId ?? null,
+                                lastTemplateVersionLabel: planItem.sourceBranch.lastTemplateVersionLabel ?? null,
+                                lastTemplateSyncedAt: planItem.sourceBranch.lastTemplateSyncedAt ?? null,
                                 _uplCreatedBy: userId,
                                 _uplUpdatedBy: userId
                             })
@@ -889,8 +991,17 @@ export function createMetahubsRoutes(
                     permissions: ROLE_PERMISSIONS.owner
                 })
             } catch (error) {
-                for (const schemaName of createdSchemas.slice().reverse()) {
-                    await generator.dropSchema(schemaName).catch(() => undefined)
+                const cleanupFailures = await cleanupClonedSchemas(generator, createdSchemas)
+                if (cleanupFailures.length > 0) {
+                    console.error('[metahub:copy] Failed to cleanup cloned schemas after metadata transaction failure', {
+                        metahubId,
+                        cleanupFailures
+                    })
+                    throw new Error(`Copy rollback cleanup failed: ${cleanupFailures.join('; ')}`)
+                }
+                const conflictMessage = resolveMetahubCopyConflictError(error)
+                if (conflictMessage) {
+                    return res.status(409).json({ error: conflictMessage })
                 }
                 throw error
             }
@@ -954,7 +1065,9 @@ export function createMetahubsRoutes(
                         details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
                     })
                 }
-                const existingCodename = await metahubRepo.findOne({ where: { codename: normalizedCodename } })
+                const existingCodename = await metahubRepo.findOne({
+                    where: { codename: normalizedCodename, _uplDeleted: false, _mhbDeleted: false }
+                })
                 if (existingCodename && existingCodename.id !== metahubId) {
                     return res.status(409).json({ error: 'Codename already in use' })
                 }
@@ -964,7 +1077,9 @@ export function createMetahubsRoutes(
             // Check slug uniqueness if changing
             if (result.data.slug !== undefined && result.data.slug !== metahub.slug) {
                 if (result.data.slug !== null) {
-                    const existing = await metahubRepo.findOne({ where: { slug: result.data.slug } })
+                    const existing = await metahubRepo.findOne({
+                        where: { slug: result.data.slug, _uplDeleted: false, _mhbDeleted: false }
+                    })
                     if (existing && existing.id !== metahubId) {
                         return res.status(409).json({ error: 'Slug already in use' })
                     }
@@ -1020,7 +1135,15 @@ export function createMetahubsRoutes(
             metahub._uplUpdatedAt = new Date()
             metahub._uplUpdatedBy = userId
 
-            await metahubRepo.save(metahub)
+            try {
+                await metahubRepo.save(metahub)
+            } catch (error) {
+                const conflictMessage = resolveMetahubUniqueConflictError(error)
+                if (conflictMessage) {
+                    return res.status(409).json({ error: conflictMessage })
+                }
+                throw error
+            }
 
             return res.json({
                 id: metahub.id,
@@ -1047,8 +1170,6 @@ export function createMetahubsRoutes(
             const { metahubId } = req.params
             const ds = getDataSource()
             const { metahubRepo } = repos(req)
-            const manager = getRequestManager(req, ds)
-            const branchRepo = manager.getRepository(MetahubBranch)
 
             const rlsRunner = getRequestQueryRunner(req)
 
@@ -1061,30 +1182,64 @@ export function createMetahubsRoutes(
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-            const branches = await branchRepo.find({ where: { metahubId } })
-            const schemasToDrop = branches
-                .map((branch) => branch.schemaName)
-                .filter((schemaName): schemaName is string => Boolean(schemaName))
-
-            for (const schemaName of schemasToDrop) {
-                if (!schemaName.startsWith('mhb_') || !isValidSchemaName(schemaName) || !IDENTIFIER_REGEX.test(schemaName)) {
-                    return res.status(400).json({ error: 'Invalid metahub schema name' })
-                }
+            const lockKey = uuidToLockKey(metahubId)
+            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            if (!lockAcquired) {
+                return res.status(409).json({
+                    error: 'Could not acquire metahub delete lock. Please retry.'
+                })
             }
 
-            await ds.transaction(async (txManager) => {
-                for (const schemaName of schemasToDrop) {
-                    const schemaIdent = quoteIdentifier(schemaName)
-                    await txManager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`)
-                }
+            try {
+                await ds.transaction(async (txManager) => {
+                    const txMetahubRepo = txManager.getRepository(Metahub)
+                    const txBranchRepo = txManager.getRepository(MetahubBranch)
 
-                const txRepo = txManager.getRepository(Metahub)
-                const txMetahub = await txRepo.findOne({ where: { id: metahubId } })
-                if (!txMetahub) {
-                    return
+                    const lockedMetahub = await txMetahubRepo
+                        .createQueryBuilder('m')
+                        .setLock('pessimistic_write')
+                        .where('m.id = :metahubId', { metahubId })
+                        .getOne()
+
+                    if (!lockedMetahub) {
+                        throw new Error('Metahub not found')
+                    }
+
+                    const lockedBranches = await txBranchRepo
+                        .createQueryBuilder('b')
+                        .setLock('pessimistic_write')
+                        .where('b.metahub_id = :metahubId', { metahubId })
+                        .getMany()
+
+                    const schemasToDrop = lockedBranches
+                        .map((branch) => branch.schemaName)
+                        .filter((schemaName): schemaName is string => Boolean(schemaName))
+
+                    for (const schemaName of schemasToDrop) {
+                        if (!schemaName.startsWith('mhb_') || !isValidSchemaName(schemaName) || !IDENTIFIER_REGEX.test(schemaName)) {
+                            throw new Error('Invalid metahub schema name')
+                        }
+                    }
+
+                    for (const schemaName of schemasToDrop) {
+                        const schemaIdent = quoteIdentifier(schemaName)
+                        await txManager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`)
+                    }
+
+                    await txMetahubRepo.remove(lockedMetahub)
+                })
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Failed to delete metahub'
+                if (message === 'Metahub not found') {
+                    return res.status(404).json({ error: message })
                 }
-                await txRepo.remove(txMetahub)
-            })
+                if (message === 'Invalid metahub schema name') {
+                    return res.status(400).json({ error: message })
+                }
+                throw error
+            } finally {
+                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
+            }
 
             MetahubSchemaService.clearCache(metahubId)
 

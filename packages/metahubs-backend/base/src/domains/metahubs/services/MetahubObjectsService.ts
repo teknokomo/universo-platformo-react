@@ -12,12 +12,14 @@ interface QueryOptions {
     onlyDeleted?: boolean
 }
 
+type MetahubObjectKind = 'catalog' | 'hub' | 'document'
+
 /**
  * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
  * Replaces the old TypeORM Catalog entity logic.
  */
 export class MetahubObjectsService {
-    constructor(private schemaService: MetahubSchemaService) { }
+    constructor(private schemaService: MetahubSchemaService) {}
 
     private get knex() {
         return KnexClient.getInstance()
@@ -45,18 +47,15 @@ export class MetahubObjectsService {
         const query = this.knex
             .withSchema(schemaName)
             .from('_mhb_objects')
-            .where({ kind: 'CATALOG' })
+            .where({ kind: 'catalog' })
             .select('*')
             .orderBy('_upl_created_at', 'desc')
         return this.applySoftDeleteFilter(query, options)
     }
 
-    async countByKind(metahubId: string, kind: 'CATALOG' | 'HUB' | 'DOCUMENT', userId?: string, options: QueryOptions = {}): Promise<number> {
+    async countByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind })
+        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind })
         const filteredQuery = this.applySoftDeleteFilter(query, options)
         const result = await filteredQuery.count('* as count').first()
         return result ? parseInt(result.count as string, 10) : 0
@@ -64,19 +63,13 @@ export class MetahubObjectsService {
 
     async findById(metahubId: string, id: string, userId?: string, options: QueryOptions = {}) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id })
+        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ id })
         return this.applySoftDeleteFilter(query, options).first()
     }
 
     async findByCodename(metahubId: string, codename: string, userId?: string, options: QueryOptions = {}) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ codename, kind: 'CATALOG' })
+        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind: 'catalog' })
         return this.applySoftDeleteFilter(query, options).first()
     }
 
@@ -84,13 +77,17 @@ export class MetahubObjectsService {
      * Creates a new Catalog object.
      * Maps inputs to _mhb_objects structure and generates table_name from entity UUID.
      */
-    async createCatalog(metahubId: string, input: {
-        codename: string
-        name: any // VLC
-        description?: any // VLC
-        config?: any
-        createdBy?: string | null
-    }, userId?: string) {
+    async createCatalog(
+        metahubId: string,
+        input: {
+            codename: string
+            name: any // VLC
+            description?: any // VLC
+            config?: any
+            createdBy?: string | null
+        },
+        userId?: string
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         // First insert without table_name to get the generated UUID
@@ -98,7 +95,7 @@ export class MetahubObjectsService {
             .withSchema(schemaName)
             .into('_mhb_objects')
             .insert({
-                kind: 'CATALOG',
+                kind: 'catalog',
                 codename: input.codename,
                 table_name: null, // Will be set after we have the UUID
                 presentation: {
@@ -127,14 +124,19 @@ export class MetahubObjectsService {
         return updated
     }
 
-    async updateCatalog(metahubId: string, id: string, input: {
-        codename?: string
-        name?: any
-        description?: any
-        config?: any
-        updatedBy?: string | null
-        expectedVersion?: number
-    }, userId?: string) {
+    async updateCatalog(
+        metahubId: string,
+        id: string,
+        input: {
+            codename?: string
+            name?: any
+            description?: any
+            config?: any
+            updatedBy?: string | null
+            expectedVersion?: number
+        },
+        userId?: string
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const existing = await this.findById(metahubId, id, userId)
@@ -223,11 +225,7 @@ export class MetahubObjectsService {
      */
     async permanentDelete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id })
-            .delete()
+        await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id }).delete()
     }
 
     /**

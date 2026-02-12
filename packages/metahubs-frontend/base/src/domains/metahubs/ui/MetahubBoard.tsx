@@ -83,8 +83,8 @@ const MetahubBoard = () => {
             metahubError instanceof Error
                 ? metahubError.message
                 : summaryError instanceof Error
-                    ? summaryError.message
-                    : t('board.error', 'Failed to load metahub data')
+                ? summaryError.message
+                : t('board.error', 'Failed to load metahub data')
 
         return (
             <Stack spacing={3} sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%', p: 2 }}>
@@ -136,7 +136,6 @@ const MetahubBoard = () => {
                     {t('board.overview', 'Overview')}
                 </Typography>
                 <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
-
                     {/* Branches Count */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard

@@ -1,12 +1,188 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Active: QA Fixes Round 16 — Pool Contention + Initial Branch Compensation (2026-02-12)
+
+- [x] Prevent extra RLS cleanup DB round-trip when `QueryRunner.connect()` fails (avoid second connect attempt on cleanup).
+- [x] Rebalance default TypeORM/Knex pool budget split and expose explicit env knobs for connection tuning.
+- [x] Harden `createInitialBranch` with advisory lock, transactional metadata write, and safe schema rollback guard.
+- [x] Add regression coverage for initial-branch cleanup path on schema initialization failure.
+- [x] Run targeted validation (`lint/test/build`) for touched backend packages and update memory-bank status.
+
+## Active: QA Fixes Round 15 — Apply Post-Read Safety, Widget Cache Freshness, Copy Cleanup Strictness, Lock Error Semantics (2026-02-12)
+
+- [x] Make migrations `apply` post-success response assembly resilient (no false 500 after successful apply)
+- [x] Invalidate widget table resolver cache before seed sync paths that can follow structure rename
+- [x] Replace silent schema cleanup swallowing in metahub copy rollback with explicit error collection/logging behavior
+- [x] Distinguish advisory lock timeout vs DB/connect errors in shared lock helper (`schema-ddl`)
+- [x] Align package/runtime quality items from QA: move `@tanstack/react-query` to runtime deps in `metahubs-frontend` and stabilize targeted flaky export test timeout
+- [x] Run focused validation (`lint/test/build`) for touched packages and update memory-bank status files
+
+## Active: QA Fixes Round 13 — Atomic Structure Sync, Scoped Resolver, Retry Dedup, Timeout Mapping (2026-02-12)
+
+- [x] Fix migration atomicity in `MetahubSchemaService`: update branch `structureVersion` only after successful structure + seed sync completion
+- [x] Make widget table resolver transaction-scoped in seed executor/migrator to avoid extra pool acquisition outside active `trx`
+- [x] Remove duplicated transport retry layer in `auth-frontend` API client (single source of retries via React Query/domain hooks)
+- [x] Harden migrations `status/list/plan` route error mapping for pool/connect timeouts and domain errors (deterministic `503/428` instead of generic `500/422`)
+- [x] Add/update focused tests and run targeted validation (`lint/test/build`) for touched packages/files
+
+## Active: QA Fixes Round 14 — Apply Error Mapping, Status Load Shedding, Copy Sync Fields, QA Gate Cleanup (2026-02-12)
+
+- [x] Harden `/migrations/apply` pre-plan error mapping (domain + pool/connect timeouts) to deterministic API responses
+- [x] Reduce migration-status request load by skipping template seed dry-run in `GET /migrations/status`
+- [x] Preserve branch template sync metadata on metahub copy (`lastTemplateVersionId/Label/SyncedAt`)
+- [x] Fix `@universo/schema-ddl` regression (`SchemaGenerator` NUMBER default expectation) and clear lint errors
+- [x] Clear `@universo/auth-backend` lint error and clear `@universo/metahubs-frontend` lint errors
+- [x] Run focused validation (`lint/test/build`) for touched packages and update memory-bank status files
+
+## Active: Metahub Migration Hardening — Structured Plan/Apply, Seed Audit, Version Safety (2026-02-11)
+
+- [x] Add typed metahub migration meta contracts (baseline/structure/template_seed/manual_destructive) and enforce safe parse/write paths
+- [x] Extend template manifest validation with cross-reference safety checks and structure compatibility guard
+- [x] Add seed migration dry-run planning and persist seed-sync migration events into `_mhb_migrations`
+- [x] Upgrade metahub migration `plan`/`apply` API to return structured diffs, blockers, and deterministic status codes
+- [x] Add branch-level template sync tracking fields and wire them into schema ensure/apply flow
+- [x] Add/update focused backend tests for new migration planning and metadata contracts
+- [x] Run targeted lint/test/build validation for touched packages
+- [x] Update memory-bank execution notes (`activeContext.md`, `progress.md`, `tasks.md`)
+
+## Active: QA Fixes Round 11 — Read-Only EnsureSchema, Scoped Repos, Lock/Pool Stability (2026-02-12)
+
+- [x] Split `MetahubSchemaService.ensureSchema()` into explicit modes and disable hidden auto-migrations in read paths
+- [x] Tighten schema initialization checks (version-aware required tables) and avoid repeated expensive schema ensure on healthy branches
+- [x] Switch metahub migrations route branch/template resolution to request-scoped manager (RLS QueryRunner-aware) to reduce extra pool usage
+- [x] Harden migration status/plan/apply error handling and frontend refetch flow to avoid retry storms and noisy post-success 500s
+- [x] Add/update focused tests + run targeted `lint/test/build` for touched packages
+- [x] Update memory-bank status files (`activeContext.md`, `progress.md`, `tasks.md`) with implemented outcomes
+
+## Active: QA Fixes Round 12 — Request-Scoped SchemaService Manager and Pool Load Shedding (2026-02-12)
+
+- [x] Make `MetahubSchemaService` repository operations use optional request-scoped `EntityManager` instead of global manager
+- [x] Propagate request manager into metahub domain route/service `MetahubSchemaService` constructors
+- [x] Update schema-sync helper and attribute route sync calls to avoid out-of-scope/global manager fallback
+- [x] Run targeted validation (`lint`, focused `test`, `build`) for touched backend package files
+- [x] Update memory-bank status files (`activeContext.md`, `progress.md`, `tasks.md`) with implemented outcomes
+
+## Active: QA Fixes Round 9 — Metahub Migration Gate, V1/V2 Compatibility, and Pool-Safe Apply (2026-02-12)
+
+- [x] Make `ensureSchema()` DB-aware for already initialized schemas (not cache-only) and enforce structure-upgrade-before-seed order
+- [x] Add V1/V2-compatible widget table resolver for seed executor/migrator to avoid hard dependency on `_mhb_widgets`
+- [x] Add explicit migration-required domain errors (`428`) and pool-timeout errors (`503`) with deterministic API payloads
+- [x] Add `GET /metahub/:metahubId/migrations/status` endpoint for preflight migration state and route gating decisions
+- [x] Harden `migrations/apply` error mapping for connection-pool exhaustion and migration-required states
+- [x] Add frontend migration status API/hooks/query keys and update migrations page payload types (`cleanupMode`, `cleanup` support)
+- [x] Add route-level `MetahubMigrationGuard` modal flow to block non-migration metahub sections while migration is required
+- [x] Wire guard into metahub routes in MUI router and keep migrations route accessible as the single remediation path
+- [x] Add/update backend and frontend tests for status endpoint, compatibility behavior, and guard gating logic
+- [x] Run validation (`lint`, targeted `test`, `build`) for touched packages and update memory-bank status files
+
+## Active: QA Fixes Round 10 — Template Version Source, EnsureSchema Cache Safety, Retry/Loading UX, DB Timeout Mapping (2026-02-12)
+
+- [x] Align migrations `plan/status` current template source with branch sync state (`last_template_version_id`) instead of metahub-only pointer
+- [x] Remove unsafe early cache-return paths in `ensureSchema()` that skip template sync checks for initialized schemas
+- [x] Harden migrations `apply` so metahub template pointer updates only after confirmed branch template sync
+- [x] Reduce frontend retry storm on migrations queries and add explicit loading indicator in Apply button
+- [x] Map database connect-timeout errors to deterministic `503` API responses (instead of generic `500`)
+- [x] Add/update focused tests for branch-template source, ensureSchema behavior, and frontend retry/loading behavior
+- [x] Run validation (`lint`, targeted `test`, `build`) for touched packages and update memory-bank status files
+
+## Active: Metahub Structure V2 Rename + Template Cleanup Policy (2026-02-11)
+
+- [x] Define and document seed removal policy (`keep` by default, destructive only via explicit confirmed mode)
+- [x] Add structure version V2 with `_mhb_widgets` and bump `CURRENT_STRUCTURE_VERSION` to `2`
+- [x] Extend structure diff model to detect table rename (`RENAME_TABLE`) for `_mhb_layout_zone_widgets -> _mhb_widgets`
+- [x] Implement safe rename execution in `SystemTableMigrator` transaction path with deterministic metadata recording
+- [x] Update all backend runtime table references from `_mhb_layout_zone_widgets` to `_mhb_widgets` (layouts, templates, publications)
+- [x] Harden migration plan/apply routes with explicit template cleanup mode (`keep` | `dry_run` | `confirm`) and blockers for destructive operations
+- [x] Implement template cleanup dry-run/apply service for removed seed entities/attributes/elements with ownership safety checks
+- [x] Update `basic.template.ts` seed by removing starter `tags` catalog and related elements for new metahubs
+- [x] Add/extend tests for V1->V2 rename migration and template cleanup plan/apply behavior
+- [x] Run validation (`lint`, `test`, `build`) for `@universo/metahubs-backend`, then update memory-bank progress/context
+
+## Active: QA Fixes Round 8 — Cache Invalidation, Templates MSW, Coverage Gate, Route Lint Hygiene (2026-02-11)
+
+- [x] Invalidate metahub user-branch cache after default branch updates and add regression test coverage
+- [x] Add missing MSW handlers for templates endpoints to prevent real network calls in frontend tests
+- [x] Make Vitest coverage threshold enforcement configurable for targeted runs while preserving strict CI mode
+- [x] Reduce warning noise in touched branches route/service files (`unknown` errors, typed user extraction, remove `any` casts)
+- [x] Run targeted validation (`test`, `build`, `lint`) for touched backend/frontend packages and update memory-bank status files
+
+## Active: QA Fixes Round 5 — Locks, Migration Semantics, Copy Safety, Frontend QA Gate (2026-02-11)
+
+- [x] Replace legacy application migration advisory lock usage with shared lock helpers from `@universo/schema-ddl`-based DDL module
+- [x] Prevent false branch `structureVersion` upgrades when destructive schema changes are detected in system-table migration diffs
+- [x] Harden metahub copy flow to ignore soft-deleted branches and map DB unique conflicts to deterministic HTTP 409 responses
+- [x] Fix metahubs-frontend test/runtime QA regressions (Vitest CSS dependency handling, flaky timeout assertions, stale DTO expectation)
+- [x] Run validation (`lint`, `build`, `test`) for touched packages and finalize memory-bank status updates
+
+## Active: QA Fixes Round 7 — Branch Cache Consistency & Conflict Semantics (2026-02-11)
+
+- [x] Invalidate and refresh `MetahubSchemaService` user branch cache on branch activation and metahub cache resets
+- [x] Remove `ensureSchema` branch-resolution race that can write schema cache under stale branch key
+- [x] Align `findByCodename` pre-check with partial unique index semantics (`_upl_deleted = false AND _mhb_deleted = false`)
+- [x] Map branch deletion lock contention (`Branch deletion in progress`) to deterministic HTTP 409 API response
+- [x] Add regression tests for branch cache update, active-only codename lookup, and delete lock conflict mapping
+- [x] Run targeted validation (`test`, `build`) for `@universo/metahubs-backend`
+
+## Active: QA Fixes Round 6 — Consistency, Races, Lock Timeout, Test Coverage (2026-02-11)
+
+- [x] Align branch `structureVersion` with actual initialized schema version when creating a branch without source
+- [x] Remove TOCTOU user-facing inconsistency for metahub create/update by mapping DB unique conflicts to deterministic HTTP 409
+- [x] Fix advisory lock timeout handling implementation to use a PostgreSQL-safe session timeout approach
+- [x] Align codename/slug pre-checks with partial unique index semantics for soft-deleted rows
+- [x] Add regression tests for conflict mapping and destructive-diff migration blocking
+
+## Completed: QA Fixes Round 4 — Branch Access + Delete Locking + QA Gate (2026-02-11) ✅
+
+- [x] Enforce explicit metahub access guards in branches routes (read + write permissions by endpoint)
+- [x] Make metahub delete flow lock-safe against concurrent `ensureSchema()` (shared advisory lock + transactional row lock)
+- [x] Replace fragile 32-bit advisory key hashing with safer lock key strategy in `schema-ddl` and local `KnexClient`
+- [x] Restore QA gate: fix lint errors and failing backend route tests (`branchesOptions`, `catalogsRoutes`, `metahubsRoutes`) to green
+- [x] Run final validation (`lint`, `build`, `test`) and update memory-bank status files
+
+## Completed: QA Fixes Round 3 — Security + Atomicity + Seed Consistency (2026-02-11) ✅
+
+- [x] Enforce metahub access checks across all metahub-scoped publications endpoints and use request-scoped repositories consistently
+- [x] Make publication delete flow fail-fast and lock-safe (no metadata delete when schema drop fails)
+- [x] Normalize metahub object kind handling to canonical lowercase (`catalog|hub|document`) without legacy branching
+- [x] Prevent template seed migration from overwriting user layout config during widget sync
+- [x] Harden metahub migrations apply critical section (safe metadata update after schema ensure with lock)
+- [x] Replace unsafe JSON.parse in metahub migrations routes with safe parser fallback
+- [x] Add/extend targeted tests for access control, parse fallback, and seed/layout migration behavior
+- [x] Run targeted lint/build/test validation for touched packages
+- [x] Update memory-bank status files (`activeContext.md`, `progress.md`, `tasks.md`) with final outcomes
+
 ## Active: Metahubs UX + Runtime Fixes (2026-02-10)
 
 - [x] Fix template description overflow in TemplateSelector (create/edit metahub)
 - [x] Investigate KnexClient pooler warning and document rationale
 - [x] Fix application runtime checkbox updates (send catalogId)
 - [x] Update memory-bank core files for this session
+
+## Active: Metahub Migration Architecture Reset (2026-02-10)
+
+- [x] Switch metahub structure baseline to V1 and align default template to `1.0.0` / `minStructureVersion=1`
+- [x] Create baseline entry in `_mhb_migrations` for newly initialized metahub schemas
+- [x] Decouple template seed upgrade flow from structure version upgrades
+- [x] Make template seed migration fully idempotent for attributes/elements/widgets
+- [x] Fix `ALTER_COLUMN` handling in system structure migrator (no silent skips)
+- [x] Add metahub migration history/plan/apply backend API
+- [x] Add metahub "Migrations" page and menu route in new MUI frontend
+- [x] Introduce explicit metahub snapshot/version envelope types for future export/import adapters
+- [x] Run targeted lint/build checks and finalize full workspace validation
+- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) with implementation outcomes
+
+## Active: QA Fixes — Metahub Migrations & Consistency (2026-02-11)
+
+- [x] Make metahub migrations `apply` flow atomic for template version + schema migration path
+- [x] Add structure snapshot metadata into `_mhb_migrations` records (baseline + version upgrades)
+- [x] Ensure destructive migration entries are persisted in migration `meta` (not only logs)
+- [x] Fix seed entity ID mapping ambiguity (`kind + codename`) for attributes/elements linking
+- [x] Harden branch deletion consistency (avoid dangling branch rows if schema drop/delete diverges)
+- [x] Fix failing backend route tests caused by missing TypeORM decorator mocks (`OneToOne`)
+- [x] Align metahub migrations UI with standard list/table pattern (`FlowListTable` + pagination)
+- [x] Run targeted lint/build/test validation and capture outcomes
+- [x] Update memory-bank (`activeContext.md`, `progress.md`, `tasks.md`) after fixes
 
 ## Completed: README Documentation QA & Update — metahubs-backend (2026-02-13) ✅
 

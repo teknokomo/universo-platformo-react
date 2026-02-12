@@ -115,7 +115,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const result = await layoutsService.listLayouts(
                 metahubId,
@@ -183,7 +183,7 @@ export function createLayoutsRoutes(
                 description: descriptionVlc
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const created = await layoutsService.createLayout(metahubId, createInput, userId)
             return res.status(201).json(created)
@@ -208,7 +208,7 @@ export function createLayoutsRoutes(
             const rlsRunner = getRequestQueryRunner(req)
             await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const layout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!layout) return res.status(404).json({ error: 'Layout not found' })
@@ -239,7 +239,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const existingLayout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
             if (!existingLayout) {
@@ -316,7 +316,7 @@ export function createLayoutsRoutes(
             const rlsRunner = getRequestQueryRunner(req)
             await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             await layoutsService.deleteLayout(metahubId, layoutId, userId)
             return res.status(204).send()
@@ -368,7 +368,7 @@ export function createLayoutsRoutes(
             const rlsRunner = getRequestQueryRunner(req)
             await ensureMetahubAccess(ds, userId, metahubId, undefined, rlsRunner)
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const items = await layoutsService.listLayoutZoneWidgets(metahubId, layoutId, userId)
             return res.json({ items })
@@ -397,7 +397,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const item = await layoutsService.assignLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json(item)
@@ -426,7 +426,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             const items = await layoutsService.moveLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json({ items })
@@ -456,7 +456,7 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid widget ID' })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             await layoutsService.removeLayoutZoneWidget(metahubId, layoutId, parseResult.data, userId)
             return res.status(204).send()
@@ -492,11 +492,15 @@ export function createLayoutsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
             }
 
-            const schemaService = new MetahubSchemaService(ds)
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
             const layoutsService = new MetahubLayoutsService(schemaService)
             try {
                 const widget = await layoutsService.updateLayoutZoneWidgetConfig(
-                    metahubId, layoutId, widgetIdResult.data, parsed.data.config, userId
+                    metahubId,
+                    layoutId,
+                    widgetIdResult.data,
+                    parsed.data.config,
+                    userId
                 )
                 return res.json({ item: widget })
             } catch (err: any) {
