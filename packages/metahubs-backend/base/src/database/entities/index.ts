@@ -18,14 +18,6 @@ export * from './TemplateVersion'
  * TypeORM entities for the metahubs schema.
  *
  * Note: Hub entity was removed. Hubs are now stored in isolated schemas
- * as rows in _mhb_objects table with kind='HUB'.
+ * as rows in _mhb_objects table with kind='hub'.
  */
-export const metahubsEntities = [
-    Metahub,
-    MetahubBranch,
-    MetahubUser,
-    Publication,
-    PublicationVersion,
-    Template,
-    TemplateVersion
-]
+export const metahubsEntities = [Metahub, MetahubBranch, MetahubUser, Publication, PublicationVersion, Template, TemplateVersion]

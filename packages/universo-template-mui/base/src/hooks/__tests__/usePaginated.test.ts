@@ -328,10 +328,10 @@ describe('usePaginated', () => {
                 { wrapper }
             )
 
-            // Wait for retries to complete (default is 2 retries + initial call = 3 total)
+            // Wait for retries to complete (initial call + 1 retry for transient errors).
             await waitFor(
                 () => {
-                    expect(mockQueryFn).toHaveBeenCalledTimes(3) // Initial + 2 retries
+                    expect(mockQueryFn).toHaveBeenCalledTimes(2)
                 },
                 { timeout: 5000 }
             )
@@ -345,6 +345,26 @@ describe('usePaginated', () => {
             )
 
             expect(result.current.error).toBeTruthy()
+        })
+
+        it('should not retry on 503 backend overload responses', async () => {
+            const overloadedError = { response: { status: 503 } }
+            const mockQueryFn = jest.fn().mockRejectedValue(overloadedError)
+
+            const { result } = renderHook(
+                () =>
+                    usePaginated({
+                        queryKeyFn: (params) => ['test-overload', params],
+                        queryFn: mockQueryFn
+                    }),
+                { wrapper }
+            )
+
+            await waitFor(() => {
+                expect(result.current.isError).toBe(true)
+            })
+
+            expect(mockQueryFn).toHaveBeenCalledTimes(1)
         })
     })
 

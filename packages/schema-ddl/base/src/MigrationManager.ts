@@ -6,7 +6,7 @@ import type { MigrationMeta, MigrationRecord, MigrationChangeRecord, RollbackAna
 /**
  * Generate migration name from description
  * Format: YYYYMMDD_HHMMSS_<description>
- * 
+ *
  * Exported as standalone function for use without MigrationManager instance.
  */
 export function generateMigrationName(description: string): string {
@@ -32,7 +32,7 @@ export function generateMigrationName(description: string): string {
  * - snapshotAfter: Schema state after migration
  * - changes: List of applied changes
  * - hasDestructive: Whether migration contains DROP operations
- * 
+ *
  * Uses Dependency Injection pattern: receives Knex instance via constructor.
  */
 export class MigrationManager {
@@ -67,10 +67,7 @@ export class MigrationManager {
         snapshotAfter: SchemaSnapshot,
         diff: SchemaDiff,
         trx?: Knex.Transaction,
-        extraMeta?: Pick<
-            MigrationMeta,
-            'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'
-        >,
+        extraMeta?: Pick<MigrationMeta, 'publicationSnapshotHash' | 'publicationId' | 'publicationVersionId'>,
         publicationSnapshot?: Record<string, unknown> | null,
         userId?: string | null
     ): Promise<string> {
@@ -96,7 +93,7 @@ export class MigrationManager {
                 meta: JSON.stringify(meta),
                 publication_snapshot: publicationSnapshot ? JSON.stringify(publicationSnapshot) : null,
                 _upl_created_by: userId ?? null,
-                _upl_updated_by: userId ?? null,
+                _upl_updated_by: userId ?? null
             })
             .returning('id')
 
@@ -149,9 +146,7 @@ export class MigrationManager {
             appliedAt: new Date(row.applied_at),
             meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta,
             publicationSnapshot:
-                typeof row.publication_snapshot === 'string'
-                    ? JSON.parse(row.publication_snapshot)
-                    : row.publication_snapshot ?? null
+                typeof row.publication_snapshot === 'string' ? JSON.parse(row.publication_snapshot) : row.publication_snapshot ?? null
         }))
 
         return { migrations, total }
@@ -166,11 +161,7 @@ export class MigrationManager {
             return null
         }
 
-        const row = await this.knex
-            .withSchema(schemaName)
-            .table('_app_migrations')
-            .where('id', migrationId)
-            .first()
+        const row = await this.knex.withSchema(schemaName).table('_app_migrations').where('id', migrationId).first()
 
         if (!row) {
             return null
@@ -182,9 +173,7 @@ export class MigrationManager {
             appliedAt: new Date(row.applied_at),
             meta: typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta,
             publicationSnapshot:
-                typeof row.publication_snapshot === 'string'
-                    ? JSON.parse(row.publication_snapshot)
-                    : row.publication_snapshot ?? null
+                typeof row.publication_snapshot === 'string' ? JSON.parse(row.publication_snapshot) : row.publication_snapshot ?? null
         }
     }
 

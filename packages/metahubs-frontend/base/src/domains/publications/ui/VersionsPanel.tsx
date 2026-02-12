@@ -26,10 +26,7 @@ import AddIcon from '@mui/icons-material/Add'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import EditIcon from '@mui/icons-material/Edit'
 import { CheckCircle as ActiveIcon } from '@mui/icons-material'
-import {
-    CompactListTable,
-    LocalizedInlineField
-} from '@universo/template-mui'
+import { CompactListTable, LocalizedInlineField } from '@universo/template-mui'
 import type { TableColumn, FlowListTableData } from '@universo/template-mui'
 import { useSnackbar } from 'notistack'
 import { apiClient } from '../../shared'
@@ -100,9 +97,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
         if (!branch) {
             return `${t('publications.versions.branchMissing', 'Удалённая ветка')} (${branchId})`
         }
-        const name = getVLCString(branch.name, i18n.language)
-            || getVLCString(branch.name, 'en')
-            || branch.codename
+        const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || branch.codename
         return `${name} (${branch.codename})`
     }
 
@@ -262,7 +257,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
             render: (row) => (
                 <Chip
                     label={`v${row.versionNumber}`}
-                    size="small"
+                    size='small'
                     color={row.isActive ? 'primary' : 'default'}
                     variant={row.isActive ? 'filled' : 'outlined'}
                     icon={row.isActive ? <ActiveIcon /> : undefined}
@@ -287,24 +282,18 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
         <Box>
             {/* Header with Add button - same pattern as EntitySelectionPanel */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="subtitle1" fontWeight={500}>
+                <Typography variant='subtitle1' fontWeight={500}>
                     {t('publications.versions.title', 'Версии')}
                 </Typography>
-                <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={() => setCreateDialogOpen(true)}
-                >
+                <Button size='small' startIcon={<AddIcon />} onClick={() => setCreateDialogOpen(true)}>
                     {t('publications.versions.addButton', 'Добавить')}
                 </Button>
             </Box>
 
             {/* Versions table or empty state */}
             {!isLoading && versions.length === 0 ? (
-                <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', mb: 2, bgcolor: 'action.hover' }}>
-                    <Typography color="text.secondary">
-                        {t('publications.versions.empty', 'Версий нет')}
-                    </Typography>
+                <Paper variant='outlined' sx={{ p: 3, textAlign: 'center', mb: 2, bgcolor: 'action.hover' }}>
+                    <Typography color='text.secondary'>{t('publications.versions.empty', 'Версий нет')}</Typography>
                 </Paper>
             ) : (
                 <Box sx={{ mb: 2 }}>
@@ -312,25 +301,18 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                         data={versions}
                         columns={columns}
                         renderRowAction={(row) => {
-                            const rawVersion = rawVersions.find(v => v.id === row.id)
+                            const rawVersion = rawVersions.find((v) => v.id === row.id)
                             return (
                                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                                     <Tooltip title={t('common:actions.edit', 'Edit')}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => rawVersion && handleOpenEditDialog(rawVersion)}
-                                        >
-                                            <EditIcon fontSize="small" />
+                                        <IconButton size='small' onClick={() => rawVersion && handleOpenEditDialog(rawVersion)}>
+                                            <EditIcon fontSize='small' />
                                         </IconButton>
                                     </Tooltip>
                                     {!row.isActive && (
                                         <Tooltip title={t('publications.versions.activate', 'Activate')}>
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => setActivateDialogOpen(row.id)}
-                                                color="primary"
-                                            >
-                                                <PlayArrowIcon fontSize="small" />
+                                            <IconButton size='small' onClick={() => setActivateDialogOpen(row.id)} color='primary'>
+                                                <PlayArrowIcon fontSize='small' />
                                             </IconButton>
                                         </Tooltip>
                                     )}
@@ -343,21 +325,20 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
             )}
 
             {/* Create Dialog with Localized Fields */}
-            <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth="sm" fullWidth>
+            <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth='sm' fullWidth>
                 <DialogTitle>{t('publications.versions.create', 'Create version')}</DialogTitle>
                 <DialogContent sx={{ overflow: 'visible' }}>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <LocalizedInlineField
-                            mode="localized"
+                            mode='localized'
                             label={t('publications.table.name', 'Название')}
                             value={nameVlc}
                             onChange={setNameVlc}
                             uiLocale={i18n.language}
                             required
-                            autoFocus
                         />
                         <LocalizedInlineField
-                            mode="localized"
+                            mode='localized'
                             label={t('publications.table.description', 'Описание')}
                             value={descriptionVlc}
                             onChange={setDescriptionVlc}
@@ -366,11 +347,11 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                             rows={3}
                         />
                         <FormControl fullWidth>
-                            <InputLabel id="publication-version-branch-create">
+                            <InputLabel id='publication-version-branch-create'>
                                 {t('publications.versions.branchLabel', 'Ветка для версии')}
                             </InputLabel>
                             <Select
-                                labelId="publication-version-branch-create"
+                                labelId='publication-version-branch-create'
                                 value={createBranchId || defaultBranchId || ''}
                                 label={t('publications.versions.branchLabel', 'Ветка для версии')}
                                 onChange={(event) => setCreateBranchId(event.target.value)}
@@ -382,21 +363,14 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                                 ))}
                             </Select>
                             <FormHelperText>
-                                {t(
-                                    'publications.versions.branchHelper',
-                                    'Снапшот версии будет создан на основе выбранной ветки.'
-                                )}
+                                {t('publications.versions.branchHelper', 'Снапшот версии будет создан на основе выбранной ветки.')}
                             </FormHelperText>
                         </FormControl>
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
                     <Button onClick={handleCloseCreateDialog}>{t('common.cancel', 'Отмена')}</Button>
-                    <Button
-                        onClick={handleCreate}
-                        variant="contained"
-                        disabled={!hasName || createMutation.isPending}
-                    >
+                    <Button onClick={handleCreate} variant='contained' disabled={!hasName || createMutation.isPending}>
                         {t('common.create', 'Создать')}
                     </Button>
                 </DialogActions>
@@ -412,28 +386,27 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setActivateDialogOpen(null)}>{t('common.cancel', 'Cancel')}</Button>
-                    <Button onClick={handleActivate} variant="contained" color="primary">
+                    <Button onClick={handleActivate} variant='contained' color='primary'>
                         {t('publications.versions.activate', 'Activate')}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Edit Dialog with Localized Fields */}
-            <Dialog open={!!editDialogOpen} onClose={handleCloseEditDialog} maxWidth="sm" fullWidth>
+            <Dialog open={!!editDialogOpen} onClose={handleCloseEditDialog} maxWidth='sm' fullWidth>
                 <DialogTitle>{t('publications.versions.edit', 'Edit version')}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <LocalizedInlineField
-                            mode="localized"
+                            mode='localized'
                             label={t('publications.table.name', 'Name')}
                             value={editNameVlc}
                             onChange={setEditNameVlc}
                             uiLocale={i18n.language}
                             required
-                            autoFocus
                         />
                         <LocalizedInlineField
-                            mode="localized"
+                            mode='localized'
                             label={t('publications.table.description', 'Description')}
                             value={editDescriptionVlc}
                             onChange={setEditDescriptionVlc}
@@ -451,11 +424,7 @@ export const VersionsPanel: React.FC<{ metahubId: string; publicationId: string 
                 </DialogContent>
                 <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
                     <Button onClick={handleCloseEditDialog}>{t('common.cancel', 'Cancel')}</Button>
-                    <Button
-                        onClick={handleUpdate}
-                        variant="contained"
-                        disabled={!hasEditName || updateMutation.isPending}
-                    >
+                    <Button onClick={handleUpdate} variant='contained' disabled={!hasEditName || updateMutation.isPending}>
                         {t('common:actions.save', 'Save')}
                     </Button>
                 </DialogActions>

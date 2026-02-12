@@ -135,8 +135,8 @@ function ItemFormDialog({
     const { t } = useTranslation(['metahubs', 'common'])
     const isEdit = Boolean(item)
     const [kind, setKind] = useState<MetahubMenuItemKind>(item?.kind ?? 'link')
-    const [titleVlc, setTitleVlc] = useState<VersionedLocalizedContent<string> | null>(() =>
-        ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), '')
+    const [titleVlc, setTitleVlc] = useState<VersionedLocalizedContent<string> | null>(
+        () => ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), '')
     )
     const [icon, setIcon] = useState(item?.icon ?? '')
     const [href, setHref] = useState(item?.href ?? '')
@@ -207,7 +207,9 @@ function ItemFormDialog({
                             onChange={(e) => setKind(e.target.value as MetahubMenuItemKind)}
                         >
                             {METAHUB_MENU_ITEM_KINDS.map((k: MetahubMenuItemKind) => {
-                                const kindKey = `layouts.menuEditor.kind${k.charAt(0).toUpperCase() + k.slice(1).replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())}` as const
+                                const kindKey = `layouts.menuEditor.kind${
+                                    k.charAt(0).toUpperCase() + k.slice(1).replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
+                                }` as const
                                 return (
                                     <MenuItem key={k} value={k}>
                                         {String(t(kindKey, k))}
@@ -280,10 +282,10 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
     const isEdit = Boolean(config)
     const dialogTitle = isEdit ? t('layouts.menuEditor.editTitle') : t('layouts.menuEditor.createTitle')
 
-    const defaultTitle = useMemo(() => buildVLC(
-        t('layouts.menuEditor.defaultTitle', 'Main'),
-        t('layouts.menuEditor.defaultTitleRu', 'Главное')
-    ), [t])
+    const defaultTitle = useMemo(
+        () => buildVLC(t('layouts.menuEditor.defaultTitle', 'Main'), t('layouts.menuEditor.defaultTitleRu', 'Главное')),
+        [t]
+    )
 
     const [draft, setDraft] = useState<MenuWidgetConfig>(() => {
         if (!config) return makeDefaultConfig()
@@ -310,20 +312,17 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
-    const handleDragEnd = useCallback(
-        (event: DragEndEvent) => {
-            const { active, over } = event
-            if (!over || active.id === over.id) return
-            setDraft((prev) => {
-                const oldIdx = prev.items.findIndex((i) => i.id === active.id)
-                const newIdx = prev.items.findIndex((i) => i.id === over.id)
-                if (oldIdx < 0 || newIdx < 0) return prev
-                const reordered = arrayMove(prev.items, oldIdx, newIdx).map((item, idx) => ({ ...item, sortOrder: idx + 1 }))
-                return { ...prev, items: reordered }
-            })
-        },
-        []
-    )
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+        setDraft((prev) => {
+            const oldIdx = prev.items.findIndex((i) => i.id === active.id)
+            const newIdx = prev.items.findIndex((i) => i.id === over.id)
+            if (oldIdx < 0 || newIdx < 0) return prev
+            const reordered = arrayMove(prev.items, oldIdx, newIdx).map((item, idx) => ({ ...item, sortOrder: idx + 1 }))
+            return { ...prev, items: reordered }
+        })
+    }, [])
 
     const handleAddItem = () => {
         setItemDialog({ open: true, item: null })

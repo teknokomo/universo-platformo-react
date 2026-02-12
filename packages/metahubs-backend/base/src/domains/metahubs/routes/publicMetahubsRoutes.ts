@@ -23,9 +23,9 @@ export function createPublicMetahubsRoutes(getDataSource: () => DataSource, read
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const repos = () => {
         const ds = getDataSource()

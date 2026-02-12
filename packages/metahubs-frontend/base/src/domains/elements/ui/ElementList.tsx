@@ -135,7 +135,7 @@ const ReferenceFieldAutocomplete = ({
             onChange={(_event, newValue) => onChange(newValue?.id ?? null)}
             getOptionLabel={(option) => option.name}
             isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
-            popupIcon={<UnfoldMoreRoundedIcon fontSize="small" />}
+            popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
             PopperComponent={StyledPopper}
             slotProps={{
                 popupIndicator: {
@@ -175,7 +175,7 @@ const ReferenceFieldAutocomplete = ({
                         ...params.InputProps,
                         endAdornment: (
                             <>
-                                {isLoadingElements || isLoadingAttributes ? <CircularProgress color="inherit" size={16} /> : null}
+                                {isLoadingElements || isLoadingAttributes ? <CircularProgress color='inherit' size={16} /> : null}
                                 {params.InputProps.endAdornment}
                             </>
                         )
@@ -315,8 +315,8 @@ const ElementList = () => {
                         attribute.dataType === 'STRING'
                             ? buildStringLengthHelperText(attribute.validationRules)
                             : attribute.dataType === 'NUMBER'
-                                ? buildNumberRangeHelperText(attribute.validationRules)
-                                : undefined,
+                            ? buildNumberRangeHelperText(attribute.validationRules)
+                            : undefined,
                     validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined,
                     refTargetEntityId: resolvedTargetEntityId,
                     refTargetEntityKind: resolvedTargetEntityKind
@@ -343,7 +343,7 @@ const ElementList = () => {
                 return (
                     <TextField
                         fullWidth
-                        size="small"
+                        size='small'
                         label={field.label}
                         disabled
                         error={Boolean(error)}
@@ -359,7 +359,7 @@ const ElementList = () => {
                 return (
                     <TextField
                         fullWidth
-                        size="small"
+                        size='small'
                         label={field.label}
                         disabled
                         error={Boolean(error)}
@@ -372,7 +372,7 @@ const ElementList = () => {
                 return (
                     <TextField
                         fullWidth
-                        size="small"
+                        size='small'
                         label={field.label}
                         disabled
                         error={Boolean(error)}
@@ -591,10 +591,7 @@ const ElementList = () => {
                         }
                         case 'REF': {
                             const catalogId = refCatalogByAttribute[attr.codename]
-                            const displayName =
-                                catalogId && typeof value === 'string'
-                                    ? refDisplayMap?.[catalogId]?.[value]
-                                    : undefined
+                            const displayName = catalogId && typeof value === 'string' ? refDisplayMap?.[catalogId]?.[value] : undefined
                             return (
                                 <Typography sx={{ fontSize: 14 }} noWrap>
                                     {displayName || String(value)}
@@ -777,7 +774,9 @@ const ElementList = () => {
                 image={APIEmptySVG}
                 imageAlt='Error loading catalog'
                 title={t('errors.loadingError', 'Error loading catalog')}
-                description={catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')}
+                description={
+                    catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
+                }
             />
         )
     }

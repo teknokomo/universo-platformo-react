@@ -129,13 +129,10 @@ const PublicationEditFields = ({
  * Tab 1: General (name, description)
  * Tab 2: Access (access mode configuration)
  * Tab 3: Applications (linked applications - read-only)
- * 
+ *
  * Note: Metahubs tab is not shown because Publication belongs to a single Metahub (obvious from context).
  */
-const buildFormTabs = (
-    ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>,
-    metahubId: string
-) => {
+const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>, metahubId: string) => {
     return ({
         values,
         setValue,
@@ -165,12 +162,7 @@ const buildFormTabs = (
             {
                 id: 'versions',
                 label: ctx.t('publications.versions.title', 'Versions'),
-                content: (
-                    <VersionsPanel
-                        metahubId={metahubId}
-                        publicationId={ctx.entity.id}
-                    />
-                )
+                content: <VersionsPanel metahubId={metahubId} publicationId={ctx.entity.id} />
             },
             {
                 id: 'access',
@@ -187,13 +179,7 @@ const buildFormTabs = (
             {
                 id: 'applications',
                 label: ctx.t('publications.tabs.applications', 'Приложения'),
-                content: (
-                    <ApplicationsPanel
-                        metahubId={metahubId}
-                        publicationId={ctx.entity.id}
-                        uiLocale={ctx.uiLocale as string}
-                    />
-                )
+                content: <ApplicationsPanel metahubId={metahubId} publicationId={ctx.entity.id} uiLocale={ctx.uiLocale as string} />
             }
         ]
         return tabs

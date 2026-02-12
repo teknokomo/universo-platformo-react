@@ -139,6 +139,10 @@ const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').
 const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
 const MetahubLayouts = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayouts }))))
 const MetahubLayoutDetails = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails }))))
+const MetahubMigrations = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrations }))))
+const MetahubMigrationGuard = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrationGuard })))
+)
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
@@ -536,7 +540,11 @@ const MainRoutesMUI = {
         },
         {
             path: 'metahub/:metahubId',
-            element: <Outlet />,
+            element: (
+                <MetahubMigrationGuard>
+                    <Outlet />
+                </MetahubMigrationGuard>
+            ),
             children: [
                 {
                     index: true,
@@ -545,6 +553,10 @@ const MainRoutesMUI = {
                 {
                     path: 'publications',
                     element: <PublicationList />
+                },
+                {
+                    path: 'migrations',
+                    element: <MetahubMigrations />
                 },
                 {
                     path: 'branches',

@@ -72,7 +72,9 @@ export function useCreateAttribute() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
@@ -114,7 +116,9 @@ export function useUpdateAttribute() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
@@ -144,7 +148,9 @@ export function useDeleteAttribute() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
@@ -175,7 +181,9 @@ export function useMoveAttribute() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
@@ -214,7 +222,9 @@ export function useToggleAttributeRequired() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
             }
@@ -252,7 +262,9 @@ export function useSetDisplayAttribute() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
             }
@@ -281,7 +293,9 @@ export function useClearDisplayAttribute() {
         },
         onSuccess: (_data, variables) => {
             if (variables.hubId) {
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId) })
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
             } else {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
             }

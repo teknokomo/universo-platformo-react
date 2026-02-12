@@ -177,6 +177,13 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'item'
     },
     {
+        id: 'metahub-migrations',
+        titleKey: 'migrations',
+        url: `/metahub/${metahubId}/migrations`,
+        icon: IconHistory,
+        type: 'item'
+    },
+    {
         id: 'metahub-access',
         titleKey: 'access',
         url: `/metahub/${metahubId}/access`,

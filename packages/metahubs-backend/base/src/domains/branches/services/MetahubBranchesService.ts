@@ -51,6 +51,16 @@ export class MetahubBranchesService {
         return `mhb_${cleanId}_b${branchNumber}`
     }
 
+    private quoteIdent(identifier: string): string {
+        return `"${identifier.replace(/"/g, '""')}"`
+    }
+
+    private assertSafeSchemaName(schemaName: string): void {
+        if (!/^[a-z_][a-z0-9_]*$/.test(schemaName)) {
+            throw new Error(`Unsafe schema name: ${schemaName}`)
+        }
+    }
+
     /**
      * Loads the template manifest for a metahub entity with runtime validation.
      * Returns undefined if no template is assigned (initializeSchema will use default).
@@ -70,6 +80,22 @@ export class MetahubBranchesService {
             }
         }
         return undefined
+    }
+
+    private async resolveTemplateVersionInfo(
+        templateVersionId: string | null | undefined,
+        manager: EntityManager = this.repoManager
+    ): Promise<{ templateVersionId: string | null; templateVersionLabel: string | null }> {
+        if (!templateVersionId) {
+            return { templateVersionId: null, templateVersionLabel: null }
+        }
+
+        const versionRepo = manager.getRepository(TemplateVersion)
+        const version = await versionRepo.findOneBy({ id: templateVersionId })
+        return {
+            templateVersionId,
+            templateVersionLabel: version?.versionLabel ?? null
+        }
     }
 
     async listBranches(metahubId: string, options: BranchListOptions = {}) {
@@ -146,7 +172,13 @@ export class MetahubBranchesService {
 
     async findByCodename(metahubId: string, codename: string): Promise<MetahubBranch | null> {
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        return branchRepo.findOne({ where: { metahubId, codename } })
+        return branchRepo
+            .createQueryBuilder('b')
+            .where('b.metahub_id = :metahubId', { metahubId })
+            .andWhere('b.codename = :codename', { codename })
+            .andWhere('b._upl_deleted = false')
+            .andWhere('b._mhb_deleted = false')
+            .getOne()
     }
 
     async getDefaultBranchId(metahubId: string): Promise<string | null> {
@@ -171,50 +203,87 @@ export class MetahubBranchesService {
         const { metahubId, name, description, codename = 'main', createdBy } = params
         const metahubRepo = this.repoManager.getRepository(Metahub)
         const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const schemaService = new MetahubSchemaService(this.dataSource)
-
-        const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
-        if (!metahub) {
-            throw new Error('Metahub not found')
-        }
-        if (metahub.defaultBranchId) {
-            throw new Error('Default branch is already configured')
+        const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
+        const lockKey = uuidToLockKey(`${metahubId}:initial-branch`)
+        const acquired = await acquireAdvisoryLock(this.knex, lockKey)
+        if (!acquired) {
+            throw new Error('Initial branch creation in progress')
         }
 
         const branchNumber = 1
         const schemaName = this.buildSchemaName(metahubId, branchNumber)
-
-        // Load template manifest from the metahub's assigned template (if any)
-        const manifest = await this.loadManifestForMetahub(metahub)
-        await schemaService.initializeSchema(schemaName, manifest)
-
-        const structureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
-        const branch = branchRepo.create({
-            metahubId,
-            name,
-            description: description ?? null,
-            codename,
-            branchNumber,
-            schemaName,
-            structureVersion,
-            _uplCreatedBy: createdBy ?? null,
-            _uplUpdatedBy: createdBy ?? null
-        })
-
         try {
-            const saved = await branchRepo.save(branch)
-            // Use raw update to avoid incrementing _upl_version
-            await metahubRepo
-                .createQueryBuilder()
-                .update(Metahub)
-                .set({ defaultBranchId: saved.id, lastBranchNumber: branchNumber })
-                .where('id = :id', { id: metahubId })
-                .execute()
-            return saved
+            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            if (!metahub) {
+                throw new Error('Metahub not found')
+            }
+            if (metahub.defaultBranchId) {
+                throw new Error('Default branch is already configured')
+            }
+
+            // Load template manifest from the metahub's assigned template (if any)
+            const manifest = await this.loadManifestForMetahub(metahub)
+            const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null)
+            await schemaService.initializeSchema(schemaName, manifest)
+
+            const structureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+
+            const savedBranch = await this.repoManager.transaction(async (manager) => {
+                const txMetahubRepo = manager.getRepository(Metahub)
+                const txBranchRepo = manager.getRepository(MetahubBranch)
+
+                const lockedMetahub = await txMetahubRepo
+                    .createQueryBuilder('m')
+                    .setLock('pessimistic_write')
+                    .where('m.id = :metahubId', { metahubId })
+                    .getOne()
+
+                if (!lockedMetahub) {
+                    throw new Error('Metahub not found')
+                }
+                if (lockedMetahub.defaultBranchId) {
+                    throw new Error('Default branch is already configured')
+                }
+
+                const branch = txBranchRepo.create({
+                    metahubId,
+                    name,
+                    description: description ?? null,
+                    codename,
+                    branchNumber,
+                    schemaName,
+                    structureVersion,
+                    lastTemplateVersionId: templateVersionInfo.templateVersionId,
+                    lastTemplateVersionLabel: templateVersionInfo.templateVersionLabel,
+                    lastTemplateSyncedAt: templateVersionInfo.templateVersionId ? new Date() : null,
+                    _uplCreatedBy: createdBy ?? null,
+                    _uplUpdatedBy: createdBy ?? null
+                })
+
+                const saved = await txBranchRepo.save(branch)
+                // Use raw update to avoid incrementing _upl_version
+                await txMetahubRepo
+                    .createQueryBuilder()
+                    .update(Metahub)
+                    .set({ defaultBranchId: saved.id, lastBranchNumber: branchNumber })
+                    .where('id = :id', { id: metahubId })
+                    .execute()
+
+                return saved
+            })
+
+            return savedBranch
         } catch (error) {
-            const { generator } = getDDLServices()
-            await generator.dropSchema(schemaName).catch(() => undefined)
+            const existingBranch = await branchRepo.findOne({
+                where: { metahubId, schemaName }
+            })
+            if (!existingBranch) {
+                const { generator } = getDDLServices()
+                await generator.dropSchema(schemaName).catch(() => undefined)
+            }
             throw error
+        } finally {
+            await releaseAdvisoryLock(this.knex, lockKey)
         }
     }
 
@@ -227,7 +296,7 @@ export class MetahubBranchesService {
         createdBy?: string | null
     }): Promise<MetahubBranch> {
         const { metahubId, sourceBranchId, codename, name, description, createdBy } = params
-        const schemaService = new MetahubSchemaService(this.dataSource)
+        const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
 
         // Use a dedicated lock namespace for branch creation.
         // This avoids contention with ensureSchema() read paths that use metahub-wide lock keys.
@@ -270,6 +339,11 @@ export class MetahubBranchesService {
                 const nextNumber = baseBranchNumber + 1
                 schemaName = this.buildSchemaName(metahubId, nextNumber)
 
+                let branchStructureVersion: number
+                let templateVersionSyncId: string | null = null
+                let templateVersionSyncLabel: string | null = null
+                let templateSyncedAt: Date | null = null
+
                 if (sourceBranch) {
                     const { cloner } = getDDLServices()
                     await cloner.clone({
@@ -279,14 +353,20 @@ export class MetahubBranchesService {
                         createTargetSchema: true,
                         copyData: true
                     })
+                    branchStructureVersion = sourceBranch.structureVersion ?? CURRENT_STRUCTURE_VERSION
+                    templateVersionSyncId = sourceBranch.lastTemplateVersionId ?? null
+                    templateVersionSyncLabel = sourceBranch.lastTemplateVersionLabel ?? null
+                    templateSyncedAt = sourceBranch.lastTemplateSyncedAt ?? null
                 } else {
                     // Load template manifest for new branch from scratch
                     const manifest = await this.loadManifestForMetahub(metahub)
                     await schemaService.initializeSchema(schemaName, manifest)
+                    branchStructureVersion = manifest?.minStructureVersion ?? CURRENT_STRUCTURE_VERSION
+                    const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null, manager)
+                    templateVersionSyncId = templateVersionInfo.templateVersionId
+                    templateVersionSyncLabel = templateVersionInfo.templateVersionLabel
+                    templateSyncedAt = templateVersionInfo.templateVersionId ? new Date() : null
                 }
-
-                // Inherit structure version from source branch, or use current for fresh schemas
-                const branchStructureVersion = sourceBranch?.structureVersion ?? CURRENT_STRUCTURE_VERSION
 
                 const branch = branchRepo.create({
                     metahubId,
@@ -297,6 +377,9 @@ export class MetahubBranchesService {
                     branchNumber: nextNumber,
                     schemaName,
                     structureVersion: branchStructureVersion,
+                    lastTemplateVersionId: templateVersionSyncId,
+                    lastTemplateVersionLabel: templateVersionSyncLabel,
+                    lastTemplateSyncedAt: templateSyncedAt,
                     _uplCreatedBy: createdBy ?? null,
                     _uplUpdatedBy: createdBy ?? null
                 })
@@ -362,10 +445,10 @@ export class MetahubBranchesService {
             branch.codename = data.codename
         }
         if (data.name !== undefined) {
-            branch.name = data.name as any
+            branch.name = data.name
         }
         if (data.description !== undefined) {
-            branch.description = data.description as any
+            branch.description = data.description
         }
         if (data.updatedBy !== undefined) {
             branch._uplUpdatedBy = data.updatedBy ?? null
@@ -390,6 +473,7 @@ export class MetahubBranchesService {
 
         membership.activeBranchId = branch.id
         await memberRepo.save(membership)
+        MetahubSchemaService.setUserBranchCache(metahubId, userId, branch.id)
 
         return branch
     }
@@ -404,6 +488,7 @@ export class MetahubBranchesService {
         }
 
         await metahubRepo.update(metahubId, { defaultBranchId: branchId })
+        MetahubSchemaService.clearUserBranchCache(metahubId)
         return branch
     }
 
@@ -490,35 +575,61 @@ export class MetahubBranchesService {
 
     async deleteBranch(params: { metahubId: string; branchId: string; requesterId: string }): Promise<void> {
         const { metahubId, branchId, requesterId } = params
-        const branchRepo = this.repoManager.getRepository(MetahubBranch)
-        const metahubRepo = this.repoManager.getRepository(Metahub)
-        const memberRepo = this.repoManager.getRepository(MetahubUser)
-
-        const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
-        if (!metahub) {
-            throw new Error('Metahub not found')
-        }
-        if (metahub.defaultBranchId === branchId) {
-            throw new Error('Default branch cannot be deleted')
+        const lockKey = uuidToLockKey(`${metahubId}:${branchId}:branch-delete`)
+        const acquired = await acquireAdvisoryLock(this.knex, lockKey)
+        if (!acquired) {
+            throw new Error('Branch deletion in progress')
         }
 
-        const branch = await branchRepo.findOne({ where: { id: branchId, metahubId } })
-        if (!branch) {
-            throw new Error('Branch not found')
+        try {
+            await this.repoManager.transaction(async (manager) => {
+                const branchRepo = manager.getRepository(MetahubBranch)
+                const metahubRepo = manager.getRepository(Metahub)
+                const memberRepo = manager.getRepository(MetahubUser)
+
+                const metahub = await metahubRepo
+                    .createQueryBuilder('m')
+                    .setLock('pessimistic_write')
+                    .where('m.id = :metahubId', { metahubId })
+                    .getOne()
+                if (!metahub) {
+                    throw new Error('Metahub not found')
+                }
+                if (metahub.defaultBranchId === branchId) {
+                    throw new Error('Default branch cannot be deleted')
+                }
+
+                const branch = await branchRepo
+                    .createQueryBuilder('b')
+                    .setLock('pessimistic_write')
+                    .where('b.id = :branchId AND b.metahub_id = :metahubId', { branchId, metahubId })
+                    .getOne()
+                if (!branch) {
+                    throw new Error('Branch not found')
+                }
+
+                const blockingUsersCount = await memberRepo
+                    .createQueryBuilder('mu')
+                    .where('mu.metahub_id = :metahubId', { metahubId })
+                    .andWhere('mu.active_branch_id = :branchId', { branchId })
+                    .andWhere('mu.user_id <> :requesterId', { requesterId })
+                    .getCount()
+                if (blockingUsersCount > 0) {
+                    throw new Error('Branch is active for other users')
+                }
+
+                // Clear active branch for requester if it matches this branch.
+                await memberRepo.update({ metahubId, userId: requesterId, activeBranchId: branchId }, { activeBranchId: null })
+
+                // Drop schema and delete branch row in the same DB transaction to avoid divergent states.
+                this.assertSafeSchemaName(branch.schemaName)
+                await manager.query(`DROP SCHEMA IF EXISTS ${this.quoteIdent(branch.schemaName)} CASCADE`)
+                await branchRepo.delete({ id: branchId, metahubId })
+            })
+
+            MetahubSchemaService.clearCache(metahubId)
+        } finally {
+            await releaseAdvisoryLock(this.knex, lockKey)
         }
-
-        const blockingUsers = await this.getBlockingUsers(metahubId, branchId, requesterId)
-        if (blockingUsers.length > 0) {
-            throw new Error('Branch is active for other users')
-        }
-
-        // Clear active branch for requester if it matches this branch
-        await memberRepo.update({ metahubId, userId: requesterId, activeBranchId: branchId }, { activeBranchId: null })
-
-        const { generator } = getDDLServices()
-        await generator.dropSchema(branch.schemaName)
-
-        await branchRepo.delete({ id: branchId })
-        MetahubSchemaService.clearCache(metahubId)
     }
 }

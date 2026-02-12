@@ -4,6 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { OptimisticLockError } from '@universo/utils'
+import { getRequestManager } from '../../../utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
@@ -38,12 +39,14 @@ export function createElementsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const services = (req: Request) => {
-        const schemaService = new MetahubSchemaService(getDataSource())
+        const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
         const objectsService = new MetahubObjectsService(schemaService)
         const attributesService = new MetahubAttributesService(schemaService)
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
@@ -78,13 +81,18 @@ export function createElementsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            const { items, total } = await elementsService.findAllAndCount(metahubId, catalogId, {
-                limit,
-                offset,
-                sortBy,
-                sortOrder,
-                search
-            }, userId)
+            const { items, total } = await elementsService.findAllAndCount(
+                metahubId,
+                catalogId,
+                {
+                    limit,
+                    offset,
+                    sortBy,
+                    sortOrder,
+                    search
+                },
+                userId
+            )
 
             res.json({
                 items,
@@ -144,11 +152,16 @@ export function createElementsRoutes(
             const { data, sortOrder } = parsed.data
 
             try {
-                const element = await elementsService.create(metahubId, catalogId, {
-                    data,
-                    sortOrder,
-                    createdBy: userId
-                }, userId)
+                const element = await elementsService.create(
+                    metahubId,
+                    catalogId,
+                    {
+                        data,
+                        sortOrder,
+                        createdBy: userId
+                    },
+                    userId
+                )
                 res.status(201).json(element)
             } catch (error: any) {
                 if (error.message.includes('Catalog not found')) {
@@ -186,12 +199,18 @@ export function createElementsRoutes(
             const { data, sortOrder, expectedVersion } = parsed.data
 
             try {
-                const element = await elementsService.update(metahubId, catalogId, elementId, {
-                    data,
-                    sortOrder,
-                    updatedBy: userId,
-                    expectedVersion
-                }, userId)
+                const element = await elementsService.update(
+                    metahubId,
+                    catalogId,
+                    elementId,
+                    {
+                        data,
+                        sortOrder,
+                        updatedBy: userId,
+                        expectedVersion
+                    },
+                    userId
+                )
                 res.json(element)
             } catch (error: any) {
                 if (error instanceof OptimisticLockError) {

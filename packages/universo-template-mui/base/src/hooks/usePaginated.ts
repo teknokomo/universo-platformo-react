@@ -119,10 +119,15 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         enabled,
         staleTime,
         placeholderData: keepPreviousData,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        retryOnMount: false,
         retry: (failureCount: number, error: any) => {
             const status = error?.response?.status
-            if ([401, 403, 404].includes(status)) return false
-            return failureCount < 2
+            // Do not amplify backend overload/auth/client errors with retries.
+            if ([400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504].includes(status)) return false
+            // Keep only a single retry for transient network-level errors without HTTP status.
+            return failureCount < 1
         }
     })
 

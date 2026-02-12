@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { ListQuerySchema } from '../../shared/queryParams'
-import { escapeLikeWildcards, getRequestManager } from '../../../utils'
+import { getRequestManager } from '../../../utils'
 import { localizedContent, validation } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
@@ -145,8 +145,12 @@ export function createAttributesRoutes(
         }
 
     const services = (req: Request) => {
-        const schemaService = new MetahubSchemaService(getDataSource())
+        const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
         return {
+            ds,
+            manager,
             attributesService: new MetahubAttributesService(schemaService),
             objectsService: new MetahubObjectsService(schemaService),
             schemaService
@@ -312,7 +316,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { attributesService, objectsService, schemaService } = services(req)
+            const { attributesService, objectsService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             // Verify catalog exists
@@ -433,7 +437,7 @@ export function createAttributesRoutes(
                 await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
             }
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -454,7 +458,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, schemaService } = services(req)
+            const { attributesService, objectsService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -592,7 +596,7 @@ export function createAttributesRoutes(
                 await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
             }
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -649,7 +653,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService } = services(req)
+            const { attributesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -668,7 +672,7 @@ export function createAttributesRoutes(
                 userId
             )
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -689,7 +693,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService } = services(req)
+            const { attributesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -699,7 +703,7 @@ export function createAttributesRoutes(
 
             await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -720,7 +724,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService } = services(req)
+            const { attributesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -730,7 +734,7 @@ export function createAttributesRoutes(
 
             await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
@@ -751,7 +755,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, schemaService } = services(req)
+            const { attributesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -769,7 +773,7 @@ export function createAttributesRoutes(
             await attributesService.delete(metahubId, attributeId, userId)
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
 
-            await syncMetahubSchema(metahubId, getDataSource(), userId).catch((err) => {
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 

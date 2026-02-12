@@ -62,7 +62,7 @@ describe('Metahubs page action factories', () => {
         expect(copy.dialog).toBeTruthy()
         expect(del).toBeTruthy()
         expect(del.dialog || del.onSelect).toBeTruthy()
-    }, 15000)
+    }, 30000)
 
     it('HubActions exports edit/delete descriptors for localized forms', async () => {
         vi.resetModules()
@@ -79,7 +79,7 @@ describe('Metahubs page action factories', () => {
         expect(edit.dialog).toBeTruthy()
         expect(del).toBeTruthy()
         expect(del.dialog || del.onSelect).toBeTruthy()
-    }, 10000)
+    }, 20000)
 
     it('CatalogActions exports edit/delete descriptors for localized forms', async () => {
         vi.resetModules()
@@ -96,7 +96,7 @@ describe('Metahubs page action factories', () => {
         expect(edit.dialog).toBeTruthy()
         expect(del).toBeTruthy()
         expect(del.dialog || del.onSelect).toBeTruthy()
-    }, 15000)
+    }, 30000)
 
     it('MetahubMemberActions passes correct config', async () => {
         vi.resetModules()

@@ -1,6 +1,6 @@
 /**
  * DDL Domain - Re-exports from @universo/schema-ddl with local KnexClient integration
- * 
+ *
  * This module provides pre-configured DDL services using the local KnexClient singleton.
  * For pure functions and types, import directly from '@universo/schema-ddl'.
  */
@@ -11,7 +11,7 @@ import {
     SchemaGenerator as SchemaGeneratorClass,
     SchemaMigrator as SchemaMigratorClass,
     MigrationManager as MigrationManagerClass,
-    SchemaCloner as SchemaClonerClass,
+    SchemaCloner as SchemaClonerClass
 } from '@universo/schema-ddl'
 
 // Re-export pure functions from @universo/schema-ddl
@@ -29,7 +29,7 @@ export {
     ChangeType,
     generateMigrationName,
     generateMetahubSchemaName,
-    cloneSchemaWithExecutor,
+    cloneSchemaWithExecutor
 } from '@universo/schema-ddl'
 
 // Re-export types from @universo/schema-ddl
@@ -50,7 +50,7 @@ export type {
     GenerateFullSchemaOptions,
     ApplyChangesOptions,
     SchemaCloneExecutor,
-    CloneSchemaOptions,
+    CloneSchemaOptions
 } from '@universo/schema-ddl'
 
 // Re-export classes for type usage
@@ -65,7 +65,7 @@ export { buildCatalogDefinitions } from './definitions/catalogs'
 
 /**
  * Get pre-configured DDL services using the local KnexClient singleton.
- * 
+ *
  * @example
  * ```typescript
  * const { generator, migrator, migrationManager } = getDDLServices()

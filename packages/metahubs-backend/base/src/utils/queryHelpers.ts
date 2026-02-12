@@ -63,11 +63,7 @@ export function applySoftDeleteFilter<T extends ObjectLiteral>(
  * @example
  * await softDelete(metahubRepo, metahubId, currentUserId)
  */
-export async function softDelete<T extends ObjectLiteral>(
-    repo: Repository<T>,
-    id: string,
-    userId?: string
-): Promise<void> {
+export async function softDelete<T extends ObjectLiteral>(repo: Repository<T>, id: string, userId?: string): Promise<void> {
     await repo
         .createQueryBuilder()
         .update()
@@ -91,10 +87,7 @@ export async function softDelete<T extends ObjectLiteral>(
  * @example
  * await restoreDeleted(metahubRepo, metahubId)
  */
-export async function restoreDeleted<T extends ObjectLiteral>(
-    repo: Repository<T>,
-    id: string
-): Promise<void> {
+export async function restoreDeleted<T extends ObjectLiteral>(repo: Repository<T>, id: string): Promise<void> {
     await repo
         .createQueryBuilder()
         .update()
@@ -118,10 +111,7 @@ export async function restoreDeleted<T extends ObjectLiteral>(
  * @example
  * const count = await purgeOldDeleted(metahubRepo, 30) // purge after 30 days
  */
-export async function purgeOldDeleted<T extends ObjectLiteral>(
-    repo: Repository<T>,
-    olderThanDays: number
-): Promise<number> {
+export async function purgeOldDeleted<T extends ObjectLiteral>(repo: Repository<T>, olderThanDays: number): Promise<number> {
     const result = await repo
         .createQueryBuilder()
         .delete()
@@ -138,13 +128,8 @@ export async function purgeOldDeleted<T extends ObjectLiteral>(
  * @param repo - TypeORM Repository
  * @returns Number of soft-deleted records
  */
-export async function countDeleted<T extends ObjectLiteral>(
-    repo: Repository<T>
-): Promise<number> {
-    return repo
-        .createQueryBuilder()
-        .where('is_deleted = :isDeleted', { isDeleted: true })
-        .getCount()
+export async function countDeleted<T extends ObjectLiteral>(repo: Repository<T>): Promise<number> {
+    return repo.createQueryBuilder().where('is_deleted = :isDeleted', { isDeleted: true }).getCount()
 }
 
 /**

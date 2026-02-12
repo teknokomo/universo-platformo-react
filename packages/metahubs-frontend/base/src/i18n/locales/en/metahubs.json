@@ -754,6 +754,46 @@
       "empty": "No versions found. Create a snapshot to start versioning."
     }
   },
+  "migrations": {
+    "title": "Migrations",
+    "subtitle": "Track and apply metahub upgrades",
+    "branchLabel": "Branch",
+    "branchUnknown": "Unknown branch",
+    "branchRequired": "Select a branch to continue",
+    "metahubRequired": "Metahub ID is required",
+    "dryRun": "Dry run",
+    "apply": "Apply migrations",
+    "applying": "Applying...",
+    "loading": "Loading migration state...",
+    "planTitle": "Migration plan",
+    "historyTitle": "Migration history",
+    "empty": "No migrations found for selected branch",
+    "structureUpgradeNeeded": "Structure upgrade required",
+    "structureUpToDate": "Structure up to date",
+    "templateUpgradeNeeded": "Template upgrade required",
+    "templateUpToDate": "Template up to date",
+    "planDetails": "Branch: {{branch}} | Structure: {{current}} → {{target}}",
+    "columns": {
+      "appliedAt": "Applied at",
+      "name": "Name",
+      "fromTo": "From → To"
+    },
+    "baselineLabel": "Baseline",
+    "messages": {
+      "dryRunReady": "Migration plan is ready",
+      "applySuccess": "Migrations applied successfully",
+      "applyError": "Failed to apply migrations"
+    },
+    "guard": {
+      "checking": "Checking metahub migration status...",
+      "statusError": "Failed to load migration status",
+      "retry": "Retry",
+      "title": "Migration required",
+      "description": "This metahub requires migration before other sections can be used. Open the migrations section and apply updates.",
+      "openMigrations": "Open migrations",
+      "blockersTitle": "Blocking conditions detected"
+    }
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",

@@ -10,7 +10,7 @@ import { escapeLikeWildcards } from '@universo/utils'
 import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
-import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig, type DefaultZoneWidget } from '../../shared'
+import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 
 export type LayoutTemplateKey = 'dashboard'
 
@@ -58,9 +58,7 @@ const allowedZonesMap = new Map<DashboardLayoutWidgetKey, readonly DashboardLayo
     DASHBOARD_LAYOUT_WIDGETS.map((w) => [w.key, w.allowedZones])
 )
 
-const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(
-    DASHBOARD_LAYOUT_WIDGETS.filter((w) => w.multiInstance).map((w) => w.key)
-)
+const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(DASHBOARD_LAYOUT_WIDGETS.filter((w) => w.multiInstance).map((w) => w.key))
 
 export const createLayoutSchema = z.object({
     templateKey: layoutTemplateKeySchema.default('dashboard'),
@@ -156,7 +154,7 @@ export class MetahubLayoutsService {
     ): Promise<void> {
         const rows = await trx
             .withSchema(schemaName)
-            .from('_mhb_layout_zone_widgets')
+            .from('_mhb_widgets')
             .where({ layout_id: layoutId, zone, _upl_deleted: false, _mhb_deleted: false })
             .orderBy([
                 { column: 'sort_order', order: 'asc' },
@@ -169,7 +167,7 @@ export class MetahubLayoutsService {
             if (rows[i].sort_order === nextOrder) continue
             await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: rows[i].id })
                 .update({
                     sort_order: nextOrder,
@@ -183,7 +181,7 @@ export class MetahubLayoutsService {
     private async syncLayoutConfigFromZoneWidgets(trx: any, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
         const widgets = await trx
             .withSchema(schemaName)
-            .from('_mhb_layout_zone_widgets')
+            .from('_mhb_widgets')
             .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
             .select(['widget_key', 'zone'])
 
@@ -206,7 +204,7 @@ export class MetahubLayoutsService {
     private async ensureDefaultZoneWidgets(trx: any, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
         const countRow = (await trx
             .withSchema(schemaName)
-            .from('_mhb_layout_zone_widgets')
+            .from('_mhb_widgets')
             .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
             .count('* as count')
             .first()) as { count?: string | number } | undefined
@@ -218,7 +216,7 @@ export class MetahubLayoutsService {
         const now = new Date()
         await trx
             .withSchema(schemaName)
-            .into('_mhb_layout_zone_widgets')
+            .into('_mhb_widgets')
             .insert(
                 DEFAULT_DASHBOARD_ZONE_WIDGETS.map((item) => ({
                     layout_id: layoutId,
@@ -483,7 +481,7 @@ export class MetahubLayoutsService {
             // Cascade: soft-delete all zone widgets belonging to this layout
             await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .update({
                     _mhb_deleted: true,
@@ -526,7 +524,7 @@ export class MetahubLayoutsService {
             await this.ensureDefaultZoneWidgets(trx, schemaName, layoutId, userId ?? null)
             const rows = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .orderBy([
                     { column: 'zone', order: 'asc' },
@@ -552,7 +550,7 @@ export class MetahubLayoutsService {
             const now = new Date()
             const zoneRows = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ layout_id: layoutId, zone: input.zone, _upl_deleted: false, _mhb_deleted: false })
                 .select(['id'])
             const nextSortOrder = input.sortOrder ?? zoneRows.length + 1
@@ -563,14 +561,14 @@ export class MetahubLayoutsService {
                 // Single-instance widget: update existing or insert new
                 const existing = await trx
                     .withSchema(schemaName)
-                    .from('_mhb_layout_zone_widgets')
+                    .from('_mhb_widgets')
                     .where({ layout_id: layoutId, widget_key: input.widgetKey, _upl_deleted: false, _mhb_deleted: false })
                     .first()
 
                 if (existing) {
                     await trx
                         .withSchema(schemaName)
-                        .from('_mhb_layout_zone_widgets')
+                        .from('_mhb_widgets')
                         .where({ id: existing.id })
                         .update({
                             zone: input.zone,
@@ -587,11 +585,7 @@ export class MetahubLayoutsService {
                     await this.normalizeZoneSortOrders(trx, schemaName, layoutId, input.zone, userId ?? null)
                     await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId ?? null)
 
-                    const updated = await trx
-                        .withSchema(schemaName)
-                        .from('_mhb_layout_zone_widgets')
-                        .where({ id: existing.id })
-                        .first()
+                    const updated = await trx.withSchema(schemaName).from('_mhb_widgets').where({ id: existing.id }).first()
                     return this.mapZoneWidgetRow(updated)
                 }
             }
@@ -599,7 +593,7 @@ export class MetahubLayoutsService {
             // Multi-instance widget always inserts; single-instance falls through here when no existing row
             const [inserted] = await trx
                 .withSchema(schemaName)
-                .into('_mhb_layout_zone_widgets')
+                .into('_mhb_widgets')
                 .insert({
                     layout_id: layoutId,
                     zone: input.zone,
@@ -640,7 +634,7 @@ export class MetahubLayoutsService {
 
             const current = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: input.widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .first()
             if (!current) throw new Error('Layout widget not found')
@@ -652,7 +646,7 @@ export class MetahubLayoutsService {
 
             const targetRows = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ layout_id: layoutId, zone: targetZone, _upl_deleted: false, _mhb_deleted: false })
                 .whereNot({ id: input.widgetId })
                 .orderBy([
@@ -667,7 +661,7 @@ export class MetahubLayoutsService {
 
             await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: current.id })
                 .update({
                     zone: targetZone,
@@ -686,7 +680,7 @@ export class MetahubLayoutsService {
 
             const rows = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .orderBy([
                     { column: 'zone', order: 'asc' },
@@ -697,24 +691,19 @@ export class MetahubLayoutsService {
         })
     }
 
-    async removeLayoutZoneWidget(
-        metahubId: string,
-        layoutId: string,
-        widgetId: string,
-        userId?: string | null
-    ): Promise<void> {
+    async removeLayoutZoneWidget(metahubId: string, layoutId: string, widgetId: string, userId?: string | null): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         await this.knex.transaction(async (trx) => {
             const current = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .first()
             if (!current) return
 
             await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: current.id })
                 .update({
                     _mhb_deleted: true,
@@ -745,7 +734,7 @@ export class MetahubLayoutsService {
         return this.knex.transaction(async (trx) => {
             const current = await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .first()
             if (!current) {
@@ -754,7 +743,7 @@ export class MetahubLayoutsService {
 
             await trx
                 .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
+                .from('_mhb_widgets')
                 .where({ id: current.id })
                 .update({
                     config: JSON.stringify(config),
@@ -763,11 +752,7 @@ export class MetahubLayoutsService {
                     _upl_version: trx.raw('_upl_version + 1')
                 })
 
-            const updated = await trx
-                .withSchema(schemaName)
-                .from('_mhb_layout_zone_widgets')
-                .where({ id: current.id })
-                .first()
+            const updated = await trx.withSchema(schemaName).from('_mhb_widgets').where({ id: current.id }).first()
 
             return this.mapZoneWidgetRow(updated)
         })

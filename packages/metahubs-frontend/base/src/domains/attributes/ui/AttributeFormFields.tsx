@@ -129,9 +129,12 @@ const AttributeFormFields = ({
     })
 
     // Helper to update nested validationRules
-    const updateValidationRule = useCallback((key: string, value: any) => {
-        setValue('validationRules', { ...validationRules, [key]: value })
-    }, [setValue, validationRules])
+    const updateValidationRule = useCallback(
+        (key: string, value: any) => {
+            setValue('validationRules', { ...validationRules, [key]: value })
+        },
+        [setValue, validationRules]
+    )
 
     useEffect(() => {
         if (displayAttributeLocked && !isDisplayAttribute) {
@@ -145,11 +148,11 @@ const AttributeFormFields = ({
             case 'STRING':
                 return (
                     <Stack spacing={2}>
-                        <Stack direction="row" spacing={2}>
+                        <Stack direction='row' spacing={2}>
                             <TextField
                                 label={stringMinLengthLabel}
-                                type="number"
-                                size="small"
+                                type='number'
+                                size='small'
                                 fullWidth
                                 disabled={isLoading}
                                 value={validationRules.minLength ?? ''}
@@ -158,8 +161,8 @@ const AttributeFormFields = ({
                             />
                             <TextField
                                 label={stringMaxLengthLabel}
-                                type="number"
-                                size="small"
+                                type='number'
+                                size='small'
                                 fullWidth
                                 disabled={isLoading}
                                 value={validationRules.maxLength ?? ''}
@@ -201,22 +204,22 @@ const AttributeFormFields = ({
             case 'NUMBER':
                 return (
                     <Stack spacing={2}>
-                        <Stack direction="row" spacing={2}>
+                        <Stack direction='row' spacing={2}>
                             <TextField
                                 label={numberPrecisionLabel}
-                                type="number"
-                                size="small"
+                                type='number'
+                                size='small'
                                 fullWidth
                                 disabled={isLoading}
                                 value={validationRules.precision ?? 10}
                                 onChange={(e) => updateValidationRule('precision', e.target.value ? parseInt(e.target.value, 10) : 10)}
                                 inputProps={{ min: 1, max: 15 }}
-                                helperText="1-15"
+                                helperText='1-15'
                             />
                             <TextField
                                 label={numberScaleLabel}
-                                type="number"
-                                size="small"
+                                type='number'
+                                size='small'
                                 fullWidth
                                 disabled={isLoading}
                                 value={validationRules.scale ?? 0}
@@ -225,11 +228,11 @@ const AttributeFormFields = ({
                                 helperText={`0-${Math.max(0, (validationRules.precision ?? 10) - 1)}`}
                             />
                         </Stack>
-                        <Stack direction="row" spacing={2}>
+                        <Stack direction='row' spacing={2}>
                             <TextField
                                 label={numberMinLabel}
-                                type="number"
-                                size="small"
+                                type='number'
+                                size='small'
                                 fullWidth
                                 disabled={isLoading}
                                 value={validationRules.min ?? ''}
@@ -237,8 +240,8 @@ const AttributeFormFields = ({
                             />
                             <TextField
                                 label={numberMaxLabel}
-                                type="number"
-                                size="small"
+                                type='number'
+                                size='small'
                                 fullWidth
                                 disabled={isLoading}
                                 value={validationRules.max ?? ''}
@@ -259,10 +262,10 @@ const AttributeFormFields = ({
                 )
             case 'DATE':
                 return (
-                    <FormControl fullWidth size="small" disabled={isLoading}>
-                        <InputLabel id="date-composition-label">{dateCompositionLabel}</InputLabel>
+                    <FormControl fullWidth size='small' disabled={isLoading}>
+                        <InputLabel id='date-composition-label'>{dateCompositionLabel}</InputLabel>
                         <Select
-                            labelId="date-composition-label"
+                            labelId='date-composition-label'
                             label={dateCompositionLabel}
                             value={validationRules.dateComposition ?? 'datetime'}
                             onChange={(e) => updateValidationRule('dateComposition', e.target.value)}
@@ -341,20 +344,18 @@ const AttributeFormFields = ({
                         }}
                         onClick={() => setShowTypeSettings(!showTypeSettings)}
                     >
-                        {showTypeSettings ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                        <Typography variant="body2" sx={{ ml: 0.5 }}>
+                        {showTypeSettings ? <ExpandLessIcon fontSize='small' /> : <ExpandMoreIcon fontSize='small' />}
+                        <Typography variant='body2' sx={{ ml: 0.5 }}>
                             {typeSettingsLabel}
                         </Typography>
                     </Box>
                     <Collapse in={showTypeSettings}>
-                        <Box sx={{ pl: 2, pt: 1 }}>
-                            {renderTypeSettings()}
-                        </Box>
+                        <Box sx={{ pl: 2, pt: 1 }}>{renderTypeSettings()}</Box>
                     </Collapse>
                 </Box>
             )}
             {/* Physical PostgreSQL type info */}
-            <Alert severity="info" sx={{ py: 0.5 }}>
+            <Alert severity='info' sx={{ py: 0.5 }}>
                 {physicalTypeLabel}: <strong>{physicalTypeInfo.physicalTypeStr}</strong>
                 {physicalTypeInfo.physicalInfo.isVLC && ' (VLC)'}
             </Alert>
@@ -365,13 +366,13 @@ const AttributeFormFields = ({
             />
             <Box>
                 <FormControlLabel
-                    control={<Switch checked={isDisplayAttribute} onChange={(event) => setValue('isDisplayAttribute', event.target.checked)} />}
+                    control={
+                        <Switch checked={isDisplayAttribute} onChange={(event) => setValue('isDisplayAttribute', event.target.checked)} />
+                    }
                     label={displayAttributeLabel}
                     disabled={isLoading || displayAttributeLocked}
                 />
-                {displayAttributeHelper && (
-                    <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>
-                )}
+                {displayAttributeHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>}
             </Box>
             <Divider />
             <CodenameField

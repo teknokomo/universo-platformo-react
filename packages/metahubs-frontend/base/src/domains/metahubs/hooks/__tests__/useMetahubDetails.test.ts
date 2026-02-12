@@ -34,11 +34,11 @@ describe('useMetahubDetails', () => {
         expect(opts.queryKey).toEqual(['metahubs', 'detail', 'm1'])
         expect(opts.enabled).toBe(true)
         expect(opts.staleTime).toBe(123)
-        expect(opts.retry).toBe(0)
+        expect(opts.retry(0, new Error('any'))).toBe(false)
         expect(opts.refetchOnWindowFocus).toBe(false)
-        expect(opts.refetchOnMount).toBe('always')
+        expect(opts.refetchOnMount).toBe(false)
 
-        await expect(opts.queryFn()).resolves.toEqual({ id: 'm1' })
+        await expect(opts.queryFn()).resolves.toEqual({ id: 'm1', codename: 'metahub-1' })
         expect(mocks.getMetahub).toHaveBeenCalledWith('m1')
     })
 

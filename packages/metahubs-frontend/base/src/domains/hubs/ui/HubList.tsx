@@ -361,7 +361,11 @@ const HubList = () => {
                         if (isOptimisticLockConflict(error)) {
                             const conflict = extractConflictInfo(error)
                             if (conflict) {
-                                setConflictState({ open: true, conflict, pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } } })
+                                setConflictState({
+                                    open: true,
+                                    conflict,
+                                    pendingUpdate: { id, patch: { ...patch, codename: normalizedCodename } }
+                                })
                                 return
                             }
                         }

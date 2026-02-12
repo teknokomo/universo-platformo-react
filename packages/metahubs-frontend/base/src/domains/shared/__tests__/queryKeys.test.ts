@@ -212,23 +212,8 @@ describe('queryKeys factories + invalidation helpers', () => {
 
         expect(metahubsQueryKeys.publications('m1')).toEqual(['metahubs', 'detail', 'm1', 'publications'])
         expect(metahubsQueryKeys.publicationsList('m1')).toEqual(['metahubs', 'detail', 'm1', 'publications', 'list'])
-        expect(metahubsQueryKeys.publicationDetail('m1', 'p1')).toEqual([
-            'metahubs',
-            'detail',
-            'm1',
-            'publications',
-            'detail',
-            'p1'
-        ])
-        expect(metahubsQueryKeys.publicationDiff('m1', 'p1')).toEqual([
-            'metahubs',
-            'detail',
-            'm1',
-            'publications',
-            'detail',
-            'p1',
-            'diff'
-        ])
+        expect(metahubsQueryKeys.publicationDetail('m1', 'p1')).toEqual(['metahubs', 'detail', 'm1', 'publications', 'detail', 'p1'])
+        expect(metahubsQueryKeys.publicationDiff('m1', 'p1')).toEqual(['metahubs', 'detail', 'm1', 'publications', 'detail', 'p1', 'diff'])
     })
 
     it('calls invalidateQueries with expected queryKey', async () => {

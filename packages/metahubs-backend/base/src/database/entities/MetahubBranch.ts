@@ -31,6 +31,18 @@ export class MetahubBranch {
     @Column({ name: 'structure_version', type: 'integer', default: 1 })
     structureVersion!: number
 
+    /** Last template version synchronized into this branch schema (seed sync provenance). */
+    @Column({ name: 'last_template_version_id', type: 'uuid', nullable: true })
+    lastTemplateVersionId?: string | null
+
+    /** Human-readable template version label synchronized into this branch schema (e.g. 1.0.0). */
+    @Column({ name: 'last_template_version_label', type: 'varchar', length: 20, nullable: true })
+    lastTemplateVersionLabel?: string | null
+
+    /** Timestamp of the last successful template seed synchronization for this branch schema. */
+    @Column({ name: 'last_template_synced_at', type: 'timestamptz', nullable: true })
+    lastTemplateSyncedAt?: Date | null
+
     // ═══════════════════════════════════════════════════════════════════════════
     // Platform-level system fields (_upl_*)
     // ═══════════════════════════════════════════════════════════════════════════

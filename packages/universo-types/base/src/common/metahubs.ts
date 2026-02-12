@@ -7,24 +7,14 @@ import type { VersionedLocalizedContent } from './admin'
  * Supported attribute data types.
  * Note: DATETIME was removed in favor of DATE with dateComposition setting.
  */
-export const ATTRIBUTE_DATA_TYPES = [
-    'STRING',
-    'NUMBER',
-    'BOOLEAN',
-    'DATE',
-    'REF',
-    'JSON',
-] as const
+export const ATTRIBUTE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON'] as const
 
 export type AttributeDataType = (typeof ATTRIBUTE_DATA_TYPES)[number]
 
-export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce(
-    (acc, value) => {
-        acc[value] = value
-        return acc
-    },
-    {} as Record<AttributeDataType, AttributeDataType>
-)
+export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce((acc, value) => {
+    acc[value] = value
+    return acc
+}, {} as Record<AttributeDataType, AttributeDataType>)
 
 // ============ TYPE-SPECIFIC CONFIGURATION INTERFACES ============
 
@@ -145,10 +135,7 @@ export interface PhysicalTypeInfo {
  * @param rules - Validation rules containing type-specific settings
  * @returns Physical type information for UI display
  */
-export function getPhysicalDataType(
-    dataType: AttributeDataType,
-    rules?: Partial<AttributeValidationRules>
-): PhysicalTypeInfo {
+export function getPhysicalDataType(dataType: AttributeDataType, rules?: Partial<AttributeValidationRules>): PhysicalTypeInfo {
     switch (dataType) {
         case 'STRING': {
             // If versioned or localized, store as JSONB for VLC structure
@@ -219,7 +206,7 @@ export function formatPhysicalType(info: PhysicalTypeInfo): string {
 const _META_ENTITY_KIND_MAP = {
     CATALOG: 'catalog',
     HUB: 'hub',
-    DOCUMENT: 'document',
+    DOCUMENT: 'document'
 } as const
 
 export const MetaEntityKind = _META_ENTITY_KIND_MAP
@@ -288,7 +275,7 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
     // Bottom zone widgets
-    { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: false },
+    { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: false }
 ] as const
 
 export type DashboardLayoutWidgetKey = (typeof DASHBOARD_LAYOUT_WIDGETS)[number]['key']
@@ -339,6 +326,21 @@ export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 
 /** Schema version discriminator for future manifest format evolution. */
 export type MetahubTemplateSchemaVersion = 'metahub-template/v1'
+
+/** Snapshot envelope version used for metahub export/publication snapshots. */
+export type MetahubSnapshotFormatVersion = 1
+
+/**
+ * Unified version envelope that separates:
+ * - platform structure version (DDL)
+ * - template semantic version
+ * - snapshot format version
+ */
+export interface MetahubSnapshotVersionEnvelope {
+    structureVersion: number
+    templateVersion: string | null
+    snapshotFormatVersion: MetahubSnapshotFormatVersion
+}
 
 /** Template metadata (author, tags, icon). */
 export interface MetahubTemplateMeta {

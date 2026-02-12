@@ -7,6 +7,7 @@ import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
@@ -54,14 +55,14 @@ export function createHubsRoutes(
 
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
-            (req, res, next) => {
-                fn(req, res).catch(next)
-            }
+        (req, res, next) => {
+            fn(req, res).catch(next)
+        }
 
     const services = (req: Request) => {
         const ds = getDataSource()
         const manager = getRequestManager(req, ds)
-        const schemaService = new MetahubSchemaService(ds)
+        const schemaService = new MetahubSchemaService(ds, undefined, manager)
         const objectsService = new MetahubObjectsService(schemaService)
         const hubsService = new MetahubHubsService(schemaService)
         return {
@@ -85,7 +86,7 @@ export function createHubsRoutes(
         const catalogs = await knex
             .withSchema(schemaName)
             .from('_mhb_objects')
-            .where({ kind: 'CATALOG' })
+            .where({ kind: MetaEntityKind.CATALOG })
             // hubId exists in config.hubs array
             .whereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
             // isRequiredHub is true
@@ -103,7 +104,7 @@ export function createHubsRoutes(
 
     /**
      * GET /metahub/:metahubId/hubs
-     * List all hubs in a metahub (from _mhb_objects with kind='HUB')
+     * List all hubs in a metahub (from _mhb_objects with kind='hub')
      */
     router.get(
         '/metahub/:metahubId/hubs',
@@ -125,13 +126,17 @@ export function createHubsRoutes(
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-            const { items: hubs, total } = await hubsService.findAll(metahubId, {
-                limit,
-                offset,
-                sortBy,
-                sortOrder,
-                search
-            }, userId)
+            const { items: hubs, total } = await hubsService.findAll(
+                metahubId,
+                {
+                    limit,
+                    offset,
+                    sortBy,
+                    sortOrder,
+                    search
+                },
+                userId
+            )
 
             // Calculate catalog counts
             const catalogs = await objectsService.findAll(metahubId, userId)
@@ -162,7 +167,7 @@ export function createHubsRoutes(
 
     /**
      * GET /metahub/:metahubId/hub/:hubId
-     * Get a single hub (from _mhb_objects with kind='HUB')
+     * Get a single hub (from _mhb_objects with kind='hub')
      */
     router.get(
         '/metahub/:metahubId/hub/:hubId',
@@ -193,7 +198,7 @@ export function createHubsRoutes(
 
     /**
      * POST /metahub/:metahubId/hubs
-     * Create a new hub (in _mhb_objects with kind='HUB')
+     * Create a new hub (in _mhb_objects with kind='hub')
      */
     router.post(
         '/metahub/:metahubId/hubs',
@@ -248,13 +253,17 @@ export function createHubsRoutes(
                 }
             }
 
-            const saved = await hubsService.create(metahubId, {
-                codename: normalizedCodename,
-                name: nameVlc as unknown as Record<string, unknown>,
-                description: descriptionVlc as unknown as Record<string, unknown> | undefined,
-                sortOrder: sortOrder ?? 0,
-                createdBy: userId
-            }, userId)
+            const saved = await hubsService.create(
+                metahubId,
+                {
+                    codename: normalizedCodename,
+                    name: nameVlc as unknown as Record<string, unknown>,
+                    description: descriptionVlc as unknown as Record<string, unknown> | undefined,
+                    sortOrder: sortOrder ?? 0,
+                    createdBy: userId
+                },
+                userId
+            )
 
             res.status(201).json({
                 id: saved.id,
@@ -271,7 +280,7 @@ export function createHubsRoutes(
 
     /**
      * PATCH /metahub/:metahubId/hub/:hubId
-     * Update a hub (in _mhb_objects with kind='HUB')
+     * Update a hub (in _mhb_objects with kind='hub')
      */
     router.patch(
         '/metahub/:metahubId/hub/:hubId',
@@ -330,7 +339,12 @@ export function createHubsRoutes(
                 if (Object.keys(sanitizedDescription).length > 0) {
                     const hubName = hub.name as Record<string, unknown> | undefined
                     const hubDesc = hub.description as Record<string, unknown> | undefined
-                    const primary = descriptionPrimaryLocale ?? (hubDesc as { _primary?: string })?._primary ?? (hubName as { _primary?: string })?._primary ?? namePrimaryLocale ?? 'en'
+                    const primary =
+                        descriptionPrimaryLocale ??
+                        (hubDesc as { _primary?: string })?._primary ??
+                        (hubName as { _primary?: string })?._primary ??
+                        namePrimaryLocale ??
+                        'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
                     if (descriptionVlc) {
                         updateData.description = descriptionVlc

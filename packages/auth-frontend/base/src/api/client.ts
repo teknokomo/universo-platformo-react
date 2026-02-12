@@ -6,7 +6,7 @@ const CSRF_STORAGE_SYMBOL = Symbol.for('universo.auth.csrfStorageKey')
 
 const RETRYABLE_METHODS = new Set(['get', 'head', 'options'])
 const RETRYABLE_STATUSES = new Set([503, 504])
-const MAX_RETRY_ATTEMPTS = 4
+const DEFAULT_TRANSIENT_RETRY_ATTEMPTS = 0
 const BASE_BACKOFF_MS = 300
 const CSRF_REQUIRED_METHODS = new Set(['post', 'put', 'patch', 'delete'])
 
@@ -55,13 +55,19 @@ export interface AuthClientOptions {
     redirectOn401?: 'auto' | boolean | readonly string[]
     /** Custom redirect path. Defaults to '/auth'. */
     authRedirectPath?: string
+    /**
+     * Optional transport-level retry attempts for transient 503/504 on idempotent requests.
+     * Defaults to `0` to avoid duplicate retry layers with TanStack Query.
+     */
+    transientRetryAttempts?: number
 }
 
 const defaultOptions: Required<Omit<AuthClientOptions, 'baseURL'>> = {
     csrfPath: 'auth/csrf',
     csrfStorageKey: AUTH_CSRF_STORAGE_KEY,
     redirectOn401: 'auto',
-    authRedirectPath: '/auth'
+    authRedirectPath: '/auth',
+    transientRetryAttempts: DEFAULT_TRANSIENT_RETRY_ATTEMPTS
 }
 
 const getSessionStorage = () => {
@@ -170,9 +176,9 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
             const method = typeof config?.method === 'string' ? config.method.toLowerCase() : ''
             const shouldRetry = RETRYABLE_METHODS.has(method) && typeof status === 'number' && RETRYABLE_STATUSES.has(status)
 
-            if (shouldRetry) {
+            if (shouldRetry && mergedOptions.transientRetryAttempts > 0) {
                 const currentAttempt = config.__retryCount ?? 0
-                if (currentAttempt < MAX_RETRY_ATTEMPTS) {
+                if (currentAttempt < mergedOptions.transientRetryAttempts) {
                     const retryAfterHeader = error?.response?.headers?.['retry-after'] ?? error?.response?.headers?.['Retry-After']
                     const delayMs = resolveBackoffDelay(currentAttempt, retryAfterHeader)
                     config.__retryCount = currentAttempt + 1

@@ -6,6 +6,7 @@ import {
     DASHBOARD_LAYOUT_WIDGETS,
     DashboardLayoutWidgetKey
 } from '@universo/types'
+import { CURRENT_STRUCTURE_VERSION } from '../../metahubs/services/structureVersions'
 
 const widgetKeys = DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
 
@@ -92,19 +93,129 @@ const templateMetaSchema = z.object({
     previewUrl: z.string().optional()
 })
 
-/**
- * Zod schema for MetahubTemplateManifest validation.
- * Used by TemplateSeeder to validate manifest data before inserting into DB.
- */
-export const templateManifestSchema = z.object({
+const baseTemplateManifestSchema = z.object({
     $schema: z.literal('metahub-template/v1'),
-    codename: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, 'Codename must be lowercase alphanumeric with hyphens'),
+    codename: z
+        .string()
+        .min(1)
+        .max(100)
+        .regex(/^[a-z0-9-]+$/, 'Codename must be lowercase alphanumeric with hyphens'),
     version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be SemVer (e.g., 1.0.0)'),
     minStructureVersion: z.number().int().positive(),
     name: vlcSchema,
     description: vlcSchema.optional(),
     meta: templateMetaSchema.optional(),
     seed: seedSchema
+})
+
+/**
+ * Zod schema for MetahubTemplateManifest validation.
+ * Used by TemplateSeeder to validate manifest data before inserting into DB.
+ */
+export const templateManifestSchema = baseTemplateManifestSchema.superRefine((manifest, ctx) => {
+    if (manifest.minStructureVersion > CURRENT_STRUCTURE_VERSION) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['minStructureVersion'],
+            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION}`
+        })
+    }
+
+    const layoutCodenameSet = new Set<string>()
+    const layoutTemplateKeySet = new Set<string>()
+
+    for (let i = 0; i < manifest.seed.layouts.length; i++) {
+        const layout = manifest.seed.layouts[i]
+        if (layoutCodenameSet.has(layout.codename)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'layouts', i, 'codename'],
+                message: `Duplicate layout codename: ${layout.codename}`
+            })
+        }
+        layoutCodenameSet.add(layout.codename)
+
+        if (layoutTemplateKeySet.has(layout.templateKey)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'layouts', i, 'templateKey'],
+                message: `Duplicate layout templateKey: ${layout.templateKey}`
+            })
+        }
+        layoutTemplateKeySet.add(layout.templateKey)
+    }
+
+    for (const layoutCodename of Object.keys(manifest.seed.layoutZoneWidgets)) {
+        if (!layoutCodenameSet.has(layoutCodename)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'layoutZoneWidgets', layoutCodename],
+                message: `layoutZoneWidgets references unknown layout codename: ${layoutCodename}`
+            })
+        }
+    }
+
+    const entities = manifest.seed.entities ?? []
+    const entityKeySet = new Set<string>()
+    const entityByCodename = new Map<string, number>()
+    const entityByKindCodename = new Set<string>()
+
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i]
+        const key = `${entity.kind}:${entity.codename}`
+        if (entityKeySet.has(key)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'entities', i, 'codename'],
+                message: `Duplicate entity identity: ${key}`
+            })
+        }
+        entityKeySet.add(key)
+        entityByKindCodename.add(key)
+        entityByCodename.set(entity.codename, (entityByCodename.get(entity.codename) ?? 0) + 1)
+    }
+
+    const elementsByEntity = manifest.seed.elements ?? {}
+    for (const entityCodename of Object.keys(elementsByEntity)) {
+        const count = entityByCodename.get(entityCodename) ?? 0
+        if (count === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'elements', entityCodename],
+                message: `elements references unknown entity codename: ${entityCodename}`
+            })
+            continue
+        }
+        if (count > 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'elements', entityCodename],
+                message: `elements reference is ambiguous for codename: ${entityCodename}. Provide unique codenames across entity kinds.`
+            })
+        }
+    }
+
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i]
+        for (let attrIndex = 0; attrIndex < (entity.attributes?.length ?? 0); attrIndex++) {
+            const attribute = entity.attributes?.[attrIndex]
+            if (!attribute?.targetEntityCodename) {
+                continue
+            }
+
+            const hasTarget = attribute.targetEntityKind
+                ? entityByKindCodename.has(`${attribute.targetEntityKind}:${attribute.targetEntityCodename}`)
+                : (entityByCodename.get(attribute.targetEntityCodename) ?? 0) === 1
+
+            if (!hasTarget) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['seed', 'entities', i, 'attributes', attrIndex, 'targetEntityCodename'],
+                    message: `Attribute target not found or ambiguous: ${attribute.targetEntityCodename}`
+                })
+            }
+        }
+    }
 })
 
 export type ValidatedManifest = z.infer<typeof templateManifestSchema>

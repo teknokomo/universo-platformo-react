@@ -100,6 +100,24 @@ export const metahubsQueryKeys = {
     layoutZoneWidgetsCatalog: (metahubId: string, layoutId: string) =>
         [...metahubsQueryKeys.layoutDetail(metahubId, layoutId), 'zoneWidgetsCatalog'] as const,
 
+    // Migrations scoped to a specific metahub
+    migrations: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'migrations'] as const,
+
+    migrationsList: (metahubId: string, params?: PaginationParams & { branchId?: string }) => {
+        const normalized = {
+            limit: params?.limit ?? 50,
+            offset: params?.offset ?? 0,
+            branchId: params?.branchId ?? undefined
+        }
+        return [...metahubsQueryKeys.migrations(metahubId), 'list', normalized] as const
+    },
+
+    migrationsPlan: (metahubId: string, branchId?: string, cleanupMode: 'keep' | 'dry_run' | 'confirm' = 'keep') =>
+        [...metahubsQueryKeys.migrations(metahubId), 'plan', branchId ?? 'default', cleanupMode] as const,
+
+    migrationsStatus: (metahubId: string, branchId?: string, cleanupMode: 'keep' | 'dry_run' | 'confirm' = 'keep') =>
+        [...metahubsQueryKeys.migrations(metahubId), 'status', branchId ?? 'default', cleanupMode] as const,
+
     // Blocking catalogs for hub deletion (catalogs with isRequiredHub=true that would become orphaned)
     blockingCatalogs: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'blockingCatalogs'] as const,
 

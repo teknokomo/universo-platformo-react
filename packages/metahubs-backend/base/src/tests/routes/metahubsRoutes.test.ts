@@ -13,6 +13,9 @@ jest.mock(
             VersionColumn: decorator,
             ManyToOne: decorator,
             OneToMany: decorator,
+            OneToOne: decorator,
+            ManyToMany: decorator,
+            JoinTable: decorator,
             JoinColumn: decorator,
             Index: decorator,
             Unique: decorator,
@@ -31,13 +34,34 @@ jest.mock('@universo/admin-backend', () => ({
 
 const mockClone = jest.fn(async () => undefined)
 const mockDropSchema = jest.fn(async () => undefined)
+const mockAcquireAdvisoryLock = jest.fn(async () => true)
+const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
+const mockUuidToLockKey = jest.fn((value: string) => value)
+const mockCreateInitialBranch = jest.fn(async () => ({
+    id: 'branch-main',
+    metahubId: 'metahub-1',
+    codename: 'main'
+}))
 
 jest.mock('../../domains/ddl', () => ({
     __esModule: true,
+    KnexClient: {
+        getInstance: jest.fn(() => ({}))
+    },
+    acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
+    releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
+    uuidToLockKey: (...args: unknown[]) => mockUuidToLockKey(...args),
     getDDLServices: () => ({
         cloner: { clone: (...args: unknown[]) => mockClone(...args) },
         generator: { dropSchema: (...args: unknown[]) => mockDropSchema(...args) }
     })
+}))
+
+jest.mock('../../domains/branches/services/MetahubBranchesService', () => ({
+    __esModule: true,
+    MetahubBranchesService: jest.fn().mockImplementation(() => ({
+        createInitialBranch: (...args: unknown[]) => mockCreateInitialBranch(...args)
+    }))
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -93,6 +117,7 @@ describe('Metahubs Routes', () => {
         const publicationRepo = createMockRepository<any>()
         const authUserRepo = createMockRepository<any>()
         const profileRepo = createMockRepository<any>()
+        const templateRepo = createMockRepository<any>()
 
         const dataSource = createMockDataSource({
             Metahub: metahubRepo,
@@ -104,7 +129,8 @@ describe('Metahubs Routes', () => {
             HubElement: hubElementRepo,
             Publication: publicationRepo,
             AuthUser: authUserRepo,
-            Profile: profileRepo
+            Profile: profileRepo,
+            Template: templateRepo
         })
 
         return {
@@ -118,7 +144,8 @@ describe('Metahubs Routes', () => {
             hubElementRepo,
             publicationRepo,
             authUserRepo,
-            profileRepo
+            profileRepo,
+            templateRepo
         }
     }
 
@@ -126,6 +153,14 @@ describe('Metahubs Routes', () => {
         jest.clearAllMocks()
         mockClone.mockClear()
         mockDropSchema.mockClear()
+        mockAcquireAdvisoryLock.mockResolvedValue(true)
+        mockReleaseAdvisoryLock.mockResolvedValue(undefined)
+        mockUuidToLockKey.mockImplementation((value: string) => value)
+        mockCreateInitialBranch.mockResolvedValue({
+            id: 'branch-main',
+            metahubId: 'metahub-1',
+            codename: 'main'
+        })
     })
 
     describe('GET /metahubs', () => {
@@ -155,8 +190,8 @@ describe('Metahubs Routes', () => {
                     id: 'metahub-1',
                     name: 'Test Metahub',
                     description: 'Test Description',
-                    createdAt: new Date('2025-01-01'),
-                    updatedAt: new Date('2025-01-02')
+                    _uplCreatedAt: new Date('2025-01-01'),
+                    _uplUpdatedAt: new Date('2025-01-02')
                 }
             ]
 
@@ -229,7 +264,7 @@ describe('Metahubs Routes', () => {
             // Should use defaults: limit=100, offset=0, orderBy updatedAt DESC
             expect(mockQB.take).toHaveBeenCalledWith(100)
             expect(mockQB.skip).toHaveBeenCalledWith(0)
-            expect(mockQB.orderBy).toHaveBeenCalledWith('m.updated_at', 'DESC')
+            expect(mockQB.orderBy).toHaveBeenCalledWith('m._upl_updated_at', 'DESC')
         })
 
         it('should return 401 when user is not authenticated', async () => {
@@ -273,8 +308,8 @@ describe('Metahubs Routes', () => {
                     id: 'metahub-1',
                     name: 'Test Metahub',
                     description: 'A test description',
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+                    _uplCreatedAt: new Date(),
+                    _uplUpdatedAt: new Date()
                 }
             ]
 
@@ -299,8 +334,8 @@ describe('Metahubs Routes', () => {
                     id: 'metahub-1',
                     name: 'Test Metahub',
                     description: 'Test Description',
-                    createdAt: new Date('2025-01-01'),
-                    updatedAt: new Date('2025-01-02')
+                    _uplCreatedAt: new Date('2025-01-01'),
+                    _uplUpdatedAt: new Date('2025-01-02')
                 }
             ]
 
@@ -358,6 +393,9 @@ describe('Metahubs Routes', () => {
                     branchNumber: 1,
                     codename: 'main',
                     schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                    lastTemplateVersionId: 'tpl-v100',
+                    lastTemplateVersionLabel: '1.0.0',
+                    lastTemplateSyncedAt: new Date('2026-02-12T11:00:00.000Z'),
                     name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main' } } },
                     description: null
                 },
@@ -368,6 +406,9 @@ describe('Metahubs Routes', () => {
                     branchNumber: 2,
                     codename: 'feature',
                     schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2',
+                    lastTemplateVersionId: 'tpl-v100',
+                    lastTemplateVersionLabel: '1.0.0',
+                    lastTemplateSyncedAt: new Date('2026-02-12T11:00:00.000Z'),
                     name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Feature' } } },
                     description: null
                 }
@@ -409,6 +450,12 @@ describe('Metahubs Routes', () => {
                     sourceSchema: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
                     targetSchema: 'mhb_018f8a787b8f7c1da111222233334444_b1',
                     copyData: true
+                })
+            )
+            expect(metahubBranchRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    lastTemplateVersionId: 'tpl-v100',
+                    lastTemplateVersionLabel: '1.0.0'
                 })
             )
             expect(metahubUserRepo.create).toHaveBeenCalledWith(
@@ -455,7 +502,14 @@ describe('Metahubs Routes', () => {
                 id: 'metahub-1',
                 codename: 'source-hub'
             })
-            metahubBranchRepo.find.mockResolvedValue([
+            const lockedMetahubQb = metahubRepo.createQueryBuilder()
+            lockedMetahubQb.getOne.mockResolvedValue({
+                id: 'metahub-1',
+                codename: 'source-hub'
+            })
+
+            const lockedBranchesQb = metahubBranchRepo.createQueryBuilder()
+            lockedBranchesQb.getMany.mockResolvedValue([
                 { id: 'branch-1', metahubId: 'metahub-1', schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
                 { id: 'branch-2', metahubId: 'metahub-1', schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2' }
             ])
@@ -466,7 +520,11 @@ describe('Metahubs Routes', () => {
 
             expect(dataSource.manager.query).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "mhb_a1b2c3d4e5f67890abcdef1234567890_b1" CASCADE')
             expect(dataSource.manager.query).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "mhb_a1b2c3d4e5f67890abcdef1234567890_b2" CASCADE')
-            expect(metahubRepo.remove).toHaveBeenCalled()
+            expect(metahubRepo.remove).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: 'metahub-1'
+                })
+            )
         })
     })
 
@@ -490,8 +548,8 @@ describe('Metahubs Routes', () => {
 
             metahubUserRepo.findOne.mockResolvedValueOnce({
                 id: 'membership-admin',
-                metahub_id: 'metahub-1',
-                user_id: 'test-user-id',
+                metahubId: 'metahub-1',
+                userId: 'test-user-id',
                 role: 'admin'
             })
 
@@ -500,17 +558,17 @@ describe('Metahubs Routes', () => {
             const membersList = [
                 {
                     id: 'membership-owner',
-                    metahub_id: 'metahub-1',
-                    user_id: 'owner-id',
+                    metahubId: 'metahub-1',
+                    userId: 'owner-id',
                     role: 'owner',
-                    created_at: now
+                    _uplCreatedAt: now
                 },
                 {
                     id: 'membership-editor',
-                    metahub_id: 'metahub-1',
-                    user_id: 'editor-id',
+                    metahubId: 'metahub-1',
+                    userId: 'editor-id',
                     role: 'editor',
-                    created_at: now
+                    _uplCreatedAt: now
                 }
             ]
             mockQB.getManyAndCount.mockResolvedValue([membersList, 2])
@@ -547,8 +605,8 @@ describe('Metahubs Routes', () => {
 
             metahubUserRepo.findOne.mockResolvedValueOnce({
                 id: 'membership-basic',
-                metahub_id: 'metahub-1',
-                user_id: 'test-user-id',
+                metahubId: 'metahub-1',
+                userId: 'test-user-id',
                 role: 'member'
             })
 
@@ -563,8 +621,8 @@ describe('Metahubs Routes', () => {
             metahubUserRepo.findOne
                 .mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
                 .mockResolvedValueOnce(null)
@@ -590,8 +648,8 @@ describe('Metahubs Routes', () => {
 
             metahubUserRepo.findOne.mockResolvedValueOnce({
                 id: 'membership-editor',
-                metahub_id: 'metahub-1',
-                user_id: 'test-user-id',
+                metahubId: 'metahub-1',
+                userId: 'test-user-id',
                 role: 'editor'
             })
 
@@ -606,14 +664,14 @@ describe('Metahubs Routes', () => {
             metahubUserRepo.findOne
                 .mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
                 .mockResolvedValueOnce({
                     id: 'membership-target',
-                    metahub_id: 'metahub-1',
-                    user_id: 'target-user',
+                    metahubId: 'metahub-1',
+                    userId: 'target-user',
                     role: 'member'
                 })
 
@@ -631,8 +689,8 @@ describe('Metahubs Routes', () => {
 
             metahubUserRepo.findOne.mockResolvedValueOnce({
                 id: 'membership-member',
-                metahub_id: 'metahub-1',
-                user_id: 'test-user-id',
+                metahubId: 'metahub-1',
+                userId: 'test-user-id',
                 role: 'member'
             })
 
@@ -645,14 +703,14 @@ describe('Metahubs Routes', () => {
             metahubUserRepo.findOne
                 .mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
                 .mockResolvedValueOnce({
                     id: 'membership-target',
-                    metahub_id: 'metahub-1',
-                    user_id: 'target-user',
+                    metahubId: 'metahub-1',
+                    userId: 'target-user',
                     role: 'member'
                 })
 
@@ -665,8 +723,8 @@ describe('Metahubs Routes', () => {
 
             metahubUserRepo.findOne.mockResolvedValueOnce({
                 id: 'membership-member',
-                metahub_id: 'metahub-1',
-                user_id: 'test-user-id',
+                metahubId: 'metahub-1',
+                userId: 'test-user-id',
                 role: 'member'
             })
 
@@ -682,8 +740,8 @@ describe('Metahubs Routes', () => {
                 // Mock admin user permission check
                 metahubUserRepo.findOne.mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -693,19 +751,19 @@ describe('Metahubs Routes', () => {
                     [
                         {
                             id: 'membership-owner',
-                            metahub_id: 'metahub-1',
-                            user_id: 'owner-id',
+                            metahubId: 'metahub-1',
+                            userId: 'owner-id',
                             role: 'owner',
                             comment: null,
-                            created_at: now
+                            _uplCreatedAt: now
                         },
                         {
                             id: 'membership-editor',
-                            metahub_id: 'metahub-1',
-                            user_id: 'editor-id',
+                            metahubId: 'metahub-1',
+                            userId: 'editor-id',
                             role: 'editor',
                             comment: 'Test comment',
-                            created_at: now
+                            _uplCreatedAt: now
                         }
                     ],
                     2
@@ -750,8 +808,8 @@ describe('Metahubs Routes', () => {
 
                 metahubUserRepo.findOne.mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -760,11 +818,11 @@ describe('Metahubs Routes', () => {
                     [
                         {
                             id: 'membership-editor',
-                            metahub_id: 'metahub-1',
-                            user_id: 'editor-id',
+                            metahubId: 'metahub-1',
+                            userId: 'editor-id',
                             role: 'editor',
                             comment: 'This is a test comment from metahubs_users table',
-                            created_at: now
+                            _uplCreatedAt: now
                         }
                     ],
                     1
@@ -794,8 +852,8 @@ describe('Metahubs Routes', () => {
 
                 metahubUserRepo.findOne.mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -804,11 +862,11 @@ describe('Metahubs Routes', () => {
                     [
                         {
                             id: 'membership-orphan',
-                            metahub_id: 'metahub-1',
-                            user_id: 'orphan-user-id',
+                            metahubId: 'metahub-1',
+                            userId: 'orphan-user-id',
                             role: 'member',
                             comment: null,
-                            created_at: now
+                            _uplCreatedAt: now
                         }
                     ],
                     1
@@ -838,8 +896,8 @@ describe('Metahubs Routes', () => {
 
                 metahubUserRepo.findOne.mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -878,8 +936,8 @@ describe('Metahubs Routes', () => {
 
                 metahubUserRepo.findOne.mockResolvedValueOnce({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -911,8 +969,8 @@ describe('Metahubs Routes', () => {
 
                 metahubUserRepo.findOne.mockResolvedValue({
                     id: 'membership-admin',
-                    metahub_id: 'metahub-1',
-                    user_id: 'test-user-id',
+                    metahubId: 'metahub-1',
+                    userId: 'test-user-id',
                     role: 'admin'
                 })
 
@@ -946,6 +1004,81 @@ describe('Metahubs Routes', () => {
 
                 // Verify no member was created
                 expect(metahubUserRepo.save).not.toHaveBeenCalled()
+            })
+        })
+    })
+
+    describe('Unique conflict handling', () => {
+        it('returns 409 on create when database reports codename unique violation', async () => {
+            const { dataSource, metahubRepo } = buildDataSource()
+
+            metahubRepo.findOne.mockResolvedValueOnce(null)
+            dataSource.transaction.mockRejectedValueOnce({
+                code: '23505',
+                constraint: 'idx_metahubs_codename_active'
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'new-hub' }).expect(409)
+
+            expect(response.body).toMatchObject({ error: 'Codename already in use' })
+        })
+
+        it('returns generic 409 on create when unique violation constraint is unknown', async () => {
+            const { dataSource, metahubRepo } = buildDataSource()
+
+            metahubRepo.findOne.mockResolvedValueOnce(null)
+            dataSource.transaction.mockRejectedValueOnce({
+                driverError: {
+                    code: '23505',
+                    constraint: 'metahubs_some_unknown_unique_idx'
+                }
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app).post('/metahubs').send({ name: 'New Hub', codename: 'new-hub' }).expect(409)
+
+            expect(response.body).toMatchObject({ error: 'Unique constraint conflict' })
+        })
+
+        it('returns 409 on update when database reports codename unique violation from driverError', async () => {
+            const { dataSource, metahubRepo, metahubUserRepo } = buildDataSource()
+
+            metahubUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                metahubId: 'metahub-1',
+                role: 'admin'
+            })
+            metahubRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'metahub-1',
+                    codename: 'old-codename',
+                    slug: null,
+                    name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Old hub' } } },
+                    description: null,
+                    isPublic: false,
+                    _uplVersion: 1,
+                    _uplUpdatedAt: new Date('2026-02-11T10:00:00.000Z'),
+                    _uplUpdatedBy: 'test-user-id'
+                })
+                .mockResolvedValueOnce(null)
+            metahubRepo.save.mockRejectedValueOnce({
+                driverError: {
+                    code: '23505',
+                    constraint: 'idx_metahubs_codename_active'
+                }
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app).put('/metahub/metahub-1').send({ codename: 'new-codename', expectedVersion: 1 }).expect(409)
+
+            expect(response.body).toMatchObject({ error: 'Codename already in use' })
+            expect(metahubRepo.findOne).toHaveBeenCalledWith({
+                where: {
+                    codename: 'new-codename',
+                    _uplDeleted: false,
+                    _mhbDeleted: false
+                }
             })
         })
     })

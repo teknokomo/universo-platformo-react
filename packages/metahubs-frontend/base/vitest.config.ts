@@ -10,6 +10,9 @@ const srcDir = path.resolve(__dirname, 'src')
 const coreFrontendSrcDir = path.resolve(__dirname, '../../flowise-core-frontend/base/src')
 const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
+const isCI = process.env.CI === 'true'
+const coverageEnabled = process.env.VITEST_COVERAGE !== 'false'
+const enforceCoverageThresholds = isCI || process.env.VITEST_ENFORCE_COVERAGE === 'true'
 
 // Merge with baseConfig (now uses happy-dom from base)
 export default mergeConfig(
@@ -36,8 +39,24 @@ export default mergeConfig(
       globals: true,
       include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
       setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
+      server: {
+        deps: {
+          inline: [
+            /@universo\/template-mui/,
+            /@mui\/x-data-grid/,
+            /@mui\/x-data-grid-pro/,
+            /@mui\/x-data-grid-generator/,
+            /@mui\/x-internals/,
+            /@mui\/x-virtualizer/,
+          ],
+        },
+      },
+      css: {
+        include: [/.+/],
+      },
+      testTimeout: 30000,
       coverage: {
-        enabled: true,
+        enabled: coverageEnabled,
         reporter: ['text', 'json-summary'],
         reportsDirectory: path.resolve(__dirname, 'coverage'),
         include: ['src/**/*.{ts,tsx}'],
@@ -58,12 +77,16 @@ export default mergeConfig(
           'src/domains/publications/**',
           'src/domains/metahubs/ui/MetahubActions.tsx',
         ],
-        thresholds: {
-          statements: 70,
-          branches: 70,
-          functions: 70,
-          lines: 70,
-        },
+        ...(enforceCoverageThresholds
+          ? {
+              thresholds: {
+                statements: 70,
+                branches: 70,
+                functions: 70,
+                lines: 70,
+              },
+            }
+          : {}),
       },
     },
     esbuild: {

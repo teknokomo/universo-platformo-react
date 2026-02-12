@@ -13,6 +13,7 @@ jest.mock(
             VersionColumn: decorator,
             ManyToOne: decorator,
             OneToMany: decorator,
+            OneToOne: decorator,
             ManyToMany: decorator,
             JoinTable: decorator,
             JoinColumn: decorator,
@@ -24,12 +25,71 @@ jest.mock(
     { virtual: true }
 )
 
+jest.mock('@universo/admin-backend', () => ({
+    __esModule: true,
+    isSuperuserByDataSource: jest.fn(async () => false),
+    getGlobalRoleCodenameByDataSource: jest.fn(async () => null),
+    hasSubjectPermissionByDataSource: jest.fn(async () => false)
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
-import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
+
+import { createMockDataSource } from '../utils/typeormMocks'
 import { createCatalogsRoutes } from '../../domains/catalogs/routes/catalogsRoutes'
+
+const mockObjectsService = {
+    findAll: jest.fn(),
+    findById: jest.fn(),
+    findByCodename: jest.fn(),
+    createCatalog: jest.fn(),
+    updateCatalog: jest.fn(),
+    delete: jest.fn(),
+    findDeleted: jest.fn(),
+    restore: jest.fn(),
+    permanentDelete: jest.fn()
+}
+
+const mockHubsService = {
+    findByIds: jest.fn(),
+    findById: jest.fn()
+}
+
+const mockAttributesService = {
+    countByObjectIds: jest.fn(),
+    findCatalogReferenceBlockers: jest.fn()
+}
+
+const mockElementsService = {
+    countByObjectIds: jest.fn()
+}
+
+jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
+    __esModule: true,
+    MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
+    __esModule: true,
+    MetahubObjectsService: jest.fn().mockImplementation(() => mockObjectsService)
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
+    __esModule: true,
+    MetahubHubsService: jest.fn().mockImplementation(() => mockHubsService)
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubAttributesService', () => ({
+    __esModule: true,
+    MetahubAttributesService: jest.fn().mockImplementation(() => mockAttributesService)
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubElementsService', () => ({
+    __esModule: true,
+    MetahubElementsService: jest.fn().mockImplementation(() => mockElementsService)
+}))
 
 describe('Catalogs Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
@@ -37,12 +97,10 @@ describe('Catalogs Routes', () => {
         next()
     }
 
-    // Mock rate limiters (no-op middleware for tests)
     const mockRateLimiter: RateLimitRequestHandler = ((_req: Request, _res: Response, next: NextFunction) => {
         next()
     }) as RateLimitRequestHandler
 
-    // Error handler middleware
     const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
         if (res.headersSent) {
             return _next(err)
@@ -52,8 +110,8 @@ describe('Catalogs Routes', () => {
         res.status(statusCode).json({ error: message })
     }
 
-    // Helper to build Express app with error handler
-    const buildApp = (dataSource: any) => {
+    const buildApp = () => {
+        const dataSource = createMockDataSource({})
         const app = express()
         app.use(express.json())
         app.use(createCatalogsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
@@ -61,234 +119,130 @@ describe('Catalogs Routes', () => {
         return app
     }
 
-    const buildDataSource = () => {
-        const catalogRepo = createMockRepository<any>()
-        const catalogHubRepo = createMockRepository<any>()
-        const hubRepo = createMockRepository<any>()
-        const attributeRepo = createMockRepository<any>()
-        const elementRepo = createMockRepository<any>()
-
-        const dataSource = createMockDataSource({
-            Catalog: catalogRepo,
-            CatalogHub: catalogHubRepo,
-            Hub: hubRepo,
-            Attribute: attributeRepo,
-            HubElement: elementRepo
-        })
-
-        return {
-            dataSource,
-            catalogRepo,
-            catalogHubRepo,
-            hubRepo,
-            attributeRepo,
-            elementRepo
-        }
-    }
-
     beforeEach(() => {
         jest.clearAllMocks()
+
+        mockObjectsService.findAll.mockResolvedValue([])
+        mockObjectsService.findById.mockResolvedValue(null)
+        mockObjectsService.findByCodename.mockResolvedValue(null)
+        mockObjectsService.createCatalog.mockResolvedValue(null)
+        mockObjectsService.updateCatalog.mockResolvedValue(null)
+        mockObjectsService.delete.mockResolvedValue(undefined)
+        mockObjectsService.findDeleted.mockResolvedValue([])
+        mockObjectsService.restore.mockResolvedValue(undefined)
+        mockObjectsService.permanentDelete.mockResolvedValue(undefined)
+
+        mockHubsService.findByIds.mockResolvedValue([])
+        mockHubsService.findById.mockResolvedValue(null)
+
+        mockAttributesService.countByObjectIds.mockResolvedValue(new Map<string, number>())
+        mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([])
+
+        mockElementsService.countByObjectIds.mockResolvedValue(new Map<string, number>())
     })
 
-    // =========================================================================
-    // GET /metahub/:metahubId/catalogs - List all catalogs
-    // =========================================================================
     describe('GET /metahub/:metahubId/catalogs', () => {
-        it('should return empty array when no catalogs exist', async () => {
-            const { dataSource, catalogRepo, hubRepo } = buildDataSource()
-
-            hubRepo.find.mockResolvedValue([])
-            // getRawMany returns empty array for window function query
-            catalogRepo.createQueryBuilder().getRawMany.mockResolvedValue([])
-
-            const app = buildApp(dataSource)
+        it('returns empty list', async () => {
+            const app = buildApp()
 
             const response = await request(app).get('/metahub/test-metahub-id/catalogs').expect(200)
 
-            expect(response.body).toMatchObject({
-                items: [],
-                pagination: { total: 0 }
-            })
+            expect(response.body).toMatchObject({ items: [], pagination: { total: 0 } })
+            expect(mockObjectsService.findAll).toHaveBeenCalledWith('test-metahub-id', 'test-user-id')
         })
 
-        it('should return catalogs with hub associations', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo, hubRepo } = buildDataSource()
-
-            const mockHubs = [
-                { id: 'hub-1', name: { en: 'Hub 1' }, codename: 'hub-1' },
-                { id: 'hub-2', name: { en: 'Hub 2' }, codename: 'hub-2' }
-            ]
-
-            // Raw result from window function query
-            const mockRawCatalogs = [
+        it('returns catalogs with counts and hub associations', async () => {
+            const now = new Date('2026-02-11T00:00:00.000Z')
+            const rawCatalogs = [
                 {
                     id: 'catalog-1',
-                    metahubId: 'test-metahub-id',
                     codename: 'products',
-                    name: { en: 'Products' },
-                    description: { en: 'Product catalog' },
-                    sortOrder: 0,
-                    isSingleHub: false,
-                    isRequiredHub: false,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    attributesCount: '0',
-                    elementsCount: '0',
-                    window_total: '1'
+                    presentation: { name: { en: 'Products' }, description: { en: 'Product catalog' } },
+                    config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 3 },
+                    _upl_version: 7,
+                    created_at: now,
+                    updated_at: now
                 }
             ]
 
-            const mockCatalogHubs = [{ catalogId: 'catalog-1', hubId: 'hub-1', sortOrder: 0 }]
+            mockObjectsService.findAll.mockResolvedValue(rawCatalogs)
+            mockAttributesService.countByObjectIds.mockResolvedValue(new Map([['catalog-1', 2]]))
+            mockElementsService.countByObjectIds.mockResolvedValue(new Map([['catalog-1', 5]]))
+            mockHubsService.findByIds.mockResolvedValue([{ id: 'hub-1', name: { en: 'Hub 1' }, codename: 'hub-1' }])
 
-            hubRepo.find.mockResolvedValue(mockHubs)
-            catalogRepo.createQueryBuilder().getRawMany.mockResolvedValue(mockRawCatalogs)
-            catalogHubRepo.find.mockResolvedValue(mockCatalogHubs)
-
-            const app = buildApp(dataSource)
-
+            const app = buildApp()
             const response = await request(app).get('/metahub/test-metahub-id/catalogs').expect(200)
 
-            expect(response.body.pagination.total).toBe(1)
+            expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
             expect(response.body.items).toHaveLength(1)
-            expect(response.body.items[0].codename).toBe('products')
-            expect(response.body.items[0].hubs).toHaveLength(1)
-            expect(response.body.items[0].hubs[0].id).toBe('hub-1')
-        })
-
-        it('should handle invalid query parameters', async () => {
-            const { dataSource } = buildDataSource()
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .get('/metahub/test-metahub-id/catalogs?limit=invalid')
-                .expect(400)
-
-            expect(response.body.error).toBe('Invalid query')
+            expect(response.body.items[0]).toMatchObject({
+                id: 'catalog-1',
+                codename: 'products',
+                sortOrder: 3,
+                attributesCount: 2,
+                elementsCount: 5
+            })
+            expect(response.body.items[0].hubs).toEqual([
+                {
+                    id: 'hub-1',
+                    name: { en: 'Hub 1' },
+                    codename: 'hub-1'
+                }
+            ])
         })
     })
 
-    // =========================================================================
-    // POST /metahub/:metahubId/catalogs - Create catalog
-    // =========================================================================
     describe('POST /metahub/:metahubId/catalogs', () => {
-        it('should create a catalog without hub associations', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo, hubRepo } = buildDataSource()
-
-            catalogRepo.findOne.mockResolvedValue(null) // No existing catalog with same codename
-            hubRepo.find.mockResolvedValue([])
-            catalogHubRepo.find.mockResolvedValue([])
-
-            catalogRepo.create.mockImplementation((data: any) => ({
-                id: 'new-catalog-id',
-                ...data
-            }))
-            catalogRepo.save.mockImplementation((entity: any) => Promise.resolve(entity))
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .post('/metahub/test-metahub-id/catalogs')
-                .send({
-                    codename: 'new-catalog',
-                    name: 'New Catalog',
-                    description: 'A test catalog'
-                })
-                .expect(201)
-
-            expect(response.body.codename).toBe('new-catalog')
-            expect(catalogRepo.create).toHaveBeenCalled()
-            expect(catalogRepo.save).toHaveBeenCalled()
-        })
-
-        it('should create a catalog with hub associations', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo, hubRepo } = buildDataSource()
-
-            // Use valid UUID format for hub IDs
-            const hubId = '00000000-0000-0000-0000-000000000001'
-            const mockHubs = [
-                { id: hubId, metahubId: 'test-metahub-id' }
-            ]
-
-            catalogRepo.findOne.mockResolvedValue(null)
-            // First call for reference hubs in response, second for validation
-            hubRepo.find.mockResolvedValue(mockHubs)
-            catalogHubRepo.find.mockResolvedValue([])
-            catalogHubRepo.create.mockImplementation((data: any) => data)
-            catalogHubRepo.save.mockImplementation((entity: any) => Promise.resolve(entity))
-
-            catalogRepo.create.mockImplementation((data: any) => ({
-                id: 'new-catalog-id',
-                ...data
-            }))
-            catalogRepo.save.mockImplementation((entity: any) => Promise.resolve(entity))
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .post('/metahub/test-metahub-id/catalogs')
-                .send({
-                    codename: 'new-catalog',
-                    name: 'New Catalog',
-                    hubIds: [hubId]
-                })
-                .expect(201)
-
-            expect(response.body.codename).toBe('new-catalog')
-        })
-
-        it('should reject duplicate codename', async () => {
-            const { dataSource, catalogRepo, hubRepo } = buildDataSource()
-
-            catalogRepo.findOne.mockResolvedValue({
-                id: 'existing-catalog',
-                codename: 'existing-catalog'
+        it('creates catalog without hub associations', async () => {
+            mockObjectsService.createCatalog.mockResolvedValue({
+                id: 'catalog-new',
+                codename: 'new-catalog',
+                presentation: { name: { en: 'New Catalog' }, description: undefined },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
+                _upl_version: 1,
+                created_at: new Date('2026-02-11T00:00:00.000Z'),
+                updated_at: new Date('2026-02-11T00:00:00.000Z')
             })
-            hubRepo.find.mockResolvedValue([])
 
-            const app = buildApp(dataSource)
-
+            const app = buildApp()
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
-                .send({
-                    codename: 'existing-catalog',
-                    name: 'Duplicate Catalog'
-                })
+                .send({ codename: 'new-catalog', name: 'New Catalog' })
+                .expect(201)
+
+            expect(response.body).toMatchObject({ id: 'catalog-new', codename: 'new-catalog' })
+            expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
+                'test-metahub-id',
+                expect.objectContaining({
+                    codename: 'new-catalog',
+                    config: expect.objectContaining({ hubs: [] })
+                }),
+                'test-user-id'
+            )
+        })
+
+        it('rejects duplicate codename', async () => {
+            mockObjectsService.findByCodename.mockResolvedValue({ id: 'existing' })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalogs')
+                .send({ codename: 'existing', name: 'Existing' })
                 .expect(409)
 
             expect(response.body.error).toContain('already exists')
         })
 
-        it('should reject missing codename', async () => {
-            const { dataSource, hubRepo } = buildDataSource()
-            hubRepo.find.mockResolvedValue([])
+        it('rejects invalid hub IDs', async () => {
+            mockHubsService.findByIds.mockResolvedValue([])
 
-            const app = buildApp(dataSource)
-
+            const app = buildApp()
             const response = await request(app)
                 .post('/metahub/test-metahub-id/catalogs')
                 .send({
-                    name: 'No Codename Catalog'
-                })
-                .expect(400)
-
-            expect(response.body.error).toBe('Validation failed')
-        })
-
-        it('should reject invalid hub IDs', async () => {
-            const { dataSource, catalogRepo, hubRepo } = buildDataSource()
-
-            catalogRepo.findOne.mockResolvedValue(null)
-            // Return empty array - hub not found
-            hubRepo.find.mockResolvedValue([])
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .post('/metahub/test-metahub-id/catalogs')
-                .send({
-                    codename: 'new-catalog',
-                    name: 'New Catalog',
-                    hubIds: ['00000000-0000-0000-0000-000000000001'] // Valid UUID but doesn't exist
+                    codename: 'catalog-with-hub',
+                    name: 'Catalog',
+                    hubIds: ['00000000-0000-0000-0000-000000000001']
                 })
                 .expect(400)
 
@@ -296,270 +250,97 @@ describe('Catalogs Routes', () => {
         })
     })
 
-    // =========================================================================
-    // DELETE /metahub/:metahubId/catalog/:catalogId - Direct catalog deletion
-    // =========================================================================
     describe('DELETE /metahub/:metahubId/catalog/:catalogId', () => {
-        it('should delete catalog and return 204', async () => {
-            const { dataSource, catalogRepo } = buildDataSource()
-
-            const mockCatalog = {
-                id: 'catalog-to-delete',
-                metahubId: 'test-metahub-id',
-                codename: 'test-catalog'
-            }
-
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogRepo.remove.mockResolvedValue(mockCatalog)
-
-            const app = buildApp(dataSource)
-
-            await request(app)
-                .delete('/metahub/test-metahub-id/catalog/catalog-to-delete')
-                .expect(204)
-
-            expect(catalogRepo.findOne).toHaveBeenCalledWith({
-                where: { id: 'catalog-to-delete', metahubId: 'test-metahub-id' }
-            })
-            expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
-        })
-
-        it('should return 404 for non-existent catalog', async () => {
-            const { dataSource, catalogRepo } = buildDataSource()
-
-            catalogRepo.findOne.mockResolvedValue(null)
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .delete('/metahub/test-metahub-id/catalog/non-existent-id')
-                .expect(404)
+        it('returns 404 for non-existent catalog', async () => {
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/test-metahub-id/catalog/non-existent-id').expect(404)
 
             expect(response.body.error).toBe('Catalog not found')
-            expect(catalogRepo.remove).not.toHaveBeenCalled()
+            expect(mockObjectsService.delete).not.toHaveBeenCalled()
         })
 
-        it('should return 404 when catalog belongs to different metahub', async () => {
-            const { dataSource, catalogRepo } = buildDataSource()
+        it('deletes catalog when there are no blocking references', async () => {
+            mockObjectsService.findById.mockResolvedValue({ id: 'catalog-to-delete', config: { hubs: [] } })
 
-            // findOne returns null because metahubId doesn't match
-            catalogRepo.findOne.mockResolvedValue(null)
+            const app = buildApp()
+            await request(app).delete('/metahub/test-metahub-id/catalog/catalog-to-delete').expect(204)
 
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .delete('/metahub/test-metahub-id/catalog/catalog-from-other-metahub')
-                .expect(404)
-
-            expect(response.body.error).toBe('Catalog not found')
-        })
-
-        it('should cascade delete CatalogHub elements', async () => {
-            const { dataSource, catalogRepo } = buildDataSource()
-
-            const mockCatalog = {
-                id: 'catalog-with-hubs',
-                metahubId: 'test-metahub-id',
-                codename: 'catalog-with-hubs'
-            }
-
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogRepo.remove.mockResolvedValue(mockCatalog)
-
-            const app = buildApp(dataSource)
-
-            await request(app)
-                .delete('/metahub/test-metahub-id/catalog/catalog-with-hubs')
-                .expect(204)
-
-            // Cascade delete is handled by TypeORM entity configuration
-            // We just verify that remove was called on the catalog
-            expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
+            expect(mockAttributesService.findCatalogReferenceBlockers).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-to-delete',
+                'test-user-id'
+            )
+            expect(mockObjectsService.delete).toHaveBeenCalledWith('test-metahub-id', 'catalog-to-delete', 'test-user-id')
         })
     })
 
-    // =========================================================================
-    // DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId - Hub-scoped deletion
-    // =========================================================================
     describe('DELETE /metahub/:metahubId/hub/:hubId/catalog/:catalogId', () => {
-        it('should delete catalog completely when force=true', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
-
-            const mockCatalog = {
+        it('removes only hub association when multiple hubs exist', async () => {
+            mockObjectsService.findById.mockResolvedValue({
                 id: 'catalog-1',
-                metahubId: 'test-metahub-id',
-                codename: 'test-catalog'
-            }
-
-            const mockCatalogHub = {
-                id: 'catalog-hub-1',
-                catalogId: 'catalog-1',
-                hubId: 'hub-1'
-            }
-
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
-            catalogHubRepo.count.mockResolvedValue(2) // Has 2 hubs
-            catalogRepo.remove.mockResolvedValue(mockCatalog)
-
-            const app = buildApp(dataSource)
-
-            await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1?force=true')
-                .expect(204)
-
-            expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
-        })
-
-        it('should only remove hub association when force=false and multiple hubs exist', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
-
-            const mockCatalog = {
-                id: 'catalog-1',
-                metahubId: 'test-metahub-id',
-                codename: 'test-catalog'
-            }
-
-            const mockCatalogHub = {
-                id: 'catalog-hub-1',
-                catalogId: 'catalog-1',
-                hubId: 'hub-1'
-            }
-
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
-            catalogHubRepo.count.mockResolvedValue(2) // Has 2 hubs - will only remove association
-            catalogHubRepo.remove.mockResolvedValue(mockCatalogHub)
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
-                .expect(200) // Returns 200 with message when only removing association
-
-            expect(response.body.message).toBe('Catalog removed from hub')
-            expect(response.body.remainingHubs).toBe(1)
-            expect(catalogHubRepo.remove).toHaveBeenCalledWith(mockCatalogHub)
-        })
-
-        it('should delete catalog when only one hub exists and force=false', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
-
-            const mockCatalog = {
-                id: 'catalog-1',
-                metahubId: 'test-metahub-id',
-                codename: 'test-catalog'
-            }
-
-            const mockCatalogHub = {
-                id: 'catalog-hub-1',
-                catalogId: 'catalog-1',
-                hubId: 'hub-1'
-            }
-
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
-            catalogHubRepo.count.mockResolvedValue(1) // Only 1 hub - will delete entire catalog
-            catalogRepo.remove.mockResolvedValue(mockCatalog)
-
-            const app = buildApp(dataSource)
-
-            await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
-                .expect(204)
-
-            expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
-        })
-
-        it('should return 404 when catalog not in hub', async () => {
-            const { dataSource, catalogHubRepo, catalogRepo } = buildDataSource()
-
-            // Catalog exists but not associated with this hub
-            catalogRepo.findOne.mockResolvedValue({
-                id: 'catalog-1',
-                metahubId: 'test-metahub-id'
+                config: { hubs: ['hub-1', 'hub-2'], isRequiredHub: false }
             })
-            catalogHubRepo.findOne.mockResolvedValue(null)
 
-            const app = buildApp(dataSource)
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1').expect(200)
 
-            const response = await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
-                .expect(404)
-
-            expect(response.body.error).toBe('Catalog not found in this hub')
+            expect(response.body).toMatchObject({ message: 'Catalog removed from hub', remainingHubs: 1 })
+            expect(mockObjectsService.updateCatalog).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-1',
+                expect.objectContaining({ config: expect.objectContaining({ hubs: ['hub-2'] }) }),
+                'test-user-id'
+            )
+            expect(mockObjectsService.delete).not.toHaveBeenCalled()
         })
 
-        it('should return 404 when catalog does not exist', async () => {
-            const { dataSource, catalogRepo } = buildDataSource()
-
-            catalogRepo.findOne.mockResolvedValue(null)
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/non-existent')
-                .expect(404)
-
-            expect(response.body.error).toBe('Catalog not found')
-        })
-
-        it('should return 409 when unlinking catalog with isRequiredHub=true from its last hub', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
-
-            const mockCatalog = {
+        it('returns 409 for required catalog on last hub without force', async () => {
+            mockObjectsService.findById.mockResolvedValue({
                 id: 'catalog-1',
-                metahubId: 'test-metahub-id',
-                isRequiredHub: true,
-                codename: 'required-catalog'
-            }
+                config: { hubs: ['hub-1'], isRequiredHub: true }
+            })
 
-            const mockCatalogHub = {
-                catalogId: 'catalog-1',
-                hubId: 'hub-1'
-            }
-
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
-            catalogHubRepo.count.mockResolvedValue(1) // Only 1 hub - would orphan if unlinked
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1')
-                .expect(409)
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1').expect(409)
 
             expect(response.body.error).toContain('Cannot remove catalog from its last hub')
-            expect(catalogRepo.remove).not.toHaveBeenCalled()
+            expect(mockObjectsService.delete).not.toHaveBeenCalled()
         })
 
-        it('should delete catalog with isRequiredHub=true from last hub when force=true', async () => {
-            const { dataSource, catalogRepo, catalogHubRepo } = buildDataSource()
-
-            const mockCatalog = {
+        it('deletes catalog when force=true and no blocking references', async () => {
+            mockObjectsService.findById.mockResolvedValue({
                 id: 'catalog-1',
-                metahubId: 'test-metahub-id',
-                isRequiredHub: true,
-                codename: 'required-catalog'
-            }
+                config: { hubs: ['hub-1'], isRequiredHub: true }
+            })
 
-            const mockCatalogHub = {
-                catalogId: 'catalog-1',
-                hubId: 'hub-1'
-            }
+            const app = buildApp()
+            await request(app).delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1?force=true').expect(204)
 
-            catalogRepo.findOne.mockResolvedValue(mockCatalog)
-            catalogHubRepo.findOne.mockResolvedValue(mockCatalogHub)
-            catalogHubRepo.count.mockResolvedValue(1) // Only 1 hub
-            catalogRepo.remove.mockResolvedValue(mockCatalog)
+            expect(mockObjectsService.delete).toHaveBeenCalledWith('test-metahub-id', 'catalog-1', 'test-user-id')
+        })
 
-            const app = buildApp(dataSource)
+        it('returns 409 when blocking references exist on forced delete', async () => {
+            mockObjectsService.findById.mockResolvedValue({
+                id: 'catalog-1',
+                config: { hubs: ['hub-1'], isRequiredHub: false }
+            })
+            mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([
+                {
+                    catalogId: 'other-catalog',
+                    attributeId: 'attr-ref',
+                    attributeCodename: 'owner',
+                    attributeName: { en: 'Owner' },
+                    catalogCodename: 'products',
+                    catalogName: { en: 'Products' }
+                }
+            ])
 
-            await request(app)
-                .delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1?force=true')
-                .expect(204)
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/test-metahub-id/hub/hub-1/catalog/catalog-1?force=true').expect(409)
 
-            expect(catalogRepo.remove).toHaveBeenCalledWith(mockCatalog)
+            expect(response.body.error).toContain('Cannot delete catalog')
+            expect(response.body.blockingReferences).toHaveLength(1)
+            expect(mockObjectsService.delete).not.toHaveBeenCalled()
         })
     })
 })

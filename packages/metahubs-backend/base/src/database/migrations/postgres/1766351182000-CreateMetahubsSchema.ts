@@ -162,6 +162,9 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 branch_number INT NOT NULL,
                 schema_name VARCHAR(100) NOT NULL,
                 structure_version INTEGER NOT NULL DEFAULT 1,
+                last_template_version_id UUID,
+                last_template_version_label VARCHAR(20),
+                last_template_synced_at TIMESTAMPTZ,
 
                 -- Platform-level system fields (_upl_*)
                 _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -336,6 +339,12 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
             ALTER TABLE metahubs.metahubs
             ADD CONSTRAINT fk_metahubs_template_version
             FOREIGN KEY (template_version_id) REFERENCES metahubs.templates_versions(id) ON DELETE SET NULL
+        `)
+
+        await queryRunner.query(`
+            ALTER TABLE metahubs.metahubs_branches
+            ADD CONSTRAINT fk_branches_last_template_version
+            FOREIGN KEY (last_template_version_id) REFERENCES metahubs.templates_versions(id) ON DELETE SET NULL
         `)
 
         // ===== 4) User-metahub relationship table =====
@@ -568,7 +577,9 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pub_schema_name ON metahubs.publications(schema_name)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pub_status ON metahubs.publications(schema_status)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pub_name_gin ON metahubs.publications USING GIN (name)`)
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_publications_versions_publication ON metahubs.publications_versions(publication_id)`)
+        await queryRunner.query(
+            `CREATE INDEX IF NOT EXISTS idx_publications_versions_publication ON metahubs.publications_versions(publication_id)`
+        )
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_publications_versions_branch ON metahubs.publications_versions(branch_id)`)
 
         // ===== 7) Enable RLS on all tables =====
@@ -772,6 +783,7 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE IF EXISTS metahubs.publications`)
 
         // Drop template FKs and tables
+        await queryRunner.query(`ALTER TABLE metahubs.metahubs_branches DROP CONSTRAINT IF EXISTS fk_branches_last_template_version`)
         await queryRunner.query(`ALTER TABLE metahubs.metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template_version`)
         await queryRunner.query(`ALTER TABLE metahubs.metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template`)
         await queryRunner.query(`ALTER TABLE metahubs.templates DROP CONSTRAINT IF EXISTS fk_templates_active_version`)

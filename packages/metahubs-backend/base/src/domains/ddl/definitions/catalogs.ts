@@ -2,10 +2,7 @@ import { MetaEntityKind, AttributeDataType } from '@universo/types'
 import type { EntityDefinition } from '@universo/schema-ddl'
 import { localizedContent } from '@universo/utils'
 
-export const buildCatalogDefinitions = (
-    catalogs: any[],
-    allAttributes: any[]
-): EntityDefinition[] => {
+export const buildCatalogDefinitions = (catalogs: any[], allAttributes: any[]): EntityDefinition[] => {
     // Sort catalogs by sortOrder if present in config
     const sortedCatalogs = [...catalogs].sort((a, b) => {
         const orderA = a.config?.sortOrder ?? 0
@@ -25,8 +22,9 @@ export const buildCatalogDefinitions = (
             kind: MetaEntityKind.CATALOG,
             codename: catalog.codename,
             presentation: {
-                name: (catalog.presentation?.name || localizedContent.buildLocalizedContent({ en: catalog.codename || 'Catalog' }, 'en')) as any,
-                description: catalog.presentation?.description,
+                name: (catalog.presentation?.name ||
+                    localizedContent.buildLocalizedContent({ en: catalog.codename || 'Catalog' }, 'en')) as any,
+                description: catalog.presentation?.description
             },
             fields: [
                 ...attributes.map((attr) => ({
@@ -37,10 +35,14 @@ export const buildCatalogDefinitions = (
                     targetEntityId: attr.target_object_id || attr.targetCatalogId || null,
                     targetEntityKind: attr.target_object_kind || attr.targetEntityKind || null,
                     presentation: {
-                        name: (attr.presentation?.name || localizedContent.buildLocalizedContent({ en: (typeof attr.name === 'string' ? attr.name : attr.codename) || 'Attribute' }, 'en')) as any,
+                        name: (attr.presentation?.name ||
+                            localizedContent.buildLocalizedContent(
+                                { en: (typeof attr.name === 'string' ? attr.name : attr.codename) || 'Attribute' },
+                                'en'
+                            )) as any
                     },
                     validationRules: (attr.validation_rules || attr.validationRules || {}) as Record<string, unknown>,
-                    uiConfig: (attr.ui_config || attr.uiConfig || {}) as Record<string, unknown>,
+                    uiConfig: (attr.ui_config || attr.uiConfig || {}) as Record<string, unknown>
                 })),
                 // System field: data (JSONB storage for element data)
                 {

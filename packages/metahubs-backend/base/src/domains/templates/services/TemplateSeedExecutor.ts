@@ -1,6 +1,37 @@
 import type { Knex } from 'knex'
-import type { MetahubTemplateSeed, TemplateSeedLayout, TemplateSeedZoneWidget, TemplateSeedElement } from '@universo/types'
+import type {
+    MetahubTemplateSeed,
+    TemplateSeedLayout,
+    TemplateSeedZoneWidget,
+    TemplateSeedElement,
+    DashboardLayoutWidgetKey,
+    DashboardLayoutZone
+} from '@universo/types'
 import { buildDashboardLayoutConfig } from '../../shared'
+import { resolveWidgetTableName } from './widgetTableResolver'
+
+const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
+
+const resolveEntityIdByCodename = (entityIdMap: Map<string, string>, codename: string, preferredKind?: string): string | null => {
+    if (preferredKind) {
+        return entityIdMap.get(buildEntityMapKey(preferredKind, codename)) ?? null
+    }
+
+    let resolved: string | null = null
+    const suffix = `:${codename}`
+    for (const [key, id] of entityIdMap.entries()) {
+        if (!key.endsWith(suffix)) continue
+        if (resolved && resolved !== id) {
+            return null
+        }
+        resolved = id
+    }
+    return resolved
+}
+
+const hasNonEmptyConfigObject = (value: unknown): value is Record<string, unknown> => {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0)
+}
 
 /**
  * TemplateSeedExecutor — populates system tables from a template manifest seed.
@@ -45,29 +76,18 @@ export class TemplateSeedExecutor {
         const layoutIdMap = new Map<string, string>()
         const now = new Date()
 
-        // Check if layouts already exist
-        const existingCount = await qb
-            .withSchema(this.schemaName)
-            .from('_mhb_layouts')
-            .where({ _upl_deleted: false, _mhb_deleted: false })
-            .count<{ count: string }[]>('* as count')
-            .first()
-
-        if (Number(existingCount?.count ?? 0) > 0) {
-            // Layouts already seeded — load existing IDs by template_key
+        for (const layout of layouts) {
             const existing = await qb
                 .withSchema(this.schemaName)
                 .from('_mhb_layouts')
-                .where({ _upl_deleted: false, _mhb_deleted: false })
-                .select('id', 'template_key')
-            for (const row of existing) {
-                // Use template_key as a rough codename proxy for existing layouts
-                layoutIdMap.set(row.template_key, row.id)
-            }
-            return layoutIdMap
-        }
+                .where({ template_key: layout.templateKey, _upl_deleted: false, _mhb_deleted: false })
+                .first()
 
-        for (const layout of layouts) {
+            if (existing) {
+                layoutIdMap.set(layout.codename, existing.id)
+                continue
+            }
+
             // Config will be updated after zone widgets are inserted
             const config = layout.config ?? {}
 
@@ -109,6 +129,7 @@ export class TemplateSeedExecutor {
         layoutIdMap: Map<string, string>
     ): Promise<void> {
         const now = new Date()
+        const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
 
         for (const [layoutCodename, widgets] of Object.entries(widgetsByLayout)) {
             const layoutId = layoutIdMap.get(layoutCodename)
@@ -117,22 +138,27 @@ export class TemplateSeedExecutor {
                 continue
             }
 
-            // Check if widgets already exist for this layout
-            const existingCount = await qb
-                .withSchema(this.schemaName)
-                .from('_mhb_layout_zone_widgets')
-                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
-                .count<{ count: string }[]>('* as count')
-                .first()
+            let insertedAny = false
+            for (const w of widgets) {
+                const exists = await qb
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({
+                        layout_id: layoutId,
+                        zone: w.zone,
+                        widget_key: w.widgetKey,
+                        sort_order: w.sortOrder,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
 
-            if (Number(existingCount?.count ?? 0) > 0) continue
+                if (exists) continue
 
-            // Insert widgets
-            await qb
-                .withSchema(this.schemaName)
-                .into('_mhb_layout_zone_widgets')
-                .insert(
-                    widgets.map((w) => ({
+                await qb
+                    .withSchema(this.schemaName)
+                    .into(widgetTableName)
+                    .insert({
                         layout_id: layoutId,
                         zone: w.zone,
                         widget_key: w.widgetKey,
@@ -149,18 +175,32 @@ export class TemplateSeedExecutor {
                         _mhb_published: true,
                         _mhb_archived: false,
                         _mhb_deleted: false
-                    }))
-                )
+                    })
+                insertedAny = true
+            }
 
-            // Update layout config based on actual widgets inserted
-            const layoutConfig = buildDashboardLayoutConfig(
-                widgets.map((w) => ({ widgetKey: w.widgetKey, zone: w.zone }))
-            )
-            await qb
+            if (!insertedAny) {
+                continue
+            }
+
+            const layoutRow = await qb.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).select('config').first()
+            if (hasNonEmptyConfigObject(layoutRow?.config)) {
+                continue
+            }
+
+            const activeWidgets = await qb
                 .withSchema(this.schemaName)
-                .from('_mhb_layouts')
-                .where({ id: layoutId })
-                .update({ config: layoutConfig })
+                .from(widgetTableName)
+                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .select('widget_key', 'zone')
+
+            const layoutConfig = buildDashboardLayoutConfig(
+                activeWidgets.map((row: { widget_key: DashboardLayoutWidgetKey; zone: DashboardLayoutZone }) => ({
+                    widgetKey: row.widget_key as DashboardLayoutWidgetKey,
+                    zone: row.zone as DashboardLayoutZone
+                }))
+            )
+            await qb.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).update({ config: layoutConfig })
         }
     }
 
@@ -168,11 +208,7 @@ export class TemplateSeedExecutor {
         if (!settings?.length) return
 
         for (const setting of settings) {
-            const exists = await qb
-                .withSchema(this.schemaName)
-                .from('_mhb_settings')
-                .where({ key: setting.key })
-                .first()
+            const exists = await qb.withSchema(this.schemaName).from('_mhb_settings').where({ key: setting.key }).first()
 
             if (!exists) {
                 const now = new Date()
@@ -212,7 +248,7 @@ export class TemplateSeedExecutor {
                 .first()
 
             if (existing) {
-                entityIdMap.set(entity.codename, existing.id)
+                entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
                 continue
             }
 
@@ -239,16 +275,29 @@ export class TemplateSeedExecutor {
                 })
                 .returning('id')
 
-            entityIdMap.set(entity.codename, inserted.id)
+            entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
         }
 
         // ── Pass 2: Insert attributes using the complete entity map ──
         for (const entity of entities) {
-            const entityId = entityIdMap.get(entity.codename)
+            const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
             if (!entityId || !entity.attributes?.length) continue
 
             for (let i = 0; i < entity.attributes.length; i++) {
                 const attr = entity.attributes[i]
+                const attrExists = await qb
+                    .withSchema(this.schemaName)
+                    .from('_mhb_attributes')
+                    .where({
+                        object_id: entityId,
+                        codename: attr.codename,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (attrExists) continue
+
                 await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_attributes')
@@ -263,7 +312,7 @@ export class TemplateSeedExecutor {
                         is_required: attr.isRequired ?? false,
                         is_display_attribute: attr.isDisplayAttribute ?? false,
                         target_object_id: attr.targetEntityCodename
-                            ? entityIdMap.get(attr.targetEntityCodename) ?? null
+                            ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
                             : null,
                         target_object_kind: attr.targetEntityKind ?? null,
                         _upl_created_at: now,
@@ -292,33 +341,44 @@ export class TemplateSeedExecutor {
         const now = new Date()
 
         for (const [entityCodename, elements] of Object.entries(elementsByEntity)) {
-            const objectId = entityIdMap.get(entityCodename)
+            const objectId = resolveEntityIdByCodename(entityIdMap, entityCodename)
             if (!objectId) {
-                console.warn(`[TemplateSeedExecutor] Entity codename "${entityCodename}" not found, skipping elements`)
+                console.warn(`[TemplateSeedExecutor] Entity codename "${entityCodename}" not found or ambiguous, skipping elements`)
                 continue
             }
 
             for (const element of elements) {
-                await qb
+                const exists = await qb
                     .withSchema(this.schemaName)
-                    .into('_mhb_elements')
-                    .insert({
+                    .from('_mhb_elements')
+                    .where({
                         object_id: objectId,
-                        data: element.data,
                         sort_order: element.sortOrder,
-                        owner_id: null,
-                        _upl_created_at: now,
-                        _upl_created_by: null,
-                        _upl_updated_at: now,
-                        _upl_updated_by: null,
-                        _upl_version: 1,
-                        _upl_archived: false,
                         _upl_deleted: false,
-                        _upl_locked: false,
-                        _mhb_published: true,
-                        _mhb_archived: false,
                         _mhb_deleted: false
                     })
+                    .whereRaw('data = ?::jsonb', [JSON.stringify(element.data ?? {})])
+                    .first()
+
+                if (exists) continue
+
+                await qb.withSchema(this.schemaName).into('_mhb_elements').insert({
+                    object_id: objectId,
+                    data: element.data,
+                    sort_order: element.sortOrder,
+                    owner_id: null,
+                    _upl_created_at: now,
+                    _upl_created_by: null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
             }
         }
     }

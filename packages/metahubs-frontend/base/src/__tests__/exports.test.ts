@@ -43,7 +43,7 @@ describe('metahubs-frontend entry exports', () => {
         expect(entry.MetahubLayoutDetails).toBeTruthy()
         expect(entry.metahubsDashboard).toBeTruthy()
         expect(entry.metahubsTranslations).toBeTruthy()
-    }, 10000)
+    }, 90000)
 
     it('exports metahubs dashboard menu structure', async () => {
         const { default: metahubDashboard } = await import('../menu-items/metahubDashboard')

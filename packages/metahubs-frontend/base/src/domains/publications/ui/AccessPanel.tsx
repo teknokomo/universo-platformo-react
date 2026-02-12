@@ -23,19 +23,14 @@ interface AccessPanelProps {
  * - full: All Metahub data is accessible
  * - restricted: Access is controlled by access_config (future feature)
  */
-export const AccessPanel = ({
-    accessMode = 'full',
-    onChange,
-    isLoading = false,
-    disabled = false
-}: AccessPanelProps) => {
+export const AccessPanel = ({ accessMode = 'full', onChange, isLoading = false, disabled = false }: AccessPanelProps) => {
     const { t } = useTranslation(['metahubs', 'common'])
 
     if (isLoading) {
         return (
             <Stack spacing={2} sx={{ p: 2 }}>
-                <Skeleton variant="text" width="40%" height={24} />
-                <Skeleton variant="rectangular" width="100%" height={80} />
+                <Skeleton variant='text' width='40%' height={24} />
+                <Skeleton variant='rectangular' width='100%' height={80} />
             </Stack>
         )
     }
@@ -44,38 +39,28 @@ export const AccessPanel = ({
 
     return (
         <Stack spacing={3}>
-            <FormControl component="fieldset" disabled={disabled || isReadOnly}>
-                <FormLabel component="legend">
-                    {t('publications.access.modeLabel', 'Режим доступа')}
-                </FormLabel>
-                <RadioGroup
-                    value={accessMode}
-                    onChange={(e) => onChange?.(e.target.value as PublicationAccessMode)}
-                    sx={{ mt: 1 }}
-                >
+            <FormControl component='fieldset' disabled={disabled || isReadOnly}>
+                <FormLabel component='legend'>{t('publications.access.modeLabel', 'Режим доступа')}</FormLabel>
+                <RadioGroup value={accessMode} onChange={(e) => onChange?.(e.target.value as PublicationAccessMode)} sx={{ mt: 1 }}>
                     <FormControlLabel
-                        value="full"
+                        value='full'
                         control={<Radio />}
                         label={
                             <Box>
-                                <Typography variant="body1">
-                                    {t('publications.access.modeFull', 'Полный доступ')}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography variant='body1'>{t('publications.access.modeFull', 'Полный доступ')}</Typography>
+                                <Typography variant='body2' color='text.secondary'>
                                     {t('publications.access.modeFullDescription', 'Все данные Метахаба доступны через Публикацию')}
                                 </Typography>
                             </Box>
                         }
                     />
                     <FormControlLabel
-                        value="restricted"
+                        value='restricted'
                         control={<Radio />}
                         label={
                             <Box>
-                                <Typography variant="body1">
-                                    {t('publications.access.modeRestricted', 'Ограниченный доступ')}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography variant='body1'>{t('publications.access.modeRestricted', 'Ограниченный доступ')}</Typography>
+                                <Typography variant='body2' color='text.secondary'>
                                     {t('publications.access.modeRestrictedDescription', 'Доступ контролируется конфигурацией (скоро)')}
                                 </Typography>
                             </Box>
@@ -87,7 +72,7 @@ export const AccessPanel = ({
 
             {accessMode === 'restricted' && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant='body2' color='text.secondary'>
                         {t('publications.access.configPlaceholder', 'Конфигурация ограниченного доступа будет доступна в будущих версиях.')}
                     </Typography>
                 </Box>

@@ -14,15 +14,16 @@ import { SnackbarProvider } from 'notistack'
 import { I18nextProvider } from 'react-i18next'
 
 import MetahubBoard from '../MetahubBoard'
-import * as metahubsApi from '../../api'
+import * as metahubsApi from '../../api/metahubs'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metahubsEn from '../../../../i18n/locales/en/metahubs.json'
 import metahubsRu from '../../../../i18n/locales/ru/metahubs.json'
 
 // Mock API module
-vi.mock('../../api', () => ({
-    getMetahub: vi.fn()
+vi.mock('../../api/metahubs', () => ({
+    getMetahub: vi.fn(),
+    getMetahubBoardSummary: vi.fn()
 }))
 
 // Mock useAuth hook
@@ -101,8 +102,21 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/metahub/test-me
 }
 
 describe('MetahubBoard', () => {
+    const defaultBoardSummary = {
+        metahubId: 'test-metahub-id',
+        activeBranchId: 'branch-1',
+        branchesCount: 1,
+        hubsCount: 1,
+        catalogsCount: 1,
+        membersCount: 1,
+        publicationsCount: 1,
+        publicationVersionsCount: 1,
+        applicationsCount: 1
+    }
+
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.mocked(metahubsApi.getMetahubBoardSummary).mockResolvedValue(defaultBoardSummary)
     })
 
     describe('Loading State', () => {
@@ -174,6 +188,10 @@ describe('MetahubBoard', () => {
             vi.mocked(metahubsApi.getMetahub).mockResolvedValue({
                 data: mockMetahubData
             })
+            vi.mocked(metahubsApi.getMetahubBoardSummary).mockResolvedValue({
+                ...defaultBoardSummary,
+                membersCount: mockMetahubData.membersCount
+            })
         })
 
         it('should render metahub name and description in header', async () => {
@@ -234,6 +252,10 @@ describe('MetahubBoard', () => {
             vi.mocked(metahubsApi.getMetahub).mockResolvedValue({
                 data: mockMetahubData
             })
+            vi.mocked(metahubsApi.getMetahubBoardSummary).mockResolvedValue({
+                ...defaultBoardSummary,
+                membersCount: mockMetahubData.membersCount
+            })
         })
 
         it('should open documentation in new tab when button clicked', async () => {
@@ -270,6 +292,16 @@ describe('MetahubBoard', () => {
                     updatedAt: '2024-01-01T00:00:00Z'
                 }
             })
+            vi.mocked(metahubsApi.getMetahubBoardSummary).mockResolvedValue({
+                ...defaultBoardSummary,
+                membersCount: 0,
+                branchesCount: 0,
+                hubsCount: 0,
+                catalogsCount: 0,
+                publicationsCount: 0,
+                publicationVersionsCount: 0,
+                applicationsCount: 0
+            })
 
             renderWithProviders(<MetahubBoard />)
 
@@ -293,6 +325,10 @@ describe('MetahubBoard', () => {
                     updatedAt: '2024-01-01T00:00:00Z'
                 }
             })
+            vi.mocked(metahubsApi.getMetahubBoardSummary).mockResolvedValue({
+                ...defaultBoardSummary,
+                membersCount: 1
+            })
 
             renderWithProviders(<MetahubBoard />)
 
@@ -314,6 +350,16 @@ describe('MetahubBoard', () => {
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: '2024-01-01T00:00:00Z'
                 } as any
+            })
+            vi.mocked(metahubsApi.getMetahubBoardSummary).mockResolvedValue({
+                ...defaultBoardSummary,
+                membersCount: 0,
+                branchesCount: 0,
+                hubsCount: 0,
+                catalogsCount: 0,
+                publicationsCount: 0,
+                publicationVersionsCount: 0,
+                applicationsCount: 0
             })
 
             renderWithProviders(<MetahubBoard />)

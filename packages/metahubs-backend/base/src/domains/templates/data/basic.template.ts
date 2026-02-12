@@ -64,8 +64,8 @@ export const basicTemplate: MetahubTemplateManifest = {
     minStructureVersion: 2,
     name: vlc('Basic', 'Базовый'),
     description: vlc(
-        'Default template with dashboard layout, standard widgets, and starter catalog',
-        'Шаблон по умолчанию с макетом дашборда, стандартными виджетами и стартовым каталогом'
+        'Default template with dashboard layout and standard widgets',
+        'Шаблон по умолчанию с макетом дашборда и стандартными виджетами'
     ),
     meta: {
         author: 'universo-platformo',
@@ -90,39 +90,6 @@ export const basicTemplate: MetahubTemplateManifest = {
         settings: [
             { key: 'general.language', value: { _value: 'en' } },
             { key: 'general.timezone', value: { _value: 'UTC' } }
-        ],
-        entities: [
-            {
-                codename: 'tags',
-                kind: 'catalog',
-                name: vlc('Tags', 'Теги'),
-                description: vlc('Predefined tags for content labeling', 'Предустановленные теги для маркировки контента'),
-                attributes: [
-                    {
-                        codename: 'label',
-                        dataType: 'STRING',
-                        name: vlc('Label', 'Название'),
-                        isRequired: true,
-                        isDisplayAttribute: true,
-                        sortOrder: 0
-                    },
-                    {
-                        codename: 'color',
-                        dataType: 'STRING',
-                        name: vlc('Color', 'Цвет'),
-                        isRequired: false,
-                        sortOrder: 1,
-                        uiConfig: { widget: 'color-picker' }
-                    }
-                ]
-            }
-        ],
-        elements: {
-            tags: [
-                { codename: 'important', data: { label: 'Important', color: '#e74c3c' }, sortOrder: 0 },
-                { codename: 'draft', data: { label: 'Draft', color: '#95a5a6' }, sortOrder: 1 },
-                { codename: 'published', data: { label: 'Published', color: '#27ae60' }, sortOrder: 2 }
-            ]
-        }
+        ]
     }
 }

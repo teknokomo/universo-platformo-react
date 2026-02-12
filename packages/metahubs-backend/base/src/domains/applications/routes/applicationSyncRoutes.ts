@@ -1290,12 +1290,7 @@ export function createApplicationSyncRoutes(
                 schemaExists: true,
                 schemaName,
                 diff: {
-                    hasChanges:
-                        diff.hasChanges ||
-                        uiNeedsUpdate ||
-                        layoutsNeedUpdate ||
-                        layoutZonesNeedUpdate ||
-                        systemMetadataNeedsUpdate,
+                    hasChanges: diff.hasChanges || uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate || systemMetadataNeedsUpdate,
                     hasDestructiveChanges,
                     additive,
                     destructive: diff.destructive.map((c: SchemaChange) => c.description),

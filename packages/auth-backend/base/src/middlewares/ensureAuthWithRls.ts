@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import type { DataSource, QueryRunner } from 'typeorm'
-import { isWhitelistedApiPath } from '@universo/utils'
+import { isDatabaseConnectTimeoutError, isWhitelistedApiPath } from '@universo/utils'
 import { ensureAuth } from './ensureAuth'
 import { applyRlsContext } from '../utils/rlsContext'
 import type { AuthenticatedRequest } from '../services/supabaseSession'
@@ -125,6 +125,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             const runner = ds.createQueryRunner()
 
             let cleanupStarted = false
+            let runnerConnected = false
 
             // Cleanup function to release resources
             const cleanup = async () => {
@@ -134,18 +135,21 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 if (!runner.isReleased) {
                     try {
                         // Reset request.jwt.claims before releasing the pooled connection.
-                        try {
-                            logRlsDebug('[RLS] Resetting session context', { path: req.path })
-                            await runner.query(`SELECT set_config('request.jwt.claims', '', false)`)
-                        } catch (resetErr) {
-                            console.warn('[RLS] Failed to reset session context (continuing to release)', {
-                                path: req.path,
-                                error: resetErr instanceof Error ? resetErr.message : String(resetErr)
-                            })
+                        if (runnerConnected) {
+                            try {
+                                logRlsDebug('[RLS] Resetting session context', { path: req.path })
+                                await runner.query(`SELECT set_config('request.jwt.claims', '', false)`)
+                            } catch (resetErr) {
+                                console.warn('[RLS] Failed to reset session context (continuing to release)', {
+                                    path: req.path,
+                                    error: resetErr instanceof Error ? resetErr.message : String(resetErr)
+                                })
+                            }
                         }
 
                         logRlsDebug('[RLS] Releasing QueryRunner', { path: req.path })
                         await runner.release()
+                        runnerConnected = false
                     } catch (err) {
                         console.error('[RLS] Error releasing QueryRunner:', err)
                     }
@@ -161,6 +165,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 // Connect and apply RLS context
                 logRlsDebug('[RLS] Connecting QueryRunner', { path: req.path })
                 await runner.connect()
+                runnerConnected = true
 
                 logRlsDebug('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path })
                 await applyRlsContext(runner, access)
@@ -187,6 +192,16 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                     userId: authReq.user?.id
                 })
                 await cleanup()
+                if (isDatabaseConnectTimeoutError(error)) {
+                    const wrapped = new Error('Database connection timeout while applying RLS context') as Error & {
+                        statusCode?: number
+                        code?: string
+                    }
+                    wrapped.statusCode = 503
+                    wrapped.code = 'DB_CONNECTION_TIMEOUT'
+                    next(wrapped)
+                    return
+                }
                 next(error)
             }
         })

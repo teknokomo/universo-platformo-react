@@ -18,7 +18,15 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { Application, Connector, ConnectorPublication, ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
 import { Publication } from '../../../database/entities/Publication'
-import { getDDLServices, KnexClient, ChangeType, buildFkConstraintName } from '../../ddl'
+import {
+    getDDLServices,
+    KnexClient,
+    ChangeType,
+    buildFkConstraintName,
+    uuidToLockKey,
+    acquireAdvisoryLock,
+    releaseAdvisoryLock
+} from '../../ddl'
 import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -58,7 +66,11 @@ export function createApplicationMigrationsRoutes(
 
     // Helper to get application with schema name
     // If application.schemaName is not set, try to find it via Connector → ConnectorPublication → Publication chain
-    const getApplicationWithSchema = async (req: Request, res: Response, applicationId: string): Promise<{ application: Application; schemaName: string } | Response> => {
+    const getApplicationWithSchema = async (
+        req: Request,
+        res: Response,
+        applicationId: string
+    ): Promise<{ application: Application; schemaName: string } | Response> => {
         const ds = getDataSource()
         const applicationRepo = ds.getRepository(Application)
         const application = await applicationRepo.findOneBy({ id: applicationId })
@@ -315,8 +327,8 @@ export function createApplicationMigrationsRoutes(
             }
 
             // Acquire advisory lock
-            const lockKey = KnexClient.uuidToLockKey(schemaName)
-            const lockAcquired = await KnexClient.acquireAdvisoryLock(lockKey)
+            const lockKey = uuidToLockKey(`application-migration-rollback:${schemaName}`)
+            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
 
             if (!lockAcquired) {
                 return res.status(409).json({
@@ -385,7 +397,7 @@ export function createApplicationMigrationsRoutes(
                     message
                 })
             } finally {
-                await KnexClient.releaseAdvisoryLock(lockKey)
+                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
             }
         })
     )

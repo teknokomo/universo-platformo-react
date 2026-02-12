@@ -24,6 +24,18 @@ export type StatCardProps = {
     xAxisLabels?: string[]
 }
 
+function buildXAxisLabels(dataLength: number, labels: string[]) {
+    if (!Number.isFinite(dataLength) || dataLength <= 0) return []
+
+    const normalizedLength = Math.trunc(dataLength)
+
+    if (labels.length >= normalizedLength) {
+        return labels.slice(0, normalizedLength)
+    }
+
+    return Array.from({ length: normalizedLength }, (_, index) => labels[index] ?? `Point ${index + 1}`)
+}
+
 function getDaysInMonth(month: number, year: number) {
     const date = new Date(year, month, 0)
     const monthName = date.toLocaleDateString('en-US', {
@@ -56,7 +68,8 @@ export default function StatCard({ title, value, interval, trend, trendPercentag
     // Generate default labels from current month if not provided
     const now = new Date()
     const defaultLabels = getDaysInMonth(now.getMonth() + 1, now.getFullYear())
-    const chartLabels = xAxisLabels || defaultLabels
+    const baseLabels = xAxisLabels && xAxisLabels.length > 0 ? xAxisLabels : defaultLabels
+    const chartLabels = buildXAxisLabels(data?.length ?? 0, baseLabels)
 
     const trendColors = {
         up: theme.palette.mode === 'light' ? theme.palette.success.main : theme.palette.success.dark,

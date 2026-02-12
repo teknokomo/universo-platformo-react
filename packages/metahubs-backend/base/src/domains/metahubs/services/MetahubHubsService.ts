@@ -6,14 +6,14 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 /**
  * MetahubHubsService - CRUD operations for Hubs stored in isolated schemas.
  *
- * Hubs are stored in the unified `_mhb_objects` table with `kind: 'HUB'`.
- * This follows the same pattern as Catalogs (kind: 'CATALOG') and future
+ * Hubs are stored in the unified `_mhb_objects` table with `kind: 'hub'`.
+ * This follows the same pattern as Catalogs (kind: 'catalog') and future
  * object types (Documents, Reports, etc.).
  *
  * Each Metahub has its own schema (mhb_<uuid>) with the _mhb_objects table.
  */
 export class MetahubHubsService {
-    constructor(private schemaService: MetahubSchemaService) { }
+    constructor(private schemaService: MetahubSchemaService) {}
 
     private get knex() {
         return KnexClient.getInstance()
@@ -37,19 +37,20 @@ export class MetahubHubsService {
     /**
      * Find all hubs for a metahub.
      */
-    async findAll(metahubId: string, options: {
-        limit?: number
-        offset?: number
-        sortBy?: string
-        sortOrder?: 'asc' | 'desc'
-        search?: string
-    } = {}, userId?: string) {
+    async findAll(
+        metahubId: string,
+        options: {
+            limit?: number
+            offset?: number
+            sortBy?: string
+            sortOrder?: 'asc' | 'desc'
+            search?: string
+        } = {},
+        userId?: string
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        let query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'HUB' })
+        let query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind: 'hub' })
 
         // Search in presentation JSONB (name/description)
         if (options.search) {
@@ -82,10 +83,7 @@ export class MetahubHubsService {
         if (options.limit) query = query.limit(options.limit)
         if (options.offset) query = query.offset(options.offset)
 
-        const [rows, countResult] = await Promise.all([
-            query,
-            countQuery.count('* as total').first()
-        ])
+        const [rows, countResult] = await Promise.all([query, countQuery.count('* as total').first()])
 
         const total = countResult ? parseInt(countResult.total as string, 10) : 0
         const items = rows.map((row: Record<string, unknown>) => this.mapHubFromObject(row))
@@ -99,11 +97,7 @@ export class MetahubHubsService {
     async findById(metahubId: string, hubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id: hubId, kind: 'HUB' })
-            .first()
+        const row = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).first()
 
         return row ? this.mapHubFromObject(row) : null
     }
@@ -114,11 +108,7 @@ export class MetahubHubsService {
     async findByCodename(metahubId: string, codename: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const row = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ codename, kind: 'HUB' })
-            .first()
+        const row = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind: 'hub' }).first()
 
         return row ? this.mapHubFromObject(row) : null
     }
@@ -131,11 +121,7 @@ export class MetahubHubsService {
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'HUB' })
-            .whereIn('id', hubIds)
+        const rows = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind: 'hub' }).whereIn('id', hubIds)
 
         return rows.map((row: Record<string, unknown>) => this.mapHubFromObject(row))
     }
@@ -143,20 +129,24 @@ export class MetahubHubsService {
     /**
      * Create a new hub.
      */
-    async create(metahubId: string, input: {
-        codename: string
-        name: Record<string, unknown>
-        description?: Record<string, unknown>
-        sortOrder?: number
-        createdBy?: string | null
-    }, userId?: string) {
+    async create(
+        metahubId: string,
+        input: {
+            codename: string
+            name: Record<string, unknown>
+            description?: Record<string, unknown>
+            sortOrder?: number
+            createdBy?: string | null
+        },
+        userId?: string
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         const [created] = await this.knex
             .withSchema(schemaName)
             .into('_mhb_objects')
             .insert({
-                kind: 'HUB',
+                kind: 'hub',
                 codename: input.codename,
                 table_name: null,
                 presentation: {
@@ -187,21 +177,22 @@ export class MetahubHubsService {
     /**
      * Update an existing hub.
      */
-    async update(metahubId: string, hubId: string, input: {
-        codename?: string
-        name?: Record<string, unknown>
-        description?: Record<string, unknown>
-        sortOrder?: number
-        updatedBy?: string | null
-        expectedVersion?: number
-    }, userId?: string) {
+    async update(
+        metahubId: string,
+        hubId: string,
+        input: {
+            codename?: string
+            name?: Record<string, unknown>
+            description?: Record<string, unknown>
+            sortOrder?: number
+            updatedBy?: string | null
+            expectedVersion?: number
+        },
+        userId?: string
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const existing = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id: hubId, kind: 'HUB' })
-            .first()
+        const existing = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).first()
 
         if (!existing) throw new Error('Hub not found')
 
@@ -259,11 +250,7 @@ export class MetahubHubsService {
     async delete(metahubId: string, hubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id: hubId, kind: 'HUB' })
-            .delete()
+        await this.knex.withSchema(schemaName).from('_mhb_objects').where({ id: hubId, kind: 'hub' }).delete()
     }
 
     /**
@@ -272,12 +259,7 @@ export class MetahubHubsService {
     async count(metahubId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const result = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'HUB' })
-            .count('* as total')
-            .first()
+        const result = await this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind: 'hub' }).count('* as total').first()
 
         return result ? parseInt(result.total as string, 10) : 0
     }
