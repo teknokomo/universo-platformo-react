@@ -8,6 +8,8 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import { DndContext, DragEndEvent, PointerSensor, useDroppable, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -40,19 +42,25 @@ const EMPTY_WIDGET_CATALOG: DashboardLayoutWidgetCatalogItem[] = []
 function SortableWidgetChip({
     id,
     label,
+    isActive,
     onRemove,
     onClick,
     onEdit,
+    onToggleActive,
     editTooltip,
-    removeTooltip
+    removeTooltip,
+    toggleActiveTooltip
 }: {
     id: string
     label: string
+    isActive: boolean
     onRemove: () => void
     onClick?: () => void
     onEdit?: () => void
+    onToggleActive?: (active: boolean) => void
     editTooltip?: string
     removeTooltip?: string
+    toggleActiveTooltip?: string
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
     const style = {
@@ -73,7 +81,8 @@ function SortableWidgetChip({
                 px: 1,
                 py: 0.5,
                 borderRadius: 1.5,
-                bgcolor: 'background.paper'
+                bgcolor: 'background.paper',
+                ...(!isActive && { borderStyle: 'dashed' })
             }}
         >
             <IconButton size='small' sx={{ cursor: 'grab' }} {...attributes} {...listeners}>
@@ -81,7 +90,11 @@ function SortableWidgetChip({
             </IconButton>
             <Typography
                 variant='body2'
-                sx={{ flexGrow: 1, ...(onClick ? { cursor: 'pointer', '&:hover': { textDecoration: 'underline' } } : {}) }}
+                sx={{
+                    flexGrow: 1,
+                    ...(!isActive && { opacity: 0.45 }),
+                    ...(onClick ? { cursor: 'pointer', '&:hover': { textDecoration: 'underline' } } : {})
+                }}
                 onClick={onClick}
             >
                 {label}
@@ -90,6 +103,13 @@ function SortableWidgetChip({
                 <Tooltip title={editTooltip || ''} arrow>
                     <IconButton size='small' onClick={onEdit}>
                         <EditRoundedIcon fontSize='small' />
+                    </IconButton>
+                </Tooltip>
+            )}
+            {onToggleActive && (
+                <Tooltip title={toggleActiveTooltip || ''} arrow>
+                    <IconButton size='small' onClick={() => onToggleActive(!isActive)} sx={!isActive ? { color: 'text.disabled' } : undefined}>
+                        {isActive ? <VisibilityRoundedIcon fontSize='small' /> : <VisibilityOffRoundedIcon fontSize='small' />}
                     </IconButton>
                 </Tooltip>
             )}
@@ -323,6 +343,30 @@ export default function LayoutDetails() {
         }
     }
 
+    const handleToggleWidgetActive = async (widgetId: string, isActive: boolean) => {
+        if (!metahubId || !layoutId) return
+
+        const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
+        const previousData = queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
+
+        if (previousData) {
+            queryClient.setQueryData(
+                zoneWidgetsKey,
+                previousData.map((item) => (item.id === widgetId ? { ...item, isActive } : item))
+            )
+        }
+
+        try {
+            await layoutsApi.toggleLayoutZoneWidgetActive(metahubId, layoutId, widgetId, isActive)
+            await persistAndRefresh()
+        } catch (e: unknown) {
+            if (previousData) {
+                queryClient.setQueryData(zoneWidgetsKey, previousData)
+            }
+            notifyError(t, enqueueSnackbar, e)
+        }
+    }
+
     if (!metahubId || !layoutId) {
         return (
             <Box sx={{ p: 2 }}>
@@ -412,11 +456,20 @@ export default function LayoutDetails() {
                                                                         key={item.id}
                                                                         id={item.id}
                                                                         label={getWidgetChipLabel(item)}
+                                                                        isActive={item.isActive}
                                                                         onRemove={() => void handleRemoveWidget(item.id)}
                                                                         onClick={openEditor}
                                                                         onEdit={openEditor}
+                                                                        onToggleActive={(active) =>
+                                                                            void handleToggleWidgetActive(item.id, active)
+                                                                        }
                                                                         editTooltip={isMenuWidget ? t('common:actions.edit') : undefined}
                                                                         removeTooltip={t('common:actions.delete')}
+                                                                        toggleActiveTooltip={
+                                                                            item.isActive
+                                                                                ? t('layouts.actions.deactivate', 'Deactivate')
+                                                                                : t('layouts.actions.activate', 'Activate')
+                                                                        }
                                                                     />
                                                                 )
                                                             })}

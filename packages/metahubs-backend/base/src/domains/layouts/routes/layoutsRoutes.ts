@@ -13,7 +13,8 @@ import {
     updateLayoutSchema,
     assignLayoutZoneWidgetSchema,
     moveLayoutZoneWidgetSchema,
-    updateLayoutZoneWidgetConfigSchema
+    updateLayoutZoneWidgetConfigSchema,
+    toggleLayoutZoneWidgetActiveSchema
 } from '../services/MetahubLayoutsService'
 import { OptimisticLockError } from '@universo/utils'
 import { localizedContent } from '@universo/utils'
@@ -500,6 +501,55 @@ export function createLayoutsRoutes(
                     layoutId,
                     widgetIdResult.data,
                     parsed.data.config,
+                    userId
+                )
+                return res.json({ item: widget })
+            } catch (err: any) {
+                if (err.message === 'Zone widget not found') {
+                    return res.status(404).json({ error: 'Zone widget not found' })
+                }
+                throw err
+            }
+        })
+    )
+
+    // ── Toggle zone widget active state ────────────────────────────────────
+    router.patch(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/toggle-active',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+            const { metahubId, layoutId, widgetId } = req.params
+            const ds = getDataSource()
+            const manager = getRequestManager(req, ds)
+            const metahubRepo = manager.getRepository(Metahub)
+            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
+
+            const rlsRunner = getRequestQueryRunner(req)
+            await ensureMetahubAccess(ds, userId, metahubId, 'manageMetahub', rlsRunner)
+
+            const uuidSchema = z.string().uuid()
+            const widgetIdResult = uuidSchema.safeParse(widgetId)
+            if (!widgetIdResult.success) {
+                return res.status(400).json({ error: 'Invalid widget ID' })
+            }
+
+            const parsed = toggleLayoutZoneWidgetActiveSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const schemaService = new MetahubSchemaService(ds, undefined, manager)
+            const layoutsService = new MetahubLayoutsService(schemaService)
+            try {
+                const widget = await layoutsService.toggleLayoutZoneWidgetActive(
+                    metahubId,
+                    layoutId,
+                    widgetIdResult.data,
+                    parsed.data.isActive,
                     userId
                 )
                 return res.json({ item: widget })

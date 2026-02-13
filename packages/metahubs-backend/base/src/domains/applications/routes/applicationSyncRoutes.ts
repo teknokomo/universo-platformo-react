@@ -321,6 +321,7 @@ type PersistedAppLayoutZoneModule = PersistedAppLayoutZoneWidget
 
 function normalizeSnapshotLayoutZoneWidgets(snapshot: MetahubSnapshot): PersistedAppLayoutZoneWidget[] {
     return (Array.isArray(snapshot.layoutZoneWidgets) ? snapshot.layoutZoneWidgets : [])
+        .filter((item) => item.isActive !== false)
         .map((item) => ({
             id: String(item.id ?? ''),
             layoutId: String(item.layoutId ?? ''),

@@ -8,11 +8,8 @@ describe('widgetTableResolver', () => {
     })
 
     it('resolves new widgets table when available', async () => {
-        const hasTable = jest.fn(async (tableName: string) => tableName === '_mhb_widgets')
         const knex = {
-            schema: {
-                withSchema: jest.fn(() => ({ hasTable }))
-            }
+            raw: jest.fn(async () => ({ rows: [{ table_name: '_mhb_widgets' }] }))
         } as unknown as Knex
 
         const tableName = await resolveWidgetTableName(knex, 'mhb_test_schema')
@@ -20,11 +17,8 @@ describe('widgetTableResolver', () => {
     })
 
     it('falls back to legacy widgets table for V1 schemas', async () => {
-        const hasTable = jest.fn(async (tableName: string) => tableName === '_mhb_layout_zone_widgets')
         const knex = {
-            schema: {
-                withSchema: jest.fn(() => ({ hasTable }))
-            }
+            raw: jest.fn(async () => ({ rows: [{ table_name: '_mhb_layout_zone_widgets' }] }))
         } as unknown as Knex
 
         const tableName = await resolveWidgetTableName(knex, 'mhb_legacy_schema')
@@ -32,11 +26,8 @@ describe('widgetTableResolver', () => {
     })
 
     it('throws migration required when no compatible widgets table exists', async () => {
-        const hasTable = jest.fn(async () => false)
         const knex = {
-            schema: {
-                withSchema: jest.fn(() => ({ hasTable }))
-            }
+            raw: jest.fn(async () => ({ rows: [] }))
         } as unknown as Knex
 
         await expect(resolveWidgetTableName(knex, 'mhb_broken_schema')).rejects.toBeInstanceOf(MetahubMigrationRequiredError)

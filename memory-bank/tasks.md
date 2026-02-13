@@ -1,6 +1,87 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
+
+- [x] Task 1: Fix "Макеты" menu position in PRODUCTION config (`menuConfigs.ts`) + sync `metahubDashboard.ts`
+- [x] Task 2: Change page header buttons from "Добавить" to "Создать" in 10 list files (metahubs + applications)
+- [x] Task 3: Replace Switch toggle with Activate/Deactivate buttons + icons in LayoutDetails
+- [x] Build validation: 65/65 packages OK
+- [x] Update memory-bank
+
+## Completed: UI/UX Polish — Create Buttons, Hubs Tab, Codename AutoFill (2026-02-14)
+
+- [x] Task 1: Move "Макеты" (Layouts) menu item below divider — already done in previous session
+- [x] Task 2: Show Hubs tab in catalog edit dialog (removed conditional; always show like create mode)
+- [x] Task 3: Change create dialog button text from "Save"/"Saving" to "Create"/"Creating" across 10 files
+- [x] Task 4: Fix codename auto-fill in edit mode: reset codenameTouched when name is fully cleared
+- [x] Build + lint validation: 65/65 packages OK
+- [x] Update memory-bank
+
+## Completed: QA Round 2 Remediation + Menu + Version Reset (2026-02-13)
+
+- [x] P0 HIGH: Fix `ensureDefaultZoneWidgets` and `createLayout` in MetahubLayoutsService to respect `isActive` from defaults
+- [x] P1 MEDIUM: Add unique partial index on `(layout_id, zone, widget_key, sort_order)` to prevent duplicate widgets
+- [x] P2 MEDIUM: Fix stale test expectations in `metahubMigrationsRoutes.test.ts` and `metahubBranchesService.test.ts`
+- [x] P3 LOW: Fix `layoutCodename → template_key` assumption in TemplateSeedCleanupService
+- [x] Move "Layouts" menu item below divider in metahub sidebar
+- [x] Reset schema version to 1 and template version to 1.0.0 (consolidate V1/V2/V3 into single V1)
+- [x] Fix pre-existing test mocks (widgetTableResolver + metahubSchemaService `.raw()`)
+- [x] Build + test validation (73 packages OK, 12/12 test suites, 76/76 tests)
+- [x] Update memory-bank
+
+## Completed: QA Round 2 — Zod Schema isActive Fix + cleanupMode Consistency (2026-02-13)
+
+- [x] P0: Add `isActive: z.boolean().optional()` to `seedZoneWidgetSchema` in `TemplateManifestValidator.ts`
+- [x] P1: Change `statusQuerySchema.cleanupMode` default from `'keep'` to `'confirm'`
+- [x] P2: Change `buildMigrationPlan` parameter default from `'keep'` to `'confirm'`
+- [x] Lint + build validation (65/65 OK, 0 errors)
+- [x] Update memory-bank
+
+## Completed: QA Fixes P1–P6 — Seed isActive, Cleanup Mode, i18n, Pool Docs (2026-02-13)
+
+- [x] P2a: Add `isActive` to `DefaultZoneWidget` type and set per-widget defaults in `layoutDefaults.ts`
+- [x] P2b: Map `isActive` through `buildSeedZoneWidgets()` in `basic.template.ts`
+- [x] P2c: Use `w.isActive` instead of hardcoded `true` in `TemplateSeedExecutor` and `TemplateSeedMigrator`
+- [x] P1: Change default `cleanupMode` from `'keep'` to `'confirm'` in backend apply route
+- [x] P5: Pass `cleanupMode: 'confirm'` from frontend apply handler
+- [x] P3: Add `UI_LAYOUT_ZONES_UPDATE` case in `ConnectorDiffDialog` + i18n keys (en/ru)
+- [x] P6: Add `DATABASE_CONNECTION_BUDGET=8` comment to `.env`
+- [x] P4: Document sortOrder identity risk in `systemPatterns.md`
+- [x] Lint + build validation (65/65 OK, 0 new errors)
+- [x] Update memory-bank
+
+## Completed: Fix Migration 503 Pool Starvation (2026-02-13)
+
+- [x] Step 1: Add `DATABASE_KNEX_POOL_MAX=5` to `.env` (immediate workaround)
+- [x] Step 2a: Replace `inspectSchemaState` Promise.all(7×hasTable) with single information_schema query
+- [x] Step 2b: Fix `widgetTableResolver` Promise.all(2×hasTable) — single information_schema query
+- [x] Step 3: Update pool formulas in KnexClient.ts and DataSource.ts for safer defaults
+- [x] Step 4: Update `.env.example` with tier-scaling documentation
+- [x] Step 5: Update `techContext.md` with scaling guide
+- [x] Lint + build validation (65/65 OK)
+
+## Completed: QA Remediation — Hash/Typing/UI Toggle Polish (2026-02-13)
+
+- [x] Add `isActive` into snapshot hash normalization for `layoutZoneWidgets`
+- [x] Remove unnecessary `as any` cast in Application Sync widget normalization
+- [x] Add optimistic UI update + rollback for layout widget active toggle
+- [x] Run targeted lint for touched packages and full workspace build
+- [x] Update memory-bank status files (`activeContext.md`, `progress.md`, `tasks.md`)
+
+## Completed: Widget Activation Toggle + Template Seed Widget Cleanup (2026-02-13)
+
+- [x] Step 1-2: Structure V3 DDL (`is_active` column in `_mhb_widgets`) + bump `CURRENT_STRUCTURE_VERSION` to 3
+- [x] Step 3-4: Backend service (`MetahubLayoutsService` toggle) + route
+- [x] Step 5-6: Remove duplicate divider from defaults + bump template to 1.2.0
+- [x] Step 7: Extend `TemplateSeedCleanupService` for widget cleanup
+- [x] Step 8: Update `TemplateSeedMigrator` + `TemplateSeedExecutor` to insert `is_active`
+- [x] Step 9: Update `@universo/types` shared types (`DashboardLayoutZoneWidget.isActive`, `TemplateSeedZoneWidget.isActive`)
+- [x] Step 10-11: Snapshot/Publication pipeline + Application Sync updates
+- [x] Step 12-15: Frontend types, API, LayoutDetails toggle UI, i18n
+- [x] Step 16: Runtime app (`apps-template-mui`) — `isActive` in ZoneWidgetItem
+- [x] Step 17-18: Lint fixes + full build validation (65/65 OK)
+
 ## Active: QA Fixes Round 16 — Pool Contention + Initial Branch Compensation (2026-02-12)
 
 - [x] Prevent extra RLS cleanup DB round-trip when `QueryRunner.connect()` fails (avoid second connect attempt on cleanup).

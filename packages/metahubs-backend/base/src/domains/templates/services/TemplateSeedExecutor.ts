@@ -164,6 +164,7 @@ export class TemplateSeedExecutor {
                         widget_key: w.widgetKey,
                         sort_order: w.sortOrder,
                         config: w.config ?? {},
+                        is_active: w.isActive !== false,
                         _upl_created_at: now,
                         _upl_created_by: null,
                         _upl_updated_at: now,
@@ -191,7 +192,7 @@ export class TemplateSeedExecutor {
             const activeWidgets = await qb
                 .withSchema(this.schemaName)
                 .from(widgetTableName)
-                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .where({ layout_id: layoutId, is_active: true, _upl_deleted: false, _mhb_deleted: false })
                 .select('widget_key', 'zone')
 
             const layoutConfig = buildDashboardLayoutConfig(

@@ -191,7 +191,7 @@ const MetahubMigrations = () => {
     const handleApply = useCallback(
         (dryRun = false) => {
             if (!metahubId || !effectiveBranchId) return
-            applyMutation.mutate({ metahubId, branchId: effectiveBranchId, dryRun })
+            applyMutation.mutate({ metahubId, branchId: effectiveBranchId, dryRun, cleanupMode: 'confirm' })
         },
         [applyMutation, effectiveBranchId, metahubId]
     )

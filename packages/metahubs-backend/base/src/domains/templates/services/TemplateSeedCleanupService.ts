@@ -1,6 +1,13 @@
 import type { Knex } from 'knex'
 import stableStringify from 'json-stable-stringify'
-import type { MetahubTemplateSeed, TemplateSeedEntity, TemplateSeedSetting, TemplateSeedElement } from '@universo/types'
+import type {
+    MetahubTemplateSeed,
+    TemplateSeedEntity,
+    TemplateSeedSetting,
+    TemplateSeedElement,
+    TemplateSeedZoneWidget
+} from '@universo/types'
+import { resolveWidgetTableName } from './widgetTableResolver'
 
 export const TEMPLATE_CLEANUP_MODES = ['keep', 'dry_run', 'confirm'] as const
 export type TemplateCleanupMode = (typeof TEMPLATE_CLEANUP_MODES)[number]
@@ -8,6 +15,8 @@ export type TemplateCleanupMode = (typeof TEMPLATE_CLEANUP_MODES)[number]
 interface CleanupSeedDiff {
     removedEntities: Map<string, TemplateSeedEntity>
     removedSettings: Map<string, TemplateSeedSetting>
+    /** Widgets removed per layout codename. */
+    removedWidgets: Map<string, TemplateSeedZoneWidget[]>
 }
 
 interface EntityCleanupCandidate {
@@ -22,10 +31,19 @@ interface SettingCleanupCandidate {
     key: string
 }
 
+interface WidgetCleanupCandidate {
+    id: string
+    layoutCodename: string
+    zone: string
+    widgetKey: string
+    sortOrder: number
+}
+
 interface CleanupPlanData {
     diff: CleanupSeedDiff
     entityCandidates: EntityCleanupCandidate[]
     settingCandidates: SettingCleanupCandidate[]
+    widgetCandidates: WidgetCleanupCandidate[]
     blockers: string[]
     notes: string[]
 }
@@ -35,6 +53,7 @@ export interface TemplateSeedCleanupSummary {
     attributesDeleted: number
     elementsDeleted: number
     settingsDeleted: number
+    widgetsDeleted: number
 }
 
 export interface TemplateSeedCleanupResult {
@@ -49,7 +68,8 @@ const zeroSummary = (): TemplateSeedCleanupSummary => ({
     entitiesDeleted: 0,
     attributesDeleted: 0,
     elementsDeleted: 0,
-    settingsDeleted: 0
+    settingsDeleted: 0,
+    widgetsDeleted: 0
 })
 
 const buildEntityKey = (entity: Pick<TemplateSeedEntity, 'kind' | 'codename'>): string => `${entity.kind}:${entity.codename}`
@@ -91,14 +111,15 @@ export class TemplateSeedCleanupService {
         const plan = await this.buildPlan(params.currentSeed, params.targetSeed)
         return {
             mode: params.mode,
-            hasChanges: plan.entityCandidates.length > 0 || plan.settingCandidates.length > 0,
+            hasChanges: plan.entityCandidates.length > 0 || plan.settingCandidates.length > 0 || plan.widgetCandidates.length > 0,
             blockers: plan.blockers,
             notes: plan.notes,
             summary: {
                 entitiesDeleted: plan.entityCandidates.length,
                 attributesDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.attributeIds.length, 0),
                 elementsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.elementIds.length, 0),
-                settingsDeleted: plan.settingCandidates.length
+                settingsDeleted: plan.settingCandidates.length,
+                widgetsDeleted: plan.widgetCandidates.length
             }
         }
     }
@@ -117,14 +138,15 @@ export class TemplateSeedCleanupService {
         if (plan.blockers.length > 0) {
             return {
                 mode: 'confirm',
-                hasChanges: plan.entityCandidates.length > 0 || plan.settingCandidates.length > 0,
+                hasChanges: plan.entityCandidates.length > 0 || plan.settingCandidates.length > 0 || plan.widgetCandidates.length > 0,
                 blockers: plan.blockers,
                 notes: plan.notes,
                 summary: {
                     entitiesDeleted: plan.entityCandidates.length,
                     attributesDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.attributeIds.length, 0),
                     elementsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.elementIds.length, 0),
-                    settingsDeleted: plan.settingCandidates.length
+                    settingsDeleted: plan.settingCandidates.length,
+                    widgetsDeleted: plan.widgetCandidates.length
                 }
             }
         }
@@ -134,6 +156,24 @@ export class TemplateSeedCleanupService {
         const summary = zeroSummary()
 
         await this.knex.transaction(async (trx) => {
+            const widgetTableName = await resolveWidgetTableName(trx, this.schemaName)
+
+            for (const candidate of plan.widgetCandidates) {
+                await trx
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({ id: candidate.id, _upl_deleted: false, _mhb_deleted: false })
+                    .update({
+                        _mhb_deleted: true,
+                        _mhb_deleted_at: now,
+                        _mhb_deleted_by: actorId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: actorId,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+                summary.widgetsDeleted += 1
+            }
+
             for (const candidate of plan.settingCandidates) {
                 await trx
                     .withSchema(this.schemaName)
@@ -203,10 +243,10 @@ export class TemplateSeedCleanupService {
 
         return {
             mode: 'confirm',
-            hasChanges: summary.entitiesDeleted > 0 || summary.settingsDeleted > 0,
+            hasChanges: summary.entitiesDeleted > 0 || summary.settingsDeleted > 0 || summary.widgetsDeleted > 0,
             blockers: [],
             notes: [
-                `Removed entities: ${summary.entitiesDeleted}, attributes: ${summary.attributesDeleted}, elements: ${summary.elementsDeleted}, settings: ${summary.settingsDeleted}`
+                `Removed entities: ${summary.entitiesDeleted}, attributes: ${summary.attributesDeleted}, elements: ${summary.elementsDeleted}, settings: ${summary.settingsDeleted}, widgets: ${summary.widgetsDeleted}`
             ],
             summary
         }
@@ -219,9 +259,10 @@ export class TemplateSeedCleanupService {
         if (!currentSeed && !targetSeed) {
             notes.push('Both current and target template seeds are unavailable; cleanup is not required.')
             return {
-                diff: { removedEntities: new Map(), removedSettings: new Map() },
+                diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
                 entityCandidates: [],
                 settingCandidates: [],
+                widgetCandidates: [],
                 blockers,
                 notes
             }
@@ -229,9 +270,10 @@ export class TemplateSeedCleanupService {
         if (!currentSeed) {
             blockers.push('Current template seed is unavailable. Cleanup cannot be analyzed safely.')
             return {
-                diff: { removedEntities: new Map(), removedSettings: new Map() },
+                diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
                 entityCandidates: [],
                 settingCandidates: [],
+                widgetCandidates: [],
                 blockers,
                 notes
             }
@@ -239,9 +281,10 @@ export class TemplateSeedCleanupService {
         if (!targetSeed) {
             blockers.push('Target template seed is unavailable. Cleanup cannot be analyzed safely.')
             return {
-                diff: { removedEntities: new Map(), removedSettings: new Map() },
+                diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
                 entityCandidates: [],
                 settingCandidates: [],
+                widgetCandidates: [],
                 blockers,
                 notes
             }
@@ -347,7 +390,72 @@ export class TemplateSeedCleanupService {
             settingCandidates.push({ id: toStringValue(row.id), key: settingKey })
         }
 
-        return { diff, entityCandidates, settingCandidates, blockers, notes }
+        // ── Widget cleanup candidates ──
+        const widgetCandidates: WidgetCleanupCandidate[] = []
+        const widgetTableName = await resolveWidgetTableName(this.knex, this.schemaName)
+
+        // Build codename → templateKey map from seed layouts for robust DB lookup
+        const layoutCodenameToTemplateKey = new Map<string, string>()
+        if (currentSeed.layouts) {
+            for (const layout of currentSeed.layouts) {
+                layoutCodenameToTemplateKey.set(layout.codename, layout.templateKey)
+            }
+        }
+
+        for (const [layoutCodename, removedList] of diff.removedWidgets) {
+            const templateKey = layoutCodenameToTemplateKey.get(layoutCodename) ?? layoutCodename
+            const layoutRow = await this.knex
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ template_key: templateKey, _upl_deleted: false, _mhb_deleted: false })
+                .select('id')
+                .first()
+
+            if (!layoutRow) {
+                notes.push(`Layout "${layoutCodename}" not found in schema; widget cleanup skipped.`)
+                continue
+            }
+
+            for (const w of removedList) {
+                const widgetRow = await this.knex
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({
+                        layout_id: layoutRow.id,
+                        zone: w.zone,
+                        widget_key: w.widgetKey,
+                        sort_order: w.sortOrder,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .select(['id', '_upl_created_by', '_upl_updated_by'])
+                    .first()
+
+                if (!widgetRow) {
+                    notes.push(
+                        `Widget "${w.widgetKey}" at ${w.zone}:${w.sortOrder} in layout "${layoutCodename}" is absent; cleanup not required.`
+                    )
+                    continue
+                }
+
+                if (widgetRow._upl_created_by || widgetRow._upl_updated_by) {
+                    blockers.push(
+                        `Widget "${w.widgetKey}" at ${w.zone}:${w.sortOrder} cleanup blocked: non-system audit provenance detected.`
+                    )
+                    continue
+                }
+
+                widgetCandidates.push({
+                    id: toStringValue(widgetRow.id),
+                    layoutCodename,
+                    zone: w.zone,
+                    widgetKey: w.widgetKey,
+                    sortOrder: w.sortOrder
+                })
+            }
+        }
+
+        return { diff, entityCandidates, settingCandidates, widgetCandidates, blockers, notes }
     }
 
     private calculateRemovedSeed(currentSeed: MetahubTemplateSeed, targetSeed: MetahubTemplateSeed): CleanupSeedDiff {
@@ -369,7 +477,24 @@ export class TemplateSeedCleanupService {
             }
         }
 
-        return { removedEntities, removedSettings }
+        // Widget diff: compare per layout codename
+        const removedWidgets = new Map<string, TemplateSeedZoneWidget[]>()
+        const currentWidgets = currentSeed.layoutZoneWidgets ?? {}
+        const targetWidgets = targetSeed.layoutZoneWidgets ?? {}
+        for (const [layoutCodename, currentList] of Object.entries(currentWidgets)) {
+            const targetList = targetWidgets[layoutCodename] ?? []
+            const targetKeys = new Set(targetList.map((w) => this.buildWidgetKey(w)))
+            const removed = currentList.filter((w) => !targetKeys.has(this.buildWidgetKey(w)))
+            if (removed.length > 0) {
+                removedWidgets.set(layoutCodename, removed)
+            }
+        }
+
+        return { removedEntities, removedSettings, removedWidgets }
+    }
+
+    private buildWidgetKey(widget: TemplateSeedZoneWidget): string {
+        return `${widget.zone}:${widget.widgetKey}:${widget.sortOrder}`
     }
 
     private buildElementKey(element: TemplateSeedElement): string {

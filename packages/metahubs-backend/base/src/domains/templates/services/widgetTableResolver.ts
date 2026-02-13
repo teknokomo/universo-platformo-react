@@ -21,17 +21,22 @@ export const resolveWidgetTableName = async (
         return cached
     }
 
-    const [hasWidgets, hasLegacyWidgets] = await Promise.all([
-        queryBuilder.schema.withSchema(schemaName).hasTable('_mhb_widgets'),
-        queryBuilder.schema.withSchema(schemaName).hasTable('_mhb_layout_zone_widgets')
-    ])
+    const candidates: Array<'_mhb_widgets' | '_mhb_layout_zone_widgets'> = ['_mhb_widgets', '_mhb_layout_zone_widgets']
 
-    if (hasWidgets) {
+    // Single query to check both candidates. Avoids parallel hasTable() calls
+    // that each acquire a separate pool connection under advisory locks.
+    const result = await queryBuilder.raw<{ rows: Array<{ table_name: string }> }>(
+        `SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ANY(?)`,
+        [schemaName, candidates]
+    )
+    const existing = new Set(result.rows.map((r) => r.table_name))
+
+    if (existing.has('_mhb_widgets')) {
         widgetTableCache.set(cacheKey, '_mhb_widgets')
         return '_mhb_widgets'
     }
 
-    if (hasLegacyWidgets) {
+    if (existing.has('_mhb_layout_zone_widgets')) {
         widgetTableCache.set(cacheKey, '_mhb_layout_zone_widgets')
         return '_mhb_layout_zone_widgets'
     }

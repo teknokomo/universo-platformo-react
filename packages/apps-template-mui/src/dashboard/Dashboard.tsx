@@ -76,6 +76,7 @@ export interface ZoneWidgetItem {
     widgetKey: string
     sortOrder: number
     config: Record<string, unknown>
+    isActive?: boolean
 }
 
 export interface ZoneWidgets {

@@ -1,10 +1,178 @@
 # Active Context
 
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-14
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
+
+## Completed: UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle ✅
+
+**Status**: 3 fixes applied. Full build OK (65/65 packages).
+
+### What Was Done
+
+- **Task 1 (Menu "Макеты" position)**: Fixed in PRODUCTION sidebar config `menuConfigs.ts` (the real config used by `universo-template-mui/MenuContent.tsx`). Swapped `layouts` below `divider-secondary`. Also synced `metahubDashboard.ts` (legacy config) by adding missing `migrations` menu item with `IconHistory`.
+- **Task 2 ("Добавить" → "Создать" page buttons)**: Changed `primaryAction.label` from `tc('addNew')` to `tc('create')` in all 10 list pages across metahubs-frontend (8 files) and applications-frontend (2 files). The `create` i18n key already existed ("Create" / "Создать"). Global `addNew` key unchanged to avoid affecting Flowise-upstream pages (canvases, credentials, etc.).
+- **Task 3 (Widget activate/deactivate button)**: Replaced `Switch` toggle with `Button` component (text + icon) in `SortableWidgetChip` within `LayoutDetails.tsx`. Active widget shows "Деактивировать" with `ToggleOffRounded` icon; inactive shows "Активировать" with `ToggleOnRounded` icon. Opacity (0.45) now applies only to the label text, not to action buttons (activate/deactivate, edit, delete). Border still becomes dashed for inactive widgets.
+
+### Key Discovery: Two Menu Config Systems
+
+There are **two separate sidebar menu configurations** in the project:
+1. **`metahubDashboard.ts`** (in `metahubs-frontend`) — Legacy config used by `flowise-template-mui/MenuList`
+2. **`menuConfigs.ts`** (in `universo-template-mui/navigation/`) — **PRODUCTION config** consumed by `universo-template-mui/MenuContent.tsx` via `getMetahubMenuItems()`
+
+Previous session only fixed #1 but the running app uses #2. Both are now synchronized.
+
+### Files Modified (13 files)
+
+1. `menuConfigs.ts` — Task 1 (layouts below divider-secondary, PRODUCTION config)
+2. `metahubDashboard.ts` — Task 1 (added migrations menu item + IconHistory import)
+3. `LayoutDetails.tsx` — Task 3 (Switch → Button, opacity only on label text)
+4-13. 10 *List.tsx files — Task 2 (`tc('addNew')` → `tc('create')` in primaryAction)
+
+---
+
+## Previous: UI/UX Polish Round 1 — Create Buttons, Hubs Tab, Codename AutoFill ✅
+
+**Status**: All P0-P3 fixes applied, menu reordered, version reset to V1/1.0.0, all tests passing (12/12 suites, 76/76 tests), full build OK (73 packages).
+
+### What Was Done
+
+- **P0 HIGH**: `ensureDefaultZoneWidgets` now uses `is_active: item.isActive !== false`; `createLayout` filters active widgets for initial config.
+- **P1 MEDIUM**: Added unique partial index `idx_mhb_widgets_unique_active` on `(layout_id, zone, widget_key, sort_order) WHERE _upl_deleted = false AND _mhb_deleted = false`.
+- **P2 MEDIUM**: Updated test expectations in `metahubMigrationsRoutes.test.ts` (12/12) and `metahubBranchesService.test.ts` (5/5) to match CURRENT_STRUCTURE_VERSION=1.
+- **P3 LOW**: Built `layoutCodenameToTemplateKey` map from seed layouts in `TemplateSeedCleanupService` for correct DB lookup.
+- **Menu**: Moved "Layouts" below `divider-secondary` in metahub sidebar.
+- **Version Reset**: Consolidated V1/V2/V3 into single V1 with full feature set (`is_active`, unique constraint). `CURRENT_STRUCTURE_VERSION=1`, template `version='1.0.0'`, `minStructureVersion=1`.
+- **Test Mocks**: Fixed pre-existing `.raw()` mock missing in `widgetTableResolver.test.ts` (3 tests) and `metahubSchemaService.test.ts` (2 tests, also updated `structureVersion` from 2→1).
+
+### Files Modified (10 files)
+
+1. `MetahubLayoutsService.ts` — P0 (2 changes)
+2. `systemTableDefinitions.ts` — P1 + version reset (consolidated to single V1)
+3. `structureVersions.ts` — `CURRENT_STRUCTURE_VERSION 3→1`
+4. `basic.template.ts` — version `1.0.0`, `minStructureVersion: 1`
+5. `TemplateSeedCleanupService.ts` — P3 codename→templateKey map
+6. `metahubDashboard.ts` — menu reorder
+7. `metahubMigrationsRoutes.test.ts` — P2 expectations
+8. `metahubBranchesService.test.ts` — P2 version refs
+9. `widgetTableResolver.test.ts` — `.raw()` mock fix
+10. `metahubSchemaService.test.ts` — `.raw()` mock + structureVersion fix
+
+### Validation
+
+- `npx jest --no-coverage` ✅ (12/12 suites, 76 passed, 3 skipped)
+- `pnpm build` ✅ (73 packages, EXIT_CODE=0)
+
+## Completed: QA Round 2 — Zod Schema isActive Fix + cleanupMode Consistency ✅
+
+**Status**: All 3 findings fixed, validated (65/65 build, 0 lint errors).
+
+### What Was Done
+
+- **P0 CRITICAL (Zod strips isActive)**: Added `isActive: z.boolean().optional()` to `seedZoneWidgetSchema` in `TemplateManifestValidator.ts`. Without this, Zod's default `.strip()` mode removed `isActive` from validated seed data, causing `TemplateSeedExecutor` to treat all widgets as active (`w.isActive !== false` → `undefined !== false` → `true`).
+- **P1 LOW (statusQuerySchema)**: Changed `cleanupMode` default from `'keep'` to `'confirm'` in `statusQuerySchema` for consistency with `planBodySchema` and `applyBodySchema`.
+- **P2 LOW (buildMigrationPlan default)**: Changed function parameter default from `'keep'` to `'confirm'` for consistency.
+
+### Files Modified (2 files)
+
+1. `TemplateManifestValidator.ts` — added `isActive: z.boolean().optional()` to `seedZoneWidgetSchema`
+2. `metahubMigrationsRoutes.ts` — `statusQuerySchema` default + `buildMigrationPlan` default → `'confirm'`
+
+### Validation
+
+- `pnpm --filter metahubs-backend lint` ✅ (0 errors, 219 warnings)
+- `pnpm build` ✅ (65/65 tasks successful)
+
+## Completed: QA Fixes P1–P6 — Seed isActive, Cleanup Mode, i18n, Pool Docs ✅
+
+**Status**: All 6 QA findings implemented, validated (65/65 build, 0 new lint errors).
+
+### What Was Done
+
+- **P2 (is_active hardcoded)**: Added `isActive?: boolean` to `DefaultZoneWidget` type and set `isActive: false` on 16 of 19 widgets (only menuWidget, header, detailsTitle, detailsTable active). `buildSeedZoneWidgets()` maps `isActive` into seed data. Template version bumped to `1.3.0`. `TemplateSeedExecutor` now uses `w.isActive !== false` (seed-based). `TemplateSeedMigrator` now does peer lookup (inherits `is_active` from existing widget with same zone+widget_key) + orphan duplicate cleanup (soft-deletes system-created duplicates at non-target sortOrders). Config rebuild queries in both Executor and Migrator now filter by `is_active: true`.
+- **P1+P5 (cleanupMode default)**: Changed default from `'keep'` to `'confirm'` in backend route schemas (`metahubMigrationsRoutes.ts`), frontend hooks (`useMetahubMigrations.ts`), UI handler (`MetahubMigrations.tsx`), and mutation fallbacks (`mutations.ts`). Template seed cleanup now runs automatically during migration apply.
+- **P3 (i18n missing key)**: Added `UI_LAYOUT_ZONES_UPDATE` case in `ConnectorDiffDialog.tsx` switch + `formatChange` handler. Added `uiLayoutZonesUpdate` i18n keys in en/ru `applications.json`.
+- **P6 (DATABASE_CONNECTION_BUDGET)**: Added `# DATABASE_CONNECTION_BUDGET=8` commented entry in `.env`.
+- **P4 (sortOrder identity risk)**: Documented in `systemPatterns.md` — "Template Seed Identity Pattern (IMPORTANT)" section with detection query.
+
+### Files Modified (13 files)
+
+1. `layoutDefaults.ts` — type + 16 widgets `isActive: false`
+2. `basic.template.ts` — `buildSeedZoneWidgets` isActive mapping + version 1.3.0
+3. `TemplateSeedExecutor.ts` — seed-based `is_active` + config rebuild filter
+4. `TemplateSeedMigrator.ts` — peer lookup + orphan cleanup + config rebuild filter
+5. `metahubMigrationsRoutes.ts` — cleanupMode default `'confirm'`
+6. `useMetahubMigrations.ts` — cleanupMode default `'confirm'` (2 hooks)
+7. `MetahubMigrations.tsx` — cleanupMode in handleApply
+8. `mutations.ts` — 3× fallback `'confirm'`
+9. `ConnectorDiffDialog.tsx` — UI_LAYOUT_ZONES_UPDATE case
+10. `en/applications.json` + `ru/applications.json` — i18n keys
+11. `.env` — DATABASE_CONNECTION_BUDGET comment
+12. `systemPatterns.md` — sortOrder identity risk
+
+### Validation
+
+- `pnpm --filter metahubs-backend lint` ✅ (0 errors, 219 warnings)
+- `pnpm --filter metahubs-frontend lint` ✅ (0 errors, 317 warnings)
+- `pnpm --filter applications-frontend lint` — 14 pre-existing prettier errors in `connectorPublications.ts`, `migrations.ts`, `queryKeys.ts` (NOT in our files)
+- `pnpm build` ✅ (65/65 tasks successful)
+
+## Completed: Fix Migration 503 Pool Starvation ✅
+
+**Status**: Implemented and validated. Root cause (Knex pool max=2 + parallel hasTable + advisory locks) eliminated at three layers.
+
+### What Was Done
+
+- **Env workaround**: Added `DATABASE_KNEX_POOL_MAX=5` and `DATABASE_POOL_MAX=5` to `.env` for immediate relief.
+- **inspectSchemaState**: Replaced `Promise.all(7 × hasTable)` with single `information_schema.tables` SQL query (1 connection instead of 7).
+- **widgetTableResolver**: Replaced `Promise.all(2 × hasTable)` with single `information_schema.tables` SQL query (1 connection instead of 2).
+- **Pool formulas**: Raised Knex floor from 2→4 and changed divisor /4→/3 in both `KnexClient.ts` and `DataSource.ts`. With budget=8 (prod): Knex=4, TypeORM=4.
+- **Documentation**: Updated `.env.example` with tier-scaling table (Nano/Micro/Small/Medium/Large+) and `techContext.md` with pool formulas + advisory lock safety note.
+
+### Validation
+
+- `pnpm --filter metahubs-backend lint` ✅ (0 errors)
+- `pnpm --filter @flowise/core-backend build` ✅
+- `pnpm --filter metahubs-backend build` ✅
+- `pnpm build` ✅ (65/65 tasks successful)
+
+## Completed: QA Remediation — Hash/Typing/UI Toggle Polish ✅
+
+**Status**: Implemented and validated. Scope was limited to two backend low-risk fixes and one frontend UX consistency improvement.
+
+### What Was Done
+
+- `SnapshotSerializer.normalizeSnapshotForHash()` now includes `layoutZoneWidgets[].isActive` in hash normalization payload.
+- `applicationSyncRoutes.normalizeSnapshotLayoutZoneWidgets()` now uses typed access (`item.isActive`) and removes unnecessary `as any` cast.
+- `LayoutDetails` widget toggle now uses optimistic cache update with rollback on API failure (same reliability model as drag-and-drop optimistic flow).
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only, no errors)
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only, no errors)
+- `pnpm build` ✅ (65/65 tasks successful)
+
+## Completed: Widget Activation Toggle + Template Seed Widget Cleanup ✅
+
+**Status**: Full implementation complete. All 18 steps done, full build 65/65 OK, lint 0 errors.
+
+### What Was Done
+
+- **Structure V3**: `is_active BOOLEAN DEFAULT true` on `_mhb_widgets`, partial index, `CURRENT_STRUCTURE_VERSION = 3`.
+- **Backend toggle**: `MetahubLayoutsService.toggleLayoutZoneWidgetActive()` + PATCH route. `syncLayoutConfigFromZoneWidgets` filters inactive widgets.
+- **Layout defaults**: Removed duplicate divider, renumbered. Template bumped to `1.2.0` / `minStructureVersion: 3`.
+- **Seed cleanup**: `TemplateSeedCleanupService` extended with widget diff, candidate resolution, soft-delete.
+- **Shared types / pipelines**: `isActive` flows through types, snapshot serializer, publication pipeline, app sync (filtered).
+- **Frontend**: Switch toggle on `SortableWidgetChip`, opacity/dashed border for inactive, i18n keys (en/ru).
+- **Runtime**: `apps-template-mui` ZoneWidgetItem + Zod schema updated with optional `isActive`.
+
+### Validation
+
+- `pnpm build` — 65/65 tasks successful ✅
+- `pnpm --filter metahubs-backend lint` — 0 errors ✅
+- `pnpm --filter metahubs-frontend lint` — 0 errors ✅
 
 ## Completed: QA Fixes Round 16 — Pool Contention + Initial Branch Compensation ✅
 

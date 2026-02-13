@@ -11,6 +11,25 @@
 | Release | Date | Codename | Highlights |
 | --- | --- | --- | --- |
 | 0.46.0-alpha | 2026-01-16 | 0.46.0 Alpha — 2026-01-16 | GH639 Add Applications modules and Metahubs publications; GH641 Refactor Metahubs packages to Domain-Driven Design architecture |
+
+---
+
+## UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
+
+- Fixed 3 UI/UX issues found during manual testing:
+  - **Menu "Макеты" position**: Fixed in PRODUCTION config (`menuConfigs.ts` in `universo-template-mui`). Previous fix was in legacy config only. Also synced `metahubDashboard.ts` with missing migrations item.
+  - **"Добавить" → "Создать" page buttons**: Changed `tc('addNew')` → `tc('create')` in primaryAction across 10 list pages (metahubs: 8, applications: 2). Global `addNew` key preserved for Flowise-upstream pages.
+  - **Widget activation toggle**: Replaced MUI `Switch` with text `Button` + icon (`ToggleOn`/`ToggleOff`) in `LayoutDetails.tsx`. Inactive widget label text is dimmed (opacity 0.45) but action buttons (activate, edit, delete) remain full opacity. Border still dashed for inactive.
+- Key discovery: TWO separate sidebar menu configs exist — `metahubDashboard.ts` (legacy) and `menuConfigs.ts` (production). Both now synchronized.
+- Build: 65/65 packages OK
+
+## UI/UX Polish — Create Buttons, Hubs Tab, Codename AutoFill (2026-02-14)
+
+- Fixed 3 UI/UX issues found during manual testing (Task 1 was pre-done):
+  - **Hubs tab in catalog edit**: Removed conditional display — always shows, matching create mode
+  - **Create button text**: Changed "Save"/"Saving" → "Create"/"Creating" in 10 create dialogs (metahubs: 8, applications: 2). Edit/copy dialogs unchanged.
+  - **Codename auto-fill**: Fixed `useCodenameAutoFill` to reset `codenameTouched` when name is fully cleared in edit mode, enabling auto-generation restart
+- Build: 65/65 packages OK
 | 0.45.0-alpha | 2026-01-12 | 0.45.0 Alpha — 2026-01-11 (Structured Structure) 😳 | GH630 Internationalize project metadata and update texts; GH632 Add localized fields UI, refactor admin locales, integrate into Metahubs; GH634 Implement Metahubs VLC localization + UI fixes |
 | 0.44.0-alpha | 2026-01-04 | 0.44.0 Alpha — 2026-01-04 (Fascinating Acquaintance) 🖖 | GH613 Implement Onboarding Completion Tracking with Registration 419 Auto-Retry; GH615 Implement legal consent feature with Terms of Service and Privacy Policy during registration; GH618 Add consent tracking (Terms of Service and Privacy Policy) for Leads |
 | 0.43.0-alpha | 2025-12-27 | 0.43.0 Alpha — 2025-12-27 (New Future) 🏋️‍♂️ | GH609 Metahubs Phase 3: Fix Pagination Display and Localization Issues; GH611 feat: Implement onboarding wizard with start pages i18n |
@@ -41,6 +60,64 @@
 | 0.18.0-pre-alpha | 2025-07-01 | 0.18.0 Pre-Alpha — 2025-07-01 | GH77 The project has been updated to Flowise version 2.2.8; GH95 Fixed critical bugs found after migration to Flowise 2.2.8; GH98 Fixed TypeScript compilation errors and TypeORM conflicts in Flowise Components |
 | 0.17.0-pre-alpha | 2025-06-25 | 0.17.0 Pre-Alpha — 2025-06-25 | Added new fields to User Profile settings by @VladimirLevadnij in #82; Updated menu items Documentation, Chat Flows, Agent Flows by @VladimirLevadnij in #83; GH84 Convert profile-srv to workspace package |
 | 0.16.0-pre-alpha | 2025-06-21 | 0.16.0 Pre-Alpha — 2025-06-21 | Fix Russian text in memory bank; Fix Russian comments; Update app READMEs and Russian translations |
+
+---
+
+## 2026-02-13
+
+### QA Round 2 Remediation + Menu + Version Reset
+- **P0** (`ensureDefaultZoneWidgets`): Changed `is_active: true` → `is_active: item.isActive !== false`. `createLayout` now filters `DEFAULT_DASHBOARD_ZONE_WIDGETS.filter(w => w.isActive !== false)` for initial config.
+- **P1** (unique constraint): Added `idx_mhb_widgets_unique_active` partial unique index on `(layout_id, zone, widget_key, sort_order) WHERE _upl_deleted = false AND _mhb_deleted = false`.
+- **P2** (stale tests): Updated `metahubMigrationsRoutes.test.ts` (targetStructureVersion 2→1, migrationRequired→false) and `metahubBranchesService.test.ts` (minStructureVersion 3→1, structureVersion 3→1).
+- **P3** (`layoutCodename→template_key`): Built codename→templateKey map from `currentSeed.layouts` in `TemplateSeedCleanupService.buildPlan()`.
+- **Menu reorder**: Moved "Layouts" from above `divider-secondary` to below it in `metahubDashboard.ts`.
+- **Version reset**: Consolidated V1/V2/V3 into single V1 in `systemTableDefinitions.ts` (removed `mhbLayoutZoneWidgets`, `SYSTEM_TABLES_V2`). `CURRENT_STRUCTURE_VERSION=1`, template version `1.0.0`, `minStructureVersion=1`.
+- **Test mock fixes**: Updated `widgetTableResolver.test.ts` (3 tests: `schema.withSchema().hasTable()` → `raw()` mock) and `metahubSchemaService.test.ts` (2 tests: added `raw()` to `mockKnex`, changed `structureVersion: 2→1`).
+- **Validation**: `npx jest --no-coverage` ✅ (12/12 suites, 76 passed, 3 skipped). `pnpm build` ✅ (73 packages, EXIT_CODE=0).
+
+### Fix Migration 503 Pool Starvation
+- **Root cause**: Knex tarn.js pool max=2 (from budget formula `floor(8/4)=2`), two advisory locks consumed both connections, `Promise.all(7×hasTable)` in `inspectSchemaState` created 7 pending acquires → deadlock → timeout → HTTP 503.
+- **Env workaround**: Added `DATABASE_KNEX_POOL_MAX=5` + `DATABASE_POOL_MAX=5` to `.env` for immediate override.
+- **Code fix — inspectSchemaState** (`MetahubSchemaService.ts`): Replaced `Promise.all(expectedTables.map(hasTable))` (7 parallel connections) with single `SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ANY(?)`.
+- **Code fix — widgetTableResolver** (`widgetTableResolver.ts`): Replaced `Promise.all([hasTable('_mhb_widgets'), hasTable('_mhb_layout_zone_widgets')])` with single `information_schema.tables` query.
+- **Formula fix** (`KnexClient.ts`, `DataSource.ts`): Changed Knex default from `max(2, min(4, floor(budget/4)))` to `max(4, min(6, floor(budget/3)))`. TypeORM knexReserve from `max(2, floor(budget/4))` to `max(4, floor(budget/3))`. With budget=8: Knex=4, TypeORM=4 (was Knex=2, TypeORM=6).
+- **Docs**: `.env.example` updated with tier-scaling table. `techContext.md` updated with new formulas and advisory lock safety note.
+- **Validation**: `pnpm build` ✅ (65/65), lint ✅ (0 errors in touched packages).
+
+### QA Round 2 — Zod Schema isActive Fix + cleanupMode Consistency
+- **P0 CRITICAL**: `seedZoneWidgetSchema` in `TemplateManifestValidator.ts` was missing `isActive` field. Zod's `.strip()` mode silently removed `isActive: false` from validated seed manifest. `TemplateSeedExecutor` received `w.isActive === undefined`, evaluated `undefined !== false` → `true`, causing all widgets to be inserted as active in new metahubs. **Fix**: Added `isActive: z.boolean().optional()` to the Zod schema.
+- **P1/P2**: Aligned `statusQuerySchema.cleanupMode` and `buildMigrationPlan` function parameter defaults from `'keep'` to `'confirm'` for consistency with `planBodySchema` and `applyBodySchema`.
+- **Validation**: `pnpm build` ✅ (65/65), lint ✅ (0 errors).
+
+### QA Remediation — Hash/Typing/UI Toggle Polish
+- Fixed snapshot hash normalization fidelity: `layoutZoneWidgets` now include `isActive` in `SnapshotSerializer.normalizeSnapshotForHash`, preventing stale duplicate-signaling edge cases when widget active state changes.
+- Removed unnecessary unsafe cast in Application Sync: `normalizeSnapshotLayoutZoneWidgets` now uses typed `item.isActive` instead of `(item as any).isActive`.
+- Improved frontend toggle UX resilience: `LayoutDetails.handleToggleWidgetActive` now applies optimistic cache update with rollback on failure.
+- Validation:
+  - `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
+  - `pnpm build` ✅ (65/65)
+
+### Widget Activation Toggle + Template Seed Widget Cleanup
+- **Structure V3**: Added `is_active BOOLEAN DEFAULT true` column to `_mhb_widgets` DDL with partial index `idx_mhb_widgets_active_layout_zone_sort WHERE is_active = true`. Bumped `CURRENT_STRUCTURE_VERSION` to 3.
+- **Layouts Service**: Extended `MetahubLayoutsService` — `syncLayoutConfigFromZoneWidgets` filters inactive widgets before building config; new `toggleLayoutZoneWidgetActive()` method with Zod validation + PATCH route.
+- **Layout Defaults**: Removed duplicate divider (sortOrder 5), renumbered infoCard→5, userProfile→6. 19 default widgets (was 20).
+- **Template Bump**: `basicTemplate` version `'1.2.0'`, `minStructureVersion: 3`.
+- **Seed Cleanup**: Extended `TemplateSeedCleanupService` with widget diff calculation, candidate resolution (provenance checks), and soft-delete in apply transaction.
+- **Seed Executor/Migrator**: Added `is_active: true` to widget insert payloads.
+- **Shared Types** (`@universo/types`): `DashboardLayoutZoneWidget.isActive: boolean`, `TemplateSeedZoneWidget.isActive?: boolean`.
+- **Snapshot/Pub Pipeline**: `MetahubLayoutZoneWidgetSnapshot.isActive`, `attachLayoutsToSnapshot` includes `is_active` in SELECT/mapping. `normalizeSnapshotLayoutZoneWidgets` filters inactive widgets before persisting to published app schema.
+- **Frontend**: Toggle Switch in `SortableWidgetChip` (inactive: opacity 0.45, dashed border), `toggleLayoutZoneWidgetActive` API method, i18n keys (en/ru).
+- **Runtime** (`apps-template-mui`): `isActive` added to zoneWidget Zod schema and `ZoneWidgetItem` interface (optional, default true).
+- **Validation**: Full build 65/65 OK, lint 0 errors in metahubs-backend and metahubs-frontend.
+
+### QA Fixes P1–P6 — Seed isActive, Cleanup Mode, i18n, Pool Docs
+- **P2 (is_active hardcoded true)**: Added `isActive?: boolean` to `DefaultZoneWidget` type, set `isActive: false` on 16 widgets (active: menuWidget, header, detailsTitle, detailsTable). `buildSeedZoneWidgets()` now maps `isActive` into seed. Template version `1.2.0` → `1.3.0`. `TemplateSeedExecutor`: `is_active: w.isActive !== false` (seed-based for new metahubs). `TemplateSeedMigrator`: peer lookup inherits `is_active` from existing widget, orphan cleanup soft-deletes system-created duplicates at non-target sortOrders. Config rebuild in both Executor and Migrator now filters `is_active: true`.
+- **P1+P5 (cleanupMode default 'keep')**: Changed to `'confirm'` in backend route schemas, frontend hooks, UI handler, and mutation fallbacks. Template seed cleanup now runs automatically during migration apply.
+- **P3 (i18n UI_LAYOUT_ZONES_UPDATE)**: Added case in `ConnectorDiffDialog.tsx` formatStructuredChange switch + formatChange handler. Added `uiLayoutZonesUpdate` i18n keys in en/ru `applications.json`.
+- **P6 (DATABASE_CONNECTION_BUDGET)**: Added `# DATABASE_CONNECTION_BUDGET=8` commented entry in `.env`.
+- **P4 (sortOrder identity risk)**: Documented in `systemPatterns.md` with detection query and mitigation notes.
+- **Validation**: `pnpm build` ✅ (65/65), lint ✅ (0 new errors in touched packages; pre-existing prettier errors in `connectorPublications.ts`, `migrations.ts`, `queryKeys.ts` not related).
 
 ---
 

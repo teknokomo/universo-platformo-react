@@ -61,7 +61,7 @@ class KnexClient {
         // This leaves headroom for request-scoped TypeORM RLS runners.
         const defaultConnectionBudget = process.env.NODE_ENV === 'development' ? 12 : 8
         const connectionBudget = parsePositiveInt(process.env.DATABASE_CONNECTION_BUDGET, defaultConnectionBudget)
-        const defaultPoolMax = Math.max(2, Math.min(4, Math.floor(connectionBudget / 4)))
+        const defaultPoolMax = Math.max(4, Math.min(6, Math.floor(connectionBudget / 3)))
         const poolMax = parsePositiveInt(process.env.DATABASE_KNEX_POOL_MAX, defaultPoolMax)
         const acquireTimeoutMillis = parsePositiveInt(process.env.DATABASE_KNEX_ACQUIRE_TIMEOUT_MS, 10000)
         const idleTimeoutMillis = parsePositiveInt(process.env.DATABASE_KNEX_IDLE_TIMEOUT_MS, 15000)

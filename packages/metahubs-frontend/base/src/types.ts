@@ -220,6 +220,7 @@ export interface MetahubLayoutZoneWidget {
     widgetKey: DashboardLayoutWidgetKey
     sortOrder: number
     config: Record<string, unknown>
+    isActive: boolean
     createdAt?: string
     updatedAt?: string
 }

@@ -229,24 +229,6 @@ const mhbLayouts: SystemTableDef = {
     ]
 }
 
-const mhbLayoutZoneWidgets: SystemTableDef = {
-    name: '_mhb_layout_zone_widgets',
-    description: 'Widget assignments per layout zone',
-    columns: [
-        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
-        { name: 'layout_id', type: 'uuid', nullable: false },
-        { name: 'zone', type: 'string', length: 20, nullable: false },
-        { name: 'widget_key', type: 'string', length: 100, nullable: false },
-        { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 1 },
-        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
-    ],
-    foreignKeys: [{ column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' }],
-    indexes: [
-        { name: 'idx_mhb_layout_zone_widgets_layout_id', columns: ['layout_id'] },
-        { name: 'idx_mhb_layout_zone_widgets_layout_zone_sort', columns: ['layout_id', 'zone', 'sort_order'] }
-    ]
-}
-
 const mhbMigrations: SystemTableDef = {
     name: '_mhb_migrations',
     description: 'Metahub structure migration history',
@@ -264,23 +246,33 @@ const mhbMigrations: SystemTableDef = {
 
 const mhbWidgets: SystemTableDef = {
     name: '_mhb_widgets',
-    renamedFrom: ['_mhb_layout_zone_widgets'],
-    description: 'Widget assignments per layout zone',
+    description: 'Widget assignments per layout zone (with activation toggle)',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'layout_id', type: 'uuid', nullable: false },
         { name: 'zone', type: 'string', length: 20, nullable: false },
         { name: 'widget_key', type: 'string', length: 100, nullable: false },
         { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 1 },
-        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'is_active', type: 'boolean', nullable: false, defaultTo: true }
     ],
     foreignKeys: [{ column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' }],
     indexes: [
-        { name: 'idx_mhb_widgets_layout_id', renamedFrom: ['idx_mhb_layout_zone_widgets_layout_id'], columns: ['layout_id'] },
+        { name: 'idx_mhb_widgets_layout_id', columns: ['layout_id'] },
         {
             name: 'idx_mhb_widgets_layout_zone_sort',
-            renamedFrom: ['idx_mhb_layout_zone_widgets_layout_zone_sort'],
             columns: ['layout_id', 'zone', 'sort_order']
+        },
+        {
+            name: 'idx_mhb_widgets_active_layout_zone_sort',
+            columns: ['layout_id', 'zone', 'sort_order'],
+            where: 'is_active = true'
+        },
+        {
+            name: 'idx_mhb_widgets_unique_active',
+            columns: ['layout_id', 'zone', 'widget_key', 'sort_order'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
         }
     ]
 }
@@ -288,22 +280,9 @@ const mhbWidgets: SystemTableDef = {
 // ─── Version registry ────────────────────────────────────────────────────────
 
 /**
- * Structure version 1 — baseline system tables, including migration history.
+ * Structure version 1 — baseline system tables with full feature set.
  */
 export const SYSTEM_TABLES_V1: SystemTableDef[] = [
-    mhbObjects,
-    mhbAttributes,
-    mhbElements,
-    mhbSettings,
-    mhbLayouts,
-    mhbLayoutZoneWidgets,
-    mhbMigrations
-]
-
-/**
- * Structure version 2 — `_mhb_layout_zone_widgets` renamed to `_mhb_widgets`.
- */
-export const SYSTEM_TABLES_V2: SystemTableDef[] = [
     mhbObjects,
     mhbAttributes,
     mhbElements,
@@ -321,8 +300,7 @@ export const SYSTEM_TABLES_V2: SystemTableDef[] = [
  * The diff engine compares consecutive versions to produce migrations.
  */
 export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
-    [1, SYSTEM_TABLES_V1],
-    [2, SYSTEM_TABLES_V2]
+    [1, SYSTEM_TABLES_V1]
 ])
 
 export interface SystemStructureSnapshotTable {

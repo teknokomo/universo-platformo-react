@@ -315,6 +315,7 @@ export interface DashboardLayoutZoneWidget {
     widgetKey: DashboardLayoutWidgetKey
     sortOrder: number
     config: Record<string, unknown>
+    isActive: boolean
 }
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
@@ -368,6 +369,8 @@ export interface TemplateSeedZoneWidget {
     widgetKey: DashboardLayoutWidgetKey
     sortOrder: number
     config?: Record<string, unknown>
+    /** When omitted, defaults to true at seed time. */
+    isActive?: boolean
 }
 
 /** Seed setting key/value pair. */

@@ -25,6 +25,9 @@ function buildSeedZoneWidgets(): TemplateSeedZoneWidget[] {
             widgetKey: item.widgetKey,
             sortOrder: item.sortOrder
         }
+        if (item.isActive === false) {
+            widget.isActive = false
+        }
         if (item.config) {
             widget.config = enrichConfigWithVlcTimestamps(item.config)
         }
@@ -60,8 +63,8 @@ function enrichConfigWithVlcTimestamps(config: Record<string, unknown>): Record<
 export const basicTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
     codename: 'basic',
-    version: '1.1.0',
-    minStructureVersion: 2,
+    version: '1.0.0',
+    minStructureVersion: 1,
     name: vlc('Basic', 'Базовый'),
     description: vlc(
         'Default template with dashboard layout and standard widgets',

@@ -6,7 +6,8 @@ import {
     IconApps,
     IconGitBranch,
     IconLayoutDashboard,
-    IconFiles
+    IconFiles,
+    IconHistory
 } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
@@ -20,7 +21,7 @@ export interface MenuItem {
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch, IconLayoutDashboard, IconFiles }
+const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch, IconLayoutDashboard, IconFiles, IconHistory }
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
 
@@ -67,6 +68,11 @@ const metahubDashboard: MenuItem = {
             breadcrumbs: true
         },
         {
+            id: 'divider-secondary',
+            title: '',
+            type: 'divider'
+        },
+        {
             id: 'layouts',
             title: 'menu:layouts',
             type: 'item',
@@ -75,16 +81,19 @@ const metahubDashboard: MenuItem = {
             breadcrumbs: true
         },
         {
-            id: 'divider-secondary',
-            title: '',
-            type: 'divider'
-        },
-        {
             id: 'publications',
             title: 'menu:publications',
             type: 'item',
             url: '/publications',
             icon: icons.IconApps,
+            breadcrumbs: true
+        },
+        {
+            id: 'migrations',
+            title: 'menu:migrations',
+            type: 'item',
+            url: '/migrations',
+            icon: icons.IconHistory,
             breadcrumbs: true
         },
         {

@@ -40,20 +40,20 @@ const listQuerySchema = z.object({
 const statusQuerySchema = z.object({
     branchId: z.string().uuid().optional(),
     targetTemplateVersionId: z.string().uuid().optional(),
-    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('keep')
+    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
 })
 
 const planBodySchema = z.object({
     branchId: z.string().uuid().optional(),
     targetTemplateVersionId: z.string().uuid().optional(),
-    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('keep')
+    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
 })
 
 const applyBodySchema = z.object({
     branchId: z.string().uuid().optional(),
     dryRun: z.boolean().optional().default(false),
     targetTemplateVersionId: z.string().uuid().optional(),
-    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('keep')
+    cleanupMode: z.enum(TEMPLATE_CLEANUP_MODES).default('confirm')
 })
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -483,7 +483,7 @@ async function buildMigrationPlan(
     metahub: Metahub,
     branch: MetahubBranch,
     requestedTemplateVersionId?: string,
-    cleanupMode: TemplateCleanupMode = 'keep',
+    cleanupMode: TemplateCleanupMode = 'confirm',
     options?: BuildMigrationPlanOptions
 ): Promise<MetahubMigrationPlanResponse> {
     const currentStructureVersion = normalizeStructureVersion(branch.structureVersion)

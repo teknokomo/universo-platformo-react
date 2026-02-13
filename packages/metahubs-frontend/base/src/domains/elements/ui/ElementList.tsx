@@ -914,7 +914,7 @@ const ElementList = () => {
                     >
                         <ToolbarControls
                             primaryAction={{
-                                label: tc('addNew'),
+                                label: tc('create'),
                                 onClick: handleAddNew,
                                 startIcon: <AddRoundedIcon />,
                                 disabled: attributes.length === 0
@@ -990,8 +990,8 @@ const ElementList = () => {
                 locale={i18n.language}
                 requireAnyValue
                 emptyStateText={t('elements.noAttributes')}
-                saveButtonText={tc('actions.save', 'Save')}
-                savingButtonText={tc('actions.saving', 'Saving...')}
+                saveButtonText={tc('actions.create', 'Create')}
+                savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 renderField={renderElementField}
             />

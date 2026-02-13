@@ -186,6 +186,7 @@
             "schemaUpToDate": "Schema matches current configuration",
             "uiLayoutUpdate": "UI layout settings will be updated",
             "uiLayoutsUpdate": "UI layouts list will be updated",
+            "uiLayoutZonesUpdate": "UI layout zone widgets will be updated",
             "systemMetadataUpdate": "System metadata will be updated",
             "schemaMissingTitle": "Schema not created yet",
             "schemaNotExists": "Schema does not exist yet. It will be created on first sync.",

@@ -55,6 +55,7 @@ export interface MetahubLayoutZoneWidgetSnapshot {
     widgetKey: string
     sortOrder: number
     config: Record<string, unknown>
+    isActive: boolean
 }
 
 /** @deprecated Use MetahubLayoutZoneWidgetSnapshot instead. */
@@ -346,7 +347,8 @@ export class SnapshotSerializer {
                       zone: item.zone,
                       widgetKey: item.widgetKey,
                       sortOrder: item.sortOrder ?? 0,
-                      config: item.config ?? {}
+                      config: item.config ?? {},
+                      isActive: Boolean(item.isActive)
                   }))
                   .sort((a, b) => {
                       if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)

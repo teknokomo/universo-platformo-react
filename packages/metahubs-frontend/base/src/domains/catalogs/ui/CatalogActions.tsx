@@ -194,7 +194,7 @@ const GeneralTabFields = ({
  * Tab 1: General (name, description, codename)
  * Tab 2: Hubs (hub selection panel with isSingleHub toggle)
  */
-const buildFormTabs = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>, hubs: Hub[], showHubsTab: boolean) => {
+const buildFormTabs = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalizedPayload>, hubs: Hub[]) => {
     return ({
         values,
         setValue,
@@ -223,8 +223,8 @@ const buildFormTabs = (ctx: ActionContext<CatalogDisplayWithHub, CatalogLocalize
             }
         ]
 
-        // Add Hubs tab only when hubs are available (AllCatalogsList context)
-        if (showHubsTab && hubs.length > 0) {
+        // Always show Hubs tab in edit mode (same as create mode)
+        {
             const hubIds = Array.isArray(values.hubIds) ? values.hubIds : []
             const isSingleHub = Boolean(values.isSingleHub)
             const isRequiredHub = Boolean(values.isRequiredHub)
@@ -267,7 +267,6 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
                 const hubs = ((ctx as any).hubs as Hub[] | undefined) ?? []
-                const showHubsTab = hubs.length > 0
 
                 return {
                     open: true,
@@ -280,7 +279,7 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: buildFormTabs(ctx, hubs, showHubsTab),
+                    tabs: buildFormTabs(ctx, hubs),
                     validate: (values: Record<string, any>) => validateCatalogForm(ctx, values),
                     canSave: (values: Record<string, any>) => canSaveCatalogForm(values),
                     showDeleteButton: true,
