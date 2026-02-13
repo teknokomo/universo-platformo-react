@@ -470,6 +470,10 @@ export interface AttributeLocalizedPayload {
     namePrimaryLocale?: string
     isRequired?: boolean
     isDisplayAttribute?: boolean
+    validationRules?: Record<string, unknown>
+    targetEntityId?: string
+    targetEntityKind?: MetaEntityKind
+    uiConfig?: Record<string, unknown>
 }
 
 // ============ DISPLAY CONVERTERS ============

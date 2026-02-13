@@ -299,9 +299,7 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
  * When adding a new version, list ALL tables from the previous version plus new ones.
  * The diff engine compares consecutive versions to produce migrations.
  */
-export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
-    [1, SYSTEM_TABLES_V1]
-])
+export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([[1, SYSTEM_TABLES_V1]])
 
 export interface SystemStructureSnapshotTable {
     name: string

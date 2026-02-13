@@ -35,9 +35,13 @@ function toGridColumns(response: ApplicationRuntimeResponse): GridColDef[] {
         minWidth: 140,
         sortable: false,
         filterable: true,
+        renderHeader:
+            c.dataType === 'BOOLEAN' && c.uiConfig?.headerAsCheckbox
+                ? () => <Checkbox size='small' disabled checked={false} indeterminate={false} sx={{ p: 0 }} title={c.headerName} />
+                : undefined,
         renderCell: (params) => {
             if (c.dataType === 'BOOLEAN') {
-                return <Checkbox size='small' disabled checked={Boolean(params.value)} />
+                return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
             }
             if (params.value === null || params.value === undefined) return ''
             return String(params.value)
@@ -94,10 +98,7 @@ export default function RuntimeDashboardApp(props: RuntimeDashboardAppProps) {
         if (!runtime || !Array.isArray(runtime.menus) || runtime.menus.length === 0) {
             return null
         }
-        return (
-            runtime.menus.find((menu) => menu.id === runtime.activeMenuId) ??
-            runtime.menus[0]
-        )
+        return runtime.menus.find((menu) => menu.id === runtime.activeMenuId) ?? runtime.menus[0]
     }, [runtime])
 
     const dashboardMenuItems = useMemo(() => {

@@ -24,7 +24,7 @@ import {
     ConfirmDialog,
     useConfirm
 } from '@universo/template-mui'
-import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
+import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import {
@@ -54,7 +54,7 @@ import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import attributeActions from './AttributeActions'
-import AttributeFormFields from './AttributeFormFields'
+import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 
 type AttributeFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -66,6 +66,7 @@ type AttributeFormValues = {
     validationRules?: AttributeValidationRules
     targetEntityId?: string | null
     targetEntityKind?: MetaEntityKind | null
+    uiConfig?: Record<string, unknown>
 }
 
 // Get color for data type chip
@@ -222,7 +223,8 @@ const AttributeList = () => {
             isRequired: false,
             isDisplayAttribute: hasNoAttributes,
             targetEntityId: null,
-            targetEntityKind: null
+            targetEntityKind: null,
+            uiConfig: {}
         }
     }, [attributes?.length])
 
@@ -272,7 +274,7 @@ const AttributeList = () => {
         return hasBasicInfo
     }, [])
 
-    const renderLocalizedFields = useCallback(
+    const renderTabs = useCallback(
         ({
             values,
             setValue,
@@ -283,55 +285,86 @@ const AttributeList = () => {
             setValue: (name: string, value: any) => void
             isLoading: boolean
             errors?: Record<string, string>
-        }) => {
+        }): TabConfig[] => {
             const fieldErrors = errors ?? {}
-            return (
-                <AttributeFormFields
-                    values={values}
-                    setValue={setValue}
-                    isLoading={isLoading}
-                    errors={fieldErrors}
-                    uiLocale={i18n.language}
-                    nameLabel={tc('fields.name', 'Name')}
-                    codenameLabel={t('attributes.codename', 'Codename')}
-                    codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
-                    dataTypeLabel={t('attributes.dataType', 'Data Type')}
-                    requiredLabel={t('attributes.isRequiredLabel', 'Required')}
-                    displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                    displayAttributeHelper={t(
-                        'attributes.isDisplayAttributeHelper',
-                        'Use as representation when referencing elements of this catalog'
-                    )}
-                    displayAttributeLocked={(attributes?.length ?? 0) === 0}
-                    dataTypeOptions={[
-                        { value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') },
-                        { value: 'NUMBER', label: t('attributes.dataTypeOptions.number', 'Number') },
-                        { value: 'BOOLEAN', label: t('attributes.dataTypeOptions.boolean', 'Boolean') },
-                        { value: 'DATE', label: t('attributes.dataTypeOptions.date', 'Date') },
-                        { value: 'REF', label: t('attributes.dataTypeOptions.ref', 'Reference') },
-                        { value: 'JSON', label: t('attributes.dataTypeOptions.json', 'JSON') }
-                    ]}
-                    typeSettingsLabel={t('attributes.typeSettings.title', 'Type Settings')}
-                    stringMaxLengthLabel={t('attributes.typeSettings.string.maxLength', 'Max Length')}
-                    stringMinLengthLabel={t('attributes.typeSettings.string.minLength', 'Min Length')}
-                    stringVersionedLabel={t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
-                    stringLocalizedLabel={t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
-                    numberPrecisionLabel={t('attributes.typeSettings.number.precision', 'Precision')}
-                    numberScaleLabel={t('attributes.typeSettings.number.scale', 'Scale')}
-                    numberMinLabel={t('attributes.typeSettings.number.min', 'Min Value')}
-                    numberMaxLabel={t('attributes.typeSettings.number.max', 'Max Value')}
-                    numberNonNegativeLabel={t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
-                    dateCompositionLabel={t('attributes.typeSettings.date.composition', 'Date Composition')}
-                    dateCompositionOptions={[
-                        { value: 'date', label: t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
-                        { value: 'time', label: t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
-                        { value: 'datetime', label: t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time') }
-                    ]}
-                    physicalTypeLabel={t('attributes.physicalType.label', 'PostgreSQL type')}
-                    metahubId={metahubId!}
-                    currentCatalogId={catalogId}
-                />
-            )
+            const displayAttributeLocked = (attributes?.length ?? 0) === 0
+            return [
+                {
+                    id: 'general',
+                    label: t('attributes.tabs.general', 'General'),
+                    content: (
+                        <AttributeFormFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            errors={fieldErrors}
+                            uiLocale={i18n.language}
+                            nameLabel={tc('fields.name', 'Name')}
+                            codenameLabel={t('attributes.codename', 'Codename')}
+                            codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
+                            dataTypeLabel={t('attributes.dataType', 'Data Type')}
+                            requiredLabel={t('attributes.isRequiredLabel', 'Required')}
+                            displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                            displayAttributeHelper={t(
+                                'attributes.isDisplayAttributeHelper',
+                                'Use as representation when referencing elements of this catalog'
+                            )}
+                            displayAttributeLocked={displayAttributeLocked}
+                            dataTypeOptions={[
+                                { value: 'STRING', label: t('attributes.dataTypeOptions.string', 'String') },
+                                { value: 'NUMBER', label: t('attributes.dataTypeOptions.number', 'Number') },
+                                { value: 'BOOLEAN', label: t('attributes.dataTypeOptions.boolean', 'Boolean') },
+                                { value: 'DATE', label: t('attributes.dataTypeOptions.date', 'Date') },
+                                { value: 'REF', label: t('attributes.dataTypeOptions.ref', 'Reference') },
+                                { value: 'JSON', label: t('attributes.dataTypeOptions.json', 'JSON') }
+                            ]}
+                            typeSettingsLabel={t('attributes.typeSettings.title', 'Type Settings')}
+                            stringMaxLengthLabel={t('attributes.typeSettings.string.maxLength', 'Max Length')}
+                            stringMinLengthLabel={t('attributes.typeSettings.string.minLength', 'Min Length')}
+                            stringVersionedLabel={t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
+                            stringLocalizedLabel={t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
+                            numberPrecisionLabel={t('attributes.typeSettings.number.precision', 'Precision')}
+                            numberScaleLabel={t('attributes.typeSettings.number.scale', 'Scale')}
+                            numberMinLabel={t('attributes.typeSettings.number.min', 'Min Value')}
+                            numberMaxLabel={t('attributes.typeSettings.number.max', 'Max Value')}
+                            numberNonNegativeLabel={t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
+                            dateCompositionLabel={t('attributes.typeSettings.date.composition', 'Date Composition')}
+                            dateCompositionOptions={[
+                                { value: 'date', label: t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
+                                { value: 'time', label: t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
+                                { value: 'datetime', label: t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time') }
+                            ]}
+                            physicalTypeLabel={t('attributes.physicalType.label', 'PostgreSQL type')}
+                            metahubId={metahubId!}
+                            currentCatalogId={catalogId}
+                            hideDisplayAttribute
+                        />
+                    )
+                },
+                {
+                    id: 'presentation',
+                    label: t('attributes.tabs.presentation', 'Presentation'),
+                    content: (
+                        <PresentationTabFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                            displayAttributeHelper={t(
+                                'attributes.isDisplayAttributeHelper',
+                                'Use as representation when referencing elements of this catalog'
+                            )}
+                            displayAttributeLocked={displayAttributeLocked}
+                            headerAsCheckboxLabel={t('attributes.presentation.headerAsCheckbox', 'Display header as checkbox')}
+                            headerAsCheckboxHelper={t(
+                                'attributes.presentation.headerAsCheckboxHelper',
+                                'Show a checkbox in the column header instead of the text label'
+                            )}
+                            dataType={values.dataType ?? 'STRING'}
+                        />
+                    )
+                }
+            ]
         },
         [i18n.language, t, tc, metahubId, catalogId, attributes?.length]
     )
@@ -692,6 +725,7 @@ const AttributeList = () => {
             const isRequired = Boolean(data.isRequired)
             const validationRules = data.validationRules as AttributeValidationRules | undefined
             const isDisplayAttribute = Boolean(data.isDisplayAttribute)
+            const uiConfig = (data.uiConfig as Record<string, unknown>) ?? {}
 
             // REF type: extract target entity info
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null) : undefined
@@ -710,7 +744,8 @@ const AttributeList = () => {
                     validationRules,
                     isDisplayAttribute,
                     targetEntityId,
-                    targetEntityKind
+                    targetEntityKind,
+                    uiConfig
                 }
             })
 
@@ -884,7 +919,7 @@ const AttributeList = () => {
                 onSave={handleCreateAttribute}
                 hideDefaultFields
                 initialExtraValues={localizedFormDefaults}
-                extraFields={renderLocalizedFields}
+                tabs={renderTabs}
                 validate={validateAttributeForm}
                 canSave={canSaveAttributeForm}
             />

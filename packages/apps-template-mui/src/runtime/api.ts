@@ -47,7 +47,8 @@ export const runtimeResponseSchema = z.object({
             codename: z.string(),
             field: z.string(),
             dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER']),
-            headerName: z.string()
+            headerName: z.string(),
+            uiConfig: z.record(z.unknown()).optional().default({})
         })
     ),
     rows: z.array(z.record(z.unknown()).and(z.object({ id: z.string() }))),

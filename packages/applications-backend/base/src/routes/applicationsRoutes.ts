@@ -104,7 +104,8 @@ const resolveLocalizedContent = (value: unknown, locale: string, fallback: strin
 
 const resolveRuntimeValue = (value: unknown, dataType: 'BOOLEAN' | 'STRING' | 'NUMBER', locale: string): unknown => {
     if (value === null || value === undefined) {
-        return null
+        // BOOLEAN null → false for correct checkbox rendering (no indeterminate state)
+        return dataType === 'BOOLEAN' ? false : null
     }
 
     if (dataType !== 'STRING') {
@@ -492,7 +493,7 @@ export function createApplicationsRoutes(
 
             const attributes = (await manager.query(
                 `
-                    SELECT id, codename, column_name, data_type, presentation, sort_order
+                    SELECT id, codename, column_name, data_type, presentation, sort_order, ui_config
                     FROM ${schemaIdent}._app_attributes
                     WHERE object_id = $1
                       AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER')
@@ -508,6 +509,7 @@ export function createApplicationsRoutes(
                 data_type: 'BOOLEAN' | 'STRING' | 'NUMBER'
                 presentation?: unknown
                 sort_order?: number
+                ui_config?: Record<string, unknown>
             }>
 
             const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
@@ -756,7 +758,8 @@ export function createApplicationsRoutes(
                     codename: attribute.codename,
                     field: attribute.column_name,
                     dataType: attribute.data_type,
-                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename)
+                    headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
+                    uiConfig: attribute.ui_config ?? {}
                 })),
                 rows,
                 pagination: {

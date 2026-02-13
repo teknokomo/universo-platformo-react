@@ -1,6 +1,36 @@
 # Tasks
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: Metahubs UX Improvements — Boolean Fix, Auto-fill, Presentation Tab, Header Checkbox (2026-02-13)
+
+QA fixes applied 2026-02-13:
+- [x] P1 MEDIUM (TYPE-1): Add `uiConfig` to `AttributeFormValues` type in AttributeList.tsx
+- [x] P2 LOW (CONCUR-1): Replace whole-object uiConfig replacement with shallow merge in attributesRoutes.ts update handler
+
+- [x] Task 1: Fix indeterminate checkbox bug for BOOLEAN columns (DDL default, runtime normalizer, frontend fix)
+  - [x] 1.1: SchemaGenerator — add `.defaultTo(false)` for nullable BOOLEAN columns
+  - [x] 1.2: SchemaMigrator — same for ADD_COLUMN case
+  - [x] 1.3: applicationsRoutes — normalize null→false in `resolveRuntimeValue` for BOOLEAN
+  - [x] 1.4: RuntimeDashboardApp — add `indeterminate={false}` and `checked={params.value === true}`
+- [x] Task 2: Auto-fill publication name with metahub name + " API" suffix
+  - [x] 2.1: PublicationList — build VLC from metahub name with " API" suffix in `localizedFormDefaults`
+- [x] Task 3: Add "Presentation" tab to attribute create/edit dialog
+  - [x] 3.1: Add i18n keys for tabs and presentation options (en + ru)
+  - [x] 3.2: Add `uiConfig` to `AttributeLocalizedPayload` type
+  - [x] 3.3: Create PresentationTabFields component in AttributeFormFields.tsx
+  - [x] 3.4: Refactor AttributeActions (edit) and AttributeList (create) from `extraFields` to `tabs` pattern
+  - [x] 3.5: Add `hideDisplayAttribute` prop to AttributeFormFields
+  - [x] 3.6: Update `toPayload` and `handleCreateAttribute` to include uiConfig
+- [x] Task 4: Boolean header as checkbox — full pipeline
+  - [x] 4.1: Extend uiConfigSchema with `headerAsCheckbox` in metahubs-backend
+  - [x] 4.2: Add `ui_config` to SQL SELECT in applications-backend runtime
+  - [x] 4.3: Add uiConfig to runtime response builder
+  - [x] 4.4: Extend Zod schema in apps-template-mui api.ts
+  - [x] 4.5: Add `renderHeader` for checkbox header in RuntimeDashboardApp
+- [x] Task 5: Verify migration system compatibility — no new migrations needed
+- [x] Build validation: full project build (65/65 OK)
+- [x] Update memory-bank
+
 ## Completed: UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
 
 - [x] Task 1: Fix "Макеты" menu position in PRODUCTION config (`menuConfigs.ts`) + sync `metahubDashboard.ts`

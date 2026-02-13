@@ -53,7 +53,7 @@ import { invalidatePublicationsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString, type PublicationDisplay } from '../../../types'
-import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
+import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import publicationActions from './PublicationActions'
 import { AccessPanel } from './AccessPanel'
@@ -289,10 +289,27 @@ const PublicationList = () => {
         return new Map(publications.map((publication) => [publication.id, publication]))
     }, [publications])
 
-    const localizedFormDefaults = useMemo<PublicationFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, versionBranchId: defaultBranchId ?? null }),
-        [defaultBranchId]
-    )
+    const localizedFormDefaults = useMemo<PublicationFormValues>(() => {
+        // Auto-fill name: metahub name + " API" suffix across all locales
+        let nameVlc: VersionedLocalizedContent<string> | null = null
+        if (metahub?.name) {
+            const locale = normalizeLocale(i18n.language)
+            const metahubName = getVLCString(metahub.name, locale) || getVLCString(metahub.name, 'en') || ''
+            if (metahubName) {
+                const baseVlc = ensureLocalizedContent(metahub.name, locale, metahubName)
+                if (baseVlc && 'locales' in baseVlc) {
+                    const updated = { ...baseVlc, locales: { ...baseVlc.locales } }
+                    for (const [loc, entry] of Object.entries(updated.locales)) {
+                        if (entry && typeof entry.content === 'string' && entry.content.trim()) {
+                            updated.locales[loc] = { ...entry, content: `${entry.content} API` }
+                        }
+                    }
+                    nameVlc = updated
+                }
+            }
+        }
+        return { nameVlc, descriptionVlc: null, versionBranchId: defaultBranchId ?? null }
+    }, [metahub, defaultBranchId, i18n.language])
 
     const validatePublicationForm = useCallback(
         (values: Record<string, any>) => {

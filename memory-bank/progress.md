@@ -14,6 +14,16 @@
 
 ---
 
+## Metahubs UX Improvements — Boolean Fix, Auto-fill, Presentation Tab, Header Checkbox (2026-02-13)
+
+- Implemented 5 improvements across 14 files in 6 packages:
+  - **Indeterminate checkbox fix**: Added `.defaultTo(false)` for nullable BOOLEAN columns in SchemaGenerator/SchemaMigrator; null→false normalization in runtime; `indeterminate={false}` in frontend.
+  - **Auto-fill publication name**: PublicationList auto-fills metahub name + " API" across all locales using VLC.
+  - **Presentation tab**: Added "Основное"/"Представление" tabs to attribute create/edit dialogs with `PresentationTabFields` component (display attribute + headerAsCheckbox switches). Refactored both dialogs from `extraFields` to `tabs` pattern.
+  - **Boolean header as checkbox**: Full pipeline — `headerAsCheckbox` in uiConfigSchema, `ui_config` in SQL SELECT and response, Zod schema, `renderHeader` in RuntimeDashboardApp.
+  - **Migration verification**: No new migrations needed; `ui_config` column pre-exists, BOOLEAN defaults only for future columns.
+- Build: 65/65 packages OK
+
 ## UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
 
 - Fixed 3 UI/UX issues found during manual testing:

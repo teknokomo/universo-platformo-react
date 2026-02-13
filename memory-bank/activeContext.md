@@ -1,12 +1,51 @@
 # Active Context
 
-> **Last Updated**: 2026-02-14
+> **Last Updated**: 2026-02-13
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Completed: UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle ✅
+## Completed: Metahubs UX Improvements — Boolean Fix, Auto-fill, Presentation Tab, Header Checkbox ✅
+
+**Status**: All 5 improvements + QA fixes (P1, P2) implemented. Build OK, tests OK, lint 0 errors.
+
+### What Was Done
+
+- **Task 1 (Indeterminate checkbox fix)**: Fixed BOOLEAN columns showing indeterminate state when value is NULL. Added `.defaultTo(false)` in SchemaGenerator and SchemaMigrator for nullable BOOLEAN columns; normalized null→false in `resolveRuntimeValue`; changed frontend to `checked={params.value === true} indeterminate={false}`.
+- **Task 2 (Auto-fill publication name)**: PublicationList now auto-fills the create dialog name field with metahub name + " API" suffix across all locales using VLC.
+- **Task 3 (Presentation tab)**: Added "Основное"/"Представление" tabs to both create and edit attribute dialogs. Created `PresentationTabFields` component with display attribute switch and conditional `headerAsCheckbox` switch (BOOLEAN only). Both dialogs (AttributeActions/edit and AttributeList/create) refactored from `extraFields` to `tabs` pattern using `TabConfig[]`.
+- **Task 4 (Boolean header as checkbox)**: Full pipeline from backend to runtime UI. Added `headerAsCheckbox` to `uiConfigSchema` in metahubs-backend; added `ui_config` to SQL SELECT and response in applications-backend; extended Zod schema in apps-template-mui; added `renderHeader` for BOOLEAN columns with `uiConfig.headerAsCheckbox` in RuntimeDashboardApp.
+- **Task 5 (Migration verification)**: Confirmed no new database migrations needed — `ui_config` column already exists, `headerAsCheckbox` stored in existing JSON field, BOOLEAN defaults only apply to future column creation.
+
+### Files Modified (14 files across 6 packages)
+
+**schema-ddl** (2):
+1. `SchemaGenerator.ts` — `.defaultTo(false)` for nullable BOOLEAN
+2. `SchemaMigrator.ts` — `.defaultTo(false)` for ADD_COLUMN BOOLEAN
+
+**applications-backend** (1):
+3. `applicationsRoutes.ts` — null→false in resolveRuntimeValue + ui_config in SQL SELECT + response
+
+**metahubs-backend** (1):
+4. `attributesRoutes.ts` — `headerAsCheckbox: z.boolean().optional()` in uiConfigSchema
+
+**metahubs-frontend** (6):
+5. `metahubs.json` (en) — i18n keys for tabs + presentation
+6. `metahubs.json` (ru) — i18n keys for tabs + presentation
+7. `types.ts` — `uiConfig` added to `AttributeLocalizedPayload`
+8. `AttributeFormFields.tsx` — `PresentationTabFields` component + `hideDisplayAttribute` prop
+9. `AttributeActions.tsx` — refactored to tabs, uiConfig in payload
+10. `AttributeList.tsx` — refactored create dialog to tabs, uiConfig in payload
+11. `PublicationList.tsx` — auto-fill name with metahub name + " API"
+
+**apps-template-mui** (2):
+12. `api.ts` — uiConfig in column Zod schema
+13. `RuntimeDashboardApp.tsx` — renderHeader for checkbox header + indeterminate fix
+
+---
+
+## Previous: UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle ✅
 
 **Status**: 3 fixes applied. Full build OK (65/65 packages).
 
