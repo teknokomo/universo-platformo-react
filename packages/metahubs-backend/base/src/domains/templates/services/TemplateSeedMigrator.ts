@@ -246,6 +246,7 @@ export class TemplateSeedMigrator {
                             _mhb_deleted: false
                         })
                         .select('is_active')
+                        .orderBy('_upl_updated_at', 'desc')
                         .first()
                     const isActive: boolean = peer != null ? Boolean(peer.is_active) : true
 
