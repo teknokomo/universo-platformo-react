@@ -164,7 +164,11 @@ export class SchemaGenerator {
                 if (field.isRequired) {
                     table.specificType(columnName, pgType).notNullable()
                 } else {
-                    table.specificType(columnName, pgType).nullable()
+                    const col = table.specificType(columnName, pgType).nullable()
+                    // BOOLEAN columns default to false to prevent NULL → indeterminate checkbox state
+                    if (field.dataType === AttributeDataType.BOOLEAN) {
+                        col.defaultTo(false)
+                    }
                 }
             }
 

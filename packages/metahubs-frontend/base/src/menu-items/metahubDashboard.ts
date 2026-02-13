@@ -21,7 +21,17 @@ export interface MenuItem {
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconUsersGroup, IconDatabase, IconApps, IconGitBranch, IconLayoutDashboard, IconFiles, IconHistory }
+const icons = {
+    IconBuildingStore,
+    IconHierarchy,
+    IconUsersGroup,
+    IconDatabase,
+    IconApps,
+    IconGitBranch,
+    IconLayoutDashboard,
+    IconFiles,
+    IconHistory
+}
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
 

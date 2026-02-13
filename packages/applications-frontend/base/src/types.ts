@@ -188,6 +188,7 @@ export interface ApplicationRuntimeColumn {
     field: string
     dataType: 'BOOLEAN' | 'STRING' | 'NUMBER'
     headerName: string
+    uiConfig?: Record<string, unknown>
 }
 
 export interface ApplicationRuntimeCatalog {

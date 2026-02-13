@@ -82,7 +82,8 @@ const uiConfigSchema = z
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
-        width: z.number().optional()
+        width: z.number().optional(),
+        headerAsCheckbox: z.boolean().optional()
     })
     .optional()
 
@@ -576,7 +577,10 @@ export function createAttributesRoutes(
             }
 
             if (validationRules) updateData.validationRules = validationRules
-            if (uiConfig) updateData.uiConfig = uiConfig
+            if (uiConfig) {
+                const currentUiConfig = (attribute.uiConfig as Record<string, unknown>) ?? {}
+                updateData.uiConfig = { ...currentUiConfig, ...uiConfig }
+            }
             if (isRequired !== undefined) updateData.isRequired = isRequired
             // isDisplayAttribute is handled separately via setDisplayAttribute for atomicity
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder

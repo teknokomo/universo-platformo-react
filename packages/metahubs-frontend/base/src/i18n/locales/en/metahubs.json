@@ -507,6 +507,14 @@
       "label": "PostgreSQL type",
       "tooltip": "PostgreSQL: {{type}}"
     },
+    "tabs": {
+      "general": "General",
+      "presentation": "Presentation"
+    },
+    "presentation": {
+      "headerAsCheckbox": "Display header as checkbox",
+      "headerAsCheckboxHelper": "Show a checkbox in the column header instead of the text label (only for Boolean type)"
+    },
     "edit": {
       "typeChangeDisabled": "Data type cannot be changed after creation",
       "settingsReadOnly": "Type settings cannot be modified after creation"

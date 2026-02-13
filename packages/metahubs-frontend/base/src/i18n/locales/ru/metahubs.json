@@ -513,6 +513,14 @@
             "label": "Тип PostgreSQL",
             "tooltip": "PostgreSQL: {{type}}"
         },
+        "tabs": {
+            "general": "Основное",
+            "presentation": "Представление"
+        },
+        "presentation": {
+            "headerAsCheckbox": "Отображать заголовок как чекбокс",
+            "headerAsCheckboxHelper": "Показать чекбокс в заголовке столбца вместо текста (только для типа Булево)"
+        },
         "edit": {
             "typeChangeDisabled": "Тип данных нельзя изменить после создания",
             "settingsReadOnly": "Настройки типа нельзя изменить после создания"

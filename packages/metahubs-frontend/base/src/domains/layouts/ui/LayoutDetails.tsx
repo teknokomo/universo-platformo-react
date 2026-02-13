@@ -108,7 +108,11 @@ function SortableWidgetChip({
             )}
             {onToggleActive && (
                 <Tooltip title={toggleActiveTooltip || ''} arrow>
-                    <IconButton size='small' onClick={() => onToggleActive(!isActive)} sx={!isActive ? { color: 'text.disabled' } : undefined}>
+                    <IconButton
+                        size='small'
+                        onClick={() => onToggleActive(!isActive)}
+                        sx={!isActive ? { color: 'text.disabled' } : undefined}
+                    >
                         {isActive ? <VisibilityRoundedIcon fontSize='small' /> : <VisibilityOffRoundedIcon fontSize='small' />}
                     </IconButton>
                 </Tooltip>

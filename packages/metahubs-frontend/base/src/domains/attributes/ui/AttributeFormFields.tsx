@@ -63,6 +63,8 @@ export type AttributeFormFieldsProps = {
     dataTypeDisabled?: boolean
     dataTypeHelperText?: string
     disableVlcToggles?: boolean
+    /** When true, hides the display attribute switch (moved to Presentation tab) */
+    hideDisplayAttribute?: boolean
 }
 
 const AttributeFormFields = ({
@@ -97,7 +99,8 @@ const AttributeFormFields = ({
     currentCatalogId,
     dataTypeDisabled = false,
     dataTypeHelperText,
-    disableVlcToggles = false
+    disableVlcToggles = false,
+    hideDisplayAttribute = false
 }: AttributeFormFieldsProps) => {
     const { t } = useTranslation('metahubs')
     const [showTypeSettings, setShowTypeSettings] = useState(false)
@@ -299,7 +302,7 @@ const AttributeFormFields = ({
     const hasTypeSettings = ['STRING', 'NUMBER', 'DATE', 'REF'].includes(dataType)
 
     return (
-        <>
+        <Stack spacing={2}>
             <LocalizedInlineField
                 mode='localized'
                 label={nameLabel}
@@ -364,16 +367,21 @@ const AttributeFormFields = ({
                 label={requiredLabel}
                 disabled={isLoading}
             />
-            <Box>
-                <FormControlLabel
-                    control={
-                        <Switch checked={isDisplayAttribute} onChange={(event) => setValue('isDisplayAttribute', event.target.checked)} />
-                    }
-                    label={displayAttributeLabel}
-                    disabled={isLoading || displayAttributeLocked}
-                />
-                {displayAttributeHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>}
-            </Box>
+            {!hideDisplayAttribute && (
+                <Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={isDisplayAttribute}
+                                onChange={(event) => setValue('isDisplayAttribute', event.target.checked)}
+                            />
+                        }
+                        label={displayAttributeLabel}
+                        disabled={isLoading || displayAttributeLocked}
+                    />
+                    {displayAttributeHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>}
+                </Box>
+            )}
             <Divider />
             <CodenameField
                 value={codename}
@@ -386,8 +394,75 @@ const AttributeFormFields = ({
                 disabled={isLoading}
                 required
             />
-        </>
+        </Stack>
     )
 }
 
 export default AttributeFormFields
+
+// ============ PRESENTATION TAB FIELDS ============
+
+export type PresentationTabFieldsProps = {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    displayAttributeLabel: string
+    displayAttributeHelper: string
+    displayAttributeLocked: boolean
+    headerAsCheckboxLabel: string
+    headerAsCheckboxHelper: string
+    dataType: string
+}
+
+export const PresentationTabFields = ({
+    values,
+    setValue,
+    isLoading,
+    displayAttributeLabel,
+    displayAttributeHelper,
+    displayAttributeLocked,
+    headerAsCheckboxLabel,
+    headerAsCheckboxHelper,
+    dataType
+}: PresentationTabFieldsProps) => {
+    const isDisplayAttribute = Boolean(values.isDisplayAttribute)
+    const uiConfig = (values.uiConfig ?? {}) as Record<string, unknown>
+
+    return (
+        <Stack spacing={2}>
+            <Box>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={isDisplayAttribute}
+                            onChange={(_, checked) => setValue('isDisplayAttribute', checked)}
+                            disabled={isLoading || displayAttributeLocked}
+                        />
+                    }
+                    label={displayAttributeLabel}
+                />
+                {displayAttributeHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>}
+            </Box>
+            {dataType === 'BOOLEAN' && (
+                <>
+                    <Divider />
+                    <Box>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={Boolean(uiConfig.headerAsCheckbox)}
+                                    onChange={(_, checked) => {
+                                        setValue('uiConfig', { ...uiConfig, headerAsCheckbox: checked })
+                                    }}
+                                    disabled={isLoading}
+                                />
+                            }
+                            label={headerAsCheckboxLabel}
+                        />
+                        <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{headerAsCheckboxHelper}</FormHelperText>
+                    </Box>
+                </>
+            )}
+        </Stack>
+    )
+}

@@ -5,13 +5,13 @@ import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import StarOutlineIcon from '@mui/icons-material/StarOutline'
-import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
+import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
 import { notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import type { Attribute, AttributeDisplay, AttributeLocalizedPayload, AttributeValidationRules } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import AttributeFormFields from './AttributeFormFields'
+import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 
 const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
     const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
@@ -29,7 +29,8 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
         isDisplayAttribute: isSingleAttribute ? true : raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false,
         validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
         targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
-        targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null
+        targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null,
+        uiConfig: raw?.uiConfig ?? ctx.entity?.uiConfig ?? {}
     }
 }
 
@@ -66,6 +67,7 @@ const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
     const validationRules = values.validationRules as AttributeValidationRules | undefined
     const targetEntityId = (values.targetEntityId as string | null | undefined) ?? undefined
     const targetEntityKind = (values.targetEntityKind as MetaEntityKind | null | undefined) ?? undefined
+    const uiConfig = (values.uiConfig as Record<string, unknown> | undefined) ?? undefined
 
     return {
         codename,
@@ -76,7 +78,8 @@ const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
         namePrimaryLocale,
         validationRules,
         targetEntityId,
-        targetEntityKind
+        targetEntityKind,
+        uiConfig
     }
 }
 
@@ -135,65 +138,114 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: any) => {
+                    tabs: ({
+                        values,
+                        setValue,
+                        isLoading,
+                        errors
+                    }: {
+                        values: Record<string, any>
+                        setValue: (name: string, value: any) => void
+                        isLoading: boolean
+                        errors: Record<string, string>
+                    }): TabConfig[] => {
                         const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
                         const displayAttributeLocked = (attributeMap?.size ?? 0) <= 1
-                        return (
-                            <AttributeFormFields
-                                values={values}
-                                setValue={setValue}
-                                isLoading={isLoading}
-                                errors={errors}
-                                uiLocale={ctx.uiLocale as string}
-                                nameLabel={ctx.t('common:fields.name')}
-                                codenameLabel={ctx.t('attributes.codename', 'Codename')}
-                                codenameHelper={ctx.t('attributes.codenameHelper', 'Unique identifier')}
-                                dataTypeLabel={ctx.t('attributes.dataType', 'Data Type')}
-                                requiredLabel={ctx.t('attributes.isRequiredLabel', 'Required')}
-                                displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                                displayAttributeHelper={ctx.t(
-                                    'attributes.isDisplayAttributeHelper',
-                                    'Use as representation when referencing elements of this catalog'
-                                )}
-                                displayAttributeLocked={displayAttributeLocked}
-                                dataTypeOptions={[
-                                    { value: 'STRING', label: ctx.t('attributes.dataTypeOptions.string', 'String') },
-                                    { value: 'NUMBER', label: ctx.t('attributes.dataTypeOptions.number', 'Number') },
-                                    { value: 'BOOLEAN', label: ctx.t('attributes.dataTypeOptions.boolean', 'Boolean') },
-                                    { value: 'DATE', label: ctx.t('attributes.dataTypeOptions.date', 'Date') },
-                                    { value: 'REF', label: ctx.t('attributes.dataTypeOptions.ref', 'Reference') },
-                                    { value: 'JSON', label: ctx.t('attributes.dataTypeOptions.json', 'JSON') }
-                                ]}
-                                typeSettingsLabel={ctx.t('attributes.typeSettings.title', 'Type Settings')}
-                                stringMaxLengthLabel={ctx.t('attributes.typeSettings.string.maxLength', 'Max Length')}
-                                stringMinLengthLabel={ctx.t('attributes.typeSettings.string.minLength', 'Min Length')}
-                                stringVersionedLabel={ctx.t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
-                                stringLocalizedLabel={ctx.t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
-                                numberPrecisionLabel={ctx.t('attributes.typeSettings.number.precision', 'Precision')}
-                                numberScaleLabel={ctx.t('attributes.typeSettings.number.scale', 'Scale')}
-                                numberMinLabel={ctx.t('attributes.typeSettings.number.min', 'Min Value')}
-                                numberMaxLabel={ctx.t('attributes.typeSettings.number.max', 'Max Value')}
-                                numberNonNegativeLabel={ctx.t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
-                                dateCompositionLabel={ctx.t('attributes.typeSettings.date.composition', 'Date Composition')}
-                                dateCompositionOptions={[
-                                    { value: 'date', label: ctx.t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
-                                    { value: 'time', label: ctx.t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
-                                    {
-                                        value: 'datetime',
-                                        label: ctx.t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time')
-                                    }
-                                ]}
-                                physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
-                                metahubId={(ctx as any).metahubId as string}
-                                currentCatalogId={(ctx as any).catalogId as string | undefined}
-                                dataTypeDisabled
-                                dataTypeHelperText={ctx.t(
-                                    'attributes.edit.typeChangeDisabled',
-                                    'Data type cannot be changed after creation'
-                                )}
-                                disableVlcToggles
-                            />
-                        )
+                        return [
+                            {
+                                id: 'general',
+                                label: ctx.t('attributes.tabs.general', 'General'),
+                                content: (
+                                    <AttributeFormFields
+                                        values={values}
+                                        setValue={setValue}
+                                        isLoading={isLoading}
+                                        errors={errors}
+                                        uiLocale={ctx.uiLocale as string}
+                                        nameLabel={ctx.t('common:fields.name')}
+                                        codenameLabel={ctx.t('attributes.codename', 'Codename')}
+                                        codenameHelper={ctx.t('attributes.codenameHelper', 'Unique identifier')}
+                                        dataTypeLabel={ctx.t('attributes.dataType', 'Data Type')}
+                                        requiredLabel={ctx.t('attributes.isRequiredLabel', 'Required')}
+                                        displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                        displayAttributeHelper={ctx.t(
+                                            'attributes.isDisplayAttributeHelper',
+                                            'Use as representation when referencing elements of this catalog'
+                                        )}
+                                        displayAttributeLocked={displayAttributeLocked}
+                                        dataTypeOptions={[
+                                            { value: 'STRING', label: ctx.t('attributes.dataTypeOptions.string', 'String') },
+                                            { value: 'NUMBER', label: ctx.t('attributes.dataTypeOptions.number', 'Number') },
+                                            { value: 'BOOLEAN', label: ctx.t('attributes.dataTypeOptions.boolean', 'Boolean') },
+                                            { value: 'DATE', label: ctx.t('attributes.dataTypeOptions.date', 'Date') },
+                                            { value: 'REF', label: ctx.t('attributes.dataTypeOptions.ref', 'Reference') },
+                                            { value: 'JSON', label: ctx.t('attributes.dataTypeOptions.json', 'JSON') }
+                                        ]}
+                                        typeSettingsLabel={ctx.t('attributes.typeSettings.title', 'Type Settings')}
+                                        stringMaxLengthLabel={ctx.t('attributes.typeSettings.string.maxLength', 'Max Length')}
+                                        stringMinLengthLabel={ctx.t('attributes.typeSettings.string.minLength', 'Min Length')}
+                                        stringVersionedLabel={ctx.t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
+                                        stringLocalizedLabel={ctx.t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
+                                        numberPrecisionLabel={ctx.t('attributes.typeSettings.number.precision', 'Precision')}
+                                        numberScaleLabel={ctx.t('attributes.typeSettings.number.scale', 'Scale')}
+                                        numberMinLabel={ctx.t('attributes.typeSettings.number.min', 'Min Value')}
+                                        numberMaxLabel={ctx.t('attributes.typeSettings.number.max', 'Max Value')}
+                                        numberNonNegativeLabel={ctx.t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
+                                        dateCompositionLabel={ctx.t('attributes.typeSettings.date.composition', 'Date Composition')}
+                                        dateCompositionOptions={[
+                                            {
+                                                value: 'date',
+                                                label: ctx.t('attributes.typeSettings.date.compositionOptions.date', 'Date only')
+                                            },
+                                            {
+                                                value: 'time',
+                                                label: ctx.t('attributes.typeSettings.date.compositionOptions.time', 'Time only')
+                                            },
+                                            {
+                                                value: 'datetime',
+                                                label: ctx.t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time')
+                                            }
+                                        ]}
+                                        physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
+                                        metahubId={(ctx as any).metahubId as string}
+                                        currentCatalogId={(ctx as any).catalogId as string | undefined}
+                                        dataTypeDisabled
+                                        dataTypeHelperText={ctx.t(
+                                            'attributes.edit.typeChangeDisabled',
+                                            'Data type cannot be changed after creation'
+                                        )}
+                                        disableVlcToggles
+                                        hideDisplayAttribute
+                                    />
+                                )
+                            },
+                            {
+                                id: 'presentation',
+                                label: ctx.t('attributes.tabs.presentation', 'Presentation'),
+                                content: (
+                                    <PresentationTabFields
+                                        values={values}
+                                        setValue={setValue}
+                                        isLoading={isLoading}
+                                        displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                        displayAttributeHelper={ctx.t(
+                                            'attributes.isDisplayAttributeHelper',
+                                            'Use as representation when referencing elements of this catalog'
+                                        )}
+                                        displayAttributeLocked={displayAttributeLocked}
+                                        headerAsCheckboxLabel={ctx.t(
+                                            'attributes.presentation.headerAsCheckbox',
+                                            'Display header as checkbox'
+                                        )}
+                                        headerAsCheckboxHelper={ctx.t(
+                                            'attributes.presentation.headerAsCheckboxHelper',
+                                            'Show a checkbox in the column header instead of the text label'
+                                        )}
+                                        dataType={values.dataType ?? 'STRING'}
+                                    />
+                                )
+                            }
+                        ]
                     },
                     validate: (values: Record<string, any>) => validateAttributeForm(ctx, values),
                     canSave: canSaveAttributeForm,

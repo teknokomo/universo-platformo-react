@@ -337,9 +337,7 @@ export class MetahubLayoutsService {
                     template_key: input.templateKey ?? 'dashboard',
                     name: input.name,
                     description: input.description ?? null,
-                    config: input.config ?? buildDashboardLayoutConfig(
-                        DEFAULT_DASHBOARD_ZONE_WIDGETS.filter((w) => w.isActive !== false)
-                    ),
+                    config: input.config ?? buildDashboardLayoutConfig(DEFAULT_DASHBOARD_ZONE_WIDGETS.filter((w) => w.isActive !== false)),
                     is_active: isActive,
                     is_default: isDefault,
                     sort_order: input.sortOrder ?? 0,

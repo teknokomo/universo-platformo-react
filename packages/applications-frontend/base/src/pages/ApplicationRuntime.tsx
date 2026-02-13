@@ -97,10 +97,7 @@ const ApplicationRuntime = () => {
     // Find active menu from menus array
     const activeMenu = useMemo(() => {
         if (!runtime?.menus?.length) return null
-        return (
-            runtime.menus.find((m) => m.id === runtime.activeMenuId) ??
-            runtime.menus[0]
-        )
+        return runtime.menus.find((m) => m.id === runtime.activeMenuId) ?? runtime.menus[0]
     }, [runtime])
 
     // Build dashboard menu items from active menu
@@ -112,15 +109,17 @@ const ApplicationRuntime = () => {
             if (!item.isActive) return []
 
             if (item.kind === 'catalog') {
-                return [{
-                    id: item.id,
-                    label: item.title,
-                    icon: item.icon ?? null,
-                    kind: 'catalog' as const,
-                    catalogId: item.catalogId ?? null,
-                    href: null,
-                    selected: item.catalogId != null && item.catalogId === activeCatalogId
-                }]
+                return [
+                    {
+                        id: item.id,
+                        label: item.title,
+                        icon: item.icon ?? null,
+                        kind: 'catalog' as const,
+                        catalogId: item.catalogId ?? null,
+                        href: null,
+                        selected: item.catalogId != null && item.catalogId === activeCatalogId
+                    }
+                ]
             }
 
             if (item.kind === 'catalogs_all') {
@@ -135,15 +134,17 @@ const ApplicationRuntime = () => {
                 }))
             }
 
-            return [{
-                id: item.id,
-                label: item.title,
-                icon: item.icon ?? null,
-                kind: 'link' as const,
-                catalogId: null,
-                href: item.href ?? null,
-                selected: false
-            }]
+            return [
+                {
+                    id: item.id,
+                    label: item.title,
+                    icon: item.icon ?? null,
+                    kind: 'link' as const,
+                    catalogId: null,
+                    href: item.href ?? null,
+                    selected: false
+                }
+            ]
         })
     }, [activeMenu, runtime, activeCatalogId])
 
@@ -162,15 +163,17 @@ const ApplicationRuntime = () => {
             const items = runtimeMenu.items.flatMap((item): DashboardMenuItem[] => {
                 if (!item.isActive) return []
                 if (item.kind === 'catalog') {
-                    return [{
-                        id: item.id,
-                        label: item.title,
-                        icon: item.icon ?? null,
-                        kind: 'catalog' as const,
-                        catalogId: item.catalogId ?? null,
-                        href: null,
-                        selected: item.catalogId != null && item.catalogId === activeCatalogId
-                    }]
+                    return [
+                        {
+                            id: item.id,
+                            label: item.title,
+                            icon: item.icon ?? null,
+                            kind: 'catalog' as const,
+                            catalogId: item.catalogId ?? null,
+                            href: null,
+                            selected: item.catalogId != null && item.catalogId === activeCatalogId
+                        }
+                    ]
                 }
                 if (item.kind === 'catalogs_all') {
                     return catalogs.map((catalog) => ({
@@ -183,18 +186,20 @@ const ApplicationRuntime = () => {
                         selected: catalog.id === activeCatalogId
                     }))
                 }
-                return [{
-                    id: item.id,
-                    label: item.title,
-                    icon: item.icon ?? null,
-                    kind: 'link' as const,
-                    catalogId: null,
-                    href: item.href ?? null,
-                    selected: false
-                }]
+                return [
+                    {
+                        id: item.id,
+                        label: item.title,
+                        icon: item.icon ?? null,
+                        kind: 'link' as const,
+                        catalogId: null,
+                        href: item.href ?? null,
+                        selected: false
+                    }
+                ]
             })
             map[runtimeMenu.widgetId] = {
-                title: runtimeMenu.showTitle ? (runtimeMenu.title ?? null) : null,
+                title: runtimeMenu.showTitle ? runtimeMenu.title ?? null : null,
                 showTitle: Boolean(runtimeMenu.showTitle),
                 items,
                 activeCatalogId: activeCatalogId ?? null,
@@ -215,6 +220,10 @@ const ApplicationRuntime = () => {
             type: column.dataType === 'BOOLEAN' ? 'boolean' : column.dataType === 'NUMBER' ? 'number' : 'string',
             headerAlign: 'center',
             align: 'center',
+            renderHeader:
+                column.dataType === 'BOOLEAN' && column.uiConfig?.headerAsCheckbox
+                    ? () => <Checkbox size='small' disabled checked={false} indeterminate={false} sx={{ p: 0 }} title={column.headerName} />
+                    : undefined,
             renderCell:
                 column.dataType === 'BOOLEAN'
                     ? (params) => (
@@ -261,7 +270,7 @@ const ApplicationRuntime = () => {
             menu={
                 dashboardMenuItems.length > 0
                     ? {
-                          title: activeMenu?.showTitle ? (activeMenu.title ?? null) : null,
+                          title: activeMenu?.showTitle ? activeMenu.title ?? null : null,
                           showTitle: Boolean(activeMenu?.showTitle),
                           items: dashboardMenuItems,
                           activeCatalogId: activeCatalogId ?? null,

@@ -236,7 +236,11 @@ export class SchemaMigrator {
                 const columnName = change.columnName ?? generateColumnName(field.id)
 
                 await trx.schema.withSchema(schemaName).alterTable(change.tableName!, (table: Knex.AlterTableBuilder) => {
-                    table.specificType(columnName, pgType).nullable()
+                    const col = table.specificType(columnName, pgType).nullable()
+                    // BOOLEAN columns default to false to prevent NULL → indeterminate checkbox state
+                    if (field.dataType === AttributeDataType.BOOLEAN) {
+                        col.defaultTo(false)
+                    }
                 })
 
                 if (field.isRequired) {
