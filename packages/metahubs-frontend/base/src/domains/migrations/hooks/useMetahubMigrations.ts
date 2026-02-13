@@ -31,7 +31,7 @@ interface UseMetahubMigrationsPlanOptions {
 }
 
 export function useMetahubMigrationsPlan(metahubId: string, options?: UseMetahubMigrationsPlanOptions) {
-    const { enabled = true, branchId, cleanupMode = 'keep' } = options ?? {}
+    const { enabled = true, branchId, cleanupMode = 'confirm' } = options ?? {}
 
     return useQuery({
         queryKey: metahubsQueryKeys.migrationsPlan(metahubId, branchId, cleanupMode),
@@ -51,7 +51,7 @@ interface UseMetahubMigrationsStatusOptions {
 }
 
 export function useMetahubMigrationsStatus(metahubId: string, options?: UseMetahubMigrationsStatusOptions) {
-    const { enabled = true, branchId, cleanupMode = 'keep' } = options ?? {}
+    const { enabled = true, branchId, cleanupMode = 'confirm' } = options ?? {}
 
     return useQuery({
         queryKey: metahubsQueryKeys.migrationsStatus(metahubId, branchId, cleanupMode),

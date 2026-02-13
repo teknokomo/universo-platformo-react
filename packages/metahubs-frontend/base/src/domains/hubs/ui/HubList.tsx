@@ -535,7 +535,7 @@ const HubList = () => {
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
                             primaryAction={{
-                                label: tc('addNew'),
+                                label: tc('create'),
                                 onClick: handleAddNew,
                                 startIcon: <AddRoundedIcon />
                             }}
@@ -669,8 +669,8 @@ const HubList = () => {
                 title={t('hubs.createDialog.title', 'Create Hub')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.save', 'Save')}
-                savingButtonText={tc('actions.saving', 'Saving...')}
+                saveButtonText={tc('actions.create', 'Create')}
+                savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={isCreating}
                 error={dialogError || undefined}

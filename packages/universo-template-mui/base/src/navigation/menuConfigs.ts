@@ -159,15 +159,15 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'item'
     },
     {
+        id: 'metahub-divider-secondary',
+        type: 'divider'
+    },
+    {
         id: 'metahub-layouts',
         titleKey: 'layouts',
         url: `/metahub/${metahubId}/layouts`,
         icon: IconLayoutDashboard,
         type: 'item'
-    },
-    {
-        id: 'metahub-divider-secondary',
-        type: 'divider'
     },
     {
         id: 'metahub-publications',

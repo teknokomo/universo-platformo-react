@@ -65,7 +65,8 @@ export const runtimeResponseSchema = z.object({
                     id: z.string(),
                     widgetKey: z.string(),
                     sortOrder: z.number(),
-                    config: z.record(z.unknown()).optional().default({})
+                    config: z.record(z.unknown()).optional().default({}),
+                    isActive: z.boolean().optional().default(true)
                 })
             )
         })

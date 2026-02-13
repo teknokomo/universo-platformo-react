@@ -130,7 +130,7 @@ export const init = async (): Promise<void> => {
     // TypeORM carries request-scoped RLS QueryRunners, so it gets most of the budget.
     const defaultConnectionBudget = process.env.NODE_ENV === 'development' ? 12 : 8
     const connectionBudget = parsePositiveInt(process.env.DATABASE_CONNECTION_BUDGET, defaultConnectionBudget)
-    const defaultKnexReserve = Math.max(2, Math.floor(connectionBudget / 4))
+    const defaultKnexReserve = Math.max(4, Math.floor(connectionBudget / 3))
     const defaultPoolMax = Math.max(4, connectionBudget - defaultKnexReserve)
     const poolMax = parsePositiveInt(process.env.DATABASE_POOL_MAX, defaultPoolMax)
     const poolMin = parseNonNegativeInt(process.env.DATABASE_POOL_MIN, 0)

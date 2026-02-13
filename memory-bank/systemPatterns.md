@@ -131,6 +131,14 @@ return repo.find({ where: { ... } })
 - Permission checks outside RLS context.
 **Fix**: fallback to `getDataSource().query()` only if QueryRunner missing.
 
+## Template Seed Identity Pattern (IMPORTANT)
+
+**Rule**: Widget identity in template seeds is `{layout_id, zone, widget_key, sort_order}`.
+**Risk**: When a template update removes or reorders widgets, `sort_order` shifts cause the Migrator to see relocated widgets as "new" (different key) while old positions become orphans.
+**Mitigation (current)**: `TemplateSeedMigrator` inherits `is_active` from existing peers with same `zone + widget_key` and auto-cleans orphan duplicates (system-created only, `_upl_created_by IS NULL`).
+**Future improvement**: Consider using `{layout_id, zone, widget_key}` as the stable identity (without `sort_order`) to make template reordering transparent.
+**Detection**: Duplicate widgets in same zone — `SELECT zone, widget_key, count(*) FROM _mhb_widgets WHERE _mhb_deleted = false GROUP BY zone, widget_key HAVING count(*) > 1`.
+
 ## i18n Architecture (CRITICAL)
 
 **Rule**: Core namespaces in `@universo/i18n`; feature packages use `registerNamespace()`.
@@ -157,6 +165,13 @@ return repo.find({ where: { ... } })
 **Symptoms**:
 - Inconsistent pagination behavior across modules.
 **Fix**: adopt shared list components from template-mui.
+
+## Dual Sidebar Menu Config (IMPORTANT)
+
+**Rule**: There are TWO sidebar menu configurations that must be kept in sync:
+1. **`metahubDashboard.ts`** (`packages/metahubs-frontend/base/src/menu-items/`) — Legacy config used by `flowise-template-mui/MenuList`
+2. **`menuConfigs.ts`** (`packages/universo-template-mui/base/src/navigation/`) — **PRODUCTION config** consumed by `MenuContent.tsx` via `getMetahubMenuItems()`.
+**When modifying sidebar items**: Always update BOTH files. The production app uses `menuConfigs.ts`.
 
 ## React StrictMode Pattern (CRITICAL)
 

@@ -101,3 +101,8 @@ export const removeLayoutZoneWidget = (metahubId: string, layoutId: string, widg
 
 export const updateLayoutZoneWidgetConfig = (metahubId: string, layoutId: string, widgetId: string, config: Record<string, unknown>) =>
     apiClient.patch<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`, { config })
+
+export const toggleLayoutZoneWidgetActive = (metahubId: string, layoutId: string, widgetId: string, isActive: boolean) =>
+    apiClient.patch<{ item: MetahubLayoutZoneWidget }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/toggle-active`, {
+        isActive
+    })

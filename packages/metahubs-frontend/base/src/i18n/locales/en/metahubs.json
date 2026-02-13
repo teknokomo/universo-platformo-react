@@ -169,7 +169,9 @@
       "description": "Configure dashboard zones and widgets.",
       "dragHint": "Drag widgets between zones to change runtime composition.",
       "addWidget": "Add widget",
-      "widgetCatalogTitle": "Available widgets"
+      "widgetCatalogTitle": "Available widgets",
+      "activateWidget": "Activate widget",
+      "deactivateWidget": "Deactivate widget"
     },
     "menuEditor": {
       "title": "Menu configuration",

@@ -40,7 +40,8 @@ const seedZoneWidgetSchema = z.object({
     zone: z.enum(DASHBOARD_LAYOUT_ZONES),
     widgetKey: z.enum(widgetKeys),
     sortOrder: z.number().int(),
-    config: z.record(z.unknown()).optional()
+    config: z.record(z.unknown()).optional(),
+    isActive: z.boolean().optional()
 })
 
 const seedSettingSchema = z.object({

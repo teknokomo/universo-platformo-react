@@ -135,7 +135,7 @@ const attachLayoutsToSnapshot = async (options: {
                         qb.whereIn('layout_id', activeLayoutIds)
                     }
                 })
-                .select(['id', 'layout_id', 'zone', 'widget_key', 'sort_order', 'config'])
+                .select(['id', 'layout_id', 'zone', 'widget_key', 'sort_order', 'config', 'is_active'])
                 .orderBy([
                     { column: 'layout_id', order: 'asc' },
                     { column: 'zone', order: 'asc' },
@@ -149,7 +149,8 @@ const attachLayoutsToSnapshot = async (options: {
                 zone: String(row.zone),
                 widgetKey: String(row.widget_key),
                 sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-                config: row.config && typeof row.config === 'object' ? row.config : {}
+                config: row.config && typeof row.config === 'object' ? row.config : {},
+                isActive: row.is_active !== false
             }))
         } else {
             snapshot.layoutZoneWidgets = []

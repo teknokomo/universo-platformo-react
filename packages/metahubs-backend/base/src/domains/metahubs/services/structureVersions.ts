@@ -17,7 +17,7 @@ export interface StructureVersionSpec {
 }
 
 /** Current structure version for new schemas. */
-export const CURRENT_STRUCTURE_VERSION = 2
+export const CURRENT_STRUCTURE_VERSION = 1
 
 /**
  * Registry of all structure versions.

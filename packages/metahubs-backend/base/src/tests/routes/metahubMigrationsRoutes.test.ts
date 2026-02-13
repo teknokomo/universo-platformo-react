@@ -320,8 +320,8 @@ describe('Metahub Migrations Routes', () => {
             branchId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
             currentStructureVersion: 1,
-            targetStructureVersion: 2,
-            structureUpgradeRequired: true,
+            targetStructureVersion: 1,
+            structureUpgradeRequired: false,
             templateId: null,
             currentTemplateVersionId: null,
             targetTemplateVersionId: null,
@@ -416,10 +416,10 @@ describe('Metahub Migrations Routes', () => {
 
         expect(response.body).toMatchObject({
             branchId,
-            migrationRequired: true,
-            status: 'requires_migration',
-            code: 'MIGRATION_REQUIRED',
-            structureUpgradeRequired: true,
+            migrationRequired: false,
+            status: 'up_to_date',
+            code: 'UP_TO_DATE',
+            structureUpgradeRequired: false,
             templateUpgradeRequired: false
         })
     })

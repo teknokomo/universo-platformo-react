@@ -550,7 +550,7 @@ const ConnectorList = () => {
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
                             primaryAction={{
-                                label: tc('addNew'),
+                                label: tc('create'),
                                 onClick: handleAddNew,
                                 startIcon: <AddRoundedIcon />,
                                 disabled: connectors.length > 0
@@ -710,8 +710,8 @@ const ConnectorList = () => {
                 title={t('connectors.createDialog.title', 'Create Connector')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.save', 'Save')}
-                savingButtonText={tc('actions.saving', 'Saving...')}
+                saveButtonText={tc('actions.create', 'Create')}
+                savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={isCreating}
                 error={dialogError || undefined}

@@ -89,6 +89,9 @@ export function ConnectorDiffDialog({
         if (change === 'ui.layouts.update') {
             return t('connectors.diffDialog.uiLayoutsUpdate', 'UI layouts list will be updated')
         }
+        if (change === 'ui.layout.zones.update') {
+            return t('connectors.diffDialog.uiLayoutZonesUpdate', 'UI layout zone widgets will be updated')
+        }
         if (change === 'schema.metadata.update') {
             return t('connectors.diffDialog.systemMetadataUpdate', 'System metadata will be updated')
         }
@@ -184,6 +187,8 @@ export function ConnectorDiffDialog({
                 return t('connectors.diffDialog.uiLayoutUpdate', 'UI layout settings will be updated')
             case 'UI_LAYOUTS_UPDATE':
                 return t('connectors.diffDialog.uiLayoutsUpdate', 'UI layouts list will be updated')
+            case 'UI_LAYOUT_ZONES_UPDATE':
+                return t('connectors.diffDialog.uiLayoutZonesUpdate', 'UI layout zone widgets will be updated')
             case 'SYSTEM_METADATA_UPDATE':
                 return t('connectors.diffDialog.systemMetadataUpdate', 'System metadata will be updated')
             default:

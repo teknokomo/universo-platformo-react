@@ -233,6 +233,22 @@ export class TemplateSeedMigrator {
                 }
 
                 if (!dryRun) {
+                    // Inherit is_active from an existing peer with same zone+widget_key
+                    // but different sortOrder (handles reordering across template versions).
+                    const peer = await trx
+                        .withSchema(this.schemaName)
+                        .from(widgetTableName)
+                        .where({
+                            layout_id: layoutId,
+                            zone: w.zone,
+                            widget_key: w.widgetKey,
+                            _upl_deleted: false,
+                            _mhb_deleted: false
+                        })
+                        .select('is_active')
+                        .first()
+                    const isActive: boolean = peer != null ? Boolean(peer.is_active) : true
+
                     await trx
                         .withSchema(this.schemaName)
                         .into(widgetTableName)
@@ -242,6 +258,7 @@ export class TemplateSeedMigrator {
                             widget_key: w.widgetKey,
                             sort_order: w.sortOrder,
                             config: w.config ?? {},
+                            is_active: isActive,
                             _upl_created_at: now,
                             _upl_created_by: null,
                             _upl_updated_at: now,
@@ -257,6 +274,31 @@ export class TemplateSeedMigrator {
                 }
                 insertedAny = true
                 result.zoneWidgetsAdded++
+            }
+
+            // Clean up orphan duplicates: system-created widgets with same zone+widget_key
+            // but non-target sortOrder (left over from template reordering).
+            if (!dryRun) {
+                for (const w of widgets) {
+                    await trx
+                        .withSchema(this.schemaName)
+                        .from(widgetTableName)
+                        .where({
+                            layout_id: layoutId,
+                            zone: w.zone,
+                            widget_key: w.widgetKey,
+                            _upl_deleted: false,
+                            _mhb_deleted: false
+                        })
+                        .whereNot('sort_order', w.sortOrder)
+                        .whereNull('_upl_created_by')
+                        .whereNull('_upl_updated_by')
+                        .update({
+                            _mhb_deleted: true,
+                            _upl_version: trx.raw('_upl_version + 1'),
+                            _upl_updated_at: now
+                        })
+                }
             }
 
             if (!insertedAny) {
@@ -276,7 +318,7 @@ export class TemplateSeedMigrator {
             const activeWidgets = await trx
                 .withSchema(this.schemaName)
                 .from(widgetTableName)
-                .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .where({ layout_id: layoutId, is_active: true, _upl_deleted: false, _mhb_deleted: false })
                 .select('widget_key', 'zone')
             const layoutConfig = buildDashboardLayoutConfig(
                 activeWidgets.map((row: { widget_key: DashboardLayoutWidgetKey; zone: DashboardLayoutZone }) => ({

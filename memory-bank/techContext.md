@@ -91,16 +91,26 @@ if (!userId) return
 **Flowise AI 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
 **Supabase Integration** - Multi-user functionality with Postgres-only database support
 
-### Database Pooling (Supabase Nano Tier Optimized)
+### Database Pooling (Supabase Tier-Scalable)
 
-**Target**: Supabase Nano tier (15 connections max) - compatible with free tier.
+**Target**: Supabase Nano tier by default (Pool Size 15, PG max_connections 60).
 
-**Pool allocation** (as of 2026-02-03):
-| Component | Pool Size | Purpose |
-|-----------|-----------|---------|
-| TypeORM   | 5 (configurable via `DATABASE_POOL_MAX`) | Static entities (metahubs, catalogs, attributes) |
-| Knex      | 5 (configurable via `DATABASE_KNEX_POOL_MAX`) | Runtime DDL operations (CREATE SCHEMA, ALTER TABLE) |
-| Reserved  | 5 | Supabase internal services (Storage, PostgREST, health checks) |
+**Pool formula** (as of 2026-02-13):
+- Knex: `max(4, min(6, floor(budget / 3)))` — DDL, advisory locks, schema inspection
+- TypeORM: `max(4, budget - knexReserve)` — RLS QueryRunners, entity CRUD
+
+**Tier-scaling guide**:
+| Tier    | Pool Size | Budget | Knex | TypeORM | Headroom |
+|---------|-----------|--------|------|---------|----------|
+| Nano    | 15        | 8      | 4-5  | 4-5     | 5-7      |
+| Micro   | 15        | 10     | 4    | 6       | 5        |
+| Small   | 15        | 12     | 4    | 8       | 3        |
+| Medium  | 50        | 25     | 6    | 19      | 25       |
+| Large+  | 100       | 40     | 6    | 34      | 60       |
+
+**Env overrides**: `DATABASE_CONNECTION_BUDGET`, `DATABASE_POOL_MAX`, `DATABASE_KNEX_POOL_MAX`.
+
+**Advisory lock safety**: Schema DDL uses `pg_try_advisory_lock` (session-level) which pins a raw TCP connection. Knex pool must always have ≥4 connections to avoid starvation when 2 advisory locks are held and `inspectSchemaState` / widget resolution queries run.
 
 **Pooler mode detection**:
 - Port 6543 = Supavisor transaction mode (shorter timeouts, prepared statement warnings)

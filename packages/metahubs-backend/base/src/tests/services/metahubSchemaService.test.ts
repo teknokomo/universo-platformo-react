@@ -38,7 +38,13 @@ const mockKnex = {
         withSchema: jest.fn((schemaName: string) => ({
             hasTable: (tableName: string) => mockHasTable(schemaName, tableName)
         }))
-    }
+    },
+    raw: jest.fn(async (_sql: string, params?: unknown[]) => {
+        // Simulates: SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ANY(?)
+        const candidates = Array.isArray(params) && Array.isArray(params[1]) ? (params[1] as string[]) : []
+        const rows = candidates.filter((t) => tablePresence.get(t) === true).map((t) => ({ table_name: t }))
+        return { rows }
+    })
 }
 
 jest.mock('../../domains/ddl', () => ({
@@ -146,7 +152,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_migrations'
         ])
 
-        const ds = setupDataSource(2)
+        const ds = setupDataSource(1)
         const service = new MetahubSchemaService(ds)
 
         await expect(service.ensureSchema(metahubId, userId)).resolves.toBe(schemaName)

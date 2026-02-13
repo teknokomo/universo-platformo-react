@@ -691,10 +691,18 @@ export class MetahubSchemaService {
         structureVersion: number
     ): Promise<{ initialized: boolean; hasAnyExpectedTables: boolean; expectedTables: string[]; missingTables: string[] }> {
         const expectedTables = this.getExpectedSystemTables(structureVersion)
-        const checks = await Promise.all(expectedTables.map((table) => this.knex.schema.withSchema(schemaName).hasTable(table)))
 
-        const missingTables = expectedTables.filter((_, index) => !checks[index])
-        const hasAnyExpectedTables = checks.some(Boolean)
+        // Single query instead of N parallel hasTable() calls to avoid pool starvation.
+        // Each hasTable() acquires its own connection from the Knex pool; under advisory locks
+        // this can exhaust all available connections and cause a deadlock/timeout.
+        const result = await this.knex.raw<{ rows: Array<{ table_name: string }> }>(
+            `SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ANY(?)`,
+            [schemaName, expectedTables]
+        )
+        const existingTables = new Set(result.rows.map((r) => r.table_name))
+
+        const missingTables = expectedTables.filter((t) => !existingTables.has(t))
+        const hasAnyExpectedTables = existingTables.size > 0
 
         return {
             initialized: missingTables.length === 0,

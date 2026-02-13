@@ -34,7 +34,8 @@ export interface UseCodenameAutoFillOptions {
  *
  * This hook implements the following logic:
  * 1. If the user has manually touched the codename field, auto-fill is disabled
- * 2. If both codename and name become empty while touched, reset touch state
+ * 2. If name becomes empty while touched, reset touch state and clear codename
+ *    (allows auto-fill to restart when user types a new name, even in edit mode)
  * 3. If name changes, automatically update codename with sanitized version
  * 4. If name is cleared, clear the codename as well
  *
@@ -75,9 +76,13 @@ export function useCodenameAutoFill({ codename, codenameTouched, nextCodename, n
             return
         }
 
-        // Reset touch state if both codename and name are empty
-        if (codenameTouched && !codename && !nameValue) {
+        // Reset touch state if name is fully cleared — allows auto-fill to restart
+        // when user erases the name and starts typing again (even in edit mode)
+        if (codenameTouched && !nameValue) {
             setValue('codenameTouched', false)
+            if (codename) {
+                setValue('codename', '')
+            }
             return
         }
 

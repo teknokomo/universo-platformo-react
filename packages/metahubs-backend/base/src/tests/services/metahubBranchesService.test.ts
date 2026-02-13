@@ -158,7 +158,7 @@ describe('MetahubBranchesService', () => {
             findOneBy: jest.fn().mockResolvedValue({
                 id: 'tpl-v1',
                 manifestJson: {
-                    minStructureVersion: 3
+                    minStructureVersion: 1
                 }
             })
         }
@@ -182,9 +182,9 @@ describe('MetahubBranchesService', () => {
             sourceBranchId: null
         })
 
-        expect(mockInitializeSchema).toHaveBeenCalledWith('mhb_metahub1_b2', expect.objectContaining({ minStructureVersion: 3 }))
-        expect(branchRepo.create).toHaveBeenCalledWith(expect.objectContaining({ structureVersion: 3 }))
-        expect((created as any).structureVersion).toBe(3)
+        expect(mockInitializeSchema).toHaveBeenCalledWith('mhb_metahub1_b2', expect.objectContaining({ minStructureVersion: 1 }))
+        expect(branchRepo.create).toHaveBeenCalledWith(expect.objectContaining({ structureVersion: 1 }))
+        expect((created as any).structureVersion).toBe(1)
         expect(mockAcquireAdvisoryLock).toHaveBeenCalled()
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })

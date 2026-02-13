@@ -25,14 +25,14 @@ export function useApplyMetahubMigrations() {
         retry: false,
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.migrations(variables.metahubId) })
-            const cleanupMode = variables.cleanupMode ?? 'keep'
+            const cleanupMode = variables.cleanupMode ?? 'confirm'
             const previousPlan = queryClient.getQueryData(
                 metahubsQueryKeys.migrationsPlan(variables.metahubId, variables.branchId, cleanupMode)
             )
             return { previousPlan }
         },
         onError: (error: Error, variables, context) => {
-            const cleanupMode = variables.cleanupMode ?? 'keep'
+            const cleanupMode = variables.cleanupMode ?? 'confirm'
             if (context?.previousPlan) {
                 queryClient.setQueryData(
                     metahubsQueryKeys.migrationsPlan(variables.metahubId, variables.branchId, cleanupMode),
@@ -44,7 +44,7 @@ export function useApplyMetahubMigrations() {
             })
         },
         onSuccess: (data, variables) => {
-            const cleanupMode = variables.cleanupMode ?? 'keep'
+            const cleanupMode = variables.cleanupMode ?? 'confirm'
             const planKey = metahubsQueryKeys.migrationsPlan(variables.metahubId, variables.branchId, cleanupMode)
             const listKey = metahubsQueryKeys.migrations(variables.metahubId)
             const statusKey = metahubsQueryKeys.migrationsStatus(variables.metahubId, variables.branchId, cleanupMode)

@@ -35,6 +35,7 @@ export interface DashboardLayoutZoneWidgetRow {
     widgetKey: DashboardLayoutWidgetKey
     sortOrder: number
     config: Record<string, unknown>
+    isActive: boolean
     createdAt: string
     updatedAt: string
 }
@@ -102,6 +103,10 @@ export const updateLayoutZoneWidgetConfigSchema = z.object({
     config: z.record(z.unknown())
 })
 
+export const toggleLayoutZoneWidgetActiveSchema = z.object({
+    isActive: z.boolean()
+})
+
 export class MetahubLayoutsService {
     constructor(private readonly schemaService: MetahubSchemaService) {}
 
@@ -133,6 +138,7 @@ export class MetahubLayoutsService {
             widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
             sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
             config: (row.config as Record<string, unknown>) ?? {},
+            isActive: row.is_active !== false,
             createdAt: String(row._upl_created_at),
             updatedAt: String(row._upl_updated_at)
         }
@@ -183,10 +189,14 @@ export class MetahubLayoutsService {
             .withSchema(schemaName)
             .from('_mhb_widgets')
             .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
-            .select(['widget_key', 'zone'])
+            .select(['widget_key', 'zone', 'is_active'])
 
+        const activeWidgets = widgets.filter((row: any) => row.is_active !== false)
         const nextConfig = buildDashboardLayoutConfig(
-            widgets.map((row: any) => ({ widgetKey: row.widget_key as DashboardLayoutWidgetKey, zone: row.zone as DashboardLayoutZone }))
+            activeWidgets.map((row: any) => ({
+                widgetKey: row.widget_key as DashboardLayoutWidgetKey,
+                zone: row.zone as DashboardLayoutZone
+            }))
         )
 
         await trx
@@ -224,6 +234,7 @@ export class MetahubLayoutsService {
                     widget_key: item.widgetKey,
                     sort_order: item.sortOrder,
                     config: item.config ?? {},
+                    is_active: item.isActive !== false,
                     _upl_created_at: now,
                     _upl_created_by: userId ?? null,
                     _upl_updated_at: now,
@@ -326,7 +337,9 @@ export class MetahubLayoutsService {
                     template_key: input.templateKey ?? 'dashboard',
                     name: input.name,
                     description: input.description ?? null,
-                    config: input.config ?? buildDashboardLayoutConfig(DEFAULT_DASHBOARD_ZONE_WIDGETS),
+                    config: input.config ?? buildDashboardLayoutConfig(
+                        DEFAULT_DASHBOARD_ZONE_WIDGETS.filter((w) => w.isActive !== false)
+                    ),
                     is_active: isActive,
                     is_default: isDefault,
                     sort_order: input.sortOrder ?? 0,
@@ -600,6 +613,7 @@ export class MetahubLayoutsService {
                     widget_key: input.widgetKey,
                     sort_order: nextSortOrder,
                     config: input.config ?? {},
+                    is_active: true,
                     _upl_created_at: now,
                     _upl_created_by: userId ?? null,
                     _upl_updated_at: now,
@@ -754,6 +768,46 @@ export class MetahubLayoutsService {
 
             const updated = await trx.withSchema(schemaName).from('_mhb_widgets').where({ id: current.id }).first()
 
+            return this.mapZoneWidgetRow(updated)
+        })
+    }
+
+    /**
+     * Toggle the is_active flag of a specific zone widget.
+     * When deactivated, the widget is excluded from published layout config.
+     */
+    async toggleLayoutZoneWidgetActive(
+        metahubId: string,
+        layoutId: string,
+        widgetId: string,
+        isActive: boolean,
+        userId?: string | null
+    ): Promise<DashboardLayoutZoneWidgetRow> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        return this.knex.transaction(async (trx) => {
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_widgets')
+                .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+                .first()
+            if (!current) {
+                throw new Error('Zone widget not found')
+            }
+
+            await trx
+                .withSchema(schemaName)
+                .from('_mhb_widgets')
+                .where({ id: current.id })
+                .update({
+                    is_active: isActive,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: userId ?? null,
+                    _upl_version: trx.raw('_upl_version + 1')
+                })
+
+            await this.syncLayoutConfigFromZoneWidgets(trx, schemaName, layoutId, userId ?? null)
+
+            const updated = await trx.withSchema(schemaName).from('_mhb_widgets').where({ id: current.id }).first()
             return this.mapZoneWidgetRow(updated)
         })
     }
