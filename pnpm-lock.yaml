@@ -793,6 +793,15 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.11(react@18.3.1)
+      '@universo/i18n':
+        specifier: workspace:*
+        version: link:../universo-i18n/base
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../universo-types/base
+      '@universo/utils':
+        specifier: workspace:*
+        version: link:../universo-utils/base
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19

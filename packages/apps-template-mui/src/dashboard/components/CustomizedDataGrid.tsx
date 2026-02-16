@@ -1,4 +1,4 @@
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid'
+import { DataGrid, type GridColDef, type GridPaginationModel, type GridLocaleText } from '@mui/x-data-grid'
 
 export interface CustomizedDataGridRow {
   id: string
@@ -14,6 +14,8 @@ export interface CustomizedDataGridProps {
   paginationModel?: GridPaginationModel
   onPaginationModelChange?: (model: GridPaginationModel) => void
   pageSizeOptions?: number[]
+  /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
+  localeText?: Partial<GridLocaleText>
 }
 
 export default function CustomizedDataGrid({
@@ -25,6 +27,7 @@ export default function CustomizedDataGrid({
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [10, 20, 50],
+  localeText,
 }: CustomizedDataGridProps) {
   return (
     <DataGrid
@@ -50,6 +53,7 @@ export default function CustomizedDataGrid({
       pageSizeOptions={pageSizeOptions}
       disableColumnResize
       density="compact"
+      localeText={localeText}
       slotProps={{
         filterPanel: {
           filterFormProps: {

@@ -1,0 +1,42 @@
+{
+    "app": {
+        "createRow": "Создать",
+        "editRow": "Редактировать запись",
+        "deleteRow": "Удалить запись",
+        "deleteConfirmTitle": "Удалить запись?",
+        "deleteConfirmDescription": "Запись будет удалена без возможности восстановления.",
+        "save": "Сохранить",
+        "saving": "Сохранение...",
+        "create": "Создать",
+        "creating": "Создание...",
+        "cancel": "Отмена",
+        "delete": "Удалить",
+        "deleting": "Удаление...",
+        "noFields": "Нет настроенных полей для этого каталога.",
+        "actions": "Действия",
+        "edit": "Редактировать",
+        "errorCreate": "Ошибка создания: {{message}}",
+        "errorUpdate": "Ошибка обновления: {{message}}",
+        "errorDelete": "Ошибка удаления: {{message}}",
+        "errorLoadRow": "Не удалось загрузить данные записи",
+        "errorSchemaChanged": "Схема изменилась с момента открытия формы. Пожалуйста, закройте и попробуйте снова."
+    },
+    "validation": {
+        "vlcMinLength": "Язык \"{{locale}}\": минимальная длина {{min}}",
+        "lengthBetween": "Длина должна быть от {{min}} до {{max}}",
+        "minLength": "Минимальная длина: {{min}}",
+        "maxLength": "Максимальная длина: {{max}}",
+        "nonNegative": "Только неотрицательное значение",
+        "minValue": "Минимальное значение: {{min}}",
+        "maxValue": "Максимальное значение: {{max}}",
+        "timeFormat": "Ожидается время в формате ЧЧ:ММ",
+        "dateFormat": "Ожидается дата в формате ГГГГ-ММ-ДД",
+        "datetimeFormat": "Ожидаются дата и время в формате ГГГГ-ММ-ДД ЧЧ:ММ",
+        "numberLengthWithScale": "Длина: {{integer}},{{scale}}",
+        "numberLength": "Длина: {{integer}}",
+        "range": "Диапазон: {{min}}–{{max}}",
+        "min": "Мин: {{min}}",
+        "max": "Макс: {{max}}",
+        "nonNegativeOnly": "Только неотрицательное значение"
+    }
+}

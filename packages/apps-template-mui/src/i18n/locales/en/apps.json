@@ -1,0 +1,42 @@
+{
+    "app": {
+        "createRow": "Create",
+        "editRow": "Edit record",
+        "deleteRow": "Delete record",
+        "deleteConfirmTitle": "Delete record?",
+        "deleteConfirmDescription": "This record will be permanently deleted. This action cannot be undone.",
+        "save": "Save",
+        "saving": "Saving...",
+        "create": "Create",
+        "creating": "Creating...",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting...",
+        "noFields": "No fields configured for this catalog.",
+        "actions": "Actions",
+        "edit": "Edit",
+        "errorCreate": "Create failed: {{message}}",
+        "errorUpdate": "Update failed: {{message}}",
+        "errorDelete": "Delete failed: {{message}}",
+        "errorLoadRow": "Failed to load record data",
+        "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again."
+    },
+    "validation": {
+        "vlcMinLength": "Language \"{{locale}}\": minimum length {{min}}",
+        "lengthBetween": "Length must be between {{min}} and {{max}}",
+        "minLength": "Minimum length: {{min}}",
+        "maxLength": "Maximum length: {{max}}",
+        "nonNegative": "Must be non-negative",
+        "minValue": "Minimum value: {{min}}",
+        "maxValue": "Maximum value: {{max}}",
+        "timeFormat": "Expected time format: HH:MM",
+        "dateFormat": "Expected date format: YYYY-MM-DD",
+        "datetimeFormat": "Expected date & time format: YYYY-MM-DD HH:MM",
+        "numberLengthWithScale": "Length: {{integer}},{{scale}}",
+        "numberLength": "Length: {{integer}}",
+        "range": "Range: {{min}}–{{max}}",
+        "min": "Min: {{min}}",
+        "max": "Max: {{max}}",
+        "nonNegativeOnly": "Non-negative only"
+    }
+}

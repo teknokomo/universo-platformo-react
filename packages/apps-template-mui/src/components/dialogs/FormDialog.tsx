@@ -1,0 +1,892 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import DeleteIcon from '@mui/icons-material/Delete'
+import {
+    Alert,
+    Box,
+    Button,
+    Checkbox,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    FormControlLabel,
+    Stack,
+    TextField,
+    Typography
+} from '@mui/material'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { createLocalizedContent, NUMBER_DEFAULTS } from '@universo/utils'
+import { useTranslation } from 'react-i18next'
+import { LocalizedInlineField } from '../forms/LocalizedInlineField'
+
+export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON'
+
+/**
+ * Validation rules for form fields.
+ * Matches AttributeValidationRules from @universo/types.
+ */
+export interface FieldValidationRules {
+    // STRING settings
+    minLength?: number | null
+    maxLength?: number | null
+    versioned?: boolean
+    localized?: boolean
+
+    // NUMBER settings
+    precision?: number
+    scale?: number
+    min?: number | null
+    max?: number | null
+    nonNegative?: boolean
+
+    // DATE settings
+    dateComposition?: 'date' | 'time' | 'datetime'
+}
+
+export interface FieldConfig {
+    id: string
+    label: string
+    type: FieldType
+    required?: boolean
+    /** @deprecated Use validationRules.localized instead */
+    localized?: boolean
+    placeholder?: string
+    helperText?: string
+    validationRules?: FieldValidationRules
+    /** Optional target entity ID for REF fields */
+    refTargetEntityId?: string | null
+    /** Optional target entity kind for REF fields */
+    refTargetEntityKind?: string | null
+}
+
+export interface FormDialogProps {
+    open: boolean
+    title: string
+    fields: FieldConfig[]
+    locale: string
+    initialData?: Record<string, unknown>
+    isSubmitting?: boolean
+    error?: string | null
+    requireAnyValue?: boolean
+    emptyStateText?: string
+    saveButtonText?: string
+    savingButtonText?: string
+    cancelButtonText?: string
+    showDeleteButton?: boolean
+    deleteButtonText?: string
+    deleteButtonDisabled?: boolean
+    onDelete?: () => void
+    onClose: () => void
+    onSubmit: (data: Record<string, unknown>) => Promise<void>
+    isValuePresent?: (field: FieldConfig, value: unknown) => boolean
+    renderField?: (params: {
+        field: FieldConfig
+        value: unknown
+        onChange: (value: unknown) => void
+        disabled: boolean
+        error: string | null
+        helperText?: string
+        locale: string
+    }) => React.ReactNode | undefined
+}
+
+const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
+
+const isLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
+    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
+
+const ensureLocalizedValue = (value: unknown, locale: string): VersionedLocalizedContent<string> | null => {
+    if (value == null) return null
+    if (isLocalizedContent(value)) return value
+    if (typeof value === 'string') {
+        return createLocalizedContent(locale, value)
+    }
+    return createLocalizedContent(locale, String(value))
+}
+
+const hasAnyLocalizedContent = (value: VersionedLocalizedContent<string>) =>
+    Object.values(value.locales ?? {}).some((entry) => typeof entry?.content === 'string' && entry.content.trim() !== '')
+
+const getLocalizedStringValue = (value: unknown, locale: string): string | null => {
+    if (!isLocalizedContent(value)) return null
+    const locales = value.locales ?? {}
+    const normalizedLocale = normalizeLocale(locale)
+    const entry = locales[normalizedLocale]
+    if (typeof entry?.content === 'string') return entry.content
+    const primary = value._primary
+    const primaryEntry = locales[primary]
+    if (typeof primaryEntry?.content === 'string') return primaryEntry.content
+    const firstEntry = Object.values(locales).find((item) => typeof item?.content === 'string')
+    return typeof firstEntry?.content === 'string' ? firstEntry.content : null
+}
+
+const isValidTimeString = (value: string) => /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?$/.test(value)
+
+const isValidDateString = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+    const date = new Date(`${value}T00:00:00`)
+    return !Number.isNaN(date.getTime())
+}
+
+const isValidDateTimeString = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(value)) return false
+    const date = new Date(value)
+    return !Number.isNaN(date.getTime())
+}
+
+/**
+ * Normalize date/datetime input to ensure year has max 4 digits.
+ * Browser native date inputs allow typing 5+ digit years which breaks validation.
+ */
+const normalizeDateValue = (value: string, inputType: 'date' | 'time' | 'datetime-local'): string => {
+    if (!value || inputType === 'time') return value
+
+    const dashIndex = value.indexOf('-')
+    if (dashIndex <= 0) return value
+
+    const yearPart = value.substring(0, dashIndex)
+
+    if (yearPart.length > 4) {
+        const truncatedYear = yearPart.slice(-4)
+        return truncatedYear + value.substring(dashIndex)
+    }
+
+    return value
+}
+
+export const FormDialog: React.FC<FormDialogProps> = ({
+    open,
+    title,
+    fields,
+    locale,
+    initialData,
+    isSubmitting = false,
+    error = null,
+    requireAnyValue = false,
+    emptyStateText,
+    saveButtonText = 'Save',
+    savingButtonText,
+    cancelButtonText = 'Cancel',
+    showDeleteButton = false,
+    deleteButtonText = 'Delete',
+    deleteButtonDisabled = false,
+    onDelete,
+    onClose,
+    onSubmit,
+    isValuePresent,
+    renderField: renderFieldOverride
+}) => {
+    const [formData, setFormData] = useState<Record<string, unknown>>({})
+    const [isReady, setReady] = useState(false)
+
+    useEffect(() => {
+        if (open) {
+            setReady(false)
+            setFormData(initialData ?? {})
+            setReady(true)
+        } else {
+            setReady(false)
+        }
+    }, [open, initialData])
+
+    const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
+
+    const { t } = useTranslation('apps')
+
+    const handleFieldChange = useCallback((id: string, value: unknown) => {
+        setFormData((prev) => ({ ...prev, [id]: value }))
+    }, [])
+
+    const resolveValuePresent = useCallback(
+        (field: FieldConfig, value: unknown) => {
+            if (isValuePresent) {
+                return isValuePresent(field, value)
+            }
+            if (value === null || value === undefined) return false
+            if (field.type === 'STRING') {
+                if (field.localized !== false && isLocalizedContent(value)) {
+                    return hasAnyLocalizedContent(value)
+                }
+                if (typeof value === 'string') return value.trim() !== ''
+                return String(value).trim() !== ''
+            }
+            if (field.type === 'NUMBER') {
+                return typeof value === 'number' ? !Number.isNaN(value) : value !== ''
+            }
+            if (field.type === 'BOOLEAN') {
+                return value !== undefined
+            }
+            if (field.type === 'JSON') {
+                if (typeof value === 'string') return value.trim() !== ''
+                if (value && typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0
+                return true
+            }
+            if (typeof value === 'string') return value.trim() !== ''
+            return true
+        },
+        [isValuePresent]
+    )
+
+    const getStringValueForValidation = useCallback(
+        (value: unknown) => {
+            if (typeof value === 'string') return value
+            const localizedValue = getLocalizedStringValue(value, normalizedLocale)
+            if (typeof localizedValue === 'string') return localizedValue
+            if (value === null || value === undefined) return null
+            return String(value)
+        },
+        [normalizedLocale]
+    )
+
+    /**
+     * For VLC fields, check minLength for ALL locales that have content.
+     * Returns the locale code that fails validation, or null if all pass.
+     */
+    const getVlcMinLengthError = useCallback((value: unknown, minLength: number): string | null => {
+        if (!isLocalizedContent(value)) return null
+        const vlc = value as VersionedLocalizedContent<string>
+        const locales = vlc.locales
+        for (const [localeCode, entry] of Object.entries(locales)) {
+            const content = entry?.content
+            if (typeof content === 'string' && content.length > 0 && content.length < minLength) {
+                return localeCode
+            }
+        }
+        return null
+    }, [])
+
+    const getFieldError = useCallback(
+        (field: FieldConfig, value: unknown) => {
+            if (!resolveValuePresent(field, value)) return null
+
+            const rules = field.validationRules ?? {}
+
+            if (field.type === 'STRING') {
+                const minLength = typeof rules.minLength === 'number' ? rules.minLength : null
+                const maxLength = typeof rules.maxLength === 'number' ? rules.maxLength : null
+
+                if (isLocalizedContent(value) && minLength !== null) {
+                    const failedLocale = getVlcMinLengthError(value, minLength)
+                    if (failedLocale) {
+                        return t('validation.vlcMinLength', {
+                            defaultValue: 'Language "{{locale}}": minimum length {{min}}',
+                            locale: failedLocale.toUpperCase(),
+                            min: minLength
+                        })
+                    }
+                }
+
+                const stringValue = getStringValueForValidation(value)
+                if (typeof stringValue === 'string') {
+                    if (minLength !== null && maxLength !== null) {
+                        if (stringValue.length < minLength || stringValue.length > maxLength) {
+                            return t('validation.lengthBetween', {
+                                defaultValue: 'Length must be between {{min}} and {{max}}',
+                                min: minLength,
+                                max: maxLength
+                            })
+                        }
+                    } else if (minLength !== null && stringValue.length < minLength) {
+                        return t('validation.minLength', {
+                            defaultValue: 'Minimum length: {{min}}',
+                            min: minLength
+                        })
+                    } else if (maxLength !== null && stringValue.length > maxLength) {
+                        return t('validation.maxLength', {
+                            defaultValue: 'Maximum length: {{max}}',
+                            max: maxLength
+                        })
+                    }
+                }
+            }
+
+            if (field.type === 'NUMBER') {
+                if (typeof value !== 'number' || Number.isNaN(value)) {
+                    return null
+                }
+
+                if (rules.nonNegative === true && value < 0) {
+                    return t('validation.nonNegative', 'Must be non-negative')
+                }
+                if (typeof rules.min === 'number' && value < rules.min) {
+                    return t('validation.minValue', {
+                        defaultValue: 'Minimum value: {{min}}',
+                        min: rules.min
+                    })
+                }
+                if (typeof rules.max === 'number' && value > rules.max) {
+                    return t('validation.maxValue', {
+                        defaultValue: 'Maximum value: {{max}}',
+                        max: rules.max
+                    })
+                }
+            }
+
+            if (field.type === 'DATE') {
+                if (typeof value !== 'string') return null
+
+                const composition = rules.dateComposition ?? 'datetime'
+                if (composition === 'time') {
+                    return isValidTimeString(value) ? null : t('validation.timeFormat', 'Expected time format: HH:MM')
+                }
+                if (composition === 'date') {
+                    return isValidDateString(value) ? null : t('validation.dateFormat', 'Expected date format: YYYY-MM-DD')
+                }
+
+                return isValidDateTimeString(value) ? null : t('validation.datetimeFormat', 'Expected date & time format: YYYY-MM-DD HH:MM')
+            }
+
+            return null
+        },
+        [t, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
+    )
+
+    const hasAnyValue = useMemo(
+        () => fields.some((field) => resolveValuePresent(field, formData[field.id])),
+        [fields, formData, resolveValuePresent]
+    )
+
+    const hasMissingRequired = useMemo(
+        () => fields.some((field) => field.required && !resolveValuePresent(field, formData[field.id])),
+        [fields, formData, resolveValuePresent]
+    )
+
+    const hasValidationErrors = useMemo(
+        () => fields.some((field) => Boolean(getFieldError(field, formData[field.id]))),
+        [fields, formData, getFieldError]
+    )
+
+    const buildPayload = useCallback(() => {
+        const payload: Record<string, unknown> = {}
+        fields.forEach((field) => {
+            const value = formData[field.id]
+            if (!resolveValuePresent(field, value)) return
+            payload[field.id] = value
+        })
+        return payload
+    }, [fields, formData, resolveValuePresent])
+
+    const handleSubmit = async () => {
+        if (hasMissingRequired) return
+        if (requireAnyValue && !hasAnyValue) return
+        await onSubmit(buildPayload())
+    }
+
+    const renderField = (field: FieldConfig) => {
+        const value = formData[field.id]
+        const disabled = isSubmitting
+        const rules = field.validationRules
+        const fieldError = getFieldError(field, value)
+        const helperText = fieldError ?? field.helperText
+
+        const customField = renderFieldOverride?.({
+            field,
+            value,
+            onChange: (next) => handleFieldChange(field.id, next),
+            disabled,
+            error: fieldError,
+            helperText,
+            locale: normalizedLocale
+        })
+
+        if (customField !== undefined) {
+            return customField
+        }
+
+        switch (field.type) {
+            case 'STRING': {
+                const isLocalized = rules?.localized ?? field.localized
+                const isVersioned = rules?.versioned
+
+                const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength ? getVlcMinLengthError(value, rules.minLength) : null
+
+                if (isLocalized) {
+                    return (
+                        <LocalizedInlineField
+                            mode='localized'
+                            label={field.label}
+                            required={field.required}
+                            value={ensureLocalizedValue(value, normalizedLocale)}
+                            onChange={(next) => handleFieldChange(field.id, next)}
+                            uiLocale={locale}
+                            disabled={disabled}
+                            error={fieldError}
+                            errorLocale={vlcErrorLocale}
+                            helperText={field.helperText}
+                            maxLength={rules?.maxLength}
+                            minLength={rules?.minLength}
+                        />
+                    )
+                }
+
+                if (isVersioned) {
+                    return (
+                        <LocalizedInlineField
+                            mode='versioned'
+                            label={field.label}
+                            required={field.required}
+                            value={ensureLocalizedValue(value, normalizedLocale)}
+                            onChange={(next) => handleFieldChange(field.id, next)}
+                            uiLocale={locale}
+                            disabled={disabled}
+                            error={fieldError}
+                            errorLocale={vlcErrorLocale}
+                            helperText={field.helperText}
+                            maxLength={rules?.maxLength}
+                            minLength={rules?.minLength}
+                        />
+                    )
+                }
+
+                return (
+                    <TextField
+                        fullWidth
+                        label={field.label}
+                        value={typeof value === 'string' ? value : value == null ? '' : String(value)}
+                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
+                        required={field.required}
+                        disabled={disabled}
+                        placeholder={field.placeholder}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                        inputProps={{
+                            minLength: rules?.minLength ?? undefined,
+                            maxLength: rules?.maxLength ?? undefined
+                        }}
+                    />
+                )
+            }
+            case 'NUMBER': {
+                const precision = rules?.precision ?? NUMBER_DEFAULTS.precision
+                const scale = rules?.scale ?? NUMBER_DEFAULTS.scale
+                const maxIntegerDigits = precision - scale
+                const allowNegative = !rules?.nonNegative
+                const fieldLocale = normalizeLocale(locale)
+                const decimalSeparator = scale > 0 ? (fieldLocale === 'ru' ? ',' : '.') : ''
+
+                const formatNumberValue = (val: unknown): string => {
+                    if (val === null || val === undefined || val === '') {
+                        if (!field.required) return ''
+                        return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+                    }
+                    if (typeof val === 'number') {
+                        if (Number.isNaN(val)) {
+                            if (!field.required) return ''
+                            return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+                        }
+                        return scale > 0 ? val.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(val))
+                    }
+                    const parsed = parseFloat(String(val))
+                    if (Number.isNaN(parsed)) {
+                        if (!field.required) return ''
+                        return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+                    }
+                    return scale > 0 ? parsed.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(parsed))
+                }
+
+                const selectNumberPart = (target: HTMLInputElement) => {
+                    if (scale <= 0) {
+                        target.setSelectionRange(0, target.value.length)
+                        return
+                    }
+                    const valueText = target.value
+                    const signOffset = valueText.startsWith('-') ? 1 : 0
+                    const separatorIndex = valueText.indexOf(decimalSeparator)
+                    if (separatorIndex === -1) {
+                        target.setSelectionRange(signOffset, valueText.length)
+                        return
+                    }
+                    const cursor = target.selectionStart ?? 0
+                    if (cursor <= separatorIndex) {
+                        target.setSelectionRange(signOffset, separatorIndex)
+                    } else {
+                        target.setSelectionRange(separatorIndex + 1, valueText.length)
+                    }
+                }
+
+                const handleNumberFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+                    const target = event.target
+                    window.requestAnimationFrame(() => selectNumberPart(target))
+                }
+
+                const handleNumberClick = (event: React.MouseEvent<HTMLInputElement>) => {
+                    const target = event.target as HTMLInputElement
+                    window.requestAnimationFrame(() => selectNumberPart(target))
+                }
+
+                const handleNumberChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+                    const inputValue = event.target.value
+
+                    if (inputValue === '' || inputValue === '-') {
+                        handleFieldChange(field.id, null)
+                        return
+                    }
+
+                    const normalizedInput = inputValue.replace(/,/g, '.')
+
+                    const validPattern = allowNegative ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/
+
+                    if (!validPattern.test(normalizedInput)) {
+                        return
+                    }
+
+                    const isNegative = normalizedInput.startsWith('-')
+                    const absValue = isNegative ? normalizedInput.slice(1) : normalizedInput
+                    const [intPart = '', decPart = ''] = absValue.split('.')
+
+                    if (intPart.length > maxIntegerDigits) {
+                        return
+                    }
+                    if (decPart.length > scale) {
+                        return
+                    }
+
+                    const parsed = parseFloat(normalizedInput)
+                    if (Number.isFinite(parsed)) {
+                        handleFieldChange(field.id, parsed)
+                    }
+                }
+
+                const handleNumberKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+                    const key = event.key
+                    const target = event.target as HTMLInputElement
+                    const currentValue = target.value
+                    const selectionStart = target.selectionStart ?? 0
+                    const selectionEnd = target.selectionEnd ?? selectionStart
+                    const hasSelection = selectionEnd > selectionStart
+                    const separatorIndex = scale > 0 ? currentValue.indexOf(decimalSeparator) : -1
+
+                    if ((key === 'Backspace' || key === 'Delete') && scale > 0 && separatorIndex !== -1) {
+                        const selectionCrossesSeparator = selectionStart <= separatorIndex && selectionEnd > separatorIndex
+                        const backspaceOnSeparator =
+                            key === 'Backspace' && selectionStart === separatorIndex + 1 && selectionEnd === selectionStart
+                        const deleteOnSeparator = key === 'Delete' && selectionStart === separatorIndex && selectionEnd === selectionStart
+                        if (selectionCrossesSeparator || backspaceOnSeparator || deleteOnSeparator) {
+                            event.preventDefault()
+                            return
+                        }
+                    }
+
+                    if (
+                        [
+                            'Backspace',
+                            'Delete',
+                            'Tab',
+                            'Escape',
+                            'Enter',
+                            'ArrowLeft',
+                            'ArrowRight',
+                            'ArrowUp',
+                            'ArrowDown',
+                            'Home',
+                            'End'
+                        ].includes(key)
+                    ) {
+                        return
+                    }
+
+                    if (event.ctrlKey || event.metaKey) {
+                        return
+                    }
+
+                    if (key === '-') {
+                        if (!allowNegative) {
+                            event.preventDefault()
+                            return
+                        }
+                        if (selectionStart !== 0 || currentValue.includes('-')) {
+                            event.preventDefault()
+                        }
+                        return
+                    }
+
+                    if (key === '.' || key === ',') {
+                        if (scale === 0) {
+                            event.preventDefault()
+                            return
+                        }
+                        event.preventDefault()
+                        if (separatorIndex !== -1) {
+                            const decimalStart = separatorIndex + 1
+                            window.requestAnimationFrame(() => target.setSelectionRange(decimalStart, currentValue.length))
+                        }
+                        return
+                    }
+
+                    if (/^\d$/.test(key)) {
+                        if (scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex) {
+                            event.preventDefault()
+                            const decimalStart = separatorIndex + 1
+                            const localIndex = Math.min(selectionStart, currentValue.length) - decimalStart
+                            const decimalChars = currentValue.slice(decimalStart).split('')
+                            if (localIndex >= 0 && localIndex < decimalChars.length) {
+                                decimalChars[localIndex] = key
+                                const nextValue = `${currentValue.slice(0, decimalStart)}${decimalChars.join('')}`
+                                const parsed = parseFloat(nextValue.replace(/,/g, '.'))
+                                if (Number.isFinite(parsed)) {
+                                    handleFieldChange(field.id, parsed)
+                                }
+                                const nextCaret = Math.min(decimalStart + localIndex + 1, decimalStart + scale)
+                                window.requestAnimationFrame(() => target.setSelectionRange(nextCaret, nextCaret))
+                                return
+                            }
+                        }
+
+                        const normalizedValue = currentValue.replace(/,/g, '.')
+                        const isNeg = normalizedValue.startsWith('-')
+                        const absVal = isNeg ? normalizedValue.slice(1) : normalizedValue
+                        const decimalIndex = absVal.indexOf('.')
+
+                        if (decimalIndex === -1) {
+                            const intPartLength = absVal.length
+                            if (intPartLength >= maxIntegerDigits && selectionStart >= (isNeg ? 1 : 0) && !hasSelection) {
+                                event.preventDefault()
+                            }
+                        } else {
+                            const adjustedPos = isNeg ? selectionStart - 1 : selectionStart
+                            if (adjustedPos <= decimalIndex) {
+                                const intPart = absVal.slice(0, decimalIndex)
+                                if (intPart.length >= maxIntegerDigits && !hasSelection) {
+                                    event.preventDefault()
+                                }
+                            } else {
+                                const decPart = absVal.slice(decimalIndex + 1)
+                                if (decPart.length >= scale && !hasSelection) {
+                                    event.preventDefault()
+                                }
+                            }
+                        }
+                        return
+                    }
+
+                    event.preventDefault()
+                }
+
+                const handleNumberBlur = () => {
+                    if ((value === null || value === undefined) && field.required) {
+                        handleFieldChange(field.id, 0)
+                    }
+                }
+
+                const constraintParts: string[] = []
+
+                const formatInfo =
+                    scale > 0
+                        ? t('validation.numberLengthWithScale', {
+                              defaultValue: 'Length: {{integer}},{{scale}}',
+                              integer: maxIntegerDigits,
+                              scale
+                          })
+                        : t('validation.numberLength', {
+                              defaultValue: 'Length: {{integer}}',
+                              integer: maxIntegerDigits
+                          })
+                constraintParts.push(formatInfo)
+
+                if (typeof rules?.min === 'number' && typeof rules?.max === 'number') {
+                    constraintParts.push(
+                        t('validation.range', {
+                            defaultValue: 'Range: {{min}}–{{max}}',
+                            min: rules.min,
+                            max: rules.max
+                        })
+                    )
+                } else if (typeof rules?.min === 'number') {
+                    constraintParts.push(
+                        t('validation.min', {
+                            defaultValue: 'Min: {{min}}',
+                            min: rules.min
+                        })
+                    )
+                } else if (typeof rules?.max === 'number') {
+                    constraintParts.push(
+                        t('validation.max', {
+                            defaultValue: 'Max: {{max}}',
+                            max: rules.max
+                        })
+                    )
+                }
+                if (rules?.nonNegative) {
+                    constraintParts.push(t('validation.nonNegativeOnly', 'Non-negative only'))
+                }
+
+                const numberHelperText = fieldError ?? constraintParts.join(', ')
+
+                return (
+                    <TextField
+                        fullWidth
+                        type='text'
+                        inputMode='decimal'
+                        label={field.label}
+                        value={formatNumberValue(value)}
+                        onChange={handleNumberChange}
+                        onKeyDown={handleNumberKeyDown}
+                        onFocus={handleNumberFocus}
+                        onClick={handleNumberClick}
+                        onBlur={handleNumberBlur}
+                        required={field.required}
+                        disabled={disabled}
+                        placeholder={scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'}
+                        error={Boolean(fieldError)}
+                        helperText={numberHelperText}
+                    />
+                )
+            }
+            case 'BOOLEAN':
+                return (
+                    <FormControlLabel
+                        control={
+                            <Checkbox checked={Boolean(value)} onChange={(event) => handleFieldChange(field.id, event.target.checked)} />
+                        }
+                        label={field.label}
+                        disabled={disabled}
+                    />
+                )
+            case 'DATE': {
+                const composition = rules?.dateComposition ?? 'datetime'
+                let inputType: 'date' | 'time' | 'datetime-local'
+                let maxValue: string | undefined
+
+                switch (composition) {
+                    case 'date':
+                        inputType = 'date'
+                        maxValue = '9999-12-31'
+                        break
+                    case 'time':
+                        inputType = 'time'
+                        maxValue = undefined
+                        break
+                    case 'datetime':
+                    default:
+                        inputType = 'datetime-local'
+                        maxValue = '9999-12-31T23:59'
+                        break
+                }
+
+                return (
+                    <TextField
+                        fullWidth
+                        type={inputType}
+                        label={field.label}
+                        value={(value as string) ?? ''}
+                        onChange={(event) => {
+                            const normalizedValue = normalizeDateValue(event.target.value, inputType)
+                            handleFieldChange(field.id, normalizedValue)
+                        }}
+                        required={field.required}
+                        disabled={disabled}
+                        InputLabelProps={{ shrink: true }}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                        inputProps={{ max: maxValue }}
+                    />
+                )
+            }
+            case 'JSON': {
+                const stringValue =
+                    typeof value === 'string' ? value : value && typeof value === 'object' ? JSON.stringify(value, null, 2) : ''
+                return (
+                    <TextField
+                        fullWidth
+                        multiline
+                        rows={4}
+                        label={field.label}
+                        value={stringValue}
+                        onChange={(event) => {
+                            try {
+                                handleFieldChange(field.id, JSON.parse(event.target.value))
+                            } catch {
+                                handleFieldChange(field.id, event.target.value)
+                            }
+                        }}
+                        required={field.required}
+                        disabled={disabled}
+                        placeholder={field.placeholder}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                    />
+                )
+            }
+            case 'REF':
+                return (
+                    <TextField
+                        fullWidth
+                        label={field.label}
+                        value={(value as string) ?? ''}
+                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
+                        required={field.required}
+                        disabled={disabled}
+                        placeholder={field.placeholder}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                    />
+                )
+            default:
+                return (
+                    <TextField
+                        fullWidth
+                        label={field.label}
+                        value={typeof value === 'string' ? value : value == null ? '' : String(value)}
+                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
+                        required={field.required}
+                        disabled={disabled}
+                        placeholder={field.placeholder}
+                        error={Boolean(fieldError)}
+                        helperText={helperText}
+                    />
+                )
+        }
+    }
+
+    const isSubmitDisabled =
+        isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    {error && <Alert severity='error'>{error}</Alert>}
+                    {!isReady ? (
+                        <Stack alignItems='center' justifyContent='center' sx={{ py: 3 }}>
+                            <CircularProgress size={20} />
+                        </Stack>
+                    ) : fields.length === 0 ? (
+                        <Typography color='text.secondary'>{emptyStateText}</Typography>
+                    ) : (
+                        fields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
+                    )}
+                </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
+                {showDeleteButton ? (
+                    <Button
+                        onClick={deleteButtonDisabled ? undefined : onDelete}
+                        disabled={isSubmitting || deleteButtonDisabled}
+                        variant='outlined'
+                        startIcon={<DeleteIcon />}
+                        sx={{ borderRadius: 1, mr: 'auto' }}
+                    >
+                        {deleteButtonText}
+                    </Button>
+                ) : null}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button onClick={onClose} disabled={isSubmitting}>
+                        {cancelButtonText}
+                    </Button>
+                    <Button
+                        onClick={handleSubmit}
+                        variant='contained'
+                        disabled={isSubmitDisabled}
+                        startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
+                    >
+                        {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}
+                    </Button>
+                </Box>
+            </DialogActions>
+        </Dialog>
+    )
+}
+
+export default FormDialog

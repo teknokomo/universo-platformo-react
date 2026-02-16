@@ -75,11 +75,29 @@
             "connectors": "Connectors",
             "created": "Created"
         },
-        "runtime": {
+        "app": {
             "errors": {
                 "missingApplicationId": "Application ID is missing in URL",
                 "loadFailed": "Failed to load runtime data"
-            }
+            },
+            "actions": "Actions",
+            "edit": "Edit",
+            "delete": "Delete",
+            "createRow": "Create",
+            "editRow": "Edit record",
+            "save": "Save",
+            "saving": "Saving...",
+            "create": "Create",
+            "creating": "Creating...",
+            "cancel": "Cancel",
+            "noFields": "No fields configured for this catalog.",
+            "deleteConfirmTitle": "Delete record?",
+            "deleteConfirmDescription": "This record will be permanently deleted. This action cannot be undone.",
+            "deleting": "Deleting...",
+            "errorCreate": "Create failed: {{message}}",
+            "errorUpdate": "Update failed: {{message}}",
+            "errorDelete": "Delete failed: {{message}}",
+            "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again."
         }
     },
     "connectors": {

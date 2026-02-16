@@ -88,7 +88,14 @@ export const applicationsQueryKeys = {
             catalogId: params?.catalogId ?? 'default'
         }
         return [...applicationsQueryKeys.detail(applicationId), 'runtime', normalized] as const
-    }
+    },
+
+    /** Prefix key for all runtime queries of an application (for broad invalidation). */
+    runtimeAll: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime'] as const,
+
+    /** Key for fetching a single runtime row (raw data for edit forms). */
+    runtimeRow: (applicationId: string, rowId: string) =>
+        [...applicationsQueryKeys.detail(applicationId), 'runtime', 'row', rowId] as const
 }
 
 /**

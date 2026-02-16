@@ -18,7 +18,7 @@
     "src"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.runtime.json --noEmit",
+    "build": "tsc -p tsconfig.build.json --noEmit",
     "dev:standalone": "vite --port 5174 --strictPort",
     "preview:standalone": "vite preview --port 5174 --strictPort",
     "lint": "eslint --ext .ts,.tsx src"
@@ -34,6 +34,9 @@
     "@mui/x-tree-view": "catalog:",
     "@react-spring/web": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@universo/i18n": "workspace:*",
+    "@universo/types": "workspace:*",
+    "@universo/utils": "workspace:*",
     "dayjs": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

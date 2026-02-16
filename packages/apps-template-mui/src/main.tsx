@@ -4,11 +4,11 @@ import App from './App'
 
 const el = document.getElementById('root')
 if (!el) {
-  throw new Error('Root element (#root) not found')
+    throw new Error('Root element (#root) not found')
 }
 
 createRoot(el).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+    <React.StrictMode>
+        <App />
+    </React.StrictMode>
 )

@@ -1,25 +1,11 @@
-import type {} from '@mui/x-date-pickers/themeAugmentation'
-import type {} from '@mui/x-charts/themeAugmentation'
-import type {} from '@mui/x-data-grid/themeAugmentation'
-import type {} from '@mui/x-tree-view/themeAugmentation'
-import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid'
+import type { GridColDef, GridPaginationModel, GridLocaleText } from '@mui/x-data-grid'
 import { alpha } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
 import MainGrid from './components/MainGrid'
 import SideMenu from './components/SideMenu'
-import AppTheme from '../shared-theme/AppTheme'
-import { chartsCustomizations, dataGridCustomizations, datePickersCustomizations, treeViewCustomizations } from './theme/customizations'
-
-const xThemeComponents = {
-    ...chartsCustomizations,
-    ...dataGridCustomizations,
-    ...datePickersCustomizations,
-    ...treeViewCustomizations
-}
 
 export interface DashboardLayoutConfig {
     showSideMenu: boolean
@@ -48,6 +34,10 @@ export interface DashboardDetailsSlot {
     paginationModel?: GridPaginationModel
     onPaginationModelChange?: (model: GridPaginationModel) => void
     pageSizeOptions?: number[]
+    /** Optional toolbar actions (e.g. Create button) rendered next to the title. */
+    actions?: React.ReactNode
+    /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
+    localeText?: Partial<GridLocaleText>
 }
 
 export interface DashboardMenuItem {
@@ -84,7 +74,6 @@ export interface ZoneWidgets {
 }
 
 export interface DashboardProps {
-    disableCustomTheme?: boolean
     layoutConfig?: DashboardLayoutConfig
     zoneWidgets?: ZoneWidgets
     details?: DashboardDetailsSlot
@@ -103,36 +92,33 @@ const DEFAULT_LAYOUT: DashboardLayoutConfig = {
 export default function Dashboard(props: DashboardProps) {
     const layout = { ...DEFAULT_LAYOUT, ...(props.layoutConfig ?? {}) }
     return (
-        <AppTheme {...props} themeComponents={xThemeComponents}>
-            <CssBaseline enableColorScheme />
-            <Box sx={{ display: 'flex' }}>
-                {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={props.zoneWidgets} />}
-                {layout.showAppNavbar && <AppNavbar menu={props.menu} menus={props.menus} />}
-                {/* Main content */}
-                <Box
-                    component='main'
-                    sx={(theme) => ({
-                        flexGrow: 1,
-                        backgroundColor: theme.vars
-                            ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
-                            : alpha(theme.palette.background.default, 1),
-                        overflow: 'auto'
-                    })}
+        <Box sx={{ display: 'flex' }}>
+            {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={props.zoneWidgets} />}
+            {layout.showAppNavbar && <AppNavbar menu={props.menu} menus={props.menus} />}
+            {/* Main content */}
+            <Box
+                component='main'
+                sx={(theme) => ({
+                    flexGrow: 1,
+                    backgroundColor: theme.vars
+                        ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
+                        : alpha(theme.palette.background.default, 1),
+                    overflow: 'auto'
+                })}
+            >
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        mx: 3,
+                        pb: 5,
+                        mt: { xs: 8, md: 0 }
+                    }}
                 >
-                    <Stack
-                        spacing={2}
-                        sx={{
-                            alignItems: 'center',
-                            mx: 3,
-                            pb: 5,
-                            mt: { xs: 8, md: 0 }
-                        }}
-                    >
-                        {layout.showHeader && <Header layoutConfig={props.layoutConfig} />}
-                        <MainGrid layoutConfig={props.layoutConfig} details={props.details} />
-                    </Stack>
-                </Box>
+                    {layout.showHeader && <Header layoutConfig={props.layoutConfig} />}
+                    <MainGrid layoutConfig={props.layoutConfig} details={props.details} />
+                </Stack>
             </Box>
-        </AppTheme>
+        </Box>
     )
 }
