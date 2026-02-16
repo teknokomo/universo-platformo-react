@@ -75,11 +75,29 @@
             "connectors": "Коннекторы",
             "created": "Создано"
         },
-        "runtime": {
+        "app": {
             "errors": {
                 "missingApplicationId": "В URL отсутствует ID приложения",
                 "loadFailed": "Не удалось загрузить данные пользовательского интерфейса"
-            }
+            },
+            "actions": "Действия",
+            "edit": "Редактировать",
+            "delete": "Удалить",
+            "createRow": "Создать",
+            "editRow": "Редактировать запись",
+            "save": "Сохранить",
+            "saving": "Сохранение...",
+            "create": "Создать",
+            "creating": "Создание...",
+            "cancel": "Отмена",
+            "noFields": "Для этого каталога не настроены поля.",
+            "deleteConfirmTitle": "Удалить запись?",
+            "deleteConfirmDescription": "Запись будет удалена без возможности восстановления.",
+            "deleting": "Удаление...",
+            "errorCreate": "Ошибка создания: {{message}}",
+            "errorUpdate": "Ошибка обновления: {{message}}",
+            "errorDelete": "Ошибка удаления: {{message}}",
+            "errorSchemaChanged": "Схема изменилась с момента открытия формы. Пожалуйста, закройте и попробуйте снова."
         }
     },
     "connectors": {

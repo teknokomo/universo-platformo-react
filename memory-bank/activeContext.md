@@ -1,12 +1,318 @@
 # Active Context
 
-> **Last Updated**: 2026-02-13
+> **Last Updated**: 2026-02-17
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Completed: Metahubs UX Improvements — Boolean Fix, Auto-fill, Presentation Tab, Header Checkbox ✅
+## Completed: Architecture Refactoring — Headless Controller Hook + Adapter Pattern ✅
+
+**Status**: All changes applied. apps-template-mui builds clean. Full build pending verification.
+
+### Problem Solved
+
+~80% code duplication between `DashboardApp.tsx` (483 lines) and `ApplicationRuntime.tsx` (553 lines). Both contained identical CRUD state management, mutation handlers, menu building, column transformation, and dialog JSX.
+
+### Architecture Implemented
+
+**Adapter Pattern** + **Headless Controller Hook** eliminates duplication:
+
+1. **`CrudDataAdapter` interface** (`api/types.ts`) — abstracts CRUD operations (fetchList, fetchRow, createRow, updateRow, deleteRow) behind a uniform contract. Also defines `CellRendererOverrides` for per-dataType custom rendering.
+
+2. **`useCrudDashboard()` hook** (`hooks/useCrudDashboard.ts`) — headless controller containing ALL shared logic: pagination state, CRUD dialog state (formOpen, editRowId, deleteRowId, errors), row actions menu state, schema fingerprint (M4), React Query list/row queries, mutations via adapter, all handlers (create/edit/close/submit/delete/menu), derived values (columns via `toGridColumns`, fieldConfigs, rows, layoutConfig, menus, menusMap, menuSlot, formInitialData).
+
+3. **Two adapters**:
+   - `createStandaloneAdapter()` (`api/adapters.ts`) — wraps `fetchAppData()`/`fetchAppRow()` etc. for standalone dev mode
+   - `createRuntimeAdapter()` (`api/runtimeAdapter.ts` in applications-frontend) — wraps `getApplicationRuntime()` etc. for auth'd production mode
+
+4. **Shared UI components**:
+   - `CrudDialogs` — wraps `FormDialog` + `ConfirmDeleteDialog`, accepts `CrudDashboardState` + labels
+   - `RowActionsMenu` — wraps `Menu` with Edit/Delete items, accepts `CrudDashboardState` + labels
+
+5. **Utility extraction**: `toGridColumns()` and `toFieldConfigs()` moved to `utils/columns.tsx` with optional `cellRenderers` override for consumer-specific rendering (e.g., ApplicationRuntime's interactive BOOLEAN checkboxes).
+
+### Results
+
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| DashboardApp.tsx | 483 lines | ~95 lines | -80% |
+| ApplicationRuntime.tsx | 553 lines | ~130 lines | -76% |
+
+### New Files Created
+
+- `packages/apps-template-mui/src/api/types.ts` — CrudDataAdapter, CellRendererOverrides
+- `packages/apps-template-mui/src/api/adapters.ts` — createStandaloneAdapter()
+- `packages/apps-template-mui/src/utils/columns.tsx` — toGridColumns(), toFieldConfigs()
+- `packages/apps-template-mui/src/hooks/useCrudDashboard.ts` — headless controller hook
+- `packages/apps-template-mui/src/components/CrudDialogs.tsx` — shared dialogs
+- `packages/apps-template-mui/src/components/RowActionsMenu.tsx` — shared row menu
+- `packages/applications-frontend/base/src/api/runtimeAdapter.ts` — production adapter
+
+### Files Modified
+
+- `packages/apps-template-mui/src/standalone/DashboardApp.tsx` — refactored to use hook + adapter
+- `packages/apps-template-mui/src/index.ts` — added new exports
+- `packages/apps-template-mui/src/api/index.ts` — added adapter exports
+- `packages/applications-frontend/base/src/pages/ApplicationRuntime.tsx` — refactored to use hook + adapter
+
+---
+
+## Completed: UI Polish — Button Position, Actions Centering, DataGrid i18n ✅
+
+**Status**: All changes applied. Build 65/65 OK.
+
+### Changes Applied
+
+1. **Button position**: Create button moved from inline with title to a separate row below the title in `MainGrid.tsx`. Prepares for future toolbar with multiple action buttons.
+
+2. **Options button centering**: Actions column `IconButton` wrapped in `<Box display='flex' alignItems='center' justifyContent='center' width='100%' height='100%'>` in both `DashboardApp.tsx` and `ApplicationRuntime.tsx`.
+
+3. **DataGrid i18n**: Created `getDataGridLocaleText()` utility → passes `ruRU` locale from `@mui/x-data-grid/locales` through `DashboardDetailsSlot.localeText` → `CustomizedDataGrid` → `<DataGrid localeText={...}>`. Column menu (Sort, Filter, Hide, Manage) and pagination text now fully localized.
+
+### Architecture Note
+
+Three-layer component architecture confirmed as correct:
+- **AppMainLayout** — pure theme wrapper
+- **Dashboard** — pure layout shell (SideMenu + AppNavbar + Header + MainGrid), no business logic
+- **DashboardApp** — standalone controller with full CRUD logic (queries, mutations, state, dialogs)
+
+`DashboardApp.tsx` is needed as dev-mode entry point and reference implementation. `ApplicationRuntime.tsx` currently duplicates its logic, which is a future refactoring opportunity.
+
+---
+
+## Completed: QA Round 6 Fixes — M1-M4, UX Improvements ✅
+
+**Status**: All fixes applied. Build 65/65 OK.
+
+### Changes Applied
+
+1. **M1 (MEDIUM)**: Added required-field null check in backend PATCH bulk update (`applicationsRoutes.ts`). Prevents setting required non-BOOLEAN fields to null — returns 400 with descriptive error.
+
+2. **M2 (MEDIUM)**: Created `extractErrorMessage()` helper in `apps-template-mui/api.ts`. Tries JSON.parse on response body, extracts `error`/`message`/`detail` field. Replaced all 5 raw-text error blocks. Users now see clean error messages from backend instead of raw JSON dumps.
+
+3. **M3 (MEDIUM)**: Created `applications-frontend/base/src/api/mutations.ts` with 5 reusable React Query mutation hooks. Refactored `ApplicationRuntime.tsx` to use these hooks instead of inline `useMutation` blocks (~80 lines removed). Hooks use `applicationsQueryKeys` for proper cache invalidation with `effectiveCatalogId`.
+
+4. **M4 (MEDIUM)**: Schema fingerprint tracking. Uses `useRef<string | null>` to capture sorted comma-joined column field names when form opens. Before submission, compares with current fingerprint — if columns changed (schema evolution), shows `errorSchemaChanged` error. Applied to both `DashboardApp.tsx` and `ApplicationRuntime.tsx`.
+
+5. **Actions column dropdown**: Replaced two separate `GridActionsCellItem` icons (edit, delete) with single `MoreVertRoundedIcon` dropdown menu. Compact button: `28x28, p: 0.25, fontSize: 18`. Menu: Edit + Divider + Delete (error color). Column width: 48px. Header: dim icon instead of text. Pattern borrowed from metahubs `LayoutList.tsx` but smaller for compact table rows.
+
+6. **Button text**: Changed `createRow` from "Create record" / "Создать запись" to "Create" / "Создать" across all 4 i18n locale files + JSX fallback text.
+
+7. **i18n**: Added `errorSchemaChanged` key to all 4 locale files (EN/RU for apps-template-mui and applications-frontend).
+
+---
+
+## Completed: QA Round 5 Fix — Dialog Input Styling ✅
+
+**Status**: Fix applied. Build 65/65 OK.
+
+### Root Cause
+
+`apps-template-mui` customization files were exact copies of the original MUI Dashboard template (`.backup/templates/`). The Dashboard template uses a compact input design (`MuiOutlinedInput.input: { padding: 0 }`, fixed heights, hidden `notchedOutline`) unsuitable for form Dialogs. `universo-template-mui` had already fixed this with proper form-style spacing — the fix was ported to `apps-template-mui`.
+
+### Changes Applied
+
+1. **`packages/apps-template-mui/src/shared-theme/customizations/inputs.tsx`**:
+   - Added `sharedInputSpacing` / `sharedInputSpacingSmall` constants
+   - Replaced `MuiOutlinedInput` Dashboard compact style with form-compatible style (proper padding on `input`, standard `notchedOutline`, multiline support, disabled state)
+   - Added `MuiInputLabel` customization (was completely missing)
+   - Added `MuiButton` disabled state styles
+
+### Key Design Decisions
+
+- **Other customization files preserved**: `dataDisplay.tsx`, `feedback.tsx`, `navigation.tsx`, `surfaces.ts` left as original MUI template — they work for Dashboard demo content
+- **Flowise theme unaffected**: `AppTheme` creates a fresh theme via `createTheme()`, Flowise `compStyleOverride.js` does not influence components inside `AppTheme`
+- **No breaking changes**: Only enhanced styling, no API or component interface changes
+
+---
+
+## Completed: QA Fixes Round 4 — Theme Dedup, Runtime Rename ✅
+
+**Status**: All fixes applied. Build 65/65 OK.
+
+### Changes Applied
+
+1. **THEME-1 (CRITICAL)**: Removed duplicate `<AppTheme>` + `<CssBaseline>` from `Dashboard.tsx`. Theme is already provided by parent `AppMainLayout`. Dashboard is now a pure UI shell (sidebar + header + grid layout).
+
+2. **RUNTIME-1→6 (MEDIUM)**: Full rename of ~60+ "runtime" identifiers across `apps-template-mui` and `applications-frontend`:
+   - **api.ts**: `fetchApplicationRuntime`→`fetchAppData`, `buildRuntimeUrl`→`buildAppApiUrl`, `fetchRuntimeRow`→`fetchAppRow`, `createRuntimeRow`→`createAppRow`, `updateRuntimeRow`→`updateAppRow`, `deleteRuntimeRow`→`deleteAppRow`, `runtimeResponseSchema`→`appDataResponseSchema`, `ApplicationRuntimeResponse`→`AppDataResponse`
+   - **mutations.ts**: `runtimeKeys`→`appQueryKeys`, `useRuntimeRow`→`useAppRow`, `useCreateRuntimeRow`→`useCreateAppRow`, `useUpdateRuntimeRow`→`useUpdateAppRow`, `useDeleteRuntimeRow`→`useDeleteAppRow`. Cache key namespace: `'application-runtime'`→`'application-data'`
+   - **DashboardApp.tsx**: All imports, function/hook calls, local variable `runtime`→`appData`, all `t('runtime.*')`→`t('app.*')` i18n keys
+   - **ApplicationRuntime.tsx**: `RuntimeFormDialog`→`FormDialog`, `RuntimeFieldConfig`→`FieldConfig`, `RuntimeFieldValidationRules`→`FieldValidationRules`, all `t('runtime.*')`→`t('app.*')`
+   - **index.ts**: Added `appQueryKeys` canonical export, kept `runtimeKeys` deprecated alias
+   - **tsconfig**: `tsconfig.runtime.json`→`tsconfig.build.json`, updated package.json build script
+
+3. **i18n**: Renamed `"runtime"` key to `"app"` in all 4 locale files:
+   - `apps-template-mui/src/i18n/locales/en/apps.json`
+   - `apps-template-mui/src/i18n/locales/ru/apps.json`
+   - `applications-frontend/base/src/i18n/locales/en/applications.json`
+   - `applications-frontend/base/src/i18n/locales/ru/applications.json`
+
+4. **Backward Compatibility**: Deprecated aliases maintained:
+   - `ApplicationRuntimeResponse = AppDataResponse` (api.ts)
+   - `runtimeKeys = appQueryKeys` (mutations.ts)
+   - `RuntimeFormDialog`, `RuntimeFieldConfig`, `RuntimeFieldValidationRules`, `RuntimeDashboardApp` (index.ts re-exports)
+
+### Key Design Decisions
+
+- **API URL paths preserved**: Backend endpoints still use `/applications/:id/runtime/*` — these are server routes, not frontend naming
+- **Deprecated aliases kept**: Existing consumers won't break; migration can happen gradually
+- **Local variable renamed**: `const runtime = query.data` → `const appData = query.data` for consistency
+
+---
+
+## Completed: QA Fixes Round 3 — Theme, Hooks, Delete, i18n, Layout ✅
+
+**Status**: All fixes applied. Build 65/65 OK.
+
+### Changes Applied
+
+1. **THEME-1 (CRITICAL)**: Created `AppMainLayout` component — wraps children in `AppTheme` with full x-theme components (charts, data-grid, date-pickers, tree-view) + `CssBaseline`. Applied in both `DashboardApp` (standalone) and `ApplicationRuntime` (production). Dialogs now inherit custom MUI theme (borderRadius, button colors, etc.) via React context even through portals.
+
+2. **HOOKS-1 (CRITICAL)**: Moved `useMemo(formInitialData)` and `isFormReady` before the `if (!isReady)` early return in `DashboardApp.tsx`. Hooks now called unconditionally on every render, fixing Rules of Hooks violation.
+
+3. **DELETE-1 (MEDIUM)**: Removed auto-close (`onCancel()`) from `ConfirmDeleteDialog.handleConfirm`. Consumer now controls open/close exclusively via `handleCloseDelete`. Removed unused `entityName`/`entityType` props from interface.
+
+4. **I18N-1 (MEDIUM)**: Replaced hardcoded `formatMessage(en, ru)` pattern in `FormDialog.tsx` with `useTranslation('apps')` + 16 new i18n keys under `validation.*` namespace. Supports any locale configured in i18next.
+
+5. **Dead Code**: Deleted `MinimalLayout.tsx`, `TableRoute.tsx`, and empty `routes/` directory (none were exported or referenced externally).
+
+6. **LINT-1 (MEDIUM)**: Fixed prettier formatting in 12 files via `npx prettier --write`. Lint now clean: 0 errors across all modified files.
+
+### Files Modified (apps-template-mui)
+
+- `src/layouts/AppMainLayout.tsx` — **NEW**: top-level layout with AppTheme wrapper
+- `src/standalone/DashboardApp.tsx` — HOOKS-1 fix + AppMainLayout wrapping
+- `src/components/dialogs/ConfirmDeleteDialog.tsx` — DELETE-1 fix + unused props cleanup
+- `src/components/dialogs/FormDialog.tsx` — I18N-1 fix (formatMessage → useTranslation)
+- `src/i18n/locales/en/apps.json` — 16 new validation.* keys
+- `src/i18n/locales/ru/apps.json` — 16 new validation.* keys
+- `src/index.ts` — export AppMainLayout + AppMainLayoutProps
+- `src/layouts/MinimalLayout.tsx` — **DELETED**
+- `src/routes/TableRoute.tsx` — **DELETED**
+- `src/routes/` — **DELETED** (empty directory)
+
+### Files Modified (applications-frontend)
+
+- `base/src/pages/ApplicationRuntime.tsx` — import + wrap in AppMainLayout
+
+---
+
+## Completed: QA Fixes Round 2 — Validation, Cache, VLC ✅
+
+**Status**: All fixes applied. Build validation pending.
+
+### Changes Applied
+
+1. **DATE-1 (MEDIUM)**: Added `new Date(value)` + `isNaN` check in `coerceRuntimeValue` for DATE type. Invalid date strings now return 400 instead of PostgreSQL 500.
+
+2. **VALID-2 (LOW)**: Added `UUID_REGEX.test(catalogId)` validation to GET-row and DELETE handlers (catalogId query param). Consistent with POST/PATCH Zod schemas.
+
+3. **VALID-3 (LOW)**: Added `UUID_REGEX.test(applicationId)` check to main GET runtime endpoint (which doesn't use `resolveRuntimeSchema`).
+
+4. **CACHE-1 (LOW)**: Changed standalone mutations `onSuccess` invalidation from `runtimeKeys.list(applicationId, catalogId)` to `runtimeKeys.list(applicationId)` — invalidates all catalogs, preventing stale data when catalog switches during mutation.
+
+5. **VLC-1 (LOW)**: Added structural check for VLC objects — require `locales` property. Prevents arbitrary JSON from being stored in VLC columns.
+
+### Files Modified
+
+- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` — DATE validation, UUID checks, VLC structure check
+- `packages/apps-template-mui/src/runtime/mutations.ts` — broader cache invalidation keys
+
+---
+
+## Completed: QA Fixes — Runtime CRUD Security & UX ✅
+
+**Status**: All fixes applied. Pending build validation.
+
+### Changes Applied
+
+1. **VALID-1 (MEDIUM)**: Added `UUID_REGEX` constant and validation for `applicationId` (in `resolveRuntimeSchema`) and `rowId` (in each PATCH/GET/DELETE handler). Returns 400 with clear error for malformed IDs instead of letting PostgreSQL throw 500.
+
+2. **AUDIT-1 (LOW)**: Added `_upl_updated_by` column setting to both per-field PATCH and bulk PATCH endpoints. Extended `resolveRuntimeSchema` return type to include `userId` so all handlers can access it uniformly (also removed duplicate `resolveUserId` call from CREATE and DELETE handlers).
+
+3. **UX-1 (MEDIUM)**: Removed `throw err` from `handleConfirmDelete` in both `ApplicationRuntime.tsx` and `RuntimeDashboardApp.tsx`. The error is already captured and displayed via `setDeleteError()`, so re-throwing caused an Unhandled Promise Rejection.
+
+4. **I18N-1 (LOW)**: Updated standalone `apps.json` error keys (EN + RU) to include `{{message}}` interpolation, matching the production `applications.json` format and the actual `t()` calls in code.
+
+### Files Modified
+
+- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` — UUID validation, _upl_updated_by, userId in resolveRuntimeSchema
+- `packages/applications-frontend/base/src/pages/ApplicationRuntime.tsx` — removed throw err
+- `packages/apps-template-mui/src/runtime/RuntimeDashboardApp.tsx` — removed throw err
+- `packages/apps-template-mui/src/i18n/locales/en/apps.json` — error message interpolation
+- `packages/apps-template-mui/src/i18n/locales/ru/apps.json` — error message interpolation
+
+---
+
+## Completed: Runtime CRUD + VLC + i18n + DataGrid Improvements ✅
+
+**Status**: All 7 phases implemented. Build 65/65 OK.
+
+### What Was Done
+
+**Phase 1 — Backend (applications-backend)**:
+- Extended GET runtime: added `validation_rules`, `is_required`, DATE/JSON data types to SQL and response.
+- Added POST `/:applicationId/runtime/rows` — creates rows with per-field type validation and VLC support, checks required fields.
+- Extended PATCH `/:applicationId/runtime/:rowId` — removed BOOLEAN-only restriction, now supports STRING (VLC), NUMBER, DATE, JSON via `coerceRuntimeValue()`.
+- Added DELETE `/:applicationId/runtime/rows/:rowId` — soft delete with `_upl_deleted = true`.
+- Added GET `/:applicationId/runtime/rows/:rowId` — returns raw (un-resolved) data for edit forms.
+- Extracted shared helpers: `coerceRuntimeValue()`, `resolveRuntimeCatalog()`, `resolveRuntimeSchema()`.
+
+**Phase 2 — Components (apps-template-mui)**:
+- Added `@universo/i18n`, `@universo/types`, `@universo/utils` workspace dependencies.
+- Copied `ConfirmDeleteDialog` (145 lines, MUI only) and `LocalizedInlineField` (620 lines, VLC editor).
+- Created `RuntimeFormDialog` (adapted from DynamicEntityFormDialog — removed REF type, changed import path, renamed to RuntimeFormDialog/RuntimeFieldConfig).
+
+**Phase 3 — API + Mutations**:
+- Extended `api.ts` Zod schema: DATE/JSON in dataType enum, `isRequired`, `validationRules` in columns.
+- Added `fetchRuntimeRow`, `createRuntimeRow`, `updateRuntimeRow`, `deleteRuntimeRow` functions.
+- Created `mutations.ts` with React Query hooks: `useRuntimeRow`, `useCreateRuntimeRow`, `useUpdateRuntimeRow`, `useDeleteRuntimeRow` — all with cache invalidation via `runtimeKeys`.
+
+**Phase 4 — CRUD UI**:
+- Added `actions?: React.ReactNode` to `DashboardDetailsSlot` interface.
+- Updated `MainGrid.tsx` to render actions next to details title (Stack row layout).
+- Extended `toGridColumns()` with Edit/Delete `GridActionsCellItem` actions column.
+- Created `toFieldConfigs()` to convert API columns → `RuntimeFieldConfig[]`.
+- Added Create button (`AddIcon`), connected `RuntimeFormDialog` for create/edit, `ConfirmDeleteDialog` for delete.
+- Edit mode uses raw row fetch (`useRuntimeRow`) for VLC fields.
+
+**Phase 5 — i18n**:
+- Created `src/i18n/index.ts` with `registerNamespace('apps', ...)`.
+- Created EN/RU locale files with 18 runtime keys (createRow, editRow, deleteRow, save, etc.).
+- Connected via side-effect import in `App.tsx` and export in `index.ts`.
+
+**Phase 6 — DataGrid UX**:
+- Added `disableColumnMenu` to fix column header jitter.
+- Changed `sortable: false` → `sortable: true` in `toGridColumns()`.
+- Fixed pre-existing TS error: added `flatMap<DashboardMenuItem>` type annotation.
+
+### Files Modified/Created
+
+**applications-backend** (1 modified):
+- `applicationsRoutes.ts` — Extended GET, PATCH; added POST, DELETE, GET-row; shared helpers
+
+**apps-template-mui** (10 files: 5 modified, 5 created):
+- `package.json` — 3 new workspace deps
+- `src/index.ts` — added i18n + runtime exports
+- `src/App.tsx` — i18n import
+- `src/dashboard/Dashboard.tsx` — actions slot in DashboardDetailsSlot
+- `src/dashboard/components/MainGrid.tsx` — actions rendering
+- `src/dashboard/components/CustomizedDataGrid.tsx` — disableColumnMenu
+- `src/runtime/api.ts` — extended schema + 4 new API functions
+- `src/runtime/RuntimeDashboardApp.tsx` — CRUD state/handlers/dialogs
+- `src/runtime/mutations.ts` (**new**) — React Query mutation hooks
+- `src/runtime/components/RuntimeFormDialog.tsx` (**new**) — form dialog
+- `src/runtime/components/LocalizedInlineField.tsx` (**new**) — VLC field editor
+- `src/runtime/components/ConfirmDeleteDialog.tsx` (**new**) — delete confirmation
+- `src/i18n/index.ts` (**new**) — namespace registration
+- `src/i18n/locales/en/apps.json` (**new**) — EN translations
+- `src/i18n/locales/ru/apps.json` (**new**) — RU translations
+
+---
+
+## Previous: Metahubs UX Improvements — Boolean Fix, Auto-fill, Presentation Tab, Header Checkbox ✅
 
 **Status**: All 5 improvements + QA fixes (P1, P2) implemented. Build OK, tests OK, lint 0 errors.
 

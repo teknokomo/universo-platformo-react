@@ -186,8 +186,10 @@ export interface ApplicationRuntimeColumn {
     id: string
     codename: string
     field: string
-    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER'
+    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'JSON'
     headerName: string
+    isRequired?: boolean
+    validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
 }
 

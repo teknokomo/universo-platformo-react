@@ -37,6 +37,7 @@ const resolveUserId = (req: Request): string | undefined => {
 }
 
 const IDENTIFIER_REGEX = /^[a-z_][a-z0-9_]*$/
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const quoteIdentifier = (identifier: string): string => {
     if (!IDENTIFIER_REGEX.test(identifier)) {
@@ -102,34 +103,26 @@ const resolveLocalizedContent = (value: unknown, locale: string, fallback: strin
     return fallback
 }
 
-const resolveRuntimeValue = (value: unknown, dataType: 'BOOLEAN' | 'STRING' | 'NUMBER', locale: string): unknown => {
+type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'JSON'
+
+const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: string): unknown => {
     if (value === null || value === undefined) {
         // BOOLEAN null → false for correct checkbox rendering (no indeterminate state)
         return dataType === 'BOOLEAN' ? false : null
     }
 
-    if (dataType !== 'STRING') {
-        return value
-    }
-
-    if (typeof value === 'string') {
-        return value
-    }
-
-    if (typeof value === 'object') {
-        const localized = getVLCString(value as Record<string, unknown>, locale)
-        if (localized) {
-            return localized
+    if (dataType === 'STRING') {
+        if (typeof value === 'string') return value
+        if (typeof value === 'object') {
+            const localized = getVLCString(value as Record<string, unknown>, locale)
+            if (localized) return localized
+            try { return JSON.stringify(value) } catch { return '' }
         }
-
-        try {
-            return JSON.stringify(value)
-        } catch {
-            return ''
-        }
+        return String(value)
     }
 
-    return String(value)
+    // NUMBER, BOOLEAN, DATE, JSON — return as-is
+    return value
 }
 
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
@@ -428,6 +421,7 @@ export function createApplicationsRoutes(
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
             const { applicationId } = req.params
+            if (!UUID_REGEX.test(applicationId)) return res.status(400).json({ error: 'Invalid application ID format' })
             const ds = getDataSource()
             const rlsRunner = getRequestQueryRunner(req)
 
@@ -493,10 +487,11 @@ export function createApplicationsRoutes(
 
             const attributes = (await manager.query(
                 `
-                    SELECT id, codename, column_name, data_type, presentation, sort_order, ui_config
+                    SELECT id, codename, column_name, data_type, is_required,
+                           presentation, validation_rules, sort_order, ui_config
                     FROM ${schemaIdent}._app_attributes
                     WHERE object_id = $1
-                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER')
+                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'JSON')
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
                     ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
@@ -506,8 +501,10 @@ export function createApplicationsRoutes(
                 id: string
                 codename: string
                 column_name: string
-                data_type: 'BOOLEAN' | 'STRING' | 'NUMBER'
+                data_type: RuntimeDataType
+                is_required: boolean
                 presentation?: unknown
+                validation_rules?: Record<string, unknown>
                 sort_order?: number
                 ui_config?: Record<string, unknown>
             }>
@@ -758,7 +755,9 @@ export function createApplicationsRoutes(
                     codename: attribute.codename,
                     field: attribute.column_name,
                     dataType: attribute.data_type,
+                    isRequired: attribute.is_required ?? false,
                     headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
+                    validationRules: attribute.validation_rules ?? {},
                     uiConfig: attribute.ui_config ?? {}
                 })),
                 rows,
@@ -775,25 +774,153 @@ export function createApplicationsRoutes(
         })
     )
 
-    // ============ APPLICATION RUNTIME CELL UPDATE (BOOLEAN MVP) ============
+    // ============ APPLICATION RUNTIME CELL UPDATE ============
     const runtimeUpdateBodySchema = z.object({
         field: z.string().min(1),
-        value: z.boolean().nullable(),
+        value: z.unknown(),
         catalogId: z.string().uuid().optional()
     })
+
+    /** Supported runtime data types for write operations */
+    const RUNTIME_WRITABLE_TYPES = new Set(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'JSON'])
+
+    /**
+     * Validates and coerces a value to match the expected runtime column type.
+     * Returns the value to store or throws on type mismatch.
+     */
+    const coerceRuntimeValue = (
+        value: unknown,
+        dataType: string,
+        validationRules?: Record<string, unknown>
+    ): unknown => {
+        if (value === null || value === undefined) return null
+
+        switch (dataType) {
+            case 'BOOLEAN':
+                if (typeof value !== 'boolean') throw new Error('Expected boolean value')
+                return value
+            case 'NUMBER':
+                if (typeof value !== 'number') throw new Error('Expected number value')
+                return value
+            case 'STRING': {
+                const isVLC = Boolean(validationRules?.versioned) || Boolean(validationRules?.localized)
+                if (isVLC) {
+                    // VLC: accept object with locales structure, or plain string
+                    if (typeof value === 'string') return value
+                    if (typeof value === 'object') {
+                        const vlc = value as Record<string, unknown>
+                        if (!vlc.locales || typeof vlc.locales !== 'object') {
+                            throw new Error('VLC object must contain a locales property')
+                        }
+                        return value
+                    }
+                    throw new Error('Expected object or string value for VLC field')
+                }
+                if (typeof value !== 'string') throw new Error('Expected string value')
+                return value
+            }
+            case 'DATE': {
+                if (typeof value !== 'string') throw new Error('Expected ISO date string')
+                const d = new Date(value)
+                if (Number.isNaN(d.getTime())) throw new Error('Invalid date value')
+                return value
+            }
+            case 'JSON':
+                // Accept any serializable value for JSONB columns
+                return typeof value === 'object' ? value : JSON.stringify(value)
+            default:
+                throw new Error(`Unsupported data type: ${dataType}`)
+        }
+    }
+
+    /**
+     * Shared helper: resolve catalog and load its attributes from a runtime schema.
+     */
+    const resolveRuntimeCatalog = async (
+        manager: ReturnType<typeof getRequestManager>,
+        schemaIdent: string,
+        requestedCatalogId?: string
+    ) => {
+        const catalogs = (await manager.query(
+            `
+                SELECT id, codename, table_name
+                FROM ${schemaIdent}._app_objects
+                WHERE kind = 'catalog'
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_app_deleted, false) = false
+                ORDER BY codename ASC
+            `
+        )) as Array<{ id: string; codename: string; table_name: string }>
+
+        if (catalogs.length === 0) return { catalog: null, attrs: [], error: 'No catalogs available' }
+
+        const catalog =
+            (requestedCatalogId ? catalogs.find((c) => c.id === requestedCatalogId) : undefined) ?? catalogs[0]
+        if (!catalog) return { catalog: null, attrs: [], error: 'Catalog not found' }
+        if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { catalog: null, attrs: [], error: 'Invalid table name' }
+
+        const attrs = (await manager.query(
+            `
+                SELECT id, codename, column_name, data_type, is_required, validation_rules
+                FROM ${schemaIdent}._app_attributes
+                WHERE object_id = $1
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_app_deleted, false) = false
+            `,
+            [catalog.id]
+        )) as Array<{
+            id: string
+            codename: string
+            column_name: string
+            data_type: string
+            is_required: boolean
+            validation_rules?: Record<string, unknown>
+        }>
+
+        return { catalog, attrs, error: null }
+    }
+
+    /**
+     * Shared helper: validate application and schema, return identifiers.
+     */
+    const resolveRuntimeSchema = async (
+        req: Request,
+        res: Response,
+        applicationId: string
+    ): Promise<{ schemaIdent: string; manager: ReturnType<typeof getRequestManager>; userId: string } | null> => {
+        if (!UUID_REGEX.test(applicationId)) { res.status(400).json({ error: 'Invalid application ID format' }); return null }
+
+        const ds = getDataSource()
+        const userId = resolveUserId(req)
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return null }
+
+        const rlsRunner = getRequestQueryRunner(req)
+        await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+
+        const { applicationRepo } = repos(req)
+        const application = await applicationRepo.findOne({ where: { id: applicationId } })
+        if (!application) { res.status(404).json({ error: 'Application not found' }); return null }
+        if (!application.schemaName) { res.status(400).json({ error: 'Application schema is not configured' }); return null }
+
+        const schemaName = application.schemaName
+        if (!IDENTIFIER_REGEX.test(schemaName)) { res.status(400).json({ error: 'Invalid application schema name' }); return null }
+
+        return {
+            schemaIdent: quoteIdentifier(schemaName),
+            manager: getRequestManager(req, ds),
+            userId
+        }
+    }
 
     router.patch(
         '/:applicationId/runtime/:rowId',
         writeLimiter,
         asyncHandler(async (req, res) => {
-            const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-
             const { applicationId, rowId } = req.params
-            const ds = getDataSource()
-            const rlsRunner = getRequestQueryRunner(req)
+            if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
 
-            await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
 
             const parsedBody = runtimeUpdateBodySchema.safeParse(req.body)
             if (!parsedBody.success) {
@@ -805,81 +932,38 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid field name' })
             }
 
-            const { applicationRepo } = repos(req)
-            const application = await applicationRepo.findOne({ where: { id: applicationId } })
-            if (!application) return res.status(404).json({ error: 'Application not found' })
-            if (!application.schemaName) {
-                return res.status(400).json({ error: 'Application schema is not configured' })
-            }
-
-            const schemaName = application.schemaName
-            if (!IDENTIFIER_REGEX.test(schemaName)) {
-                return res.status(400).json({ error: 'Invalid application schema name' })
-            }
-
-            const schemaIdent = quoteIdentifier(schemaName)
-            const manager = getRequestManager(req, ds)
-
-            const catalogs = await manager.query(
-                `
-                    SELECT id, codename, table_name
-                    FROM ${schemaIdent}._app_objects
-                    WHERE kind = 'catalog'
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
-                    ORDER BY codename ASC
-                `
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
+                ctx.manager, ctx.schemaIdent, requestedCatalogId
             )
-
-            if (catalogs.length === 0) {
-                return res.status(404).json({ error: 'No catalogs available in application runtime schema' })
-            }
-
-            const typedCatalogs = catalogs as Array<{ id: string; table_name: string }>
-            const catalog =
-                (requestedCatalogId ? typedCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
-                typedCatalogs[0]
-            if (!catalog) {
-                return res
-                    .status(404)
-                    .json({ error: 'Requested catalog not found in runtime schema', details: { catalogId: requestedCatalogId } })
-            }
-            if (!IDENTIFIER_REGEX.test(catalog.table_name)) {
-                return res.status(400).json({ error: 'Invalid runtime table name' })
-            }
-
-            const attrs = (await manager.query(
-                `
-                    SELECT column_name, data_type
-                    FROM ${schemaIdent}._app_attributes
-                    WHERE object_id = $1
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
-                `,
-                [catalog.id]
-            )) as Array<{ column_name: string; data_type: string }>
+            if (!catalog) return res.status(404).json({ error: catalogError })
 
             const attr = attrs.find((a) => a.column_name === field)
-            if (!attr) {
-                return res.status(404).json({ error: 'Attribute not found' })
-            }
-            if (attr.data_type !== 'BOOLEAN') {
-                return res.status(400).json({ error: 'Only BOOLEAN fields are editable in runtime MVP' })
+            if (!attr) return res.status(404).json({ error: 'Attribute not found' })
+            if (!RUNTIME_WRITABLE_TYPES.has(attr.data_type)) {
+                return res.status(400).json({ error: `Field type ${attr.data_type} is not editable` })
             }
 
-            const dataTableIdent = `${schemaIdent}.${quoteIdentifier(catalog.table_name)}`
-            const updated = (await manager.query(
+            let coerced: unknown
+            try {
+                coerced = coerceRuntimeValue(value, attr.data_type, attr.validation_rules)
+            } catch (e) {
+                return res.status(400).json({ error: (e as Error).message })
+            }
+
+            const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const updated = (await ctx.manager.query(
                 `
                     UPDATE ${dataTableIdent}
                     SET ${quoteIdentifier(field)} = $1,
                         _upl_updated_at = NOW(),
+                        _upl_updated_by = $2,
                         _upl_version = COALESCE(_upl_version, 1) + 1
-                    WHERE id = $2
+                    WHERE id = $3
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
                     RETURNING id
                 `,
-                [value, rowId]
+                [coerced, ctx.userId, rowId]
             )) as Array<{ id: string }>
 
             if (updated.length === 0) {
@@ -887,6 +971,245 @@ export function createApplicationsRoutes(
             }
 
             return res.json({ status: 'ok' })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME ROW BULK UPDATE ============
+    const runtimeBulkUpdateBodySchema = z.object({
+        catalogId: z.string().uuid().optional(),
+        data: z.record(z.unknown())
+    })
+
+    router.patch(
+        '/:applicationId/runtime/rows/:rowId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, rowId } = req.params
+            if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const parsedBody = runtimeBulkUpdateBodySchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+            }
+
+            const { catalogId: requestedCatalogId, data } = parsedBody.data
+
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
+                ctx.manager, ctx.schemaIdent, requestedCatalogId
+            )
+            if (!catalog) return res.status(404).json({ error: catalogError })
+
+            const setClauses: string[] = []
+            const values: unknown[] = []
+            let paramIndex = 1
+
+            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type))
+
+            for (const attr of safeAttrs) {
+                const raw = data[attr.column_name] ?? data[attr.codename]
+                if (raw === undefined) continue
+                try {
+                    const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
+                    // M1: Prevent required fields from being set to null
+                    if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+                        return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
+                    }
+                    setClauses.push(`${quoteIdentifier(attr.column_name)} = $${paramIndex}`)
+                    values.push(coerced)
+                    paramIndex++
+                } catch (e) {
+                    return res.status(400).json({ error: `Invalid value for ${attr.codename}: ${(e as Error).message}` })
+                }
+            }
+
+            if (setClauses.length === 0) {
+                return res.status(400).json({ error: 'No valid fields to update' })
+            }
+
+            setClauses.push('_upl_updated_at = NOW()')
+            setClauses.push(`_upl_updated_by = $${paramIndex}`)
+            values.push(ctx.userId)
+            paramIndex++
+            setClauses.push(`_upl_version = COALESCE(_upl_version, 1) + 1`)
+
+            const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            values.push(rowId)
+
+            const updated = (await ctx.manager.query(
+                `
+                    UPDATE ${dataTableIdent}
+                    SET ${setClauses.join(', ')}
+                    WHERE id = $${paramIndex}
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    RETURNING id
+                `,
+                values
+            )) as Array<{ id: string }>
+
+            if (updated.length === 0) {
+                return res.status(404).json({ error: 'Row not found' })
+            }
+
+            return res.json({ status: 'ok' })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME ROW CREATE ============
+    const runtimeCreateBodySchema = z.object({
+        catalogId: z.string().uuid().optional(),
+        data: z.record(z.unknown())
+    })
+
+    router.post(
+        '/:applicationId/runtime/rows',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId } = req.params
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const parsedBody = runtimeCreateBodySchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+            }
+
+            const { catalogId: requestedCatalogId, data } = parsedBody.data
+
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
+                ctx.manager, ctx.schemaIdent, requestedCatalogId
+            )
+            if (!catalog) return res.status(404).json({ error: catalogError })
+
+            // Build column→value pairs from input data
+            const columnValues: Array<{ column: string; value: unknown }> = []
+            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type))
+
+            for (const attr of safeAttrs) {
+                const raw = data[attr.column_name] ?? data[attr.codename]
+                if (raw === undefined) {
+                    if (attr.is_required && attr.data_type !== 'BOOLEAN') {
+                        return res.status(400).json({ error: `Required field missing: ${attr.codename}` })
+                    }
+                    continue
+                }
+                try {
+                    const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
+                    columnValues.push({ column: attr.column_name, value: coerced })
+                } catch (e) {
+                    return res.status(400).json({ error: `Invalid value for ${attr.codename}: ${(e as Error).message}` })
+                }
+            }
+
+            const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const colNames = columnValues.map((cv) => quoteIdentifier(cv.column))
+            const placeholders = columnValues.map((_, i) => `$${i + 1}`)
+            const values = columnValues.map((cv) => cv.value)
+
+            // Add audit field
+            if (ctx.userId) {
+                colNames.push('_upl_created_by')
+                placeholders.push(`$${values.length + 1}`)
+                values.push(ctx.userId)
+            }
+
+            const insertSql = colNames.length > 0
+                ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
+                : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
+
+            const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
+
+            return res.status(201).json({ id: inserted.id, status: 'created' })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME ROW GET (raw for edit) ============
+    router.get(
+        '/:applicationId/runtime/rows/:rowId',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, rowId } = req.params
+            if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (catalogId && !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
+                ctx.manager, ctx.schemaIdent, catalogId
+            )
+            if (!catalog) return res.status(404).json({ error: catalogError })
+
+            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
+            const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name))]
+            const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+
+            const rows = (await ctx.manager.query(
+                `
+                    SELECT ${selectColumns.join(', ')}
+                    FROM ${dataTableIdent}
+                    WHERE id = $1
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                `,
+                [rowId]
+            )) as Array<Record<string, unknown>>
+
+            if (rows.length === 0) return res.status(404).json({ error: 'Row not found' })
+
+            const row = rows[0]
+            const rawData: Record<string, unknown> = {}
+            for (const attr of safeAttrs) {
+                rawData[attr.column_name] = row[attr.column_name] ?? null
+            }
+
+            return res.json({ id: String(row.id), data: rawData })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME ROW DELETE (soft) ============
+    router.delete(
+        '/:applicationId/runtime/rows/:rowId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, rowId } = req.params
+            if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (catalogId && !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const { catalog, error: catalogError } = await resolveRuntimeCatalog(
+                ctx.manager, ctx.schemaIdent, catalogId
+            )
+            if (!catalog) return res.status(404).json({ error: catalogError })
+
+            const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const deleted = (await ctx.manager.query(
+                `
+                    UPDATE ${dataTableIdent}
+                    SET _upl_deleted = true,
+                        _upl_deleted_at = NOW(),
+                        _upl_deleted_by = $1,
+                        _upl_updated_at = NOW(),
+                        _upl_version = COALESCE(_upl_version, 1) + 1
+                    WHERE id = $2
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                    RETURNING id
+                `,
+                [ctx.userId, rowId]
+            )) as Array<{ id: string }>
+
+            if (deleted.length === 0) return res.status(404).json({ error: 'Row not found' })
+
+            return res.json({ status: 'deleted' })
         })
     )
 

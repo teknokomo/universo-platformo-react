@@ -122,6 +122,19 @@ return repo.find({ where: { ... } })
 **Usage**: Return `undefined` to fall back to the built-in renderer; return a React node to override.
 **Why**: Keeps the dialog generic while enabling custom widgets for special field types.
 
+## Headless Controller Hook + Adapter Pattern (IMPORTANT)
+
+**Rule**: CRUD dashboard views must use the shared `useCrudDashboard(adapter)` hook from `apps-template-mui`. Each deployment context (standalone dev, production runtime) provides its own `CrudDataAdapter` implementation.
+**Components**:
+- `CrudDataAdapter` interface (`api/types.ts`): `fetchList`, `fetchRow`, `createRow`, `updateRow`, `deleteRow`, `queryKeyPrefix`.
+- `useCrudDashboard()` hook (`hooks/useCrudDashboard.ts`): headless controller returning all state + handlers (pagination, CRUD dialogs, row actions menu, schema fingerprint, React Query queries/mutations, columns, fieldConfigs, localeText).
+- `createStandaloneAdapter()` (`api/adapters.ts`): adapter wrapping raw `fetch()` calls for standalone dev mode.
+- `createRuntimeAdapter()` (`applications-frontend/api/runtimeAdapter.ts`): adapter wrapping auth'd `apiClient` calls for production.
+- `CrudDialogs` + `RowActionsMenu` (`components/`): shared UI consuming `CrudDashboardState`.
+- `CellRendererOverrides` type: per-dataType custom rendering injected via `cellRenderers` option (e.g., inline BOOLEAN checkbox toggle).
+**Why**: Eliminates ~80% code duplication between DashboardApp and ApplicationRuntime while preserving full customization via adapters and cell renderer overrides.
+**Detection**: `rg "useCrudDashboard" packages`.
+
 ## RLS QueryRunner Reuse for Admin Guards (CRITICAL)
 
 **Rule**: Reuse request-scoped QueryRunner from `req.dbContext`.

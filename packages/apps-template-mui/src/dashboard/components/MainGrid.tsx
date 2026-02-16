@@ -115,10 +115,16 @@ export default function MainGrid({ layoutConfig, details }: { layoutConfig?: Mai
       {(showDetailsTitle || showDetailsTable || showDetailsSidePanel) && (
         <>
           {showDetailsTitle && (
-            <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
+            <Typography component="h2" variant="h6" sx={{ mb: 1 }}>
               {detailsTitle}
             </Typography>
           )}
+          {details?.actions && (
+            <Box sx={{ mb: 2 }}>
+              {details.actions}
+            </Box>
+          )}
+          {!details?.actions && showDetailsTitle && <Box sx={{ mb: 1 }} />}
           <Grid container spacing={2} columns={12}>
             {showDetailsTable && (
               <Grid size={{ xs: 12, lg: 9 }}>
@@ -130,6 +136,7 @@ export default function MainGrid({ layoutConfig, details }: { layoutConfig?: Mai
                   paginationModel={details?.paginationModel}
                   onPaginationModelChange={details?.onPaginationModelChange}
                   pageSizeOptions={details?.pageSizeOptions}
+                  localeText={details?.localeText}
                 />
               </Grid>
             )}

@@ -99,6 +99,58 @@ export const updateApplicationRuntimeCell = async (params: {
     await apiClient.patch(`/applications/${applicationId}/runtime/${rowId}`, { field, value, catalogId })
 }
 
+/** Fetch a single runtime row (raw data, VLC not resolved — for edit forms). */
+export const getApplicationRuntimeRow = async (params: {
+    applicationId: string
+    rowId: string
+    catalogId?: string
+}): Promise<Record<string, unknown>> => {
+    const { applicationId, rowId, catalogId } = params
+    const response = await apiClient.get<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, {
+        params: catalogId ? { catalogId } : undefined
+    })
+    return response.data
+}
+
+/** Create a new runtime row. Backend expects { data: {...}, catalogId? }. */
+export const createApplicationRuntimeRow = async (params: {
+    applicationId: string
+    data: Record<string, unknown>
+    catalogId?: string
+}): Promise<Record<string, unknown>> => {
+    const { applicationId, data, catalogId } = params
+    const body: Record<string, unknown> = { data }
+    if (catalogId) body.catalogId = catalogId
+    const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows`, body)
+    return response.data
+}
+
+/** Bulk-update a runtime row. Backend expects { data: {...}, catalogId? }. */
+export const updateApplicationRuntimeRow = async (params: {
+    applicationId: string
+    rowId: string
+    data: Record<string, unknown>
+    catalogId?: string
+}): Promise<Record<string, unknown>> => {
+    const { applicationId, rowId, data, catalogId } = params
+    const body: Record<string, unknown> = { data }
+    if (catalogId) body.catalogId = catalogId
+    const response = await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body)
+    return response.data
+}
+
+/** Soft-delete a runtime row. */
+export const deleteApplicationRuntimeRow = async (params: {
+    applicationId: string
+    rowId: string
+    catalogId?: string
+}): Promise<void> => {
+    const { applicationId, rowId, catalogId } = params
+    await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
+        params: catalogId ? { catalogId } : undefined
+    })
+}
+
 // ============ APPLICATION MEMBERS ============
 
 export const listApplicationMembers = async (

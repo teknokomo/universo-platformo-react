@@ -1,13 +1,13 @@
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid'
-import CustomizedDataGrid from '../dashboard/components/CustomizedDataGrid'
+import CustomizedDataGrid from '../../dashboard/components/CustomizedDataGrid'
 
-export interface RuntimeCatalogTableRow {
+export interface CatalogTableRow {
   id: string
   [key: string]: unknown
 }
 
-export interface RuntimeCatalogTableProps {
-  rows: RuntimeCatalogTableRow[]
+export interface CatalogTableProps {
+  rows: CatalogTableRow[]
   columns: GridColDef[]
   loading?: boolean
   rowCount?: number
@@ -16,7 +16,7 @@ export interface RuntimeCatalogTableProps {
   pageSizeOptions?: number[]
 }
 
-const RuntimeCatalogTable = ({
+const CatalogTable = ({
   rows,
   columns,
   loading = false,
@@ -24,7 +24,7 @@ const RuntimeCatalogTable = ({
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [25, 50, 100],
-}: RuntimeCatalogTableProps) => {
+}: CatalogTableProps) => {
   return (
     <CustomizedDataGrid
       rows={rows}
@@ -38,4 +38,4 @@ const RuntimeCatalogTable = ({
   )
 }
 
-export default RuntimeCatalogTable
+export default CatalogTable
