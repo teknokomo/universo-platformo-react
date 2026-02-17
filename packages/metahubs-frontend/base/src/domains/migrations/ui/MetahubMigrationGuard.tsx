@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react'
-import { useMemo } from 'react'
+import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
     Alert,
@@ -17,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { extractAxiosError } from '@universo/utils'
 import { useMetahubMigrationsStatus } from '../hooks'
+import { applyMetahubMigrations } from '../api'
 
 export interface MetahubMigrationGuardProps {
     children: ReactNode
@@ -28,11 +28,32 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
     const navigate = useNavigate()
     const { t } = useTranslation('metahubs')
 
+    const [applying, setApplying] = useState(false)
+    const [applyError, setApplyError] = useState<string | null>(null)
+
     const isMigrationsRoute = useMemo(() => location.pathname.includes('/migrations'), [location.pathname])
 
     const statusQuery = useMetahubMigrationsStatus(metahubId ?? '', {
         enabled: Boolean(metahubId)
     })
+
+    const status = statusQuery.data
+    const migrationRequired = Boolean(status?.migrationRequired)
+    const hasBlockers = Boolean(status?.blockers?.length)
+
+    const handleApplyKeep = useCallback(async () => {
+        if (!metahubId || applying) return
+        setApplying(true)
+        setApplyError(null)
+        try {
+            await applyMetahubMigrations(metahubId, { cleanupMode: 'keep' })
+            await statusQuery.refetch()
+        } catch (err) {
+            setApplyError(extractAxiosError(err) || t('migrations.messages.applyError', 'Failed to apply migrations'))
+        } finally {
+            setApplying(false)
+        }
+    }, [metahubId, applying, statusQuery, t])
 
     if (!metahubId) {
         return <>{children}</>
@@ -68,15 +89,8 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
         )
     }
 
-    const status = statusQuery.data
-    const migrationRequired = Boolean(status?.migrationRequired)
-
     if (!migrationRequired) {
         return <>{children}</>
-    }
-
-    const goToMigrations = () => {
-        navigate(`/metahub/${metahubId}/migrations`, { replace: true })
     }
 
     return (
@@ -112,14 +126,38 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
                     </Stack>
                     {status?.blockers?.length ? (
                         <Alert severity='warning'>
-                            {t('migrations.guard.blockersTitle', 'Blocking conditions detected')}: {status.blockers.join('; ')}
+                            <Typography variant='body2' fontWeight='bold' sx={{ mb: 0.5 }}>
+                                {t('migrations.guard.blockersTitle', 'Blocking conditions detected')}:
+                            </Typography>
+                            <Box component='ul' sx={{ m: 0, pl: 2 }}>
+                                {status.blockers.map((blocker, idx) => (
+                                    <li key={idx}>
+                                        <Typography variant='body2'>
+                                            {t(`migrations.blockers.${blocker.code}`, {
+                                                defaultValue: blocker.message,
+                                                ...blocker.params
+                                            })}
+                                        </Typography>
+                                    </li>
+                                ))}
+                            </Box>
                         </Alert>
                     ) : null}
+                    {applyError && <Alert severity='error'>{applyError}</Alert>}
                 </Stack>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={() => statusQuery.refetch()}>{t('migrations.guard.retry', 'Retry')}</Button>
-                <Button variant='contained' onClick={goToMigrations}>
+                <Button onClick={() => statusQuery.refetch()} disabled={applying}>
+                    {t('migrations.guard.retry', 'Retry')}
+                </Button>
+                <Button color='warning' onClick={handleApplyKeep} disabled={applying || hasBlockers}>
+                    {applying ? t('migrations.applying', 'Applying...') : t('migrations.guard.applyKeepData', 'Apply (keep user data)')}
+                </Button>
+                <Button
+                    variant='contained'
+                    onClick={() => navigate(`/metahub/${metahubId}/migrations`, { replace: true })}
+                    disabled={applying}
+                >
                     {t('migrations.guard.openMigrations', 'Open migrations')}
                 </Button>
             </DialogActions>

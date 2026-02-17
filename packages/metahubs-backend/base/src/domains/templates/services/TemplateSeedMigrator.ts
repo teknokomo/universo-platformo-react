@@ -235,6 +235,8 @@ export class TemplateSeedMigrator {
                 if (!dryRun) {
                     // Inherit is_active from an existing peer with same zone+widget_key
                     // but different sortOrder (handles reordering across template versions).
+                    // When no peer exists, respect the seed manifest's isActive value
+                    // (e.g. new widgets added with isActive: false should stay inactive).
                     const peer = await trx
                         .withSchema(this.schemaName)
                         .from(widgetTableName)
@@ -248,7 +250,8 @@ export class TemplateSeedMigrator {
                         .select('is_active')
                         .orderBy('_upl_updated_at', 'desc')
                         .first()
-                    const isActive: boolean = peer != null ? Boolean(peer.is_active) : true
+                    const seedIsActive = w.isActive !== false
+                    const isActive: boolean = peer != null ? Boolean(peer.is_active) : seedIsActive
 
                     await trx
                         .withSchema(this.schemaName)

@@ -53,6 +53,20 @@
 - Защита от DoS-атак через ограничение частоты запросов
 - Оптимистическая блокировка с счётчиком `_upl_version` для обнаружения конкурентных правок
 
+### Структурированные блокировки и гард миграций
+- **Тип StructuredBlocker** — `{ code, params, message }` для интернационализированного отображения блокировок миграций
+- **11 точек блокировки** в `TemplateSeedCleanupService` преобразованы из строк в структурированные объекты
+- **5 точек блокировки** в `metahubMigrationsRoutes` для проверок миграций на уровне схемы
+- **Эндпоинт статуса миграций** — `GET /metahub/:id/migrations/status` возвращает `{ migrationRequired, structureUpgradeRequired, templateUpgradeRequired, blockers: StructuredBlocker[] }`
+- **Эндпоинт применения миграций** — `POST /metahub/:id/migrations/apply` с телом `{ cleanupMode: 'keep' }`
+
+### Конфигурация columnsContainer в сидах
+- **Сид макета по умолчанию** в `layoutDefaults.ts` включает виджет `columnsContainer` в центральной зоне
+- **2-колоночный макет**: 9/12 ширины `detailsTable` + 3/12 ширины `productTree`
+- **Структура конфигурации**: тип `ColumnsContainerConfig` с `columns: ColumnsContainerColumn[]`
+- **Виджеты на колонку**: `ColumnsContainerColumnWidget[]` с поддержкой нескольких виджетов в колонке
+- **buildDashboardLayoutConfig()** генерирует булевые флаги из списка активных виджетов с учётом зоны
+
 ## Установка
 
 ```bash
@@ -487,6 +501,28 @@ GET    /application/:applicationId/migration/:migrationId/analyze        # Ан�
 POST   /application/:applicationId/migration/:migrationId/rollback       # Откат к миграции
 ```
 
+### Эндпоинты миграций метахабов
+```http
+GET    /metahub/:metahubId/migrations/status                              # Проверка статуса миграций (блокировки, информация о версиях)
+POST   /metahub/:metahubId/migrations/apply                               # Применение ожидающих миграций (тело: { cleanupMode: 'keep' })
+```
+
+Формат ответа `GET /migrations/status`:
+```json
+{
+  "migrationRequired": true,
+  "structureUpgradeRequired": false,
+  "templateUpgradeRequired": true,
+  "blockers": [
+    {
+      "code": "entityCountMismatch",
+      "params": { "expected": 5, "actual": 3 },
+      "message": "Expected 5 entities but found 3"
+    }
+  ]
+}
+```
+
 ### Эндпоинты шаблонов
 ```http
 GET    /templates                              # Список всех активных шаблонов
@@ -648,6 +684,11 @@ src/
 │   │   └── routes/
 │   │       ├── applicationSyncRoutes.ts      # Синхронизация схемы + различия
 │   │       └── applicationMigrationsRoutes.ts # История миграций + откат
+│   ├── migrations/
+│   │   ├── routes/
+│   │   │   └── metahubMigrationsRoutes.ts    # Эндпоинты статуса и применения миграций
+│   │   └── services/
+│   │       └── TemplateSeedCleanupService.ts  # Генерация структурированных блокировок (11 точек)
 │   ├── ddl/
 │   │   ├── KnexClient.ts                    # Singleton Knex-экземпляр
 │   │   ├── definitions/
@@ -655,7 +696,7 @@ src/
 │   │   └── index.ts                          # Реэкспорт из @universo/schema-ddl
 │   ├── shared/
 │   │   ├── guards.ts                         # ensureMetahubAccess, ensureHubAccess и т.д.
-│   │   ├── layoutDefaults.ts                 # DEFAULT_DASHBOARD_ZONE_WIDGETS
+│   │   ├── layoutDefaults.ts                 # DEFAULT_DASHBOARD_ZONE_WIDGETS + сид columnsContainer
 │   │   ├── queryParams.ts
 │   │   └── index.ts
 │   └── router.ts                             # Агрегатор маршрутов сервиса

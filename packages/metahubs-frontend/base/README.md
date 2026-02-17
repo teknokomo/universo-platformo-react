@@ -131,6 +131,17 @@ packages/metahubs-frontend/base/
 │   │   ├── elements.ts   # Element operations
 │   │   ├── templates.ts  # Template listing
 │   │   └── queryKeys.ts  # React Query keys
+│   ├── domains/
+│   │   ├── layouts/      # Layout management domain
+│   │   │   ├── ui/
+│   │   │   │   └── ColumnsContainerEditorDialog.tsx  # DnD column editor
+│   │   │   └── index.ts
+│   │   └── migrations/   # Migration guard domain
+│   │       ├── api/      # Migration status & apply API
+│   │       ├── hooks/    # useMetahubMigrationsStatus hook
+│   │       ├── ui/
+│   │       │   └── MetahubMigrationGuard.tsx         # Route guard component
+│   │       └── index.ts
 │   ├── hooks/            # Custom React hooks
 │   │   ├── mutations.ts  # useMutation hooks
 │   │   └── index.ts      # Hook exports
@@ -230,6 +241,65 @@ import { TemplateSelector } from '@universo/metahubs-frontend'
 // - Dropdown with template name, description, and version
 // - Integrated into MetahubList create dialog
 // - Loading and empty states handled
+```
+
+### ColumnsContainerEditorDialog
+Visual editor for managing multi-column layouts with drag-and-drop:
+
+```tsx
+import { ColumnsContainerEditorDialog } from '@universo/metahubs-frontend'
+
+// Features:
+// - Visual editor for ColumnsContainerConfig (multi-column grid layouts)
+// - Drag-and-drop column reordering via @dnd-kit (SortableContext + DragEndEvent)
+// - Per-column width slider (1–12 grid units, MUI 12-column grid)
+// - Per-column widget list: add/remove center-zone widgets (max MAX_WIDGETS_PER_COLUMN=6)
+// - Max columns: MAX_COLUMNS=6 per container
+// - Save-time validation: strips nested columnsContainer widgetKey to prevent recursion
+// - Dirty tracking with isDirty memo (JSON snapshot comparison)
+// - UUID v7 generation for new column IDs via generateUuidV7()
+```
+
+### MetahubMigrationGuard
+Route guard component that blocks navigation when metahub migrations are pending:
+
+```tsx
+import { MetahubMigrationGuard } from '@universo/metahubs-frontend'
+
+// Usage: wrap metahub routes to ensure migrations are applied before access
+<MetahubMigrationGuard>
+  <MetahubBoard />
+</MetahubMigrationGuard>
+
+// Features:
+// - Calls GET /metahub/:id/migrations/status on mount to check migration state
+// - Blocks access when migrationRequired=true (structure or template upgrade)
+// - Shows modal dialog with status chips (structure/template upgrade needed)
+// - "Apply (keep user data)" button — calls POST /metahub/:id/migrations/apply
+// - "Open migrations" button — navigates to /metahub/:id/migrations
+// - Allows /migrations route passthrough without blocking
+// - Displays structured blockers with i18n: t('migrations.blockers.${code}', params)
+// - Disables "Apply" when blockers are present (hasBlockers guard)
+```
+
+### Structured Blockers (i18n)
+Migration blockers use structured objects for internationalized display:
+
+```typescript
+// StructuredBlocker type (from @universo/types):
+interface StructuredBlocker {
+  code: string        // i18n key suffix (e.g., 'entityCountMismatch')
+  params: Record<string, unknown>  // interpolation params (e.g., { expected: 5, actual: 3 })
+  message: string     // fallback English message
+}
+
+// Frontend rendering pattern (MetahubMigrationGuard.tsx):
+t(`migrations.blockers.${blocker.code}`, {
+  defaultValue: blocker.message,
+  ...blocker.params
+})
+
+// 15 blocker i18n keys defined in EN/RU locales
 ```
 
 ## API Integration

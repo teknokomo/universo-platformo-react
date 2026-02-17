@@ -618,15 +618,18 @@ export function createApplicationsRoutes(
                 name: resolvePresentationName(catalogRow.presentation, requestedLocale, catalogRow.codename)
             }))
 
-            // Zone widgets for runtime UI (left-zone sidebar composition).
+            // Zone widgets for runtime UI (sidebar + center composition).
+            type ZoneWidgetItem = {
+                id: string
+                widgetKey: string
+                sortOrder: number
+                config: Record<string, unknown>
+            }
             let zoneWidgets: {
-                left: Array<{
-                    id: string
-                    widgetKey: string
-                    sortOrder: number
-                    config: Record<string, unknown>
-                }>
-            } = { left: [] }
+                left: ZoneWidgetItem[]
+                right: ZoneWidgetItem[]
+                center: ZoneWidgetItem[]
+            } = { left: [], right: [], center: [] }
 
             try {
                 const [{ zoneWidgetsExists }] = (await manager.query(
@@ -658,10 +661,10 @@ export function createApplicationsRoutes(
                     if (activeLayoutId) {
                         const widgetRows = (await manager.query(
                             `
-                                SELECT id, widget_key, sort_order, config
+                                SELECT id, widget_key, sort_order, config, zone
                                 FROM ${schemaIdent}._app_layout_zone_widgets
                                 WHERE layout_id = $1
-                                  AND zone = 'left'
+                                  AND zone IN ('left', 'right', 'center')
                                   AND COALESCE(_upl_deleted, false) = false
                                   AND COALESCE(_app_deleted, false) = false
                                 ORDER BY sort_order ASC, _upl_created_at ASC
@@ -672,14 +675,24 @@ export function createApplicationsRoutes(
                             widget_key: string
                             sort_order: number
                             config: Record<string, unknown> | null
+                            zone: string
                         }>
 
-                        zoneWidgets.left = widgetRows.map((row) => ({
-                            id: row.id,
-                            widgetKey: row.widget_key,
-                            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-                            config: row.config && typeof row.config === 'object' ? row.config : {}
-                        }))
+                        for (const row of widgetRows) {
+                            const mapped = {
+                                id: row.id,
+                                widgetKey: row.widget_key,
+                                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+                                config: row.config && typeof row.config === 'object' ? row.config : {}
+                            }
+                            if (row.zone === 'right') {
+                                zoneWidgets.right.push(mapped)
+                            } else if (row.zone === 'center') {
+                                zoneWidgets.center.push(mapped)
+                            } else {
+                                zoneWidgets.left.push(mapped)
+                            }
+                        }
                     }
                 }
             } catch (e) {

@@ -25,7 +25,9 @@ export default function SideMenuMobile({ open, toggleDrawer, menu, menus }: Side
     const effectiveMenu = firstEntry ?? menu
     return (
         <Drawer
-            anchor='right'
+            // Intentionally anchored to 'left' — the right side is now served by SideMenuMobileRight.
+            // Before the right drawer was introduced, this was anchored to 'right'.
+            anchor='left'
             open={open}
             onClose={toggleDrawer(false)}
             sx={{

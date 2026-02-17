@@ -253,10 +253,10 @@ export type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
 export const DASHBOARD_LAYOUT_WIDGETS = [
     // Left zone widgets (decomposed from former monolithic sideMenu)
     { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: false },
-    { key: 'divider', allowedZones: ['left', 'top', 'bottom'] as const, multiInstance: true },
+    { key: 'divider', allowedZones: ['left', 'top', 'bottom', 'right'] as const, multiInstance: true },
     { key: 'menuWidget', allowedZones: ['left'] as const, multiInstance: true },
-    { key: 'spacer', allowedZones: ['left'] as const, multiInstance: true },
-    { key: 'infoCard', allowedZones: ['left'] as const, multiInstance: false },
+    { key: 'spacer', allowedZones: ['left', 'right'] as const, multiInstance: true },
+    { key: 'infoCard', allowedZones: ['left', 'right'] as const, multiInstance: false },
     { key: 'userProfile', allowedZones: ['left'] as const, multiInstance: false },
     // Top zone widgets
     { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: false },
@@ -272,8 +272,11 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'pageViewsChart', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
+    { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },
+    { key: 'usersByCountryChart', allowedZones: ['center', 'right'] as const, multiInstance: false },
     // Bottom zone widgets
     { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: false }
 ] as const
@@ -316,6 +319,30 @@ export interface DashboardLayoutZoneWidget {
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
+}
+
+// ========= ColumnsContainer widget config =========
+
+/** A single widget entry rendered inside a column. */
+export interface ColumnsContainerColumnWidget {
+    /** Widget key to render. */
+    widgetKey: DashboardLayoutWidgetKey
+}
+
+/** A single column inside a columnsContainer widget. */
+export interface ColumnsContainerColumn {
+    /** Client-generated UUID for stable identity. */
+    id: string
+    /** MUI Grid column width (1-12). */
+    width: number
+    /** Ordered list of widgets rendered vertically inside this column. */
+    widgets: ColumnsContainerColumnWidget[]
+}
+
+/** Configuration for the columnsContainer widget — multi-column center layout. */
+export interface ColumnsContainerConfig {
+    /** Ordered array of columns. Widths should sum to 12 for a balanced row. */
+    columns: ColumnsContainerColumn[]
 }
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
@@ -478,4 +505,16 @@ export interface TemplateDetailDTO extends Omit<TemplateSummaryDTO, 'activeVersi
 export interface TemplatesListResponseDTO {
     data: TemplateSummaryDTO[]
     total: number
+}
+
+// ========= Migration / Cleanup structured blockers =========
+
+/** A structured blocker object returned by cleanup / migration analysis. */
+export interface StructuredBlocker {
+    /** Machine-readable blocker code for i18n look-up. */
+    code: string
+    /** Interpolation parameters for the i18n message. */
+    params: Record<string, string>
+    /** English fallback message. */
+    message: string
 }

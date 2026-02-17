@@ -13,7 +13,7 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import { DndContext, DragEndEvent, PointerSensor, useDroppable, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { DashboardLayoutZone, DashboardLayoutWidgetKey, MenuWidgetConfig } from '@universo/types'
+import type { DashboardLayoutZone, DashboardLayoutWidgetKey, MenuWidgetConfig, ColumnsContainerConfig } from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError } from '@universo/template-mui'
 
@@ -22,6 +22,7 @@ import * as layoutsApi from '../api'
 import type { MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetCatalogItem } from '../../../types'
 import { getVLCString, normalizeLocale } from '../../../types'
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
+import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
 
 type AddWidgetMenuState = {
     anchorEl: HTMLElement | null
@@ -34,6 +35,14 @@ type MenuEditorState = {
     /** widgetId when editing existing menuWidget, null when creating new */
     widgetId: string | null
     config: MenuWidgetConfig | null
+}
+
+type ColumnsEditorState = {
+    open: boolean
+    zone: DashboardLayoutZone | null
+    /** widgetId when editing existing columnsContainer, null when creating new */
+    widgetId: string | null
+    config: ColumnsContainerConfig | null
 }
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
@@ -159,6 +168,7 @@ export default function LayoutDetails() {
     const queryClient = useQueryClient()
     const [addWidgetMenu, setAddWidgetMenu] = useState<AddWidgetMenuState>({ anchorEl: null, zone: null })
     const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
+    const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -226,14 +236,24 @@ export default function LayoutDetails() {
 
     const allAssignedWidgetKeys = useMemo(() => new Set(zoneWidgets.map((item) => item.widgetKey)), [zoneWidgets])
 
-    /** Build a chip label: for menuWidget append the resolved menu title. */
+    /** Build a chip label: for menuWidget append the resolved menu title, for columnsContainer list inner widgets. */
     const getWidgetChipLabel = (widget: MetahubLayoutZoneWidget): string => {
         const base = widgetLabelByKey[widget.widgetKey] || widget.widgetKey
-        if (widget.widgetKey !== 'menuWidget') return base
-        const cfg = widget.config as MenuWidgetConfig | undefined
-        if (!cfg?.title) return base
-        const title = getVLCString(cfg.title, uiLocale) || getVLCString(cfg.title, 'en')
-        return title ? `${base}: ${title}` : base
+        if (widget.widgetKey === 'menuWidget') {
+            const cfg = widget.config as MenuWidgetConfig | undefined
+            if (!cfg?.title) return base
+            const title = getVLCString(cfg.title, uiLocale) || getVLCString(cfg.title, 'en')
+            return title ? `${base}: ${title}` : base
+        }
+        if (widget.widgetKey === 'columnsContainer') {
+            const cfg = widget.config as ColumnsContainerConfig | undefined
+            if (!cfg?.columns?.length) return base
+            const innerNames = cfg.columns
+                .flatMap((col) => (col.widgets ?? []).map((w) => widgetLabelByKey[w.widgetKey] || w.widgetKey))
+                .join(', ')
+            return `${base}: ${innerNames}`
+        }
+        return base
     }
 
     const getAvailableWidgetsForZone = (zone: DashboardLayoutZone): DashboardLayoutWidgetCatalogItem[] => {
@@ -446,6 +466,7 @@ export default function LayoutDetails() {
                                                         <Stack spacing={1}>
                                                             {zoneItems.map((item) => {
                                                                 const isMenuWidget = item.widgetKey === 'menuWidget'
+                                                                const isColumnsContainer = item.widgetKey === 'columnsContainer'
                                                                 const openEditor = isMenuWidget
                                                                     ? () =>
                                                                           setMenuEditor({
@@ -453,6 +474,14 @@ export default function LayoutDetails() {
                                                                               zone,
                                                                               widgetId: item.id,
                                                                               config: (item.config as MenuWidgetConfig) ?? null
+                                                                          })
+                                                                    : isColumnsContainer
+                                                                    ? () =>
+                                                                          setColumnsEditor({
+                                                                              open: true,
+                                                                              zone,
+                                                                              widgetId: item.id,
+                                                                              config: (item.config as ColumnsContainerConfig) ?? null
                                                                           })
                                                                     : undefined
                                                                 return (
@@ -467,7 +496,11 @@ export default function LayoutDetails() {
                                                                         onToggleActive={(active) =>
                                                                             void handleToggleWidgetActive(item.id, active)
                                                                         }
-                                                                        editTooltip={isMenuWidget ? t('common:actions.edit') : undefined}
+                                                                        editTooltip={
+                                                                            isMenuWidget || isColumnsContainer
+                                                                                ? t('common:actions.edit')
+                                                                                : undefined
+                                                                        }
                                                                         removeTooltip={t('common:actions.delete')}
                                                                         toggleActiveTooltip={
                                                                             item.isActive
@@ -514,6 +547,11 @@ export default function LayoutDetails() {
                                 setMenuEditor({ open: true, zone, widgetId: null, config: null })
                                 return
                             }
+                            // For columnsContainer, open editor dialog instead of adding directly
+                            if (widgetItem.key === 'columnsContainer') {
+                                setColumnsEditor({ open: true, zone, widgetId: null, config: null })
+                                return
+                            }
                             void handleAddWidget(zone, widgetItem.key)
                         }}
                     >
@@ -550,6 +588,33 @@ export default function LayoutDetails() {
                     }
                 }}
                 onCancel={() => setMenuEditor({ open: false, zone: null, widgetId: null, config: null })}
+            />
+
+            {/* Columns container editor dialog */}
+            <ColumnsContainerEditorDialog
+                open={columnsEditor.open}
+                config={columnsEditor.config ?? undefined}
+                onSave={async (config) => {
+                    const zone = columnsEditor.zone
+                    const widgetId = columnsEditor.widgetId
+                    setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })
+                    if (!zone || !metahubId || !layoutId) return
+                    try {
+                        if (widgetId) {
+                            await layoutsApi.updateLayoutZoneWidgetConfig(metahubId, layoutId, widgetId, config as Record<string, unknown>)
+                        } else {
+                            await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
+                                zone,
+                                widgetKey: 'columnsContainer',
+                                config: config as Record<string, unknown>
+                            })
+                        }
+                        await persistAndRefresh()
+                    } catch (e: unknown) {
+                        notifyError(t, enqueueSnackbar, e)
+                    }
+                }}
+                onCancel={() => setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })}
             />
         </MainCard>
     )

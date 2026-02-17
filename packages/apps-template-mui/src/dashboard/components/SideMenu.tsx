@@ -9,7 +9,8 @@ import SelectContent from './SelectContent'
 import MenuContent from './MenuContent'
 import CardAlert from './CardAlert'
 import OptionsMenu from './OptionsMenu'
-import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem, ZoneWidgets } from '../Dashboard'
+import { renderWidget } from './widgetRenderer'
+import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgets } from '../Dashboard'
 
 const drawerWidth = 240
 
@@ -29,70 +30,6 @@ interface SideMenuProps {
     menu?: DashboardMenuSlot
     menus?: DashboardMenusMap
     zoneWidgets?: ZoneWidgets
-}
-
-/**
- * Resolve the correct menu for a menuWidget using a 2-level fallback:
- * 1. widget.id → menus map lookup (direct widget ID match)
- * 2. Legacy single `menu` prop
- */
-function resolveMenuForWidget(
-    widget: ZoneWidgetItem,
-    menus?: DashboardMenusMap,
-    fallbackMenu?: DashboardMenuSlot
-): DashboardMenuSlot | undefined {
-    if (menus?.[widget.id]) {
-        return menus[widget.id]
-    }
-    return fallbackMenu
-}
-
-function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, fallbackMenu?: DashboardMenuSlot) {
-    switch (widget.widgetKey) {
-        case 'brandSelector':
-            return (
-                <Box key={widget.id} sx={{ display: 'flex', p: 1.5 }}>
-                    <SelectContent />
-                </Box>
-            )
-        case 'divider':
-            return <Divider key={widget.id} />
-        case 'menuWidget': {
-            const resolved = resolveMenuForWidget(widget, menus, fallbackMenu)
-            return <MenuContent key={widget.id} menu={resolved} />
-        }
-        case 'spacer':
-            return <Box key={widget.id} sx={{ flexGrow: 1 }} />
-        case 'infoCard':
-            return <CardAlert key={widget.id} />
-        case 'userProfile':
-            return (
-                <Stack
-                    key={widget.id}
-                    direction='row'
-                    sx={{
-                        p: 2,
-                        gap: 1,
-                        alignItems: 'center',
-                        borderTop: '1px solid',
-                        borderColor: 'divider'
-                    }}
-                >
-                    <Avatar sizes='small' alt='Riley Carter' src='/static/images/avatar/7.jpg' sx={{ width: 36, height: 36 }} />
-                    <Box sx={{ mr: 'auto' }}>
-                        <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: '16px' }}>
-                            Riley Carter
-                        </Typography>
-                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                            riley@email.com
-                        </Typography>
-                    </Box>
-                    <OptionsMenu />
-                </Stack>
-            )
-        default:
-            return null
-    }
 }
 
 export default function SideMenu({ menu, menus, zoneWidgets }: SideMenuProps) {

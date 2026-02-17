@@ -1,4 +1,5 @@
 import { apiClient } from '../../shared'
+import type { StructuredBlocker } from '@universo/types'
 
 export type TemplateCleanupMode = 'keep' | 'dry_run' | 'confirm'
 
@@ -12,7 +13,7 @@ export interface TemplateCleanupSummary {
 export interface TemplateCleanupResult {
     mode: TemplateCleanupMode
     hasChanges: boolean
-    blockers: string[]
+    blockers: StructuredBlocker[]
     notes: string[]
     summary: TemplateCleanupSummary
 }
@@ -51,7 +52,7 @@ export interface MetahubMigrationsPlanResponse {
         }[]
         additive: string[]
         destructive: string[]
-        blockers: string[]
+        blockers: StructuredBlocker[]
     }
     templateId: string | null
     currentTemplateVersionId: string | null
@@ -73,7 +74,7 @@ export interface MetahubMigrationsPlanResponse {
             hasChanges: boolean
         } | null
         cleanup: TemplateCleanupResult
-        blockers: string[]
+        blockers: StructuredBlocker[]
     }
 }
 
@@ -85,7 +86,7 @@ export interface MetahubMigrationsStatusResponse {
     structureUpgradeRequired: boolean
     templateUpgradeRequired: boolean
     migrationRequired: boolean
-    blockers: string[]
+    blockers: StructuredBlocker[]
     status: 'up_to_date' | 'requires_migration' | 'blocked'
     code: 'UP_TO_DATE' | 'MIGRATION_REQUIRED' | 'MIGRATION_BLOCKED'
     currentTemplateVersionId: string | null

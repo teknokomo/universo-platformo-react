@@ -67,36 +67,56 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
     { zone: 'center', widgetKey: 'sessionsChart', sortOrder: 3, isActive: false },
     { zone: 'center', widgetKey: 'pageViewsChart', sortOrder: 4, isActive: false },
     { zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 },
-    { zone: 'center', widgetKey: 'detailsTable', sortOrder: 6 },
+    {
+        zone: 'center',
+        widgetKey: 'columnsContainer',
+        sortOrder: 6,
+        config: {
+            columns: [
+                { id: 'seed-col-details-table', width: 9, widgets: [{ widgetKey: 'detailsTable' }] },
+                { id: 'seed-col-sidebar', width: 3, widgets: [{ widgetKey: 'productTree' }] }
+            ]
+        }
+    },
     // Right / Bottom
-    { zone: 'right', widgetKey: 'detailsSidePanel', sortOrder: 1, isActive: false },
+    { zone: 'right', widgetKey: 'productTree', sortOrder: 1, isActive: false },
+    { zone: 'right', widgetKey: 'usersByCountryChart', sortOrder: 2, isActive: false },
     { zone: 'bottom', widgetKey: 'footer', sortOrder: 1, isActive: false }
 ]
 
 /**
  * Builds a boolean config map from a list of active widgets.
  * Keys like `showSideMenu`, `showHeader`, etc. toggle dashboard sections.
+ *
+ * Zone-specific widgets (productTree, usersByCountryChart) only set their
+ * boolean flag when placed in the center zone. Right-zone placement is
+ * handled via zoneWidgets data, not layoutConfig booleans.
  */
 export const buildDashboardLayoutConfig = (
     items: Array<{ widgetKey: DashboardLayoutWidgetKey; zone?: DashboardLayoutZone }>
 ): Record<string, boolean> => {
     const active = new Set(items.map((item) => item.widgetKey))
+    const centerActive = new Set(items.filter((item) => item.zone === 'center').map((item) => item.widgetKey))
     const hasLeftWidget = items.some((item) => item.zone === 'left')
+    const hasRightWidget = items.some((item) => item.zone === 'right')
     return {
         showSideMenu: hasLeftWidget,
+        showRightSideMenu: hasRightWidget,
         showAppNavbar: active.has('appNavbar'),
         showHeader: active.has('header'),
         showBreadcrumbs: active.has('breadcrumbs'),
         showSearch: active.has('search'),
         showDatePicker: active.has('datePicker'),
         showOptionsMenu: active.has('optionsMenu'),
-        showOverviewTitle: active.has('overviewTitle'),
-        showOverviewCards: active.has('overviewCards'),
-        showSessionsChart: active.has('sessionsChart'),
-        showPageViewsChart: active.has('pageViewsChart'),
-        showDetailsTitle: active.has('detailsTitle'),
-        showDetailsTable: active.has('detailsTable'),
-        showDetailsSidePanel: active.has('detailsSidePanel'),
+        showOverviewTitle: centerActive.has('overviewTitle'),
+        showOverviewCards: centerActive.has('overviewCards'),
+        showSessionsChart: centerActive.has('sessionsChart'),
+        showPageViewsChart: centerActive.has('pageViewsChart'),
+        showDetailsTitle: centerActive.has('detailsTitle'),
+        showDetailsTable: centerActive.has('detailsTable'),
+        showColumnsContainer: centerActive.has('columnsContainer'),
+        showProductTree: centerActive.has('productTree'),
+        showUsersByCountryChart: centerActive.has('usersByCountryChart'),
         showFooter: active.has('footer')
     }
 }

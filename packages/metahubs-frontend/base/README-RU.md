@@ -131,6 +131,17 @@ packages/metahubs-frontend/base/
 │   │   ├── elements.ts   # Операции с элементами
 │   │   ├── templates.ts  # Список шаблонов
 │   │   └── queryKeys.ts  # Ключи React Query
+│   ├── domains/
+│   │   ├── layouts/      # Домен управления макетами
+│   │   │   ├── ui/
+│   │   │   │   └── ColumnsContainerEditorDialog.tsx  # DnD редактор колонок
+│   │   │   └── index.ts
+│   │   └── migrations/   # Домен гарда миграций
+│   │       ├── api/      # API статуса и применения миграций
+│   │       ├── hooks/    # Хук useMetahubMigrationsStatus
+│   │       ├── ui/
+│   │       │   └── MetahubMigrationGuard.tsx         # Компонент-гард маршрутов
+│   │       └── index.ts
 │   ├── hooks/            # Пользовательские React хуки
 │   │   ├── mutations.ts  # useMutation хуки
 │   │   └── index.ts      # Экспорт хуков
@@ -230,6 +241,65 @@ import { TemplateSelector } from '@universo/metahubs-frontend'
 // - Выпадающий список с названием, описанием и версией шаблона
 // - Встроен в диалог создания MetahubList
 // - Обработка состояний загрузки и пустого списка
+```
+
+### ColumnsContainerEditorDialog
+Визуальный редактор многоколоночных макетов с поддержкой drag-and-drop:
+
+```tsx
+import { ColumnsContainerEditorDialog } from '@universo/metahubs-frontend'
+
+// Функции:
+// - Визуальный редактор ColumnsContainerConfig (многоколоночные сеточные макеты)
+// - Перетаскивание колонок через @dnd-kit (SortableContext + DragEndEvent)
+// - Слайдер ширины колонки (1–12 единиц сетки, 12-колоночная сетка MUI)
+// - Список виджетов для каждой колонки: добавление/удаление (макс. MAX_WIDGETS_PER_COLUMN=6)
+// - Максимум колонок: MAX_COLUMNS=6 на контейнер
+// - Валидация при сохранении: удаление вложенных columnsContainer для предотвращения рекурсии
+// - Отслеживание изменений через isDirty memo (сравнение JSON-снимков)
+// - Генерация UUID v7 для ID новых колонок через generateUuidV7()
+```
+
+### MetahubMigrationGuard
+Компонент-гард маршрутов, блокирующий навигацию при наличии незавершённых миграций:
+
+```tsx
+import { MetahubMigrationGuard } from '@universo/metahubs-frontend'
+
+// Использование: оберните маршруты метахаба для гарантии миграций перед доступом
+<MetahubMigrationGuard>
+  <MetahubBoard />
+</MetahubMigrationGuard>
+
+// Функции:
+// - Вызывает GET /metahub/:id/migrations/status при монтировании для проверки статуса
+// - Блокирует доступ при migrationRequired=true (обновление структуры или шаблона)
+// - Показывает модальный диалог с чипами статуса (обновление структуры/шаблона)
+// - Кнопка «Применить (сохранить данные)» — вызывает POST /metahub/:id/migrations/apply
+// - Кнопка «Открыть миграции» — переход к /metahub/:id/migrations
+// - Пропускает маршрут /migrations без блокировки
+// - Отображает структурированные блокировки с i18n: t('migrations.blockers.${code}', params)
+// - Отключает «Применить» при наличии блокировок (проверка hasBlockers)
+```
+
+### Структурированные блокировки (i18n)
+Блокировки миграций используют структурированные объекты для интернационализированного отображения:
+
+```typescript
+// Тип StructuredBlocker (из @universo/types):
+interface StructuredBlocker {
+  code: string        // суффикс ключа i18n (напр., 'entityCountMismatch')
+  params: Record<string, unknown>  // параметры интерполяции (напр., { expected: 5, actual: 3 })
+  message: string     // резервное сообщение на английском
+}
+
+// Паттерн рендеринга во фронтенде (MetahubMigrationGuard.tsx):
+t(`migrations.blockers.${blocker.code}`, {
+  defaultValue: blocker.message,
+  ...blocker.params
+})
+
+// 15 ключей i18n для блокировок определены в EN/RU локалях
 ```
 
 ## Интеграция API

@@ -43,6 +43,9 @@ import { ErrorBoundary } from '../components'
 // Use local routing components (migrated from @flowise/template-mui)
 import { AuthGuard, AdminGuard, Loadable } from '../components/routing'
 
+// Route factory from apps-template-mui
+import { createAppRuntimeRoute } from '@universo/apps-template-mui'
+
 // Unik module components
 const UnikList = Loadable(lazy(() => import('@universo/uniks-frontend/pages/UnikList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
@@ -310,14 +313,11 @@ const MinimalRoutes = {
                 </AuthGuard>
             )
         },
-        {
-            path: 'a/:applicationId/*',
-            element: (
-                <AuthGuard>
-                    <ApplicationsApplicationRuntime />
-                </AuthGuard>
-            )
-        }
+        // Application runtime route — created via apps-template-mui route factory
+        createAppRuntimeRoute({
+            component: ApplicationsApplicationRuntime,
+            guard: AuthGuard
+        })
     ]
 }
 

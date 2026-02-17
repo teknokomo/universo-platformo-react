@@ -13,7 +13,8 @@ import {
     useCrudDashboard,
     CrudDialogs,
     RowActionsMenu,
-    type CellRendererOverrides
+    type CellRendererOverrides,
+    type DashboardDetailsSlot
 } from '@universo/apps-template-mui'
 import { createRuntimeAdapter } from '../api/runtimeAdapter'
 import { useUpdateRuntimeCell } from '../api/mutations'
@@ -71,6 +72,33 @@ const ApplicationRuntime = () => {
     // Keep catalogId ref in sync with current catalog from hook state
     catalogIdRef.current = state.selectedCatalogId ?? state.activeCatalogId
 
+    const detailsTitle = state.appData?.catalog?.name ?? 'Details'
+
+    const createActions = useMemo(
+        () => (
+            <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                {t('app.createRow', 'Create')}
+            </Button>
+        ),
+        [state.handleOpenCreate, t]
+    )
+
+    const details = useMemo<DashboardDetailsSlot>(
+        () => ({
+            title: detailsTitle,
+            rows: state.rows,
+            columns: state.columns,
+            loading: state.isFetching,
+            rowCount: state.rowCount,
+            paginationModel: state.paginationModel,
+            onPaginationModelChange: state.setPaginationModel,
+            pageSizeOptions: state.pageSizeOptions,
+            localeText: state.localeText,
+            actions: createActions
+        }),
+        [detailsTitle, state.rows, state.columns, state.isFetching, state.rowCount, state.paginationModel, state.setPaginationModel, state.pageSizeOptions, state.localeText, createActions]
+    )
+
     if (!applicationId) {
         return <Alert severity='error'>{t('app.errors.missingApplicationId', 'Application ID is missing in URL')}</Alert>
     }
@@ -94,22 +122,7 @@ const ApplicationRuntime = () => {
                 zoneWidgets={state.appData.zoneWidgets}
                 menus={Object.keys(state.menusMap).length > 0 ? state.menusMap : undefined}
                 menu={state.menuSlot}
-                details={{
-                    title: state.appData.catalog.name,
-                    rows: state.rows,
-                    columns: state.columns,
-                    loading: state.isFetching,
-                    rowCount: state.rowCount,
-                    paginationModel: state.paginationModel,
-                    onPaginationModelChange: state.setPaginationModel,
-                    pageSizeOptions: state.pageSizeOptions,
-                    localeText: state.localeText,
-                    actions: (
-                        <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
-                            {t('app.createRow', 'Create')}
-                        </Button>
-                    )
-                }}
+                details={details}
             />
 
             <CrudDialogs

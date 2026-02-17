@@ -1,4 +1,5 @@
 import type { GridColDef, GridPaginationModel, GridLocaleText } from '@mui/x-data-grid'
+import type {} from '@mui/material/themeCssVarsAugmentation'
 import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -6,9 +7,12 @@ import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
 import MainGrid from './components/MainGrid'
 import SideMenu from './components/SideMenu'
+import SideMenuRight from './components/SideMenuRight'
+import { DashboardDetailsProvider } from './DashboardDetailsContext'
 
 export interface DashboardLayoutConfig {
     showSideMenu: boolean
+    showRightSideMenu?: boolean
     showAppNavbar: boolean
     showHeader: boolean
     showBreadcrumbs?: boolean
@@ -21,7 +25,9 @@ export interface DashboardLayoutConfig {
     showPageViewsChart?: boolean
     showDetailsTitle?: boolean
     showDetailsTable?: boolean
-    showDetailsSidePanel?: boolean
+    showColumnsContainer?: boolean
+    showProductTree?: boolean
+    showUsersByCountryChart?: boolean
     showFooter?: boolean
 }
 
@@ -71,6 +77,8 @@ export interface ZoneWidgetItem {
 
 export interface ZoneWidgets {
     left: ZoneWidgetItem[]
+    right?: ZoneWidgetItem[]
+    center?: ZoneWidgetItem[]
 }
 
 export interface DashboardProps {
@@ -89,36 +97,50 @@ const DEFAULT_LAYOUT: DashboardLayoutConfig = {
     showHeader: true
 }
 
+const EMPTY_RIGHT_WIDGETS: ZoneWidgetItem[] = []
+const EMPTY_CENTER_WIDGETS: ZoneWidgetItem[] = []
+
 export default function Dashboard(props: DashboardProps) {
     const layout = { ...DEFAULT_LAYOUT, ...(props.layoutConfig ?? {}) }
+    const rightWidgets = props.zoneWidgets?.right ?? EMPTY_RIGHT_WIDGETS
+    const centerWidgets = props.zoneWidgets?.center ?? EMPTY_CENTER_WIDGETS
+    const showRightSideMenu = (layout.showRightSideMenu ?? true) && rightWidgets.length > 0
+
     return (
-        <Box sx={{ display: 'flex' }}>
-            {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={props.zoneWidgets} />}
-            {layout.showAppNavbar && <AppNavbar menu={props.menu} menus={props.menus} />}
-            {/* Main content */}
-            <Box
-                component='main'
-                sx={(theme) => ({
-                    flexGrow: 1,
-                    backgroundColor: theme.vars
-                        ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
-                        : alpha(theme.palette.background.default, 1),
-                    overflow: 'auto'
-                })}
-            >
-                <Stack
-                    spacing={2}
-                    sx={{
-                        alignItems: 'center',
-                        mx: 3,
-                        pb: 5,
-                        mt: { xs: 8, md: 0 }
-                    }}
+        <DashboardDetailsProvider value={props.details}>
+            <Box sx={{ display: 'flex' }}>
+                {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={props.zoneWidgets} />}
+                {layout.showAppNavbar && (
+                    <AppNavbar menu={props.menu} menus={props.menus} rightWidgets={rightWidgets} />
+                )}
+                {/* Main content */}
+                <Box
+                    component='main'
+                    sx={(theme) => ({
+                        flexGrow: 1,
+                        backgroundColor: theme.vars
+                            ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
+                            : alpha(theme.palette.background.default, 1),
+                        overflow: 'auto'
+                    })}
                 >
-                    {layout.showHeader && <Header layoutConfig={props.layoutConfig} />}
-                    <MainGrid layoutConfig={props.layoutConfig} details={props.details} />
-                </Stack>
+                    <Stack
+                        spacing={2}
+                        sx={{
+                            alignItems: 'center',
+                            mx: 3,
+                            pb: 5,
+                            mt: { xs: 8, md: 0 }
+                        }}
+                    >
+                        {layout.showHeader && <Header layoutConfig={props.layoutConfig} />}
+                        <MainGrid layoutConfig={props.layoutConfig} centerWidgets={centerWidgets} />
+                    </Stack>
+                </Box>
+                {showRightSideMenu && (
+                    <SideMenuRight widgets={rightWidgets} menu={props.menu} menus={props.menus} />
+                )}
             </Box>
-        </Box>
+        </DashboardDetailsProvider>
     )
 }

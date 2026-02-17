@@ -7,11 +7,13 @@ import MuiToolbar from '@mui/material/Toolbar'
 import { tabsClasses } from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import WidgetsRoundedIcon from '@mui/icons-material/WidgetsRounded'
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
 import SideMenuMobile from './SideMenuMobile'
+import SideMenuMobileRight from './SideMenuMobileRight'
 import MenuButton from './MenuButton'
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
-import type { DashboardMenuSlot, DashboardMenusMap } from '../Dashboard'
+import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
 
 const Toolbar = styled(MuiToolbar)({
     width: '100%',
@@ -32,16 +34,25 @@ const Toolbar = styled(MuiToolbar)({
 interface AppNavbarProps {
     menu?: DashboardMenuSlot
     menus?: DashboardMenusMap
+    rightWidgets?: ZoneWidgetItem[]
 }
 
-export default function AppNavbar({ menu, menus }: AppNavbarProps) {
-    const [open, setOpen] = React.useState(false)
+export default function AppNavbar({ menu, menus, rightWidgets = [] }: AppNavbarProps) {
+    const [leftOpen, setLeftOpen] = React.useState(false)
+    const [rightOpen, setRightOpen] = React.useState(false)
 
-    const toggleDrawer = (newOpen: boolean) => () => {
-        setOpen(newOpen)
+    const toggleLeftDrawer = (newOpen: boolean) => () => {
+        setLeftOpen(newOpen)
+        if (newOpen) setRightOpen(false)
+    }
+
+    const toggleRightDrawer = (newOpen: boolean) => () => {
+        setRightOpen(newOpen)
+        if (newOpen) setLeftOpen(false)
     }
 
     const title = menu?.showTitle && menu?.title ? menu.title : 'Dashboard'
+    const hasRightWidgets = rightWidgets.length > 0
 
     return (
         <AppBar
@@ -73,10 +84,24 @@ export default function AppNavbar({ menu, menus }: AppNavbarProps) {
                         </Typography>
                     </Stack>
                     <ColorModeIconDropdown />
-                    <MenuButton aria-label='menu' onClick={toggleDrawer(true)}>
+                    {hasRightWidgets && (
+                        <MenuButton aria-label='context panel' onClick={toggleRightDrawer(true)}>
+                            <WidgetsRoundedIcon />
+                        </MenuButton>
+                    )}
+                    <MenuButton aria-label='menu' onClick={toggleLeftDrawer(true)}>
                         <MenuRoundedIcon />
                     </MenuButton>
-                    <SideMenuMobile open={open} toggleDrawer={toggleDrawer} menu={menu} menus={menus} />
+                    <SideMenuMobile open={leftOpen} toggleDrawer={toggleLeftDrawer} menu={menu} menus={menus} />
+                    {hasRightWidgets && (
+                        <SideMenuMobileRight
+                            open={rightOpen}
+                            onClose={toggleRightDrawer(false)}
+                            widgets={rightWidgets}
+                            menu={menu}
+                            menus={menus}
+                        />
+                    )}
                 </Stack>
             </Toolbar>
         </AppBar>
