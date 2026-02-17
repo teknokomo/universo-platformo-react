@@ -42,7 +42,7 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
     const hasBlockers = Boolean(status?.blockers?.length)
 
     const handleApplyKeep = useCallback(async () => {
-        if (!metahubId || applying) return
+        if (!metahubId) return
         setApplying(true)
         setApplyError(null)
         try {
@@ -53,7 +53,7 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
         } finally {
             setApplying(false)
         }
-    }, [metahubId, applying, statusQuery, t])
+    }, [metahubId, statusQuery, t])
 
     if (!metahubId) {
         return <>{children}</>
