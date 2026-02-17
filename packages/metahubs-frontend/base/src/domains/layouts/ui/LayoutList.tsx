@@ -71,7 +71,10 @@ type DashboardLayoutConfig = {
     showPageViewsChart: boolean
     showDetailsTitle: boolean
     showDetailsTable: boolean
-    showDetailsSidePanel: boolean
+    showColumnsContainer: boolean
+    showProductTree: boolean
+    showUsersByCountryChart: boolean
+    showRightSideMenu: boolean
     showFooter: boolean
 }
 
@@ -89,7 +92,10 @@ const DEFAULT_DASHBOARD_CONFIG: DashboardLayoutConfig = {
     showPageViewsChart: true,
     showDetailsTitle: true,
     showDetailsTable: true,
-    showDetailsSidePanel: true,
+    showColumnsContainer: false,
+    showProductTree: true,
+    showUsersByCountryChart: true,
+    showRightSideMenu: true,
     showFooter: true
 }
 

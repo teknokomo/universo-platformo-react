@@ -8,7 +8,7 @@ import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
 import { Template } from '../../../database/entities/Template'
 import { TemplateVersion } from '../../../database/entities/TemplateVersion'
-import type { MetahubTemplateManifest } from '@universo/types'
+import type { MetahubTemplateManifest, StructuredBlocker } from '@universo/types'
 import { CURRENT_STRUCTURE_VERSION } from '../services/structureVersions'
 import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
@@ -89,7 +89,7 @@ interface StructurePlan {
     steps: StructurePlanStep[]
     additive: string[]
     destructive: string[]
-    blockers: string[]
+    blockers: StructuredBlocker[]
 }
 
 interface TemplateContext {
@@ -106,7 +106,7 @@ interface TemplatePlan {
     structureCompatible: boolean
     seedDryRun: (SeedMigrationResult & { hasChanges: boolean }) | null
     cleanup: TemplateSeedCleanupResult
-    blockers: string[]
+    blockers: StructuredBlocker[]
 }
 
 interface MetahubMigrationPlanResponse {
@@ -137,7 +137,7 @@ interface MetahubMigrationStatusResponse {
     structureUpgradeRequired: boolean
     templateUpgradeRequired: boolean
     migrationRequired: boolean
-    blockers: string[]
+    blockers: StructuredBlocker[]
     status: 'up_to_date' | 'requires_migration' | 'blocked'
     code: 'UP_TO_DATE' | 'MIGRATION_REQUIRED' | 'MIGRATION_BLOCKED'
     currentTemplateVersionId: string | null
@@ -348,7 +348,7 @@ const buildStructurePlan = (currentVersion: number, targetVersion: number): Stru
     const steps: StructurePlanStep[] = []
     const additive: string[] = []
     const destructive: string[] = []
-    const blockers: string[] = []
+    const blockers: StructuredBlocker[] = []
 
     if (currentVersion >= targetVersion) {
         return { steps, additive, destructive, blockers }
@@ -359,7 +359,11 @@ const buildStructurePlan = (currentVersion: number, targetVersion: number): Stru
         const toDefs = SYSTEM_TABLE_VERSIONS.get(version + 1)
 
         if (!fromDefs || !toDefs) {
-            blockers.push(`Missing structure definitions for version transition ${version} -> ${version + 1}`)
+            blockers.push({
+                code: 'structure.missing_definitions',
+                params: { from: String(version), to: String(version + 1) },
+                message: `Missing structure definitions for version transition ${version} -> ${version + 1}`
+            })
             break
         }
 
@@ -377,7 +381,13 @@ const buildStructurePlan = (currentVersion: number, targetVersion: number): Stru
         destructive.push(...diff.destructive.map((change) => change.description))
     }
 
-    blockers.push(...destructive)
+    for (const desc of destructive) {
+        blockers.push({
+            code: 'structure.destructive_change',
+            params: { description: desc },
+            message: desc
+        })
+    }
     return { steps, additive, destructive, blockers }
 }
 
@@ -388,7 +398,7 @@ async function buildTemplatePlan(
     cleanupMode: TemplateCleanupMode,
     skipSeedDryRun = false
 ): Promise<TemplatePlan> {
-    const blockers: string[] = []
+    const blockers: StructuredBlocker[] = []
     const targetManifest = templateContext.targetManifest
     const cleanupService = new TemplateSeedCleanupService(KnexClient.getInstance(), schemaName)
     const cleanup = await cleanupService.analyze({
@@ -415,9 +425,11 @@ async function buildTemplatePlan(
     const minStructureVersion = targetManifest.minStructureVersion
     const structureCompatible = minStructureVersion <= structureTargetVersion
     if (!structureCompatible) {
-        blockers.push(
-            `Template requires structure version ${minStructureVersion}, but target structure version is ${structureTargetVersion}`
-        )
+        blockers.push({
+            code: 'template.structure_incompatible',
+            params: { required: String(minStructureVersion), target: String(structureTargetVersion) },
+            message: `Template requires structure version ${minStructureVersion}, but target structure version is ${structureTargetVersion}`
+        })
         return {
             minStructureVersion,
             structureCompatible,
@@ -467,7 +479,11 @@ async function buildTemplatePlan(
                 schemaName
             })
         }
-        blockers.push(`Template seed dry-run failed: ${safeErrorMessage(error)}`)
+        blockers.push({
+            code: 'template.seed_dry_run_failed',
+            params: { error: safeErrorMessage(error) },
+            message: `Template seed dry-run failed: ${safeErrorMessage(error)}`
+        })
         return {
             minStructureVersion,
             structureCompatible,
@@ -730,9 +746,13 @@ export function createMetahubMigrationsRoutes(
                 })
             }
 
-            const blockers = [...plan.structurePlan.blockers, ...plan.templatePlan.blockers]
+            const blockers: StructuredBlocker[] = [...plan.structurePlan.blockers, ...plan.templatePlan.blockers]
             if (parsed.data.cleanupMode === 'dry_run' && plan.templatePlan.cleanup.hasChanges) {
-                blockers.push('Template cleanup mode "dry_run" cannot apply destructive cleanup. Use cleanupMode="confirm".')
+                blockers.push({
+                    code: 'template.cleanup_dry_run',
+                    params: {},
+                    message: 'Template cleanup mode "dry_run" cannot apply destructive cleanup. Use cleanupMode="confirm".'
+                })
             }
             if (blockers.length > 0) {
                 return res.status(422).json({

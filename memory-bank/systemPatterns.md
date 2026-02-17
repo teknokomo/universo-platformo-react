@@ -152,6 +152,18 @@ return repo.find({ where: { ... } })
 **Future improvement**: Consider using `{layout_id, zone, widget_key}` as the stable identity (without `sort_order`) to make template reordering transparent.
 **Detection**: Duplicate widgets in same zone — `SELECT zone, widget_key, count(*) FROM _mhb_widgets WHERE _mhb_deleted = false GROUP BY zone, widget_key HAVING count(*) > 1`.
 
+## Structured Blocker Pattern (IMPORTANT)
+
+**Rule**: Migration/cleanup blockers must use `StructuredBlocker` type from `@universo/types` instead of plain strings.
+**Interface**: `{ code: string, params: Record<string, string>, message: string }`
+**Backend**: Services (`TemplateSeedCleanupService`, `metahubMigrationsRoutes`) create blockers with code + params + fallback message.
+**Frontend**: `MetahubMigrationGuard.tsx` renders blockers using `t(\`migrations.blockers.\${blocker.code}\`, blocker.params)` with `<ul>/<li>` markup.
+**i18n**: 15 blocker keys in EN/RU locales under `migrations.blockers.*` namespace.
+**Detection**: `rg "StructuredBlocker" packages`.
+**Why**: Type-safe, i18n-ready error reporting. Backend provides structured context, frontend localizes using standard i18n infrastructure.
+
+---
+
 ## i18n Architecture (CRITICAL)
 
 **Rule**: Core namespaces in `@universo/i18n`; feature packages use `registerNamespace()`.

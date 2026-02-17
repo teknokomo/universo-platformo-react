@@ -63,7 +63,7 @@ function enrichConfigWithVlcTimestamps(config: Record<string, unknown>): Record<
 export const basicTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
     codename: 'basic',
-    version: '1.0.0',
+    version: '1.2.0',
     minStructureVersion: 1,
     name: vlc('Basic', 'Базовый'),
     description: vlc(

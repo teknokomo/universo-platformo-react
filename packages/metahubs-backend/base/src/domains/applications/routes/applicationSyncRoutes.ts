@@ -63,7 +63,7 @@ const dashboardLayoutConfigSchema = z.object({
     showPageViewsChart: z.boolean().optional(),
     showDetailsTitle: z.boolean().optional(),
     showDetailsTable: z.boolean().optional(),
-    showDetailsSidePanel: z.boolean().optional(),
+    showColumnsContainer: z.boolean().optional(),
     showFooter: z.boolean().optional()
 })
 
@@ -81,7 +81,7 @@ const defaultDashboardLayoutConfig = {
     showPageViewsChart: true,
     showDetailsTitle: true,
     showDetailsTable: true,
-    showDetailsSidePanel: true,
+    showColumnsContainer: false,
     showFooter: true
 } as const
 

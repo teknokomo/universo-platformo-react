@@ -53,6 +53,20 @@ Backend service for managing metahubs, hubs, catalogs, attributes, elements, mem
 - Rate limiting protection against DoS attacks
 - Optimistic locking with `_upl_version` counter for concurrent edit detection
 
+### Structured Blockers & Migration Guard
+- **StructuredBlocker type** — `{ code, params, message }` for i18n-ready migration blocker display
+- **11 blocker sites** in `TemplateSeedCleanupService` converted from plain strings to structured objects
+- **5 blocker sites** in `metahubMigrationsRoutes` for schema-level migration checks
+- **Migration status endpoint** — `GET /metahub/:id/migrations/status` returns `{ migrationRequired, structureUpgradeRequired, templateUpgradeRequired, blockers: StructuredBlocker[] }`
+- **Migration apply endpoint** — `POST /metahub/:id/migrations/apply` with `{ cleanupMode: 'keep' }` body
+
+### ColumnsContainer Seed Config
+- **Default layout seed** in `layoutDefaults.ts` includes `columnsContainer` widget in center zone
+- **2-column default**: 9/12 width `detailsTable` + 3/12 width `productTree`
+- **Config structure**: `ColumnsContainerConfig` type with `columns: ColumnsContainerColumn[]`
+- **Per-column widgets**: `ColumnsContainerColumnWidget[]` supporting multiple widgets per column
+- **buildDashboardLayoutConfig()** generates boolean flags from active widget list, zone-aware
+
 ## Installation
 
 ```bash
@@ -487,6 +501,28 @@ GET    /application/:applicationId/migration/:migrationId/analyze        # Analy
 POST   /application/:applicationId/migration/:migrationId/rollback       # Rollback to migration
 ```
 
+### Metahub Migrations Endpoints
+```http
+GET    /metahub/:metahubId/migrations/status                              # Check migration status (blockers, version info)
+POST   /metahub/:metahubId/migrations/apply                               # Apply pending migrations (body: { cleanupMode: 'keep' })
+```
+
+Response format for `GET /migrations/status`:
+```json
+{
+  "migrationRequired": true,
+  "structureUpgradeRequired": false,
+  "templateUpgradeRequired": true,
+  "blockers": [
+    {
+      "code": "entityCountMismatch",
+      "params": { "expected": 5, "actual": 3 },
+      "message": "Expected 5 entities but found 3"
+    }
+  ]
+}
+```
+
 ### Templates Endpoints
 ```http
 GET    /templates                              # List all active templates
@@ -648,6 +684,11 @@ src/
 │   │   └── routes/
 │   │       ├── applicationSyncRoutes.ts      # Schema sync + diff
 │   │       └── applicationMigrationsRoutes.ts # Migration history + rollback
+│   ├── migrations/
+│   │   ├── routes/
+│   │   │   └── metahubMigrationsRoutes.ts    # Migration status + apply endpoints
+│   │   └── services/
+│   │       └── TemplateSeedCleanupService.ts  # Structured blocker generation (11 sites)
 │   ├── ddl/
 │   │   ├── KnexClient.ts                    # Singleton Knex instance
 │   │   ├── definitions/
@@ -655,7 +696,7 @@ src/
 │   │   └── index.ts                          # Re-exports from @universo/schema-ddl
 │   ├── shared/
 │   │   ├── guards.ts                         # ensureMetahubAccess, ensureHubAccess, etc.
-│   │   ├── layoutDefaults.ts                 # DEFAULT_DASHBOARD_ZONE_WIDGETS
+│   │   ├── layoutDefaults.ts                 # DEFAULT_DASHBOARD_ZONE_WIDGETS + columnsContainer seed
 │   │   ├── queryParams.ts
 │   │   └── index.ts
 │   └── router.ts                             # Service route aggregator

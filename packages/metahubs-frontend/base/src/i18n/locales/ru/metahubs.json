@@ -227,7 +227,20 @@
             "detailsTitle": "Заголовок деталей",
             "detailsTable": "Таблица деталей",
             "detailsSidePanel": "Боковая панель деталей",
+            "productTree": "Дерево продуктов",
+            "usersByCountryChart": "График пользователей по странам",
+            "columnsContainer": "Контейнер колонок",
             "footer": "Футер"
+        },
+        "columnsEditor": {
+            "title": "Контейнер колонок",
+            "description": "Настройте колонки контейнера. Каждая колонка может отображать один или несколько виджетов вертикально. Ширины используют 12-колоночную сетку.",
+            "widget": "Виджет",
+            "width": "Ширина",
+            "addColumn": "Добавить колонку",
+            "addWidget": "Добавить виджет",
+            "widthWarning": "Общая ширина: {{total}}/12. Рекомендуется: 12.",
+            "widthError": "Общая ширина {{total}}/12 превышает сетку. Уменьшите ширину колонок для сохранения."
         },
         "zoneErrors": {
             "load": "Не удалось загрузить зоны макета",
@@ -248,7 +261,10 @@
                 "showPageViewsChart": "График «Просмотры страниц»",
                 "showDetailsTitle": "Заголовок «Детали»",
                 "showDetailsTable": "Таблица «Детали»",
-                "showDetailsSidePanel": "Правая панель «Детали»",
+                "showColumnsContainer": "Контейнер колонок",
+                "showProductTree": "Дерево продуктов",
+                "showUsersByCountryChart": "График пользователей по странам",
+                "showRightSideMenu": "Правая боковая панель",
                 "showFooter": "Футер"
             }
         }
@@ -805,7 +821,25 @@
             "title": "Требуется миграция",
             "description": "Для этого метахаба требуется миграция. Перейдите в раздел миграций и примените обновления, после этого остальные разделы станут доступны.",
             "openMigrations": "Открыть миграции",
+            "applyKeepData": "Применить (сохранить данные)",
             "blockersTitle": "Обнаружены блокирующие условия"
+        },
+        "blockers": {
+            "seed.current_unavailable": "Текущий сид шаблона недоступен. Невозможно безопасно провести анализ очистки.",
+            "seed.target_unavailable": "Целевой сид шаблона недоступен. Невозможно безопасно провести анализ очистки.",
+            "entity.audit_provenance": "Сущность «{{entityKey}}» была изменена пользователем и не может быть очищена автоматически.",
+            "entity.attribute_extra": "Атрибут «{{attribute}}» сущности «{{entityKey}}» был добавлен вне шаблона.",
+            "entity.attribute_audit": "Атрибут «{{attribute}}» сущности «{{entityKey}}» был изменён пользователем.",
+            "entity.element_mismatch": "Элемент на позиции {{sortOrder}} сущности «{{entityKey}}» не соответствует шаблону.",
+            "entity.element_audit": "Элемент на позиции {{sortOrder}} сущности «{{entityKey}}» был изменён пользователем.",
+            "setting.audit_provenance": "Настройка «{{settingKey}}» была изменена пользователем и не может быть очищена.",
+            "setting.value_mismatch": "Значение настройки «{{settingKey}}» отличается от базовой версии шаблона.",
+            "widget.audit_provenance": "Виджет «{{widgetKey}}» в {{zone}}:{{sortOrder}} был изменён пользователем.",
+            "structure.missing_definitions": "Отсутствуют определения структуры для перехода с версии {{from}} на {{to}}.",
+            "structure.destructive_change": "Деструктивное изменение структуры: {{description}}",
+            "template.structure_incompatible": "Шаблон требует версию структуры {{required}}, но целевая версия — {{target}}.",
+            "template.seed_dry_run_failed": "Ошибка пробного запуска сида шаблона: {{error}}",
+            "template.cleanup_dry_run": "Режим очистки «dry_run» не может применить деструктивные изменения. Используйте режим «confirm»."
         }
     },
     "common": {

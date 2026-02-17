@@ -53,6 +53,10 @@ export { appQueryKeys } from './api/mutations'
 /** @deprecated Use appQueryKeys instead */
 export { runtimeKeys } from './api/mutations'
 
+// Route factory
+export { createAppRuntimeRoute } from './routes/createAppRoutes'
+export type { AppRouteObject, AppRuntimeRouteConfig } from './routes/createAppRoutes'
+
 // --- Backward-compatible aliases (deprecated) ---
 // These re-exports keep existing consumers working without code changes.
 // Migrate to new names when convenient.

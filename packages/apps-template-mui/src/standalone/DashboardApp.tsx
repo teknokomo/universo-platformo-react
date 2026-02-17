@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import { useTranslation } from 'react-i18next'
 import Dashboard from '../dashboard/Dashboard'
+import type { DashboardDetailsSlot } from '../dashboard/Dashboard'
 import AppMainLayout from '../layouts/AppMainLayout'
 import { createStandaloneAdapter } from '../api/adapters'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
@@ -27,6 +28,33 @@ export default function DashboardApp(props: DashboardAppProps) {
 
     const state = useCrudDashboard({ adapter, locale: props.locale })
 
+    const detailsTitle = state.appData?.catalog.name ?? 'Details'
+
+    const createActions = useMemo(
+        () => (
+            <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                {t('app.createRow', 'Create')}
+            </Button>
+        ),
+        [state.handleOpenCreate, t]
+    )
+
+    const details = useMemo<DashboardDetailsSlot>(
+        () => ({
+            title: detailsTitle,
+            rows: state.rows,
+            columns: state.columns,
+            loading: state.isLoading,
+            rowCount: state.rowCount,
+            paginationModel: state.paginationModel,
+            onPaginationModelChange: state.setPaginationModel,
+            pageSizeOptions: state.pageSizeOptions,
+            localeText: state.localeText,
+            actions: createActions
+        }),
+        [detailsTitle, state.rows, state.columns, state.isLoading, state.rowCount, state.paginationModel, state.setPaginationModel, state.pageSizeOptions, state.localeText, createActions]
+    )
+
     if (!props.applicationId) {
         return (
             <Box sx={{ p: 3 }}>
@@ -35,30 +63,13 @@ export default function DashboardApp(props: DashboardAppProps) {
         )
     }
 
-    const detailsTitle = state.appData?.catalog.name ?? 'Details'
-
     return (
         <AppMainLayout>
             <Dashboard
                 layoutConfig={state.layoutConfig}
                 zoneWidgets={state.appData?.zoneWidgets}
                 menu={state.menuSlot}
-                details={{
-                    title: detailsTitle,
-                    rows: state.rows,
-                    columns: state.columns,
-                    loading: state.isLoading,
-                    rowCount: state.rowCount,
-                    paginationModel: state.paginationModel,
-                    onPaginationModelChange: state.setPaginationModel,
-                    pageSizeOptions: state.pageSizeOptions,
-                    localeText: state.localeText,
-                    actions: (
-                        <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
-                            {t('app.createRow', 'Create')}
-                        </Button>
-                    )
-                }}
+                details={details}
             />
 
             <CrudDialogs

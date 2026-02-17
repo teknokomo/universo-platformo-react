@@ -1,16 +1,15 @@
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Copyright from '../internals/components/Copyright';
-import ChartUserByCountry from './ChartUserByCountry';
-import CustomizedTreeView from './CustomizedTreeView';
 import CustomizedDataGrid from './CustomizedDataGrid';
 import HighlightedCard from './HighlightedCard';
 import PageViewsBarChart from './PageViewsBarChart';
 import SessionsChart from './SessionsChart';
 import StatCard, { StatCardProps } from './StatCard';
-import type { DashboardDetailsSlot } from '../Dashboard';
+import type { ZoneWidgetItem } from '../Dashboard';
+import { useDashboardDetails } from '../DashboardDetailsContext';
+import { renderWidget } from './widgetRenderer';
 
 const data: StatCardProps[] = [
   {
@@ -51,28 +50,38 @@ export interface MainGridLayoutConfig {
   showSessionsChart?: boolean
   showPageViewsChart?: boolean
   showDetailsTitle?: boolean
+  /**
+   * Show standalone DataGrid in the center zone.
+   * When a `columnsContainer` widget is present, the details table is rendered
+   * inside the container's column instead, so this flag is `false` for layouts
+   * that use `columnsContainer`.
+   */
   showDetailsTable?: boolean
-  showDetailsSidePanel?: boolean
+  showColumnsContainer?: boolean
   showFooter?: boolean
 }
 
-export default function MainGrid({ layoutConfig, details }: { layoutConfig?: MainGridLayoutConfig; details?: DashboardDetailsSlot }) {
+export default function MainGrid({ layoutConfig, centerWidgets }: { layoutConfig?: MainGridLayoutConfig; centerWidgets?: ZoneWidgetItem[] }) {
+  const details = useDashboardDetails();
   const showOverviewTitle = layoutConfig?.showOverviewTitle ?? true;
   const showOverviewCards = layoutConfig?.showOverviewCards ?? true;
   const showSessionsChart = layoutConfig?.showSessionsChart ?? true;
   const showPageViewsChart = layoutConfig?.showPageViewsChart ?? true;
   const showDetailsTitle = layoutConfig?.showDetailsTitle ?? true;
   const showDetailsTable = layoutConfig?.showDetailsTable ?? true;
-  const showDetailsSidePanel = layoutConfig?.showDetailsSidePanel ?? true;
+  const showColumnsContainer = layoutConfig?.showColumnsContainer ?? false;
   const showFooter = layoutConfig?.showFooter ?? true;
 
   const detailsTitle = details?.title ?? 'Details';
-  const detailsRows = details?.rows ?? [];
-  const detailsColumns = details?.columns ?? [];
+
+  // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
+  const columnsContainerWidgets = showColumnsContainer
+    ? (centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [])
+    : [];
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      {/* cards */}
+      {/* Overview section — boolean-driven */}
       {(showOverviewTitle || showOverviewCards || showSessionsChart || showPageViewsChart) && (
         <>
           {showOverviewTitle && (
@@ -112,7 +121,8 @@ export default function MainGrid({ layoutConfig, details }: { layoutConfig?: Mai
         </>
       )}
 
-      {(showDetailsTitle || showDetailsTable || showDetailsSidePanel) && (
+      {/* Details section */}
+      {(showDetailsTitle || showColumnsContainer || showDetailsTable) && (
         <>
           {showDetailsTitle && (
             <Typography component="h2" variant="h6" sx={{ mb: 1 }}>
@@ -125,12 +135,16 @@ export default function MainGrid({ layoutConfig, details }: { layoutConfig?: Mai
             </Box>
           )}
           {!details?.actions && showDetailsTitle && <Box sx={{ mb: 1 }} />}
-          <Grid container spacing={2} columns={12}>
-            {showDetailsTable && (
-              <Grid size={{ xs: 12, lg: 9 }}>
+
+          {/* Data-driven: columnsContainer(s) from center zone widgets */}
+          {columnsContainerWidgets.length > 0
+            ? columnsContainerWidgets.map((w) => (
+                <Box key={w.id}>{renderWidget(w)}</Box>
+              ))
+            : showDetailsTable && (
                 <CustomizedDataGrid
-                  rows={detailsRows}
-                  columns={detailsColumns}
+                  rows={details?.rows ?? []}
+                  columns={details?.columns ?? []}
                   loading={details?.loading}
                   rowCount={details?.rowCount}
                   paginationModel={details?.paginationModel}
@@ -138,17 +152,8 @@ export default function MainGrid({ layoutConfig, details }: { layoutConfig?: Mai
                   pageSizeOptions={details?.pageSizeOptions}
                   localeText={details?.localeText}
                 />
-              </Grid>
-            )}
-            {showDetailsSidePanel && (
-              <Grid size={{ xs: 12, lg: 3 }}>
-                <Stack gap={2} direction={{ xs: 'column', sm: 'row', lg: 'column' }}>
-                  <CustomizedTreeView />
-                  <ChartUserByCountry />
-                </Stack>
-              </Grid>
-            )}
-          </Grid>
+              )
+          }
         </>
       )}
 

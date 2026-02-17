@@ -5,7 +5,8 @@ import type {
     TemplateSeedEntity,
     TemplateSeedSetting,
     TemplateSeedElement,
-    TemplateSeedZoneWidget
+    TemplateSeedZoneWidget,
+    StructuredBlocker
 } from '@universo/types'
 import { resolveWidgetTableName } from './widgetTableResolver'
 
@@ -44,7 +45,7 @@ interface CleanupPlanData {
     entityCandidates: EntityCleanupCandidate[]
     settingCandidates: SettingCleanupCandidate[]
     widgetCandidates: WidgetCleanupCandidate[]
-    blockers: string[]
+    blockers: StructuredBlocker[]
     notes: string[]
 }
 
@@ -59,7 +60,7 @@ export interface TemplateSeedCleanupSummary {
 export interface TemplateSeedCleanupResult {
     mode: TemplateCleanupMode
     hasChanges: boolean
-    blockers: string[]
+    blockers: StructuredBlocker[]
     notes: string[]
     summary: TemplateSeedCleanupSummary
 }
@@ -253,7 +254,7 @@ export class TemplateSeedCleanupService {
     }
 
     private async buildPlan(currentSeed: MetahubTemplateSeed | null, targetSeed: MetahubTemplateSeed | null): Promise<CleanupPlanData> {
-        const blockers: string[] = []
+        const blockers: StructuredBlocker[] = []
         const notes: string[] = []
 
         if (!currentSeed && !targetSeed) {
@@ -268,7 +269,11 @@ export class TemplateSeedCleanupService {
             }
         }
         if (!currentSeed) {
-            blockers.push('Current template seed is unavailable. Cleanup cannot be analyzed safely.')
+            blockers.push({
+                code: 'seed.current_unavailable',
+                params: {},
+                message: 'Current template seed is unavailable. Cleanup cannot be analyzed safely.'
+            })
             return {
                 diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
                 entityCandidates: [],
@@ -279,7 +284,11 @@ export class TemplateSeedCleanupService {
             }
         }
         if (!targetSeed) {
-            blockers.push('Target template seed is unavailable. Cleanup cannot be analyzed safely.')
+            blockers.push({
+                code: 'seed.target_unavailable',
+                params: {},
+                message: 'Target template seed is unavailable. Cleanup cannot be analyzed safely.'
+            })
             return {
                 diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
                 entityCandidates: [],
@@ -308,9 +317,13 @@ export class TemplateSeedCleanupService {
                 continue
             }
 
-            const entityBlockers: string[] = []
+            const entityBlockersBefore = blockers.length
             if (objectRow._upl_created_by || objectRow._upl_updated_by) {
-                entityBlockers.push('Entity has non-system audit provenance (created/updated by user).')
+                blockers.push({
+                    code: 'entity.audit_provenance',
+                    params: { entityKey },
+                    message: `Entity "${entityKey}" has non-system audit provenance (created/updated by user).`
+                })
             }
 
             const liveAttributes = await this.knex
@@ -321,10 +334,18 @@ export class TemplateSeedCleanupService {
             const allowedAttributeCodes = new Set((entity.attributes ?? []).map((attribute) => attribute.codename))
             for (const attr of liveAttributes) {
                 if (!allowedAttributeCodes.has(toStringValue(attr.codename))) {
-                    entityBlockers.push(`Attribute "${toStringValue(attr.codename)}" was added outside template seed.`)
+                    blockers.push({
+                        code: 'entity.attribute_extra',
+                        params: { entityKey, attribute: toStringValue(attr.codename) },
+                        message: `Attribute "${toStringValue(attr.codename)}" of entity "${entityKey}" was added outside template seed.`
+                    })
                 }
                 if (attr._upl_created_by || attr._upl_updated_by) {
-                    entityBlockers.push(`Attribute "${toStringValue(attr.codename)}" has non-system audit provenance.`)
+                    blockers.push({
+                        code: 'entity.attribute_audit',
+                        params: { entityKey, attribute: toStringValue(attr.codename) },
+                        message: `Attribute "${toStringValue(attr.codename)}" of entity "${entityKey}" has non-system audit provenance.`
+                    })
                 }
             }
 
@@ -343,15 +364,22 @@ export class TemplateSeedCleanupService {
                     data: (elementRow.data as Record<string, unknown>) ?? {}
                 })
                 if (!expectedElementKeys.has(elementKey)) {
-                    entityBlockers.push(`Element at sort=${Number(elementRow.sort_order)} does not match template seed payload.`)
+                    blockers.push({
+                        code: 'entity.element_mismatch',
+                        params: { entityKey, sortOrder: String(Number(elementRow.sort_order)) },
+                        message: `Element at sort=${Number(elementRow.sort_order)} of entity "${entityKey}" does not match template seed.`
+                    })
                 }
                 if (elementRow._upl_created_by || elementRow._upl_updated_by) {
-                    entityBlockers.push(`Element at sort=${Number(elementRow.sort_order)} has non-system audit provenance.`)
+                    blockers.push({
+                        code: 'entity.element_audit',
+                        params: { entityKey, sortOrder: String(Number(elementRow.sort_order)) },
+                        message: `Element at sort=${Number(elementRow.sort_order)} of entity "${entityKey}" has non-system audit provenance.`
+                    })
                 }
             }
 
-            if (entityBlockers.length > 0) {
-                blockers.push(`Entity ${entityKey} cleanup blocked: ${entityBlockers.join(' ')}`)
+            if (blockers.length > entityBlockersBefore) {
                 continue
             }
 
@@ -377,13 +405,21 @@ export class TemplateSeedCleanupService {
             }
 
             if (row._upl_created_by || row._upl_updated_by) {
-                blockers.push(`Setting "${settingKey}" cleanup blocked: non-system audit provenance detected.`)
+                blockers.push({
+                    code: 'setting.audit_provenance',
+                    params: { settingKey },
+                    message: `Setting "${settingKey}" cleanup blocked: non-system audit provenance detected.`
+                })
                 continue
             }
 
             const seedValue = normalizeSettingValue(setting)
             if (!jsonEquals(row.value, seedValue)) {
-                blockers.push(`Setting "${settingKey}" cleanup blocked: current value differs from template seed baseline.`)
+                blockers.push({
+                    code: 'setting.value_mismatch',
+                    params: { settingKey },
+                    message: `Setting "${settingKey}" cleanup blocked: current value differs from template seed baseline.`
+                })
                 continue
             }
 
@@ -439,9 +475,16 @@ export class TemplateSeedCleanupService {
                 }
 
                 if (widgetRow._upl_created_by || widgetRow._upl_updated_by) {
-                    blockers.push(
-                        `Widget "${w.widgetKey}" at ${w.zone}:${w.sortOrder} cleanup blocked: non-system audit provenance detected.`
-                    )
+                    blockers.push({
+                        code: 'widget.audit_provenance',
+                        params: {
+                            widgetKey: w.widgetKey,
+                            zone: w.zone,
+                            sortOrder: String(w.sortOrder),
+                            layoutCodename
+                        },
+                        message: `Widget "${w.widgetKey}" at ${w.zone}:${w.sortOrder} cleanup blocked: non-system audit provenance detected.`
+                    })
                     continue
                 }
 

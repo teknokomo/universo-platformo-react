@@ -227,7 +227,20 @@
       "detailsTitle": "Details title",
       "detailsTable": "Details table",
       "detailsSidePanel": "Details side panel",
+      "productTree": "Product tree",
+      "usersByCountryChart": "Users by country chart",
+      "columnsContainer": "Columns container",
       "footer": "Footer"
+    },
+    "columnsEditor": {
+      "title": "Columns Container",
+      "description": "Configure columns for this container. Each column can render one or more widgets stacked vertically. Widths use a 12-column grid.",
+      "widget": "Widget",
+      "width": "Width",
+      "addColumn": "Add column",
+      "addWidget": "Add widget",
+      "widthWarning": "Total width is {{total}}/12. Recommended: 12.",
+      "widthError": "Total width {{total}}/12 exceeds the grid. Reduce column widths to save."
     },
     "zoneErrors": {
       "load": "Failed to load layout zones",
@@ -248,7 +261,10 @@
         "showPageViewsChart": "Page views chart",
         "showDetailsTitle": "Details title",
         "showDetailsTable": "Details table",
-        "showDetailsSidePanel": "Details side panel",
+        "showColumnsContainer": "Columns container",
+        "showProductTree": "Product tree",
+        "showUsersByCountryChart": "Users by country chart",
+        "showRightSideMenu": "Right side panel",
         "showFooter": "Footer"
       }
     }
@@ -799,7 +815,25 @@
       "title": "Migration required",
       "description": "This metahub requires migration before other sections can be used. Open the migrations section and apply updates.",
       "openMigrations": "Open migrations",
+      "applyKeepData": "Apply (keep user data)",
       "blockersTitle": "Blocking conditions detected"
+    },
+    "blockers": {
+      "seed.current_unavailable": "Current template seed is unavailable. Cleanup cannot be analyzed safely.",
+      "seed.target_unavailable": "Target template seed is unavailable. Cleanup cannot be analyzed safely.",
+      "entity.audit_provenance": "Entity \"{{entityKey}}\" has been modified by a user and cannot be cleaned up automatically.",
+      "entity.attribute_extra": "Attribute \"{{attribute}}\" of entity \"{{entityKey}}\" was added outside the template seed.",
+      "entity.attribute_audit": "Attribute \"{{attribute}}\" of entity \"{{entityKey}}\" has been modified by a user.",
+      "entity.element_mismatch": "Element at position {{sortOrder}} of entity \"{{entityKey}}\" does not match the template seed.",
+      "entity.element_audit": "Element at position {{sortOrder}} of entity \"{{entityKey}}\" has been modified by a user.",
+      "setting.audit_provenance": "Setting \"{{settingKey}}\" has been modified by a user and cannot be cleaned up.",
+      "setting.value_mismatch": "Setting \"{{settingKey}}\" has a value that differs from the template seed baseline.",
+      "widget.audit_provenance": "Widget \"{{widgetKey}}\" at {{zone}}:{{sortOrder}} has been modified by a user.",
+      "structure.missing_definitions": "Missing structure definitions for version transition {{from}} → {{to}}.",
+      "structure.destructive_change": "Destructive structure change: {{description}}",
+      "template.structure_incompatible": "Template requires structure version {{required}}, but target is {{target}}.",
+      "template.seed_dry_run_failed": "Template seed dry-run failed: {{error}}",
+      "template.cleanup_dry_run": "Cleanup mode \"dry_run\" cannot apply destructive changes. Use \"confirm\" mode."
     }
   },
   "common": {

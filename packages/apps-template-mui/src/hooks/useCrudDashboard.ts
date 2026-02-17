@@ -32,7 +32,10 @@ function withDashboardDefaults(
     showPageViewsChart: bool(c.showPageViewsChart),
     showDetailsTitle: bool(c.showDetailsTitle),
     showDetailsTable: bool(c.showDetailsTable),
-    showDetailsSidePanel: bool(c.showDetailsSidePanel),
+    showColumnsContainer: bool(c.showColumnsContainer, false),
+    showProductTree: bool(c.showProductTree),
+    showUsersByCountryChart: bool(c.showUsersByCountryChart),
+    showRightSideMenu: bool(c.showRightSideMenu),
     showFooter: bool(c.showFooter)
   }
 }

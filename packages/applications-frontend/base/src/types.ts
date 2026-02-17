@@ -239,6 +239,18 @@ export interface ApplicationRuntimeResponse {
             sortOrder: number
             config: Record<string, unknown>
         }>
+        right?: Array<{
+            id: string
+            widgetKey: string
+            sortOrder: number
+            config: Record<string, unknown>
+        }>
+        center?: Array<{
+            id: string
+            widgetKey: string
+            sortOrder: number
+            config: Record<string, unknown>
+        }>
     }
     menus?: ApplicationRuntimeMenu[]
     activeMenuId?: string | null

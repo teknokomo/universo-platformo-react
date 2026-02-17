@@ -15,7 +15,10 @@ export const dashboardLayoutConfigSchema = z
         showPageViewsChart: z.boolean().optional(),
         showDetailsTitle: z.boolean().optional(),
         showDetailsTable: z.boolean().optional(),
-        showDetailsSidePanel: z.boolean().optional(),
+        showColumnsContainer: z.boolean().optional(),
+        showProductTree: z.boolean().optional(),
+        showUsersByCountryChart: z.boolean().optional(),
+        showRightSideMenu: z.boolean().optional(),
         showFooter: z.boolean().optional()
     })
     .optional()
@@ -92,7 +95,31 @@ export const appDataResponseSchema = z.object({
                     config: z.record(z.unknown()).optional().default({}),
                     isActive: z.boolean().optional().default(true)
                 })
-            )
+            ),
+            right: z
+                .array(
+                    z.object({
+                        id: z.string(),
+                        widgetKey: z.string(),
+                        sortOrder: z.number(),
+                        config: z.record(z.unknown()).optional().default({}),
+                        isActive: z.boolean().optional().default(true)
+                    })
+                )
+                .optional()
+                .default([]),
+            center: z
+                .array(
+                    z.object({
+                        id: z.string(),
+                        widgetKey: z.string(),
+                        sortOrder: z.number(),
+                        config: z.record(z.unknown()).optional().default({}),
+                        isActive: z.boolean().optional().default(true)
+                    })
+                )
+                .optional()
+                .default([])
         })
         .optional(),
     menus: z
