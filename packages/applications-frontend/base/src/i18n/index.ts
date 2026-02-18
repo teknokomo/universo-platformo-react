@@ -15,6 +15,9 @@ interface ApplicationsBundle {
     table?: Record<string, unknown>
     actions?: Record<string, unknown>
     errors?: Record<string, unknown>
+    migrationGuard?: Record<string, unknown>
+    underDevelopment?: Record<string, unknown>
+    maintenance?: Record<string, unknown>
 }
 
 const consolidateApplicationsNamespace = (bundle: ApplicationsBundle) => {
@@ -45,7 +48,10 @@ const consolidateApplicationsNamespace = (bundle: ApplicationsBundle) => {
         migrations: bundle?.migrations ?? {},
         members: bundle?.members ?? {},
         common: bundle?.common ?? {},
-        errors: bundle?.errors ?? {}
+        errors: bundle?.errors ?? {},
+        migrationGuard: bundle?.migrationGuard ?? {},
+        underDevelopment: bundle?.underDevelopment ?? {},
+        maintenance: bundle?.maintenance ?? {}
     }
 }
 

@@ -31,6 +31,8 @@
 - Автоматизированные миграции через центральный реестр
 - CASCADE удаление связей с UNIQUE ограничениями
 
+> **Документация по миграциям**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
+
 ## Установка
 
 ```bash

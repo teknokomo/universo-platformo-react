@@ -15,7 +15,7 @@ import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSeriali
 import { getDDLServices, generateSchemaName, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 // Import applications entities for auto-create feature
-import { Application, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
+import { Application, ApplicationSchemaStatus, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
 // Import services
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -161,6 +161,49 @@ const attachLayoutsToSnapshot = async (options: {
         snapshot.layoutZoneWidgets = []
         snapshot.defaultLayoutId = null
         snapshot.layoutConfig = {}
+    }
+}
+
+/**
+ * Marks applications linked to a publication as UPDATE_AVAILABLE when the
+ * active publication version changes. Only affects applications whose
+ * current schema is SYNCED and whose lastSyncedPublicationVersionId differs
+ * from the new active version.
+ *
+ * Uses a single UPDATE query with sub-select to avoid N+1 loops.
+ */
+async function notifyLinkedApplicationsUpdateAvailable(ds: DataSource, publicationId: string, newActiveVersionId: string): Promise<void> {
+    try {
+        const applicationRepo = ds.getRepository(Application)
+
+        // Single query: update all SYNCED applications linked to this publication
+        // whose lastSyncedPublicationVersionId differs from the new active version
+        await applicationRepo
+            .createQueryBuilder()
+            .update(Application)
+            .set({ schemaStatus: ApplicationSchemaStatus.UPDATE_AVAILABLE })
+            .where(
+                'id IN (' +
+                    applicationRepo
+                        .createQueryBuilder('app')
+                        .select('app.id')
+                        .innerJoin(Connector, 'c', 'c.applicationId = app.id')
+                        .innerJoin(ConnectorPublication, 'cp', 'cp.connectorId = c.id')
+                        .where('cp.publicationId = :publicationId')
+                        .andWhere('app.schemaStatus = :synced')
+                        .andWhere('(app.lastSyncedPublicationVersionId IS NULL OR app.lastSyncedPublicationVersionId != :newVer)')
+                        .getQuery() +
+                    ')'
+            )
+            .setParameters({
+                publicationId,
+                synced: ApplicationSchemaStatus.SYNCED,
+                newVer: newActiveVersionId
+            })
+            .execute()
+    } catch (err) {
+        // Non-critical: log and continue — the migration guard will still detect the delta
+        console.warn('[Publications] Failed to notify linked applications of update:', err)
     }
 }
 
@@ -741,6 +784,33 @@ export function createPublicationsRoutes(
                         await generator.dropSchema(deletedSchemaName)
                     }
 
+                    // Reset UPDATE_AVAILABLE → SYNCED on applications linked to this publication.
+                    // Must run BEFORE remove() because FK fk_cp_publication has ON DELETE CASCADE —
+                    // removing the publication would delete ConnectorPublication rows first.
+                    // Uses a single UPDATE with sub-select to avoid N+1 loops.
+                    const txApplicationRepo = txManager.getRepository(Application)
+                    await txApplicationRepo
+                        .createQueryBuilder()
+                        .update(Application)
+                        .set({ schemaStatus: ApplicationSchemaStatus.SYNCED })
+                        .where(
+                            'id IN (' +
+                                txApplicationRepo
+                                    .createQueryBuilder('app')
+                                    .select('app.id')
+                                    .innerJoin(Connector, 'c', 'c.applicationId = app.id')
+                                    .innerJoin(ConnectorPublication, 'cp', 'cp.connectorId = c.id')
+                                    .where('cp.publicationId = :publicationId')
+                                    .andWhere('app.schemaStatus = :updateAvailable')
+                                    .getQuery() +
+                                ')'
+                        )
+                        .setParameters({
+                            publicationId,
+                            updateAvailable: ApplicationSchemaStatus.UPDATE_AVAILABLE
+                        })
+                        .execute()
+
                     await publicationRepoTx.remove(publicationLocked)
                 })
             } catch (error) {
@@ -1154,6 +1224,9 @@ export function createPublicationsRoutes(
                 return savedVersion
             })
 
+            // Notify linked applications about new active version (fire-and-forget)
+            await notifyLinkedApplicationsUpdateAvailable(getDataSource(), publicationId, result.id)
+
             return res.status(201).json({
                 ...result,
                 isDuplicate
@@ -1191,6 +1264,9 @@ export function createPublicationsRoutes(
             version.isActive = true
             await versionRepo.save(version)
             await publicationRepo.update({ id: publicationId }, { activeVersionId: version.id })
+
+            // Notify linked applications about new active version
+            await notifyLinkedApplicationsUpdateAvailable(getDataSource(), publicationId, version.id)
 
             return res.json({ success: true, version })
         })

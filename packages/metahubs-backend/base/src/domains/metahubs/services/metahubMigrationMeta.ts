@@ -52,6 +52,7 @@ const migrationCountsSchema = z.object({
 const baselineMetaSchema = z.object({
     kind: z.literal('baseline'),
     createdAt: z.string().datetime(),
+    templateVersionLabel: z.string().nullable().optional(),
     snapshotBefore: z.null(),
     snapshotAfter: systemStructureSnapshotSchema.nullable()
 })
@@ -92,9 +93,13 @@ export const metahubMigrationMetaSchema = z.discriminatedUnion('kind', [
 export type MetahubMigrationMeta = z.infer<typeof metahubMigrationMetaSchema>
 export type MetahubTemplateSeedMigrationCounts = z.infer<typeof migrationCountsSchema>
 
-export const buildBaselineMigrationMeta = (snapshotAfter: SystemStructureSnapshot | null): MetahubMigrationMeta => ({
+export const buildBaselineMigrationMeta = (
+    snapshotAfter: SystemStructureSnapshot | null,
+    templateVersionLabel?: string | null
+): MetahubMigrationMeta => ({
     kind: 'baseline',
     createdAt: new Date().toISOString(),
+    templateVersionLabel: templateVersionLabel ?? null,
     snapshotBefore: null,
     snapshotAfter
 })

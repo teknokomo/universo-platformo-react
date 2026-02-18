@@ -39,7 +39,7 @@ export function useApplyMetahubMigrations() {
                     context.previousPlan
                 )
             }
-            enqueueSnackbar(extractAxiosError(error) || t('migrations.messages.applyError', 'Failed to apply migrations'), {
+            enqueueSnackbar(extractAxiosError(error).message || t('migrations.messages.applyError', 'Failed to apply migrations'), {
                 variant: 'error'
             })
         },

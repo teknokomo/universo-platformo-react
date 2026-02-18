@@ -9,6 +9,7 @@ export const dashboardLayoutConfigSchema = z
         showSearch: z.boolean().optional(),
         showDatePicker: z.boolean().optional(),
         showOptionsMenu: z.boolean().optional(),
+        showLanguageSwitcher: z.boolean().optional(),
         showOverviewTitle: z.boolean().optional(),
         showOverviewCards: z.boolean().optional(),
         showSessionsChart: z.boolean().optional(),

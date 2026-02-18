@@ -4,6 +4,7 @@ import CustomDatePicker from './CustomDatePicker';
 import NavbarBreadcrumbs from './NavbarBreadcrumbs';
 import MenuButton from './MenuButton';
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
 import Search from './Search';
 
@@ -12,6 +13,7 @@ export interface HeaderLayoutConfig {
   showSearch?: boolean
   showDatePicker?: boolean
   showOptionsMenu?: boolean
+  showLanguageSwitcher?: boolean
 }
 
 export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutConfig }) {
@@ -19,6 +21,7 @@ export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutCo
   const showSearch = layoutConfig?.showSearch ?? true;
   const showDatePicker = layoutConfig?.showDatePicker ?? true;
   const showOptionsMenu = layoutConfig?.showOptionsMenu ?? true;
+  const showLanguageSwitcher = layoutConfig?.showLanguageSwitcher ?? true;
 
   return (
     <Stack
@@ -37,6 +40,7 @@ export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutCo
       <Stack direction="row" sx={{ gap: 1 }}>
         {showSearch && <Search />}
         {showDatePicker && <CustomDatePicker />}
+        {showLanguageSwitcher && <LanguageSwitcher />}
         {showOptionsMenu && (
           <>
             <MenuButton showBadge aria-label="Open notifications">

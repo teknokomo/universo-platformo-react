@@ -6,6 +6,7 @@
  * use the DDL module for all schema operations.
  *
  * Endpoints:
+ * - GET    /application/:applicationId/migrations/status     - Migration status for guard
  * - GET    /application/:applicationId/migrations            - List migrations
  * - GET    /application/:applicationId/migration/:id         - Get single migration
  * - GET    /application/:applicationId/migration/:id/analyze - Analyze rollback possibility
@@ -16,7 +17,17 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { Application, Connector, ConnectorPublication, ensureApplicationAccess, type ApplicationRole } from '@universo/applications-backend'
+import {
+    Application,
+    ApplicationUser,
+    ApplicationSchemaStatus,
+    Connector,
+    ConnectorPublication,
+    ensureApplicationAccess,
+    type ApplicationRole
+} from '@universo/applications-backend'
+import { UpdateSeverity, type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
+import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import { Publication } from '../../../database/entities/Publication'
 import {
     getDDLServices,
@@ -28,6 +39,7 @@ import {
     releaseAdvisoryLock
 } from '../../ddl'
 import type { MigrationChangeRecord, SchemaSnapshot } from '../../ddl'
+import { TARGET_APP_STRUCTURE_VERSION } from '../constants'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Validation Schemas
@@ -145,6 +157,127 @@ export function createApplicationMigrationsRoutes(
             throw error
         }
     }
+
+    /** Ensures the requesting user is any member of the application (any role). */
+    const ensureMemberAccess = async (req: Request, res: Response, applicationId: string): Promise<boolean> => {
+        const user = req.user as { id?: string; sub?: string } | undefined
+        const userId = user?.id ?? user?.sub
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return false
+        }
+
+        try {
+            await ensureApplicationAccess(getDataSource(), userId, applicationId)
+            return true
+        } catch (error) {
+            const status = (error as { status?: number; statusCode?: number }).statusCode ?? (error as { status?: number }).status
+            if (status === 403) {
+                res.status(403).json({ error: 'Access denied' })
+                return false
+            }
+            throw error
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // GET /application/:applicationId/migrations/status
+    // Migration status for ApplicationMigrationGuard
+    // ═════════════════════════════════════════════════════════════════════
+
+    router.get(
+        '/application/:applicationId/migrations/status',
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { applicationId } = req.params
+            const hasAccess = await ensureMemberAccess(req, res, applicationId)
+            if (!hasAccess) return
+
+            const ds = getDataSource()
+            const applicationRepo = ds.getRepository(Application)
+            const app = await applicationRepo.findOneBy({ id: applicationId })
+            if (!app) {
+                return res.status(404).json({ error: 'Application not found' })
+            }
+
+            // Determine requesting user's role in this application
+            const user = req.user as { id?: string; sub?: string } | undefined
+            const userId = user?.id ?? user?.sub
+            let currentUserRole: ApplicationRole | undefined
+            if (userId) {
+                const membership = await ds.getRepository(ApplicationUser).findOne({
+                    where: { applicationId, userId }
+                })
+                if (membership) {
+                    currentUserRole = (membership.role || 'member') as ApplicationRole
+                }
+            }
+
+            const isMaintenance = app.schemaStatus === ApplicationSchemaStatus.MAINTENANCE
+
+            const currentVersion = app.appStructureVersion ?? 0
+            const targetVersion = TARGET_APP_STRUCTURE_VERSION
+            const structureUpgradeRequired = currentVersion < targetVersion
+
+            // Check if publication has been updated since last sync
+            let publicationUpdateAvailable = false
+            try {
+                const connectorRepo = ds.getRepository(Connector)
+                const connectorPubRepo = ds.getRepository(ConnectorPublication)
+                const publicationRepo = ds.getRepository(Publication)
+
+                const connector = await connectorRepo.findOne({ where: { applicationId } })
+                if (connector) {
+                    const connectorPub = await connectorPubRepo.findOne({ where: { connectorId: connector.id } })
+                    if (connectorPub) {
+                        const publication = await publicationRepo.findOneBy({ id: connectorPub.publicationId })
+                        if (publication?.activeVersionId) {
+                            publicationUpdateAvailable = app.lastSyncedPublicationVersionId !== publication.activeVersionId
+                        }
+                    }
+                }
+            } catch {
+                // Non-critical: if we can't check, default to false
+            }
+
+            const blockers: StructuredBlocker[] = []
+            const schemaExists = Boolean(app.schemaName)
+
+            if (!schemaExists) {
+                blockers.push({
+                    code: 'schema_not_created',
+                    params: {},
+                    message: 'Application schema has not been created yet'
+                })
+            }
+
+            const migrationRequired = structureUpgradeRequired || publicationUpdateAvailable || !schemaExists
+
+            const severity = determineSeverity({
+                migrationRequired,
+                isMandatory: !schemaExists || structureUpgradeRequired
+            })
+
+            const response: ApplicationMigrationStatusResponse = {
+                applicationId,
+                schemaName: app.schemaName ?? null,
+                schemaExists,
+                currentAppStructureVersion: currentVersion,
+                targetAppStructureVersion: targetVersion,
+                structureUpgradeRequired,
+                publicationUpdateAvailable,
+                migrationRequired,
+                severity,
+                blockers,
+                currentUserRole,
+                isMaintenance,
+                status: blockers.length > 0 ? 'blocked' : migrationRequired ? 'requires_migration' : 'up_to_date',
+                code: blockers.length > 0 ? 'MIGRATION_BLOCKED' : migrationRequired ? 'MIGRATION_REQUIRED' : 'UP_TO_DATE'
+            }
+
+            return res.json(response)
+        })
+    )
 
     // ═══════════════════════════════════════════════════════════════════════
     // GET /application/:applicationId/migrations

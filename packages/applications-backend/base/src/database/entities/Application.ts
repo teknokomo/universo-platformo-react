@@ -16,6 +16,10 @@ export enum ApplicationSchemaStatus {
     OUTDATED = 'outdated',
     /** Error - schema generation/migration failed */
     ERROR = 'error',
+    /** Schema update available but not yet applied */
+    UPDATE_AVAILABLE = 'update_available',
+    /** Schema is being migrated — read-only mode */
+    MAINTENANCE = 'maintenance',
 }
 
 /**
@@ -83,6 +87,14 @@ export class Application {
      */
     @Column({ name: 'schema_snapshot', type: 'jsonb', nullable: true })
     schemaSnapshot?: Record<string, unknown> | null
+
+    /** Current structure version of the application system tables */
+    @Column({ name: 'app_structure_version', type: 'integer', nullable: true, default: null })
+    appStructureVersion?: number | null
+
+    /** ID of the publication version last synced to this application */
+    @Column({ name: 'last_synced_publication_version_id', type: 'uuid', nullable: true })
+    lastSyncedPublicationVersionId?: string | null
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Platform-level system fields (_upl_*)

@@ -31,6 +31,8 @@ Backend service for managing applications, connectors, and memberships with stri
 - Automated migrations through central registry
 - CASCADE deletion with UNIQUE constraints
 
+> **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
+
 ## Installation
 
 ```bash

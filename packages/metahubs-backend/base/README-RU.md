@@ -33,10 +33,10 @@
 - **DDL-генератор** — `SystemTableDDLGenerator` преобразует декларативные определения в Knex DDL (идемпотентно, пропускает существующие таблицы)
 
 ### Движок миграций
-- **Движок различий** — `calculateSystemTableDiff()` сравнивает две версии структуры и формирует списки аддитивных/деструктивных изменений
-- **Безопасные миграции** — `SystemTableMigrator` применяет только аддитивные изменения (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK); деструктивные изменения логируются, но не применяются
-- **История миграций** — Таблица `_mhb_migrations` записывает каждую применённую миграцию с версией, именем и метаданными
-- **Рекомендательные блокировки** — Защита от конкурентных миграций через PostgreSQL advisory locks
+
+Безопасная система аддитивных миграций с рекомендательными блокировками и полной историей.
+
+> **Полная документация**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ### Система шаблонов
 - **Встроенные шаблоны** — Предустановленные шаблоны, заполняемые при запуске приложения (например, `basic` дашборд)
@@ -54,11 +54,8 @@
 - Оптимистическая блокировка с счётчиком `_upl_version` для обнаружения конкурентных правок
 
 ### Структурированные блокировки и гард миграций
-- **Тип StructuredBlocker** — `{ code, params, message }` для интернационализированного отображения блокировок миграций
-- **11 точек блокировки** в `TemplateSeedCleanupService` преобразованы из строк в структурированные объекты
-- **5 точек блокировки** в `metahubMigrationsRoutes` для проверок миграций на уровне схемы
-- **Эндпоинт статуса миграций** — `GET /metahub/:id/migrations/status` возвращает `{ migrationRequired, structureUpgradeRequired, templateUpgradeRequired, blockers: StructuredBlocker[] }`
-- **Эндпоинт применения миграций** — `POST /metahub/:id/migrations/apply` с телом `{ cleanupMode: 'keep' }`
+
+Интернационализированные структурированные блокировки и эндпоинты гарда миграций. См. [MIGRATIONS-RU.md](MIGRATIONS-RU.md) для подробностей.
 
 ### Конфигурация columnsContainer в сидах
 - **Сид макета по умолчанию** в `layoutDefaults.ts` включает виджет `columnsContainer` в центральной зоне
@@ -155,107 +152,11 @@ export const builtinTemplates: MetahubTemplateManifest[] = [
 
 3. Шаблон будет автоматически заполнен при следующем запуске приложения.
 
-### Добавление новой версии структуры (V3)
+### Добавление новой версии структуры / Обновление существующих метахабов
 
-Для добавления новых системных таблиц или колонок в существующие таблицы:
+Пошаговые руководства по добавлению новых версий структуры и как существующие метахабы автоматически мигрируются (DDL-изменения, обновления шаблонов, TypeORM-сущности).
 
-1. Определите новые/модифицированные объекты `SystemTableDef` в `systemTableDefinitions.ts`:
-
-```typescript
-const mhbAuditLog: SystemTableDef = {
-  name: '_mhb_audit_log',
-  description: 'Audit log for metahub operations',
-  columns: [
-    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
-    { name: 'action', type: 'string', length: 50, nullable: false },
-    { name: 'payload', type: 'jsonb', nullable: false, defaultTo: '{}' }
-  ]
-}
-```
-
-2. Создайте новый набор версии:
-
-```typescript
-export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V2, mhbAuditLog]
-```
-
-3. Зарегистрируйте в карте версий:
-
-```typescript
-export const SYSTEM_TABLE_VERSIONS = new Map([
-  [1, SYSTEM_TABLES_V1],
-  [2, SYSTEM_TABLES_V2],
-  [3, SYSTEM_TABLES_V3]  // ← добавить сюда
-])
-```
-
-4. Увеличьте `CURRENT_STRUCTURE_VERSION` в `structureVersions.ts`:
-
-```typescript
-export const CURRENT_STRUCTURE_VERSION = 3
-```
-
-5. Существующие схемы автоматически мигрируют при следующем вызове `ensureSchema()`. Движок различий сравнит V2 → V3 и применит только аддитивные изменения.
-
-### Обновление существующих метахабов при появлении новых сущностей
-
-При добавлении нового функционала (новые системные таблицы, новые сид-данные) ранее созданные метахабы обновляются **автоматически** через два независимых механизма:
-
-#### Сценарий 1: Новые системные таблицы или колонки (DDL-изменения)
-
-**Триггер**: Увеличение `CURRENT_STRUCTURE_VERSION` (например, 2 → 3).
-
-**Как это работает**: При любом API-вызове к метахабу вызывается `MetahubSchemaService.ensureSchema()`. Он считывает `structureVersion` ветки и сравнивает с `CURRENT_STRUCTURE_VERSION`. Если ветка отстаёт, запускается конвейер авто-миграции:
-
-```
-ensureSchema() обнаруживает: branch.structureVersion (2) < CURRENT (3)
-  → SystemTableMigrator.migrate(2, 3)
-      → calculateSystemTableDiff(V2_tables, V3_tables)
-      → Применяются только АДДИТИВНЫЕ изменения (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK)
-      → Запись миграции в таблицу _mhb_migrations
-  → branch.structureVersion = 3 (сохраняется в БД)
-```
-
-**Гарантии безопасности**:
-- Автоматически применяются только аддитивные изменения; деструктивные (DROP TABLE/COLUMN) логируются, но НИКОГДА не применяются
-- PostgreSQL advisory locks предотвращают конкурентные миграции одной схемы
-- Каждая миграция записывается в таблицу `_mhb_migrations` с полными метаданными
-- Миграции выполняются в транзакции — частичные сбои откатываются
-
-#### Сценарий 2: Новые сид-данные (обновления шаблонов)
-
-**Триггер**: Обновление версии манифеста шаблона (например, `basic` шаблон 1.1.0 → 1.2.0).
-
-**Как это работает**: При запуске приложения `TemplateSeeder.seed()` обнаруживает изменение хэша и обновляет версию шаблона. При следующем вызове `ensureSchema()` для каждого метахаба запускается миграция сидов:
-
-```
-ensureSchema() обнаруживает: сиды требуют миграции
-  → TemplateSeedMigrator.migrateSeed(newSeed)
-      → migrateLayouts()        — добавление новых макетов по template_key (существующие пропускаются)
-      → migrateZoneWidgets()    — добавление новых виджетов к новым макетам
-      → migrateSettings()       — добавление новых настроек по ключу (существующие пропускаются)
-      → migrateEntities()       — добавление новых каталогов/атрибутов по codename+kind (существующие пропускаются)
-      → migrateElements()       — добавление новых элементов если каталог имеет меньше ожидаемого
-```
-
-**Гарантии безопасности**:
-- Существующие данные пользователя НИКОГДА не перезаписываются — вставляются только новые элементы
-- Поиск по бизнес-ключу (codename, template_key, ключ настройки) для избежания дубликатов
-- Флаг макета по умолчанию (`is_default`) сохраняется — выбор пользователя не переопределяется
-
-#### Сценарий 3: Новые TypeORM-сущности (статические изменения схемы)
-
-**Триггер**: Добавление нового класса сущности (например, новая таблица связей в `database/entities/`).
-
-**Как это работает**: Это обрабатывается стандартными миграциями TypeORM в `database/migrations/postgres/`. Они выполняются при запуске приложения через Flowise migration runner, затрагивая общую схему `public` — не изолированные схемы веток.
-
-#### Сводка: Время применения миграций
-
-| Тип изменения | Когда применяется | Механизм | Затрагивает |
-|---------------|-------------------|----------|-------------|
-| Новые системные таблицы/колонки | При следующем API-запросе к ветке | `SystemTableMigrator` + advisory lock | Схема ветки (`mhb_*`) |
-| Новые сид-данные | При следующем API-запросе к ветке | `TemplateSeedMigrator` | Схема ветки (`mhb_*`) |
-| Новые TypeORM-сущности | При запуске приложения | TypeORM migration runner | Общая схема `public` |
+> **Полная документация**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ## Архитектура
 
@@ -507,20 +408,7 @@ GET    /metahub/:metahubId/migrations/status                              # Пр
 POST   /metahub/:metahubId/migrations/apply                               # Применение ожидающих миграций (тело: { cleanupMode: 'keep' })
 ```
 
-Формат ответа `GET /migrations/status`:
-```json
-{
-  "migrationRequired": true,
-  "structureUpgradeRequired": false,
-  "templateUpgradeRequired": true,
-  "blockers": [
-    {
-      "code": "entityCountMismatch",
-      "params": { "expected": 5, "actual": 3 },
-      "message": "Expected 5 entities but found 3"
-    }
-  ]
-}
+> **Формат ответа и подробности**: [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 ```
 
 ### Эндпоинты шаблонов
@@ -601,15 +489,7 @@ Content-Type: application/json
 
 ### Миграции и регистрация сущностей
 
-Сущности и миграции метахабов зарегистрированы в ядре Flowise:
-
-```typescript
-// flowise-core-backend/base/src/database/entities/index.ts
-import { metahubsEntities } from '@universo/metahubs-backend'
-
-// flowise-core-backend/base/src/database/migrations/postgres/index.ts
-import { metahubsMigrations } from '@universo/metahubs-backend'
-```
+Сущности и миграции метахабов зарегистрированы в ядре Flowise. См. [MIGRATIONS-RU.md](MIGRATIONS-RU.md) для подробностей.
 
 ## Структура файлов
 

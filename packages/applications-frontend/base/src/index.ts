@@ -7,6 +7,7 @@ export { default as ApplicationBoard } from './pages/ApplicationBoard'
 export { default as ApplicationMembers } from './pages/ApplicationMembers'
 export { default as ApplicationMigrations } from './pages/ApplicationMigrations'
 export { default as ApplicationRuntime } from './pages/ApplicationRuntime'
+export { default as UnderDevelopmentPage } from './pages/UnderDevelopmentPage'
 export { default as ApplicationActions } from './pages/ApplicationActions'
 export { default as ApplicationMemberActions } from './pages/ApplicationMemberActions'
 
@@ -24,6 +25,7 @@ export { applicationsTranslations } from './i18n'
 export { ApplicationGuard } from './components/ApplicationGuard'
 export { ApplicationAdminGuard } from './components/ApplicationAdminGuard'
 export { ConnectorDeleteDialog } from './components/ConnectorDeleteDialog'
+export { default as ApplicationMigrationGuard } from './components/ApplicationMigrationGuard'
 
 // Types
 export type {

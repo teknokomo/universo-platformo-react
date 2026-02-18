@@ -6,6 +6,7 @@ import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
 import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
+import { ApplicationSchemaStatus } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
 import { Connector } from '../database/entities/Connector'
 import { ConnectorPublication } from '../database/entities/ConnectorPublication'
@@ -116,7 +117,11 @@ const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: 
         if (typeof value === 'object') {
             const localized = getVLCString(value as Record<string, unknown>, locale)
             if (localized) return localized
-            try { return JSON.stringify(value) } catch { return '' }
+            try {
+                return JSON.stringify(value)
+            } catch {
+                return ''
+            }
         }
         return String(value)
     }
@@ -637,7 +642,7 @@ export function createApplicationsRoutes(
                         SELECT EXISTS (
                             SELECT 1
                             FROM information_schema.tables
-                            WHERE table_schema = $1 AND table_name = '_app_layout_zone_widgets'
+                            WHERE table_schema = $1 AND table_name = '_app_widgets'
                         ) AS "zoneWidgetsExists"
                     `,
                     [schemaName]
@@ -662,7 +667,7 @@ export function createApplicationsRoutes(
                         const widgetRows = (await manager.query(
                             `
                                 SELECT id, widget_key, sort_order, config, zone
-                                FROM ${schemaIdent}._app_layout_zone_widgets
+                                FROM ${schemaIdent}._app_widgets
                                 WHERE layout_id = $1
                                   AND zone IN ('left', 'right', 'center')
                                   AND COALESCE(_upl_deleted, false) = false
@@ -801,11 +806,7 @@ export function createApplicationsRoutes(
      * Validates and coerces a value to match the expected runtime column type.
      * Returns the value to store or throws on type mismatch.
      */
-    const coerceRuntimeValue = (
-        value: unknown,
-        dataType: string,
-        validationRules?: Record<string, unknown>
-    ): unknown => {
+    const coerceRuntimeValue = (value: unknown, dataType: string, validationRules?: Record<string, unknown>): unknown => {
         if (value === null || value === undefined) return null
 
         switch (dataType) {
@@ -867,8 +868,7 @@ export function createApplicationsRoutes(
 
         if (catalogs.length === 0) return { catalog: null, attrs: [], error: 'No catalogs available' }
 
-        const catalog =
-            (requestedCatalogId ? catalogs.find((c) => c.id === requestedCatalogId) : undefined) ?? catalogs[0]
+        const catalog = (requestedCatalogId ? catalogs.find((c) => c.id === requestedCatalogId) : undefined) ?? catalogs[0]
         if (!catalog) return { catalog: null, attrs: [], error: 'Catalog not found' }
         if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { catalog: null, attrs: [], error: 'Invalid table name' }
 
@@ -901,22 +901,37 @@ export function createApplicationsRoutes(
         res: Response,
         applicationId: string
     ): Promise<{ schemaIdent: string; manager: ReturnType<typeof getRequestManager>; userId: string } | null> => {
-        if (!UUID_REGEX.test(applicationId)) { res.status(400).json({ error: 'Invalid application ID format' }); return null }
+        if (!UUID_REGEX.test(applicationId)) {
+            res.status(400).json({ error: 'Invalid application ID format' })
+            return null
+        }
 
         const ds = getDataSource()
         const userId = resolveUserId(req)
-        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return null }
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized' })
+            return null
+        }
 
         const rlsRunner = getRequestQueryRunner(req)
         await ensureApplicationAccess(ds, userId, applicationId, undefined, rlsRunner)
 
         const { applicationRepo } = repos(req)
         const application = await applicationRepo.findOne({ where: { id: applicationId } })
-        if (!application) { res.status(404).json({ error: 'Application not found' }); return null }
-        if (!application.schemaName) { res.status(400).json({ error: 'Application schema is not configured' }); return null }
+        if (!application) {
+            res.status(404).json({ error: 'Application not found' })
+            return null
+        }
+        if (!application.schemaName) {
+            res.status(400).json({ error: 'Application schema is not configured' })
+            return null
+        }
 
         const schemaName = application.schemaName
-        if (!IDENTIFIER_REGEX.test(schemaName)) { res.status(400).json({ error: 'Invalid application schema name' }); return null }
+        if (!IDENTIFIER_REGEX.test(schemaName)) {
+            res.status(400).json({ error: 'Invalid application schema name' })
+            return null
+        }
 
         return {
             schemaIdent: quoteIdentifier(schemaName),
@@ -945,9 +960,7 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid field name' })
             }
 
-            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
-                ctx.manager, ctx.schemaIdent, requestedCatalogId
-            )
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const attr = attrs.find((a) => a.column_name === field)
@@ -1010,9 +1023,7 @@ export function createApplicationsRoutes(
 
             const { catalogId: requestedCatalogId, data } = parsedBody.data
 
-            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
-                ctx.manager, ctx.schemaIdent, requestedCatalogId
-            )
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const setClauses: string[] = []
@@ -1093,9 +1104,7 @@ export function createApplicationsRoutes(
 
             const { catalogId: requestedCatalogId, data } = parsedBody.data
 
-            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
-                ctx.manager, ctx.schemaIdent, requestedCatalogId
-            )
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             // Build column→value pairs from input data
@@ -1130,9 +1139,10 @@ export function createApplicationsRoutes(
                 values.push(ctx.userId)
             }
 
-            const insertSql = colNames.length > 0
-                ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
-                : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
+            const insertSql =
+                colNames.length > 0
+                    ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
+                    : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
 
             const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
 
@@ -1153,9 +1163,7 @@ export function createApplicationsRoutes(
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
 
-            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
-                ctx.manager, ctx.schemaIdent, catalogId
-            )
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
@@ -1198,9 +1206,7 @@ export function createApplicationsRoutes(
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
 
-            const { catalog, error: catalogError } = await resolveRuntimeCatalog(
-                ctx.manager, ctx.schemaIdent, catalogId
-            )
+            const { catalog, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
@@ -1469,10 +1475,17 @@ export function createApplicationsRoutes(
                             slug: slugCandidate,
                             isPublic: parsed.data.isPublic ?? sourceApplication.isPublic,
                             schemaName: newSchemaName,
-                            schemaStatus: sourceApplication.schemaStatus,
+                            // Reset transient statuses so the copy starts in a safe state.
+                            // MAINTENANCE/ERROR/UPDATE_AVAILABLE must not be inherited.
+                            schemaStatus:
+                                sourceApplication.schemaStatus === ApplicationSchemaStatus.SYNCED
+                                    ? ApplicationSchemaStatus.SYNCED
+                                    : ApplicationSchemaStatus.OUTDATED,
                             schemaSyncedAt: sourceApplication.schemaSyncedAt,
-                            schemaError: sourceApplication.schemaError,
+                            schemaError: null,
                             schemaSnapshot: sourceApplication.schemaSnapshot,
+                            appStructureVersion: sourceApplication.appStructureVersion,
+                            lastSyncedPublicationVersionId: null,
                             _uplCreatedBy: userId,
                             _uplUpdatedBy: userId
                         })

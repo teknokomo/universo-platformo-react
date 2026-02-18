@@ -37,6 +37,9 @@ Frontend application for managing applications and connectors in the Universo Pl
 - **Internationalization**: English and Russian translations with i18next
 - **Form Validation**: Comprehensive validation with Zod schemas
 - **API Integration**: RESTful API client with authentication
+- **Migration Guard**: Unified schema update guard with severity levels
+
+> **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ## Installation & Setup
 

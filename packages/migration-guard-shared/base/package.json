@@ -1,0 +1,48 @@
+{
+  "name": "@universo/migration-guard-shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared utilities and components for migration guard (metahub & application)",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./utils": {
+      "import": "./dist/utils.mjs",
+      "require": "./dist/utils.js",
+      "types": "./dist/utils.d.ts"
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --quiet"
+  },
+  "dependencies": {
+    "@universo/types": "workspace:*",
+    "@universo/utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "@mui/material": ">=5.0.0",
+    "@tanstack/react-query": ">=5.0.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@mui/material": { "optional": true },
+    "@tanstack/react-query": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "tsdown": "^0.12.5",
+    "typescript": "^5.7.3"
+  }
+}

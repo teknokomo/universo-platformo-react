@@ -489,7 +489,7 @@ export class MetahubSchemaService {
         await executor.apply(manifest.seed)
 
         // 3. Record baseline migration for fresh schemas
-        await this.recordBaselineMigration(schemaName, structureVersion)
+        await this.recordBaselineMigration(schemaName, structureVersion, manifest.version)
     }
 
     /**
@@ -553,12 +553,16 @@ export class MetahubSchemaService {
      * Records baseline structure migration for a freshly initialized schema.
      * Idempotent: does nothing if baseline already exists.
      */
-    private async recordBaselineMigration(schemaName: string, structureVersion: number): Promise<void> {
+    private async recordBaselineMigration(
+        schemaName: string,
+        structureVersion: number,
+        templateVersionLabel?: string | null
+    ): Promise<void> {
         const hasMigrationTable = await this.knex.schema.withSchema(schemaName).hasTable('_mhb_migrations')
         if (!hasMigrationTable) return
 
         const baselineName = `baseline_structure_v${structureVersion}`
-        const meta = buildBaselineMigrationMeta(buildSystemStructureSnapshot(structureVersion))
+        const meta = buildBaselineMigrationMeta(buildSystemStructureSnapshot(structureVersion), templateVersionLabel)
         await this.knex
             .withSchema(schemaName)
             .into('_mhb_migrations')

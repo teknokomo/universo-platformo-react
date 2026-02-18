@@ -78,22 +78,8 @@ export interface MetahubMigrationsPlanResponse {
     }
 }
 
-export interface MetahubMigrationsStatusResponse {
-    branchId: string
-    schemaName: string
-    currentStructureVersion: number
-    targetStructureVersion: number
-    structureUpgradeRequired: boolean
-    templateUpgradeRequired: boolean
-    migrationRequired: boolean
-    blockers: StructuredBlocker[]
-    status: 'up_to_date' | 'requires_migration' | 'blocked'
-    code: 'UP_TO_DATE' | 'MIGRATION_REQUIRED' | 'MIGRATION_BLOCKED'
-    currentTemplateVersionId: string | null
-    currentTemplateVersionLabel: string | null
-    targetTemplateVersionId: string | null
-    targetTemplateVersionLabel: string | null
-}
+/** Re-exported from @universo/types for backward compatibility */
+export type { MetahubMigrationStatusResponse as MetahubMigrationsStatusResponse } from '@universo/types'
 
 export interface ApplyMetahubMigrationsResponse {
     status: 'dry_run' | 'applied'

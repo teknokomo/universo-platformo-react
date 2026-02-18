@@ -14,9 +14,15 @@ vi.mock('../pages/ApplicationActions', () => ({ default: () => null }))
 vi.mock('../pages/ApplicationMemberActions', () => ({ default: () => null }))
 vi.mock('../pages/ConnectorList', () => ({ default: () => null }))
 vi.mock('../pages/ConnectorActions', () => ({ default: () => null }))
+vi.mock('../pages/ApplicationMigrations', () => ({ default: () => null }))
+vi.mock('../pages/ApplicationRuntime', () => ({ default: () => null }))
+vi.mock('../pages/UnderDevelopmentPage', () => ({ default: () => null }))
 
 // Avoid pulling in @universo/template-mui (and its side-effect registrations) through ResourceGuard.
 vi.mock('../components/ApplicationGuard', () => ({ ApplicationGuard: () => null }))
+vi.mock('../components/ApplicationAdminGuard', () => ({ ApplicationAdminGuard: () => null }))
+vi.mock('../components/ConnectorDeleteDialog', () => ({ ConnectorDeleteDialog: () => null }))
+vi.mock('../components/ApplicationMigrationGuard', () => ({ default: () => null }))
 
 // Index has a required side-effect import of "./i18n". Mock it here so this test doesn't
 // have to load the entire i18n registry + JSON resource graph just to assert exports.

@@ -164,14 +164,18 @@
             "pending": "Syncing...",
             "synced": "Synced",
             "outdated": "Outdated",
-            "error": "Error"
+            "error": "Error",
+            "updateAvailable": "Update Available",
+            "maintenance": "Maintenance"
         },
         "statusDescription": {
             "draft": "Schema not yet created",
             "pending": "Synchronization in progress",
             "synced": "Schema matches current configuration",
             "outdated": "Schema has pending changes",
-            "error": "Last sync failed"
+            "error": "Last sync failed",
+            "updateAvailable": "A recommended update is available",
+            "maintenance": "Application is in maintenance mode"
         },
         "sync": {
             "button": "Sync Schema",
@@ -408,5 +412,50 @@
         "checkConnection": "Please check your network connection and try again",
         "pleaseTryLater": "Please try again later",
         "saveFailed": "Failed to save"
+    },
+    "migrationGuard": {
+        "checking": "Checking application update status...",
+        "statusError": "Failed to load update status",
+        "retry": "Retry",
+        "title": "Update required",
+        "descriptionMandatory": "This application requires a mandatory update before it can be used. Please synchronize the schema in the control panel.",
+        "descriptionRecommended": "A recommended update is available for this application. You can continue using it, but synchronization is advised.",
+        "openSync": "Open synchronization",
+        "continueTo": "Continue anyway",
+        "blockersTitle": "Blocking conditions detected",
+        "severity": {
+            "mandatory": "Mandatory",
+            "recommended": "Recommended",
+            "optional": "Optional"
+        },
+        "blockers": {
+            "seed.current_unavailable": "Current template seed is unavailable. Cleanup cannot be analyzed safely.",
+            "seed.target_unavailable": "Target template seed is unavailable. Cleanup cannot be analyzed safely.",
+            "entity.audit_provenance": "Entity \"{{entityKey}}\" has been modified by a user and cannot be cleaned up automatically.",
+            "entity.attribute_extra": "Attribute \"{{attribute}}\" of entity \"{{entityKey}}\" was added outside the template seed.",
+            "entity.attribute_audit": "Attribute \"{{attribute}}\" of entity \"{{entityKey}}\" has been modified by a user.",
+            "entity.element_mismatch": "Element at position {{sortOrder}} of entity \"{{entityKey}}\" does not match the template seed.",
+            "entity.element_audit": "Element at position {{sortOrder}} of entity \"{{entityKey}}\" has been modified by a user.",
+            "setting.audit_provenance": "Setting \"{{settingKey}}\" has been modified by a user and cannot be cleaned up.",
+            "setting.value_mismatch": "Setting \"{{settingKey}}\" has a value that differs from the template seed baseline.",
+            "widget.audit_provenance": "Widget \"{{widgetKey}}\" at {{zone}}:{{sortOrder}} has been modified by a user.",
+            "structure.missing_definitions": "Missing structure definitions for version transition {{from}} → {{to}}.",
+            "structure.destructive_change": "Destructive structure change: {{description}}",
+            "template.structure_incompatible": "Template requires structure version {{required}}, but target is {{target}}.",
+            "template.seed_dry_run_failed": "Template seed dry-run failed: {{error}}",
+            "template.cleanup_dry_run": "Cleanup mode \"dry_run\" cannot apply destructive changes. Use \"confirm\" mode."
+        }
+    },
+    "underDevelopment": {
+        "title": "Section under development",
+        "description": "This section is not available yet. We are working on it and it will be ready soon.",
+        "backToApp": "Back to application",
+        "backToList": "Back to applications"
+    },
+    "maintenance": {
+        "title": "Maintenance in progress",
+        "description": "The application is currently being updated. Please try again in a few minutes.",
+        "backToApp": "Back to application",
+        "backToList": "Back to applications"
     }
 }

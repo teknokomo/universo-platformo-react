@@ -561,11 +561,11 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_layouts created`)
         }
 
-        const hasLayoutZoneWidgets = await knex.schema.withSchema(schemaName).hasTable('_app_layout_zone_widgets')
-        console.log(`[SchemaGenerator] _app_layout_zone_widgets exists: ${hasLayoutZoneWidgets}`)
-        if (!hasLayoutZoneWidgets) {
-            console.log(`[SchemaGenerator] Creating _app_layout_zone_widgets...`)
-            await knex.schema.withSchema(schemaName).createTable('_app_layout_zone_widgets', (table) => {
+        const hasWidgets = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
+        console.log(`[SchemaGenerator] _app_widgets exists: ${hasWidgets}`)
+        if (!hasWidgets) {
+            console.log(`[SchemaGenerator] Creating _app_widgets...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_widgets', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
                 table.uuid('layout_id').notNullable().references('id').inTable(`${schemaName}._app_layouts`).onDelete('CASCADE')
                 table.string('zone', 20).notNullable()
@@ -600,10 +600,10 @@ export class SchemaGenerator {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
                 table.uuid('_app_deleted_by').nullable()
 
-                table.index(['layout_id'], 'idx_app_layout_zone_widgets_layout_id')
-                table.index(['layout_id', 'zone', 'sort_order'], 'idx_app_layout_zone_widgets_layout_zone_sort')
+                table.index(['layout_id'], 'idx_app_widgets_layout_id')
+                table.index(['layout_id', 'zone', 'sort_order'], 'idx_app_widgets_layout_zone_sort')
             })
-            console.log(`[SchemaGenerator] _app_layout_zone_widgets created`)
+            console.log(`[SchemaGenerator] _app_widgets created`)
         }
 
         if (!hasSettings) {

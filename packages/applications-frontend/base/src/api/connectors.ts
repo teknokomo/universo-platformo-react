@@ -1,5 +1,6 @@
 import apiClient from './apiClient'
 import { Connector, ConnectorLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
+import type { ApplicationMigrationStatusResponse } from '@universo/types'
 
 /**
  * List connectors for a specific application
@@ -174,6 +175,14 @@ export const getApplicationDiff = async (applicationId: string): Promise<SchemaD
  */
 export const syncApplication = async (applicationId: string, confirmDestructive = false): Promise<SchemaSyncResponse> => {
     const response = await apiClient.post<SchemaSyncResponse>(`/application/${applicationId}/sync`, { confirmDestructive })
+    return response.data
+}
+
+/**
+ * Get migration status for an application (used by ApplicationMigrationGuard)
+ */
+export const getApplicationMigrationStatus = async (applicationId: string): Promise<ApplicationMigrationStatusResponse> => {
+    const response = await apiClient.get<ApplicationMigrationStatusResponse>(`/application/${applicationId}/migrations/status`)
     return response.data
 }
 

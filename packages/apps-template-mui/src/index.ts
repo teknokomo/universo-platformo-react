@@ -41,6 +41,9 @@ export type { UseCrudDashboardOptions, CrudDashboardState } from './hooks/useCru
 export { toGridColumns, toFieldConfigs } from './utils/columns'
 export type { ToGridColumnsOptions } from './utils/columns'
 
+// Components
+export { default as LanguageSwitcher } from './components/LanguageSwitcher'
+
 // Utils
 export { getDataGridLocaleText } from './utils/getDataGridLocale'
 
