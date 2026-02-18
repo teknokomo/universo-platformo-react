@@ -33,10 +33,10 @@ Backend service for managing metahubs, hubs, catalogs, attributes, elements, mem
 - **DDL Generator** — `SystemTableDDLGenerator` converts declarative definitions into Knex DDL (idempotent, skips existing tables)
 
 ### Migration Engine
-- **Diff Engine** — `calculateSystemTableDiff()` compares two structure versions and emits additive/destructive change lists
-- **Safe Migrations** — `SystemTableMigrator` applies only additive changes (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK); destructive changes are logged but not applied
-- **Migration History** — `_mhb_migrations` table records every applied migration with version, name, and metadata
-- **Advisory Locks** — Concurrent migration protection via PostgreSQL advisory locks
+
+Safe, additive-only migration system with advisory locks and full history tracking.
+
+> **Full documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ### Template System
 - **Built-in Templates** — Pre-defined templates seeded at application startup (e.g., `basic` dashboard)
@@ -54,11 +54,8 @@ Backend service for managing metahubs, hubs, catalogs, attributes, elements, mem
 - Optimistic locking with `_upl_version` counter for concurrent edit detection
 
 ### Structured Blockers & Migration Guard
-- **StructuredBlocker type** — `{ code, params, message }` for i18n-ready migration blocker display
-- **11 blocker sites** in `TemplateSeedCleanupService` converted from plain strings to structured objects
-- **5 blocker sites** in `metahubMigrationsRoutes` for schema-level migration checks
-- **Migration status endpoint** — `GET /metahub/:id/migrations/status` returns `{ migrationRequired, structureUpgradeRequired, templateUpgradeRequired, blockers: StructuredBlocker[] }`
-- **Migration apply endpoint** — `POST /metahub/:id/migrations/apply` with `{ cleanupMode: 'keep' }` body
+
+i18n-ready structured blockers and migration guard endpoints. See [MIGRATIONS.md](MIGRATIONS.md) for details.
 
 ### ColumnsContainer Seed Config
 - **Default layout seed** in `layoutDefaults.ts` includes `columnsContainer` widget in center zone
@@ -155,107 +152,11 @@ export const builtinTemplates: MetahubTemplateManifest[] = [
 
 3. The template will be auto-seeded on next application startup.
 
-### Adding a New Structure Version (V3)
+### Adding a New Structure Version / Updating Existing Metahubs
 
-To add new system tables or columns to existing tables:
+Step-by-step guides for adding new structure versions and how existing metahubs are auto-migrated (DDL changes, template updates, TypeORM entities).
 
-1. Define new/modified `SystemTableDef` objects in `systemTableDefinitions.ts`:
-
-```typescript
-const mhbAuditLog: SystemTableDef = {
-  name: '_mhb_audit_log',
-  description: 'Audit log for metahub operations',
-  columns: [
-    { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
-    { name: 'action', type: 'string', length: 50, nullable: false },
-    { name: 'payload', type: 'jsonb', nullable: false, defaultTo: '{}' }
-  ]
-}
-```
-
-2. Create a new version set:
-
-```typescript
-export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V2, mhbAuditLog]
-```
-
-3. Register in the version map:
-
-```typescript
-export const SYSTEM_TABLE_VERSIONS = new Map([
-  [1, SYSTEM_TABLES_V1],
-  [2, SYSTEM_TABLES_V2],
-  [3, SYSTEM_TABLES_V3]  // ← add here
-])
-```
-
-4. Bump `CURRENT_STRUCTURE_VERSION` in `structureVersions.ts`:
-
-```typescript
-export const CURRENT_STRUCTURE_VERSION = 3
-```
-
-5. Existing schemas auto-migrate on next `ensureSchema()` call. The diff engine compares V2 → V3 and applies only additive changes.
-
-### Updating Existing Metahubs When New Entities Appear
-
-When new functionality is added (new system tables, new seed data), previously created metahubs are updated **automatically** through two independent mechanisms:
-
-#### Scenario 1: New System Tables or Columns (DDL Changes)
-
-**Trigger**: `CURRENT_STRUCTURE_VERSION` is bumped (e.g., 2 → 3).
-
-**How it works**: When any API call accesses a metahub, `MetahubSchemaService.ensureSchema()` is invoked. It reads the branch's `structureVersion` and compares it against `CURRENT_STRUCTURE_VERSION`. If the branch is behind, the auto-migration pipeline runs:
-
-```
-ensureSchema() detects: branch.structureVersion (2) < CURRENT (3)
-  → SystemTableMigrator.migrate(2, 3)
-      → calculateSystemTableDiff(V2_tables, V3_tables)
-      → Apply only ADDITIVE changes (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK)
-      → Record migration in _mhb_migrations table
-  → branch.structureVersion = 3 (saved to DB)
-```
-
-**Safety guarantees**:
-- Only additive changes are auto-applied; destructive changes (DROP TABLE/COLUMN) are logged but NEVER applied
-- PostgreSQL advisory locks prevent concurrent migrations on the same schema
-- Each migration is recorded in the `_mhb_migrations` table with full metadata
-- Migrations run within a transaction — partial failures are rolled back
-
-#### Scenario 2: New Seed Data (Template Updates)
-
-**Trigger**: Template manifest version is bumped (e.g., `basic` template 1.1.0 → 1.2.0).
-
-**How it works**: At application startup, `TemplateSeeder.seed()` detects the hash change and upserts the new template version. On the next `ensureSchema()` call for each metahub, the seed migration runs:
-
-```
-ensureSchema() detects: seed needs migration
-  → TemplateSeedMigrator.migrateSeed(newSeed)
-      → migrateLayouts()        — add new layouts by template_key (skip existing)
-      → migrateZoneWidgets()    — add new widgets to new layouts
-      → migrateSettings()       — add new settings by key (skip existing)
-      → migrateEntities()       — add new catalogs/attributes by codename+kind (skip existing)
-      → migrateElements()       — add new elements if catalog has fewer than expected
-```
-
-**Safety guarantees**:
-- Existing user data is NEVER overwritten — only new items are inserted
-- Lookup is by business key (codename, template_key, setting key) to avoid duplicates
-- Default layout flag (`is_default`) is preserved — user's layout choice is not overridden
-
-#### Scenario 3: New TypeORM Entities (Static Schema Changes)
-
-**Trigger**: New entity class added (e.g., a new junction table in `database/entities/`).
-
-**How it works**: This is handled by standard TypeORM migrations in `database/migrations/postgres/`. These run at application startup via the Flowise migration runner, affecting the shared `public` schema — not the per-branch isolated schemas.
-
-#### Summary: Migration Timing
-
-| Change Type | When Applied | Mechanism | Affects |
-|-------------|-------------|-----------|---------|
-| New system tables/columns | On next API access per branch | `SystemTableMigrator` + advisory lock | Per-branch schema (`mhb_*`) |
-| New seed data | On next API access per branch | `TemplateSeedMigrator` | Per-branch schema (`mhb_*`) |
-| New TypeORM entities | At application startup | TypeORM migration runner | Shared `public` schema |
+> **Full documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ## Architecture
 
@@ -507,20 +408,7 @@ GET    /metahub/:metahubId/migrations/status                              # Chec
 POST   /metahub/:metahubId/migrations/apply                               # Apply pending migrations (body: { cleanupMode: 'keep' })
 ```
 
-Response format for `GET /migrations/status`:
-```json
-{
-  "migrationRequired": true,
-  "structureUpgradeRequired": false,
-  "templateUpgradeRequired": true,
-  "blockers": [
-    {
-      "code": "entityCountMismatch",
-      "params": { "expected": 5, "actual": 3 },
-      "message": "Expected 5 entities but found 3"
-    }
-  ]
-}
+> **Response format and details**: [MIGRATIONS.md](MIGRATIONS.md)
 ```
 
 ### Templates Endpoints
@@ -601,15 +489,7 @@ See [Architecture → System Tables](#system-tables-per-branch-schema) for the f
 
 ### Migrations & Entity Registration
 
-Metahubs entities and migrations are registered in the Flowise core backend:
-
-```typescript
-// flowise-core-backend/base/src/database/entities/index.ts
-import { metahubsEntities } from '@universo/metahubs-backend'
-
-// flowise-core-backend/base/src/database/migrations/postgres/index.ts
-import { metahubsMigrations } from '@universo/metahubs-backend'
-```
+Metahubs entities and migrations are registered in the Flowise core backend. See [MIGRATIONS.md](MIGRATIONS.md) for details.
 
 ## File Structure
 

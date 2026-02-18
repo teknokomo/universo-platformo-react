@@ -261,46 +261,10 @@ import { ColumnsContainerEditorDialog } from '@universo/metahubs-frontend'
 ```
 
 ### MetahubMigrationGuard
-Компонент-гард маршрутов, блокирующий навигацию при наличии незавершённых миграций:
 
-```tsx
-import { MetahubMigrationGuard } from '@universo/metahubs-frontend'
+Компонент-гард маршрутов, блокирующий навигацию при наличии незавершённых миграций. Использует `MigrationGuardShell` из `@universo/migration-guard-shared` для общей логики гарда.
 
-// Использование: оберните маршруты метахаба для гарантии миграций перед доступом
-<MetahubMigrationGuard>
-  <MetahubBoard />
-</MetahubMigrationGuard>
-
-// Функции:
-// - Вызывает GET /metahub/:id/migrations/status при монтировании для проверки статуса
-// - Блокирует доступ при migrationRequired=true (обновление структуры или шаблона)
-// - Показывает модальный диалог с чипами статуса (обновление структуры/шаблона)
-// - Кнопка «Применить (сохранить данные)» — вызывает POST /metahub/:id/migrations/apply
-// - Кнопка «Открыть миграции» — переход к /metahub/:id/migrations
-// - Пропускает маршрут /migrations без блокировки
-// - Отображает структурированные блокировки с i18n: t('migrations.blockers.${code}', params)
-// - Отключает «Применить» при наличии блокировок (проверка hasBlockers)
-```
-
-### Структурированные блокировки (i18n)
-Блокировки миграций используют структурированные объекты для интернационализированного отображения:
-
-```typescript
-// Тип StructuredBlocker (из @universo/types):
-interface StructuredBlocker {
-  code: string        // суффикс ключа i18n (напр., 'entityCountMismatch')
-  params: Record<string, unknown>  // параметры интерполяции (напр., { expected: 5, actual: 3 })
-  message: string     // резервное сообщение на английском
-}
-
-// Паттерн рендеринга во фронтенде (MetahubMigrationGuard.tsx):
-t(`migrations.blockers.${blocker.code}`, {
-  defaultValue: blocker.message,
-  ...blocker.params
-})
-
-// 15 ключей i18n для блокировок определены в EN/RU локалях
-```
+> **Полная документация**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
 ## Интеграция API
 

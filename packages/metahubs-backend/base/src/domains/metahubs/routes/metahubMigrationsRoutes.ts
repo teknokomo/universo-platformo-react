@@ -8,7 +8,8 @@ import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
 import { Template } from '../../../database/entities/Template'
 import { TemplateVersion } from '../../../database/entities/TemplateVersion'
-import type { MetahubTemplateManifest, StructuredBlocker } from '@universo/types'
+import { type MetahubMigrationStatusResponse, type MetahubTemplateManifest, type StructuredBlocker } from '@universo/types'
+import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import { CURRENT_STRUCTURE_VERSION } from '../services/structureVersions'
 import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
@@ -129,22 +130,7 @@ interface BuildMigrationPlanOptions {
     includeTemplateSeedDryRun?: boolean
 }
 
-interface MetahubMigrationStatusResponse {
-    branchId: string
-    schemaName: string
-    currentStructureVersion: number
-    targetStructureVersion: number
-    structureUpgradeRequired: boolean
-    templateUpgradeRequired: boolean
-    migrationRequired: boolean
-    blockers: StructuredBlocker[]
-    status: 'up_to_date' | 'requires_migration' | 'blocked'
-    code: 'UP_TO_DATE' | 'MIGRATION_REQUIRED' | 'MIGRATION_BLOCKED'
-    currentTemplateVersionId: string | null
-    currentTemplateVersionLabel: string | null
-    targetTemplateVersionId: string | null
-    targetTemplateVersionLabel: string | null
-}
+// MetahubMigrationStatusResponse imported from @universo/types
 
 const normalizeStructureVersion = (value: number | null | undefined): number => {
     if (!Number.isFinite(value) || !Number.isInteger(value) || (value ?? 0) <= 0) {
@@ -214,6 +200,12 @@ const toMigrationStatus = (plan: MetahubMigrationPlanResponse): MetahubMigration
     const code: MetahubMigrationStatusResponse['code'] =
         status === 'blocked' ? 'MIGRATION_BLOCKED' : status === 'requires_migration' ? 'MIGRATION_REQUIRED' : 'UP_TO_DATE'
 
+    // Severity: structure upgrade or blockers → MANDATORY, template-only → RECOMMENDED
+    const severity = determineSeverity({
+        migrationRequired,
+        isMandatory: plan.structureUpgradeRequired || blockers.length > 0
+    })
+
     return {
         branchId: plan.branchId,
         schemaName: plan.schemaName,
@@ -222,6 +214,7 @@ const toMigrationStatus = (plan: MetahubMigrationPlanResponse): MetahubMigration
         structureUpgradeRequired: plan.structureUpgradeRequired,
         templateUpgradeRequired: plan.templateUpgradeRequired,
         migrationRequired,
+        severity,
         blockers,
         status,
         code,

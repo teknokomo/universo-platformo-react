@@ -44,6 +44,9 @@ export interface ApplicationMembersResponse {
     permissions: ApplicationPermissions
 }
 
+/** Schema lifecycle states matching backend ApplicationSchemaStatus enum */
+export type SchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error' | 'update_available' | 'maintenance'
+
 export interface Application {
     id: string
     name: VersatileLocalizedContent
@@ -53,9 +56,11 @@ export interface Application {
     createdAt: string
     updatedAt: string
     schemaName?: string | null
-    schemaStatus?: 'draft' | 'pending' | 'synced' | 'outdated' | 'error' | null
+    schemaStatus?: SchemaStatus | null
     schemaSyncedAt?: string | null
     schemaError?: string | null
+    appStructureVersion?: number | null
+    lastSyncedPublicationVersionId?: string | null
     connectorsCount?: number
     membersCount?: number
     role?: ApplicationRole

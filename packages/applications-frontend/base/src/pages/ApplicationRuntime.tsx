@@ -8,7 +8,6 @@ import AddIcon from '@mui/icons-material/Add'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-    AppMainLayout,
     AppsDashboard,
     useCrudDashboard,
     CrudDialogs,
@@ -116,7 +115,7 @@ const ApplicationRuntime = () => {
     }
 
     return (
-        <AppMainLayout>
+        <>
             <AppsDashboard
                 layoutConfig={state.layoutConfig}
                 zoneWidgets={state.appData.zoneWidgets}
@@ -151,7 +150,7 @@ const ApplicationRuntime = () => {
                     deleteText: t('app.delete', 'Delete')
                 }}
             />
-        </AppMainLayout>
+        </>
     )
 }
 

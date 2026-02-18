@@ -80,6 +80,9 @@ export const applicationsQueryKeys = {
     migrationAnalysis: (applicationId: string, migrationId: string) =>
         [...applicationsQueryKeys.migrations(applicationId), 'analysis', migrationId] as const,
 
+    migrationStatus: (applicationId: string) =>
+        [...applicationsQueryKeys.migrations(applicationId), 'status'] as const,
+
     runtimeTable: (applicationId: string, params?: { limit?: number; offset?: number; locale?: string; catalogId?: string }) => {
         const normalized = {
             limit: params?.limit ?? 50,

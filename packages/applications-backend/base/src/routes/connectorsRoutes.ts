@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { Connector } from '../database/entities/Connector'
 import { ConnectorPublication } from '../database/entities/ConnectorPublication'
-import { Application } from '../database/entities/Application'
+import { Application, ApplicationSchemaStatus } from '../database/entities/Application'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
@@ -412,6 +412,15 @@ export function createConnectorsRoutes(
             }
 
             await connectorRepo.remove(connector)
+
+            // Reset UPDATE_AVAILABLE status — the data source link is gone
+            const { applicationRepo } = repos(req)
+            const app = await applicationRepo.findOneBy({ id: applicationId })
+            if (app && app.schemaStatus === ApplicationSchemaStatus.UPDATE_AVAILABLE) {
+                app.schemaStatus = ApplicationSchemaStatus.SYNCED
+                await applicationRepo.save(app)
+            }
+
             res.status(204).send()
         })
     )
@@ -602,6 +611,15 @@ export function createConnectorsRoutes(
             }
 
             await connectorPublicationRepo.remove(link)
+
+            // Reset UPDATE_AVAILABLE status — the publication link is gone
+            const { applicationRepo } = repos(req)
+            const app = await applicationRepo.findOneBy({ id: applicationId })
+            if (app && app.schemaStatus === ApplicationSchemaStatus.UPDATE_AVAILABLE) {
+                app.schemaStatus = ApplicationSchemaStatus.SYNCED
+                await applicationRepo.save(app)
+            }
+
             return res.status(204).send()
         })
     )

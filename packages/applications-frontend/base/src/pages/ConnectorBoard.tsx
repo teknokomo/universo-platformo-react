@@ -37,12 +37,7 @@ import { useSyncConnector } from '../hooks/mutations'
 import { ConnectorDiffDialog } from '../components'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { getVLCString } from '../types'
-
-// ============================================================================
-// Types
-// ============================================================================
-
-type SchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
+import type { SchemaStatus } from '../types'
 
 // ============================================================================
 // Status Chip Component
@@ -54,12 +49,14 @@ interface StatusChipProps {
 
 const StatusChip = ({ status }: StatusChipProps) => {
     const { t } = useTranslation('applications')
-    const statusConfig: Record<SchemaStatus, { color: 'default' | 'primary' | 'success' | 'warning' | 'error'; label: string }> = {
+    const statusConfig: Record<SchemaStatus, { color: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info'; label: string }> = {
         draft: { color: 'default', label: t('connectors.status.draft', 'Draft') },
         pending: { color: 'primary', label: t('connectors.status.pending', 'Syncing...') },
         synced: { color: 'success', label: t('connectors.status.synced', 'Synced') },
         outdated: { color: 'warning', label: t('connectors.status.outdated', 'Outdated') },
-        error: { color: 'error', label: t('connectors.status.error', 'Error') }
+        error: { color: 'error', label: t('connectors.status.error', 'Error') },
+        update_available: { color: 'info', label: t('connectors.status.updateAvailable', 'Update Available') },
+        maintenance: { color: 'warning', label: t('connectors.status.maintenance', 'Maintenance') }
     }
     const config = statusConfig[status] ?? statusConfig.draft
     return <Chip size="medium" color={config.color} label={config.label} />
@@ -300,7 +297,7 @@ const ConnectorBoard = () => {
                                 />
 
                                 {/* Status Description */}
-                                <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                                     <Typography variant="body2" color="text.secondary">
                                         {schemaStatus === 'synced'
                                             ? t('connectors.statusDescription.synced', 'Schema matches current configuration')
@@ -308,6 +305,12 @@ const ConnectorBoard = () => {
                                             ? t('connectors.statusDescription.outdated', 'Schema has pending changes')
                                             : schemaStatus === 'error'
                                             ? t('connectors.statusDescription.error', 'Last sync failed')
+                                            : schemaStatus === 'update_available'
+                                            ? t('connectors.statusDescription.updateAvailable', 'A recommended update is available')
+                                            : schemaStatus === 'maintenance'
+                                            ? t('connectors.statusDescription.maintenance', 'Application is in maintenance mode')
+                                            : schemaStatus === 'pending'
+                                            ? t('connectors.statusDescription.pending', 'Synchronization in progress')
                                             : t('connectors.statusDescription.draft', 'Schema not yet created')}
                                     </Typography>
                                 </Box>

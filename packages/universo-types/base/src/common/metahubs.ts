@@ -265,6 +265,7 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'search', allowedZones: ['top'] as const, multiInstance: false },
     { key: 'datePicker', allowedZones: ['top'] as const, multiInstance: false },
     { key: 'optionsMenu', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'languageSwitcher', allowedZones: ['top'] as const, multiInstance: false },
     // Center zone widgets
     { key: 'overviewTitle', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'overviewCards', allowedZones: ['center'] as const, multiInstance: false },
@@ -517,4 +518,58 @@ export interface StructuredBlocker {
     params: Record<string, string>
     /** English fallback message. */
     message: string
+}
+
+// ========= Application migration types =========
+
+/**
+ * Severity level for schema updates.
+ * Controls how the UI presents the update notification:
+ * - MANDATORY: Blocking dialog, user must apply before accessing the app
+ * - RECOMMENDED: Dismissible banner, user can postpone
+ * - OPTIONAL: Info badge, user applies manually
+ */
+export enum UpdateSeverity {
+    MANDATORY = 'mandatory',
+    RECOMMENDED = 'recommended',
+    OPTIONAL = 'optional',
+}
+
+/** Response from GET /application/:applicationId/migrations/status */
+export interface ApplicationMigrationStatusResponse {
+    applicationId: string
+    schemaName: string | null
+    schemaExists: boolean
+    currentAppStructureVersion: number
+    targetAppStructureVersion: number
+    structureUpgradeRequired: boolean
+    publicationUpdateAvailable: boolean
+    migrationRequired: boolean
+    severity: UpdateSeverity
+    blockers: StructuredBlocker[]
+    status: 'up_to_date' | 'requires_migration' | 'blocked'
+    code: 'UP_TO_DATE' | 'MIGRATION_REQUIRED' | 'MIGRATION_BLOCKED'
+    /** Role of the requesting user within this application */
+    currentUserRole?: 'owner' | 'admin' | 'editor' | 'member'
+    /** True when the application is actively being synced */
+    isMaintenance?: boolean
+}
+
+/** Response from GET /metahub/:metahubId/migrations/status */
+export interface MetahubMigrationStatusResponse {
+    branchId: string
+    schemaName: string
+    currentStructureVersion: number
+    targetStructureVersion: number
+    structureUpgradeRequired: boolean
+    templateUpgradeRequired: boolean
+    migrationRequired: boolean
+    severity: UpdateSeverity
+    blockers: StructuredBlocker[]
+    status: 'up_to_date' | 'requires_migration' | 'blocked'
+    code: 'UP_TO_DATE' | 'MIGRATION_REQUIRED' | 'MIGRATION_BLOCKED'
+    currentTemplateVersionId: string | null
+    currentTemplateVersionLabel: string | null
+    targetTemplateVersionId: string | null
+    targetTemplateVersionLabel: string | null
 }

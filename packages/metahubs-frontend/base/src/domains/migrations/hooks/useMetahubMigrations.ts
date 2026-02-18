@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { metahubsQueryKeys } from '../../shared'
 import * as migrationsApi from '../api'
 import type { TemplateCleanupMode } from '../api'
+import { MIGRATION_STATUS_QUERY_OPTIONS } from '@universo/migration-guard-shared'
 
 interface UseMetahubMigrationsListOptions {
     enabled?: boolean
@@ -17,10 +18,7 @@ export function useMetahubMigrationsList(metahubId: string, options?: UseMetahub
         queryKey: metahubsQueryKeys.migrationsList(metahubId, { limit, offset, branchId }),
         queryFn: () => migrationsApi.listMetahubMigrations(metahubId, { limit, offset, branchId }),
         enabled: enabled && Boolean(metahubId),
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        retryOnMount: false,
-        retry: false
+        staleTime: 30_000
     })
 }
 
@@ -37,10 +35,7 @@ export function useMetahubMigrationsPlan(metahubId: string, options?: UseMetahub
         queryKey: metahubsQueryKeys.migrationsPlan(metahubId, branchId, cleanupMode),
         queryFn: () => migrationsApi.planMetahubMigrations(metahubId, { branchId, cleanupMode }),
         enabled: enabled && Boolean(metahubId),
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        retryOnMount: false,
-        retry: false
+        staleTime: 30_000
     })
 }
 
@@ -57,9 +52,6 @@ export function useMetahubMigrationsStatus(metahubId: string, options?: UseMetah
         queryKey: metahubsQueryKeys.migrationsStatus(metahubId, branchId, cleanupMode),
         queryFn: () => migrationsApi.getMetahubMigrationsStatus(metahubId, { branchId, cleanupMode }),
         enabled: enabled && Boolean(metahubId),
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        retryOnMount: false,
-        retry: false
+        ...MIGRATION_STATUS_QUERY_OPTIONS
     })
 }

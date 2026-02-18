@@ -43,6 +43,190 @@
 
 ---
 
+## PR #682 Bot Review Fixes (2026-02-18)
+
+Addressed 9 actionable items from Gemini Code Assist and Copilot PR Reviewer comments on PR #682:
+
+1. **staleTime for list/plan hooks**: Added `staleTime: 30_000` to `useMetahubMigrationsList` and `useMetahubMigrationsPlan` — prevents unnecessary refetches on re-focus/navigation (status hook already uses `MIGRATION_STATUS_QUERY_OPTIONS`).
+2. **Unused imports**: Removed `UpdateSeverity` from `metahubMigrationsRoutes.ts` and `applicationMigrationsRoutes.ts` — only `determineSeverity()` is used.
+3. **Type safety**: Added `typeof meta?.templateVersionLabel === 'string'` guard in `MetahubMigrations.tsx` — prevents non-string values from reaching UI.
+4. **determineSeverity JSDoc**: Clarified that OPTIONAL = "no update needed / pass-through", not a user-visible severity. Added rationale for not introducing a NONE enum value.
+5. **AGENTS.md roles**: Fixed `viewer` → `member` to match `ApplicationRole` type.
+6. **AGENTS.md statuses**: Added missing `DRAFT`, `OUTDATED`, `UPDATE_AVAILABLE` to `ApplicationSchemaStatus` list.
+7. **MIGRATIONS.md**: Fixed guard behavior description — `isAdminRoute` skip (not `/migrations`), maintenance condition (isMaintenance && !isPrivileged, not structureUpgradeRequired), button navigates to `/a/:id/admin`.
+8. **memory-bank English-only**: Translated 6 Russian fragments in `progress.md` to English.
+
+**Skipped**: Copilot's suggestion to add `NONE` to `UpdateSeverity` enum — would require changes across 8+ files (types, shared, frontend guards, backend routes) with no behavior change since OPTIONAL already acts as pass-through.
+
+**Build**: 66/66 packages.
+
+---
+
+## QA Fixes + UI Polish Round 6 (2026-02-19)
+
+Seven fixes from QA analysis + user requests:
+
+1. **BUG-1 + WARN-3 — Publication DELETE cascade + N+1**: FK `fk_cp_publication` has ON DELETE CASCADE — `remove()` was deleting `ConnectorPublication` rows before they could be queried for linked app status reset. Fixed: moved status reset query BEFORE `remove()`, replaced N+1 `findOneBy` loop with single bulk UPDATE sub-select (matching `notifyLinkedApplicationsUpdateAvailable()` pattern).
+
+2. **WARN-1 — Prettier fix in ApplicationMigrationGuard.tsx**: `MigrationGuardShell` props re-indented from 12 to 16 spaces (parent `<AppMainLayout>` at 8, child component at 12, props at 16).
+
+3. **WARN-2 — Prettier fix in columns.tsx**: Entire file re-indented from 2-space to project-standard 4-space (89 prettier errors resolved).
+
+4. **Migrations page padding alignment**: Removed extra `px: {xs:1.5, md:2}` from inner Stack — controls now at same horizontal level as ViewHeader, matching MetahubList/PublicationList/BranchList pattern.
+
+5. **Baseline migration template column**: Added `templateVersionLabel` (optional string) to `baselineMetaSchema` Zod discriminated union. Updated `buildBaselineMigrationMeta()` to accept template version. `initSystemTables()` now passes `manifest.version` to baseline record. Frontend shows `"0 → version"` for baseline kind.
+
+6. **Default layout detailsTable widget**: Added standalone `detailsTable` (sortOrder 6, active) to `DEFAULT_DASHBOARD_ZONE_WIDGETS` center zone. `columnsContainer` moved to sortOrder 7 with `isActive: false`. New metahubs will show the table directly instead of inside a multi-column container.
+
+7. **Version reset**: Template version `1.1.0` → `1.0.0` in `basic.template.ts`. Structure version confirmed at 1. `TARGET_APP_STRUCTURE_VERSION` confirmed at 1. Test DB wipe pending.
+
+**Build**: 66/66 packages successful.
+
+---
+
+## UI Polish Round 5 — 5 Fixes (2026-02-19)
+
+Five UI issues fixed after LanguageSwitcher widget integration:
+
+1. **languageSwitcher widget label i18n**: Added `"languageSwitcher"` key to `layouts.widgets` in both EN/RU `metahubs.json`. `LayoutDetails.tsx` line 221 uses `t('layouts.widgets.${item.key}', item.key)` — raw key was showing as fallback.
+2. **Dry run button text simplified**: RU locale `dryRun` shortened (removed "(dry run)" suffix), EN `"Dry run"` → `"Verify"`.
+3. **Actions column in MUI DataGrid v8 column management panel**: `headerName: ''` (empty) caused field name "actions" to show as fallback. Fixed with `type: 'actions' as const` + non-empty `headerName`.
+4. **Table side padding root cause**: `MainLayoutMUI.tsx` `Stack px: {xs:2, md:3}` is layout-level padding (16-24px). Inner `Stack px: 2` + `Box mx: -2` compensating pattern in list pages is by design, not a bug.
+5. **Schema/Template columns split**: Replaced single `fromTo` column with separate `schema` (14%) and `template` (14%) columns. Baseline migrations: schema shows `"0 → N"`. Template seed: template shows `"— → {version}"`.
+
+**Modified files**: 4 across 2 packages. **Build**: 66/66 packages.
+
+---
+
+## i18n Fix + LanguageSwitcher Widget (2026-02-18)
+
+Two issues addressed:
+
+1. **i18n consolidation bug**: `consolidateApplicationsNamespace()` in `applications-frontend/i18n/index.ts` was dropping 3 top-level JSON sections (`migrationGuard`, `underDevelopment`, `maintenance`) during resource bundle consolidation. These keys existed in both EN and RU JSON files but were never passed to `registerNamespace()`. Result: guard dialog always showed English fallback text regardless of `i18nextLng` localStorage value. Fixed by adding all 3 sections to the `ApplicationsBundle` type and function return.
+
+2. **LanguageSwitcher widget**: Copied language switcher from `universo-template-mui` to `apps-template-mui` as a dashboard widget:
+   - Self-contained component using static language labels (no i18n namespace dependency)
+   - Registered in `DASHBOARD_LAYOUT_WIDGETS` (key: `languageSwitcher`, top zone, single instance)
+   - Added to `DEFAULT_DASHBOARD_ZONE_WIDGETS` (sortOrder 7, active by default)
+   - Integrated into Header (desktop) and AppNavbar (mobile) with `showLanguageSwitcher` config flag
+   - Full config pipeline: Zod schema → useCrudDashboard defaults → DashboardLayoutConfig → buildDashboardLayoutConfig
+   - Template version bumped `1.0.0` → `1.1.0` to trigger `update_available` on existing metahubs
+
+**New files**: 1 (`LanguageSwitcher.tsx`). **Modified files**: 10 across 4 packages.
+**Build**: 66/66 packages.
+
+---
+
+## Post-QA Polish Round 3 — 6 Fixes (2026-02-18)
+
+Comprehensive QA analysis found 6 issues (3 bugs + 3 warnings):
+
+1. **BUG-1 (CRITICAL)**: `MainRoutesMUI.tsx` was missing `import '@universo/applications-frontend/i18n'` — all applications `t()` calls returned English fallbacks. Fixed by adding the import.
+2. **BUG-2 (MEDIUM)**: `ConnectorDiffDialog.tsx` had local `SchemaStatus` with 5 values vs 7 in backend. Fixed: exported type from `types.ts`, imported in both components — single source of truth.
+3. **BUG-3 (MINOR)**: `paginationDisplayedRows` in `getDataGridLocale.ts` ignored MUI v8 `estimated` parameter. Fixed with proper handling.
+4. **WARN-1**: Double `AppMainLayout` wrapping (Guard + Runtime). Fixed by removing from `ApplicationRuntime.tsx`.
+5. **WARN-2**: Typo in RU locale key (extra character removed).
+6. **WARN-3**: `bgcolor: 'grey.50'` hardcoded — not dark-theme compatible. Changed to `'action.hover'`.
+
+**Files modified**: 7 files across 3 packages.
+**Build**: 66/66 packages.
+
+---
+
+## Post-QA Polish — 4 Fixes (2026-02-18)
+
+After manual testing revealed 4 remaining issues (QA assessed ~96% spec coverage):
+
+1. **WARN-1 — MIGRATIONS.md links**: Added `> **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)` to 4 README files in `applications-backend` and `applications-frontend` (EN + RU).
+2. **Guard dialog theme**: `MinimalLayout` has no ThemeProvider → guard Dialog rendered with default MUI blue buttons. Fixed by wrapping `ApplicationMigrationGuard` with `<AppMainLayout>` from `@universo/apps-template-mui`.
+3. **Table i18n**: (a) Actions column showed "actions" in column toggle panel — fixed with `hideable: false`. (b) Pagination showed "1-1 of 1" — MUI X DataGrid v8 ruRU locale lacks `paginationDisplayedRows` — added custom override in `getDataGridLocale.ts`.
+4. **SchemaStatus display**: `ConnectorBoard.tsx` had incomplete `SchemaStatus` type (5 values vs 7 in backend). When backend returned `update_available`, UI fell back to default status label. Added `update_available` and `maintenance` to type, `statusConfig`, descriptions, and EN/RU i18n.
+
+**Files modified**: 10 files across 3 packages (`applications-frontend`, `applications-backend`, `apps-template-mui`).
+**Build**: 66/66 packages.
+
+---
+
+## Runtime Fix — React is not defined (2026-02-18)
+
+- **Context**: Metahub page (`/metahub/:id`) crashed with `ReferenceError: React is not defined` at `index.mjs:33` in `@universo/migration-guard-shared` ESM bundle.
+- **Root cause**: `tsconfig.json` had `"jsx": "react"` (classic transform) which compiles TSX to `React.createElement(...)`, but the source file only imports `{ useState }` from React — no default `import React` exists. The ESM bundle therefore contained `React.createElement` calls with no `React` variable in scope.
+- **Fix**: Changed `"jsx": "react"` to `"jsx": "react-jsx"` in `packages/migration-guard-shared/base/tsconfig.json`. The automatic JSX runtime (React 17+) compiles TSX to `_jsx()` / `_jsxs()` calls and auto-imports `react/jsx-runtime`.
+- **Verification**: `dist/index.mjs` now contains `import { Fragment, jsx, jsxs } from "react/jsx-runtime"` — zero `React.createElement` references in both ESM and CJS bundles.
+- **Build**: 66/66 packages.
+
+---
+
+## QA Fixes Round 2 — WARN-1/2/3 (2026-02-18)
+
+- **Context**: Second QA pass found 3 remaining WARNs after BUG-1 + WARN-3/4/5 fixes.
+- **WARN-1**: `MIGRATION_STATUS_QUERY_OPTIONS` (retry: false, refetchOnWindowFocus: false, staleTime: 30_000) was spread into data-listing hooks (`useMetahubMigrationsList`, `useMetahubMigrationsPlan`), suppressing retry and auto-refetch. Removed spread — only `useMetahubMigrationsStatus` retains it.
+- **WARN-2**: `utils.ts` (backend-safe entry) re-exported `MIGRATION_STATUS_QUERY_OPTIONS` — a TanStack Query config useless on backend. Removed export; `utils.ts` now exports only `determineSeverity` + `DetermineSeverityOptions`.
+- **WARN-3**: `package.json` missing `peerDependenciesMeta` with `optional: true` for React-related peer deps. Added `peerDependenciesMeta` for `react`, `react-dom`, `@mui/material`, `@tanstack/react-query` — prevents peer dep warnings when backend consumes `./utils` only.
+- **Files modified**: 3 (`utils.ts`, `package.json`, `useMetahubMigrations.ts`)
+- **Build**: 66/66 packages, 0 lint errors. Verified `dist/utils.js` contains only `determineSeverity` chunk.
+
+---
+
+## QA Fixes — BUG-1 + WARN-3/4/5 (2026-02-18)
+
+- **Context**: Fixes for critical and warning issues from comprehensive QA analysis of Migration Guard implementation.
+- **BUG-1 (Critical)**: `migration-guard-shared` CJS bundle required `react` and `@mui/material` at top level — backend import of `determineSeverity` loaded React as side effect. Fixed by splitting into two entry points: `./utils` (pure JS, no React/MUI) and `.` (full, React-dependent). Backend imports now use `@universo/migration-guard-shared/utils`. `tsdown.config.ts` produces `index.js/mjs` + `utils.js/mjs`, `package.json` exports both subpaths.
+- **WARN-3**: `useMetahubMigrationsList` and `useMetahubMigrationsPlan` duplicated 4/5 query options inline (missing `staleTime: 30_000`). Replaced with `...MIGRATION_STATUS_QUERY_OPTIONS` spread.
+- **WARN-4**: `handleApplyKeep` had single try-catch for both `applyMetahubMigrations()` and `statusQuery.refetch()`. If refetch failed after successful migration, user saw "Failed to apply migrations". Separated into two try-catch blocks.
+- **WARN-5**: `useCallback` deps included `statusQuery` (unstable object). Extracted `refetchStatus = statusQuery.refetch` (stable ref from TanStack Query) and used in deps.
+- **Files modified**: 5 (`utils.ts` new, `tsdown.config.ts`, `package.json`, `applicationMigrationsRoutes.ts`, `metahubMigrationsRoutes.ts`, `MetahubMigrationGuard.tsx`, `useMetahubMigrations.ts`)
+- **Build**: 66/66 packages, 0 lint errors.
+
+---
+
+## Migration Guard — Full Spec Coverage (6-Phase Plan) (2026-02-18)
+
+- **Context**: 6-phase plan to achieve 100% spec coverage for the Unified Application Migration Guard. Prior assessment: ~71% coverage.
+- **Phase 1 — Table rename**: `_app_layout_zone_widgets` → `_app_widgets` across 3 files (~20 string replacements). Template version `1.2.0` → `1.0.0`. CURRENT_STRUCTURE_VERSION already at 1.
+- **Phase 2 — Shared package**: Created `@universo/migration-guard-shared` with `determineSeverity()`, `MIGRATION_STATUS_QUERY_OPTIONS`, and `MigrationGuardShell<TStatus>` (render-props pattern). Dual-format build (ESM+CJS) via tsdown. Peer deps: React ≥18, MUI ≥5, TanStack Query ≥5.
+- **Phase 3 — AGENTS.md**: Created 3 new files (metahubs-frontend, applications-backend, migration-guard-shared), updated 2 existing (applications-frontend, metahubs-backend).
+- **Phase 4 — MIGRATIONS.md**: Created 8 files (4 packages × EN/RU): metahubs-backend, metahubs-frontend, applications-frontend, applications-backend.
+- **Phase 5 — README updates**: Replaced verbose migration sections in metahubs-backend (4 sections) and metahubs-frontend (2 sections) READMEs with brief summaries + links to new MIGRATIONS.md files. Both EN and RU.
+- **Phase 6 — Code deduplication**: Both Guards rewritten with `MigrationGuardShell` (202→134 / 199→154 lines). Both backend severity endpoints use `determineSeverity()`. Both frontend hooks use `MIGRATION_STATUS_QUERY_OPTIONS`.
+- **New files**: 15 (7 package source + 8 documentation). **Modified files**: 13 code + 4 READMEs.
+- **Build**: 66/66 packages (65 + 1 new `migration-guard-shared`). Lint: clean after auto-fix.
+
+---
+
+## Unified Application Migration Guard — QA Fixes Round 2 (2026-02-18)
+
+- **Context**: Fixes for 5 BUGs + 8 WARNs from second comprehensive QA analysis. Also relocated AGENTS.md files.
+- **BUG-1**: `extractAxiosError()` returns `ApiError` object, not string — appended `.message` in 4 call sites (ApplicationGuard, MetahubGuard×2, mutations.ts).
+- **BUG-2**: `isAdminRoute` used `.includes('/admin')` which matched `/admin-settings` etc. Replaced with regex `/\/admin(\/|$)/`. Same for `isMigrationsRoute`. Removed unused `useMemo` imports.
+- **BUG-3**: Application copy inherited stale `schemaStatus` (MAINTENANCE/ERROR/UPDATE_AVAILABLE). Now resets: SYNCED→SYNCED, else→OUTDATED. Clears `schemaError` and `lastSyncedPublicationVersionId`.
+- **BUG-4**: Publication DELETE didn't cleanup `UPDATE_AVAILABLE` on linked apps. Added within-transaction reset to `SYNCED`.
+- **BUG-5**: Connector/ConnectorPublication DELETE same issue — added `UPDATE_AVAILABLE` → `SYNCED` cleanup.
+- **WARN-4**: `notifyLinkedApplicationsUpdateAvailable()` had N+1 query pattern. Replaced with single TypeORM `UPDATE ... WHERE id IN (sub-select)`.
+- **WARN-5**: Application sync had no concurrency protection. Added PostgreSQL advisory lock (`pg_try_advisory_lock`) via existing `acquireAdvisoryLock` utility. Returns 409 on conflict.
+- **WARN-6**: `useMetahubMigrationsStatus` missing `staleTime` — added `staleTime: 30_000` for consistency with `useApplicationMigrationStatus`.
+- **WARN-7**: MetahubGuard severity fallback was inverted (`!status?.severity` showed mandatory). Changed to explicit `status?.severity === MANDATORY` check.
+- **WARN-8/11**: MetahubGuard `key={idx}` → `key={blocker.code}`. ApplicationGuard blockers now use i18n with `t('migrationGuard.blockers.${blocker.code}')` — 15 keys added to EN + RU.
+- **WARN-9/10/12**: ARIA improvements — Dialog `aria-describedby` + `onClose` for RECOMMENDED. `MaintenancePage`/`UnderDevelopmentPage` — `role='status'` + `aria-live='polite'`.
+- **AGENTS.md**: Moved from package root to `/base` dirs (metahubs-backend, applications-frontend). Updated content with advisory lock + publications info.
+- **Files**: 10 code files + 2 i18n files + 2 AGENTS.md. Build: 65/65, 0 new lint errors.
+
+---
+
+## Unified Application Migration Guard — QA Fixes (2026-02-24)
+
+- **Context**: Fixes for 2 BUGs + 5 WARNs/INFOs from QA analysis of the Application Migration Guard feature.
+- **BUG-1**: "Continue anyway" button in `ApplicationMigrationGuard.tsx` was calling `refetch()` instead of dismissing. Added `useState` dismissed state.
+- **BUG-2**: Application copy (`POST /:applicationId/copy`) was missing `appStructureVersion` and `lastSyncedPublicationVersionId` — copied app showed false-positive MANDATORY dialog.
+- **WARN-1**: Test timeout in `exports.test.ts` (19s > 15s) — added mocks for 6 unmocked exports. Now ~650ms.
+- **WARN-2**: Prettier formatting fixes in guard and hook files.
+- **WARN-3**: Changed `key={idx}` to `key={blocker.code}` for stable React keys.
+- **INFO-2**: Extracted `TARGET_APP_STRUCTURE_VERSION = 1` constant (was hardcoded in 5 places across 2 files).
+- **INFO-5**: Status endpoint now uses `ensureMemberAccess` (any member) instead of `ensureAdminAccess` (admin-only). Prevents 403 for `member` role users entering runtime.
+- **Files**: 6 modified. Build: 65/65 packages, 0 errors.
+
+---
+
 ## Documentation Updates — QA Recommendations (2026-02-22)
 
 - **Context**: README documentation updates recommended during comprehensive QA analysis of columnsContainer + migration guard feature.
@@ -217,7 +401,7 @@
 
 ## UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
 
-- **Menu fix**: Fixed "Макеты" menu position in PRODUCTION config (`menuConfigs.ts` in `universo-template-mui`). Previous fix was in legacy config only. Also synced `metahubDashboard.ts` with missing migrations item.
+- **Menu fix**: Fixed "Layouts" menu position in PRODUCTION config (`menuConfigs.ts` in `universo-template-mui`). Previous fix was in legacy config only. Also synced `metahubDashboard.ts` with missing migrations item.
 - **Create buttons**: Changed `tc('addNew')` → `tc('create')` in primaryAction across 10 list pages (metahubs: 8, applications: 2). Global `addNew` key preserved for Flowise-upstream pages.
 - **Widget toggle**: Replaced MUI `Switch` with text `Button` + icon (`ToggleOn`/`ToggleOff`) in `LayoutDetails.tsx`. Inactive widget label dimmed (opacity 0.45) but action buttons remain full opacity.
 - Key discovery: TWO separate sidebar menu configs exist — `metahubDashboard.ts` (legacy) and `menuConfigs.ts` (production). Both now synchronized.

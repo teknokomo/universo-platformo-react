@@ -19,6 +19,7 @@ export interface DashboardLayoutConfig {
     showSearch?: boolean
     showDatePicker?: boolean
     showOptionsMenu?: boolean
+    showLanguageSwitcher?: boolean
     showOverviewTitle?: boolean
     showOverviewCards?: boolean
     showSessionsChart?: boolean

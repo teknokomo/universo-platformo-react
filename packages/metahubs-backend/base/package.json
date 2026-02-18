@@ -25,6 +25,7 @@
         "@universo/admin-backend": "workspace:*",
         "@universo/applications-backend": "workspace:*",
         "@universo/auth-backend": "workspace:*",
+        "@universo/migration-guard-shared": "workspace:*",
         "@universo/profile-backend": "workspace:*",
         "@universo/schema-ddl": "workspace:*",
         "@universo/types": "workspace:*",

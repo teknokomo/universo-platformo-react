@@ -51,6 +51,7 @@
         "@dnd-kit/sortable": "^8.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@universo/auth-frontend": "workspace:*",
+        "@universo/migration-guard-shared": "workspace:*",
         "@universo/template-mui": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",

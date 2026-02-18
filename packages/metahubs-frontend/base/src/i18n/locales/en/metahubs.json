@@ -230,6 +230,7 @@
       "productTree": "Product tree",
       "usersByCountryChart": "Users by country chart",
       "columnsContainer": "Columns container",
+      "languageSwitcher": "Language switcher",
       "footer": "Footer"
     },
     "columnsEditor": {
@@ -785,7 +786,7 @@
     "branchUnknown": "Unknown branch",
     "branchRequired": "Select a branch to continue",
     "metahubRequired": "Metahub ID is required",
-    "dryRun": "Dry run",
+    "dryRun": "Verify",
     "apply": "Apply migrations",
     "applying": "Applying...",
     "loading": "Loading migration state...",
@@ -800,7 +801,8 @@
     "columns": {
       "appliedAt": "Applied at",
       "name": "Name",
-      "fromTo": "From → To"
+      "schema": "Schema",
+      "template": "Template"
     },
     "baselineLabel": "Baseline",
     "messages": {
@@ -814,9 +816,12 @@
       "retry": "Retry",
       "title": "Migration required",
       "description": "This metahub requires migration before other sections can be used. Open the migrations section and apply updates.",
+      "descriptionMandatory": "This metahub requires a mandatory migration before other sections can be used.",
+      "descriptionRecommended": "A recommended template update is available for this metahub. You can continue using it, but applying the update is advised.",
       "openMigrations": "Open migrations",
-      "applyKeepData": "Apply (keep user data)",
-      "blockersTitle": "Blocking conditions detected"
+      "applyKeepData": "Apply",
+      "blockersTitle": "Blocking conditions detected",
+      "continueTo": "Continue anyway"
     },
     "blockers": {
       "seed.current_unavailable": "Current template seed is unavailable. Cleanup cannot be analyzed safely.",

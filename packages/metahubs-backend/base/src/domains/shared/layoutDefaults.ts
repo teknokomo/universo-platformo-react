@@ -61,16 +61,19 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
     { zone: 'top', widgetKey: 'search', sortOrder: 4, isActive: false },
     { zone: 'top', widgetKey: 'datePicker', sortOrder: 5, isActive: false },
     { zone: 'top', widgetKey: 'optionsMenu', sortOrder: 6, isActive: false },
+    { zone: 'top', widgetKey: 'languageSwitcher', sortOrder: 7, isActive: false },
     // Center zone
     { zone: 'center', widgetKey: 'overviewTitle', sortOrder: 1, isActive: false },
     { zone: 'center', widgetKey: 'overviewCards', sortOrder: 2, isActive: false },
     { zone: 'center', widgetKey: 'sessionsChart', sortOrder: 3, isActive: false },
     { zone: 'center', widgetKey: 'pageViewsChart', sortOrder: 4, isActive: false },
     { zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 },
+    { zone: 'center', widgetKey: 'detailsTable', sortOrder: 6 },
     {
         zone: 'center',
         widgetKey: 'columnsContainer',
-        sortOrder: 6,
+        sortOrder: 7,
+        isActive: false,
         config: {
             columns: [
                 { id: 'seed-col-details-table', width: 9, widgets: [{ widgetKey: 'detailsTable' }] },
@@ -108,6 +111,7 @@ export const buildDashboardLayoutConfig = (
         showSearch: active.has('search'),
         showDatePicker: active.has('datePicker'),
         showOptionsMenu: active.has('optionsMenu'),
+        showLanguageSwitcher: active.has('languageSwitcher'),
         showOverviewTitle: centerActive.has('overviewTitle'),
         showOverviewCards: centerActive.has('overviewCards'),
         showSessionsChart: centerActive.has('sessionsChart'),

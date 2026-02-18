@@ -37,7 +37,9 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                         'pending',
                         'synced',
                         'outdated',
-                        'error'
+                        'error',
+                        'update_available',
+                        'maintenance'
                     );
                 END IF;
             END $$;
@@ -59,6 +61,8 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 schema_error TEXT,
                 schema_synced_at TIMESTAMPTZ,
                 schema_snapshot JSONB,
+                app_structure_version INTEGER DEFAULT NULL,
+                last_synced_publication_version_id UUID DEFAULT NULL,
 
                 -- Platform-level system fields (_upl_*)
                 _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

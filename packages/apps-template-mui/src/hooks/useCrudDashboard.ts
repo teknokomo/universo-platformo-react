@@ -26,6 +26,7 @@ function withDashboardDefaults(
     showSearch: bool(c.showSearch),
     showDatePicker: bool(c.showDatePicker),
     showOptionsMenu: bool(c.showOptionsMenu),
+    showLanguageSwitcher: bool(c.showLanguageSwitcher),
     showOverviewTitle: bool(c.showOverviewTitle),
     showOverviewCards: bool(c.showOverviewCards),
     showSessionsChart: bool(c.showSessionsChart),

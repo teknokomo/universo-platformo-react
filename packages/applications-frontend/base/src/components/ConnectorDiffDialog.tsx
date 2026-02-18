@@ -36,7 +36,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTranslation } from 'react-i18next'
 import { useApplicationDiff } from '../hooks/useConnectorSync'
-import type { Connector } from '../types'
+import type { Connector, SchemaStatus } from '../types'
 import { getVLCString } from '../types'
 
 // ============================================================================
@@ -53,8 +53,6 @@ export interface ConnectorDiffDialogProps {
     uiLocale: string
     schemaStatus?: SchemaStatus
 }
-
-type SchemaStatus = 'draft' | 'pending' | 'synced' | 'outdated' | 'error'
 
 type StructuredDiffChange = {
     type: string

@@ -58,6 +58,7 @@
         "@tabler/icons-react": "^3.30.0",
         "@universo/apps-template-mui": "workspace:*",
         "@universo/auth-frontend": "workspace:*",
+        "@universo/migration-guard-shared": "workspace:*",
         "@universo/template-mui": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",

@@ -1,20 +1,23 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react'
+/**
+ * Universo Platformo | Metahub Migration Guard
+ *
+ * Checks whether a metahub needs structure or template migration before
+ * allowing the user to enter other sections. Uses MigrationGuardShell from
+ * the shared package for common guard logic.
+ *
+ * Severity levels:
+ * - MANDATORY  → blocks access, structure upgrade or blockers present
+ * - RECOMMENDED → template-only update, can be dismissed
+ * - OPTIONAL   → renders children immediately (no blocking)
+ */
+
+import { type ReactNode, useCallback, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import {
-    Alert,
-    Box,
-    Button,
-    Chip,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Stack,
-    Typography
-} from '@mui/material'
+import { Alert, Button, Chip, DialogTitle, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { extractAxiosError } from '@universo/utils'
+import { MigrationGuardShell, type GuardRenderContext } from '@universo/migration-guard-shared'
+import type { MetahubMigrationStatusResponse } from '@universo/types'
 import { useMetahubMigrationsStatus } from '../hooks'
 import { applyMetahubMigrations } from '../api'
 
@@ -31,15 +34,13 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
     const [applying, setApplying] = useState(false)
     const [applyError, setApplyError] = useState<string | null>(null)
 
-    const isMigrationsRoute = useMemo(() => location.pathname.includes('/migrations'), [location.pathname])
+    const isMigrationsRoute = /\/migrations(\/|$)/.test(location.pathname)
 
     const statusQuery = useMetahubMigrationsStatus(metahubId ?? '', {
         enabled: Boolean(metahubId)
     })
 
-    const status = statusQuery.data
-    const migrationRequired = Boolean(status?.migrationRequired)
-    const hasBlockers = Boolean(status?.blockers?.length)
+    const refetchStatus = statusQuery.refetch
 
     const handleApplyKeep = useCallback(async () => {
         if (!metahubId) return
@@ -47,91 +48,71 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
         setApplyError(null)
         try {
             await applyMetahubMigrations(metahubId, { cleanupMode: 'keep' })
-            await statusQuery.refetch()
         } catch (err) {
-            setApplyError(extractAxiosError(err) || t('migrations.messages.applyError', 'Failed to apply migrations'))
+            setApplyError(extractAxiosError(err).message || t('migrations.messages.applyError', 'Failed to apply migrations'))
+            setApplying(false)
+            return
+        }
+        try {
+            await refetchStatus()
+        } catch {
+            // Migrations applied successfully; refetch failure is non-critical
         } finally {
             setApplying(false)
         }
-    }, [metahubId, statusQuery, t])
-
-    if (!metahubId) {
-        return <>{children}</>
-    }
-
-    if (isMigrationsRoute) {
-        return <>{children}</>
-    }
-
-    if (statusQuery.isLoading) {
-        return (
-            <Stack spacing={1.5} alignItems='center' justifyContent='center' sx={{ minHeight: 260 }}>
-                <CircularProgress size={22} />
-                <Typography variant='body2'>{t('migrations.guard.checking', 'Checking metahub migration status...')}</Typography>
-            </Stack>
-        )
-    }
-
-    if (statusQuery.error) {
-        return (
-            <Box sx={{ p: 2 }}>
-                <Alert
-                    severity='error'
-                    action={
-                        <Button color='inherit' size='small' onClick={() => statusQuery.refetch()}>
-                            {t('migrations.guard.retry', 'Retry')}
-                        </Button>
-                    }
-                >
-                    {extractAxiosError(statusQuery.error) || t('migrations.guard.statusError', 'Failed to load migration status')}
-                </Alert>
-            </Box>
-        )
-    }
-
-    if (!migrationRequired) {
-        return <>{children}</>
-    }
+    }, [metahubId, refetchStatus, t])
 
     return (
-        <Dialog open fullWidth maxWidth='sm'>
-            <DialogTitle>{t('migrations.guard.title', 'Migration required')}</DialogTitle>
-            <DialogContent>
-                <Stack spacing={1.5} sx={{ pt: 0.5 }}>
-                    <Typography variant='body2'>
-                        {t(
-                            'migrations.guard.description',
-                            'This metahub requires migration before other sections can be used. Open the migrations section and apply updates.'
-                        )}
+        <MigrationGuardShell<MetahubMigrationStatusResponse>
+            entityId={metahubId}
+            isSkipRoute={isMigrationsRoute}
+            statusQuery={statusQuery}
+            dialogAriaId='mhb-migration-dialog-description'
+            loadingText={t('migrations.guard.checking', 'Checking metahub migration status...')}
+            errorText={t('migrations.guard.statusError', 'Failed to load migration status')}
+            retryText={t('migrations.guard.retry', 'Retry')}
+            renderDialogTitle={() => <DialogTitle>{t('migrations.guard.title', 'Migration required')}</DialogTitle>}
+            renderDialogContent={({ status, isMandatory }: GuardRenderContext<MetahubMigrationStatusResponse>) => (
+                <>
+                    <Typography id='mhb-migration-dialog-description' variant='body2'>
+                        {isMandatory
+                            ? t(
+                                  'migrations.guard.descriptionMandatory',
+                                  'This metahub requires a mandatory migration before other sections can be used.'
+                              )
+                            : t(
+                                  'migrations.guard.descriptionRecommended',
+                                  'A recommended template update is available for this metahub. You can continue using it, but applying the update is advised.'
+                              )}
                     </Typography>
                     <Stack direction='row' spacing={1} flexWrap='wrap'>
                         <Chip
                             size='small'
-                            color={status?.structureUpgradeRequired ? 'warning' : 'default'}
+                            color={status.structureUpgradeRequired ? 'warning' : 'default'}
                             label={
-                                status?.structureUpgradeRequired
+                                status.structureUpgradeRequired
                                     ? t('migrations.structureUpgradeNeeded', 'Structure upgrade required')
                                     : t('migrations.structureUpToDate', 'Structure up to date')
                             }
                         />
                         <Chip
                             size='small'
-                            color={status?.templateUpgradeRequired ? 'warning' : 'default'}
+                            color={status.templateUpgradeRequired ? 'warning' : 'default'}
                             label={
-                                status?.templateUpgradeRequired
+                                status.templateUpgradeRequired
                                     ? t('migrations.templateUpgradeNeeded', 'Template upgrade required')
                                     : t('migrations.templateUpToDate', 'Template up to date')
                             }
                         />
                     </Stack>
-                    {status?.blockers?.length ? (
+                    {status.blockers?.length ? (
                         <Alert severity='warning'>
                             <Typography variant='body2' fontWeight='bold' sx={{ mb: 0.5 }}>
                                 {t('migrations.guard.blockersTitle', 'Blocking conditions detected')}:
                             </Typography>
-                            <Box component='ul' sx={{ m: 0, pl: 2 }}>
-                                {status.blockers.map((blocker, idx) => (
-                                    <li key={idx}>
+                            <ul style={{ margin: 0, paddingLeft: 16 }}>
+                                {status.blockers.map((blocker) => (
+                                    <li key={blocker.code}>
                                         <Typography variant='body2'>
                                             {t(`migrations.blockers.${blocker.code}`, {
                                                 defaultValue: blocker.message,
@@ -140,28 +121,37 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
                                         </Typography>
                                     </li>
                                 ))}
-                            </Box>
+                            </ul>
                         </Alert>
                     ) : null}
                     {applyError && <Alert severity='error'>{applyError}</Alert>}
-                </Stack>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={() => statusQuery.refetch()} disabled={applying}>
-                    {t('migrations.guard.retry', 'Retry')}
-                </Button>
-                <Button color='warning' onClick={handleApplyKeep} disabled={applying || hasBlockers}>
-                    {applying ? t('migrations.applying', 'Applying...') : t('migrations.guard.applyKeepData', 'Apply (keep user data)')}
-                </Button>
-                <Button
-                    variant='contained'
-                    onClick={() => navigate(`/metahub/${metahubId}/migrations`, { replace: true })}
-                    disabled={applying}
-                >
-                    {t('migrations.guard.openMigrations', 'Open migrations')}
-                </Button>
-            </DialogActions>
-        </Dialog>
+                </>
+            )}
+            renderDialogActions={({ isMandatory, hasBlockers, onDismiss, onRetry }) => (
+                <>
+                    <Button onClick={onRetry} disabled={applying}>
+                        {t('migrations.guard.retry', 'Retry')}
+                    </Button>
+                    {!isMandatory && (
+                        <Button color='inherit' onClick={onDismiss} disabled={applying}>
+                            {t('migrations.guard.continueTo', 'Continue anyway')}
+                        </Button>
+                    )}
+                    <Button variant='contained' color='warning' onClick={handleApplyKeep} disabled={applying || hasBlockers}>
+                        {applying ? t('migrations.applying', 'Applying...') : t('migrations.guard.applyKeepData', 'Apply (keep user data)')}
+                    </Button>
+                    <Button
+                        variant='contained'
+                        onClick={() => navigate(`/metahub/${metahubId}/migrations`, { replace: true })}
+                        disabled={applying}
+                    >
+                        {t('migrations.guard.openMigrations', 'Open migrations')}
+                    </Button>
+                </>
+            )}
+        >
+            {children}
+        </MigrationGuardShell>
     )
 }
 

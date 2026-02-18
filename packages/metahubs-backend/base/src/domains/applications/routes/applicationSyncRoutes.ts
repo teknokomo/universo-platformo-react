@@ -24,11 +24,22 @@ import {
 import { Publication } from '../../../database/entities/Publication'
 import { PublicationVersion } from '../../../database/entities/PublicationVersion'
 import { SnapshotSerializer, MetahubSnapshot } from '../../publications/services/SnapshotSerializer'
-import { getDDLServices, generateSchemaName, generateTableName, generateColumnName, generateMigrationName, KnexClient } from '../../ddl'
+import {
+    getDDLServices,
+    generateSchemaName,
+    generateTableName,
+    generateColumnName,
+    generateMigrationName,
+    KnexClient,
+    uuidToLockKey,
+    acquireAdvisoryLock,
+    releaseAdvisoryLock
+} from '../../ddl'
 import type { SchemaSnapshot, SchemaChange, EntityDefinition } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
+import { TARGET_APP_STRUCTURE_VERSION } from '../constants'
 
 interface RequestUser {
     id?: string
@@ -516,14 +527,14 @@ async function persistPublishedLayouts(options: { schemaName: string; snapshot: 
     })
 }
 
-async function persistPublishedLayoutZoneWidgets(options: {
+async function persistPublishedWidgets(options: {
     schemaName: string
     snapshot: MetahubSnapshot
     userId?: string | null
 }): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
-    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_layout_zone_widgets')
+    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
     if (!hasTable) return
 
     const now = new Date()
@@ -532,7 +543,7 @@ async function persistPublishedLayoutZoneWidgets(options: {
     await knex.transaction(async (trx) => {
         const existingRows = await trx
             .withSchema(schemaName)
-            .from('_app_layout_zone_widgets')
+            .from('_app_widgets')
             .where({ _upl_deleted: false, _app_deleted: false })
             .select(['id'])
         const existingIds = new Set(existingRows.map((row) => String(row.id)))
@@ -548,7 +559,7 @@ async function persistPublishedLayoutZoneWidgets(options: {
             if (existingIds.has(row.id)) {
                 await trx
                     .withSchema(schemaName)
-                    .from('_app_layout_zone_widgets')
+                    .from('_app_widgets')
                     .where({ id: row.id, _upl_deleted: false, _app_deleted: false })
                     .update({
                         ...payload,
@@ -559,7 +570,7 @@ async function persistPublishedLayoutZoneWidgets(options: {
             } else {
                 await trx
                     .withSchema(schemaName)
-                    .into('_app_layout_zone_widgets')
+                    .into('_app_widgets')
                     .insert({
                         id: row.id,
                         ...payload,
@@ -582,12 +593,12 @@ async function persistPublishedLayoutZoneWidgets(options: {
         if (nextIds.length > 0) {
             await trx
                 .withSchema(schemaName)
-                .from('_app_layout_zone_widgets')
+                .from('_app_widgets')
                 .where({ _upl_deleted: false, _app_deleted: false })
                 .whereNotIn('id', nextIds)
                 .del()
         } else {
-            await trx.withSchema(schemaName).from('_app_layout_zone_widgets').where({ _upl_deleted: false, _app_deleted: false }).del()
+            await trx.withSchema(schemaName).from('_app_widgets').where({ _upl_deleted: false, _app_deleted: false }).del()
         }
     })
 }
@@ -660,18 +671,18 @@ async function getPersistedPublishedLayouts(options: {
     return { layouts, defaultLayoutId }
 }
 
-async function getPersistedPublishedLayoutZoneWidgets(options: { schemaName: string }): Promise<PersistedAppLayoutZoneWidget[]> {
+async function getPersistedPublishedWidgets(options: { schemaName: string }): Promise<PersistedAppLayoutZoneWidget[]> {
     const { schemaName } = options
     const knex = KnexClient.getInstance()
 
-    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_layout_zone_widgets')
+    const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
     if (!hasTable) {
         return []
     }
 
     const rows = await knex
         .withSchema(schemaName)
-        .from('_app_layout_zone_widgets')
+        .from('_app_widgets')
         .where({ _upl_deleted: false, _app_deleted: false })
         .select(['id', 'layout_id', 'zone', 'widget_key', 'sort_order', 'config'])
         .orderBy([
@@ -722,9 +733,9 @@ async function hasPublishedLayoutsChanges(options: { schemaName: string; snapsho
     return stableStringify(current) !== stableStringify(next)
 }
 
-async function hasPublishedLayoutZoneWidgetsChanges(options: { schemaName: string; snapshot: MetahubSnapshot }): Promise<boolean> {
+async function hasPublishedWidgetsChanges(options: { schemaName: string; snapshot: MetahubSnapshot }): Promise<boolean> {
     const { schemaName, snapshot } = options
-    const current = await getPersistedPublishedLayoutZoneWidgets({ schemaName })
+    const current = await getPersistedPublishedWidgets({ schemaName })
     const next = normalizeSnapshotLayoutZoneWidgets(snapshot)
     return stableStringify(current) !== stableStringify(next)
 }
@@ -796,282 +807,305 @@ export function createApplicationSyncRoutes(
             }
             const { confirmDestructive } = parsed.data
 
-            const applicationRepo = ds.getRepository(Application)
-            const application = await applicationRepo.findOneBy({ id: applicationId })
-            if (!application) {
-                return res.status(404).json({ error: 'Application not found' })
-            }
-
-            const connectorRepo = ds.getRepository(Connector)
-            const connector = await connectorRepo.findOne({
-                where: { applicationId }
-            })
-            if (!connector) {
-                return res.status(400).json({ error: 'No connector found for this application. Create a connector first.' })
-            }
-
-            const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
-            const connectorPublication = await connectorPublicationRepo.findOne({
-                where: { connectorId: connector.id }
-            })
-            if (!connectorPublication) {
-                return res.status(400).json({ error: 'Connector is not linked to any Publication. Link a Publication first.' })
-            }
-
-            const publicationRepo = ds.getRepository(Publication)
-            const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
-            if (!publication) {
-                return res.status(400).json({ error: 'Linked publication not found' })
-            }
-
-            if (!publication.activeVersionId) {
-                return res.status(400).json({
-                    error: 'No active version found',
-                    message: 'Publication must have an active version to sync. Please create and activate a version in Metahub.'
+            // Acquire advisory lock to prevent concurrent syncs on the same application
+            const lockKey = uuidToLockKey(`app-sync:${applicationId}`)
+            const lockAcquired = await acquireAdvisoryLock(KnexClient.getInstance(), lockKey)
+            if (!lockAcquired) {
+                return res.status(409).json({
+                    error: 'Sync already in progress',
+                    message: 'Another sync operation is already running for this application. Please try again later.'
                 })
             }
 
-            const versionRepo = ds.getRepository(PublicationVersion)
-            const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
-            if (!activeVersion) {
-                return res.status(404).json({ error: 'Active version data not found' })
-            }
+            try {
+                const applicationRepo = ds.getRepository(Application)
+                const application = await applicationRepo.findOneBy({ id: applicationId })
+                if (!application) {
+                    return res.status(404).json({ error: 'Application not found' })
+                }
 
-            const snapshot = activeVersion.snapshotJson as unknown as MetahubSnapshot
-            if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
-                return res.status(400).json({ error: 'Invalid publication snapshot' })
-            }
+                const connectorRepo = ds.getRepository(Connector)
+                const connector = await connectorRepo.findOne({
+                    where: { applicationId }
+                })
+                if (!connector) {
+                    return res.status(400).json({ error: 'No connector found for this application. Create a connector first.' })
+                }
 
-            // Init services for serializer
-            const schemaService = new MetahubSchemaService(ds)
-            const objectsService = new MetahubObjectsService(schemaService)
-            const attributesService = new MetahubAttributesService(schemaService)
-            // hubRepo removed - hubs are now in isolated schemas
+                const connectorPublicationRepo = ds.getRepository(ConnectorPublication)
+                const connectorPublication = await connectorPublicationRepo.findOne({
+                    where: { connectorId: connector.id }
+                })
+                if (!connectorPublication) {
+                    return res.status(400).json({ error: 'Connector is not linked to any Publication. Link a Publication first.' })
+                }
 
-            const serializer = new SnapshotSerializer(objectsService, attributesService)
-            const catalogDefs = serializer.deserializeSnapshot(snapshot)
-            const snapshotHash = activeVersion.snapshotHash || serializer.calculateHash(snapshot)
+                const publicationRepo = ds.getRepository(Publication)
+                const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
+                if (!publication) {
+                    return res.status(400).json({ error: 'Linked publication not found' })
+                }
 
-            const { generator, migrator, migrationManager } = getDDLServices()
-
-            if (!application.schemaName) {
-                application.schemaName = generateSchemaName(application.id)
-                await applicationRepo.save(application)
-            }
-
-            const schemaExists = await generator.schemaExists(application.schemaName)
-            const publicationSnapshot = snapshot as unknown as Record<string, unknown>
-            const migrationMeta = {
-                publicationSnapshotHash: snapshotHash,
-                publicationId: publication.id,
-                publicationVersionId: activeVersion.id
-            }
-
-            if (schemaExists) {
-                const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
-                const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
-                if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
-                    const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
-                    const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
-                    const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({
-                        schemaName: application.schemaName!,
-                        snapshot
-                    })
-                    const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate
-
-                    application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                    application.schemaError = null
-                    application.schemaSyncedAt = new Date()
-                    await applicationRepo.save(application)
-
-                    // Keep system metadata in sync even when DDL didn't change.
-                    // This covers non-DDL evolutions (e.g., new metadata columns like sort_order) and keeps runtime UI stable.
-                    await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
-
-                    await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                    await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
-
-                    return res.json({
-                        status: hasUiChanges ? 'ui_updated' : 'no_changes',
-                        message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
+                if (!publication.activeVersionId) {
+                    return res.status(400).json({
+                        error: 'No active version found',
+                        message: 'Publication must have an active version to sync. Please create and activate a version in Metahub.'
                     })
                 }
-            }
 
-            application.schemaStatus = ApplicationSchemaStatus.PENDING
-            await applicationRepo.save(application)
+                const versionRepo = ds.getRepository(PublicationVersion)
+                const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
+                if (!activeVersion) {
+                    return res.status(404).json({ error: 'Active version data not found' })
+                }
 
-            try {
-                if (!schemaExists) {
-                    const result = await generator.generateFullSchema(application.schemaName!, catalogDefs, {
+                const snapshot = activeVersion.snapshotJson as unknown as MetahubSnapshot
+                if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
+                    return res.status(400).json({ error: 'Invalid publication snapshot' })
+                }
+
+                // Init services for serializer
+                const schemaService = new MetahubSchemaService(ds)
+                const objectsService = new MetahubObjectsService(schemaService)
+                const attributesService = new MetahubAttributesService(schemaService)
+                // hubRepo removed - hubs are now in isolated schemas
+
+                const serializer = new SnapshotSerializer(objectsService, attributesService)
+                const catalogDefs = serializer.deserializeSnapshot(snapshot)
+                const snapshotHash = activeVersion.snapshotHash || serializer.calculateHash(snapshot)
+
+                const { generator, migrator, migrationManager } = getDDLServices()
+
+                if (!application.schemaName) {
+                    application.schemaName = generateSchemaName(application.id)
+                    await applicationRepo.save(application)
+                }
+
+                const schemaExists = await generator.schemaExists(application.schemaName)
+                const publicationSnapshot = snapshot as unknown as Record<string, unknown>
+                const migrationMeta = {
+                    publicationSnapshotHash: snapshotHash,
+                    publicationId: publication.id,
+                    publicationVersionId: activeVersion.id
+                }
+
+                if (schemaExists) {
+                    const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
+                    const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
+                    if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
+                        const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
+                        const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
+                        const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
+                            schemaName: application.schemaName!,
+                            snapshot
+                        })
+                        const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
+
+                        application.schemaStatus = ApplicationSchemaStatus.SYNCED
+                        application.schemaError = null
+                        application.schemaSyncedAt = new Date()
+                        application.lastSyncedPublicationVersionId = activeVersion.id
+                        application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
+                        await applicationRepo.save(application)
+
+                        // Keep system metadata in sync even when DDL didn't change.
+                        // This covers non-DDL evolutions (e.g., new metadata columns like sort_order) and keeps runtime UI stable.
+                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
+
+                        await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                        await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+
+                        return res.json({
+                            status: hasUiChanges ? 'ui_updated' : 'no_changes',
+                            message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
+                        })
+                    }
+                }
+
+                // Set MAINTENANCE status so other users see the maintenance page during sync
+                application.schemaStatus = ApplicationSchemaStatus.MAINTENANCE
+                await applicationRepo.save(application)
+
+                try {
+                    if (!schemaExists) {
+                        const result = await generator.generateFullSchema(application.schemaName!, catalogDefs, {
+                            recordMigration: true,
+                            migrationDescription: 'initial_schema',
+                            migrationManager,
+                            migrationMeta,
+                            publicationSnapshot,
+                            userId
+                        })
+
+                        if (!result.success) {
+                            application.schemaStatus = ApplicationSchemaStatus.ERROR
+                            application.schemaError = result.errors.join('; ')
+                            await applicationRepo.save(application)
+
+                            return res.status(500).json({
+                                status: 'error',
+                                message: 'Schema creation failed',
+                                errors: result.errors
+                            })
+                        }
+
+                        const schemaSnapshot = generator.generateSnapshot(catalogDefs)
+                        application.schemaStatus = ApplicationSchemaStatus.SYNCED
+                        application.schemaError = null
+                        application.schemaSyncedAt = new Date()
+                        application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
+                        application.lastSyncedPublicationVersionId = activeVersion.id
+                        application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
+                        await applicationRepo.save(application)
+
+                        await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                        await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+
+                        const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
+                        await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+
+                        return res.json({
+                            status: 'created',
+                            schemaName: result.schemaName,
+                            tablesCreated: result.tablesCreated,
+                            message: `Schema created with ${result.tablesCreated.length} table(s)`,
+                            ...(seedWarnings.length > 0 ? { seedWarnings } : {})
+                        })
+                    }
+
+                    const oldSnapshot = application.schemaSnapshot as SchemaSnapshot | null
+                    const diff = migrator.calculateDiff(oldSnapshot, catalogDefs)
+                    const hasDestructiveChanges = diff.destructive.length > 0
+
+                    if (!diff.hasChanges) {
+                        const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
+                        const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
+                        const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
+                            schemaName: application.schemaName!,
+                            snapshot
+                        })
+                        const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
+
+                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
+
+                        application.schemaStatus = ApplicationSchemaStatus.SYNCED
+                        application.schemaError = null
+                        application.schemaSyncedAt = new Date()
+                        application.lastSyncedPublicationVersionId = activeVersion.id
+                        application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
+                        await applicationRepo.save(application)
+
+                        await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
+                        await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+
+                        // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
+                        // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
+                        const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
+                        const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
+                        if (snapshotHash && lastAppliedHash !== snapshotHash) {
+                            const snapshotBefore = (application.schemaSnapshot as SchemaSnapshot | null) ?? null
+                            const snapshotAfter = generator.generateSnapshot(catalogDefs)
+                            const metaOnlyDiff = {
+                                hasChanges: false,
+                                additive: [],
+                                destructive: [],
+                                summary: 'System metadata updated (no DDL changes)'
+                            }
+
+                            await migrationManager.recordMigration(
+                                application.schemaName!,
+                                generateMigrationName('system_sync'),
+                                snapshotBefore,
+                                snapshotAfter,
+                                metaOnlyDiff,
+                                undefined,
+                                migrationMeta,
+                                publicationSnapshot,
+                                userId
+                            )
+
+                            application.schemaSnapshot = snapshotAfter as unknown as Record<string, unknown>
+                            await applicationRepo.save(application)
+                        }
+
+                        return res.json({
+                            status: hasUiChanges ? 'ui_updated' : 'no_changes',
+                            message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
+                        })
+                    }
+
+                    if (hasDestructiveChanges && !confirmDestructive) {
+                        application.schemaStatus = ApplicationSchemaStatus.OUTDATED
+                        await applicationRepo.save(application)
+
+                        return res.json({
+                            status: 'pending_confirmation',
+                            diff: {
+                                hasChanges: diff.hasChanges,
+                                hasDestructiveChanges,
+                                additive: diff.additive.map((c: SchemaChange) => c.description),
+                                destructive: diff.destructive.map((c: SchemaChange) => c.description),
+                                summary: diff.summary
+                            },
+                            message: 'Destructive changes detected. Set confirmDestructive=true to proceed.'
+                        })
+                    }
+
+                    const migrationResult = await migrator.applyAllChanges(application.schemaName!, diff, catalogDefs, confirmDestructive, {
                         recordMigration: true,
-                        migrationDescription: 'initial_schema',
-                        migrationManager,
+                        migrationDescription: 'schema_sync',
                         migrationMeta,
                         publicationSnapshot,
                         userId
                     })
 
-                    if (!result.success) {
+                    if (!migrationResult.success) {
                         application.schemaStatus = ApplicationSchemaStatus.ERROR
-                        application.schemaError = result.errors.join('; ')
+                        application.schemaError = migrationResult.errors.join('; ')
                         await applicationRepo.save(application)
 
                         return res.status(500).json({
                             status: 'error',
-                            message: 'Schema creation failed',
-                            errors: result.errors
+                            message: 'Schema migration failed',
+                            errors: migrationResult.errors
                         })
                     }
 
-                    const schemaSnapshot = generator.generateSnapshot(catalogDefs)
+                    const newSnapshot = generator.generateSnapshot(catalogDefs)
                     application.schemaStatus = ApplicationSchemaStatus.SYNCED
                     application.schemaError = null
                     application.schemaSyncedAt = new Date()
-                    application.schemaSnapshot = schemaSnapshot as unknown as Record<string, unknown>
+                    application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
+                    application.lastSyncedPublicationVersionId = activeVersion.id
+                    application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
                     await applicationRepo.save(application)
 
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                    await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
+                    await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
 
                     const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                     await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
 
                     return res.json({
-                        status: 'created',
-                        schemaName: result.schemaName,
-                        tablesCreated: result.tablesCreated,
-                        message: `Schema created with ${result.tablesCreated.length} table(s)`,
+                        status: 'migrated',
+                        schemaName: application.schemaName,
+                        changesApplied: migrationResult.changesApplied,
+                        message: 'Schema migration applied successfully',
                         ...(seedWarnings.length > 0 ? { seedWarnings } : {})
                     })
-                }
-
-                const oldSnapshot = application.schemaSnapshot as SchemaSnapshot | null
-                const diff = migrator.calculateDiff(oldSnapshot, catalogDefs)
-                const hasDestructiveChanges = diff.destructive.length > 0
-
-                if (!diff.hasChanges) {
-                    const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot })
-                    const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot })
-                    const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({
-                        schemaName: application.schemaName!,
-                        snapshot
-                    })
-                    const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate
-
-                    await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
-
-                    application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                    application.schemaError = null
-                    application.schemaSyncedAt = new Date()
-                    await applicationRepo.save(application)
-
-                    await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                    await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
-
-                    // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
-                    // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
-                    const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
-                    const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
-                    if (snapshotHash && lastAppliedHash !== snapshotHash) {
-                        const snapshotBefore = (application.schemaSnapshot as SchemaSnapshot | null) ?? null
-                        const snapshotAfter = generator.generateSnapshot(catalogDefs)
-                        const metaOnlyDiff = {
-                            hasChanges: false,
-                            additive: [],
-                            destructive: [],
-                            summary: 'System metadata updated (no DDL changes)'
-                        }
-
-                        await migrationManager.recordMigration(
-                            application.schemaName!,
-                            generateMigrationName('system_sync'),
-                            snapshotBefore,
-                            snapshotAfter,
-                            metaOnlyDiff,
-                            undefined,
-                            migrationMeta,
-                            publicationSnapshot,
-                            userId
-                        )
-
-                        application.schemaSnapshot = snapshotAfter as unknown as Record<string, unknown>
-                        await applicationRepo.save(application)
-                    }
-
-                    return res.json({
-                        status: hasUiChanges ? 'ui_updated' : 'no_changes',
-                        message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
-                    })
-                }
-
-                if (hasDestructiveChanges && !confirmDestructive) {
-                    application.schemaStatus = ApplicationSchemaStatus.OUTDATED
-                    await applicationRepo.save(application)
-
-                    return res.json({
-                        status: 'pending_confirmation',
-                        diff: {
-                            hasChanges: diff.hasChanges,
-                            hasDestructiveChanges,
-                            additive: diff.additive.map((c: SchemaChange) => c.description),
-                            destructive: diff.destructive.map((c: SchemaChange) => c.description),
-                            summary: diff.summary
-                        },
-                        message: 'Destructive changes detected. Set confirmDestructive=true to proceed.'
-                    })
-                }
-
-                const migrationResult = await migrator.applyAllChanges(application.schemaName!, diff, catalogDefs, confirmDestructive, {
-                    recordMigration: true,
-                    migrationDescription: 'schema_sync',
-                    migrationMeta,
-                    publicationSnapshot,
-                    userId
-                })
-
-                if (!migrationResult.success) {
+                } catch (error) {
                     application.schemaStatus = ApplicationSchemaStatus.ERROR
-                    application.schemaError = migrationResult.errors.join('; ')
+                    application.schemaError = error instanceof Error ? error.message : 'Unknown error'
                     await applicationRepo.save(application)
 
                     return res.status(500).json({
                         status: 'error',
-                        message: 'Schema migration failed',
-                        errors: migrationResult.errors
+                        message: 'Schema sync failed',
+                        error: error instanceof Error ? error.message : 'Unknown error'
                     })
                 }
-
-                const newSnapshot = generator.generateSnapshot(catalogDefs)
-                application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                application.schemaError = null
-                application.schemaSyncedAt = new Date()
-                application.schemaSnapshot = newSnapshot as unknown as Record<string, unknown>
-                await applicationRepo.save(application)
-
-                await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
-                await persistPublishedLayoutZoneWidgets({ schemaName: application.schemaName!, snapshot, userId })
-
-                const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
-                await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
-
-                return res.json({
-                    status: 'migrated',
-                    schemaName: application.schemaName,
-                    changesApplied: migrationResult.changesApplied,
-                    message: 'Schema migration applied successfully',
-                    ...(seedWarnings.length > 0 ? { seedWarnings } : {})
-                })
-            } catch (error) {
-                application.schemaStatus = ApplicationSchemaStatus.ERROR
-                application.schemaError = error instanceof Error ? error.message : 'Unknown error'
-                await applicationRepo.save(application)
-
-                return res.status(500).json({
-                    status: 'error',
-                    message: 'Schema sync failed',
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                })
+            } finally {
+                await releaseAdvisoryLock(KnexClient.getInstance(), lockKey)
             }
         })
     )
@@ -1199,8 +1233,8 @@ export function createApplicationSyncRoutes(
             if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
                 const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
                 const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
-                const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({ schemaName, snapshot })
-                const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate
+                const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot })
+                const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
                 return res.json({
                     schemaExists: true,
                     schemaName,
@@ -1210,7 +1244,7 @@ export function createApplicationSyncRoutes(
                         additive: [
                             ...(uiNeedsUpdate ? [UI_LAYOUT_DIFF_MARKER] : []),
                             ...(layoutsNeedUpdate ? [UI_LAYOUTS_DIFF_MARKER] : []),
-                            ...(layoutZonesNeedUpdate ? [UI_LAYOUT_ZONES_DIFF_MARKER] : [])
+                            ...(widgetsNeedUpdate ? [UI_LAYOUT_ZONES_DIFF_MARKER] : [])
                         ],
                         destructive: [],
                         summaryKey: hasUiChanges ? 'ui.layout.changed' : 'schema.upToDate',
@@ -1225,7 +1259,7 @@ export function createApplicationSyncRoutes(
 
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
-            const layoutZonesNeedUpdate = await hasPublishedLayoutZoneWidgetsChanges({ schemaName, snapshot })
+            const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot })
             const addedTableEntityIds = new Set<string>(
                 diff.additive
                     .filter((change: SchemaChange) => change.type === 'ADD_TABLE' && Boolean(change.entityId))
@@ -1243,7 +1277,7 @@ export function createApplicationSyncRoutes(
             if (layoutsNeedUpdate) {
                 additive.push(UI_LAYOUTS_DIFF_MARKER)
             }
-            if (layoutZonesNeedUpdate) {
+            if (widgetsNeedUpdate) {
                 additive.push(UI_LAYOUT_ZONES_DIFF_MARKER)
             }
             // Snapshot hash can change without any DDL changes (e.g., attribute reorder, labels, validations).
@@ -1254,7 +1288,7 @@ export function createApplicationSyncRoutes(
                 !diff.hasChanges &&
                 !uiNeedsUpdate &&
                 !layoutsNeedUpdate &&
-                !layoutZonesNeedUpdate
+                !widgetsNeedUpdate
             if (systemMetadataNeedsUpdate) {
                 additive.push(SYSTEM_METADATA_DIFF_MARKER)
             }
@@ -1272,7 +1306,7 @@ export function createApplicationSyncRoutes(
                     description: UI_LAYOUTS_DIFF_MARKER
                 })
             }
-            if (layoutZonesNeedUpdate) {
+            if (widgetsNeedUpdate) {
                 additiveStructured.push({
                     type: 'UI_LAYOUT_ZONES_UPDATE',
                     description: UI_LAYOUT_ZONES_DIFF_MARKER
@@ -1291,18 +1325,18 @@ export function createApplicationSyncRoutes(
                 schemaExists: true,
                 schemaName,
                 diff: {
-                    hasChanges: diff.hasChanges || uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate || systemMetadataNeedsUpdate,
+                    hasChanges: diff.hasChanges || uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate || systemMetadataNeedsUpdate,
                     hasDestructiveChanges,
                     additive,
                     destructive: diff.destructive.map((c: SchemaChange) => c.description),
                     summaryKey: systemMetadataNeedsUpdate
                         ? 'schema.metadata.changed'
-                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate)
+                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate)
                         ? 'ui.layout.changed'
                         : undefined,
                     summary: systemMetadataNeedsUpdate
                         ? 'System metadata will be updated'
-                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate || layoutZonesNeedUpdate)
+                        : !diff.hasChanges && (uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate)
                         ? 'UI layout settings have changed'
                         : diff.summary,
                     details: {

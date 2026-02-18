@@ -21,7 +21,8 @@ type MigrationDisplayRow = {
     name: string
     fromVersion: number
     toVersion: number
-    fromTo: string
+    schemaDisplay: string
+    templateDisplay: string
     appliedAtText: string
     appliedAtTs: number
     kind: string | null
@@ -132,12 +133,25 @@ const MetahubMigrations = () => {
             const appliedAt = new Date(item.appliedAt)
             const meta = item.meta as Record<string, unknown> | undefined
             const kind = typeof meta?.kind === 'string' ? meta.kind : null
+
+            // Schema column: for baseline show "0 → N" (from nothing), otherwise "N → M"
+            const schemaFrom = kind === 'baseline' ? 0 : item.fromVersion
+            const schemaDisplay = `${schemaFrom} → ${item.toVersion}`
+
+            // Template column: for baseline/template_seed show "0/— → version", otherwise "—"
+            let templateDisplay = '—'
+            if ((kind === 'baseline' || kind === 'template_seed') && typeof meta?.templateVersionLabel === 'string') {
+                const fromLabel = kind === 'baseline' ? '0' : '—'
+                templateDisplay = `${fromLabel} → ${meta.templateVersionLabel}`
+            }
+
             return {
                 id: item.id,
                 name: item.name,
                 fromVersion: item.fromVersion,
                 toVersion: item.toVersion,
-                fromTo: `${item.fromVersion} → ${item.toVersion}`,
+                schemaDisplay,
+                templateDisplay,
                 appliedAtText: appliedAt.toLocaleString(i18n.language),
                 appliedAtTs: appliedAt.getTime(),
                 kind
@@ -150,7 +164,7 @@ const MetahubMigrations = () => {
             {
                 id: 'appliedAt',
                 label: t('metahubs:migrations.columns.appliedAt', 'Applied at'),
-                width: '28%',
+                width: '24%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: MigrationDisplayRow) => row.appliedAtTs,
@@ -159,7 +173,7 @@ const MetahubMigrations = () => {
             {
                 id: 'name',
                 label: t('metahubs:migrations.columns.name', 'Name'),
-                width: '44%',
+                width: '48%',
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: MigrationDisplayRow) => row.name.toLowerCase(),
@@ -173,12 +187,21 @@ const MetahubMigrations = () => {
                 )
             },
             {
-                id: 'fromTo',
-                label: t('metahubs:migrations.columns.fromTo', 'From → To'),
-                width: '28%',
+                id: 'schema',
+                label: t('metahubs:migrations.columns.schema', 'Schema'),
+                width: '14%',
                 align: 'center' as const,
                 render: (row: MigrationDisplayRow) => (
-                    <Typography sx={{ fontSize: 14, fontWeight: 500, fontFamily: 'monospace' }}>{row.fromTo}</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 500, fontFamily: 'monospace' }}>{row.schemaDisplay}</Typography>
+                )
+            },
+            {
+                id: 'template',
+                label: t('metahubs:migrations.columns.template', 'Template'),
+                width: '14%',
+                align: 'center' as const,
+                render: (row: MigrationDisplayRow) => (
+                    <Typography sx={{ fontSize: 14, fontWeight: 500, fontFamily: 'monospace' }}>{row.templateDisplay}</Typography>
                 )
             }
         ],
@@ -215,7 +238,7 @@ const MetahubMigrations = () => {
                     description={t('metahubs:migrations.subtitle', 'Track and apply metahub upgrades')}
                 />
 
-                <Stack sx={{ px: { xs: 1.5, md: 2 }, pb: 2 }} spacing={2}>
+                <Stack sx={{ pb: 2 }} spacing={2}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
                         <FormControl size='small' sx={{ minWidth: 320 }}>
                             <InputLabel>{t('metahubs:migrations.branchLabel', 'Branch')}</InputLabel>

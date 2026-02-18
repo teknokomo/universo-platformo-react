@@ -33,6 +33,8 @@ import '@flowise/customtemplates-frontend/i18n'
 
 // Register start-frontend translations (onboarding + legal)
 import '@universo/start-frontend/i18n'
+// Register applications-frontend translations (migration guard + runtime)
+import '@universo/applications-frontend/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -130,6 +132,8 @@ const ApplicationsApplicationAdminGuard = Loadable(lazy(() => import('@universo/
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ApplicationsMigrationGuard = Loadable(lazy(() => import('@universo/applications-frontend/components/ApplicationMigrationGuard')))
 
 // Metahub module components
 const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
@@ -234,6 +238,13 @@ const LocalesList = Loadable(lazy(() => import('@universo/admin-frontend/pages/L
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frontend/pages/Profile.jsx')))
 
+// Composite runtime component: migration guard wrapping the application runtime
+const GuardedApplicationRuntime = () => (
+    <ApplicationsMigrationGuard>
+        <ApplicationsApplicationRuntime />
+    </ApplicationsMigrationGuard>
+)
+
 // Main routes configuration object
 // Using ErrorBoundary at layout level to ensure proper Router context
 // IMPORTANT: Use RELATIVE paths for children (without leading slash)
@@ -314,8 +325,9 @@ const MinimalRoutes = {
             )
         },
         // Application runtime route — created via apps-template-mui route factory
+        // ApplicationMigrationGuard checks if schema sync is required before rendering runtime
         createAppRuntimeRoute({
-            component: ApplicationsApplicationRuntime,
+            component: GuardedApplicationRuntime,
             guard: AuthGuard
         })
     ]
