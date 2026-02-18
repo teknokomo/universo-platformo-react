@@ -26,7 +26,7 @@ import {
     ensureApplicationAccess,
     type ApplicationRole
 } from '@universo/applications-backend'
-import { UpdateSeverity, type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
+import { type ApplicationMigrationStatusResponse, type StructuredBlocker } from '@universo/types'
 import { determineSeverity } from '@universo/migration-guard-shared/utils'
 import { Publication } from '../../../database/entities/Publication'
 import {

@@ -43,6 +43,25 @@
 
 ---
 
+## PR #682 Bot Review Fixes (2026-02-18)
+
+Addressed 9 actionable items from Gemini Code Assist and Copilot PR Reviewer comments on PR #682:
+
+1. **staleTime for list/plan hooks**: Added `staleTime: 30_000` to `useMetahubMigrationsList` and `useMetahubMigrationsPlan` — prevents unnecessary refetches on re-focus/navigation (status hook already uses `MIGRATION_STATUS_QUERY_OPTIONS`).
+2. **Unused imports**: Removed `UpdateSeverity` from `metahubMigrationsRoutes.ts` and `applicationMigrationsRoutes.ts` — only `determineSeverity()` is used.
+3. **Type safety**: Added `typeof meta?.templateVersionLabel === 'string'` guard in `MetahubMigrations.tsx` — prevents non-string values from reaching UI.
+4. **determineSeverity JSDoc**: Clarified that OPTIONAL = "no update needed / pass-through", not a user-visible severity. Added rationale for not introducing a NONE enum value.
+5. **AGENTS.md roles**: Fixed `viewer` → `member` to match `ApplicationRole` type.
+6. **AGENTS.md statuses**: Added missing `DRAFT`, `OUTDATED`, `UPDATE_AVAILABLE` to `ApplicationSchemaStatus` list.
+7. **MIGRATIONS.md**: Fixed guard behavior description — `isAdminRoute` skip (not `/migrations`), maintenance condition (isMaintenance && !isPrivileged, not structureUpgradeRequired), button navigates to `/a/:id/admin`.
+8. **memory-bank English-only**: Translated 6 Russian fragments in `progress.md` to English.
+
+**Skipped**: Copilot's suggestion to add `NONE` to `UpdateSeverity` enum — would require changes across 8+ files (types, shared, frontend guards, backend routes) with no behavior change since OPTIONAL already acts as pass-through.
+
+**Build**: 66/66 packages.
+
+---
+
 ## QA Fixes + UI Polish Round 6 (2026-02-19)
 
 Seven fixes from QA analysis + user requests:
@@ -70,7 +89,7 @@ Seven fixes from QA analysis + user requests:
 Five UI issues fixed after LanguageSwitcher widget integration:
 
 1. **languageSwitcher widget label i18n**: Added `"languageSwitcher"` key to `layouts.widgets` in both EN/RU `metahubs.json`. `LayoutDetails.tsx` line 221 uses `t('layouts.widgets.${item.key}', item.key)` — raw key was showing as fallback.
-2. **Dry run button text simplified**: `"Проверить (dry run)"` → `"Проверить"` (ru), `"Dry run"` → `"Verify"` (en).
+2. **Dry run button text simplified**: RU locale `dryRun` shortened (removed "(dry run)" suffix), EN `"Dry run"` → `"Verify"`.
 3. **Actions column in MUI DataGrid v8 column management panel**: `headerName: ''` (empty) caused field name "actions" to show as fallback. Fixed with `type: 'actions' as const` + non-empty `headerName`.
 4. **Table side padding root cause**: `MainLayoutMUI.tsx` `Stack px: {xs:2, md:3}` is layout-level padding (16-24px). Inner `Stack px: 2` + `Box mx: -2` compensating pattern in list pages is by design, not a bug.
 5. **Schema/Template columns split**: Replaced single `fromTo` column with separate `schema` (14%) and `template` (14%) columns. Baseline migrations: schema shows `"0 → N"`. Template seed: template shows `"— → {version}"`.
@@ -106,7 +125,7 @@ Comprehensive QA analysis found 6 issues (3 bugs + 3 warnings):
 2. **BUG-2 (MEDIUM)**: `ConnectorDiffDialog.tsx` had local `SchemaStatus` with 5 values vs 7 in backend. Fixed: exported type from `types.ts`, imported in both components — single source of truth.
 3. **BUG-3 (MINOR)**: `paginationDisplayedRows` in `getDataGridLocale.ts` ignored MUI v8 `estimated` parameter. Fixed with proper handling.
 4. **WARN-1**: Double `AppMainLayout` wrapping (Guard + Runtime). Fixed by removing from `ApplicationRuntime.tsx`.
-5. **WARN-2**: Typo "приложениеа" → "приложения" in ru locale.
+5. **WARN-2**: Typo in RU locale key (extra character removed).
 6. **WARN-3**: `bgcolor: 'grey.50'` hardcoded — not dark-theme compatible. Changed to `'action.hover'`.
 
 **Files modified**: 7 files across 3 packages.
@@ -116,12 +135,12 @@ Comprehensive QA analysis found 6 issues (3 bugs + 3 warnings):
 
 ## Post-QA Polish — 4 Fixes (2026-02-18)
 
-After manual testing revealed 4 remaining issues (QA assessed ~96% ТЗ coverage):
+After manual testing revealed 4 remaining issues (QA assessed ~96% spec coverage):
 
 1. **WARN-1 — MIGRATIONS.md links**: Added `> **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)` to 4 README files in `applications-backend` and `applications-frontend` (EN + RU).
 2. **Guard dialog theme**: `MinimalLayout` has no ThemeProvider → guard Dialog rendered with default MUI blue buttons. Fixed by wrapping `ApplicationMigrationGuard` with `<AppMainLayout>` from `@universo/apps-template-mui`.
 3. **Table i18n**: (a) Actions column showed "actions" in column toggle panel — fixed with `hideable: false`. (b) Pagination showed "1-1 of 1" — MUI X DataGrid v8 ruRU locale lacks `paginationDisplayedRows` — added custom override in `getDataGridLocale.ts`.
-4. **SchemaStatus display**: `ConnectorBoard.tsx` had incomplete `SchemaStatus` type (5 values vs 7 in backend). When backend returned `update_available`, UI fell back to "Черновик". Added `update_available` and `maintenance` to type, `statusConfig`, descriptions, and EN/RU i18n.
+4. **SchemaStatus display**: `ConnectorBoard.tsx` had incomplete `SchemaStatus` type (5 values vs 7 in backend). When backend returned `update_available`, UI fell back to default status label. Added `update_available` and `maintenance` to type, `statusConfig`, descriptions, and EN/RU i18n.
 
 **Files modified**: 10 files across 3 packages (`applications-frontend`, `applications-backend`, `apps-template-mui`).
 **Build**: 66/66 packages.
@@ -161,9 +180,9 @@ After manual testing revealed 4 remaining issues (QA assessed ~96% ТЗ coverage
 
 ---
 
-## Migration Guard — Full ТЗ Coverage (6-Phase Plan) (2026-02-18)
+## Migration Guard — Full Spec Coverage (6-Phase Plan) (2026-02-18)
 
-- **Context**: 6-phase plan to achieve 100% ТЗ coverage for the Unified Application Migration Guard. Prior assessment: ~71% coverage.
+- **Context**: 6-phase plan to achieve 100% spec coverage for the Unified Application Migration Guard. Prior assessment: ~71% coverage.
 - **Phase 1 — Table rename**: `_app_layout_zone_widgets` → `_app_widgets` across 3 files (~20 string replacements). Template version `1.2.0` → `1.0.0`. CURRENT_STRUCTURE_VERSION already at 1.
 - **Phase 2 — Shared package**: Created `@universo/migration-guard-shared` with `determineSeverity()`, `MIGRATION_STATUS_QUERY_OPTIONS`, and `MigrationGuardShell<TStatus>` (render-props pattern). Dual-format build (ESM+CJS) via tsdown. Peer deps: React ≥18, MUI ≥5, TanStack Query ≥5.
 - **Phase 3 — AGENTS.md**: Created 3 new files (metahubs-frontend, applications-backend, migration-guard-shared), updated 2 existing (applications-frontend, metahubs-backend).
@@ -382,7 +401,7 @@ After manual testing revealed 4 remaining issues (QA assessed ~96% ТЗ coverage
 
 ## UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
 
-- **Menu fix**: Fixed "Макеты" menu position in PRODUCTION config (`menuConfigs.ts` in `universo-template-mui`). Previous fix was in legacy config only. Also synced `metahubDashboard.ts` with missing migrations item.
+- **Menu fix**: Fixed "Layouts" menu position in PRODUCTION config (`menuConfigs.ts` in `universo-template-mui`). Previous fix was in legacy config only. Also synced `metahubDashboard.ts` with missing migrations item.
 - **Create buttons**: Changed `tc('addNew')` → `tc('create')` in primaryAction across 10 list pages (metahubs: 8, applications: 2). Global `addNew` key preserved for Flowise-upstream pages.
 - **Widget toggle**: Replaced MUI `Switch` with text `Button` + icon (`ToggleOn`/`ToggleOff`) in `LayoutDetails.tsx`. Inactive widget label dimmed (opacity 0.45) but action buttons remain full opacity.
 - Key discovery: TWO separate sidebar menu configs exist — `metahubDashboard.ts` (legacy) and `menuConfigs.ts` (production). Both now synchronized.

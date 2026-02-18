@@ -18,9 +18,14 @@ export interface DetermineSeverityOptions {
  * Derives the appropriate UpdateSeverity from migration flags.
  *
  * Priority order:
- *   1. If no migration is needed → OPTIONAL
+ *   1. If no migration is needed → OPTIONAL (pass-through, children rendered immediately)
  *   2. If the change is mandatory (structure upgrade, missing schema, blockers) → MANDATORY
  *   3. Otherwise → RECOMMENDED (e.g., template-only or publication-only update)
+ *
+ * Note: OPTIONAL here means "no update required" — the guard renders children
+ * without blocking. A dedicated NONE value is intentionally omitted to keep
+ * UpdateSeverity aligned with user-visible severity labels and avoid extra
+ * branching across the codebase.
  */
 export function determineSeverity(options: DetermineSeverityOptions): UpdateSeverity {
     const { migrationRequired, isMandatory } = options

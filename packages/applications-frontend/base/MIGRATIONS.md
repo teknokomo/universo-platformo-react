@@ -16,13 +16,13 @@ import { ApplicationMigrationGuard } from '@universo/applications-frontend'
 
 // Capabilities:
 // - Calls GET /application/:id/migrations/status on mount
-// - Blocks access when migrationRequired=true (schema or structure out of date)
-// - Shows UnderDevelopmentPage when schemaExists=false (MANDATORY severity)
-// - Shows MaintenancePage when structureUpgradeRequired=true (MANDATORY severity)
+// - Blocks access when severity is MANDATORY (schema or structure out of date)
+// - Shows UnderDevelopmentPage when severity=MANDATORY && schemaExists=false
+// - Shows MaintenancePage when isMaintenance=true && user is not owner/admin
 // - Displays a modal dialog with severity chips and structured blockers
-// - "Navigate to migrations" button for manual migration management
-// - Skips /migrations route without blocking
-// - Renders structured blockers with i18n: t('migrations.blockers.${code}', params)
+// - "Open synchronization" button navigates to /a/:id/admin
+// - Skips /admin routes without blocking (isAdminRoute check)
+// - Renders structured blockers with i18n: t('migrationGuard.blockers.${code}', params)
 ```
 
 ## Shared Components

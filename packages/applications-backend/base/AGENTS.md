@@ -24,14 +24,14 @@ Uses raw SQL with `information_schema` existence checks before querying dynamic 
 ### Access Control
 
 - `ensureApplicationAccess` middleware — validates user role for application
-- Roles: `owner`, `admin`, `editor`, `viewer`
+- Roles: `owner`, `admin`, `editor`, `member`
 - Exported for use by other packages (e.g., `metahubs-backend`)
 
 ## Key Entities
 
 - `Application` — core entity with `schemaName`, `schemaStatus`, `appStructureVersion`
 - `ApplicationUser` — user-role mapping
-- `ApplicationSchemaStatus` enum: `PENDING`, `SYNCED`, `MAINTENANCE`, `ERROR`
+- `ApplicationSchemaStatus` enum: `DRAFT`, `PENDING`, `SYNCED`, `OUTDATED`, `UPDATE_AVAILABLE`, `MAINTENANCE`, `ERROR`
 
 ## Schema Tables (Dynamic)
 

@@ -140,7 +140,7 @@ const MetahubMigrations = () => {
 
             // Template column: for baseline/template_seed show "0/— → version", otherwise "—"
             let templateDisplay = '—'
-            if ((kind === 'baseline' || kind === 'template_seed') && meta?.templateVersionLabel) {
+            if ((kind === 'baseline' || kind === 'template_seed') && typeof meta?.templateVersionLabel === 'string') {
                 const fromLabel = kind === 'baseline' ? '0' : '—'
                 templateDisplay = `${fromLabel} → ${meta.templateVersionLabel}`
             }

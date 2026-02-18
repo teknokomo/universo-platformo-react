@@ -2,6 +2,29 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## PR #682 Bot Review Fixes — 2026-02-18
+
+> **Context**: Gemini Code Assist and Copilot PR Reviewer left 10 comments on PR #682. QA analysis confirmed 9 actionable items.
+
+### Code fixes
+- [x] Add `staleTime: 30_000` to `useMetahubMigrationsList` and `useMetahubMigrationsPlan` hooks
+- [x] Remove unused `UpdateSeverity` import from `metahubMigrationsRoutes.ts`
+- [x] Remove unused `UpdateSeverity` import from `applicationMigrationsRoutes.ts`
+- [x] Add `typeof` guard for `meta?.templateVersionLabel` in `MetahubMigrations.tsx`
+- [x] Update `determineSeverity` JSDoc — OPTIONAL means "no update needed / pass-through"
+
+### Documentation fixes
+- [x] Fix AGENTS.md roles: `viewer` → `member`
+- [x] Fix AGENTS.md schema statuses: add DRAFT, OUTDATED, UPDATE_AVAILABLE
+- [x] Fix MIGRATIONS.md: align description with actual guard behavior
+- [x] Fix memory-bank/progress.md: translate Russian fragments to English
+
+### Verification
+- [x] Build: 66/66 packages
+- [x] Memory-bank updated
+
+---
+
 ## Completed: QA Fixes + UI Polish Round 6 — 2026-02-19 ✅
 
 > **Context**: QA analysis found 1 bug + 3 warnings. User also requested 4 additional improvements.
