@@ -51,7 +51,10 @@ export default function MenuContent({ menu }: MenuContentProps) {
     return (
         <List dense sx={{ p: 1 }}>
             {menu?.showTitle && menu.title ? (
-                <Typography variant='caption' sx={{ px: 1.5, py: 0.5, display: 'block', color: 'text.secondary', fontWeight: 700, letterSpacing: 0.4 }}>
+                <Typography
+                    variant='caption'
+                    sx={{ px: 1.5, py: 0.5, display: 'block', color: 'text.secondary', fontWeight: 700, letterSpacing: 0.4 }}
+                >
                     {menu.title}
                 </Typography>
             ) : null}

@@ -10,19 +10,7 @@
 
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-    Box,
-    Typography,
-    Stack,
-    CircularProgress,
-    Alert,
-    Grid,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Divider
-} from '@mui/material'
+import { Box, Typography, Stack, CircularProgress, Alert, Grid, Button, Card, CardContent, Chip, Divider } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SyncIcon from '@mui/icons-material/Sync'
 import StorageIcon from '@mui/icons-material/Storage'
@@ -59,7 +47,7 @@ const StatusChip = ({ status }: StatusChipProps) => {
         maintenance: { color: 'warning', label: t('connectors.status.maintenance', 'Maintenance') }
     }
     const config = statusConfig[status] ?? statusConfig.draft
-    return <Chip size="medium" color={config.color} label={config.label} />
+    return <Chip size='medium' color={config.color} label={config.label} />
 }
 
 // ============================================================================
@@ -73,10 +61,10 @@ interface InfoRowProps {
 
 const InfoRow = ({ label, value }: InfoRowProps) => (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant='body2' color='text.secondary'>
             {label}
         </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Typography variant='body2' sx={{ fontWeight: 500 }}>
             {value}
         </Typography>
     </Box>
@@ -119,9 +107,9 @@ const ConnectorBoard = () => {
     if (isLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
-                <Stack spacing={2} alignItems="center" minHeight={400} justifyContent="center">
+                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
                     <CircularProgress size={40} />
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant='body2' color='text.secondary'>
                         {t('common.loading', 'Loading...')}
                     </Typography>
                 </Stack>
@@ -131,18 +119,16 @@ const ConnectorBoard = () => {
 
     // Error state
     if (isError || !connectorData?.connector) {
-        const errorMessage = error instanceof Error
-            ? error.message
-            : t('errors.connectionFailed', 'Failed to load data')
+        const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed', 'Failed to load data')
 
         return (
             <Stack spacing={3} sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%', p: 2 }}>
                 <EmptyListState
                     image={APIEmptySVG}
-                    imageAlt="Error loading connector"
+                    imageAlt='Error loading connector'
                     title={t('errors.connectionFailed', 'Failed to load data')}
                 />
-                <Alert severity="error" sx={{ mx: 'auto', maxWidth: 600 }}>
+                <Alert severity='error' sx={{ mx: 'auto', maxWidth: 600 }}>
                     {errorMessage}
                 </Alert>
             </Stack>
@@ -159,6 +145,14 @@ const ConnectorBoard = () => {
     const schemaStatus: SchemaStatus = (application?.schemaStatus as SchemaStatus) ?? 'draft'
     const schemaSyncedAt = application?.schemaSyncedAt // Still from application for now
     const schemaError = application?.schemaError // Still from application for now
+    const connectorUpdated = connector.updatedAt ? new Date(connector.updatedAt).getTime() : Number.NEGATIVE_INFINITY
+    const applicationUpdated = application?.updatedAt ? new Date(application.updatedAt).getTime() : Number.NEGATIVE_INFINITY
+    const connectorUpdatedAt =
+        !Number.isFinite(connectorUpdated) && !Number.isFinite(applicationUpdated)
+            ? null
+            : applicationUpdated > connectorUpdated
+            ? application?.updatedAt ?? null
+            : connector.updatedAt ?? null
 
     const handleSyncClick = () => {
         setDiffDialogOpen(true)
@@ -207,49 +201,32 @@ const ConnectorBoard = () => {
                 <Grid container spacing={3} columns={12}>
                     {/* Schema Status Card */}
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <Card variant="outlined">
+                        <Card variant='outlined'>
                             <CardContent>
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                                    <StorageIcon color="primary" />
-                                    <Typography variant="h6">
-                                        {t('connectors.schema.title', 'Schema')}
-                                    </Typography>
+                                <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 2 }}>
+                                    <StorageIcon color='primary' />
+                                    <Typography variant='h6'>{t('connectors.schema.title', 'Schema')}</Typography>
                                 </Stack>
                                 <Divider sx={{ mb: 2 }} />
 
                                 <InfoRow
                                     label={t('connectors.schema.name', 'Schema Name')}
-                                    value={
-                                        <Typography sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                                            {schemaName}
-                                        </Typography>
-                                    }
+                                    value={<Typography sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{schemaName}</Typography>}
                                 />
-                                <InfoRow
-                                    label={t('connectors.schema.status', 'Status')}
-                                    value={<StatusChip status={schemaStatus} />}
-                                />
-                                <InfoRow
-                                    label={t('connectors.schema.lastSync', 'Last Synced')}
-                                    value={formatDate(schemaSyncedAt)}
-                                />
-                                {metahubName && (
-                                    <InfoRow
-                                        label={t('connectors.schema.source', 'Source Metahub')}
-                                        value={metahubName}
-                                    />
-                                )}
+                                <InfoRow label={t('connectors.schema.status', 'Status')} value={<StatusChip status={schemaStatus} />} />
+                                <InfoRow label={t('connectors.schema.lastSync', 'Last Synced')} value={formatDate(schemaSyncedAt)} />
+                                {metahubName && <InfoRow label={t('connectors.schema.source', 'Source Metahub')} value={metahubName} />}
 
                                 {schemaError && (
-                                    <Alert severity="error" sx={{ mt: 2 }}>
+                                    <Alert severity='error' sx={{ mt: 2 }}>
                                         {schemaError}
                                     </Alert>
                                 )}
 
                                 <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
                                     <Button
-                                        variant="contained"
-                                        color="primary"
+                                        variant='contained'
+                                        color='primary'
                                         startIcon={<SyncIcon />}
                                         onClick={handleSyncClick}
                                         disabled={schemaStatus === 'pending' || syncMutation.isPending || !publication}
@@ -263,7 +240,7 @@ const ConnectorBoard = () => {
                                     </Button>
                                 </Box>
                                 <Button
-                                    variant="outlined"
+                                    variant='outlined'
                                     startIcon={<HistoryIcon />}
                                     onClick={() => navigate(`/a/${applicationId}/admin/migrations`)}
                                     fullWidth
@@ -277,28 +254,20 @@ const ConnectorBoard = () => {
 
                     {/* Details Card */}
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <Card variant="outlined">
+                        <Card variant='outlined'>
                             <CardContent>
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                                    <InfoOutlinedIcon color="primary" />
-                                    <Typography variant="h6">
-                                        {t('common.details', 'Details')}
-                                    </Typography>
+                                <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 2 }}>
+                                    <InfoOutlinedIcon color='primary' />
+                                    <Typography variant='h6'>{t('common.details', 'Details')}</Typography>
                                 </Stack>
                                 <Divider sx={{ mb: 2 }} />
 
-                                <InfoRow
-                                    label={t('connectors.table.created', 'Created')}
-                                    value={formatDate(connector.createdAt)}
-                                />
-                                <InfoRow
-                                    label={t('common.updated', 'Updated')}
-                                    value={formatDate(connector.updatedAt)}
-                                />
+                                <InfoRow label={t('connectors.table.created', 'Created')} value={formatDate(connector.createdAt)} />
+                                <InfoRow label={t('common.updated', 'Updated')} value={formatDate(connectorUpdatedAt)} />
 
                                 {/* Status Description */}
                                 <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                                    <Typography variant="body2" color="text.secondary">
+                                    <Typography variant='body2' color='text.secondary'>
                                         {schemaStatus === 'synced'
                                             ? t('connectors.statusDescription.synced', 'Schema matches current configuration')
                                             : schemaStatus === 'outdated'
@@ -320,9 +289,9 @@ const ConnectorBoard = () => {
                 </Grid>
 
                 {/* Back Button */}
-                <Box display="flex" justifyContent="center" sx={{ mt: 4 }}>
+                <Box display='flex' justifyContent='center' sx={{ mt: 4 }}>
                     <Button
-                        variant="text"
+                        variant='text'
                         startIcon={<ArrowBackRoundedIcon />}
                         onClick={() => navigate(`/a/${applicationId}/admin/connectors`)}
                     >

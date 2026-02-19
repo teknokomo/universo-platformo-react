@@ -43,6 +43,256 @@
 
 ---
 
+## Enumerations QA Remediation Round 5 (2026-02-19)
+
+Implemented final targeted fixes for runtime consistency and connector sync metadata.
+
+### Delivered
+1. **`toggle-required` invariant safety fixed**:
+   - Added missing `enumerationValuesService` wiring in the route handler to avoid runtime `500`.
+   - Preserved required-mode guards for enum REF attributes (`label` mode + ownership validation for `defaultEnumValueId`).
+
+2. **Runtime enum display hardened**:
+   - Updated `apps-template-mui` enum REF cell rendering to avoid UUID fallback in grids.
+   - Rendering now prefers object label/name and otherwise falls back to an empty value instead of raw UUID.
+
+3. **Connector sync timestamp reliability**:
+   - Updated connector touch logic in schema sync flow to always set `_uplUpdatedAt = new Date()` and persist it.
+   - This guarantees connector `updatedAt` changes when sync runs, even if user metadata is unchanged.
+
+4. **Lint/prettier blocker removed**:
+   - Fixed `HubList.tsx` and `attributesRoutes.ts` formatting issues that produced blocking prettier errors.
+
+### Verification
+- `pnpm --filter ./packages/metahubs-backend/base test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/services/structureVersions.test.ts` ✅
+- `pnpm --filter ./packages/apps-template-mui exec eslint src/utils/columns.tsx` ✅
+- `pnpm --filter ./packages/metahubs-frontend/base exec eslint src/domains/hubs/ui/HubList.tsx` ✅ (warnings only)
+- `pnpm --filter ./packages/metahubs-backend/base exec eslint src/domains/applications/routes/applicationSyncRoutes.ts src/domains/attributes/routes/attributesRoutes.ts` ✅ (warnings only)
+- `pnpm --filter ./packages/metahubs-backend/base build` ✅
+- `pnpm --filter ./packages/apps-template-mui build` ✅
+- `pnpm --filter ./packages/metahubs-frontend/base build` ✅
+
+---
+
+## Enumerations QA Remediation Round 4 (2026-02-19)
+
+Implemented targeted fixes for the remaining high/medium QA findings on Enumerations runtime and routes.
+
+### Delivered
+1. **Runtime edit safety in `FormDialog`**:
+   - Changed enum default injection to apply only when field value is `undefined`.
+   - Explicit `null` values are preserved and are no longer auto-replaced in edit flow.
+
+2. **Deterministic restore conflict behavior**:
+   - Added unique-violation detection in enumeration restore route.
+   - `POST /metahub/:metahubId/enumeration/:enumerationId/restore` now returns `409` with a clear conflict message on codename collisions.
+
+3. **Locale fallback consistency for enumeration PATCH**:
+   - Aligned hub-scoped PATCH description primary-locale fallback with metahub-scoped PATCH behavior.
+   - Existing `description._primary` is now preserved when `descriptionPrimaryLocale` is not explicitly provided.
+
+4. **Regression coverage expansion**:
+   - `metahubs-backend`: added restore conflict and locale fallback tests in `enumerationsRoutes.test.ts`.
+   - `applications-backend`: added runtime enum validation tests in `applicationsRoutes.test.ts`:
+     - reject writes to enum `label` mode fields;
+     - reject enum values that do not belong to target enumeration in PATCH.
+
+### Verification
+- `pnpm --filter @universo/metahubs-backend test -- enumerationsRoutes.test.ts` ✅
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
+- `pnpm --filter @universo/apps-template-mui exec eslint src/components/dialogs/FormDialog.tsx` ✅
+- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/enumerations/routes/enumerationsRoutes.ts src/tests/routes/enumerationsRoutes.test.ts` ✅ (warnings only)
+- `pnpm --filter @universo/applications-backend exec eslint src/tests/routes/applicationsRoutes.test.ts` ✅ (warnings only)
+- `pnpm --filter @universo/apps-template-mui build` ✅
+- `pnpm --filter @universo/applications-backend build` ✅
+- `pnpm --filter @universo/metahubs-backend build` ✅
+
+---
+
+## Enumerations QA Remediation Round 3 (2026-02-19)
+
+Implemented final safety fixes requested by repeated QA passes for Enumerations.
+
+### Delivered
+1. **Schema DDL FK safety for enum references**:
+   - Updated `SchemaMigrator` `ADD_FK` flow to resolve the source field and honor `targetEntityKind`.
+   - For `REF -> enumeration`, FK now targets `${schema}._app_enum_values(id)` instead of a non-existent physical enumeration table.
+   - Added `ensureSystemTables()` call before enum FK creation to guarantee target table existence.
+
+2. **Attribute required-toggle invariant guard**:
+   - Hardened `toggle-required` route in `attributesRoutes.ts`.
+   - Route now rejects toggling to `required=true` when attribute is `REF -> enumeration`, presentation mode is `label`, and `defaultEnumValueId` is missing or invalid.
+   - Added ownership validation: `defaultEnumValueId` must belong to the selected target enumeration.
+
+3. **Enumeration permanent delete blocker parity**:
+   - Added blocker checks to `DELETE /metahub/:metahubId/enumeration/:enumerationId/permanent`.
+   - Permanent delete now returns `409` with `blockingReferences` when attributes still reference the enumeration, matching soft-delete safety semantics.
+
+4. **Regression tests added**:
+   - `schema-ddl`: `SchemaMigrator.test.ts` validates enum FK targets `_app_enum_values`.
+   - `metahubs-backend`: `attributesRoutes.test.ts` validates required-toggle guard failures.
+   - `metahubs-backend`: `enumerationsRoutes.test.ts` validates permanent-delete blocker behavior.
+
+### Verification
+- `pnpm --filter @universo/schema-ddl test -- --runInBand src/__tests__/SchemaMigrator.test.ts` ✅
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/attributesRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅
+- `pnpm --filter @universo/schema-ddl lint` ✅ (warnings only)
+- `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only)
+- `pnpm --filter @universo/schema-ddl build` ✅
+- `pnpm --filter @universo/metahubs-backend build` ⚠️ failed due pre-existing unrelated TypeScript issues in `applicationMigrationsRoutes.ts`, `applicationSyncRoutes.ts`, publication snapshot typing, and local package resolution (`@universo/schema-ddl`) outside this fix scope.
+
+---
+
+## Enumerations QA Remediation Round 2 (2026-02-19)
+
+Implemented an additional safety pass after QA findings:
+
+1. **Metahub structure versioning fixed**:
+   - Consolidated system tables into a single `SYSTEM_TABLES_V1` set with `_mhb_enum_values`.
+   - Removed V2/V3 split from active code paths.
+   - Set `CURRENT_STRUCTURE_VERSION` to `1`.
+   - Updated `basic` template `minStructureVersion` to `1`.
+
+2. **Enumerations routes consistency fixed**:
+   - API now maps timestamps from `_upl_created_at` / `_upl_updated_at` (with backward-compatible fallback).
+   - Added missing `isSingleHub` guard for both global and hub-scoped enumeration create endpoints.
+
+3. **Runtime stale enum references hardened**:
+   - During application sync, stale enum references in runtime catalog rows are remapped before soft-deleting removed enum values.
+   - Fallback order: field `defaultEnumValueId` (if still active) → enumeration default value → first active value.
+   - Required REF fields now fail sync with explicit error if no valid fallback exists.
+
+4. **Lint blockers resolved**:
+   - Fixed Prettier errors in:
+     - `TemplateSeedExecutor.ts`
+     - `TemplateSeedMigrator.ts`
+     - `TemplateSeedCleanupService.ts`
+
+5. **Regression coverage updated**:
+   - Added `src/tests/services/structureVersions.test.ts`.
+   - Updated migration-related tests to assert against `CURRENT_STRUCTURE_VERSION` instead of hardcoded `2`.
+
+### Verification
+- `pnpm --filter @universo/metahubs-backend build` ✅
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/structureVersions.test.ts src/tests/services/metahubSchemaService.test.ts src/tests/routes/metahubMigrationsRoutes.test.ts` ✅
+- `pnpm --filter @universo/metahubs-backend exec eslint <touched-files>` ✅ (warnings only, zero errors)
+
+---
+
+## Enumerations Stabilization Implementation (2026-02-19)
+
+Completed IMPLEMENT pass for Enumerations after QA findings. Focus was compile/runtime safety, contract consistency, and verification recovery.
+
+### Delivered
+1. **Contract alignment (`presentation` canonicalization)**:
+   - normalized enumeration value mapping in publication snapshot serialization;
+   - added backward-compatible sync mapping for legacy `name/description` payloads in `_app_enum_values` sync.
+2. **Backend blocker fixes**:
+   - fixed strict typing in `enumerationsRoutes` update handlers;
+   - fixed missing `attributesService` wiring in enumeration value delete handler;
+   - fixed metahub migration seed counters (`enumValuesAdded`) across route/meta schemas;
+   - fixed blocker query typing in `MetahubAttributesService`.
+3. **Shared type safety**:
+   - extended optimistic-lock `ConflictInfo.entityType` with `document`.
+4. **Tests updated to current structure semantics (V2)**:
+   - read-only schema test now expects full V2 table set;
+   - migration routes tests now assert `targetStructureVersion: 2`, `MIGRATION_REQUIRED` status, and structured blocker payloads.
+5. **Frontend polish**:
+   - fixed Prettier errors in new Enumerations frontend files.
+6. **Safer enum cleanup strategy in application sync**:
+   - replaced hard delete of stale `_app_enum_values` rows with soft-delete updates;
+   - added undelete restoration via upsert merge columns for values that reappear in newer snapshots.
+
+### Verification
+- `pnpm --filter @universo/utils build` ✅
+- `pnpm --filter @universo/applications-backend build` ✅
+- `pnpm --filter @universo/metahubs-backend build` ✅
+- `pnpm --filter @universo/metahubs-backend test` ✅ (12 passed, 0 failed)
+- `pnpm --filter @universo/metahubs-frontend build` ✅
+- `pnpm --filter @universo/apps-template-mui build` ✅
+- Targeted eslint on touched files: no errors (warnings only) ✅
+
+---
+
+## Enumerations QA Hardening (2026-02-19)
+
+Implemented a safety-focused hardening pass after QA findings for enumeration sync and metadata lifecycle.
+
+### Delivered
+1. **Metadata cleanup order fixed**:
+   - `schema-ddl` now removes stale `_app_objects/_app_attributes` rows before metadata upsert when `removeMissing=true`.
+   - This eliminates unique conflicts on `(kind, codename)` when an object is recreated with a new UUID.
+
+2. **Consistent missing-row cleanup in sync flows**:
+   - Enabled `removeMissing: true` in application and publication no-DDL sync branches.
+   - Updated migrator metadata sync paths to always prune stale metadata.
+
+3. **Enumeration values sync hardened**:
+   - Added duplicate enum value ID guard during snapshot sync.
+   - Added stale `_app_enum_values` cleanup for removed enumeration objects.
+
+4. **Declarative schema contract improved**:
+   - Added `uidx_mhb_enum_values_default_active` unique partial index to `_mhb_enum_values` system table definitions.
+
+5. **Compatibility + regression fixes in `schema-ddl`**:
+   - Added runtime fallback for `enumeration` kind if older `@universo/types` runtime is loaded.
+   - Fixed `calculateSchemaDiff()` to restore old entity IDs from snapshot map keys (`Object.entries` path).
+   - Added regression tests:
+     - enumeration entities are ignored for physical DDL diff;
+     - `syncSystemMetadata(removeMissing=true)` cleanup runs before upsert.
+
+### Verification
+- `pnpm --filter @universo/schema-ddl lint` ✅ (warnings only)
+- `pnpm --filter @universo/schema-ddl test` ✅ (7/7 suites)
+- `pnpm --filter @universo/schema-ddl build` ✅
+- `pnpm --filter @universo/metahubs-backend exec eslint <touched-files>` ✅ (warnings only)
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/systemTableMigrator.test.ts` ✅
+
+---
+
+## Enumerations Feature — Frontend/UI Integration (2026-02-18)
+
+Implemented the planned Enumerations integration across metahub UI, attribute presentation settings, and runtime-facing i18n.
+
+### Delivered
+1. **Metahubs frontend enumeration domain finalized**:
+   - Enumeration list + values list flows
+   - Value CRUD hooks/mutations and query invalidation
+   - Blocking delete dialog wired for cross-catalog REF references
+
+2. **Navigation and routes completed**:
+   - Added `menu.enumerations` entry under metahub navigation
+   - Added metahub + hub-scoped enumeration routes in `MainRoutesMUI.tsx`
+   - Added external module declarations and package exports
+
+3. **Attribute UX extended for REF -> enumeration**:
+   - `TargetEntitySelector` supports `enumeration` target kind
+   - Presentation tab now supports:
+     - `enumPresentationMode` (`select`, `radio`, `label`)
+     - `defaultEnumValueId` from selected enumeration values
+   - Added `uiConfig` normalization in create/edit payload builders
+
+4. **Backend validation hardened (`attributesRoutes.ts`)**:
+   - Added `uiConfig` schema fields: `enumPresentationMode`, `defaultEnumValueId`
+   - Added ownership validation: `defaultEnumValueId` must belong to selected enumeration
+   - Added cleanup of enum-only config keys when target is not enumeration
+
+5. **i18n updates (EN/RU)**:
+   - New sections: `enumerations`, `enumerationValues`
+   - New `ref.*` keys for enumeration target selection
+   - New `attributes.presentation.*` keys for enum controls/warnings
+   - Added `menu.enumerations` (shared menu locales)
+   - Added `app.emptyOption` in runtime app locales
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend build` ✅
+- `pnpm --filter @universo/apps-template-mui build` ✅
+- `pnpm --filter @universo/template-mui build` ✅
+- Targeted eslint on changed TS/TSX files: no errors (warnings only) ✅
+- `pnpm --filter @universo/metahubs-backend build` ❌ blocked by existing unrelated backend TypeScript issues outside this change set
+
+---
+
 ## PR #682 Bot Review Fixes (2026-02-18)
 
 Addressed 9 actionable items from Gemini Code Assist and Copilot PR Reviewer comments on PR #682:
@@ -451,9 +701,9 @@ After manual testing revealed 4 remaining issues (QA assessed ~96% spec coverage
 
 ## 2026-02-12: QA Rounds 9-16 — Pool, Locks, Cache, Migrations ✅
 
-### Round 9: Migration Gate, V1/V2 Compatibility, Pool-Safe Apply
+### Round 9: Migration Gate, Baseline Compatibility, Pool-Safe Apply
 - DB-aware `ensureSchema()` with strict order: structure migration → seed sync.
-- V1/V2-compatible widget table resolver for both `_mhb_widgets` and `_mhb_layout_zone_widgets`.
+- Widget table resolver aligned to `_mhb_widgets`.
 - Deterministic API error model: `MIGRATION_REQUIRED` (428), `CONNECTION_POOL_EXHAUSTED` (503).
 - `GET /metahub/:metahubId/migrations/status` preflight endpoint.
 - Frontend `MetahubMigrationGuard` modal — blocks non-migration metahub pages.
@@ -504,15 +754,15 @@ After manual testing revealed 4 remaining issues (QA assessed ~96% spec coverage
 
 ---
 
-## 2026-02-11: QA Rounds 3-8, Structure V2, Template Cleanup ✅
+## 2026-02-11: QA Rounds 3-8, Structure Baseline, Template Cleanup ✅
 
-### Structure V2 Rename + Template Cleanup Policy
-- `_mhb_widgets` table rename from `_mhb_layout_zone_widgets`, `CURRENT_STRUCTURE_VERSION=2`.
+### Structure Baseline + Template Cleanup Policy
+- `_mhb_widgets` baseline table, `CURRENT_STRUCTURE_VERSION=1`.
 - Diff engine emits `RENAME_TABLE` and `RENAME_INDEX` operations via `renamedFrom` metadata.
 - Migrator executes rename transactionally before other additive changes.
 - `TemplateSeedCleanupService` with modes `keep`/`dry_run`/`confirm` + ownership safety checks.
 - Removed starter `tags` catalog from `basic.template.ts` for new metahubs.
-- Added regression tests for V1→V2 rename and cleanup blocker behavior.
+- Added regression tests for baseline cleanup blocker behavior.
 
 ### QA Round 3: Security + Atomicity + Seed Consistency
 - Metahub access checks across all publications/migrations endpoints with request-scoped `QueryRunner`.

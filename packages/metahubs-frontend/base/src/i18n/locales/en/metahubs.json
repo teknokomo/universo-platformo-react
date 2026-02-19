@@ -367,6 +367,10 @@
     "nameEn": "Name (English)",
     "nameRu": "Name (Russian)",
     "descriptionEn": "Description (English)",
+    "itemsTitle": "Items",
+    "itemsCount": "items",
+    "itemsCount_one": "{{count}} item",
+    "itemsCount_other": "{{count}} items",
     "catalogsCount": "catalogs",
     "catalogsCount_one": "{{count}} catalog",
     "catalogsCount_other": "{{count}} catalogs",
@@ -451,6 +455,89 @@
     "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
     "isSingleHubWarning": "Cannot enable while multiple hubs are selected"
   },
+  "enumerations": {
+    "title": "Enumerations",
+    "allTitle": "Enumerations",
+    "description": "Define fixed value lists for this metahub",
+    "searchPlaceholder": "Search enumerations...",
+    "empty": "No enumerations yet",
+    "emptyDescription": "Create an enumeration to define fixed values for attributes",
+    "noSearchResults": "No enumerations found",
+    "noSearchResultsHint": "Try a different search query",
+    "createSuccess": "Enumeration created",
+    "createError": "Failed to create enumeration",
+    "updateSuccess": "Enumeration updated",
+    "updateError": "Failed to update enumeration",
+    "deleteSuccess": "Enumeration deleted",
+    "deleteError": "Failed to delete enumeration",
+    "editTitle": "Edit Enumeration",
+    "createDialog": {
+      "title": "Create Enumeration"
+    },
+    "deleteDialog": {
+      "title": "Delete Enumeration",
+      "message": "Are you sure you want to delete this enumeration? This action cannot be undone.",
+      "confirmMessage": "Are you sure you want to delete this enumeration? This action cannot be undone.",
+      "hasBlockingReferences": "Cannot delete enumeration. Remove these references from attributes first:",
+      "resolutionHint": "Open the source catalogs and update or remove the reference attributes.",
+      "fetchBlockingError": "Failed to check for blocking references",
+      "blockingTable": {
+        "catalog": "Catalog",
+        "attribute": "Attribute"
+      }
+    },
+    "codename": "Codename",
+    "codenameHelper": "Unique identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "valuesHeader": "Values",
+    "valuesCount_one": "{{count}} value",
+    "valuesCount_other": "{{count}} values",
+    "tabs": {
+      "general": "General",
+      "hubs": "Hubs"
+    },
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
+      "hubRequired": "At least one hub is required"
+    }
+  },
+  "enumerationValues": {
+    "title": "Values",
+    "titleWithName": "Enumeration Values: {{name}}",
+    "searchPlaceholder": "Search values...",
+    "empty": "No values yet",
+    "emptyDescription": "Add values to define available options in this enumeration",
+    "createDialog": {
+      "title": "Create value"
+    },
+    "editDialog": {
+      "title": "Edit Enumeration Value"
+    },
+    "deleteDialog": {
+      "title": "Delete Enumeration Value"
+    },
+    "createSuccess": "Value created",
+    "createError": "Failed to create value",
+    "updateSuccess": "Value updated",
+    "updateError": "Failed to update value",
+    "moveSuccess": "Value order updated",
+    "moveError": "Failed to move value",
+    "deleteSuccess": "Value deleted",
+    "deleteError": "Failed to delete value",
+    "codename": "Codename",
+    "codenameHelper": "Unique field identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
+    "sortOrder": "Sort order",
+    "isDefault": "Default value",
+    "actions": {
+      "setDefault": "Set as default",
+      "clearDefault": "Clear default"
+    },
+    "defaultTooltip": "This value is used by default.",
+    "validation": {
+      "codenameRequired": "Codename is required",
+      "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
+    }
+  },
   "attributes": {
     "title": "Attributes",
     "description": "Define the fields for this catalog",
@@ -530,7 +617,28 @@
     },
     "presentation": {
       "headerAsCheckbox": "Display header as checkbox",
-      "headerAsCheckboxHelper": "Show a checkbox in the column header instead of the text label (only for Boolean type)"
+      "headerAsCheckboxHelper": "Show a checkbox in the column header instead of the text label (only for Boolean type)",
+      "enumMode": "Enumeration view mode",
+      "enumModeHelper": "Applies to references that point to an enumeration in runtime forms.",
+      "enumModeOptions": {
+        "select": "Input field",
+        "radio": "Radio field",
+        "label": "Label field"
+      },
+      "defaultEnumValue": "Default value",
+      "defaultEnumValueHelper": "When empty, runtime forms start with no selected value.",
+      "allowEmpty": "Can be empty",
+      "allowEmptyHelper": "Controls whether an empty option is available for default value selection.",
+      "emptyOption": "Empty",
+      "labelEmptyDisplay": "Empty value display",
+      "labelEmptyDisplayOptions": {
+        "empty": "Empty value",
+        "dash": "Dash"
+      },
+      "labelEmptyDisplayHelper": "Used in label mode when default value is not selected.",
+      "enumTargetRequired": "Select a target enumeration on the General tab to configure presentation settings.",
+      "labelModeRequiresDefault": "Label mode renders selected text only. Set a default value to avoid an empty label.",
+      "requiredWithoutDefault": "This attribute is required. Users must select a value before saving if default is empty."
     },
     "edit": {
       "typeChangeDisabled": "Data type cannot be changed after creation",
@@ -575,17 +683,25 @@
     "targetEntityKind": "Target Entity Type",
     "notSelected": "Not selected",
     "targetCatalog": "Target Catalog",
+    "targetEnumeration": "Target Enumeration",
     "selectCatalog": "Select catalog...",
+    "selectEnumeration": "Select enumeration...",
+    "selectEnumerationValue": "Select value...",
     "selectElement": "Select element...",
     "catalogRequired": "Please select a catalog",
+    "enumerationRequired": "Please select an enumeration",
     "noCatalogsAvailable": "No catalogs available",
+    "noEnumerationsAvailable": "No enumerations available",
+    "noEnumerationValuesAvailable": "No values available",
     "noElementsAvailable": "No elements available",
     "loadingElements": "Loading elements...",
     "targetEntityMissing": "Target entity is not configured for this reference.",
     "unknownElement": "Element {{id}}",
+    "unknownEnumerationValue": "Value {{id}}",
     "entityKindNotSupported": "This entity type is not yet supported for references.",
     "entityKind": {
       "catalog": "Catalog",
+      "enumeration": "Enumeration",
       "document": "Document",
       "hub": "Hub"
     }

@@ -22,6 +22,7 @@ import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsSer
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
+import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 
 // Helper: Resolve user ID from request
 const resolveUserId = (req: Request): string | undefined => {
@@ -437,7 +438,14 @@ export function createPublicationsRoutes(
             const attributesService = new MetahubAttributesService(schemaService)
             const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
-            const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
+            const enumerationValuesService = new MetahubEnumerationValuesService(schemaService)
+            const serializer = new SnapshotSerializer(
+                objectsService,
+                attributesService,
+                elementsService,
+                hubsService,
+                enumerationValuesService
+            )
             const templateVersionLabel = await resolveTemplateVersionLabel(ds, metahub.templateVersionId)
             const snapshot = await serializer.serializeMetahub(metahubId, {
                 structureVersion: branch.structureVersion ?? 1,
@@ -1045,7 +1053,9 @@ export function createPublicationsRoutes(
                 const diff = migrator.calculateDiff(oldSnapshot, catalogDefs)
 
                 if (!diff.hasChanges) {
-                    await generator.syncSystemMetadata(publication.schemaName!, catalogDefs)
+                    await generator.syncSystemMetadata(publication.schemaName!, catalogDefs, {
+                        removeMissing: true
+                    })
                     const snapshot = generator.generateSnapshot(catalogDefs)
                     publication.schemaStatus = PublicationSchemaStatus.SYNCED
                     publication.schemaSnapshot = snapshot as unknown as Record<string, unknown>
@@ -1178,7 +1188,14 @@ export function createPublicationsRoutes(
             const attributesService = new MetahubAttributesService(schemaService)
             const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
             const hubsService = new MetahubHubsService(schemaService)
-            const serializer = new SnapshotSerializer(objectsService, attributesService, elementsService, hubsService)
+            const enumerationValuesService = new MetahubEnumerationValuesService(schemaService)
+            const serializer = new SnapshotSerializer(
+                objectsService,
+                attributesService,
+                elementsService,
+                hubsService,
+                enumerationValuesService
+            )
             const templateVersionLabel = await resolveTemplateVersionLabel(getDataSource(), metahub.templateVersionId)
             const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId, {
                 structureVersion: branch.structureVersion ?? 1,

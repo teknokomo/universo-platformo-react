@@ -341,7 +341,9 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
         // ===== 9) RLS Policies WITH global admin bypass (idempotent - drop first) =====
 
         // Policy for applications_users
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage their application memberships" ON applications.applications_users;`)
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage their application memberships" ON applications.applications_users;`
+        )
         await queryRunner.query(`
             CREATE POLICY "Allow users to manage their application memberships" ON applications.applications_users
             FOR ALL
@@ -378,7 +380,9 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
         `)
 
         // Policy for connectors
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage connectors in their applications" ON applications.connectors;`)
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage connectors in their applications" ON applications.connectors;`
+        )
         await queryRunner.query(`
             CREATE POLICY "Allow users to manage connectors in their applications" ON applications.connectors
             FOR ALL
@@ -401,7 +405,9 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
         `)
 
         // Policy for connectors_publications
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage connector-publication links" ON applications.connectors_publications;`)
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage connector-publication links" ON applications.connectors_publications;`
+        )
         await queryRunner.query(`
             CREATE POLICY "Allow users to manage connector-publication links" ON applications.connectors_publications
             FOR ALL
@@ -426,8 +432,12 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Drop RLS policies
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage connector-publication links" ON applications.connectors_publications;`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage connectors in their applications" ON applications.connectors;`)
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage connector-publication links" ON applications.connectors_publications;`
+        )
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage connectors in their applications" ON applications.connectors;`
+        )
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage their own applications" ON applications.applications;`)
         await queryRunner.query(
             `DROP POLICY IF EXISTS "Allow users to manage their application memberships" ON applications.applications_users;`

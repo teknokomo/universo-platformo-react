@@ -123,6 +123,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createMetahubMigrationsRoutes } from '../../domains/metahubs/routes/metahubMigrationsRoutes'
+import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
 import { basicTemplate } from '../../domains/templates/data/basic.template'
 
 describe('Metahub Migrations Routes', () => {
@@ -290,7 +291,7 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body.error).toContain('Could not acquire migration apply lock')
     })
 
-    it('returns structured migration plan payload', async () => {
+    it('returns structured migration plan payload for v1 baseline', async () => {
         const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
         const metahubId = 'metahub-3'
         const branchId = 'branch-3'
@@ -320,7 +321,7 @@ describe('Metahub Migrations Routes', () => {
             branchId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
             currentStructureVersion: 1,
-            targetStructureVersion: 1,
+            targetStructureVersion: CURRENT_STRUCTURE_VERSION,
             structureUpgradeRequired: false,
             templateId: null,
             currentTemplateVersionId: null,
@@ -344,8 +345,8 @@ describe('Metahub Migrations Routes', () => {
         const metahubId = 'metahub-branch-template-source'
         const branchId = 'branch-template-source'
         const templateId = 'template-basic'
-        const targetTemplateVersionId = 'template-v110'
-        const branchTemplateVersionId = 'template-v100'
+        const targetTemplateVersionId = 'template-v100-target'
+        const branchTemplateVersionId = 'template-v100-branch'
 
         metahubRepo.findOneBy.mockResolvedValue({
             id: metahubId,
@@ -362,7 +363,7 @@ describe('Metahub Migrations Routes', () => {
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_tpl_source',
-            structureVersion: 2,
+            structureVersion: CURRENT_STRUCTURE_VERSION,
             lastTemplateVersionId: branchTemplateVersionId,
             lastTemplateVersionLabel: '1.0.0'
         })
@@ -375,7 +376,7 @@ describe('Metahub Migrations Routes', () => {
                 return { id, templateId, versionLabel: '1.0.0', manifestJson: null }
             }
             if (id === targetTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.1.0', manifestJson: basicTemplate }
+                return { id, templateId, versionLabel: '1.0.0', manifestJson: basicTemplate }
             }
             return null
         })
@@ -388,7 +389,7 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body.templateUpgradeRequired).toBe(true)
     })
 
-    it('returns migration status payload for route-level guard checks', async () => {
+    it('returns up-to-date migration status payload for route-level guard checks', async () => {
         const { dataSource, metahubRepo, branchRepo, metahubUserRepo } = setupDataSource()
         const metahubId = 'metahub-3-status'
         const branchId = 'branch-3-status'
@@ -429,8 +430,8 @@ describe('Metahub Migrations Routes', () => {
         const metahubId = 'metahub-status-lightweight'
         const branchId = 'branch-status-lightweight'
         const templateId = 'template-basic'
-        const targetTemplateVersionId = 'template-v110'
-        const branchTemplateVersionId = 'template-v100'
+        const targetTemplateVersionId = 'template-v100-target'
+        const branchTemplateVersionId = 'template-v100-branch'
 
         metahubRepo.findOneBy.mockResolvedValue({
             id: metahubId,
@@ -447,7 +448,7 @@ describe('Metahub Migrations Routes', () => {
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_status_light',
-            structureVersion: 2,
+            structureVersion: CURRENT_STRUCTURE_VERSION,
             lastTemplateVersionId: branchTemplateVersionId,
             lastTemplateVersionLabel: '1.0.0'
         })
@@ -460,7 +461,7 @@ describe('Metahub Migrations Routes', () => {
                 return { id, templateId, versionLabel: '1.0.0', manifestJson: null }
             }
             if (id === targetTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.1.0', manifestJson: basicTemplate }
+                return { id, templateId, versionLabel: '1.0.0', manifestJson: basicTemplate }
             }
             return null
         })
@@ -583,9 +584,7 @@ describe('Metahub Migrations Routes', () => {
             .expect(422)
 
         expect(response.body.error).toContain('Migration contains blockers')
-        expect(response.body.blockers).toEqual(
-            expect.arrayContaining([expect.stringContaining('cleanup mode "dry_run" cannot apply destructive cleanup')])
-        )
+        expect(response.body.blockers).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'template.cleanup_dry_run' })]))
     })
 
     it('does not update metahub template pointer when branch template sync is not confirmed', async () => {
@@ -593,8 +592,8 @@ describe('Metahub Migrations Routes', () => {
         const metahubId = 'metahub-template-sync-check'
         const branchId = 'branch-template-sync-check'
         const templateId = 'template-basic'
-        const targetTemplateVersionId = 'template-v110'
-        const branchTemplateVersionId = 'template-v100'
+        const targetTemplateVersionId = 'template-v100-target'
+        const branchTemplateVersionId = 'template-v100-branch'
 
         metahubRepo.findOneBy.mockResolvedValue({
             id: metahubId,
@@ -624,7 +623,7 @@ describe('Metahub Migrations Routes', () => {
                 return { id, templateId, versionLabel: '1.0.0', manifestJson: null }
             }
             if (id === targetTemplateVersionId) {
-                return { id, templateId, versionLabel: '1.1.0', manifestJson: basicTemplate }
+                return { id, templateId, versionLabel: '1.0.0', manifestJson: basicTemplate }
             }
             return null
         })

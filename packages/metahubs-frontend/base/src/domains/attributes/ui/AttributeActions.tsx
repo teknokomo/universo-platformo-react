@@ -47,6 +47,17 @@ const validateAttributeForm = (ctx: ActionContext<AttributeDisplay, AttributeLoc
     } else if (!isValidCodename(normalizedCodename)) {
         errors.codename = ctx.t('attributes.validation.codenameInvalid', 'Codename contains invalid characters')
     }
+    if (values.dataType === 'REF') {
+        if (!values.targetEntityKind) {
+            errors.targetEntityKind = ctx.t(
+                'attributes.validation.targetEntityKindRequired',
+                'Target entity type is required for Reference type'
+            )
+        }
+        if (!values.targetEntityId) {
+            errors.targetEntityId = ctx.t('attributes.validation.targetEntityIdRequired', 'Target entity is required for Reference type')
+        }
+    }
     return Object.keys(errors).length > 0 ? errors : null
 }
 
@@ -54,7 +65,62 @@ const canSaveAttributeForm = (values: Record<string, any>) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
     const normalizedCodename = sanitizeCodename(rawCodename)
-    return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    const hasBasicInfo = hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    if (values.dataType === 'REF') {
+        return hasBasicInfo && Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
+    }
+    return hasBasicInfo
+}
+
+const sanitizeAttributeUiConfig = (
+    dataType: AttributeLocalizedPayload['dataType'],
+    targetEntityKind: MetaEntityKind | null | undefined,
+    sourceUiConfig: Record<string, unknown>,
+    isRequired: boolean
+): Record<string, unknown> => {
+    const nextUiConfig = { ...sourceUiConfig }
+    const isEnumerationRef = dataType === 'REF' && targetEntityKind === 'enumeration'
+
+    if (!isEnumerationRef) {
+        delete nextUiConfig.enumPresentationMode
+        delete nextUiConfig.defaultEnumValueId
+        delete nextUiConfig.enumAllowEmpty
+        delete nextUiConfig.enumLabelEmptyDisplay
+        return nextUiConfig
+    }
+
+    if (
+        nextUiConfig.enumPresentationMode !== 'select' &&
+        nextUiConfig.enumPresentationMode !== 'radio' &&
+        nextUiConfig.enumPresentationMode !== 'label'
+    ) {
+        nextUiConfig.enumPresentationMode = 'select'
+    }
+
+    if (
+        'defaultEnumValueId' in nextUiConfig &&
+        nextUiConfig.defaultEnumValueId !== null &&
+        typeof nextUiConfig.defaultEnumValueId !== 'string'
+    ) {
+        delete nextUiConfig.defaultEnumValueId
+    }
+
+    if (typeof nextUiConfig.enumAllowEmpty !== 'boolean') {
+        nextUiConfig.enumAllowEmpty = true
+    }
+
+    if (nextUiConfig.enumLabelEmptyDisplay !== 'empty' && nextUiConfig.enumLabelEmptyDisplay !== 'dash') {
+        nextUiConfig.enumLabelEmptyDisplay = 'dash'
+    }
+
+    const hasDefaultEnumValueId = typeof nextUiConfig.defaultEnumValueId === 'string' && nextUiConfig.defaultEnumValueId.length > 0
+    if (hasDefaultEnumValueId || isRequired) {
+        nextUiConfig.enumAllowEmpty = false
+    } else if (nextUiConfig.enumAllowEmpty === true) {
+        nextUiConfig.defaultEnumValueId = null
+    }
+
+    return nextUiConfig
 }
 
 const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
@@ -67,7 +133,8 @@ const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
     const validationRules = values.validationRules as AttributeValidationRules | undefined
     const targetEntityId = (values.targetEntityId as string | null | undefined) ?? undefined
     const targetEntityKind = (values.targetEntityKind as MetaEntityKind | null | undefined) ?? undefined
-    const uiConfig = (values.uiConfig as Record<string, unknown> | undefined) ?? undefined
+    const sourceUiConfig = (values.uiConfig as Record<string, unknown> | undefined) ?? {}
+    const uiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, sourceUiConfig, isRequired)
 
     return {
         codename,
@@ -79,7 +146,7 @@ const toPayload = (values: Record<string, any>): AttributeLocalizedPayload => {
         validationRules,
         targetEntityId,
         targetEntityKind,
-        uiConfig
+        uiConfig: Object.keys(uiConfig).length > 0 ? uiConfig : undefined
     }
 }
 
@@ -227,6 +294,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                         values={values}
                                         setValue={setValue}
                                         isLoading={isLoading}
+                                        metahubId={(ctx as any).metahubId as string | undefined}
                                         displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
                                         displayAttributeHelper={ctx.t(
                                             'attributes.isDisplayAttributeHelper',
@@ -242,6 +310,9 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                             'Show a checkbox in the column header instead of the text label'
                                         )}
                                         dataType={values.dataType ?? 'STRING'}
+                                        targetEntityKind={values.targetEntityKind ?? null}
+                                        targetEntityId={values.targetEntityId ?? null}
+                                        isRequired={Boolean(values.isRequired)}
                                     />
                                 )
                             }

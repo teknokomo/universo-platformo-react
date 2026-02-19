@@ -64,6 +64,10 @@ export class TemplateSeedExecutor {
             if (seed.entities?.length) {
                 const entityIdMap = await this.createEntities(trx, seed.entities)
 
+                if (seed.enumerationValues) {
+                    await this.createEnumerationValues(trx, seed.enumerationValues, entityIdMap)
+                }
+
                 // 5. Create elements if any
                 if (seed.elements) {
                     await this.createElements(trx, seed.elements, entityIdMap)
@@ -332,6 +336,81 @@ export class TemplateSeedExecutor {
         }
 
         return entityIdMap
+    }
+
+    private async createEnumerationValues(
+        qb: Knex,
+        valuesByEnumeration: Record<
+            string,
+            Array<{ codename: string; name: unknown; description?: unknown; sortOrder?: number; isDefault?: boolean }>
+        >,
+        entityIdMap: Map<string, string>
+    ): Promise<void> {
+        const now = new Date()
+
+        for (const [enumerationCodename, values] of Object.entries(valuesByEnumeration)) {
+            const objectId = resolveEntityIdByCodename(entityIdMap, enumerationCodename, 'enumeration')
+            if (!objectId) {
+                console.warn(
+                    `[TemplateSeedExecutor] Enumeration codename "${enumerationCodename}" not found or ambiguous, skipping enumeration values`
+                )
+                continue
+            }
+
+            for (let index = 0; index < values.length; index++) {
+                const value = values[index]
+                const exists = await qb
+                    .withSchema(this.schemaName)
+                    .from('_mhb_enum_values')
+                    .where({
+                        object_id: objectId,
+                        codename: value.codename,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (exists) continue
+
+                if (value.isDefault) {
+                    await qb
+                        .withSchema(this.schemaName)
+                        .from('_mhb_enum_values')
+                        .where({
+                            object_id: objectId,
+                            _upl_deleted: false,
+                            _mhb_deleted: false
+                        })
+                        .update({
+                            is_default: false,
+                            _upl_updated_at: now,
+                            _upl_updated_by: null
+                        })
+                }
+
+                await qb
+                    .withSchema(this.schemaName)
+                    .into('_mhb_enum_values')
+                    .insert({
+                        object_id: objectId,
+                        codename: value.codename,
+                        presentation: { name: value.name, description: value.description },
+                        sort_order: value.sortOrder ?? index,
+                        is_default: value.isDefault ?? false,
+                        _upl_created_at: now,
+                        _upl_created_by: null,
+                        _upl_updated_at: now,
+                        _upl_updated_by: null,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: true,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+            }
+        }
     }
 
     private async createElements(

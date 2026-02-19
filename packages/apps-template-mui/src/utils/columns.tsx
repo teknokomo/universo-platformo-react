@@ -27,44 +27,63 @@ export interface ToGridColumnsOptions {
  * if `options.onMenuOpen` is provided.
  */
 export function toGridColumns(response: AppDataResponse, options?: ToGridColumnsOptions): GridColDef[] {
-    const cols: GridColDef[] = response.columns.map((c) => ({
-        field: c.field,
-        headerName: c.headerName,
-        flex: 1,
-        minWidth: 140,
-        sortable: true,
-        filterable: true,
-        renderHeader:
-            c.dataType === 'BOOLEAN' && c.uiConfig?.headerAsCheckbox
-                ? () => (
-                      <Checkbox
-                          size='small'
-                          disabled
-                          checked={false}
-                          indeterminate={false}
-                          sx={{ p: 0 }}
-                          title={c.headerName}
-                      />
-                  )
-                : undefined,
-        renderCell: (params) => {
-            // Check for consumer-provided cell renderer override
-            if (options?.cellRenderers?.[c.dataType]) {
-                return options.cellRenderers[c.dataType]({
-                    value: params.value,
-                    rowId: String(params.id),
-                    field: c.field,
-                    column: c
-                })
+    const cols: GridColDef[] = response.columns.map((c) => {
+        const enumOptionLabels =
+            c.dataType === 'REF' && Array.isArray(c.enumOptions) && c.enumOptions.length > 0
+                ? new Map(c.enumOptions.map((option) => [option.id, option.label]))
+                : null
+
+        return {
+            field: c.field,
+            headerName: c.headerName,
+            flex: 1,
+            minWidth: 140,
+            sortable: true,
+            filterable: true,
+            renderHeader:
+                c.dataType === 'BOOLEAN' && c.uiConfig?.headerAsCheckbox
+                    ? () => <Checkbox size='small' disabled checked={false} indeterminate={false} sx={{ p: 0 }} title={c.headerName} />
+                    : undefined,
+            renderCell: (params) => {
+                // Check for consumer-provided cell renderer override
+                if (options?.cellRenderers?.[c.dataType]) {
+                    return options.cellRenderers[c.dataType]({
+                        value: params.value,
+                        rowId: String(params.id),
+                        field: c.field,
+                        column: c
+                    })
+                }
+                // Default rendering
+                if (c.dataType === 'BOOLEAN') {
+                    return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
+                }
+                if (c.dataType === 'REF' && enumOptionLabels) {
+                    let value = ''
+                    if (typeof params.value === 'string') {
+                        value = params.value
+                    } else if (params.value && typeof params.value === 'object') {
+                        const refObject = params.value as Record<string, unknown>
+                        let objectLabel = ''
+                        if (typeof refObject.label === 'string') {
+                            objectLabel = refObject.label
+                        } else if (typeof refObject.name === 'string') {
+                            objectLabel = refObject.name
+                        }
+                        if (objectLabel) {
+                            return objectLabel
+                        }
+                        value = String(refObject.id ?? '')
+                    }
+                    if (!value) return ''
+
+                    return enumOptionLabels.get(value) ?? ''
+                }
+                if (params.value === null || params.value === undefined) return ''
+                return String(params.value)
             }
-            // Default rendering
-            if (c.dataType === 'BOOLEAN') {
-                return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
-            }
-            if (params.value === null || params.value === undefined) return ''
-            return String(params.value)
         }
-    }))
+    })
 
     if (options?.onMenuOpen) {
         const onMenuOpen = options.onMenuOpen
@@ -118,6 +137,16 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
         label: c.headerName,
         type: c.dataType,
         required: c.isRequired,
-        validationRules: (c.validationRules ?? {}) as FieldValidationRules
+        validationRules: (c.validationRules ?? {}) as FieldValidationRules,
+        refTargetEntityId: c.refTargetEntityId ?? null,
+        refTargetEntityKind: c.refTargetEntityKind ?? null,
+        enumOptions: c.enumOptions ?? [],
+        enumPresentationMode:
+            c.uiConfig?.enumPresentationMode === 'radio' || c.uiConfig?.enumPresentationMode === 'label'
+                ? c.uiConfig.enumPresentationMode
+                : 'select',
+        defaultEnumValueId: typeof c.uiConfig?.defaultEnumValueId === 'string' ? c.uiConfig.defaultEnumValueId : null,
+        enumAllowEmpty: c.uiConfig?.enumAllowEmpty !== false,
+        enumLabelEmptyDisplay: c.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
     }))
 }

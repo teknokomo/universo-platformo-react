@@ -398,6 +398,7 @@ export function useSyncConnector() {
             // Invalidate application-related queries
             queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(variables.applicationId) })
             queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.applicationDiff(variables.applicationId) })
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectors(variables.applicationId) })
 
             if (data.status === 'pending_confirmation') {
                 enqueueSnackbar(t('connectors.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })

@@ -145,6 +145,7 @@ const zeroSeedCounts: MetahubTemplateSeedMigrationCounts = {
     settingsAdded: 0,
     entitiesAdded: 0,
     attributesAdded: 0,
+    enumValuesAdded: 0,
     elementsAdded: 0
 }
 

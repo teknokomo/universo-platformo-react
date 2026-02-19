@@ -374,7 +374,9 @@ export class TemplateSeedCleanupService {
                     blockers.push({
                         code: 'entity.element_audit',
                         params: { entityKey, sortOrder: String(Number(elementRow.sort_order)) },
-                        message: `Element at sort=${Number(elementRow.sort_order)} of entity "${entityKey}" has non-system audit provenance.`
+                        message:
+                            `Element at sort=${Number(elementRow.sort_order)} of entity "${entityKey}" ` +
+                            'has non-system audit provenance.'
                     })
                 }
             }

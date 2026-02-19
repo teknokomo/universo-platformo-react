@@ -664,4 +664,167 @@ describe('Applications Routes', () => {
             })
         })
     })
+
+    describe('Runtime enumeration validation', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
+        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334445'
+
+        it('rejects create when enum REF field in label mode is explicitly provided by user', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders' }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'attr-1',
+                            codename: 'status',
+                            column_name: 'status_ref',
+                            data_type: 'REF',
+                            is_required: false,
+                            validation_rules: {},
+                            target_object_id: 'enum-obj-1',
+                            target_object_kind: 'enumeration',
+                            ui_config: { enumPresentationMode: 'label' }
+                        }
+                    ]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows`)
+                .send({
+                    catalogId: runtimeCatalogId,
+                    data: {
+                        status_ref: '018f8a78-7b8f-7c1d-a111-222233334444'
+                    }
+                })
+                .expect(400)
+
+            expect(response.body.error).toBe('Field is read-only: status')
+        })
+
+        it('rejects PATCH when enum value does not belong to selected target enumeration', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders' }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'attr-1',
+                            codename: 'status',
+                            column_name: 'status_ref',
+                            data_type: 'REF',
+                            is_required: false,
+                            validation_rules: {},
+                            target_object_id: 'enum-obj-1',
+                            target_object_kind: 'enumeration',
+                            ui_config: { enumPresentationMode: 'select' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_enum_values')) {
+                    return []
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .patch(`/applications/${runtimeApplicationId}/runtime/018f8a78-7b8f-7c1d-a111-222233334444`)
+                .send({
+                    catalogId: runtimeCatalogId,
+                    field: 'status_ref',
+                    value: '018f8a78-7b8f-7c1d-a111-222233334444'
+                })
+                .expect(400)
+
+            expect(response.body.error).toBe('Enumeration value does not belong to target enumeration')
+        })
+
+        it('applies default enum value for label-mode REF when user value is omitted', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const defaultEnumValueId = '018f8a78-7b8f-7c1d-a111-222233334446'
+            const insertedRowId = '018f8a78-7b8f-7c1d-a111-222233334447'
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders' }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'attr-1',
+                            codename: 'status',
+                            column_name: 'status_ref',
+                            data_type: 'REF',
+                            is_required: false,
+                            validation_rules: {},
+                            target_object_id: 'enum-obj-1',
+                            target_object_kind: 'enumeration',
+                            ui_config: { enumPresentationMode: 'label', defaultEnumValueId }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_enum_values')) {
+                    return [{ id: defaultEnumValueId }]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                    return [{ id: insertedRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows`)
+                .send({
+                    catalogId: runtimeCatalogId,
+                    data: {}
+                })
+                .expect(201)
+
+            expect(response.body).toEqual({ id: insertedRowId, status: 'created' })
+
+            const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('INSERT INTO "app_runtime_test"."orders"')
+            )
+            expect(insertCall).toBeDefined()
+            expect(insertCall?.[1]).toContain(defaultEnumValueId)
+        })
+    })
 })

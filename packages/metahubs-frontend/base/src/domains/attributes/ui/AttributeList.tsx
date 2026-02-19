@@ -1,9 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Chip, Alert, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import ListAltIcon from '@mui/icons-material/ListAlt'
-import TableRowsIcon from '@mui/icons-material/TableRows'
 import InfoIcon from '@mui/icons-material/Info'
 import StarIcon from '@mui/icons-material/Star'
 import { useTranslation } from 'react-i18next'
@@ -67,6 +65,49 @@ type AttributeFormValues = {
     targetEntityId?: string | null
     targetEntityKind?: MetaEntityKind | null
     uiConfig?: Record<string, unknown>
+}
+
+const sanitizeAttributeUiConfig = (
+    dataType: AttributeDataType,
+    targetEntityKind: MetaEntityKind | null | undefined,
+    sourceUiConfig: Record<string, unknown>
+): Record<string, unknown> => {
+    const nextUiConfig = { ...sourceUiConfig }
+    const isEnumerationRef = dataType === 'REF' && targetEntityKind === 'enumeration'
+
+    if (!isEnumerationRef) {
+        delete nextUiConfig.enumPresentationMode
+        delete nextUiConfig.defaultEnumValueId
+        delete nextUiConfig.enumAllowEmpty
+        delete nextUiConfig.enumLabelEmptyDisplay
+        return nextUiConfig
+    }
+
+    if (
+        nextUiConfig.enumPresentationMode !== 'select' &&
+        nextUiConfig.enumPresentationMode !== 'radio' &&
+        nextUiConfig.enumPresentationMode !== 'label'
+    ) {
+        nextUiConfig.enumPresentationMode = 'select'
+    }
+
+    if (
+        'defaultEnumValueId' in nextUiConfig &&
+        nextUiConfig.defaultEnumValueId !== null &&
+        typeof nextUiConfig.defaultEnumValueId !== 'string'
+    ) {
+        delete nextUiConfig.defaultEnumValueId
+    }
+
+    if (typeof nextUiConfig.enumAllowEmpty !== 'boolean') {
+        nextUiConfig.enumAllowEmpty = true
+    }
+
+    if (nextUiConfig.enumLabelEmptyDisplay !== 'empty' && nextUiConfig.enumLabelEmptyDisplay !== 'dash') {
+        nextUiConfig.enumLabelEmptyDisplay = 'dash'
+    }
+
+    return nextUiConfig
 }
 
 // Get color for data type chip
@@ -349,6 +390,7 @@ const AttributeList = () => {
                             values={values}
                             setValue={setValue}
                             isLoading={isLoading}
+                            metahubId={metahubId}
                             displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
                             displayAttributeHelper={t(
                                 'attributes.isDisplayAttributeHelper',
@@ -361,6 +403,9 @@ const AttributeList = () => {
                                 'Show a checkbox in the column header instead of the text label'
                             )}
                             dataType={values.dataType ?? 'STRING'}
+                            targetEntityKind={values.targetEntityKind ?? null}
+                            targetEntityId={values.targetEntityId ?? null}
+                            isRequired={Boolean(values.isRequired)}
                         />
                     )
                 }
@@ -705,6 +750,15 @@ const AttributeList = () => {
         setDialogOpen(false)
     }
 
+    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements') => {
+        if (!metahubId || !catalogId || nextTab === 'attributes') return
+        if (hubIdParam) {
+            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/elements`)
+            return
+        }
+        navigate(`/metahub/${metahubId}/catalog/${catalogId}/elements`)
+    }
+
     const handleCreateAttribute = async (data: Record<string, any>) => {
         setDialogError(null)
         setCreating(true)
@@ -730,6 +784,7 @@ const AttributeList = () => {
             // REF type: extract target entity info
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null) : undefined
             const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null) : undefined
+            const normalizedUiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, uiConfig)
 
             await createAttributeMutation.mutateAsync({
                 metahubId,
@@ -745,7 +800,7 @@ const AttributeList = () => {
                     isDisplayAttribute,
                     targetEntityId,
                     targetEntityKind,
-                    uiConfig
+                    uiConfig: normalizedUiConfig
                 }
             })
 
@@ -796,30 +851,6 @@ const AttributeList = () => {
                 />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    {/* Tab navigation between Attributes and Elements */}
-                    <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup value='attributes' exclusive size='small' sx={{ mb: 1 }}>
-                            <ToggleButton value='attributes' sx={{ px: 2, py: 0.5 }}>
-                                <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />
-                                {t('attributes.title')}
-                            </ToggleButton>
-                            <ToggleButton
-                                value='elements'
-                                sx={{ px: 2, py: 0.5 }}
-                                onClick={() => {
-                                    if (hubIdParam) {
-                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/elements`)
-                                        return
-                                    }
-                                    navigate(`/metahub/${metahubId}/catalog/${catalogId}/elements`)
-                                }}
-                            >
-                                <TableRowsIcon sx={{ mr: 1, fontSize: 18 }} />
-                                {t('elements.title')}
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                    </Box>
-
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('attributes.searchPlaceholder')}
@@ -835,6 +866,26 @@ const AttributeList = () => {
                             }}
                         />
                     </ViewHeader>
+
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+                        <Tabs
+                            value='attributes'
+                            onChange={handleCatalogTabChange}
+                            aria-label={t('catalogs.title', 'Catalogs')}
+                            textColor='primary'
+                            indicatorColor='primary'
+                            sx={{
+                                minHeight: 40,
+                                '& .MuiTab-root': {
+                                    minHeight: 40,
+                                    textTransform: 'none'
+                                }
+                            }}
+                        >
+                            <Tab value='attributes' label={t('attributes.title')} />
+                            <Tab value='elements' label={t('elements.title')} />
+                        </Tabs>
+                    </Box>
 
                     {limitReached && (
                         <Alert

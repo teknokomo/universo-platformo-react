@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
     Box,
     Stack,
@@ -19,12 +20,14 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField, useCodenameAutoFill } from '@universo/template-mui'
-import type { VersionedLocalizedContent, AttributeDataType, MetaEntityKind } from '@universo/types'
+import type { VersionedLocalizedContent, AttributeDataType, MetaEntityKind, EnumPresentationMode } from '@universo/types'
 import type { AttributeValidationRules } from '../../../types'
 import { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType, getVLCString } from '../../../types'
 import { sanitizeCodename } from '../../../utils/codename'
 import { normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, TargetEntitySelector } from '../../../components'
+import { listEnumerationValues } from '../../enumerations/api'
+import { metahubsQueryKeys } from '../../shared'
 
 export type AttributeFormFieldsProps = {
     values: Record<string, any>
@@ -291,6 +294,7 @@ const AttributeFormFields = ({
                         onEntityIdChange={(id) => setValue('targetEntityId', id)}
                         excludeCatalogId={currentCatalogId}
                         disabled={isLoading}
+                        error={fieldErrors.targetEntityKind || fieldErrors.targetEntityId || null}
                         uiLocale={uiLocale}
                     />
                 )
@@ -406,27 +410,79 @@ export type PresentationTabFieldsProps = {
     values: Record<string, any>
     setValue: (name: string, value: any) => void
     isLoading: boolean
+    metahubId?: string
     displayAttributeLabel: string
     displayAttributeHelper: string
     displayAttributeLocked: boolean
     headerAsCheckboxLabel: string
     headerAsCheckboxHelper: string
     dataType: string
+    targetEntityKind?: MetaEntityKind | null
+    targetEntityId?: string | null
+    isRequired?: boolean
 }
 
 export const PresentationTabFields = ({
     values,
     setValue,
     isLoading,
+    metahubId,
     displayAttributeLabel,
     displayAttributeHelper,
     displayAttributeLocked,
     headerAsCheckboxLabel,
     headerAsCheckboxHelper,
-    dataType
+    dataType,
+    targetEntityKind,
+    targetEntityId,
+    isRequired
 }: PresentationTabFieldsProps) => {
+    const { t, i18n } = useTranslation('metahubs')
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
-    const uiConfig = (values.uiConfig ?? {}) as Record<string, unknown>
+    const uiConfig = useMemo(() => (values.uiConfig ?? {}) as Record<string, unknown>, [values.uiConfig])
+    const isEnumRef = dataType === 'REF' && targetEntityKind === 'enumeration'
+
+    const enumPresentationMode: EnumPresentationMode =
+        uiConfig.enumPresentationMode === 'radio' || uiConfig.enumPresentationMode === 'label' ? uiConfig.enumPresentationMode : 'select'
+    const defaultEnumValueId = typeof uiConfig.defaultEnumValueId === 'string' ? uiConfig.defaultEnumValueId : null
+    const enumAllowEmpty = uiConfig.enumAllowEmpty !== false
+    const hasDefaultEnumValue = Boolean(defaultEnumValueId)
+    const effectiveAllowEmpty = !isRequired && !hasDefaultEnumValue && enumAllowEmpty
+    const enumLabelEmptyDisplay = uiConfig.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
+
+    const { data: enumerationValuesResponse, isLoading: isLoadingEnumValues } = useQuery({
+        queryKey:
+            metahubId && targetEntityId
+                ? metahubsQueryKeys.enumerationValuesList(metahubId, targetEntityId)
+                : ['metahubs', 'enumerations', 'values', 'empty'],
+        queryFn: async () => {
+            if (!metahubId || !targetEntityId) {
+                return { items: [], total: 0 }
+            }
+            return listEnumerationValues(metahubId, targetEntityId)
+        },
+        enabled: Boolean(metahubId && targetEntityId && isEnumRef),
+        staleTime: 30_000
+    })
+
+    const enumerationValues = useMemo(
+        () => [...(enumerationValuesResponse?.items ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+        [enumerationValuesResponse?.items]
+    )
+
+    const updateUiConfig = useCallback(
+        (patch: Record<string, unknown>) => {
+            setValue('uiConfig', { ...uiConfig, ...patch })
+        },
+        [setValue, uiConfig]
+    )
+
+    useEffect(() => {
+        if (!isEnumRef || !isRequired) return
+        if (uiConfig.enumAllowEmpty !== false) {
+            updateUiConfig({ enumAllowEmpty: false })
+        }
+    }, [isEnumRef, isRequired, uiConfig.enumAllowEmpty, updateUiConfig])
 
     return (
         <Stack spacing={2}>
@@ -461,6 +517,161 @@ export const PresentationTabFields = ({
                         />
                         <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{headerAsCheckboxHelper}</FormHelperText>
                     </Box>
+                </>
+            )}
+
+            {isEnumRef && (
+                <>
+                    <Divider />
+                    {!targetEntityId && (
+                        <Alert severity='info'>
+                            {t(
+                                'attributes.presentation.enumTargetRequired',
+                                'Select a target enumeration on the General tab to configure presentation settings.'
+                            )}
+                        </Alert>
+                    )}
+                    <FormControl fullWidth disabled={isLoading || !targetEntityId}>
+                        <InputLabel id='enum-presentation-mode-label'>
+                            {t('attributes.presentation.enumMode', 'Enumeration view mode')}
+                        </InputLabel>
+                        <Select
+                            size='medium'
+                            labelId='enum-presentation-mode-label'
+                            label={t('attributes.presentation.enumMode', 'Enumeration view mode')}
+                            value={enumPresentationMode}
+                            onChange={(event) => {
+                                updateUiConfig({
+                                    enumPresentationMode: event.target.value as EnumPresentationMode
+                                })
+                            }}
+                        >
+                            <MenuItem value='select'>{t('attributes.presentation.enumModeOptions.select', 'Input field')}</MenuItem>
+                            <MenuItem value='radio'>{t('attributes.presentation.enumModeOptions.radio', 'Radio field')}</MenuItem>
+                            <MenuItem value='label'>{t('attributes.presentation.enumModeOptions.label', 'Label field')}</MenuItem>
+                        </Select>
+                        <FormHelperText>
+                            {t(
+                                'attributes.presentation.enumModeHelper',
+                                'Applies to references that point to an enumeration in runtime forms.'
+                            )}
+                        </FormHelperText>
+                    </FormControl>
+
+                    <Box>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={effectiveAllowEmpty}
+                                    onChange={(_, checked) => {
+                                        const patch: Record<string, unknown> = { enumAllowEmpty: checked }
+                                        if (checked) {
+                                            patch.defaultEnumValueId = null
+                                        }
+                                        updateUiConfig(patch)
+                                    }}
+                                    disabled={isLoading || !targetEntityId || isLoadingEnumValues || isRequired}
+                                />
+                            }
+                            label={t('attributes.presentation.allowEmpty', 'Can be empty')}
+                        />
+                        <FormHelperText sx={{ mt: -0.5, ml: 7 }}>
+                            {t(
+                                'attributes.presentation.allowEmptyHelper',
+                                'Controls whether an empty option is available for default value selection.'
+                            )}
+                        </FormHelperText>
+                    </Box>
+
+                    <FormControl fullWidth disabled={isLoading || !targetEntityId || isLoadingEnumValues}>
+                        <InputLabel id='enum-default-value-label'>
+                            {t('attributes.presentation.defaultEnumValue', 'Default value')}
+                        </InputLabel>
+                        <Select
+                            size='medium'
+                            labelId='enum-default-value-label'
+                            label={t('attributes.presentation.defaultEnumValue', 'Default value')}
+                            value={defaultEnumValueId ?? ''}
+                            renderValue={(selected) => {
+                                if (!selected || typeof selected !== 'string') {
+                                    return <Box component='span' sx={{ display: 'inline-block', minHeight: '1em' }} />
+                                }
+                                const selectedValue = enumerationValues.find((value) => value.id === selected)
+                                return (
+                                    getVLCString(selectedValue?.name, i18n.language) ||
+                                    getVLCString(selectedValue?.name, 'en') ||
+                                    selectedValue?.codename ||
+                                    ''
+                                )
+                            }}
+                            onChange={(event) => {
+                                const next =
+                                    typeof event.target.value === 'string' && event.target.value.length > 0 ? event.target.value : null
+                                updateUiConfig({
+                                    defaultEnumValueId: next,
+                                    enumAllowEmpty: next ? false : isRequired ? false : enumAllowEmpty
+                                })
+                            }}
+                        >
+                            {effectiveAllowEmpty && (
+                                <MenuItem value=''>
+                                    <Box component='span' sx={{ display: 'inline-block', width: '100%', minHeight: '1.25em' }} />
+                                </MenuItem>
+                            )}
+                            {!effectiveAllowEmpty && <MenuItem value='' sx={{ display: 'none' }} />}
+                            {enumerationValues.map((value) => (
+                                <MenuItem key={value.id} value={value.id}>
+                                    {getVLCString(value.name, i18n.language) || getVLCString(value.name, 'en') || value.codename}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                        <FormHelperText>
+                            {isLoadingEnumValues
+                                ? t('common.loading', 'Loading...')
+                                : t(
+                                      'attributes.presentation.defaultEnumValueHelper',
+                                      'When empty, runtime forms start with no selected value.'
+                                  )}
+                        </FormHelperText>
+                    </FormControl>
+
+                    {enumPresentationMode === 'label' && !defaultEnumValueId && (
+                        <FormControl fullWidth disabled={isLoading || !targetEntityId}>
+                            <InputLabel id='enum-label-empty-display-label'>
+                                {t('attributes.presentation.labelEmptyDisplay', 'Empty value display')}
+                            </InputLabel>
+                            <Select
+                                size='medium'
+                                labelId='enum-label-empty-display-label'
+                                label={t('attributes.presentation.labelEmptyDisplay', 'Empty value display')}
+                                value={enumLabelEmptyDisplay}
+                                onChange={(event) => {
+                                    const next = event.target.value === 'empty' ? 'empty' : 'dash'
+                                    updateUiConfig({ enumLabelEmptyDisplay: next })
+                                }}
+                            >
+                                <MenuItem value='empty'>
+                                    {t('attributes.presentation.labelEmptyDisplayOptions.empty', 'Empty value')}
+                                </MenuItem>
+                                <MenuItem value='dash'>{t('attributes.presentation.labelEmptyDisplayOptions.dash', 'Dash')}</MenuItem>
+                            </Select>
+                            <FormHelperText>
+                                {t(
+                                    'attributes.presentation.labelEmptyDisplayHelper',
+                                    'Used in label mode when default value is not selected.'
+                                )}
+                            </FormHelperText>
+                        </FormControl>
+                    )}
+
+                    {isRequired && !defaultEnumValueId && (
+                        <Alert severity='info'>
+                            {t(
+                                'attributes.presentation.requiredWithoutDefault',
+                                'This attribute is required. Users must select a value before saving if default is empty.'
+                            )}
+                        </Alert>
+                    )}
                 </>
             )}
         </Stack>

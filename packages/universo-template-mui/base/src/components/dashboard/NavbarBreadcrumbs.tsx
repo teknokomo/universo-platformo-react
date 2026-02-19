@@ -33,6 +33,8 @@ import {
     useCatalogName,
     useCatalogNameStandalone,
     truncateCatalogName,
+    useEnumerationName,
+    truncateEnumerationName,
     useAttributeName,
     truncateAttributeName,
     truncatePublicationName,
@@ -141,6 +143,24 @@ export default function NavbarBreadcrumbs() {
     const standaloneCatalogMetahubId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[1] : null
     const standaloneCatalogId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[2] : null
     const standaloneCatalogName = useCatalogNameStandalone(standaloneCatalogMetahubId, standaloneCatalogId)
+
+    // Extract enumerationId from global and hub-scoped metahub routes
+    // Patterns:
+    // - /metahub/:metahubId/enumeration/:enumerationId/values
+    // - /metahub/:metahubId/hub/:hubId/enumeration/:enumerationId/values
+    const standaloneEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/enumeration\/([^/]+)/)
+    const hubEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/enumeration\/([^/]+)/)
+    const enumerationParentMetahubId = standaloneEnumerationIdMatch
+        ? standaloneEnumerationIdMatch[1]
+        : hubEnumerationIdMatch
+        ? hubEnumerationIdMatch[1]
+        : null
+    const enumerationId = standaloneEnumerationIdMatch
+        ? standaloneEnumerationIdMatch[2]
+        : hubEnumerationIdMatch
+        ? hubEnumerationIdMatch[3]
+        : null
+    const enumerationName = useEnumerationName(enumerationParentMetahubId, enumerationId)
 
     // Extract attributeId from URL for dynamic name loading (under catalog context)
     // Pattern: /metahub/:metahubId/hub/:hubId/catalogs/:catalogId/attributes/:attributeId
@@ -335,6 +355,27 @@ export default function NavbarBreadcrumbs() {
                             items.push({ label: t('elements'), to: location.pathname })
                         }
                     }
+                } else if (segments[2] === 'enumerations') {
+                    items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
+                } else if (segments[2] === 'enumeration') {
+                    items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
+                    if (segments[3] && enumerationName) {
+                        items.push({
+                            label: truncateEnumerationName(enumerationName),
+                            to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
+                        })
+                    } else if (segments[3]) {
+                        items.push({
+                            label: segments[3],
+                            to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
+                        })
+                    }
+                    if (segments[4] === 'values' && segments[3]) {
+                        items.push({
+                            label: t('values'),
+                            to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
+                        })
+                    }
                 } else if (segments[2] === 'hubs') {
                     // Hubs list
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
@@ -399,6 +440,37 @@ export default function NavbarBreadcrumbs() {
                                 } else if (segments[6] === 'elements') {
                                     items.push({ label: t('elements'), to: location.pathname })
                                 }
+                            }
+                        } else if (segments[4] === 'enumerations') {
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
+                            items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
+                        } else if (segments[4] === 'enumeration') {
+                            items.push({
+                                label: truncateHubName(hubName),
+                                to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs`
+                            })
+                            items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
+
+                            if (segments[5] && enumerationName) {
+                                items.push({
+                                    label: truncateEnumerationName(enumerationName),
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
+                                })
+                            } else if (segments[5]) {
+                                items.push({
+                                    label: segments[5],
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
+                                })
+                            }
+
+                            if (segments[6] === 'values' && segments[5]) {
+                                items.push({
+                                    label: t('values'),
+                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
+                                })
                             }
                         } else if (segments[4] === 'catalog') {
                             // Singular 'catalog' route - specific catalog view

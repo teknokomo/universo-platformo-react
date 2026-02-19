@@ -126,7 +126,7 @@ export const catalogTemplate: MetahubTemplateManifest = {
   $schema: 'metahub-template/v1',
   codename: 'catalog-manager',
   version: '1.0.0',
-  minStructureVersion: 2,
+  minStructureVersion: 1,
   name: vlc('Catalog Manager', 'Менеджер каталогов'),
   description: vlc('Template for product catalog management', 'Шаблон для управления каталогами товаров'),
   meta: { author: 'universo-platformo', tags: ['catalog'], icon: 'Inventory' },
@@ -171,8 +171,8 @@ Each metahub branch gets an isolated PostgreSQL schema (`mhb_<uuid>_b<n>`) with 
 | `_mhb_elements` | V1 | Predefined data entries for catalogs (JSONB) |
 | `_mhb_settings` | V1 | Key-value settings for branch configuration |
 | `_mhb_layouts` | V1 | UI layouts for published applications (dashboard templates) |
-| `_mhb_layout_zone_widgets` | V1 | Widget assignments per layout zone with sort order and config |
-| `_mhb_migrations` | V2 | Migration history with version tracking and metadata |
+| `_mhb_widgets` | V1 | Widget assignments per layout zone with sort order and config |
+| `_mhb_migrations` | V1 | Migration history with version tracking and metadata |
 
 All tables automatically include:
 - **`_upl_*` fields** (16 columns) — platform-level audit trail, optimistic locking, soft delete, archive, record locking
@@ -220,7 +220,7 @@ SystemTableDef[]              ──→ SystemTableDDLGenerator  ──→ Knex 
 MetahubTemplateManifest
   └─ seed: MetahubTemplateSeed
        ├─ layouts[]              ──→  _mhb_layouts
-       ├─ layoutZoneWidgets{}    ──→  _mhb_layout_zone_widgets
+       ├─ layoutZoneWidgets{}    ──→  _mhb_widgets
        ├─ settings[]             ──→  _mhb_settings
        ├─ entities[]             ──→  _mhb_objects + _mhb_attributes
        └─ elements{}             ──→  _mhb_elements
@@ -517,7 +517,7 @@ src/
 │   │   │   ├── MetahubSchemaService.ts       # Schema lifecycle orchestrator
 │   │   │   ├── SystemTableDDLGenerator.ts    # Declarative DDL → Knex DDL
 │   │   │   ├── SystemTableMigrator.ts        # Additive migration engine
-│   │   │   ├── systemTableDefinitions.ts     # Declarative table definitions (V1/V2)
+│   │   │   ├── systemTableDefinitions.ts     # Declarative table definitions (V1 baseline)
 │   │   │   ├── systemTableDiff.ts            # Diff engine (old vs new version)
 │   │   │   ├── structureVersions.ts          # Version registry, CURRENT_STRUCTURE_VERSION
 │   │   │   ├── MetahubAttributesService.ts

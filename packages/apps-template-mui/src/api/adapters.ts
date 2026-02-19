@@ -8,28 +8,20 @@ import type { CrudDataAdapter } from './types'
  * Uses the fetchAppData/fetchAppRow/createAppRow/updateAppRow/deleteAppRow
  * functions from `api.ts` which make raw `fetch()` calls with credentials.
  */
-export function createStandaloneAdapter(params: {
-  apiBaseUrl: string
-  applicationId: string
-}): CrudDataAdapter {
-  const { apiBaseUrl, applicationId } = params
+export function createStandaloneAdapter(params: { apiBaseUrl: string; applicationId: string }): CrudDataAdapter {
+    const { apiBaseUrl, applicationId } = params
 
-  return {
-    queryKeyPrefix: appQueryKeys.list(applicationId),
+    return {
+        queryKeyPrefix: appQueryKeys.list(applicationId),
 
-    fetchList: ({ limit, offset, locale, catalogId }) =>
-      fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, catalogId }),
+        fetchList: ({ limit, offset, locale, catalogId }) => fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, catalogId }),
 
-    fetchRow: (rowId, catalogId) =>
-      fetchAppRow({ apiBaseUrl, applicationId, rowId, catalogId }),
+        fetchRow: (rowId, catalogId) => fetchAppRow({ apiBaseUrl, applicationId, rowId, catalogId }),
 
-    createRow: (data, catalogId) =>
-      createAppRow({ apiBaseUrl, applicationId, data, catalogId }),
+        createRow: (data, catalogId) => createAppRow({ apiBaseUrl, applicationId, data, catalogId }),
 
-    updateRow: (rowId, data, catalogId) =>
-      updateAppRow({ apiBaseUrl, applicationId, rowId, data, catalogId }),
+        updateRow: (rowId, data, catalogId) => updateAppRow({ apiBaseUrl, applicationId, rowId, data, catalogId }),
 
-    deleteRow: (rowId, catalogId) =>
-      deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId })
-  }
+        deleteRow: (rowId, catalogId) => deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId })
+    }
 }

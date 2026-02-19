@@ -102,7 +102,7 @@ export const MHB_SYSTEM_FIELDS: SystemColumnDef[] = [
 
 const mhbObjects: SystemTableDef = {
     name: '_mhb_objects',
-    description: 'Unified registry for all object types (Catalogs, Hubs, Documents)',
+    description: 'Unified registry for all object types (Catalogs, Enumerations, Hubs, Documents)',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'kind', type: 'string', nullable: false, index: true },
@@ -157,6 +157,41 @@ const mhbAttributes: SystemTableDef = {
             columns: ['object_id', 'codename'],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbEnumerationValues: SystemTableDef = {
+    name: '_mhb_enum_values',
+    description: 'Enumeration values for objects with kind=enumeration',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'object_id', type: 'uuid', nullable: false },
+        { name: 'codename', type: 'string', nullable: false },
+        { name: 'presentation', type: 'jsonb', defaultTo: '{}' },
+        { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 },
+        { name: 'is_default', type: 'boolean', nullable: false, defaultTo: false }
+    ],
+    foreignKeys: [{ column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_enum_values_object_id', columns: ['object_id'] },
+        { name: 'idx_mhb_enum_values_object_sort', columns: ['object_id', 'sort_order'] },
+        {
+            name: 'idx_mhb_enum_values_object_codename_active',
+            columns: ['object_id', 'codename'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_enum_values_default_active',
+            columns: ['object_id', 'is_default'],
+            where: 'is_default = true AND _upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'uidx_mhb_enum_values_default_active',
+            columns: ['object_id'],
+            unique: true,
+            where: 'is_default = true AND _upl_deleted = false AND _mhb_deleted = false'
         }
     ]
 }
@@ -285,6 +320,7 @@ const mhbWidgets: SystemTableDef = {
 export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbObjects,
     mhbAttributes,
+    mhbEnumerationValues,
     mhbElements,
     mhbSettings,
     mhbLayouts,
@@ -296,8 +332,7 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
  * Maps a structure version number to its table definitions.
  * Each entry is the COMPLETE set of tables for that version.
  *
- * When adding a new version, list ALL tables from the previous version plus new ones.
- * The diff engine compares consecutive versions to produce migrations.
+ * The current codebase uses a single baseline (v1) for fresh schemas.
  */
 export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([[1, SYSTEM_TABLES_V1]])
 

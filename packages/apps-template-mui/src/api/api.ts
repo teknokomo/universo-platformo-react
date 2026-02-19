@@ -71,11 +71,24 @@ export const appDataResponseSchema = z.object({
             id: z.string(),
             codename: z.string(),
             field: z.string(),
-            dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'JSON']),
+            dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON']),
             headerName: z.string(),
             isRequired: z.boolean().optional().default(false),
             validationRules: z.record(z.unknown()).optional().default({}),
-            uiConfig: z.record(z.unknown()).optional().default({})
+            uiConfig: z.record(z.unknown()).optional().default({}),
+            refTargetEntityId: z.string().nullable().optional(),
+            refTargetEntityKind: z.string().nullable().optional(),
+            enumOptions: z
+                .array(
+                    z.object({
+                        id: z.string(),
+                        label: z.string(),
+                        codename: z.string().optional(),
+                        isDefault: z.boolean().optional(),
+                        sortOrder: z.number().optional()
+                    })
+                )
+                .optional()
         })
     ),
     rows: z.array(z.record(z.unknown()).and(z.object({ id: z.string() }))),

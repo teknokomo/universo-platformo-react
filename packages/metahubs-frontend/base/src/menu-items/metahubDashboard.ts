@@ -3,10 +3,10 @@ import {
     IconHierarchy,
     IconUsersGroup,
     IconDatabase,
+    IconFiles,
     IconApps,
     IconGitBranch,
     IconLayoutDashboard,
-    IconFiles,
     IconHistory
 } from '@tabler/icons-react'
 import { ComponentType } from 'react'
@@ -75,6 +75,14 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/catalogs',
             icon: icons.IconDatabase,
+            breadcrumbs: true
+        },
+        {
+            id: 'enumerations',
+            title: 'menu:enumerations',
+            type: 'item',
+            url: '/enumerations',
+            icon: icons.IconFiles,
             breadcrumbs: true
         },
         {

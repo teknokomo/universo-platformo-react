@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import { AttributeDataType } from '@universo/types'
+import { AttributeDataType, MetaEntityKind } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildFkConstraintName, generateColumnName, generateTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
@@ -8,6 +8,9 @@ import type { SchemaDiff, SchemaChange } from './diff'
 import type { EntityDefinition, FieldDefinition, MigrationResult, SchemaSnapshot } from './types'
 import { SchemaGenerator } from './SchemaGenerator'
 import { MigrationManager, generateMigrationName } from './MigrationManager'
+
+const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
+    'enumeration') as MetaEntityKind
 
 /**
  * Options for applying changes with migration recording
@@ -73,7 +76,10 @@ export class SchemaMigrator {
                     }
                 }
 
-                await this.generator.syncSystemMetadata(schemaName, entities, { trx })
+                await this.generator.syncSystemMetadata(schemaName, entities, {
+                    trx,
+                    removeMissing: true
+                })
             })
 
             result.success = true
@@ -148,7 +154,7 @@ export class SchemaMigrator {
 
                 await this.generator.syncSystemMetadata(schemaName, entities, {
                     trx,
-                    removeMissing: diff.destructive.length > 0,
+                    removeMissing: true,
                     userId: options?.userId
                 })
 
@@ -279,14 +285,25 @@ export class SchemaMigrator {
             }
 
             case ChangeType.ADD_FK: {
-                const targetEntity = entities.find((item) => item.id === change.newValue)
-                if (!targetEntity) {
-                    console.warn(`[SchemaMigrator] Target entity ${change.newValue} not found for FK`)
-                    return
-                }
+                const field = this.findField(entities, change.entityId!, change.fieldId!)
+                const targetEntityId = field.targetEntityId ?? (typeof change.newValue === 'string' ? change.newValue : null)
+                const targetEntity = targetEntityId ? entities.find((item) => item.id === targetEntityId) : null
+                const targetEntityKind = field.targetEntityKind ?? targetEntity?.kind ?? null
                 const columnName = change.columnName ?? generateColumnName(change.fieldId!)
                 const constraintName = buildFkConstraintName(change.tableName!, columnName)
-                const targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
+
+                let targetTableName: string
+                if (targetEntityKind === ENUMERATION_KIND) {
+                    await this.generator.ensureSystemTables(schemaName, trx)
+                    targetTableName = '_app_enum_values'
+                } else {
+                    if (!targetEntity) {
+                        console.warn(`[SchemaMigrator] Target entity ${targetEntityId ?? change.newValue} not found for FK`)
+                        return
+                    }
+                    targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
+                }
+
                 await trx.raw(`ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL`, [
                     schemaName,
                     change.tableName,

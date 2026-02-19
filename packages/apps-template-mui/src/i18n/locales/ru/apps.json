@@ -1,6 +1,7 @@
 {
     "app": {
         "createRow": "Создать",
+        "createRecordTitle": "Создать запись",
         "editRow": "Редактировать запись",
         "deleteRow": "Удалить запись",
         "deleteConfirmTitle": "Удалить запись?",
@@ -15,6 +16,7 @@
         "noFields": "Нет настроенных полей для этого каталога.",
         "actions": "Действия",
         "edit": "Редактировать",
+        "emptyOption": "Пусто",
         "errorCreate": "Ошибка создания: {{message}}",
         "errorUpdate": "Ошибка обновления: {{message}}",
         "errorDelete": "Ошибка удаления: {{message}}",

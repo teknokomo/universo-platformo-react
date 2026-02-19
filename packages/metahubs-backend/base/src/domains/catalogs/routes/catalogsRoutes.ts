@@ -27,6 +27,56 @@ const findBlockingCatalogReferences = async (
     userId?: string
 ) => attributesService.findCatalogReferenceBlockers(metahubId, catalogId, userId)
 
+const getLocalizedCandidates = (value: unknown): string[] => {
+    if (!value || typeof value !== 'object') return []
+    const raw = value as Record<string, unknown>
+
+    const locales = raw.locales
+    if (locales && typeof locales === 'object') {
+        return Object.values(locales as Record<string, unknown>)
+            .map((entry) => (entry && typeof entry === 'object' ? (entry as Record<string, unknown>).content : null))
+            .filter((content): content is string => typeof content === 'string' && content.trim().length > 0)
+    }
+
+    return Object.values(raw).filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+}
+
+const getLocalizedSortValue = (value: unknown, fallback: string): string => {
+    if (!value || typeof value !== 'object') return fallback
+    const raw = value as Record<string, unknown>
+
+    const locales = raw.locales
+    if (locales && typeof locales === 'object') {
+        const localesRecord = locales as Record<string, unknown>
+        const primary = typeof raw._primary === 'string' ? raw._primary : null
+        const enContent =
+            localesRecord.en && typeof localesRecord.en === 'object' ? (localesRecord.en as Record<string, unknown>).content : null
+        if (typeof enContent === 'string' && enContent.trim().length > 0) return enContent
+
+        if (primary) {
+            const primaryContent =
+                localesRecord[primary] && typeof localesRecord[primary] === 'object'
+                    ? (localesRecord[primary] as Record<string, unknown>).content
+                    : null
+            if (typeof primaryContent === 'string' && primaryContent.trim().length > 0) return primaryContent
+        }
+
+        const firstContent = Object.values(localesRecord)
+            .map((entry) => (entry && typeof entry === 'object' ? (entry as Record<string, unknown>).content : null))
+            .find((content): content is string => typeof content === 'string' && content.trim().length > 0)
+        return firstContent ?? fallback
+    }
+
+    if (typeof raw.en === 'string' && raw.en.trim().length > 0) return raw.en
+
+    const firstSimple = Object.values(raw).find((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    return firstSimple ?? fallback
+}
+
+const matchesCatalogSearch = (codename: string, name: unknown, searchLower: string): boolean =>
+    codename.toLowerCase().includes(searchLower) ||
+    getLocalizedCandidates(name).some((candidate) => candidate.toLowerCase().includes(searchLower))
+
 // Validation schemas
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
 const optionalLocalizedInputSchema = z
@@ -146,19 +196,15 @@ export function createCatalogsRoutes(
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter(
-                    (item: any) =>
-                        item.codename.toLowerCase().includes(searchLower) ||
-                        Object.values(item.name).some((v: any) => String(v).toLowerCase().includes(searchLower))
-                )
+                items = items.filter((item: any) => matchesCatalogSearch(item.codename, item.name, searchLower))
             }
 
             // Sort
             items.sort((a: any, b: any) => {
                 let valA, valB
                 if (sortBy === 'name') {
-                    valA = a.name['en'] || a.codename
-                    valB = b.name['en'] || b.codename
+                    valA = getLocalizedSortValue(a.name, a.codename)
+                    valB = getLocalizedSortValue(b.name, b.codename)
                 } else if (sortBy === 'codename') {
                     valA = a.codename
                     valB = b.codename
@@ -569,19 +615,15 @@ export function createCatalogsRoutes(
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter(
-                    (item: any) =>
-                        item.codename.toLowerCase().includes(searchLower) ||
-                        Object.values(item.name).some((v: any) => String(v).toLowerCase().includes(searchLower))
-                )
+                items = items.filter((item: any) => matchesCatalogSearch(item.codename, item.name, searchLower))
             }
 
             // Sort
             items.sort((a: any, b: any) => {
                 let valA, valB
                 if (sortBy === 'name') {
-                    valA = a.name['en'] || a.codename
-                    valB = b.name['en'] || b.codename
+                    valA = getLocalizedSortValue(a.name, a.codename)
+                    valB = getLocalizedSortValue(b.name, b.codename)
                 } else if (sortBy === 'codename') {
                     valA = a.codename
                     valB = b.codename

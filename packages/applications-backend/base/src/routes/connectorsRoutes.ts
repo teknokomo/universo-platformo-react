@@ -415,7 +415,7 @@ export function createConnectorsRoutes(
 
             // Reset UPDATE_AVAILABLE status — the data source link is gone
             const { applicationRepo } = repos(req)
-            const app = await applicationRepo.findOneBy({ id: applicationId })
+            const app = await applicationRepo.findOne({ where: { id: applicationId } })
             if (app && app.schemaStatus === ApplicationSchemaStatus.UPDATE_AVAILABLE) {
                 app.schemaStatus = ApplicationSchemaStatus.SYNCED
                 await applicationRepo.save(app)

@@ -1,11 +1,13 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
-import { MetaEntityKind, type MetahubSnapshotVersionEnvelope } from '@universo/types'
+import { MetaEntityKind, type EnumerationValueDefinition, type MetahubSnapshotVersionEnvelope } from '@universo/types'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
+import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
+import { CURRENT_STRUCTURE_VERSION } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
 
 export interface MetahubSnapshot {
@@ -15,6 +17,7 @@ export interface MetahubSnapshot {
     metahubId: string
     entities: Record<string, MetaEntitySnapshot>
     elements?: Record<string, MetaElementSnapshot[]>
+    enumerationValues?: Record<string, EnumerationValueDefinition[]>
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -84,7 +87,8 @@ export class SnapshotSerializer {
         private readonly objectsService: MetahubObjectsService,
         private readonly attributesService: MetahubAttributesService,
         private readonly elementsService?: MetahubElementsService,
-        private readonly hubsService?: MetahubHubsService // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
+        private readonly hubsService?: MetahubHubsService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
+        private readonly enumerationValuesService?: MetahubEnumerationValuesService
     ) {}
 
     /**
@@ -96,13 +100,15 @@ export class SnapshotSerializer {
      * snapshot before it is persisted or published.
      */
     async serializeMetahub(metahubId: string, versionEnvelope?: Partial<MetahubSnapshotVersionEnvelope>): Promise<MetahubSnapshot> {
-        // Fetch catalogs from dynamic schema
-        const catalogs = await this.objectsService.findAll(metahubId)
+        // Fetch entities from dynamic schema
+        const catalogs = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.CATALOG)
+        const enumerations = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION)
         // Note: findAll already orders by created_at, but we might want sortOrder if we add it to _mhb_objects
         // Currently _mhb_objects doesn't have sort_order in standard schema, using order by name or created_at
 
         const entities: Record<string, MetaEntitySnapshot> = {}
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
+        const enumerationValuesByObject: Record<string, EnumerationValueDefinition[]> = {}
 
         const objectIds = catalogs.map((catalog) => catalog.id)
         const allElements =
@@ -187,17 +193,67 @@ export class SnapshotSerializer {
             }
         }
 
+        if (this.enumerationValuesService && enumerations.length > 0) {
+            const valuesEntries = await Promise.all(
+                enumerations.map(async (enumeration) => {
+                    const values = await this.enumerationValuesService!.findAll(metahubId, enumeration.id)
+                    const normalizedValues: EnumerationValueDefinition[] = values.map((value: any) => ({
+                        id: value.id,
+                        objectId: value.objectId,
+                        codename: value.codename,
+                        presentation:
+                            value.presentation && typeof value.presentation === 'object'
+                                ? value.presentation
+                                : {
+                                      name: value.name ?? {},
+                                      description: value.description ?? {}
+                                  },
+                        sortOrder: value.sortOrder ?? 0,
+                        isDefault: value.isDefault ?? false
+                    }))
+                    return [enumeration.id, normalizedValues] as const
+                })
+            )
+            for (const [enumerationId, values] of valuesEntries) {
+                if (values.length > 0) {
+                    enumerationValuesByObject[enumerationId] = values
+                }
+            }
+        }
+
+        for (const enumeration of enumerations) {
+            const hubIds: string[] = enumeration.config?.hubs || []
+            entities[enumeration.id] = {
+                id: enumeration.id,
+                kind: MetaEntityKind.ENUMERATION,
+                codename: enumeration.codename,
+                tableName: generateTableName(enumeration.id, MetaEntityKind.ENUMERATION),
+                presentation: {
+                    name: enumeration.presentation?.name || {},
+                    description: enumeration.presentation?.description || {}
+                },
+                config: {
+                    ...(enumeration.config ?? {}),
+                    isSingleHub: enumeration.config?.isSingleHub ?? false,
+                    isRequiredHub: enumeration.config?.isRequiredHub ?? false
+                },
+                fields: [],
+                hubs: hubIds
+            }
+        }
+
         return {
             metahubId,
             generatedAt: new Date().toISOString(),
             version: 1,
             versionEnvelope: {
-                structureVersion: versionEnvelope?.structureVersion ?? 1,
+                structureVersion: versionEnvelope?.structureVersion ?? CURRENT_STRUCTURE_VERSION,
                 templateVersion: versionEnvelope?.templateVersion ?? null,
                 snapshotFormatVersion: 1
             },
             entities,
-            elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined
+            elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
+            enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined
         }
     }
 
@@ -320,6 +376,27 @@ export class SnapshotSerializer {
                   .sort((a, b) => a.objectId.localeCompare(b.objectId))
             : []
 
+        const enumerationValues = snapshot.enumerationValues
+            ? Object.entries(snapshot.enumerationValues)
+                  .map(([objectId, list]) => ({
+                      objectId,
+                      values: list
+                          .map((value) => ({
+                              id: value.id,
+                              codename: value.codename,
+                              presentation: value.presentation ?? {},
+                              sortOrder: value.sortOrder ?? 0,
+                              isDefault: Boolean(value.isDefault)
+                          }))
+                          .sort((a, b) => {
+                              if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                              if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
+                              return a.id.localeCompare(b.id)
+                          })
+                  }))
+                  .sort((a, b) => a.objectId.localeCompare(b.objectId))
+            : []
+
         const layouts = snapshot.layouts
             ? snapshot.layouts
                   .map((layout) => ({
@@ -368,6 +445,7 @@ export class SnapshotSerializer {
             metahubId: snapshot.metahubId,
             entities,
             elements,
+            enumerationValues,
             layouts,
             layoutZoneWidgets,
             defaultLayoutId: snapshot.defaultLayoutId ?? null,

@@ -54,6 +54,24 @@ describe('DDL Diff Utilities', () => {
         })
 
         describe('when comparing with existing snapshot', () => {
+            it('should ignore enumeration entities for physical DDL diff', () => {
+                const snapshot = createTestSnapshot({
+                    'enum-entity-1111-2222-333344445555': {
+                        codename: 'order_status',
+                        kind: 'enumeration',
+                        tableName: 'enum_entity11112222333344445555',
+                        fields: {}
+                    }
+                })
+                const entities: EntityDefinition[] = [createTestEntity()]
+
+                const diff = calculateSchemaDiff(snapshot, entities)
+
+                expect(diff.hasChanges).toBe(false)
+                expect(diff.additive).toHaveLength(0)
+                expect(diff.destructive).toHaveLength(0)
+            })
+
             it('should detect new tables', () => {
                 const snapshot = createTestSnapshot()
                 const entities: EntityDefinition[] = [

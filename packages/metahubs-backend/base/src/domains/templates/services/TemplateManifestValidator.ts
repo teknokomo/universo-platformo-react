@@ -79,12 +79,21 @@ const seedElementSchema = z.object({
     sortOrder: z.number().int()
 })
 
+const seedEnumerationValueSchema = z.object({
+    codename: z.string().min(1).max(100),
+    name: vlcSchema,
+    description: vlcSchema.optional(),
+    sortOrder: z.number().int().optional(),
+    isDefault: z.boolean().optional()
+})
+
 const seedSchema = z.object({
     layouts: z.array(seedLayoutSchema).min(1),
     layoutZoneWidgets: z.record(z.array(seedZoneWidgetSchema)),
     settings: z.array(seedSettingSchema).optional(),
     entities: z.array(seedEntitySchema).optional(),
-    elements: z.record(z.array(seedElementSchema)).optional()
+    elements: z.record(z.array(seedElementSchema)).optional(),
+    enumerationValues: z.record(z.array(seedEnumerationValueSchema)).optional()
 })
 
 const templateMetaSchema = z.object({
@@ -159,6 +168,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
     const entities = manifest.seed.entities ?? []
     const entityKeySet = new Set<string>()
     const entityByCodename = new Map<string, number>()
+    const entityKindsByCodename = new Map<string, Set<string>>()
     const entityByKindCodename = new Set<string>()
 
     for (let i = 0; i < entities.length; i++) {
@@ -174,6 +184,9 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         entityKeySet.add(key)
         entityByKindCodename.add(key)
         entityByCodename.set(entity.codename, (entityByCodename.get(entity.codename) ?? 0) + 1)
+        const kinds = entityKindsByCodename.get(entity.codename) ?? new Set<string>()
+        kinds.add(entity.kind)
+        entityKindsByCodename.set(entity.codename, kinds)
     }
 
     const elementsByEntity = manifest.seed.elements ?? {}
@@ -193,6 +206,51 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 path: ['seed', 'elements', entityCodename],
                 message: `elements reference is ambiguous for codename: ${entityCodename}. Provide unique codenames across entity kinds.`
             })
+        }
+    }
+
+    const enumerationValuesByEntity = manifest.seed.enumerationValues ?? {}
+    for (const [entityCodename, values] of Object.entries(enumerationValuesByEntity)) {
+        const count = entityByCodename.get(entityCodename) ?? 0
+        if (count === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'enumerationValues', entityCodename],
+                message: `enumerationValues references unknown entity codename: ${entityCodename}`
+            })
+            continue
+        }
+
+        if (count > 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'enumerationValues', entityCodename],
+                message: `enumerationValues reference is ambiguous for codename: ${entityCodename}. Provide unique codenames across entity kinds.`
+            })
+            continue
+        }
+
+        const kinds = entityKindsByCodename.get(entityCodename)
+        if (!kinds?.has('enumeration')) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'enumerationValues', entityCodename],
+                message: `enumerationValues can only target entities with kind "enumeration": ${entityCodename}`
+            })
+            continue
+        }
+
+        const seenValueCodenames = new Set<string>()
+        for (let index = 0; index < values.length; index++) {
+            const value = values[index]
+            if (seenValueCodenames.has(value.codename)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['seed', 'enumerationValues', entityCodename, index, 'codename'],
+                    message: `Duplicate enumeration value codename: ${value.codename}`
+                })
+            }
+            seenValueCodenames.add(value.codename)
         }
     }
 

@@ -48,7 +48,7 @@ export class Metahub {
     @Column({ type: 'boolean', default: false, name: 'is_public' })
     isPublic!: boolean
 
-    /** Template used to create this metahub (nullable for legacy metahubs) */
+    /** Template used to create this metahub (nullable when template binding is not selected) */
     @Column({ name: 'template_id', type: 'uuid', nullable: true })
     templateId?: string | null
 

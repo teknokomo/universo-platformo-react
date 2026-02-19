@@ -111,9 +111,7 @@ export default function Dashboard(props: DashboardProps) {
         <DashboardDetailsProvider value={props.details}>
             <Box sx={{ display: 'flex' }}>
                 {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={props.zoneWidgets} />}
-                {layout.showAppNavbar && (
-                    <AppNavbar menu={props.menu} menus={props.menus} rightWidgets={rightWidgets} />
-                )}
+                {layout.showAppNavbar && <AppNavbar menu={props.menu} menus={props.menus} rightWidgets={rightWidgets} />}
                 {/* Main content */}
                 <Box
                     component='main'
@@ -138,9 +136,7 @@ export default function Dashboard(props: DashboardProps) {
                         <MainGrid layoutConfig={props.layoutConfig} centerWidgets={centerWidgets} />
                     </Stack>
                 </Box>
-                {showRightSideMenu && (
-                    <SideMenuRight widgets={rightWidgets} menu={props.menu} menus={props.menus} />
-                )}
+                {showRightSideMenu && <SideMenuRight widgets={rightWidgets} menu={props.menu} menus={props.menus} />}
             </Box>
         </DashboardDetailsProvider>
     )

@@ -1,11 +1,24 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, ToggleButtonGroup, ToggleButton, TextField, CircularProgress, Popper } from '@mui/material'
+import {
+    Box,
+    Skeleton,
+    Stack,
+    Typography,
+    Tabs,
+    Tab,
+    TextField,
+    CircularProgress,
+    Popper,
+    FormControl,
+    FormControlLabel,
+    FormHelperText,
+    Radio,
+    RadioGroup
+} from '@mui/material'
 import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
 import { styled } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import ListAltIcon from '@mui/icons-material/ListAlt'
-import TableRowsIcon from '@mui/icons-material/TableRows'
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -32,6 +45,7 @@ import { useCreateElement, useUpdateElement, useDeleteElement } from '../hooks/m
 import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
 import { getCatalogById } from '../../catalogs'
+import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
@@ -55,6 +69,11 @@ const StyledPopper = styled(Popper)(({ theme }) => ({
 type ElementOption = {
     id: string
     name: string
+}
+
+type RefTargetDescriptor = {
+    kind: 'catalog' | 'enumeration'
+    targetId: string
 }
 
 type ReferenceFieldAutocompleteProps = {
@@ -186,6 +205,188 @@ const ReferenceFieldAutocomplete = ({
     )
 }
 
+type EnumerationValueOption = {
+    id: string
+    label: string
+    isDefault: boolean
+}
+
+type EnumerationFieldAutocompleteProps = {
+    metahubId: string
+    enumerationId: string
+    value: string | null | undefined
+    onChange: (value: string | null) => void
+    label: string
+    placeholder?: string
+    disabled?: boolean
+    error?: boolean
+    helperText?: string
+    locale: string
+    mode?: 'select' | 'radio' | 'label'
+    required?: boolean
+    defaultValueId?: string | null
+    allowEmpty?: boolean
+    emptyDisplay?: 'empty' | 'dash'
+}
+
+const EnumerationFieldAutocomplete = ({
+    metahubId,
+    enumerationId,
+    value,
+    onChange,
+    label,
+    placeholder,
+    disabled = false,
+    error = false,
+    helperText,
+    locale,
+    mode = 'select',
+    required = false,
+    defaultValueId = null,
+    allowEmpty = true,
+    emptyDisplay = 'dash'
+}: EnumerationFieldAutocompleteProps) => {
+    const { t } = useTranslation('metahubs')
+
+    const { data: valuesData, isLoading } = useQuery({
+        queryKey: metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId),
+        queryFn: () => listEnumerationValues(metahubId, enumerationId),
+        enabled: Boolean(metahubId && enumerationId)
+    })
+
+    const options = useMemo<EnumerationValueOption[]>(() => {
+        const items = valuesData?.items ?? []
+        return items
+            .slice()
+            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+            .map((item) => ({
+                id: item.id,
+                label: getVLCString(item.name, locale) || getVLCString(item.name, 'en') || item.codename || item.id,
+                isDefault: Boolean(item.isDefault)
+            }))
+    }, [locale, valuesData?.items])
+
+    const selectedOption = useMemo<EnumerationValueOption | null>(() => {
+        if (!value) return null
+        const found = options.find((option) => option.id === value)
+        if (found) return found
+        return {
+            id: value,
+            label: t('ref.unknownEnumerationValue', 'Value {{id}}', { id: value.slice(0, 8) })
+        }
+    }, [options, t, value])
+
+    const optionsWithFallback = useMemo(() => {
+        if (!selectedOption) return options
+        if (options.some((option) => option.id === selectedOption.id)) return options
+        return [selectedOption, ...options]
+    }, [options, selectedOption])
+
+    const fallbackDefaultValueId = defaultValueId ?? optionsWithFallback.find((option) => option.isDefault)?.id ?? null
+    const effectiveValue = typeof value === 'string' && value.length > 0 ? value : fallbackDefaultValueId
+    const effectiveOption = effectiveValue ? optionsWithFallback.find((option) => option.id === effectiveValue) ?? null : null
+
+    if (mode === 'label') {
+        return (
+            <FormControl fullWidth error={Boolean(error)}>
+                <Typography variant='caption' color='text.secondary'>
+                    {label}
+                </Typography>
+                <Typography variant='body1'>{effectiveOption?.label ?? (emptyDisplay === 'empty' ? '' : '—')}</Typography>
+                {helperText && <FormHelperText>{helperText}</FormHelperText>}
+            </FormControl>
+        )
+    }
+
+    if (mode === 'radio') {
+        return (
+            <FormControl fullWidth error={Boolean(error)} disabled={disabled}>
+                <Typography variant='caption' color='text.secondary' sx={{ mb: 0.5 }}>
+                    {label}
+                </Typography>
+                <RadioGroup value={effectiveValue ?? ''} onChange={(event) => onChange(event.target.value || null)}>
+                    {options.map((option) => (
+                        <FormControlLabel
+                            key={option.id}
+                            value={option.id}
+                            control={<Radio size='small' />}
+                            label={option.label}
+                            sx={{
+                                '& .MuiFormControlLabel-label': {
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.75
+                                }
+                            }}
+                        />
+                    ))}
+                </RadioGroup>
+                {helperText && <FormHelperText>{helperText}</FormHelperText>}
+            </FormControl>
+        )
+    }
+
+    return (
+        <Autocomplete
+            fullWidth
+            disabled={disabled}
+            disableClearable={required || !allowEmpty}
+            options={optionsWithFallback}
+            value={effectiveOption}
+            onChange={(_event, newValue) => onChange(newValue?.id ?? null)}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
+            popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
+            PopperComponent={StyledPopper}
+            slotProps={{
+                popupIndicator: {
+                    disableRipple: true,
+                    sx: {
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        boxShadow: 'none',
+                        padding: 0.5,
+                        '&:hover': { backgroundColor: 'transparent' }
+                    }
+                }
+            }}
+            loading={isLoading}
+            loadingText={t('common.loading', 'Loading...')}
+            noOptionsText={t('ref.noEnumerationValuesAvailable', 'No values available')}
+            sx={{
+                '& .MuiAutocomplete-endAdornment': {
+                    top: '50%',
+                    transform: 'translateY(-50%)'
+                },
+                '& .MuiAutocomplete-popupIndicator': {
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none'
+                }
+            }}
+            renderInput={(params) => (
+                <TextField
+                    {...params}
+                    fullWidth
+                    label={label}
+                    placeholder={placeholder}
+                    error={Boolean(error)}
+                    helperText={helperText}
+                    InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                            <>
+                                {isLoading ? <CircularProgress color='inherit' size={16} /> : null}
+                                {params.InputProps.endAdornment}
+                            </>
+                        )
+                    }}
+                />
+            )}
+        />
+    )
+}
+
 const ElementList = () => {
     const navigate = useNavigate()
     const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
@@ -305,6 +506,14 @@ const ElementList = () => {
             orderedAttributes.map((attribute) => {
                 const resolvedTargetEntityId = attribute.targetEntityId ?? attribute.targetCatalogId ?? null
                 const resolvedTargetEntityKind = attribute.targetEntityKind ?? (attribute.targetCatalogId ? 'catalog' : null)
+                const uiConfig = (attribute.uiConfig ?? {}) as Record<string, unknown>
+                const enumPresentationMode =
+                    uiConfig.enumPresentationMode === 'radio' || uiConfig.enumPresentationMode === 'label'
+                        ? uiConfig.enumPresentationMode
+                        : 'select'
+                const defaultEnumValueId = typeof uiConfig.defaultEnumValueId === 'string' ? uiConfig.defaultEnumValueId : null
+                const enumAllowEmpty = uiConfig.enumAllowEmpty !== false
+                const enumLabelEmptyDisplay = uiConfig.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
 
                 return {
                     id: attribute.codename,
@@ -319,7 +528,11 @@ const ElementList = () => {
                             : undefined,
                     validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined,
                     refTargetEntityId: resolvedTargetEntityId,
-                    refTargetEntityKind: resolvedTargetEntityKind
+                    refTargetEntityKind: resolvedTargetEntityKind,
+                    enumPresentationMode,
+                    defaultEnumValueId,
+                    enumAllowEmpty,
+                    enumLabelEmptyDisplay
                 }
             }),
         [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText]
@@ -368,31 +581,55 @@ const ElementList = () => {
                 )
             }
 
-            if (targetKind !== 'catalog') {
+            if (targetKind === 'catalog') {
                 return (
-                    <TextField
-                        fullWidth
-                        size='small'
+                    <ReferenceFieldAutocomplete
+                        metahubId={metahubId}
+                        targetCatalogId={targetId}
+                        value={typeof value === 'string' ? value : null}
+                        onChange={(nextValue) => onChange(nextValue)}
                         label={field.label}
-                        disabled
+                        placeholder={t('ref.selectElement', 'Select element...')}
+                        disabled={disabled}
                         error={Boolean(error)}
-                        helperText={error ?? t('ref.entityKindNotSupported', 'This entity type is not yet supported for references.')}
+                        helperText={helperText}
+                        locale={locale}
+                    />
+                )
+            }
+
+            if (targetKind === 'enumeration') {
+                const enumMode =
+                    field.enumPresentationMode === 'radio' || field.enumPresentationMode === 'label' ? field.enumPresentationMode : 'select'
+                return (
+                    <EnumerationFieldAutocomplete
+                        metahubId={metahubId}
+                        enumerationId={targetId}
+                        value={typeof value === 'string' ? value : null}
+                        onChange={(nextValue) => onChange(nextValue)}
+                        label={field.label}
+                        placeholder={t('ref.selectEnumerationValue', 'Select value...')}
+                        disabled={disabled || enumMode === 'label'}
+                        error={Boolean(error)}
+                        helperText={helperText}
+                        locale={locale}
+                        mode={enumMode}
+                        required={Boolean(field.required)}
+                        defaultValueId={field.defaultEnumValueId ?? null}
+                        allowEmpty={field.enumAllowEmpty !== false}
+                        emptyDisplay={field.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'}
                     />
                 )
             }
 
             return (
-                <ReferenceFieldAutocomplete
-                    metahubId={metahubId}
-                    targetCatalogId={targetId}
-                    value={typeof value === 'string' ? value : null}
-                    onChange={(nextValue) => onChange(nextValue)}
+                <TextField
+                    fullWidth
+                    size='small'
                     label={field.label}
-                    placeholder={t('ref.selectElement', 'Select element...')}
-                    disabled={disabled}
+                    disabled
                     error={Boolean(error)}
-                    helperText={helperText}
-                    locale={locale}
+                    helperText={error ?? t('ref.entityKindNotSupported', 'This entity type is not yet supported for references.')}
                 />
             )
         },
@@ -473,31 +710,36 @@ const ElementList = () => {
         return visibleAttributesForColumns.filter((attr) => {
             const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
             const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
-            return attr.dataType === 'REF' && targetKind === 'catalog' && Boolean(targetId)
+            return attr.dataType === 'REF' && (targetKind === 'catalog' || targetKind === 'enumeration') && Boolean(targetId)
         })
     }, [visibleAttributesForColumns])
 
-    const refCatalogByAttribute = useMemo(() => {
-        const map: Record<string, string> = {}
+    const refTargetByAttribute = useMemo(() => {
+        const map: Record<string, RefTargetDescriptor> = {}
         refAttributesForColumns.forEach((attr) => {
-            const catalogId = attr.targetEntityId ?? attr.targetCatalogId
-            if (catalogId) map[attr.codename] = catalogId
+            const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
+            const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
+            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) return
+            map[attr.codename] = { kind: targetKind, targetId }
         })
         return map
     }, [refAttributesForColumns])
 
-    const refIdsByCatalog = useMemo(() => {
+    const refIdsByTarget = useMemo(() => {
         const map: Record<string, Set<string>> = {}
         if (!Array.isArray(elements) || refAttributesForColumns.length === 0) return map
 
         refAttributesForColumns.forEach((attr) => {
-            const catalogId = attr.targetEntityId ?? attr.targetCatalogId
-            if (!catalogId) return
-            if (!map[catalogId]) map[catalogId] = new Set()
+            const targetKind = attr.targetEntityKind ?? (attr.targetCatalogId ? 'catalog' : null)
+            const targetId = attr.targetEntityId ?? attr.targetCatalogId ?? null
+            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) return
+
+            const mapKey = `${targetKind}:${targetId}`
+            if (!map[mapKey]) map[mapKey] = new Set()
             elements.forEach((element) => {
                 const rawValue = element.data?.[attr.codename]
                 if (typeof rawValue === 'string' && rawValue) {
-                    map[catalogId].add(rawValue)
+                    map[mapKey].add(rawValue)
                 }
             })
         })
@@ -506,15 +748,15 @@ const ElementList = () => {
     }, [elements, refAttributesForColumns])
 
     const refIdsKey = useMemo(() => {
-        return Object.entries(refIdsByCatalog)
-            .map(([catalogId, idsSet]) => ({
-                catalogId,
+        return Object.entries(refIdsByTarget)
+            .map(([targetKey, idsSet]) => ({
+                targetKey,
                 ids: Array.from(idsSet).sort()
             }))
-            .sort((a, b) => a.catalogId.localeCompare(b.catalogId))
-    }, [refIdsByCatalog])
+            .sort((a, b) => a.targetKey.localeCompare(b.targetKey))
+    }, [refIdsByTarget])
 
-    const { data: refDisplayMap } = useQuery({
+    const { data: refDisplayMap, isFetching: isFetchingRefDisplayMap } = useQuery({
         queryKey: ['metahubs', 'ref-display', metahubId, refIdsKey, i18n.language],
         enabled: Boolean(metahubId && refIdsKey.length > 0),
         staleTime: 30000,
@@ -524,31 +766,43 @@ const ElementList = () => {
 
             for (const entry of refIdsKey) {
                 if (!entry.ids.length) continue
-                const catalogId = entry.catalogId
-                const attributesResponse = await attributesApi.listAttributesDirect(metahubId, catalogId, {
-                    limit: 100,
-                    locale: i18n.language
-                })
-                const targetAttributes = attributesResponse?.items ?? []
+                const [targetKind, targetId] = entry.targetKey.split(':')
+                if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) continue
 
-                const elementsResponse = await Promise.all(
-                    entry.ids.map(async (id) => {
-                        try {
-                            const response = await elementsApi.getElementDirect(metahubId, catalogId, id)
-                            return response.data
-                        } catch (error) {
-                            return null
-                        }
+                if (targetKind === 'catalog') {
+                    const attributesResponse = await attributesApi.listAttributesDirect(metahubId, targetId, {
+                        limit: 100,
+                        locale: i18n.language
                     })
-                )
+                    const targetAttributes = attributesResponse?.items ?? []
 
-                const displayMap: Record<string, string> = {}
-                elementsResponse.filter(Boolean).forEach((element) => {
-                    const display = toHubElementDisplay(element as HubElement, targetAttributes, i18n.language)
-                    displayMap[(element as HubElement).id] = display.name || (element as HubElement).id
+                    const elementsResponse = await Promise.all(
+                        entry.ids.map(async (id) => {
+                            try {
+                                const response = await elementsApi.getElementDirect(metahubId, targetId, id)
+                                return response.data
+                            } catch {
+                                return null
+                            }
+                        })
+                    )
+
+                    const displayMap: Record<string, string> = {}
+                    elementsResponse.filter(Boolean).forEach((element) => {
+                        const display = toHubElementDisplay(element as HubElement, targetAttributes, i18n.language)
+                        displayMap[(element as HubElement).id] = display.name || (element as HubElement).id
+                    })
+
+                    result[entry.targetKey] = displayMap
+                    continue
+                }
+
+                const valuesResponse = await listEnumerationValues(metahubId, targetId)
+                const valuesDisplayMap: Record<string, string> = {}
+                valuesResponse.items.forEach((item) => {
+                    valuesDisplayMap[item.id] = getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename
                 })
-
-                result[catalogId] = displayMap
+                result[entry.targetKey] = valuesDisplayMap
             }
 
             return result
@@ -590,11 +844,13 @@ const ElementList = () => {
                             )
                         }
                         case 'REF': {
-                            const catalogId = refCatalogByAttribute[attr.codename]
-                            const displayName = catalogId && typeof value === 'string' ? refDisplayMap?.[catalogId]?.[value] : undefined
+                            const target = refTargetByAttribute[attr.codename]
+                            const targetKey = target ? `${target.kind}:${target.targetId}` : null
+                            const displayName = targetKey && typeof value === 'string' ? refDisplayMap?.[targetKey]?.[value] : undefined
+                            const isMappingLoading = Boolean(targetKey) && isFetchingRefDisplayMap
                             return (
                                 <Typography sx={{ fontSize: 14 }} noWrap>
-                                    {displayName || String(value)}
+                                    {displayName || (isMappingLoading ? '...' : '—')}
                                 </Typography>
                             )
                         }
@@ -631,7 +887,7 @@ const ElementList = () => {
         })
 
         return cols
-    }, [i18n.language, visibleAttributesForColumns, refCatalogByAttribute, refDisplayMap, t])
+    }, [i18n.language, visibleAttributesForColumns, refDisplayMap, refTargetByAttribute, isFetchingRefDisplayMap, t])
 
     const createElementContext = useCallback(
         (baseContext: any) => ({
@@ -794,6 +1050,15 @@ const ElementList = () => {
         setDialogError(null)
     }
 
+    const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements') => {
+        if (!metahubId || !catalogId || nextTab === 'elements') return
+        if (hubIdParam) {
+            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/attributes`)
+            return
+        }
+        navigate(`/metahub/${metahubId}/catalog/${catalogId}/attributes`)
+    }
+
     const handleCreateElement = async (data: Record<string, unknown>) => {
         setDialogError(null)
         setSubmitting(true)
@@ -882,30 +1147,6 @@ const ElementList = () => {
                 />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    {/* Tab navigation between Attributes and Elements */}
-                    <Box sx={{ mb: 1 }}>
-                        <ToggleButtonGroup value='elements' exclusive size='small' sx={{ mb: 1 }}>
-                            <ToggleButton
-                                value='attributes'
-                                sx={{ px: 2, py: 0.5 }}
-                                onClick={() => {
-                                    if (hubIdParam) {
-                                        navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/attributes`)
-                                        return
-                                    }
-                                    navigate(`/metahub/${metahubId}/catalog/${catalogId}/attributes`)
-                                }}
-                            >
-                                <ListAltIcon sx={{ mr: 1, fontSize: 18 }} />
-                                {t('attributes.title')}
-                            </ToggleButton>
-                            <ToggleButton value='elements' sx={{ px: 2, py: 0.5 }}>
-                                <TableRowsIcon sx={{ mr: 1, fontSize: 18 }} />
-                                {t('elements.title')}
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                    </Box>
-
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('elements.searchPlaceholder')}
@@ -921,6 +1162,26 @@ const ElementList = () => {
                             }}
                         />
                     </ViewHeader>
+
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+                        <Tabs
+                            value='elements'
+                            onChange={handleCatalogTabChange}
+                            aria-label={t('catalogs.title', 'Catalogs')}
+                            textColor='primary'
+                            indicatorColor='primary'
+                            sx={{
+                                minHeight: 40,
+                                '& .MuiTab-root': {
+                                    minHeight: 40,
+                                    textTransform: 'none'
+                                }
+                            }}
+                        >
+                            <Tab value='attributes' label={t('attributes.title')} />
+                            <Tab value='elements' label={t('elements.title')} />
+                        </Tabs>
+                    </Box>
 
                     {isLoading && elements.length === 0 ? (
                         <Skeleton variant='rectangular' height={120} />

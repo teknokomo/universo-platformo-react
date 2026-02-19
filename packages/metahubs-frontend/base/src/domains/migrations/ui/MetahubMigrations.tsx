@@ -49,12 +49,6 @@ const MetahubMigrations = () => {
         [branchId, branchesResponse?.meta?.activeBranchId, branchesResponse?.meta?.defaultBranchId, branches]
     )
 
-    const selectedBranch = useMemo(() => branches.find((item) => item.id === effectiveBranchId), [branches, effectiveBranchId])
-
-    const branchLabel = selectedBranch
-        ? `${getVLCString(selectedBranch.name, i18n.language) || selectedBranch.codename} (${selectedBranch.codename})`
-        : t('metahubs:migrations.branchUnknown', 'Unknown branch')
-
     const offset = (currentPage - 1) * pageSize
 
     const migrationsQuery = useMetahubMigrationsList(metahubId ?? '', {
@@ -210,6 +204,7 @@ const MetahubMigrations = () => {
 
     const isBusy = applyMutation.isPending
     const isLoading = migrationsQuery.isLoading || planQuery.isLoading
+    const hasPendingMigrations = Boolean(planQuery.data?.structureUpgradeRequired || planQuery.data?.templateUpgradeRequired)
 
     const handleApply = useCallback(
         (dryRun = false) => {
@@ -233,10 +228,7 @@ const MetahubMigrations = () => {
             shadow={false}
         >
             <Stack flexDirection='column' sx={{ gap: 1 }}>
-                <ViewHeader
-                    title={t('metahubs:migrations.title', 'Migrations')}
-                    description={t('metahubs:migrations.subtitle', 'Track and apply metahub upgrades')}
-                />
+                <ViewHeader title={t('metahubs:migrations.title', 'Migrations')} />
 
                 <Stack sx={{ pb: 2 }} spacing={2}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
@@ -264,7 +256,7 @@ const MetahubMigrations = () => {
                             </Button>
                             <Button
                                 variant='contained'
-                                disabled={!effectiveBranchId || isBusy}
+                                disabled={!effectiveBranchId || isBusy || !hasPendingMigrations}
                                 onClick={() => handleApply(false)}
                                 startIcon={isBusy ? <CircularProgress size={14} color='inherit' /> : undefined}
                             >
@@ -309,13 +301,6 @@ const MetahubMigrations = () => {
                                     }
                                 />
                             </Stack>
-                            <Typography variant='caption' color='text.secondary'>
-                                {t('metahubs:migrations.planDetails', 'Branch: {{branch}} | Structure: {{current}} → {{target}}', {
-                                    branch: branchLabel,
-                                    current: planQuery.data.currentStructureVersion,
-                                    target: planQuery.data.targetStructureVersion
-                                })}
-                            </Typography>
                         </Stack>
                     ) : null}
 
@@ -327,7 +312,7 @@ const MetahubMigrations = () => {
                         />
                     ) : (
                         <>
-                            <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                            <Box sx={{ mx: { xs: -2, md: -2 } }}>
                                 <FlowListTable<MigrationDisplayRow>
                                     data={rows}
                                     images={{}}
@@ -338,7 +323,7 @@ const MetahubMigrations = () => {
                             </Box>
 
                             {totalItems > 0 ? (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <Box sx={{ mx: { xs: -2, md: -2 }, mt: 2 }}>
                                     <PaginationControls
                                         pagination={pagination}
                                         actions={paginationActions}

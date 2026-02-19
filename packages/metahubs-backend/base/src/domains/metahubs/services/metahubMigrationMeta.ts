@@ -46,6 +46,7 @@ const migrationCountsSchema = z.object({
     settingsAdded: z.number().int().nonnegative(),
     entitiesAdded: z.number().int().nonnegative(),
     attributesAdded: z.number().int().nonnegative(),
+    enumValuesAdded: z.number().int().nonnegative().optional().default(0),
     elementsAdded: z.number().int().nonnegative()
 })
 

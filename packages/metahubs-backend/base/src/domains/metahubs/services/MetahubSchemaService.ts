@@ -603,7 +603,7 @@ export class MetahubSchemaService {
             `[MetahubSchemaService] Seed sync for ${schemaName}: ` +
                 `+${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
                 `+${seedResult.settingsAdded} settings, +${seedResult.entitiesAdded} entities, ` +
-                `+${seedResult.attributesAdded} attributes, +${seedResult.elementsAdded} elements`
+                `+${seedResult.attributesAdded} attributes, +${seedResult.enumValuesAdded} enum values, +${seedResult.elementsAdded} elements`
         )
         return true
     }
@@ -617,6 +617,7 @@ export class MetahubSchemaService {
             settingsAdded: number
             entitiesAdded: number
             attributesAdded: number
+            enumValuesAdded: number
             elementsAdded: number
             skipped: string[]
         },
@@ -633,6 +634,7 @@ export class MetahubSchemaService {
                 settingsAdded: seedResult.settingsAdded,
                 entitiesAdded: seedResult.entitiesAdded,
                 attributesAdded: seedResult.attributesAdded,
+                enumValuesAdded: seedResult.enumValuesAdded,
                 elementsAdded: seedResult.elementsAdded
             },
             skipped: seedResult.skipped,

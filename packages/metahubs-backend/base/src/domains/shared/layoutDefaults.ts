@@ -14,7 +14,7 @@ export type DefaultZoneWidget = {
 
 /**
  * The canonical set of dashboard zone widgets created for every new layout.
- * Used by both MetahubLayoutsService (layout CRUD) and MetahubSchemaService (legacy schema path).
+ * Used by both MetahubLayoutsService (layout CRUD) and MetahubSchemaService (schema initialization path).
  */
 export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
     // Left zone — decomposed sidebar widgets

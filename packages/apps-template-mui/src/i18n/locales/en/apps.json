@@ -1,6 +1,7 @@
 {
     "app": {
         "createRow": "Create",
+        "createRecordTitle": "Create record",
         "editRow": "Edit record",
         "deleteRow": "Delete record",
         "deleteConfirmTitle": "Delete record?",
@@ -15,6 +16,7 @@
         "noFields": "No fields configured for this catalog.",
         "actions": "Actions",
         "edit": "Edit",
+        "emptyOption": "Empty",
         "errorCreate": "Create failed: {{message}}",
         "errorUpdate": "Update failed: {{message}}",
         "errorDelete": "Delete failed: {{message}}",
