@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeleteIcon from '@mui/icons-material/Delete'
 import {
     Alert,
@@ -202,6 +202,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
+    const wasOpenRef = useRef(false)
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {
@@ -226,13 +227,17 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     )
 
     useEffect(() => {
-        if (open) {
+        const wasOpen = wasOpenRef.current
+
+        if (open && !wasOpen) {
             setReady(false)
             setFormData(applyFieldDefaults(initialData ?? {}))
             setReady(true)
-        } else {
+        } else if (!open && wasOpen) {
             setReady(false)
         }
+
+        wasOpenRef.current = open
     }, [open, initialData, applyFieldDefaults])
 
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])

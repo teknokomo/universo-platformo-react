@@ -1283,8 +1283,12 @@ export function createApplicationsRoutes(
                                 attr.target_object_id
                             )
                             raw = defaultEnumValueId
-                        } catch {
-                            raw = undefined
+                        } catch (error) {
+                            if (error instanceof Error && error.message === 'Enumeration value does not belong to target enumeration') {
+                                raw = undefined
+                            } else {
+                                throw error
+                            }
                         }
                     }
                 }
