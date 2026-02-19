@@ -30,6 +30,7 @@ export {
     useHubName,
     useCatalogName,
     useCatalogNameStandalone,
+    useEnumerationName,
     useAttributeName,
     useConnectorName,
     // Pre-configured truncate functions
@@ -45,6 +46,7 @@ export {
     truncatePublicationName,
     truncateHubName,
     truncateCatalogName,
+    truncateEnumerationName,
     truncateAttributeName,
     truncateConnectorName,
     truncateLayoutName

@@ -160,6 +160,53 @@ export const metahubsQueryKeys = {
     catalogDetailInHub: (metahubId: string, hubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogs(metahubId, hubId), 'detail', catalogId] as const,
 
+    // Enumerations scoped to a specific hub
+    enumerations: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'enumerations'] as const,
+
+    enumerationsList: (metahubId: string, hubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.enumerations(metahubId, hubId), 'list', normalized] as const
+    },
+
+    // All enumerations across all hubs in a metahub
+    allEnumerations: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'allEnumerations'] as const,
+
+    allEnumerationsList: (metahubId: string, params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metahubsQueryKeys.allEnumerations(metahubId), 'list', normalized] as const
+    },
+
+    // Enumeration detail without hub context
+    enumerationDetail: (metahubId: string, enumerationId: string) =>
+        [...metahubsQueryKeys.allEnumerations(metahubId), 'detail', enumerationId] as const,
+
+    // Enumeration detail scoped to a specific hub
+    enumerationDetailInHub: (metahubId: string, hubId: string, enumerationId: string) =>
+        [...metahubsQueryKeys.enumerations(metahubId, hubId), 'detail', enumerationId] as const,
+
+    // Blocking references for enumeration deletion (REF attributes in other catalogs)
+    blockingEnumerationReferences: (metahubId: string, enumerationId: string) =>
+        [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId), 'blockingReferences'] as const,
+
+    // Enumeration values
+    enumerationValues: (metahubId: string, enumerationId: string) =>
+        [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId), 'values'] as const,
+
+    enumerationValuesList: (metahubId: string, enumerationId: string) =>
+        [...metahubsQueryKeys.enumerationValues(metahubId, enumerationId), 'list'] as const,
+
     // Attributes scoped to a specific catalog
     attributes: (metahubId: string, hubId: string, catalogId: string) =>
         [...metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId), 'attributes'] as const,
@@ -293,6 +340,33 @@ export const invalidateCatalogsQueries = {
 
     detail: (queryClient: QueryClient, metahubId: string, hubId: string, catalogId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetailInHub(metahubId, hubId, catalogId) })
+}
+
+export const invalidateEnumerationsQueries = {
+    all: (queryClient: QueryClient, metahubId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId ? metahubsQueryKeys.enumerations(metahubId, hubId) : metahubsQueryKeys.allEnumerations(metahubId)
+        }),
+
+    lists: (queryClient: QueryClient, metahubId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId ? metahubsQueryKeys.enumerationsList(metahubId, hubId) : metahubsQueryKeys.allEnumerationsList(metahubId)
+        }),
+
+    detail: (queryClient: QueryClient, metahubId: string, enumerationId: string, hubId?: string) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId
+                ? metahubsQueryKeys.enumerationDetailInHub(metahubId, hubId, enumerationId)
+                : metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
+        })
+}
+
+export const invalidateEnumerationValuesQueries = {
+    all: (queryClient: QueryClient, metahubId: string, enumerationId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerationValues(metahubId, enumerationId) }),
+
+    lists: (queryClient: QueryClient, metahubId: string, enumerationId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId) })
 }
 
 export const invalidateAttributesQueries = {

@@ -57,6 +57,22 @@ export interface DynamicFieldConfig {
     refTargetEntityId?: string | null
     /** Optional target entity kind for REF fields */
     refTargetEntityKind?: string | null
+    /** Runtime options for REF->enumeration fields. */
+    enumOptions?: Array<{
+        id: string
+        label: string
+        codename?: string
+        isDefault?: boolean
+        sortOrder?: number
+    }>
+    /** REF->enumeration presentation mode. */
+    enumPresentationMode?: 'select' | 'radio' | 'label'
+    /** Optional default enumeration value id. */
+    defaultEnumValueId?: string | null
+    /** Controls whether empty value can be selected for enumeration references. */
+    enumAllowEmpty?: boolean
+    /** Defines how empty label-mode value should be rendered. */
+    enumLabelEmptyDisplay?: 'empty' | 'dash'
 }
 
 export interface DynamicEntityFormDialogProps {
@@ -182,23 +198,42 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
 
+    const applyFieldDefaults = useCallback(
+        (seed: Record<string, unknown>) => {
+            const next = { ...seed }
+
+            for (const field of fields) {
+                if (next[field.id] !== undefined) continue
+                if (field.type !== 'REF') continue
+                if (field.refTargetEntityKind !== 'enumeration') continue
+
+                const defaultFromConfig = field.defaultEnumValueId ?? null
+                const defaultFromOptions = field.enumOptions?.find((option) => option.isDefault)?.id ?? null
+                const fallbackDefault = defaultFromConfig ?? defaultFromOptions
+                if (fallbackDefault) {
+                    next[field.id] = fallbackDefault
+                }
+            }
+
+            return next
+        },
+        [fields]
+    )
+
     useEffect(() => {
         if (open) {
             setReady(false)
-            setFormData(initialData ?? {})
+            setFormData(applyFieldDefaults(initialData ?? {}))
             setReady(true)
         } else {
             setReady(false)
         }
-    }, [open, initialData])
+    }, [open, initialData, applyFieldDefaults])
 
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
 
     const isRuLocale = normalizedLocale === 'ru'
-    const formatMessage = useCallback(
-        (en: string, ru: string) => (isRuLocale ? ru : en),
-        [isRuLocale]
-    )
+    const formatMessage = useCallback((en: string, ru: string) => (isRuLocale ? ru : en), [isRuLocale])
 
     const handleFieldChange = useCallback((id: string, value: unknown) => {
         setFormData((prev) => ({ ...prev, [id]: value }))
@@ -249,22 +284,19 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
      * For VLC fields, check minLength for ALL locales that have content.
      * Returns the locale code that fails validation, or null if all pass.
      */
-    const getVlcMinLengthError = useCallback(
-        (value: unknown, minLength: number): string | null => {
-            if (!isLocalizedContent(value)) return null
-            const vlc = value as VersionedLocalizedContent<string>
-            const locales = vlc.locales
-            for (const [localeCode, entry] of Object.entries(locales)) {
-                const content = entry?.content
-                // Only validate locales that have content (not empty)
-                if (typeof content === 'string' && content.length > 0 && content.length < minLength) {
-                    return localeCode
-                }
+    const getVlcMinLengthError = useCallback((value: unknown, minLength: number): string | null => {
+        if (!isLocalizedContent(value)) return null
+        const vlc = value as VersionedLocalizedContent<string>
+        const locales = vlc.locales
+        for (const [localeCode, entry] of Object.entries(locales)) {
+            const content = entry?.content
+            // Only validate locales that have content (not empty)
+            if (typeof content === 'string' && content.length > 0 && content.length < minLength) {
+                return localeCode
             }
-            return null
-        },
-        []
-    )
+        }
+        return null
+    }, [])
 
     const getFieldError = useCallback(
         (field: DynamicFieldConfig, value: unknown) => {
@@ -298,15 +330,9 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             )
                         }
                     } else if (minLength !== null && stringValue.length < minLength) {
-                        return formatMessage(
-                            `Minimum length: ${minLength}`,
-                            `Минимальная длина: ${minLength}`
-                        )
+                        return formatMessage(`Minimum length: ${minLength}`, `Минимальная длина: ${minLength}`)
                     } else if (maxLength !== null && stringValue.length > maxLength) {
-                        return formatMessage(
-                            `Maximum length: ${maxLength}`,
-                            `Максимальная длина: ${maxLength}`
-                        )
+                        return formatMessage(`Maximum length: ${maxLength}`, `Максимальная длина: ${maxLength}`)
                     }
                 }
             }
@@ -322,16 +348,10 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     return formatMessage('Must be non-negative', 'Только неотрицательное значение')
                 }
                 if (typeof rules.min === 'number' && value < rules.min) {
-                    return formatMessage(
-                        `Minimum value: ${rules.min}`,
-                        `Минимальное значение: ${rules.min}`
-                    )
+                    return formatMessage(`Minimum value: ${rules.min}`, `Минимальное значение: ${rules.min}`)
                 }
                 if (typeof rules.max === 'number' && value > rules.max) {
-                    return formatMessage(
-                        `Maximum value: ${rules.max}`,
-                        `Максимальное значение: ${rules.max}`
-                    )
+                    return formatMessage(`Maximum value: ${rules.max}`, `Максимальное значение: ${rules.max}`)
                 }
             }
 
@@ -340,9 +360,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
                 const composition = rules.dateComposition ?? 'datetime'
                 if (composition === 'time') {
-                    return isValidTimeString(value)
-                        ? null
-                        : formatMessage('Expected time format: HH:MM', 'Ожидается время в формате ЧЧ:ММ')
+                    return isValidTimeString(value) ? null : formatMessage('Expected time format: HH:MM', 'Ожидается время в формате ЧЧ:ММ')
                 }
                 if (composition === 'date') {
                     return isValidDateString(value)
@@ -419,9 +437,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 const isVersioned = rules?.versioned
 
                 // For VLC fields, compute which locale has the minLength error
-                const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength 
-                    ? getVlcMinLengthError(value, rules.minLength)
-                    : null
+                const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength ? getVlcMinLengthError(value, rules.minLength) : null
 
                 // If both versioned and localized, use localized mode
                 // If only versioned, use versioned mode (no language switching)
@@ -567,9 +583,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     const normalizedInput = inputValue.replace(/,/g, '.')
 
                     // Validate input format: optional minus, digits, optional decimal point, digits
-                    const validPattern = allowNegative
-                        ? /^-?\d*\.?\d*$/
-                        : /^\d*\.?\d*$/
+                    const validPattern = allowNegative ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/
 
                     if (!validPattern.test(normalizedInput)) {
                         return // Block invalid characters
@@ -609,7 +623,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
                     if ((key === 'Backspace' || key === 'Delete') && scale > 0 && separatorIndex !== -1) {
                         const selectionCrossesSeparator = selectionStart <= separatorIndex && selectionEnd > separatorIndex
-                        const backspaceOnSeparator = key === 'Backspace' && selectionStart === separatorIndex + 1 && selectionEnd === selectionStart
+                        const backspaceOnSeparator =
+                            key === 'Backspace' && selectionStart === separatorIndex + 1 && selectionEnd === selectionStart
                         const deleteOnSeparator = key === 'Delete' && selectionStart === separatorIndex && selectionEnd === selectionStart
                         if (selectionCrossesSeparator || backspaceOnSeparator || deleteOnSeparator) {
                             event.preventDefault()
@@ -618,7 +633,21 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     }
 
                     // Allow navigation and control keys
-                    if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(key)) {
+                    if (
+                        [
+                            'Backspace',
+                            'Delete',
+                            'Tab',
+                            'Escape',
+                            'Enter',
+                            'ArrowLeft',
+                            'ArrowRight',
+                            'ArrowUp',
+                            'ArrowDown',
+                            'Home',
+                            'End'
+                        ].includes(key)
+                    ) {
                         return
                     }
 
@@ -719,13 +748,14 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
                 // Build helper text showing constraints (like STRING shows "Макс. длина: 10")
                 const constraintParts: string[] = []
-                
+
                 // Show precision format: "Длина: 8,2" means 8 digits before decimal, 2 after
-                const formatInfo = scale > 0 
-                    ? formatMessage(`Length: ${maxIntegerDigits},${scale}`, `Длина: ${maxIntegerDigits},${scale}`)
-                    : formatMessage(`Length: ${maxIntegerDigits}`, `Длина: ${maxIntegerDigits}`)
+                const formatInfo =
+                    scale > 0
+                        ? formatMessage(`Length: ${maxIntegerDigits},${scale}`, `Длина: ${maxIntegerDigits},${scale}`)
+                        : formatMessage(`Length: ${maxIntegerDigits}`, `Длина: ${maxIntegerDigits}`)
                 constraintParts.push(formatInfo)
-                
+
                 if (typeof rules?.min === 'number' && typeof rules?.max === 'number') {
                     constraintParts.push(formatMessage(`Range: ${rules.min}–${rules.max}`, `Диапазон: ${rules.min}–${rules.max}`))
                 } else if (typeof rules?.min === 'number') {
@@ -868,12 +898,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     }
 
     const isSubmitDisabled =
-        isSubmitting ||
-        !isReady ||
-        fields.length === 0 ||
-        hasMissingRequired ||
-        hasValidationErrors ||
-        (requireAnyValue && !hasAnyValue)
+        isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>

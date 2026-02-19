@@ -84,6 +84,7 @@
             "edit": "Edit",
             "delete": "Delete",
             "createRow": "Create",
+            "createRecordTitle": "Create record",
             "editRow": "Edit record",
             "save": "Save",
             "saving": "Saving...",

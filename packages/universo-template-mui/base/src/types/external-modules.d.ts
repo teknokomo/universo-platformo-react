@@ -57,6 +57,8 @@ declare module '@universo/metahubs-frontend' {
     export const BranchList: ComponentType<any>
     export const HubList: ComponentType<any>
     export const CatalogList: ComponentType<any>
+    export const EnumerationList: ComponentType<any>
+    export const EnumerationValueList: ComponentType<any>
     export const AttributeList: ComponentType<any>
     export const ElementList: ComponentType<any>
     export const MetahubLayouts: ComponentType<any>

@@ -7,17 +7,17 @@ describe('SystemTableMigrator', () => {
         const fromVersion = 101
         const toVersion = 102
 
-        const v1Definitions: SystemTableDef[] = [
+        const fromDefinitions: SystemTableDef[] = [
             {
                 name: '_mhb_test_table',
                 description: 'Temporary test table',
                 columns: [{ name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' }]
             }
         ]
-        const v2Definitions: SystemTableDef[] = []
+        const toDefinitions: SystemTableDef[] = []
 
-        SYSTEM_TABLE_VERSIONS.set(fromVersion, v1Definitions)
-        SYSTEM_TABLE_VERSIONS.set(toVersion, v2Definitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
 
         try {
             const mockKnex = {
@@ -33,8 +33,8 @@ describe('SystemTableMigrator', () => {
             expect(result.error).toContain('Destructive system-table changes detected')
             expect(mockKnex.transaction).not.toHaveBeenCalled()
         } finally {
-            SYSTEM_TABLE_VERSIONS.delete(fromVersion)
-            SYSTEM_TABLE_VERSIONS.delete(toVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
         }
     })
 
@@ -42,43 +42,43 @@ describe('SystemTableMigrator', () => {
         const fromVersion = 201
         const toVersion = 202
 
-        const v1Definitions: SystemTableDef[] = [
+        const fromDefinitions: SystemTableDef[] = [
             {
-                name: '_mhb_layout_zone_widgets',
-                description: 'Old widgets table',
+                name: '_mhb_test_widgets_old',
+                description: 'Old test widgets table',
                 columns: [
                     { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
                     { name: 'layout_id', type: 'uuid', nullable: false }
                 ],
-                indexes: [{ name: 'idx_mhb_layout_zone_widgets_layout_id', columns: ['layout_id'] }]
+                indexes: [{ name: 'idx_mhb_test_widgets_old_layout_id', columns: ['layout_id'] }]
             }
         ]
-        const v2Definitions: SystemTableDef[] = [
+        const toDefinitions: SystemTableDef[] = [
             {
-                name: '_mhb_widgets',
-                renamedFrom: ['_mhb_layout_zone_widgets'],
-                description: 'New widgets table',
+                name: '_mhb_test_widgets_new',
+                renamedFrom: ['_mhb_test_widgets_old'],
+                description: 'New test widgets table',
                 columns: [
                     { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
                     { name: 'layout_id', type: 'uuid', nullable: false }
                 ],
                 indexes: [
                     {
-                        name: 'idx_mhb_widgets_layout_id',
-                        renamedFrom: ['idx_mhb_layout_zone_widgets_layout_id'],
+                        name: 'idx_mhb_test_widgets_new_layout_id',
+                        renamedFrom: ['idx_mhb_test_widgets_old_layout_id'],
                         columns: ['layout_id']
                     }
                 ]
             }
         ]
 
-        SYSTEM_TABLE_VERSIONS.set(fromVersion, v1Definitions)
-        SYSTEM_TABLE_VERSIONS.set(toVersion, v2Definitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(fromVersion, fromDefinitions)
+        ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).set(toVersion, toDefinitions)
 
         try {
             const hasTable = jest.fn(async (tableName: string) => {
-                if (tableName === '_mhb_layout_zone_widgets') return true
-                if (tableName === '_mhb_widgets') return false
+                if (tableName === '_mhb_test_widgets_old') return true
+                if (tableName === '_mhb_test_widgets_new') return false
                 if (tableName === '_mhb_migrations') return false
                 return false
             })
@@ -86,10 +86,10 @@ describe('SystemTableMigrator', () => {
             const raw = jest.fn(async (sql: string, bindings: unknown[]) => {
                 if (sql.includes('FROM pg_indexes')) {
                     const indexName = String(bindings[1] ?? '')
-                    if (indexName === 'idx_mhb_layout_zone_widgets_layout_id') {
+                    if (indexName === 'idx_mhb_test_widgets_old_layout_id') {
                         return { rows: [{ exists: 1 }] }
                     }
-                    if (indexName === 'idx_mhb_widgets_layout_id') {
+                    if (indexName === 'idx_mhb_test_widgets_new_layout_id') {
                         return { rows: [] }
                     }
                 }
@@ -117,21 +117,21 @@ describe('SystemTableMigrator', () => {
             expect(result.skippedDestructive).toEqual([])
             expect(result.applied).toEqual(
                 expect.arrayContaining([
-                    'Rename table "_mhb_layout_zone_widgets" to "_mhb_widgets"',
-                    'Rename index "idx_mhb_layout_zone_widgets_layout_id" to "idx_mhb_widgets_layout_id" on "_mhb_widgets"'
+                    'Rename table "_mhb_test_widgets_old" to "_mhb_test_widgets_new"',
+                    'Rename index "idx_mhb_test_widgets_old_layout_id" to "idx_mhb_test_widgets_new_layout_id" on "_mhb_test_widgets_new"'
                 ])
             )
-            expect(renameTable).toHaveBeenCalledWith('_mhb_layout_zone_widgets', '_mhb_widgets')
+            expect(renameTable).toHaveBeenCalledWith('_mhb_test_widgets_old', '_mhb_test_widgets_new')
             expect(
                 raw.mock.calls.some(([sql]) =>
                     String(sql).includes(
-                        'ALTER INDEX "mhb_test_schema"."idx_mhb_layout_zone_widgets_layout_id" RENAME TO "idx_mhb_widgets_layout_id"'
+                        'ALTER INDEX "mhb_test_schema"."idx_mhb_test_widgets_old_layout_id" RENAME TO "idx_mhb_test_widgets_new_layout_id"'
                     )
                 )
             ).toBe(true)
         } finally {
-            SYSTEM_TABLE_VERSIONS.delete(fromVersion)
-            SYSTEM_TABLE_VERSIONS.delete(toVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(fromVersion)
+            ;(SYSTEM_TABLE_VERSIONS as Map<number, SystemTableDef[]>).delete(toVersion)
         }
     })
 })

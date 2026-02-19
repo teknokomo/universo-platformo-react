@@ -52,7 +52,18 @@ export default function DashboardApp(props: DashboardAppProps) {
             localeText: state.localeText,
             actions: createActions
         }),
-        [detailsTitle, state.rows, state.columns, state.isLoading, state.rowCount, state.paginationModel, state.setPaginationModel, state.pageSizeOptions, state.localeText, createActions]
+        [
+            detailsTitle,
+            state.rows,
+            state.columns,
+            state.isLoading,
+            state.rowCount,
+            state.paginationModel,
+            state.setPaginationModel,
+            state.pageSizeOptions,
+            state.localeText,
+            createActions
+        ]
     )
 
     if (!props.applicationId) {
@@ -65,19 +76,14 @@ export default function DashboardApp(props: DashboardAppProps) {
 
     return (
         <AppMainLayout>
-            <Dashboard
-                layoutConfig={state.layoutConfig}
-                zoneWidgets={state.appData?.zoneWidgets}
-                menu={state.menuSlot}
-                details={details}
-            />
+            <Dashboard layoutConfig={state.layoutConfig} zoneWidgets={state.appData?.zoneWidgets} menu={state.menuSlot} details={details} />
 
             <CrudDialogs
                 state={state}
                 locale={props.locale}
                 labels={{
                     editTitle: t('app.editRow', 'Edit record'),
-                    createTitle: t('app.createRow', 'Create'),
+                    createTitle: t('app.createRecordTitle', 'Create record'),
                     saveText: t('app.save', 'Save'),
                     createText: t('app.create', 'Create'),
                     savingText: t('app.saving', 'Saving...'),
@@ -85,7 +91,10 @@ export default function DashboardApp(props: DashboardAppProps) {
                     cancelText: t('app.cancel', 'Cancel'),
                     noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
                     deleteTitle: t('app.deleteConfirmTitle', 'Delete record?'),
-                    deleteDescription: t('app.deleteConfirmDescription', 'This record will be permanently deleted. This action cannot be undone.'),
+                    deleteDescription: t(
+                        'app.deleteConfirmDescription',
+                        'This record will be permanently deleted. This action cannot be undone.'
+                    ),
                     deleteText: t('app.delete', 'Delete'),
                     deletingText: t('app.deleting', 'Deleting...')
                 }}

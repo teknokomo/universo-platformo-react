@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Chip, Divider } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, Chip, Divider, Tabs, Tab } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -859,6 +859,15 @@ const CatalogList = () => {
         setView(nextView as 'card' | 'table')
     }
 
+    const handleHubTabChange = (_event: unknown, tabValue: 'catalogs' | 'enumerations') => {
+        if (!metahubId || !hubId) return
+        if (tabValue === 'enumerations') {
+            navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
+            return
+        }
+        navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
+    }
+
     // Transform Catalog data for display - use hub-aware version for global mode
     const getCatalogCardData = (catalog: CatalogWithHubs): CatalogWithHubsDisplay => toCatalogWithHubsDisplay(catalog, i18n.language)
 
@@ -903,6 +912,28 @@ const CatalogList = () => {
                             }}
                         />
                     </ViewHeader>
+
+                    {isHubScoped && (
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                            <Tabs
+                                value='catalogs'
+                                onChange={handleHubTabChange}
+                                aria-label={t('hubs.title', 'Hubs')}
+                                textColor='primary'
+                                indicatorColor='primary'
+                                sx={{
+                                    minHeight: 40,
+                                    '& .MuiTab-root': {
+                                        minHeight: 40,
+                                        textTransform: 'none'
+                                    }
+                                }}
+                            >
+                                <Tab value='catalogs' label={t('catalogs.title')} />
+                                <Tab value='enumerations' label={t('enumerations.title')} />
+                            </Tabs>
+                        </Box>
+                    )}
 
                     {isLoading && catalogs.length === 0 ? (
                         view === 'card' ? (

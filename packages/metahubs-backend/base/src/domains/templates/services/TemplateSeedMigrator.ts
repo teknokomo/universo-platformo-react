@@ -42,6 +42,7 @@ export interface SeedMigrationResult {
     settingsAdded: number
     entitiesAdded: number
     attributesAdded: number
+    enumValuesAdded: number
     elementsAdded: number
     skipped: string[]
 }
@@ -75,6 +76,7 @@ export class TemplateSeedMigrator {
             settingsAdded: 0,
             entitiesAdded: 0,
             attributesAdded: 0,
+            enumValuesAdded: 0,
             elementsAdded: 0,
             skipped: []
         }
@@ -97,6 +99,16 @@ export class TemplateSeedMigrator {
             // 3. Migrate entities + attributes
             if (newSeed.entities?.length) {
                 const entityIdMap = await this.migrateEntities(trx, newSeed.entities, result, dryRun)
+
+                if (newSeed.enumerationValues) {
+                    result.enumValuesAdded = await this.migrateEnumerationValues(
+                        trx,
+                        newSeed.enumerationValues,
+                        entityIdMap,
+                        result,
+                        dryRun
+                    )
+                }
 
                 // 4. Migrate elements (requires entity ID map)
                 if (newSeed.elements) {
@@ -487,6 +499,98 @@ export class TemplateSeedMigrator {
         }
 
         return entityIdMap
+    }
+
+    // ─── Enumeration values ─────────────────────────────────────────────
+
+    private async migrateEnumerationValues(
+        trx: Knex,
+        valuesByEnumeration: Record<
+            string,
+            Array<{ codename: string; name: unknown; description?: unknown; sortOrder?: number; isDefault?: boolean }>
+        >,
+        entityIdMap: Map<string, string>,
+        result: SeedMigrationResult,
+        dryRun: boolean
+    ): Promise<number> {
+        const now = new Date()
+        let added = 0
+
+        for (const [enumerationCodename, values] of Object.entries(valuesByEnumeration)) {
+            const objectId = resolveEntityIdByCodename(entityIdMap, enumerationCodename, 'enumeration')
+            if (!objectId) {
+                result.skipped.push(`enumerationValues:${enumerationCodename} (entity not found or ambiguous)`)
+                continue
+            }
+
+            for (let index = 0; index < values.length; index++) {
+                const value = values[index]
+
+                if (dryRun && objectId.startsWith('dry-run:')) {
+                    added++
+                    continue
+                }
+
+                const exists = await trx
+                    .withSchema(this.schemaName)
+                    .from('_mhb_enum_values')
+                    .where({
+                        object_id: objectId,
+                        codename: value.codename,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .first()
+
+                if (exists) {
+                    result.skipped.push(`enumerationValue:${enumerationCodename}.${value.codename} (already exists)`)
+                    continue
+                }
+
+                if (!dryRun) {
+                    if (value.isDefault) {
+                        await trx
+                            .withSchema(this.schemaName)
+                            .from('_mhb_enum_values')
+                            .where({
+                                object_id: objectId,
+                                _upl_deleted: false,
+                                _mhb_deleted: false
+                            })
+                            .update({
+                                is_default: false,
+                                _upl_updated_at: now,
+                                _upl_updated_by: null
+                            })
+                    }
+
+                    await trx
+                        .withSchema(this.schemaName)
+                        .into('_mhb_enum_values')
+                        .insert({
+                            object_id: objectId,
+                            codename: value.codename,
+                            presentation: { name: value.name, description: value.description },
+                            sort_order: value.sortOrder ?? index,
+                            is_default: value.isDefault ?? false,
+                            _upl_created_at: now,
+                            _upl_created_by: null,
+                            _upl_updated_at: now,
+                            _upl_updated_by: null,
+                            _upl_version: 1,
+                            _upl_archived: false,
+                            _upl_deleted: false,
+                            _upl_locked: false,
+                            _mhb_published: true,
+                            _mhb_archived: false,
+                            _mhb_deleted: false
+                        })
+                }
+                added++
+            }
+        }
+
+        return added
     }
 
     // ─── Elements ─────────────────────────────────────────────────────────

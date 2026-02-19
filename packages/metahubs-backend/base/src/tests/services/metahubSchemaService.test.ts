@@ -64,6 +64,7 @@ jest.mock('../../domains/ddl', () => ({
 
 import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSchemaService'
 import { SystemTableMigrator } from '../../domains/metahubs/services/SystemTableMigrator'
+import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
 import { MetahubMigrationRequiredError } from '../../domains/shared/domainErrors'
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 
@@ -122,14 +123,14 @@ describe('MetahubSchemaService (read_only mode)', () => {
         MetahubSchemaService.clearAllCaches()
     })
 
-    it('returns MIGRATION_REQUIRED without hidden DDL/migrations when structure version is outdated', async () => {
+    it('returns MIGRATION_REQUIRED when required system tables are missing', async () => {
         seedExpectedTables([
             '_mhb_objects',
             '_mhb_attributes',
             '_mhb_elements',
             '_mhb_settings',
             '_mhb_layouts',
-            '_mhb_layout_zone_widgets',
+            '_mhb_widgets',
             '_mhb_migrations'
         ])
 
@@ -145,6 +146,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
         seedExpectedTables([
             '_mhb_objects',
             '_mhb_attributes',
+            '_mhb_enum_values',
             '_mhb_elements',
             '_mhb_settings',
             '_mhb_layouts',
@@ -152,7 +154,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_migrations'
         ])
 
-        const ds = setupDataSource(1)
+        const ds = setupDataSource(CURRENT_STRUCTURE_VERSION)
         const service = new MetahubSchemaService(ds)
 
         await expect(service.ensureSchema(metahubId, userId)).resolves.toBe(schemaName)
@@ -175,7 +177,7 @@ describe('MetahubSchemaService migration sequencing', () => {
 
         const migrateSpy = jest.spyOn(SystemTableMigrator.prototype, 'migrate').mockResolvedValue({
             fromVersion: 1,
-            toVersion: 2,
+            toVersion: CURRENT_STRUCTURE_VERSION,
             applied: [],
             skippedDestructive: [],
             success: true

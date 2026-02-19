@@ -202,4 +202,84 @@ describe('SchemaGenerator', () => {
             expect(result.schemaName).toBe('app_test123')
         })
     })
+
+    describe('syncSystemMetadata', () => {
+        const createTableMock = (tableName: string, operations: string[]) => {
+            const table = {
+                whereNotIn: jest.fn(() => {
+                    operations.push(`${tableName}.whereNotIn`)
+                    return table
+                }),
+                del: jest.fn(async () => {
+                    operations.push(`${tableName}.del`)
+                }),
+                insert: jest.fn(() => {
+                    operations.push(`${tableName}.insert`)
+                    return table
+                }),
+                onConflict: jest.fn(() => table),
+                merge: jest.fn(async () => {
+                    operations.push(`${tableName}.merge`)
+                })
+            }
+
+            return table
+        }
+
+        it('deletes missing metadata before upsert when removeMissing=true', async () => {
+            const operations: string[] = []
+            const objectsTable = createTableMock('_app_objects', operations)
+            const attributesTable = createTableMock('_app_attributes', operations)
+
+            const localKnex = {
+                fn: { now: jest.fn(() => 'NOW()') },
+                withSchema: jest.fn((_schemaName: string) => ({
+                    table: jest.fn((tableName: string) => {
+                        if (tableName === '_app_objects') return objectsTable
+                        if (tableName === '_app_attributes') return attributesTable
+                        throw new Error(`Unexpected table: ${tableName}`)
+                    })
+                }))
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
+            const emptyVlc = {
+                _schema: '1',
+                _primary: 'en',
+                locales: {}
+            } as unknown as import('@universo/types').VersionedLocalizedContent<string>
+
+            await localGenerator.syncSystemMetadata(
+                'app_test123',
+                [
+                    {
+                        id: 'entity-1',
+                        kind: 'catalog',
+                        codename: 'products',
+                        presentation: { name: emptyVlc },
+                        fields: [
+                            {
+                                id: 'field-1',
+                                codename: 'name',
+                                dataType: AttributeDataType.STRING,
+                                isRequired: false,
+                                presentation: { name: emptyVlc }
+                            }
+                        ]
+                    } as unknown as import('../types').EntityDefinition
+                ],
+                {
+                    removeMissing: true
+                }
+            )
+
+            expect(operations.indexOf('_app_objects.del')).toBeGreaterThanOrEqual(0)
+            expect(operations.indexOf('_app_objects.insert')).toBeGreaterThanOrEqual(0)
+            expect(operations.indexOf('_app_objects.del')).toBeLessThan(operations.indexOf('_app_objects.insert'))
+            expect(operations.indexOf('_app_attributes.del')).toBeGreaterThanOrEqual(0)
+            expect(operations.indexOf('_app_attributes.insert')).toBeGreaterThanOrEqual(0)
+            expect(operations.indexOf('_app_attributes.del')).toBeLessThan(operations.indexOf('_app_attributes.insert'))
+        })
+    })
 })

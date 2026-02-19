@@ -1,6 +1,9 @@
-import type { MetaEntityKind } from '@universo/types'
+import { MetaEntityKind } from '@universo/types'
 import type { EntityDefinition, SchemaSnapshot } from './types'
 import { generateColumnName, generateTableName } from './naming'
+
+const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
+    'enumeration') as MetaEntityKind
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -54,9 +57,18 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
+    const newPhysicalEntities = newEntities.filter((entity) => entity.kind !== ENUMERATION_KIND)
+    const oldPhysicalEntities = oldSnapshot?.entities
+        ? Object.entries(oldSnapshot.entities)
+              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND)
+              .map(([entityId, entity]) => ({
+                  ...entity,
+                  id: entityId
+              }))
+        : []
 
     if (!oldSnapshot) {
-        for (const entity of newEntities) {
+        for (const entity of newPhysicalEntities) {
             diff.additive.push({
                 type: ChangeType.ADD_TABLE,
                 entityId: entity.id,
@@ -72,10 +84,11 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         return diff
     }
 
-    const oldEntityIds = new Set(Object.keys(oldSnapshot.entities))
-    const newEntityIds = new Set(newEntities.map((entity) => entity.id))
+    const oldEntityIds = new Set(oldPhysicalEntities.map((entity) => entity.id))
+    const newEntityIds = new Set(newPhysicalEntities.map((entity) => entity.id))
+    const oldEntitiesById = new Map(oldPhysicalEntities.map((entity) => [entity.id, entity]))
 
-    for (const entity of newEntities) {
+    for (const entity of newPhysicalEntities) {
         if (!oldEntityIds.has(entity.id)) {
             diff.additive.push({
                 type: ChangeType.ADD_TABLE,
@@ -91,7 +104,8 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
     for (const oldEntityId of oldEntityIds) {
         if (!newEntityIds.has(oldEntityId)) {
-            const oldEntity = oldSnapshot.entities[oldEntityId]
+            const oldEntity = oldEntitiesById.get(oldEntityId)
+            if (!oldEntity) continue
             diff.destructive.push({
                 type: ChangeType.DROP_TABLE,
                 entityId: oldEntityId,
@@ -104,10 +118,11 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         }
     }
 
-    for (const entity of newEntities) {
+    for (const entity of newPhysicalEntities) {
         if (!oldEntityIds.has(entity.id)) continue
 
-        const oldEntity = oldSnapshot.entities[entity.id]
+        const oldEntity = oldEntitiesById.get(entity.id)
+        if (!oldEntity) continue
         const newFieldIds = new Set(entity.fields.map((field) => field.id))
         const oldFieldIds = new Set(Object.keys(oldEntity.fields))
         const tableName = generateTableName(entity.id, entity.kind)

@@ -138,16 +138,29 @@ export function createHubsRoutes(
                 userId
             )
 
-            // Calculate catalog counts
-            const catalogs = await objectsService.findAll(metahubId, userId)
-            const counts = new Map<string, number>()
+            // Calculate aggregated items per hub (currently: catalogs + enumerations)
+            const [catalogs, enumerations] = await Promise.all([
+                objectsService.findAllByKind(metahubId, MetaEntityKind.CATALOG, userId),
+                objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION, userId)
+            ])
 
-            for (const catalog of catalogs) {
-                const hubIds: string[] = (catalog as any).config?.hubs || []
-                for (const hid of hubIds) {
-                    counts.set(hid, (counts.get(hid) || 0) + 1)
+            const catalogsCountByHub = new Map<string, number>()
+            const itemsCountByHub = new Map<string, number>()
+
+            const registerCounts = (rows: any[], counter?: Map<string, number>) => {
+                for (const row of rows) {
+                    const hubIds = Array.isArray((row as any).config?.hubs) ? ((row as any).config.hubs as string[]) : []
+                    for (const associatedHubId of hubIds) {
+                        if (counter) {
+                            counter.set(associatedHubId, (counter.get(associatedHubId) || 0) + 1)
+                        }
+                        itemsCountByHub.set(associatedHubId, (itemsCountByHub.get(associatedHubId) || 0) + 1)
+                    }
                 }
             }
+
+            registerCounts(catalogs, catalogsCountByHub)
+            registerCounts(enumerations)
 
             const items = hubs.map((h: any) => ({
                 id: h.id,
@@ -158,7 +171,8 @@ export function createHubsRoutes(
                 version: h._upl_version || 1,
                 createdAt: h.created_at,
                 updatedAt: h.updated_at,
-                catalogsCount: counts.get(h.id) || 0
+                catalogsCount: catalogsCountByHub.get(h.id) || 0,
+                itemsCount: itemsCountByHub.get(h.id) || 0
             }))
 
             res.json({ items, pagination: { total, limit, offset } })

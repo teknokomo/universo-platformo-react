@@ -24,10 +24,7 @@ const ApplicationRuntime = () => {
     const { applicationId } = useParams<{ applicationId: string }>()
     const { t, i18n } = useTranslation('applications')
 
-    const adapter = useMemo(
-        () => (applicationId ? createRuntimeAdapter(applicationId) : null),
-        [applicationId]
-    )
+    const adapter = useMemo(() => (applicationId ? createRuntimeAdapter(applicationId) : null), [applicationId])
 
     // Inline cell mutation for BOOLEAN checkboxes (catalogId passed dynamically)
     const updateCellMutation = useUpdateRuntimeCell({ applicationId })
@@ -42,15 +39,20 @@ const ApplicationRuntime = () => {
     // Cell renderer overrides: interactive BOOLEAN checkboxes
     const cellRenderers = useMemo<CellRendererOverrides>(
         () => ({
-            BOOLEAN: ({ value, rowId, field }) => (
+            BOOLEAN: (params) => (
                 <Checkbox
                     disableRipple
-                    checked={Boolean(value)}
+                    checked={Boolean(params.value)}
                     indeterminate={false}
                     disabled={isPendingRef.current}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(_, checked) => {
-                        cellMutateRef.current({ rowId, field, value: checked, catalogId: catalogIdRef.current })
+                        cellMutateRef.current({
+                            rowId: params.rowId,
+                            field: params.field,
+                            value: checked,
+                            catalogId: catalogIdRef.current
+                        })
                     }}
                 />
             )
@@ -63,7 +65,7 @@ const ApplicationRuntime = () => {
         locale: i18n.language,
         i18nNamespace: 'applications',
         defaultPageSize: DEFAULT_PAGE_SIZE,
-        pageSizeOptions: [25, 50, 100],
+        pageSizeOptions: [10, 25, 50, 100],
         staleTime: 30_000,
         cellRenderers
     })
@@ -95,7 +97,18 @@ const ApplicationRuntime = () => {
             localeText: state.localeText,
             actions: createActions
         }),
-        [detailsTitle, state.rows, state.columns, state.isFetching, state.rowCount, state.paginationModel, state.setPaginationModel, state.pageSizeOptions, state.localeText, createActions]
+        [
+            detailsTitle,
+            state.rows,
+            state.columns,
+            state.isFetching,
+            state.rowCount,
+            state.paginationModel,
+            state.setPaginationModel,
+            state.pageSizeOptions,
+            state.localeText,
+            createActions
+        ]
     )
 
     if (!applicationId) {
@@ -129,7 +142,7 @@ const ApplicationRuntime = () => {
                 locale={i18n.language}
                 labels={{
                     editTitle: t('app.editRow', 'Edit record'),
-                    createTitle: t('app.createRow', 'Create'),
+                    createTitle: t('app.createRecordTitle', 'Create record'),
                     saveText: t('app.save', 'Save'),
                     createText: t('app.create', 'Create'),
                     savingText: t('app.saving', 'Saving...'),
@@ -137,7 +150,10 @@ const ApplicationRuntime = () => {
                     cancelText: t('app.cancel', 'Cancel'),
                     noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
                     deleteTitle: t('app.deleteConfirmTitle', 'Delete record?'),
-                    deleteDescription: t('app.deleteConfirmDescription', 'This record will be permanently deleted. This action cannot be undone.'),
+                    deleteDescription: t(
+                        'app.deleteConfirmDescription',
+                        'This record will be permanently deleted. This action cannot be undone.'
+                    ),
                     deleteText: t('app.delete', 'Delete'),
                     deletingText: t('app.deleting', 'Deleting...')
                 }}

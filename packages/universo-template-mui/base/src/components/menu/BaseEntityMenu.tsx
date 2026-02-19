@@ -41,6 +41,7 @@ export interface ActionDescriptor<TEntity = any, TData = any> {
     id: string
     labelKey: string
     icon?: React.ReactNode | (() => React.ReactNode)
+    tone?: 'default' | 'danger'
     order?: number
     group?: string
     dividerBefore?: boolean
@@ -256,23 +257,36 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                 'aria-haspopup': 'true',
                 disabled: busyActionId !== null
             })}
-            <Menu
-                open={open}
-                onClose={handleClose}
-                anchorEl={anchorEl}
-                disableAutoFocusItem
-                MenuListProps={{ autoFocusItem: false }}
-            >
+            <Menu open={open} onClose={handleClose} anchorEl={anchorEl} disableAutoFocusItem MenuListProps={{ autoFocusItem: false }}>
                 {Object.entries(groups).map(([group, acts], gi, arr) => (
                     <React.Fragment key={group}>
                         {acts.map((a) => {
                             const disabled = busyActionId === a.id || (a.enabled ? !a.enabled(ctx) : false)
                             const IconNode = typeof a.icon === 'function' ? a.icon() : a.icon
+                            const isDanger = a.tone === 'danger'
                             return (
                                 <React.Fragment key={a.id}>
                                     {a.dividerBefore && <Divider />}
-                                    <MenuItem disabled={disabled} onClick={() => doAction(a)}>
-                                        {IconNode}
+                                    <MenuItem
+                                        disabled={disabled}
+                                        onClick={() => doAction(a)}
+                                        sx={
+                                            isDanger
+                                                ? {
+                                                      color: 'error.main',
+                                                      '& .base-entity-menu-icon': { color: 'error.main' }
+                                                  }
+                                                : undefined
+                                        }
+                                    >
+                                        {IconNode && (
+                                            <span
+                                                className='base-entity-menu-icon'
+                                                style={{ display: 'inline-flex', marginRight: 10, alignItems: 'center' }}
+                                            >
+                                                {IconNode}
+                                            </span>
+                                        )}
                                         {t(a.labelKey)}
                                     </MenuItem>
                                     {a.dividerAfter && <Divider />}

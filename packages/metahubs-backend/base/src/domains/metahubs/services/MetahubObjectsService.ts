@@ -12,7 +12,7 @@ interface QueryOptions {
     onlyDeleted?: boolean
 }
 
-type MetahubObjectKind = 'catalog' | 'hub' | 'document'
+type MetahubObjectKind = 'catalog' | 'enumeration' | 'hub' | 'document'
 
 /**
  * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
@@ -43,13 +43,12 @@ export class MetahubObjectsService {
     }
 
     async findAll(metahubId: string, userId?: string, options: QueryOptions = {}): Promise<any[]> {
+        return this.findAllByKind(metahubId, 'catalog', userId, options)
+    }
+
+    async findAllByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<any[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ kind: 'catalog' })
-            .select('*')
-            .orderBy('_upl_created_at', 'desc')
+        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ kind }).select('*').orderBy('_upl_created_at', 'desc')
         return this.applySoftDeleteFilter(query, options)
     }
 
@@ -68,9 +67,60 @@ export class MetahubObjectsService {
     }
 
     async findByCodename(metahubId: string, codename: string, userId?: string, options: QueryOptions = {}) {
+        return this.findByCodenameAndKind(metahubId, codename, 'catalog', userId, options)
+    }
+
+    async findByCodenameAndKind(metahubId: string, codename: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind: 'catalog' })
+        const query = this.knex.withSchema(schemaName).from('_mhb_objects').where({ codename, kind })
         return this.applySoftDeleteFilter(query, options).first()
+    }
+
+    async createObject(
+        metahubId: string,
+        kind: MetahubObjectKind,
+        input: {
+            codename: string
+            name: any // VLC
+            description?: any // VLC
+            config?: any
+            createdBy?: string | null
+        },
+        userId?: string
+    ) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const [created] = await this.knex
+            .withSchema(schemaName)
+            .into('_mhb_objects')
+            .insert({
+                kind,
+                codename: input.codename,
+                table_name: null,
+                presentation: {
+                    name: input.name,
+                    description: input.description
+                },
+                config: input.config || {},
+                _upl_created_at: new Date(),
+                _upl_created_by: input.createdBy ?? null,
+                _upl_updated_at: new Date(),
+                _upl_updated_by: input.createdBy ?? null
+            })
+            .returning('*')
+
+        // Only catalogs/documents/hubs may need physical runtime tables.
+        if (kind !== 'enumeration') {
+            const tableName = generateTableName(created.id, kind)
+            const [updated] = await this.knex
+                .withSchema(schemaName)
+                .from('_mhb_objects')
+                .where({ id: created.id })
+                .update({ table_name: tableName })
+                .returning('*')
+            return updated
+        }
+
+        return created
     }
 
     /**
@@ -88,40 +138,76 @@ export class MetahubObjectsService {
         },
         userId?: string
     ) {
+        return this.createObject(metahubId, 'catalog', input, userId)
+    }
+
+    async createEnumeration(
+        metahubId: string,
+        input: {
+            codename: string
+            name: any // VLC
+            description?: any // VLC
+            config?: any
+            createdBy?: string | null
+        },
+        userId?: string
+    ) {
+        return this.createObject(metahubId, 'enumeration', input, userId)
+    }
+
+    async updateObject(
+        metahubId: string,
+        id: string,
+        kind: MetahubObjectKind,
+        input: {
+            codename?: string
+            name?: any
+            description?: any
+            config?: any
+            updatedBy?: string | null
+            expectedVersion?: number
+        },
+        userId?: string
+    ) {
+        const existing = await this.findById(metahubId, id, userId)
+        if (!existing || existing.kind !== kind) {
+            throw new Error(`${kind} not found`)
+        }
+
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const updateData: Record<string, unknown> = {
+            _upl_updated_at: new Date(),
+            _upl_updated_by: input.updatedBy ?? null
+        }
 
-        // First insert without table_name to get the generated UUID
-        const [created] = await this.knex
-            .withSchema(schemaName)
-            .into('_mhb_objects')
-            .insert({
-                kind: 'catalog',
-                codename: input.codename,
-                table_name: null, // Will be set after we have the UUID
-                presentation: {
-                    name: input.name,
-                    description: input.description
-                },
-                config: input.config || {},
-                _upl_created_at: new Date(),
-                _upl_created_by: input.createdBy ?? null,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: input.createdBy ?? null
+        if (input.codename !== undefined) updateData.codename = input.codename
+        if (input.name !== undefined || input.description !== undefined) {
+            updateData.presentation = {
+                ...existing.presentation,
+                ...(input.name !== undefined ? { name: input.name } : {}),
+                ...(input.description !== undefined ? { description: input.description } : {})
+            }
+        }
+        if (input.config !== undefined) {
+            updateData.config = {
+                ...existing.config,
+                ...input.config
+            }
+        }
+
+        if (input.expectedVersion !== undefined) {
+            return updateWithVersionCheck({
+                knex: this.knex,
+                schemaName,
+                tableName: '_mhb_objects',
+                entityId: id,
+                entityType: kind,
+                expectedVersion: input.expectedVersion,
+                updateData
             })
-            .returning('*')
+        }
 
-        // Generate table_name using the entity UUID (matches DDL generateTableName behavior)
-        const tableName = generateTableName(created.id, 'catalog')
-
-        // Update with correct table_name
-        const [updated] = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id: created.id })
-            .update({ table_name: tableName })
-            .returning('*')
-
-        return updated
+        return incrementVersion(this.knex, schemaName, '_mhb_objects', id, updateData)
     }
 
     async updateCatalog(
@@ -137,50 +223,23 @@ export class MetahubObjectsService {
         },
         userId?: string
     ) {
-        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        return this.updateObject(metahubId, id, 'catalog', input, userId)
+    }
 
-        const existing = await this.findById(metahubId, id, userId)
-        if (!existing) throw new Error('Catalog not found')
-
-        const updateData: Record<string, unknown> = {
-            _upl_updated_at: new Date(),
-            _upl_updated_by: input.updatedBy ?? null
-        }
-
-        if (input.codename) {
-            updateData.codename = input.codename
-        }
-
-        if (input.name || input.description) {
-            updateData.presentation = {
-                ...existing.presentation,
-                ...(input.name ? { name: input.name } : {}),
-                ...(input.description ? { description: input.description } : {})
-            }
-        }
-
-        if (input.config) {
-            updateData.config = {
-                ...existing.config,
-                ...input.config
-            }
-        }
-
-        // If expectedVersion is provided, use version-checked update
-        if (input.expectedVersion !== undefined) {
-            return updateWithVersionCheck({
-                knex: this.knex,
-                schemaName,
-                tableName: '_mhb_objects',
-                entityId: id,
-                entityType: 'catalog',
-                expectedVersion: input.expectedVersion,
-                updateData
-            })
-        }
-
-        // Fallback: increment version without check (backwards compatibility)
-        return incrementVersion(this.knex, schemaName, '_mhb_objects', id, updateData)
+    async updateEnumeration(
+        metahubId: string,
+        id: string,
+        input: {
+            codename?: string
+            name?: any
+            description?: any
+            config?: any
+            updatedBy?: string | null
+            expectedVersion?: number
+        },
+        userId?: string
+    ) {
+        return this.updateObject(metahubId, id, 'enumeration', input, userId)
     }
 
     /**
@@ -233,5 +292,9 @@ export class MetahubObjectsService {
      */
     async findDeleted(metahubId: string, userId?: string) {
         return this.findAll(metahubId, userId, { onlyDeleted: true })
+    }
+
+    async findDeletedByKind(metahubId: string, kind: MetahubObjectKind, userId?: string) {
+        return this.findAllByKind(metahubId, kind, userId, { onlyDeleted: true })
     }
 }

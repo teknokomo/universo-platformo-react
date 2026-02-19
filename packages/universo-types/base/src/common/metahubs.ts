@@ -11,6 +11,7 @@ export const ATTRIBUTE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF
 
 export type AttributeDataType = (typeof ATTRIBUTE_DATA_TYPES)[number]
 
+// eslint-disable-next-line no-redeclare
 export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce((acc, value) => {
     acc[value] = value
     return acc
@@ -205,12 +206,14 @@ export function formatPhysicalType(info: PhysicalTypeInfo): string {
 
 const _META_ENTITY_KIND_MAP = {
     CATALOG: 'catalog',
+    ENUMERATION: 'enumeration',
     HUB: 'hub',
     DOCUMENT: 'document'
 } as const
 
 export const MetaEntityKind = _META_ENTITY_KIND_MAP
 
+// eslint-disable-next-line no-redeclare
 export type MetaEntityKind = (typeof _META_ENTITY_KIND_MAP)[keyof typeof _META_ENTITY_KIND_MAP]
 
 /** Array of valid MetaEntityKind values for Zod validation */
@@ -243,6 +246,38 @@ export interface MetaEntityDefinition {
     codename: string
     presentation: MetaPresentation
     fields: MetaFieldDefinition[]
+}
+
+/**
+ * UI representation mode for REF fields targeting enumeration values.
+ * - select: dropdown
+ * - radio: radio group
+ * - label: read-only text label
+ */
+export const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
+export type EnumPresentationMode = (typeof ENUM_PRESENTATION_MODES)[number]
+
+/**
+ * Extended UI config for REF fields.
+ * This shape is optional and stored inside generic uiConfig JSON.
+ */
+export interface AttributeRefUiConfig {
+    /** Applies when REF points to an enumeration entity. */
+    enumPresentationMode?: EnumPresentationMode
+    /** Optional default enum value id used by runtime forms. */
+    defaultEnumValueId?: string | null
+}
+
+/**
+ * Enumeration value row used in metahub/app snapshots and API responses.
+ */
+export interface EnumerationValueDefinition {
+    id: string
+    objectId: string
+    codename: string
+    presentation: MetaPresentation
+    sortOrder: number
+    isDefault: boolean
 }
 
 // ========= Dashboard layout zones/widgets (Metahubs + Runtime UI) =========
@@ -440,6 +475,15 @@ export interface TemplateSeedElement {
     sortOrder: number
 }
 
+/** Seed enumeration value (predefined fixed value for an enumeration entity). */
+export interface TemplateSeedEnumerationValue {
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    sortOrder?: number
+    isDefault?: boolean
+}
+
 /** All seed data that populates system tables when creating a metahub from a template. */
 export interface MetahubTemplateSeed {
     layouts: TemplateSeedLayout[]
@@ -449,6 +493,8 @@ export interface MetahubTemplateSeed {
     entities?: TemplateSeedEntity[]
     /** Predefined elements keyed by entity codename. */
     elements?: Record<string, TemplateSeedElement[]>
+    /** Enumeration values keyed by enumeration codename. */
+    enumerationValues?: Record<string, TemplateSeedEnumerationValue[]>
 }
 
 /**
@@ -532,7 +578,7 @@ export interface StructuredBlocker {
 export enum UpdateSeverity {
     MANDATORY = 'mandatory',
     RECOMMENDED = 'recommended',
-    OPTIONAL = 'optional',
+    OPTIONAL = 'optional'
 }
 
 /** Response from GET /application/:applicationId/migrations/status */

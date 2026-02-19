@@ -9,6 +9,7 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import type { Knex } from 'knex'
 import { z } from 'zod'
 import stableStringify from 'json-stable-stringify'
 import { AttributeDataType, AttributeValidationRules } from '@universo/types'
@@ -129,6 +130,10 @@ function prepareJsonbValue(value: unknown): unknown {
     // Primitives (string, number, boolean): wrap in JSON.stringify for valid JSONB
     // PostgreSQL JSONB requires: '"string"' not just 'string'
     return JSON.stringify(value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null
 }
 
 /**
@@ -276,6 +281,271 @@ async function seedPredefinedElements(
     })
 
     return warnings
+}
+
+type EnumerationSyncRow = {
+    id: string
+    object_id: string
+    codename: string
+    presentation: { name?: unknown; description?: unknown }
+    sort_order: number
+    is_default: boolean
+    _upl_created_at: Date
+    _upl_created_by: string | null
+    _upl_updated_at: Date
+    _upl_updated_by: string | null
+    _upl_deleted: boolean
+    _upl_deleted_at: Date | null
+    _upl_deleted_by: string | null
+    _app_deleted: boolean
+    _app_deleted_at: Date | null
+    _app_deleted_by: string | null
+}
+
+const ENUMERATION_KIND = 'enumeration'
+const REF_DATA_TYPE = AttributeDataType.REF
+
+function resolveFieldDefaultEnumValueId(field: EntityDefinition['fields'][number]): string | null {
+    if (!isRecord(field.uiConfig)) return null
+    const candidate = field.uiConfig.defaultEnumValueId
+    return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+}
+
+async function remapStaleEnumerationReferences(options: {
+    trx: Knex.Transaction
+    schemaName: string
+    snapshot: MetahubSnapshot
+    staleValueIdsByObject: Map<string, Set<string>>
+    activeValueIdsByObject: Map<string, string[]>
+    defaultValueIdByObject: Map<string, string>
+    now: Date
+    userId?: string | null
+}): Promise<void> {
+    const { trx, schemaName, snapshot, staleValueIdsByObject, activeValueIdsByObject, defaultValueIdByObject, now, userId } = options
+    if (staleValueIdsByObject.size === 0) return
+
+    const knownTables = new Map<string, boolean>()
+    const catalogEntities = Object.values(snapshot.entities ?? {}).filter((entity) => entity.kind === 'catalog')
+
+    for (const entity of catalogEntities) {
+        const tableName = generateTableName(entity.id, entity.kind)
+        if (!knownTables.has(tableName)) {
+            const exists = await trx.schema.withSchema(schemaName).hasTable(tableName)
+            knownTables.set(tableName, exists)
+        }
+        if (!knownTables.get(tableName)) continue
+
+        for (const field of entity.fields ?? []) {
+            if (field.dataType !== REF_DATA_TYPE) continue
+            if (field.targetEntityKind !== ENUMERATION_KIND) continue
+            if (typeof field.targetEntityId !== 'string' || field.targetEntityId.length === 0) continue
+
+            const staleIds = staleValueIdsByObject.get(field.targetEntityId)
+            if (!staleIds || staleIds.size === 0) continue
+
+            const activeIds = activeValueIdsByObject.get(field.targetEntityId) ?? []
+            const activeIdsSet = new Set(activeIds)
+            const uiDefaultValueId = resolveFieldDefaultEnumValueId(field)
+            const fallbackValueId =
+                (uiDefaultValueId && activeIdsSet.has(uiDefaultValueId) ? uiDefaultValueId : null) ??
+                defaultValueIdByObject.get(field.targetEntityId) ??
+                activeIds[0] ??
+                null
+
+            if (field.isRequired && !fallbackValueId) {
+                throw new Error(
+                    `[SchemaSync] Cannot remap stale enumeration references for required field "${field.codename}" of catalog "${entity.codename}": no active enumeration values available`
+                )
+            }
+
+            const columnName = generateColumnName(field.id)
+            const updatePayload: Record<string, unknown> = {
+                [columnName]: fallbackValueId,
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null
+            }
+
+            await trx
+                .withSchema(schemaName)
+                .table(tableName)
+                .whereIn(columnName, Array.from(staleIds))
+                .andWhere((qb: Knex.QueryBuilder) => qb.where('_upl_deleted', false).andWhere('_app_deleted', false))
+                .update(updatePayload)
+        }
+    }
+}
+
+async function syncEnumerationValues(schemaName: string, snapshot: MetahubSnapshot, userId?: string | null): Promise<void> {
+    const knex = KnexClient.getInstance()
+    const now = new Date()
+
+    const enumerationObjectIds = Object.values(snapshot.entities ?? {})
+        .filter((entity) => entity.kind === ENUMERATION_KIND)
+        .map((entity) => entity.id)
+    const validEnumerationObjectIds = new Set(enumerationObjectIds)
+
+    const enumerationValues = snapshot.enumerationValues ?? {}
+    const rows = Object.entries(enumerationValues).flatMap<EnumerationSyncRow>(([objectId, values]) => {
+        if (!validEnumerationObjectIds.has(objectId)) return []
+
+        return (values ?? []).map((value) => {
+            const fallbackPresentation = value as unknown as { name?: unknown; description?: unknown }
+            const presentation: { name?: unknown; description?: unknown } = isRecord(value.presentation)
+                ? (value.presentation as { name?: unknown; description?: unknown })
+                : {}
+
+            return {
+                id: value.id,
+                object_id: objectId,
+                codename: value.codename,
+                presentation: {
+                    name: presentation.name ?? fallbackPresentation.name ?? {},
+                    description: presentation.description ?? fallbackPresentation.description ?? {}
+                },
+                sort_order: value.sortOrder ?? 0,
+                is_default: value.isDefault ?? false,
+                _upl_created_at: now,
+                _upl_created_by: userId ?? null,
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null,
+                _upl_deleted: false,
+                _upl_deleted_at: null,
+                _upl_deleted_by: null,
+                _app_deleted: false,
+                _app_deleted_at: null,
+                _app_deleted_by: null
+            }
+        })
+    })
+    const rowsByObject = new Map<string, EnumerationSyncRow[]>()
+    for (const row of rows) {
+        const list = rowsByObject.get(row.object_id) ?? []
+        list.push(row)
+        rowsByObject.set(row.object_id, list)
+    }
+    for (const objectRows of rowsByObject.values()) {
+        objectRows.sort((left, right) => {
+            if (left.sort_order !== right.sort_order) return left.sort_order - right.sort_order
+            return left.id.localeCompare(right.id)
+        })
+        let defaultAssigned = false
+        for (const row of objectRows) {
+            if (row.is_default !== true) continue
+            if (!defaultAssigned) {
+                defaultAssigned = true
+                continue
+            }
+            row.is_default = false
+        }
+    }
+
+    const seenValueIds = new Set<string>()
+    for (const row of rows) {
+        if (!seenValueIds.has(row.id)) {
+            seenValueIds.add(row.id)
+            continue
+        }
+        throw new Error(`Duplicate enumeration value id in snapshot: ${row.id}`)
+    }
+
+    const valueIds = rows.map((row) => row.id)
+    const desiredValueIdsByObject = new Map<string, Set<string>>()
+    const defaultValueIdByObject = new Map<string, string>()
+    const activeValueIdsByObject = new Map<string, string[]>()
+    for (const [objectId, objectRows] of rowsByObject.entries()) {
+        const ids = objectRows.map((row) => row.id)
+        desiredValueIdsByObject.set(objectId, new Set(ids))
+        activeValueIdsByObject.set(objectId, ids)
+        const defaultRow = objectRows.find((row) => row.is_default)
+        if (defaultRow) {
+            defaultValueIdByObject.set(objectId, defaultRow.id)
+        }
+    }
+
+    const softDeletePatch = {
+        _upl_deleted: true,
+        _upl_deleted_at: now,
+        _upl_deleted_by: userId ?? null,
+        _app_deleted: true,
+        _app_deleted_at: now,
+        _app_deleted_by: userId ?? null,
+        _upl_updated_at: now,
+        _upl_updated_by: userId ?? null
+    }
+
+    await knex.transaction(async (trx) => {
+        const tableQuery = () => trx.withSchema(schemaName).table('_app_enum_values')
+        const existingActiveRows = (await tableQuery()
+            .select(['id', 'object_id'])
+            .where((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))) as Array<{
+            id: string
+            object_id: string
+        }>
+        const staleValueIdsByObject = new Map<string, Set<string>>()
+        for (const row of existingActiveRows) {
+            const desiredIds = desiredValueIdsByObject.get(row.object_id)
+            if (!validEnumerationObjectIds.has(row.object_id) || !desiredIds?.has(row.id)) {
+                const ids = staleValueIdsByObject.get(row.object_id) ?? new Set<string>()
+                ids.add(row.id)
+                staleValueIdsByObject.set(row.object_id, ids)
+            }
+        }
+
+        await remapStaleEnumerationReferences({
+            trx,
+            schemaName,
+            snapshot,
+            staleValueIdsByObject,
+            activeValueIdsByObject,
+            defaultValueIdByObject,
+            now,
+            userId
+        })
+
+        if (enumerationObjectIds.length === 0) {
+            await tableQuery()
+                .where((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+                .update(softDeletePatch)
+            return
+        }
+
+        await tableQuery()
+            .whereNotIn('object_id', enumerationObjectIds)
+            .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+            .update(softDeletePatch)
+
+        if (valueIds.length > 0) {
+            await tableQuery()
+                .whereIn('object_id', enumerationObjectIds)
+                .whereNotIn('id', valueIds)
+                .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+                .update(softDeletePatch)
+            await tableQuery()
+                .insert(rows)
+                .onConflict('id')
+                .merge([
+                    'object_id',
+                    'codename',
+                    'presentation',
+                    'sort_order',
+                    'is_default',
+                    '_upl_updated_at',
+                    '_upl_updated_by',
+                    '_upl_deleted',
+                    '_upl_deleted_at',
+                    '_upl_deleted_by',
+                    '_app_deleted',
+                    '_app_deleted_at',
+                    '_app_deleted_by'
+                ])
+            return
+        }
+
+        await tableQuery()
+            .whereIn('object_id', enumerationObjectIds)
+            .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+            .update(softDeletePatch)
+    })
 }
 
 type PersistedAppLayout = {
@@ -527,11 +797,7 @@ async function persistPublishedLayouts(options: { schemaName: string; snapshot: 
     })
 }
 
-async function persistPublishedWidgets(options: {
-    schemaName: string
-    snapshot: MetahubSnapshot
-    userId?: string | null
-}): Promise<void> {
+async function persistPublishedWidgets(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
     const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
@@ -840,6 +1106,12 @@ export function createApplicationSyncRoutes(
                     return res.status(400).json({ error: 'Connector is not linked to any Publication. Link a Publication first.' })
                 }
 
+                const touchConnectorUpdatedAt = async () => {
+                    connector._uplUpdatedBy = userId
+                    connector._uplUpdatedAt = new Date()
+                    await connectorRepo.save(connector)
+                }
+
                 const publicationRepo = ds.getRepository(Publication)
                 const publication = await publicationRepo.findOneBy({ id: connectorPublication.publicationId })
                 if (!publication) {
@@ -910,10 +1182,15 @@ export function createApplicationSyncRoutes(
 
                         // Keep system metadata in sync even when DDL didn't change.
                         // This covers non-DDL evolutions (e.g., new metadata columns like sort_order) and keeps runtime UI stable.
-                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
+                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, {
+                            userId,
+                            removeMissing: true
+                        })
 
                         await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
                         await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+                        await syncEnumerationValues(application.schemaName!, snapshot, userId)
+                        await touchConnectorUpdatedAt()
 
                         return res.json({
                             status: hasUiChanges ? 'ui_updated' : 'no_changes',
@@ -960,9 +1237,11 @@ export function createApplicationSyncRoutes(
 
                         await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
                         await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+                        await syncEnumerationValues(application.schemaName!, snapshot, userId)
 
                         const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                         await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+                        await touchConnectorUpdatedAt()
 
                         return res.json({
                             status: 'created',
@@ -986,7 +1265,10 @@ export function createApplicationSyncRoutes(
                         })
                         const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
 
-                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, { userId })
+                        await generator.syncSystemMetadata(application.schemaName!, catalogDefs, {
+                            userId,
+                            removeMissing: true
+                        })
 
                         application.schemaStatus = ApplicationSchemaStatus.SYNCED
                         application.schemaError = null
@@ -997,6 +1279,7 @@ export function createApplicationSyncRoutes(
 
                         await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
                         await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+                        await syncEnumerationValues(application.schemaName!, snapshot, userId)
 
                         // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
                         // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
@@ -1027,6 +1310,7 @@ export function createApplicationSyncRoutes(
                             application.schemaSnapshot = snapshotAfter as unknown as Record<string, unknown>
                             await applicationRepo.save(application)
                         }
+                        await touchConnectorUpdatedAt()
 
                         return res.json({
                             status: hasUiChanges ? 'ui_updated' : 'no_changes',
@@ -1082,9 +1366,11 @@ export function createApplicationSyncRoutes(
 
                     await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
                     await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
+                    await syncEnumerationValues(application.schemaName!, snapshot, userId)
 
                     const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
                     await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+                    await touchConnectorUpdatedAt()
 
                     return res.json({
                         status: 'migrated',

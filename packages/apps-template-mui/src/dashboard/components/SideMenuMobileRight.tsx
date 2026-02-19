@@ -30,9 +30,7 @@ export default function SideMenuMobileRight({ open, onClose, widgets, menu, menu
             }}
         >
             <Stack sx={{ maxWidth: '70dvw', height: '100%' }}>
-                <Box sx={{ flexGrow: 1, overflow: 'auto', pt: 2 }}>
-                    {widgets.map((widget) => renderWidget(widget, menus, menu))}
-                </Box>
+                <Box sx={{ flexGrow: 1, overflow: 'auto', pt: 2 }}>{widgets.map((widget) => renderWidget(widget, menus, menu))}</Box>
             </Stack>
         </Drawer>
     )

@@ -16,16 +16,7 @@ describe('widgetTableResolver', () => {
         expect(tableName).toBe('_mhb_widgets')
     })
 
-    it('falls back to legacy widgets table for V1 schemas', async () => {
-        const knex = {
-            raw: jest.fn(async () => ({ rows: [{ table_name: '_mhb_layout_zone_widgets' }] }))
-        } as unknown as Knex
-
-        const tableName = await resolveWidgetTableName(knex, 'mhb_legacy_schema')
-        expect(tableName).toBe('_mhb_layout_zone_widgets')
-    })
-
-    it('throws migration required when no compatible widgets table exists', async () => {
+    it('throws migration required when widgets table does not exist', async () => {
         const knex = {
             raw: jest.fn(async () => ({ rows: [] }))
         } as unknown as Knex

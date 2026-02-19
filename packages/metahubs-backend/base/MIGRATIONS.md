@@ -43,17 +43,17 @@ When new functionality is added (new system tables, new seed data), previously c
 
 ### Scenario 1: New System Tables or Columns (DDL Changes)
 
-**Trigger**: `CURRENT_STRUCTURE_VERSION` is bumped (e.g., 1 → 2).
+**Trigger**: `CURRENT_STRUCTURE_VERSION` is bumped (e.g., 1 → N).
 
 **How it works**: When any API call accesses a metahub, `MetahubSchemaService.ensureSchema()` is invoked. It reads the branch's `structureVersion` and compares it against `CURRENT_STRUCTURE_VERSION`. If the branch is behind, the auto-migration pipeline runs:
 
 ```
-ensureSchema() detects: branch.structureVersion (1) < CURRENT (2)
-  → SystemTableMigrator.migrate(1, 2)
-      → calculateSystemTableDiff(V1_tables, V2_tables)
+ensureSchema() detects: branch.structureVersion (older) < CURRENT (newer)
+  → SystemTableMigrator.migrate(fromVersion, toVersion)
+      → calculateSystemTableDiff(previous_tables, current_tables)
       → Apply only ADDITIVE changes (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK)
       → Record migration in _mhb_migrations table
-  → branch.structureVersion = 2 (saved to DB)
+  → branch.structureVersion = CURRENT_STRUCTURE_VERSION (saved to DB)
 ```
 
 **Safety guarantees**:
@@ -64,7 +64,7 @@ ensureSchema() detects: branch.structureVersion (1) < CURRENT (2)
 
 ### Scenario 2: New Seed Data (Template Updates)
 
-**Trigger**: Template manifest version is bumped (e.g., `basic` template 1.0.0 → 1.1.0).
+**Trigger**: Template manifest version is bumped (e.g., `basic` template 1.0.x → 1.0.y).
 
 **How it works**: At application startup, `TemplateSeeder.seed()` detects the hash change and upserts the new template version. On the next `ensureSchema()` call for each metahub, the seed migration runs:
 

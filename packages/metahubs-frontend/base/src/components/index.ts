@@ -16,6 +16,9 @@ export type { BranchDeleteDialogProps } from './BranchDeleteDialog'
 export { CatalogDeleteDialog } from './CatalogDeleteDialog'
 export type { CatalogDeleteDialogProps } from './CatalogDeleteDialog'
 
+export { EnumerationDeleteDialog } from './EnumerationDeleteDialog'
+export type { EnumerationDeleteDialogProps } from './EnumerationDeleteDialog'
+
 export { PublicationDiffDialog } from './PublicationDiffDialog'
 
 export { MetahubInfoPanel } from './MetahubInfoPanel'

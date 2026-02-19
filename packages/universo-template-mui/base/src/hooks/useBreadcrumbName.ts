@@ -43,7 +43,7 @@ function extractLocalizedString(value: unknown): string {
     if (typeof value === 'string') return value
     if (!value || typeof value !== 'object') return ''
 
-    const language = (i18n?.language || 'en').toLowerCase()
+    const language = (i18n?.resolvedLanguage || i18n?.language || 'en').split(/[-_]/)[0].toLowerCase()
     const obj = value as Record<string, unknown>
 
     // VLC-like: { _primary, locales: { en: { content }, ... } }
@@ -63,6 +63,10 @@ function extractLocalizedString(value: unknown): string {
     if (typeof simple.ru === 'string') return simple.ru
 
     return ''
+}
+
+function getCurrentLanguageKey(): string {
+    return (i18n?.resolvedLanguage || i18n?.language || 'en').split(/[-_]/)[0].toLowerCase()
 }
 
 /**
@@ -145,8 +149,9 @@ export function createEntityNameHook(config: EntityNameHookConfig) {
     const fetchEntityName = fetcher ?? createDefaultFetcher(apiPath ?? entityType + 's', nameField)
 
     return function useEntityName(entityId: string | null): string | null {
+        const language = getCurrentLanguageKey()
         const query = useQuery({
-            queryKey: ['breadcrumb', entityType, entityId],
+            queryKey: ['breadcrumb', entityType, entityId, language],
             queryFn: () => fetchEntityName(entityId!),
             enabled: Boolean(entityId),
             staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
@@ -256,8 +261,9 @@ export const useApplicationName = createEntityNameHook({
  * Requires both metahubId and hubId since Hub API is nested under Metahub.
  */
 export function useHubName(metahubId: string | null, hubId: string | null): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'hub', metahubId, hubId],
+        queryKey: ['breadcrumb', 'hub', metahubId, hubId, language],
         queryFn: async () => {
             if (!metahubId || !hubId) return null
             const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}`, {
@@ -284,8 +290,9 @@ export function useHubName(metahubId: string | null, hubId: string | null): stri
  * Requires metahubId, hubId, and catalogId since Catalog API is nested under Hub.
  */
 export function useCatalogName(metahubId: string | null, hubId: string | null, catalogId: string | null): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'catalog', metahubId, hubId, catalogId],
+        queryKey: ['breadcrumb', 'catalog', metahubId, hubId, catalogId, language],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId) return null
             const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}`, {
@@ -312,8 +319,9 @@ export function useCatalogName(metahubId: string | null, hubId: string | null, c
  * Uses the standalone catalog endpoint (without hub context).
  */
 export function useCatalogNameStandalone(metahubId: string | null, catalogId: string | null): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId],
+        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId, language],
         queryFn: async () => {
             if (!metahubId || !catalogId) return null
             const response = await fetch(`/api/v1/metahub/${metahubId}/catalog/${catalogId}`, {
@@ -336,6 +344,35 @@ export function useCatalogNameStandalone(metahubId: string | null, catalogId: st
 }
 
 /**
+ * Hook to fetch Enumeration name for breadcrumb display.
+ * Requires metahubId and enumerationId since Enumeration API is nested under Metahub.
+ */
+export function useEnumerationName(metahubId: string | null, enumerationId: string | null): string | null {
+    const language = getCurrentLanguageKey()
+    const query = useQuery({
+        queryKey: ['breadcrumb', 'enumeration', metahubId, enumerationId, language],
+        queryFn: async () => {
+            if (!metahubId || !enumerationId) return null
+            const response = await fetch(`/api/v1/metahub/${metahubId}/enumeration/${enumerationId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            })
+            if (!response.ok) throw createHttpStatusError(response.status)
+            const entity = await response.json()
+            return extractLocalizedString(entity?.name) ?? entity?.codename ?? null
+        },
+        enabled: Boolean(metahubId && enumerationId),
+        staleTime: 5 * 60 * 1000,
+        retry: shouldRetryBreadcrumbQuery,
+        retryOnMount: false,
+        refetchOnWindowFocus: false
+    })
+
+    return query.isLoading ? null : query.data ?? null
+}
+
+/**
  * Hook to fetch Attribute name for breadcrumb display.
  * Requires metahubId, hubId, catalogId, and attributeId since Attribute API is deeply nested under Catalog.
  */
@@ -345,8 +382,9 @@ export function useAttributeName(
     catalogId: string | null,
     attributeId: string | null
 ): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId],
+        queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId, language],
         queryFn: async () => {
             if (!metahubId || !hubId || !catalogId || !attributeId) return null
             const response = await fetch(`/api/v1/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`, {
@@ -373,8 +411,9 @@ export function useAttributeName(
  * Requires metahubId and publicationId since Publication API is nested under Metahub.
  */
 export function useMetahubPublicationName(metahubId: string | null, publicationId: string | null): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'metahub-publication', metahubId, publicationId],
+        queryKey: ['breadcrumb', 'metahub-publication', metahubId, publicationId, language],
         queryFn: async () => {
             if (!metahubId || !publicationId) return null
             const response = await fetch(`/api/v1/metahub/${metahubId}/publication/${publicationId}`, {
@@ -404,8 +443,9 @@ export const useMetahubApplicationName = useMetahubPublicationName
  * Requires metahubId and layoutId since Layout API is nested under Metahub.
  */
 export function useLayoutName(metahubId: string | null, layoutId: string | null): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'layout', metahubId, layoutId],
+        queryKey: ['breadcrumb', 'layout', metahubId, layoutId, language],
         queryFn: async () => {
             if (!metahubId || !layoutId) return null
             const response = await fetch(`/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
@@ -432,8 +472,9 @@ export function useLayoutName(metahubId: string | null, layoutId: string | null)
  * Requires applicationId and connectorId since Connector API is nested under Application.
  */
 export function useConnectorName(applicationId: string | null, connectorId: string | null): string | null {
+    const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'connector', applicationId, connectorId],
+        queryKey: ['breadcrumb', 'connector', applicationId, connectorId, language],
         queryFn: async () => {
             if (!applicationId || !connectorId) return null
             const response = await fetch(`/api/v1/applications/${applicationId}/connectors/${connectorId}`, {
@@ -494,6 +535,9 @@ export const truncateHubName = createTruncateFunction(30)
 
 /** Truncate catalog name with ellipsis (default: 30 chars) */
 export const truncateCatalogName = createTruncateFunction(30)
+
+/** Truncate enumeration name with ellipsis (default: 30 chars) */
+export const truncateEnumerationName = createTruncateFunction(30)
 
 /** Truncate attribute name with ellipsis (default: 30 chars) */
 export const truncateAttributeName = createTruncateFunction(30)

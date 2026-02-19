@@ -271,6 +271,7 @@ export interface Hub {
     updatedAt: string
     version?: number
     catalogsCount?: number
+    itemsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
@@ -286,6 +287,7 @@ export interface HubDisplay {
     createdAt: string
     updatedAt: string
     catalogsCount?: number
+    itemsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
@@ -343,6 +345,74 @@ export interface CatalogDisplay {
     elementsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
+}
+
+// ============ ENUMERATION ENTITY ============
+
+/**
+ * Enumeration - fixed list of values (like 1C Enumerations).
+ * Stores value options in `_mhb_enum_values`.
+ */
+export interface Enumeration {
+    id: string
+    metahubId: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    isSingleHub: boolean
+    isRequiredHub: boolean
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    version?: number
+    hubs?: HubRef[]
+    valuesCount?: number
+    role?: MetahubRole
+    permissions?: MetahubPermissions
+}
+
+/** Enumeration with localized strings for table rendering */
+export interface EnumerationDisplay {
+    id: string
+    metahubId: string
+    codename: string
+    name: string
+    description: string
+    isSingleHub: boolean
+    isRequiredHub: boolean
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+    hubs?: Array<{ id: string; name: string; codename: string }>
+    valuesCount?: number
+    role?: MetahubRole
+    permissions?: MetahubPermissions
+}
+
+/** Fixed value inside an Enumeration. */
+export interface EnumerationValue {
+    id: string
+    objectId: string
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    sortOrder: number
+    isDefault: boolean
+    createdAt: string
+    updatedAt: string
+    version?: number
+}
+
+export interface EnumerationValueDisplay {
+    id: string
+    objectId: string
+    codename: string
+    name: string
+    description: string
+    sortOrder: number
+    isDefault: boolean
+    createdAt: string
+    updatedAt: string
 }
 
 // ============ ATTRIBUTE ENTITY ============
@@ -462,6 +532,29 @@ export interface CatalogLocalizedPayload {
     hubIds?: string[]
 }
 
+/** Payload for creating/updating Enumeration */
+export interface EnumerationLocalizedPayload {
+    codename: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    isSingleHub?: boolean
+    isRequiredHub?: boolean
+    hubIds?: string[]
+}
+
+/** Payload for creating/updating Enumeration value */
+export interface EnumerationValueLocalizedPayload {
+    codename: string
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    sortOrder?: number
+    isDefault?: boolean
+}
+
 /** Payload for creating/updating Attribute */
 export interface AttributeLocalizedPayload {
     codename: string
@@ -529,6 +622,30 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
             name: getVLCString(hub.name, locale) || hub.codename,
             codename: hub.codename
         }))
+    }
+}
+
+/** Convert Enumeration to EnumerationDisplay for table rendering */
+export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): EnumerationDisplay {
+    const name = getVLCString(enumeration.name, locale)
+    return {
+        ...enumeration,
+        name: name || enumeration.codename || '',
+        description: getVLCString(enumeration.description, locale),
+        hubs: enumeration.hubs?.map((hub) => ({
+            id: hub.id,
+            name: getVLCString(hub.name, locale) || hub.codename,
+            codename: hub.codename
+        }))
+    }
+}
+
+/** Convert EnumerationValue to EnumerationValueDisplay for table rendering */
+export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'): EnumerationValueDisplay {
+    return {
+        ...value,
+        name: getVLCString(value.name, locale),
+        description: getVLCString(value.description, locale)
     }
 }
 

@@ -45,14 +45,14 @@ MetahubSnapshot
 - Does NOT describe the DDL of the 6 system tables themselves
 - Stored in `publication_versions.snapshot_json` as JSONB
 
-### 2.2 SchemaSnapshot (version: 3) — Application DDL Level
+### 2.2 SchemaSnapshot (current version) — Application DDL Level
 
 **File:** `schema-ddl/src/types.ts`  
 **Purpose:** Captures the physical DDL state of user-created tables in application schemas.
 
 ```
 SchemaSnapshot
-├─ version: 3
+├─ version: current
 ├─ generatedAt: string
 ├─ hasSystemTables: boolean
 └─ entities: Record<id, SchemaEntitySnapshot>
@@ -69,7 +69,7 @@ SchemaSnapshot
 ### 2.3 System Tables DDL (Currently HARDCODED)
 
 **File:** `MetahubSchemaService.ts`, method `initSystemTables()`  
-**6 tables:** `_mhb_objects`, `_mhb_attributes`, `_mhb_elements`, `_mhb_settings`, `_mhb_layouts`, `_mhb_layout_zone_widgets`
+**6 tables:** `_mhb_objects`, `_mhb_attributes`, `_mhb_elements`, `_mhb_settings`, `_mhb_layouts`, `_mhb_widgets`
 
 **Key traits:**
 - All tables share identical `_upl_*` and `_mhb_*` system field sets
@@ -162,7 +162,7 @@ const structureVersions: Map<number, StructureVersionSpec> = new Map([
     version: 1,
     tables: [
       '_mhb_objects', '_mhb_attributes', '_mhb_elements',
-      '_mhb_settings', '_mhb_layouts', '_mhb_layout_zone_widgets'
+      '_mhb_settings', '_mhb_layouts', '_mhb_widgets'
     ],
     description: 'Initial system tables: objects, attributes, elements, settings, layouts, zone widgets',
     init: initSystemTablesV1  // extracted from current initSystemTables()
@@ -935,7 +935,7 @@ MetahubTemplateManifest (authored, codename-based)
                                     ▼
                           System Tables (runtime, UUID-based)
                           _mhb_objects, _mhb_attributes, ...
-                          _mhb_layouts, _mhb_layout_zone_widgets, ...
+                          _mhb_layouts, _mhb_widgets, ...
                                     │
                                     ├── SnapshotSerializer.serialize()
                                     ▼
@@ -948,12 +948,12 @@ MetahubTemplateManifest (authored, codename-based)
 ```
 Structure Version (integer, owned by code):
   v1: _mhb_objects, _mhb_attributes, _mhb_elements,
-      _mhb_settings, _mhb_layouts, _mhb_layout_zone_widgets
-  v2: (future) + _mhb_documents, _mhb_workflows
+      _mhb_settings, _mhb_layouts, _mhb_widgets
+  next: (future) + _mhb_documents, _mhb_workflows
 
 Template Version (SemVer, owned by JSON files):
   basic 1.0.0: dashboard layout + 22 standard widgets
-  basic 1.1.0: (future) + updated widget set
+  basic 1.0.x: (future) + updated widget set
   crm   1.0.0: (future) dashboard + contacts catalog + deals catalog
 ```
 

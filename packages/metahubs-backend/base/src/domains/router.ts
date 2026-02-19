@@ -6,6 +6,7 @@ import { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 import { createBranchesRoutes } from './branches/routes/branchesRoutes'
 import { createHubsRoutes } from './hubs/routes/hubsRoutes'
 import { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
+import { createEnumerationsRoutes } from './enumerations/routes/enumerationsRoutes'
 import { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 import { createElementsRoutes } from './elements/routes/elementsRoutes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
@@ -78,6 +79,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     // New metadata-driven routes
     router.use('/', createHubsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createCatalogsRoutes(ensureAuth, getDataSource, read, write))
+    router.use('/', createEnumerationsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createAttributesRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createElementsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDataSource, read, write))
@@ -120,6 +122,7 @@ export { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 export { createBranchesRoutes } from './branches/routes/branchesRoutes'
 export { createHubsRoutes } from './hubs/routes/hubsRoutes'
 export { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
+export { createEnumerationsRoutes } from './enumerations/routes/enumerationsRoutes'
 export { createAttributesRoutes } from './attributes/routes/attributesRoutes'
 export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'

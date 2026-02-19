@@ -3,27 +3,27 @@ import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 
 export interface CrudDialogsProps {
-  /** State object returned by `useCrudDashboard()`. */
-  state: CrudDashboardState
-  /** BCP-47 locale string, e.g. `"en"`, `"ru"`. */
-  locale: string
-  /** i18n-resolved labels for the dialogs. */
-  labels: CrudDialogsLabels
+    /** State object returned by `useCrudDashboard()`. */
+    state: CrudDashboardState
+    /** BCP-47 locale string, e.g. `"en"`, `"ru"`. */
+    locale: string
+    /** i18n-resolved labels for the dialogs. */
+    labels: CrudDialogsLabels
 }
 
 export interface CrudDialogsLabels {
-  editTitle: string
-  createTitle: string
-  saveText: string
-  createText: string
-  savingText: string
-  creatingText: string
-  cancelText: string
-  noFieldsText: string
-  deleteTitle: string
-  deleteDescription: string
-  deleteText: string
-  deletingText: string
+    editTitle: string
+    createTitle: string
+    saveText: string
+    createText: string
+    savingText: string
+    creatingText: string
+    cancelText: string
+    noFieldsText: string
+    deleteTitle: string
+    deleteDescription: string
+    deleteText: string
+    deletingText: string
 }
 
 /**
@@ -33,36 +33,36 @@ export interface CrudDialogsLabels {
  * `ApplicationRuntime`. Connect it to the `CrudDashboardState`.
  */
 export function CrudDialogs({ state, locale, labels }: CrudDialogsProps) {
-  return (
-    <>
-      <FormDialog
-        open={state.formOpen && state.isFormReady}
-        title={state.editRowId ? labels.editTitle : labels.createTitle}
-        fields={state.fieldConfigs}
-        locale={locale}
-        initialData={state.formInitialData}
-        isSubmitting={state.isSubmitting}
-        error={state.formError}
-        saveButtonText={state.editRowId ? labels.saveText : labels.createText}
-        savingButtonText={state.editRowId ? labels.savingText : labels.creatingText}
-        cancelButtonText={labels.cancelText}
-        emptyStateText={labels.noFieldsText}
-        onClose={state.handleCloseForm}
-        onSubmit={state.handleFormSubmit}
-      />
+    return (
+        <>
+            <FormDialog
+                open={state.formOpen && state.isFormReady}
+                title={state.editRowId ? labels.editTitle : labels.createTitle}
+                fields={state.fieldConfigs}
+                locale={locale}
+                initialData={state.formInitialData}
+                isSubmitting={state.isSubmitting}
+                error={state.formError}
+                saveButtonText={state.editRowId ? labels.saveText : labels.createText}
+                savingButtonText={state.editRowId ? labels.savingText : labels.creatingText}
+                cancelButtonText={labels.cancelText}
+                emptyStateText={labels.noFieldsText}
+                onClose={state.handleCloseForm}
+                onSubmit={state.handleFormSubmit}
+            />
 
-      <ConfirmDeleteDialog
-        open={Boolean(state.deleteRowId)}
-        title={labels.deleteTitle}
-        description={labels.deleteDescription}
-        confirmButtonText={labels.deleteText}
-        deletingButtonText={labels.deletingText}
-        cancelButtonText={labels.cancelText}
-        loading={state.isDeleting}
-        error={state.deleteError ?? undefined}
-        onCancel={state.handleCloseDelete}
-        onConfirm={state.handleConfirmDelete}
-      />
-    </>
-  )
+            <ConfirmDeleteDialog
+                open={Boolean(state.deleteRowId)}
+                title={labels.deleteTitle}
+                description={labels.deleteDescription}
+                confirmButtonText={labels.deleteText}
+                deletingButtonText={labels.deletingText}
+                cancelButtonText={labels.cancelText}
+                loading={state.isDeleting}
+                error={state.deleteError ?? undefined}
+                onCancel={state.handleCloseDelete}
+                onConfirm={state.handleConfirmDelete}
+            />
+        </>
+    )
 }

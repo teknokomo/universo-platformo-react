@@ -159,6 +159,13 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         type: 'item'
     },
     {
+        id: 'metahub-enumerations',
+        titleKey: 'enumerations',
+        url: `/metahub/${metahubId}/enumerations`,
+        icon: IconFiles,
+        type: 'item'
+    },
+    {
         id: 'metahub-divider-secondary',
         type: 'divider'
     },

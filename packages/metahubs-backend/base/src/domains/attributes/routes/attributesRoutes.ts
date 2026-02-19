@@ -11,6 +11,7 @@ import { AttributeDataType, ATTRIBUTE_DATA_TYPES, MetaEntityKind, META_ENTITY_KI
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
+import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -18,6 +19,10 @@ const resolveUserId = (req: Request): string | undefined => {
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
+
+const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
+const ENUM_LABEL_EMPTY_DISPLAY_MODES = ['empty', 'dash'] as const
+const ENUMERATION_KIND = 'enumeration' as const
 
 const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
@@ -83,7 +88,11 @@ const uiConfigSchema = z
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
         width: z.number().optional(),
-        headerAsCheckbox: z.boolean().optional()
+        headerAsCheckbox: z.boolean().optional(),
+        enumPresentationMode: z.enum(ENUM_PRESENTATION_MODES).optional(),
+        defaultEnumValueId: z.string().uuid().nullable().optional(),
+        enumAllowEmpty: z.boolean().optional(),
+        enumLabelEmptyDisplay: z.enum(ENUM_LABEL_EMPTY_DISPLAY_MODES).optional()
     })
     .optional()
 
@@ -154,6 +163,7 @@ export function createAttributesRoutes(
             manager,
             attributesService: new MetahubAttributesService(schemaService),
             objectsService: new MetahubObjectsService(schemaService),
+            enumerationValuesService: new MetahubEnumerationValuesService(schemaService),
             schemaService
         }
     }
@@ -317,7 +327,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId } = req.params
-            const { attributesService, objectsService, ds, manager } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             // Verify catalog exists
@@ -354,8 +364,9 @@ export function createAttributesRoutes(
                 isDisplayAttribute,
                 sortOrder
             } = parsed.data
+            const effectiveIsRequired = Boolean(isRequired)
 
-            // Resolve target entity: prefer new fields, fallback to legacy
+            // Resolve target entity with compatibility fallback
             const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
             const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId ? MetaEntityKind.CATALOG : undefined)
 
@@ -380,14 +391,58 @@ export function createAttributesRoutes(
                         error: 'REF type requires targetEntityId and targetEntityKind'
                     })
                 }
-                // Verify target exists (currently only catalog is fully supported)
-                if (resolvedTargetEntityKind === MetaEntityKind.CATALOG) {
-                    const targetCatalog = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
-                    if (!targetCatalog) {
-                        return res.status(400).json({ error: 'Target catalog not found' })
-                    }
+                if (resolvedTargetEntityKind !== MetaEntityKind.CATALOG && resolvedTargetEntityKind !== ENUMERATION_KIND) {
+                    return res.status(400).json({
+                        error: 'Unsupported targetEntityKind for REF',
+                        details: { targetEntityKind: resolvedTargetEntityKind }
+                    })
                 }
-                // Future: add validation for DOCUMENT, HUB when needed
+
+                const targetEntity = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
+                if (!targetEntity || targetEntity.kind !== resolvedTargetEntityKind) {
+                    return res.status(400).json({
+                        error: resolvedTargetEntityKind === ENUMERATION_KIND ? 'Target enumeration not found' : 'Target catalog not found'
+                    })
+                }
+            }
+
+            const normalizedUiConfig: Record<string, unknown> = { ...(uiConfig ?? {}) }
+            if (dataType === AttributeDataType.REF && resolvedTargetEntityKind === ENUMERATION_KIND && resolvedTargetEntityId) {
+                if (normalizedUiConfig.enumPresentationMode === undefined) {
+                    normalizedUiConfig.enumPresentationMode = 'select'
+                }
+                if (normalizedUiConfig.enumAllowEmpty === undefined) {
+                    normalizedUiConfig.enumAllowEmpty = true
+                }
+                if (normalizedUiConfig.enumLabelEmptyDisplay !== 'empty' && normalizedUiConfig.enumLabelEmptyDisplay !== 'dash') {
+                    normalizedUiConfig.enumLabelEmptyDisplay = 'dash'
+                }
+
+                const defaultEnumValueId = normalizedUiConfig.defaultEnumValueId
+                if (typeof defaultEnumValueId === 'string') {
+                    const enumValue = await enumerationValuesService.findById(metahubId, defaultEnumValueId, userId)
+                    if (!enumValue || enumValue.objectId !== resolvedTargetEntityId) {
+                        return res.status(400).json({
+                            error: 'defaultEnumValueId must reference a value from the selected target enumeration'
+                        })
+                    }
+                } else if (defaultEnumValueId !== null && defaultEnumValueId !== undefined) {
+                    return res.status(400).json({
+                        error: 'defaultEnumValueId must be UUID string or null'
+                    })
+                }
+
+                const hasDefaultEnumValueId = typeof normalizedUiConfig.defaultEnumValueId === 'string'
+                if (hasDefaultEnumValueId || effectiveIsRequired) {
+                    normalizedUiConfig.enumAllowEmpty = false
+                } else if (normalizedUiConfig.enumAllowEmpty === true) {
+                    normalizedUiConfig.defaultEnumValueId = null
+                }
+            } else {
+                delete normalizedUiConfig.enumPresentationMode
+                delete normalizedUiConfig.defaultEnumValueId
+                delete normalizedUiConfig.enumAllowEmpty
+                delete normalizedUiConfig.enumLabelEmptyDisplay
             }
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
@@ -421,7 +476,7 @@ export function createAttributesRoutes(
                     targetEntityId: dataType === AttributeDataType.REF ? resolvedTargetEntityId : undefined,
                     targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
                     validationRules: validationRules ?? {},
-                    uiConfig: uiConfig ?? {},
+                    uiConfig: normalizedUiConfig,
                     isRequired: isRequired ?? false,
                     isDisplayAttribute: isDisplayAttribute ?? false,
                     sortOrder: sortOrder,
@@ -459,7 +514,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, objectsService, ds, manager } = services(req)
+            const { attributesService, objectsService, enumerationValuesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -519,12 +574,16 @@ export function createAttributesRoutes(
                 }
             }
 
-            // Resolve target entity: prefer new fields, fallback to legacy
+            // Resolve target entity with compatibility fallback
             const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
             const resolvedTargetEntityKind =
                 targetEntityKind ?? (targetCatalogId !== undefined && targetCatalogId !== null ? MetaEntityKind.CATALOG : undefined)
+            const targetChanged = resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined
 
             const updateData: any = {}
+            const isRefType = (dataType || attribute.dataType) === AttributeDataType.REF
+            let effectiveTargetEntityId = attribute.targetEntityId ?? null
+            let effectiveTargetEntityKind = attribute.targetEntityKind ?? null
 
             if (codename && codename !== attribute.codename) {
                 const normalizedCodename = normalizeCodename(codename)
@@ -561,25 +620,90 @@ export function createAttributesRoutes(
             if (resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined) {
                 if (resolvedTargetEntityId === null) {
                     // Clear reference
+                    effectiveTargetEntityId = null
+                    effectiveTargetEntityKind = null
                     updateData.targetEntityId = null
                     updateData.targetEntityKind = null
-                } else if ((dataType || attribute.dataType) === AttributeDataType.REF) {
-                    // Validate target exists (currently only catalog is fully supported)
-                    if (resolvedTargetEntityKind === MetaEntityKind.CATALOG && resolvedTargetEntityId) {
-                        const targetCatalog = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
-                        if (!targetCatalog) {
-                            return res.status(400).json({ error: 'Target catalog not found' })
-                        }
+                } else if (isRefType) {
+                    effectiveTargetEntityId = resolvedTargetEntityId ?? effectiveTargetEntityId
+                    effectiveTargetEntityKind = resolvedTargetEntityKind ?? effectiveTargetEntityKind
+
+                    if (!effectiveTargetEntityId || !effectiveTargetEntityKind) {
+                        return res.status(400).json({
+                            error: 'REF type requires targetEntityId and targetEntityKind'
+                        })
                     }
-                    if (resolvedTargetEntityId) updateData.targetEntityId = resolvedTargetEntityId
-                    if (resolvedTargetEntityKind) updateData.targetEntityKind = resolvedTargetEntityKind
+
+                    if (effectiveTargetEntityKind !== MetaEntityKind.CATALOG && effectiveTargetEntityKind !== ENUMERATION_KIND) {
+                        return res.status(400).json({
+                            error: 'Unsupported targetEntityKind for REF',
+                            details: { targetEntityKind: effectiveTargetEntityKind }
+                        })
+                    }
+
+                    const targetEntity = await objectsService.findById(metahubId, effectiveTargetEntityId, userId)
+                    if (!targetEntity || targetEntity.kind !== effectiveTargetEntityKind) {
+                        return res.status(400).json({
+                            error:
+                                effectiveTargetEntityKind === ENUMERATION_KIND ? 'Target enumeration not found' : 'Target catalog not found'
+                        })
+                    }
+
+                    if (resolvedTargetEntityId !== undefined) updateData.targetEntityId = resolvedTargetEntityId
+                    if (resolvedTargetEntityKind !== undefined) updateData.targetEntityKind = resolvedTargetEntityKind
                 }
             }
 
             if (validationRules) updateData.validationRules = validationRules
-            if (uiConfig) {
+            const effectiveIsRequired = isRequired ?? attribute.isRequired
+            if (uiConfig || targetChanged || (isRefType && effectiveTargetEntityKind === ENUMERATION_KIND && isRequired !== undefined)) {
                 const currentUiConfig = (attribute.uiConfig as Record<string, unknown>) ?? {}
-                updateData.uiConfig = { ...currentUiConfig, ...uiConfig }
+                const mergedUiConfig: Record<string, unknown> = { ...currentUiConfig, ...(uiConfig ?? {}) }
+
+                if (isRefType && effectiveTargetEntityKind === ENUMERATION_KIND && effectiveTargetEntityId) {
+                    if (mergedUiConfig.enumPresentationMode === undefined) {
+                        mergedUiConfig.enumPresentationMode = 'select'
+                    }
+                    if (mergedUiConfig.enumAllowEmpty === undefined) {
+                        mergedUiConfig.enumAllowEmpty = true
+                    }
+                    if (mergedUiConfig.enumLabelEmptyDisplay !== 'empty' && mergedUiConfig.enumLabelEmptyDisplay !== 'dash') {
+                        mergedUiConfig.enumLabelEmptyDisplay = 'dash'
+                    }
+
+                    const defaultEnumValueId = mergedUiConfig.defaultEnumValueId
+                    if (typeof defaultEnumValueId === 'string') {
+                        const enumValue = await enumerationValuesService.findById(metahubId, defaultEnumValueId, userId)
+                        const isValueInTargetEnumeration = Boolean(enumValue && enumValue.objectId === effectiveTargetEntityId)
+                        if (!isValueInTargetEnumeration) {
+                            if (targetChanged) {
+                                mergedUiConfig.defaultEnumValueId = null
+                            } else {
+                                return res.status(400).json({
+                                    error: 'defaultEnumValueId must reference a value from the selected target enumeration'
+                                })
+                            }
+                        }
+                    } else if (defaultEnumValueId !== null && defaultEnumValueId !== undefined) {
+                        return res.status(400).json({
+                            error: 'defaultEnumValueId must be UUID string or null'
+                        })
+                    }
+
+                    const hasDefaultEnumValueId = typeof mergedUiConfig.defaultEnumValueId === 'string'
+                    if (hasDefaultEnumValueId || effectiveIsRequired) {
+                        mergedUiConfig.enumAllowEmpty = false
+                    } else if (mergedUiConfig.enumAllowEmpty === true) {
+                        mergedUiConfig.defaultEnumValueId = null
+                    }
+                } else {
+                    delete mergedUiConfig.enumPresentationMode
+                    delete mergedUiConfig.defaultEnumValueId
+                    delete mergedUiConfig.enumAllowEmpty
+                    delete mergedUiConfig.enumLabelEmptyDisplay
+                }
+
+                updateData.uiConfig = mergedUiConfig
             }
             if (isRequired !== undefined) updateData.isRequired = isRequired
             // isDisplayAttribute is handled separately via setDisplayAttribute for atomicity
@@ -657,7 +781,7 @@ export function createAttributesRoutes(
         writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { metahubId, catalogId, attributeId } = req.params
-            const { attributesService, ds, manager } = services(req)
+            const { attributesService, enumerationValuesService, ds, manager } = services(req)
             const userId = resolveUserId(req)
 
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
@@ -666,15 +790,51 @@ export function createAttributesRoutes(
             }
 
             const newValue = !attribute.isRequired
-            await attributesService.update(
-                metahubId,
-                attributeId,
-                {
-                    isRequired: newValue,
-                    updatedBy: userId
-                },
-                userId
-            )
+
+            const isEnumerationRef =
+                attribute.dataType === AttributeDataType.REF &&
+                attribute.targetEntityKind === ENUMERATION_KIND &&
+                typeof attribute.targetEntityId === 'string'
+
+            const currentUiConfig = ((attribute.uiConfig as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
+
+            if (newValue && isEnumerationRef) {
+                const enumPresentationMode = currentUiConfig.enumPresentationMode
+                const defaultEnumValueId =
+                    typeof currentUiConfig.defaultEnumValueId === 'string' ? currentUiConfig.defaultEnumValueId : null
+
+                if (enumPresentationMode === 'label' && !defaultEnumValueId) {
+                    return res.status(400).json({
+                        error: 'required REF label mode requires defaultEnumValueId'
+                    })
+                }
+
+                if (defaultEnumValueId) {
+                    const enumValue = await enumerationValuesService.findById(metahubId, defaultEnumValueId, userId)
+                    if (!enumValue || enumValue.objectId !== attribute.targetEntityId) {
+                        return res.status(400).json({
+                            error: 'defaultEnumValueId must reference a value from the selected target enumeration'
+                        })
+                    }
+                }
+            }
+
+            const updatePayload: Record<string, unknown> = {
+                isRequired: newValue,
+                updatedBy: userId
+            }
+
+            if (isEnumerationRef) {
+                const nextUiConfig = { ...currentUiConfig }
+                if (newValue) {
+                    nextUiConfig.enumAllowEmpty = false
+                } else if (typeof nextUiConfig.defaultEnumValueId !== 'string' && nextUiConfig.enumAllowEmpty === undefined) {
+                    nextUiConfig.enumAllowEmpty = true
+                }
+                updatePayload.uiConfig = nextUiConfig
+            }
+
+            await attributesService.update(metahubId, attributeId, updatePayload, userId)
 
             await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)

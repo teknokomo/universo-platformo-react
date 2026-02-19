@@ -1,7 +1,10 @@
 import type { MetaEntityKind } from '@universo/types'
 
-const ENTITY_TABLE_PREFIX: Record<MetaEntityKind, string> = {
+type RuntimeEntityKind = MetaEntityKind | 'enumeration'
+
+const ENTITY_TABLE_PREFIX: Record<string, string> = {
     catalog: 'cat',
+    enumeration: 'enum',
     hub: 'hub',
     document: 'doc'
 }
@@ -14,9 +17,10 @@ export const generateSchemaName = (applicationId: string): string => {
     return `${SCHEMA_PREFIX}_${cleanId}`
 }
 
-export const generateTableName = (entityId: string, kind: MetaEntityKind): string => {
+export const generateTableName = (entityId: string, kind: RuntimeEntityKind): string => {
     const cleanId = entityId.replace(/-/g, '')
-    return `${ENTITY_TABLE_PREFIX[kind]}_${cleanId}`
+    const prefix = ENTITY_TABLE_PREFIX[kind] ?? 'obj'
+    return `${prefix}_${cleanId}`
 }
 
 export const generateColumnName = (fieldId: string): string => {

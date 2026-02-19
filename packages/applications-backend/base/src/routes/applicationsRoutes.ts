@@ -104,7 +104,7 @@ const resolveLocalizedContent = (value: unknown, locale: string, fallback: strin
     return fallback
 }
 
-type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'JSON'
+type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON'
 
 const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: string): unknown => {
     if (value === null || value === undefined) {
@@ -126,7 +126,7 @@ const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: 
         return String(value)
     }
 
-    // NUMBER, BOOLEAN, DATE, JSON — return as-is
+    // NUMBER, BOOLEAN, DATE, REF, JSON — return as-is
     return value
 }
 
@@ -493,10 +493,11 @@ export function createApplicationsRoutes(
             const attributes = (await manager.query(
                 `
                     SELECT id, codename, column_name, data_type, is_required,
-                           presentation, validation_rules, sort_order, ui_config
+                           presentation, validation_rules, sort_order, ui_config,
+                           target_object_id, target_object_kind
                     FROM ${schemaIdent}._app_attributes
                     WHERE object_id = $1
-                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'JSON')
+                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON')
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
                     ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
@@ -512,9 +513,56 @@ export function createApplicationsRoutes(
                 validation_rules?: Record<string, unknown>
                 sort_order?: number
                 ui_config?: Record<string, unknown>
+                target_object_id?: string | null
+                target_object_kind?: string | null
             }>
 
             const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
+
+            const enumTargetObjectIds = Array.from(
+                new Set(
+                    safeAttributes
+                        .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && attr.target_object_id)
+                        .map((attr) => String(attr.target_object_id))
+                )
+            )
+
+            const enumOptionsMap = new Map<
+                string,
+                Array<{ id: string; label: string; codename: string; isDefault: boolean; sortOrder: number }>
+            >()
+            if (enumTargetObjectIds.length > 0) {
+                const enumRows = (await manager.query(
+                    `
+                        SELECT id, object_id, codename, presentation, sort_order, is_default
+                        FROM ${schemaIdent}._app_enum_values
+                        WHERE object_id = ANY($1::uuid[])
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        ORDER BY object_id ASC, sort_order ASC, codename ASC
+                    `,
+                    [enumTargetObjectIds]
+                )) as Array<{
+                    id: string
+                    object_id: string
+                    codename: string
+                    presentation?: unknown
+                    sort_order?: number
+                    is_default?: boolean
+                }>
+
+                for (const row of enumRows) {
+                    const list = enumOptionsMap.get(row.object_id) ?? []
+                    list.push({
+                        id: row.id,
+                        codename: row.codename,
+                        label: resolvePresentationName(row.presentation, requestedLocale, row.codename),
+                        isDefault: row.is_default === true,
+                        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
+                    })
+                    enumOptionsMap.set(row.object_id, list)
+                }
+            }
 
             const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
             const selectColumns = ['id', ...safeAttributes.map((attr) => quoteIdentifier(attr.column_name))]
@@ -776,7 +824,16 @@ export function createApplicationsRoutes(
                     isRequired: attribute.is_required ?? false,
                     headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
                     validationRules: attribute.validation_rules ?? {},
-                    uiConfig: attribute.ui_config ?? {}
+                    uiConfig: attribute.ui_config ?? {},
+                    refTargetEntityId: attribute.target_object_id ?? null,
+                    refTargetEntityKind: attribute.target_object_kind ?? null,
+                    enumOptions:
+                        attribute.data_type === 'REF' &&
+                        attribute.target_object_kind === 'enumeration' &&
+                        attribute.target_object_id &&
+                        enumOptionsMap.has(attribute.target_object_id)
+                            ? enumOptionsMap.get(attribute.target_object_id)
+                            : undefined
                 })),
                 rows,
                 pagination: {
@@ -800,7 +857,7 @@ export function createApplicationsRoutes(
     })
 
     /** Supported runtime data types for write operations */
-    const RUNTIME_WRITABLE_TYPES = new Set(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'JSON'])
+    const RUNTIME_WRITABLE_TYPES = new Set(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON'])
 
     /**
      * Validates and coerces a value to match the expected runtime column type.
@@ -839,6 +896,11 @@ export function createApplicationsRoutes(
                 if (Number.isNaN(d.getTime())) throw new Error('Invalid date value')
                 return value
             }
+            case 'REF': {
+                if (typeof value !== 'string') throw new Error('Expected UUID value')
+                if (!UUID_REGEX.test(value)) throw new Error('Invalid UUID value')
+                return value
+            }
             case 'JSON':
                 // Accept any serializable value for JSONB columns
                 return typeof value === 'object' ? value : JSON.stringify(value)
@@ -875,6 +937,7 @@ export function createApplicationsRoutes(
         const attrs = (await manager.query(
             `
                 SELECT id, codename, column_name, data_type, is_required, validation_rules
+                       , target_object_id, target_object_kind, ui_config
                 FROM ${schemaIdent}._app_attributes
                 WHERE object_id = $1
                   AND COALESCE(_upl_deleted, false) = false
@@ -888,6 +951,9 @@ export function createApplicationsRoutes(
             data_type: string
             is_required: boolean
             validation_rules?: Record<string, unknown>
+            target_object_id?: string | null
+            target_object_kind?: string | null
+            ui_config?: Record<string, unknown>
         }>
 
         return { catalog, attrs, error: null }
@@ -940,6 +1006,44 @@ export function createApplicationsRoutes(
         }
     }
 
+    const getEnumPresentationMode = (uiConfig?: Record<string, unknown>): 'select' | 'radio' | 'label' => {
+        const mode = uiConfig?.enumPresentationMode
+        if (mode === 'radio' || mode === 'label') return mode
+        return 'select'
+    }
+
+    const getDefaultEnumValueId = (uiConfig?: Record<string, unknown>): string | null => {
+        const defaultValueId = uiConfig?.defaultEnumValueId
+        if (typeof defaultValueId === 'string' && UUID_REGEX.test(defaultValueId)) {
+            return defaultValueId
+        }
+        return null
+    }
+
+    const ensureEnumerationValueBelongsToTarget = async (
+        manager: ReturnType<typeof getRequestManager>,
+        schemaIdent: string,
+        enumValueId: string,
+        targetEnumerationId: string
+    ): Promise<void> => {
+        const rows = (await manager.query(
+            `
+                SELECT id
+                FROM ${schemaIdent}._app_enum_values
+                WHERE id = $1
+                  AND object_id = $2
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_app_deleted, false) = false
+                LIMIT 1
+            `,
+            [enumValueId, targetEnumerationId]
+        )) as Array<{ id: string }>
+
+        if (rows.length === 0) {
+            throw new Error('Enumeration value does not belong to target enumeration')
+        }
+    }
+
     router.patch(
         '/:applicationId/runtime/:rowId',
         writeLimiter,
@@ -969,11 +1073,36 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: `Field type ${attr.data_type} is not editable` })
             }
 
+            if (
+                attr.data_type === 'REF' &&
+                attr.target_object_kind === 'enumeration' &&
+                getEnumPresentationMode(attr.ui_config) === 'label'
+            ) {
+                return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+            }
+
             let coerced: unknown
             try {
                 coerced = coerceRuntimeValue(value, attr.data_type, attr.validation_rules)
             } catch (e) {
                 return res.status(400).json({ error: (e as Error).message })
+            }
+
+            if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+                return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
+            }
+
+            if (
+                attr.data_type === 'REF' &&
+                attr.target_object_kind === 'enumeration' &&
+                typeof attr.target_object_id === 'string' &&
+                coerced
+            ) {
+                try {
+                    await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
+                } catch (error) {
+                    return res.status(400).json({ error: (error as Error).message })
+                }
             }
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
@@ -1035,12 +1164,31 @@ export function createApplicationsRoutes(
             for (const attr of safeAttrs) {
                 const raw = data[attr.column_name] ?? data[attr.codename]
                 if (raw === undefined) continue
+
+                if (
+                    attr.data_type === 'REF' &&
+                    attr.target_object_kind === 'enumeration' &&
+                    getEnumPresentationMode(attr.ui_config) === 'label'
+                ) {
+                    return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                }
+
                 try {
                     const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
                     // M1: Prevent required fields from being set to null
                     if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
                         return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
                     }
+
+                    if (
+                        attr.data_type === 'REF' &&
+                        attr.target_object_kind === 'enumeration' &&
+                        typeof attr.target_object_id === 'string' &&
+                        coerced
+                    ) {
+                        await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
+                    }
+
                     setClauses.push(`${quoteIdentifier(attr.column_name)} = $${paramIndex}`)
                     values.push(coerced)
                     paramIndex++
@@ -1112,7 +1260,35 @@ export function createApplicationsRoutes(
             const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type))
 
             for (const attr of safeAttrs) {
-                const raw = data[attr.column_name] ?? data[attr.codename]
+                const hasUserValue =
+                    Object.prototype.hasOwnProperty.call(data, attr.column_name) ||
+                    Object.prototype.hasOwnProperty.call(data, attr.codename)
+                let raw = data[attr.column_name] ?? data[attr.codename]
+
+                const isEnumRef = attr.data_type === 'REF' && attr.target_object_kind === 'enumeration'
+                const enumMode = getEnumPresentationMode(attr.ui_config)
+
+                if (isEnumRef && enumMode === 'label' && hasUserValue) {
+                    return res.status(400).json({ error: `Field is read-only: ${attr.codename}` })
+                }
+
+                if (raw === undefined && isEnumRef && typeof attr.target_object_id === 'string') {
+                    const defaultEnumValueId = getDefaultEnumValueId(attr.ui_config)
+                    if (defaultEnumValueId) {
+                        try {
+                            await ensureEnumerationValueBelongsToTarget(
+                                ctx.manager,
+                                ctx.schemaIdent,
+                                defaultEnumValueId,
+                                attr.target_object_id
+                            )
+                            raw = defaultEnumValueId
+                        } catch {
+                            raw = undefined
+                        }
+                    }
+                }
+
                 if (raw === undefined) {
                     if (attr.is_required && attr.data_type !== 'BOOLEAN') {
                         return res.status(400).json({ error: `Required field missing: ${attr.codename}` })
@@ -1121,6 +1297,14 @@ export function createApplicationsRoutes(
                 }
                 try {
                     const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
+                    if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+                        return res.status(400).json({ error: `Required field cannot be set to null: ${attr.codename}` })
+                    }
+
+                    if (isEnumRef && typeof attr.target_object_id === 'string' && coerced) {
+                        await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
+                    }
+
                     columnValues.push({ column: attr.column_name, value: coerced })
                 } catch (e) {
                     return res.status(400).json({ error: `Invalid value for ${attr.codename}: ${(e as Error).message}` })

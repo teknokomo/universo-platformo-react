@@ -125,6 +125,137 @@ export class MetahubAttributesService {
         }))
     }
 
+    /**
+     * Find REF attributes that reference a target object by kind and id.
+     * Used to block deletion of referenced objects (e.g. enumerations).
+     */
+    async findReferenceBlockersByTarget(metahubId: string, targetObjectId: string, targetObjectKind: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes as attr')
+            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
+            .where('attr.data_type', 'REF')
+            .andWhere('attr.target_object_id', targetObjectId)
+            .andWhere('attr.target_object_kind', targetObjectKind)
+            .andWhere('attr._upl_deleted', false)
+            .andWhere('attr._mhb_deleted', false)
+            .andWhere('obj._upl_deleted', false)
+            .andWhere('obj._mhb_deleted', false)
+            .select(
+                'attr.id as attribute_id',
+                'attr.codename as attribute_codename',
+                'attr.presentation as attribute_presentation',
+                'attr.object_id as source_catalog_id',
+                'obj.codename as source_catalog_codename',
+                'obj.presentation as source_catalog_presentation'
+            )
+            .orderBy('obj.codename', 'asc')
+            .orderBy('attr.sort_order', 'asc')
+
+        return rows.map((row: any) => ({
+            attributeId: row.attribute_id,
+            attributeCodename: row.attribute_codename,
+            attributeName: row.attribute_presentation?.name ?? null,
+            sourceCatalogId: row.source_catalog_id,
+            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogName: row.source_catalog_presentation?.name ?? null
+        }))
+    }
+
+    /**
+     * Find REF attributes that use a specific enumeration value as default in ui_config.
+     * Used to block deletion of enumeration values that are still configured as defaults.
+     */
+    async findDefaultEnumValueBlockers(metahubId: string, enumValueId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes as attr')
+            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
+            .where('attr.data_type', 'REF')
+            .andWhere('attr.target_object_kind', 'enumeration')
+            .andWhereRaw(`attr.ui_config ->> 'defaultEnumValueId' = ?`, [enumValueId])
+            .andWhere('attr._upl_deleted', false)
+            .andWhere('attr._mhb_deleted', false)
+            .andWhere('obj._upl_deleted', false)
+            .andWhere('obj._mhb_deleted', false)
+            .select(
+                'attr.id as attribute_id',
+                'attr.codename as attribute_codename',
+                'attr.presentation as attribute_presentation',
+                'attr.object_id as source_catalog_id',
+                'obj.codename as source_catalog_codename',
+                'obj.presentation as source_catalog_presentation'
+            )
+            .orderBy('obj.codename', 'asc')
+            .orderBy('attr.sort_order', 'asc')
+
+        return rows.map((row: any) => ({
+            attributeId: row.attribute_id,
+            attributeCodename: row.attribute_codename,
+            attributeName: row.attribute_presentation?.name ?? null,
+            sourceCatalogId: row.source_catalog_id,
+            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogName: row.source_catalog_presentation?.name ?? null
+        }))
+    }
+
+    /**
+     * Find predefined elements that reference a specific enumeration value.
+     * Used to prevent deleting values that are still used in catalog predefined data.
+     */
+    async findElementEnumValueBlockers(metahubId: string, enumerationId: string, enumValueId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = (await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes as attr')
+            .leftJoin('_mhb_objects as obj', 'obj.id', 'attr.object_id')
+            .leftJoin('_mhb_elements as el', function () {
+                this.on('el.object_id', '=', 'attr.object_id')
+            })
+            .where('attr.data_type', 'REF')
+            .andWhere('attr.target_object_kind', 'enumeration')
+            .andWhere('attr.target_object_id', enumerationId)
+            .andWhereRaw(`el.data ->> attr.codename = ?`, [enumValueId])
+            .andWhere('attr._upl_deleted', false)
+            .andWhere('attr._mhb_deleted', false)
+            .andWhere('obj._upl_deleted', false)
+            .andWhere('obj._mhb_deleted', false)
+            .andWhere('el._upl_deleted', false)
+            .andWhere('el._mhb_deleted', false)
+            .groupBy('attr.id', 'attr.codename', 'attr.presentation', 'attr.object_id', 'obj.codename', 'obj.presentation')
+            .select(
+                'attr.id as attribute_id',
+                'attr.codename as attribute_codename',
+                'attr.presentation as attribute_presentation',
+                'attr.object_id as source_catalog_id',
+                'obj.codename as source_catalog_codename',
+                'obj.presentation as source_catalog_presentation'
+            )
+            .count('el.id as usage_count')
+            .orderBy('obj.codename', 'asc')
+            .orderBy('attr.sort_order', 'asc')) as Array<{
+            attribute_id: string
+            attribute_codename: string
+            attribute_presentation?: { name?: unknown }
+            source_catalog_id: string
+            source_catalog_codename: string
+            source_catalog_presentation?: { name?: unknown }
+            usage_count: string
+        }>
+
+        return rows.map((row: any) => ({
+            attributeId: row.attribute_id,
+            attributeCodename: row.attribute_codename,
+            attributeName: row.attribute_presentation?.name ?? null,
+            sourceCatalogId: row.source_catalog_id,
+            sourceCatalogCodename: row.source_catalog_codename,
+            sourceCatalogName: row.source_catalog_presentation?.name ?? null,
+            usageCount: parseInt(row.usage_count ?? '0', 10)
+        }))
+    }
+
     async create(metahubId: string, data: any, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
@@ -166,7 +297,7 @@ export class MetahubAttributesService {
         if (data.dataType !== undefined) updateData.data_type = data.dataType
         if (data.isRequired !== undefined) updateData.is_required = data.isRequired
         if (data.isDisplayAttribute !== undefined) updateData.is_display_attribute = data.isDisplayAttribute
-        // Support both new targetEntityId/Kind and legacy targetCatalogId
+        // Compatibility: support both targetEntityId/Kind and targetCatalogId payloads
         if (data.targetEntityId !== undefined) updateData.target_object_id = data.targetEntityId
         else if (data.targetCatalogId !== undefined) updateData.target_object_id = data.targetCatalogId
         if (data.targetEntityKind !== undefined) updateData.target_object_kind = data.targetEntityKind

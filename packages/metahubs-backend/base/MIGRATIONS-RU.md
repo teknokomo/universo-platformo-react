@@ -43,17 +43,17 @@ const severity = determineSeverity({
 
 ### Сценарий 1: Новые системные таблицы или колонки (DDL-изменения)
 
-**Триггер**: `CURRENT_STRUCTURE_VERSION` увеличивается (например, 1 → 2).
+**Триггер**: `CURRENT_STRUCTURE_VERSION` увеличивается (например, 1 → N).
 
 **Как это работает**: Когда любой API-вызов обращается к метахабу, вызывается `MetahubSchemaService.ensureSchema()`. Он считывает `structureVersion` ветки и сравнивает с `CURRENT_STRUCTURE_VERSION`. Если ветка отстаёт, запускается конвейер автомиграции:
 
 ```
-ensureSchema() обнаруживает: branch.structureVersion (1) < CURRENT (2)
-  → SystemTableMigrator.migrate(1, 2)
-      → calculateSystemTableDiff(V1_tables, V2_tables)
+ensureSchema() обнаруживает: branch.structureVersion (старее) < CURRENT (новее)
+  → SystemTableMigrator.migrate(fromVersion, toVersion)
+      → calculateSystemTableDiff(previous_tables, current_tables)
       → Применяются только АДДИТИВНЫЕ изменения (ADD_TABLE, ADD_COLUMN, ADD_INDEX, ADD_FK)
       → Миграция записывается в таблицу _mhb_migrations
-  → branch.structureVersion = 2 (сохраняется в БД)
+  → branch.structureVersion = CURRENT_STRUCTURE_VERSION (сохраняется в БД)
 ```
 
 **Гарантии безопасности**:
@@ -64,7 +64,7 @@ ensureSchema() обнаруживает: branch.structureVersion (1) < CURRENT (
 
 ### Сценарий 2: Новые seed-данные (обновления шаблонов)
 
-**Триггер**: Версия манифеста шаблона увеличивается (например, `basic` шаблон 1.0.0 → 1.1.0).
+**Триггер**: Версия манифеста шаблона увеличивается (например, `basic` шаблон 1.0.x → 1.0.y).
 
 **Как это работает**: При запуске приложения `TemplateSeeder.seed()` обнаруживает изменение хеша и обновляет версию шаблона. При следующем вызове `ensureSchema()` для каждого метахаба запускается seed-миграция:
 

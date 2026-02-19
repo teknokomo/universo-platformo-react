@@ -142,6 +142,8 @@ const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend'
 const BranchList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.BranchList }))))
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
 const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
+const EnumerationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EnumerationList }))))
+const EnumerationValueList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EnumerationValueList }))))
 const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
 const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
 const MetahubLayouts = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayouts }))))
@@ -584,6 +586,10 @@ const MainRoutesMUI = {
                     element: <CatalogList />
                 },
                 {
+                    path: 'enumerations',
+                    element: <EnumerationList />
+                },
+                {
                     path: 'layouts',
                     element: <MetahubLayouts />
                 },
@@ -599,10 +605,18 @@ const MainRoutesMUI = {
                     path: 'catalog/:catalogId/elements',
                     element: <ElementList />
                 },
+                {
+                    path: 'enumeration/:enumerationId/values',
+                    element: <EnumerationValueList />
+                },
                 // Hub-scoped catalog routes
                 {
                     path: 'hub/:hubId/catalogs',
                     element: <CatalogList />
+                },
+                {
+                    path: 'hub/:hubId/enumerations',
+                    element: <EnumerationList />
                 },
                 {
                     path: 'hub/:hubId/catalog/:catalogId/attributes',
@@ -611,6 +625,10 @@ const MainRoutesMUI = {
                 {
                     path: 'hub/:hubId/catalog/:catalogId/elements',
                     element: <ElementList />
+                },
+                {
+                    path: 'hub/:hubId/enumeration/:enumerationId/values',
+                    element: <EnumerationValueList />
                 },
                 {
                     path: 'members',

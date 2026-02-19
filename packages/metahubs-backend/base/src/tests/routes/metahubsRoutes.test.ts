@@ -353,7 +353,7 @@ describe('Metahubs Routes', () => {
         })
     })
 
-    // NOTE: Removed tests for legacy /entities and /sections endpoints.
+    // NOTE: Removed tests for deprecated /entities and /sections endpoints.
     // These endpoints were removed in the metadata-driven platform refactoring.
     // New tests for /hubs, /attributes, and /elements should be added.
 

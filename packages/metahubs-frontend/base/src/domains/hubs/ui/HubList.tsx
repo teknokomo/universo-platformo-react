@@ -327,11 +327,14 @@ const HubList = () => {
                 )
             },
             {
-                id: 'catalogsCount',
-                label: t('catalogs.title', 'Catalogs'),
+                id: 'itemsCount',
+                label: t('hubs.itemsTitle', 'Items'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: HubDisplay) => (typeof row.catalogsCount === 'number' ? row.catalogsCount : '—')
+                render: (row: HubDisplay) => {
+                    const itemsCount = typeof row.itemsCount === 'number' ? row.itemsCount : row.catalogsCount
+                    return typeof itemsCount === 'number' ? itemsCount : '—'
+                }
             }
         ],
         [t, tc, metahubId]
@@ -574,6 +577,7 @@ const HubList = () => {
                                 >
                                     {hubs.map((hub: Hub) => {
                                         const descriptors = [...hubActions]
+                                        const itemsCount = typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.catalogsCount ?? 0
 
                                         return (
                                             <ItemCard
@@ -582,9 +586,9 @@ const HubList = () => {
                                                 images={images[hub.id] || []}
                                                 onClick={() => goToHub(hub)}
                                                 footerEndContent={
-                                                    typeof hub.catalogsCount === 'number' ? (
+                                                    typeof hub.itemsCount === 'number' || typeof hub.catalogsCount === 'number' ? (
                                                         <Typography variant='caption' color='text.secondary'>
-                                                            {t('hubs.catalogsCount', { count: hub.catalogsCount })}
+                                                            {t('hubs.itemsCount', { count: itemsCount })}
                                                         </Typography>
                                                     ) : null
                                                 }

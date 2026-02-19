@@ -17,6 +17,8 @@ export { default as MetahubMigrationGuard } from './domains/migrations/ui/Metahu
 // New Hub/Catalog/Attribute/Element pages
 export { default as HubList } from './domains/hubs/ui/HubList'
 export { default as CatalogList } from './domains/catalogs/ui/CatalogList'
+export { default as EnumerationList } from './domains/enumerations/ui/EnumerationList'
+export { default as EnumerationValueList } from './domains/enumerations/ui/EnumerationValueList'
 export { default as AttributeList } from './domains/attributes/ui/AttributeList'
 export { default as ElementList } from './domains/elements/ui/ElementList'
 export { default as MetahubLayouts } from './domains/layouts/ui/LayoutList'
@@ -37,6 +39,10 @@ export type {
     HubRef,
     Catalog,
     CatalogDisplay,
+    Enumeration,
+    EnumerationDisplay,
+    EnumerationValue,
+    EnumerationValueDisplay,
     Attribute,
     AttributeDisplay,
     AttributeDataType,
@@ -45,7 +51,14 @@ export type {
 } from './types'
 
 // Types - Payloads
-export type { MetahubLocalizedPayload, HubLocalizedPayload, CatalogLocalizedPayload, AttributeLocalizedPayload } from './types'
+export type {
+    MetahubLocalizedPayload,
+    HubLocalizedPayload,
+    CatalogLocalizedPayload,
+    EnumerationLocalizedPayload,
+    EnumerationValueLocalizedPayload,
+    AttributeLocalizedPayload
+} from './types'
 export type { BranchLocalizedPayload } from './types'
 
 // Types - Pagination (re-exported from @universo/types)
@@ -55,7 +68,16 @@ export type { PaginationParams, PaginationMeta, PaginatedResponse } from './type
 export type { VersatileLocalizedContent, SimpleLocalizedInput } from './types'
 
 // Display converters
-export { toMetahubDisplay, toBranchDisplay, toHubDisplay, toCatalogDisplay, toAttributeDisplay, toHubElementDisplay } from './types'
+export {
+    toMetahubDisplay,
+    toBranchDisplay,
+    toHubDisplay,
+    toCatalogDisplay,
+    toEnumerationDisplay,
+    toEnumerationValueDisplay,
+    toAttributeDisplay,
+    toHubElementDisplay
+} from './types'
 
 // VLC utilities
 export { getVLCString, getVLCStringWithFallback, normalizeLocale } from './types'

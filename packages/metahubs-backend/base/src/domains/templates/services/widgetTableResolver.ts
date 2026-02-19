@@ -1,7 +1,7 @@
 import type { Knex } from 'knex'
 import { MetahubMigrationRequiredError } from '../../shared/domainErrors'
 
-const widgetTableCache = new Map<string, '_mhb_widgets' | '_mhb_layout_zone_widgets'>()
+const widgetTableCache = new Map<string, '_mhb_widgets'>()
 
 const buildCacheKey = (schemaName: string): string => schemaName.trim()
 
@@ -11,17 +11,14 @@ export const clearWidgetTableResolverCache = (): void => {
 
 type KnexLike = Knex | Knex.Transaction
 
-export const resolveWidgetTableName = async (
-    queryBuilder: KnexLike,
-    schemaName: string
-): Promise<'_mhb_widgets' | '_mhb_layout_zone_widgets'> => {
+export const resolveWidgetTableName = async (queryBuilder: KnexLike, schemaName: string): Promise<'_mhb_widgets'> => {
     const cacheKey = buildCacheKey(schemaName)
     const cached = widgetTableCache.get(cacheKey)
     if (cached) {
         return cached
     }
 
-    const candidates: Array<'_mhb_widgets' | '_mhb_layout_zone_widgets'> = ['_mhb_widgets', '_mhb_layout_zone_widgets']
+    const candidates: Array<'_mhb_widgets'> = ['_mhb_widgets']
 
     // Single query to check both candidates. Avoids parallel hasTable() calls
     // that each acquire a separate pool connection under advisory locks.
@@ -36,13 +33,8 @@ export const resolveWidgetTableName = async (
         return '_mhb_widgets'
     }
 
-    if (existing.has('_mhb_layout_zone_widgets')) {
-        widgetTableCache.set(cacheKey, '_mhb_layout_zone_widgets')
-        return '_mhb_layout_zone_widgets'
-    }
-
     throw new MetahubMigrationRequiredError('Widget system table is missing. Metahub migration is required before template sync.', {
         schemaName,
-        requiredTables: ['_mhb_widgets', '_mhb_layout_zone_widgets']
+        requiredTables: ['_mhb_widgets']
     })
 }

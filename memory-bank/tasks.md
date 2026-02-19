@@ -2,6 +2,67 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: Enumerations QA Remediation Round 5 — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode after latest QA report. Goal is to close critical runtime/backend gaps without widening scope.
+
+### Execution checklist
+- [x] Restore invariant checks in `toggle-required` route for enum REF attributes (label mode/default ownership)
+- [x] Remove UUID fallback from enum REF runtime cell rendering and show safe empty fallback instead
+- [x] Make connector touch operation during schema sync always update `updatedAt`
+- [x] Fix blocking prettier/eslint error in `HubList.tsx`
+- [x] Run targeted tests/lint/build for touched packages and record outcomes
+
+## Completed: Enumerations QA Remediation Round 4 — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode after latest QA report. Goal is to close remaining high/medium findings before the next QA pass.
+
+### Execution checklist
+- [x] Fix runtime FormDialog enum defaults so explicit `null` values are never auto-overwritten in edit flow
+- [x] Harden enumeration restore route to return deterministic `409` on codename unique conflicts
+- [x] Align hub-scoped enumeration PATCH locale fallback with metahub-scoped PATCH behavior
+- [x] Add regression tests for restore conflict handling and locale fallback behavior in `enumerationsRoutes`
+- [x] Add runtime enumeration regression tests in `applicationsRoutes` for label readonly and enum ownership validation
+- [x] Run targeted lint/test/build verification for touched packages and record outcomes
+
+## Completed: Enumerations QA Remediation Round 3 — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode after repeated QA requests. Goal is to close remaining functional safety gaps around enum FK migration behavior, attribute required/default invariants, and permanent delete blockers.
+
+### Execution checklist
+- [x] Fix `schema-ddl` FK migration path for `REF -> enumeration` to target `_app_enum_values(id)` and ensure system tables are present before FK creation
+- [x] Add backend invariant guard for `toggle-required` (`label` mode + required enum REF requires valid `defaultEnumValueId`)
+- [x] Add blocker checks to Enumerations permanent delete route (parity with soft delete semantics)
+- [x] Add regression tests for all three fixes (`schema-ddl` + metahubs backend routes)
+- [x] Run targeted lint/test/build verification for touched packages and record outcomes
+
+## Completed: Enumerations QA Remediation Round 2 — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode after comprehensive QA findings. Goal is to remove high/medium risks that still affect Enumerations behavior and migration safety.
+
+### Execution checklist
+- [x] Introduce explicit metahub structure V3 (keep V2 immutable), move `_mhb_enum_values` addition to V3, and align template minimum structure version
+- [x] Fix Enumerations routes consistency: `_upl_*` timestamps in API payloads + single-hub validation on create endpoints
+- [x] Harden application enum sync to remap stale runtime references before soft-deleting removed enum values
+- [x] Resolve remaining blocking prettier errors in touched backend template services
+- [x] Add/adjust regression tests for structure version expectations and migration plan target version
+- [x] Run targeted verification (`build`/`test`/`lint`) for affected packages and record outcomes
+
+## Completed: Enumerations Stabilization Implementation — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode after QA. Goal is to resolve compile/runtime blockers and formatter errors introduced by Enumerations rollout.
+
+### Execution checklist
+- [x] Align `EnumerationValueDefinition` usage (`presentation` vs legacy `name/description`) across snapshot + sync flow
+- [x] Fix `enumerationsRoutes` typing/runtime blockers (`updated.presentation/config` unknown, missing `attributesService` in value delete handler)
+- [x] Fix metahub migration route seed counters mismatch (`enumValuesAdded` in zero seed counts)
+- [x] Fix `MetahubAttributesService.findElementEnumValueBlockers` result typing (`rows.map` compile issue)
+- [x] Fix optimistic lock entity type narrowing in `MetahubObjectsService` / `MetahubEnumerationValuesService`
+- [x] Validate and harden enumeration value sync mapping for `_app_enum_values`
+- [x] Replace destructive enum sync cleanup with safe soft-delete/restore semantics to avoid FK/NOT NULL migration breakage
+- [x] Resolve Prettier errors in new Enumerations frontend files (`metahubs-frontend`)
+- [x] Run targeted verification: build + test + lint for touched packages and record outcomes
+
 ## PR #682 Bot Review Fixes — 2026-02-18
 
 > **Context**: Gemini Code Assist and Copilot PR Reviewer left 10 comments on PR #682. QA analysis confirmed 9 actionable items.
@@ -22,6 +83,53 @@
 ### Verification
 - [x] Build: 66/66 packages
 - [x] Memory-bank updated
+
+---
+
+## Completed: Enumerations QA Hardening — 2026-02-19 ✅
+
+> **Context**: Post-QA implementation hardening for enumeration sync safety, metadata cleanup correctness, and regression coverage.
+
+### Backend/DDL fixes
+- [x] Make `syncSystemMetadata(removeMissing=true)` cleanup run **before** upsert to prevent `(kind, codename)` unique conflicts on recreate
+- [x] Enable `removeMissing: true` for all schema sync paths that can run with no DDL changes (application sync + publication sync + migrator paths)
+- [x] Harden `syncEnumerationValues()` with duplicate ID guard and stale-row cleanup for removed enumeration objects
+- [x] Add declarative unique partial index `uidx_mhb_enum_values_default_active` to `_mhb_enum_values` system table definition
+
+### Compatibility + regression
+- [x] Add runtime-compatible enumeration kind fallback in `schema-ddl` for mixed `@universo/types` versions
+- [x] Fix `calculateSchemaDiff()` old snapshot entity ID extraction (`Object.entries` + id restore)
+- [x] Add regression test: enumeration entities are ignored by physical DDL diff
+- [x] Add regression test: metadata cleanup happens before upsert when `removeMissing=true`
+
+### Verification
+- [x] `pnpm --filter @universo/schema-ddl lint` (warnings only, no errors)
+- [x] `pnpm --filter @universo/schema-ddl test` (7/7 test suites passed)
+- [x] `pnpm --filter @universo/schema-ddl build` (success)
+- [x] `pnpm --filter @universo/metahubs-backend exec eslint ...` for touched backend files (warnings only, no errors)
+- [x] `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/systemTableMigrator.test.ts` (passed)
+
+---
+
+## In Progress: Enumerations Feature Implementation — 2026-02-18
+
+> **Context**: Implementing metahub/application Enumerations end-to-end (entity kind, values, REF support, runtime controls, sync, i18n, routes, and tests/build verification).
+
+### Execution checklist
+- [x] Finalize shared contracts: `MetaEntityKind.ENUMERATION`, enum value/presentation types, schema/table version constants
+- [x] Implement metahub backend enumeration domain (routes + value CRUD + hub association + delete blockers)
+- [x] Extend attribute backend validation and payload normalization for `REF -> enumeration`
+- [x] Extend publication snapshot serializer/deserializer for enumeration entities and values
+- [x] Extend template manifest validator, seed executor, and seed migrator for enumeration support
+- [x] Extend application sync pipeline to copy enumeration values into `_app_enum_values`
+- [x] Extend runtime backend (`applicationsRoutes`) to expose/read/write `REF` and validate enum value ownership
+- [x] Extend `apps-template-mui` runtime API/types/form renderer for enum presentation modes (`select`, `radio`, `label`)
+- [x] Complete metahub frontend enumerations domain (API + hooks + list + values)
+- [x] Add metahub menu + route wiring (`metahubs-frontend`, `universo-template-mui`)
+- [x] Extend attribute frontend UX: target entity selector supports enumerations and presentation tab supports enum modes/defaults
+- [x] Add i18n keys and localized labels in EN/RU for menus, metahub pages, and runtime controls
+- [x] Run targeted lint/build for touched files/packages and resolve introduced errors (full `metahubs-backend` build still blocked by pre-existing unrelated TypeScript issues)
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with implementation summary
 
 ---
 
@@ -704,10 +812,10 @@
 
 ---
 
-## Completed: Structure V2 + Template Cleanup + DDL QA — 2026-02-11 ✅
+## Completed: Structure Baseline + Template Cleanup + DDL QA — 2026-02-11 ✅
 
-### Structure V2 + Cleanup Policy
-- [x] `_mhb_widgets` table rename from `_mhb_layout_zone_widgets`, `CURRENT_STRUCTURE_VERSION=2`
+### Structure Baseline + Cleanup Policy
+- [x] `_mhb_widgets` baseline alignment, `CURRENT_STRUCTURE_VERSION=1`
 - [x] Safe rename execution in SystemTableMigrator transaction
 - [x] Template cleanup policy: `keep`/`dry_run`/`confirm` modes with blocker support
 - [x] Removed starter `tags` catalog from template

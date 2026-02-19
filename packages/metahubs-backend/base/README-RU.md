@@ -126,7 +126,7 @@ export const catalogTemplate: MetahubTemplateManifest = {
   $schema: 'metahub-template/v1',
   codename: 'catalog-manager',
   version: '1.0.0',
-  minStructureVersion: 2,
+  minStructureVersion: 1,
   name: vlc('Catalog Manager', 'Менеджер каталогов'),
   description: vlc('Template for product catalog management', 'Шаблон для управления каталогами товаров'),
   meta: { author: 'universo-platformo', tags: ['catalog'], icon: 'Inventory' },
@@ -171,8 +171,8 @@ export const builtinTemplates: MetahubTemplateManifest[] = [
 | `_mhb_elements` | V1 | Предустановленные записи данных для каталогов (JSONB) |
 | `_mhb_settings` | V1 | Настройки ветки в формате ключ-значение |
 | `_mhb_layouts` | V1 | UI-макеты для опубликованных приложений (шаблоны дашбордов) |
-| `_mhb_layout_zone_widgets` | V1 | Назначение виджетов по зонам макета с порядком сортировки и конфигом |
-| `_mhb_migrations` | V2 | История миграций с отслеживанием версий и метаданными |
+| `_mhb_widgets` | V1 | Назначение виджетов по зонам макета с порядком сортировки и конфигом |
+| `_mhb_migrations` | V1 | История миграций с отслеживанием версий и метаданными |
 
 Все таблицы автоматически включают:
 - **Поля `_upl_*`** (16 колонок) — аудит на уровне платформы, оптимистическая блокировка, мягкое удаление, архив, блокировка записей
@@ -220,7 +220,7 @@ SystemTableDef[]              ──→ SystemTableDDLGenerator  ──→ Knex 
 MetahubTemplateManifest
   └─ seed: MetahubTemplateSeed
        ├─ layouts[]              ──→  _mhb_layouts
-       ├─ layoutZoneWidgets{}    ──→  _mhb_layout_zone_widgets
+       ├─ layoutZoneWidgets{}    ──→  _mhb_widgets
        ├─ settings[]             ──→  _mhb_settings
        ├─ entities[]             ──→  _mhb_objects + _mhb_attributes
        └─ elements{}             ──→  _mhb_elements
@@ -517,7 +517,7 @@ src/
 │   │   │   ├── MetahubSchemaService.ts       # Оркестратор жизненного цикла схемы
 │   │   │   ├── SystemTableDDLGenerator.ts    # Декларативный DDL → Knex DDL
 │   │   │   ├── SystemTableMigrator.ts        # Движок аддитивных миграций
-│   │   │   ├── systemTableDefinitions.ts     # Декларативные определения таблиц (V1/V2)
+│   │   │   ├── systemTableDefinitions.ts     # Декларативные определения таблиц (базовая версия V1)
 │   │   │   ├── systemTableDiff.ts            # Движок различий (старая vs новая версия)
 │   │   │   ├── structureVersions.ts          # Реестр версий, CURRENT_STRUCTURE_VERSION
 │   │   │   ├── MetahubAttributesService.ts

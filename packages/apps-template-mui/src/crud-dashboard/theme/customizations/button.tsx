@@ -1,4 +1,3 @@
-import { Theme, Components } from '@mui/material/styles';
+import { Theme, Components } from '@mui/material/styles'
 
-/* eslint-disable import/prefer-default-export */
-export const buttonCustomizations: Components<Theme> = {};
+export const buttonCustomizations: Components<Theme> = {}

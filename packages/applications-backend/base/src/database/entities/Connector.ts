@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, VersionColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    CreateDateColumn,
+    UpdateDateColumn,
+    VersionColumn,
+    ManyToOne,
+    OneToMany,
+    JoinColumn
+} from 'typeorm'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { Application } from './Application'
 import { ConnectorPublication } from './ConnectorPublication'

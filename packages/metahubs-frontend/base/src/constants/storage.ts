@@ -17,6 +17,10 @@ export const STORAGE_KEYS = {
     CATALOG_DISPLAY_STYLE: 'metahubsCatalogDisplayStyle',
     /** Display style for All Catalogs list (card/table) */
     ALL_CATALOGS_DISPLAY_STYLE: 'metahubsAllCatalogsDisplayStyle',
+    /** Display style for Enumerations list within a hub (card/table) */
+    ENUMERATION_DISPLAY_STYLE: 'metahubsEnumerationDisplayStyle',
+    /** Display style for All Enumerations list (card/table) */
+    ALL_ENUMERATIONS_DISPLAY_STYLE: 'metahubsAllEnumerationsDisplayStyle',
     /** Display style for Sections list (card/table) */
     SECTION_DISPLAY_STYLE: 'metahubsSectionDisplayStyle',
     /** Display style for Entities list (card/table) */

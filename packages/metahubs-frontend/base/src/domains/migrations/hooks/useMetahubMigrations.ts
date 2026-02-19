@@ -18,7 +18,7 @@ export function useMetahubMigrationsList(metahubId: string, options?: UseMetahub
         queryKey: metahubsQueryKeys.migrationsList(metahubId, { limit, offset, branchId }),
         queryFn: () => migrationsApi.listMetahubMigrations(metahubId, { limit, offset, branchId }),
         enabled: enabled && Boolean(metahubId),
-        staleTime: 30_000
+        ...MIGRATION_STATUS_QUERY_OPTIONS
     })
 }
 
@@ -35,7 +35,7 @@ export function useMetahubMigrationsPlan(metahubId: string, options?: UseMetahub
         queryKey: metahubsQueryKeys.migrationsPlan(metahubId, branchId, cleanupMode),
         queryFn: () => migrationsApi.planMetahubMigrations(metahubId, { branchId, cleanupMode }),
         enabled: enabled && Boolean(metahubId),
-        staleTime: 30_000
+        ...MIGRATION_STATUS_QUERY_OPTIONS
     })
 }
 

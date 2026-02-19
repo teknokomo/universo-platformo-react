@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import { AttributeDataType, getPhysicalDataType, formatPhysicalType } from '@universo/types'
+import { AttributeDataType, MetaEntityKind, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildSchemaSnapshot } from './snapshot'
 import { buildFkConstraintName, generateColumnName, generateTableName, isValidSchemaName } from './naming'
@@ -7,6 +7,9 @@ import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
+
+const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
+    'enumeration') as MetaEntityKind
 
 /**
  * Options for generateFullSchema method
@@ -92,9 +95,15 @@ export class SchemaGenerator {
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {
+                    if (entity.kind === ENUMERATION_KIND) {
+                        continue
+                    }
                     await this.createEntityTable(schemaName, entity, trx)
                     result.tablesCreated.push(entity.codename)
                 }
+
+                // Ensure system tables before adding REF FKs that may target _app_enum_values.
+                await this.ensureSystemTables(schemaName, trx)
 
                 for (const entity of entities) {
                     const refFields = entity.fields.filter((field) => field.dataType === AttributeDataType.REF && field.targetEntityId)
@@ -147,6 +156,11 @@ export class SchemaGenerator {
     }
 
     public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
+        if (entity.kind === ENUMERATION_KIND) {
+            console.log(`[SchemaGenerator] Skipping physical table for enumeration entity: ${entity.codename}`)
+            return
+        }
+
         const tableName = generateTableName(entity.id, entity.kind)
         console.log(`[SchemaGenerator] Creating table: ${schemaName}.${tableName} (entity: ${entity.codename})`)
 
@@ -246,20 +260,36 @@ export class SchemaGenerator {
             return
         }
 
+        const sourceTableName = generateTableName(entity.id, entity.kind)
+        const columnName = generateColumnName(field.id)
+        const constraintName = buildFkConstraintName(sourceTableName, columnName)
+        const knex = trx ?? this.knex
+
+        if (field.targetEntityKind === ENUMERATION_KIND) {
+            await this.ensureSystemTables(schemaName, trx)
+            console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> _app_enum_values.id`)
+            await knex.raw(
+                `
+                ALTER TABLE ??.??
+                ADD CONSTRAINT ??
+                FOREIGN KEY (??)
+                REFERENCES ??._app_enum_values(id)
+                ON DELETE SET NULL
+            `,
+                [schemaName, sourceTableName, constraintName, columnName, schemaName]
+            )
+            return
+        }
+
         const targetEntity = entities.find((item) => item.id === field.targetEntityId)
         if (!targetEntity) {
             console.warn(`[SchemaGenerator] Target entity ${field.targetEntityId} not found for REF field ${field.id}`)
             return
         }
 
-        const sourceTableName = generateTableName(entity.id, entity.kind)
         const targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
-        const columnName = generateColumnName(field.id)
-        const constraintName = buildFkConstraintName(sourceTableName, columnName)
 
         console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> ${targetTableName}.id`)
-
-        const knex = trx ?? this.knex
         await knex.raw(
             `
             ALTER TABLE ??.??
@@ -606,6 +636,68 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_widgets created`)
         }
 
+        const hasEnumValues = await knex.schema.withSchema(schemaName).hasTable('_app_enum_values')
+        console.log(`[SchemaGenerator] _app_enum_values exists: ${hasEnumValues}`)
+        if (!hasEnumValues) {
+            console.log(`[SchemaGenerator] Creating _app_enum_values...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_enum_values', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
+                table.string('codename', 100).notNullable()
+                table.jsonb('presentation').notNullable().defaultTo('{}')
+                table.integer('sort_order').notNullable().defaultTo(0)
+                table.boolean('is_default').notNullable().defaultTo(false)
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['object_id'], 'idx_app_enum_values_object_id')
+                table.index(['object_id', 'sort_order'], 'idx_app_enum_values_object_sort')
+            })
+            console.log(`[SchemaGenerator] _app_enum_values created`)
+        }
+
+        await this.normalizeAppEnumValueDefaults(schemaName, knex)
+        await knex.raw(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_enum_values_object_codename_active
+            ON "${schemaName}"._app_enum_values (object_id, codename)
+            WHERE _upl_deleted = false AND _app_deleted = false
+        `)
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_app_enum_values_default_active
+            ON "${schemaName}"._app_enum_values (object_id, is_default)
+            WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
+        `)
+        await knex.raw(`
+            CREATE UNIQUE INDEX IF NOT EXISTS uidx_app_enum_values_default_active
+            ON "${schemaName}"._app_enum_values (object_id)
+            WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
+        `)
+
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
             await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {
@@ -660,6 +752,31 @@ export class SchemaGenerator {
         console.log(`[SchemaGenerator] System tables ensured in schema: ${schemaName}`)
     }
 
+    private async normalizeAppEnumValueDefaults(schemaName: string, knex: Knex | Knex.Transaction): Promise<void> {
+        await knex.raw(
+            `
+                WITH ranked AS (
+                    SELECT
+                        id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY object_id
+                            ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
+                        ) AS row_number
+                    FROM "${schemaName}"._app_enum_values
+                    WHERE is_default = true
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
+                )
+                UPDATE "${schemaName}"._app_enum_values AS ev
+                SET is_default = false,
+                    _upl_updated_at = NOW()
+                FROM ranked
+                WHERE ev.id = ranked.id
+                  AND ranked.row_number > 1
+            `
+        )
+    }
+
     public async syncSystemMetadata(
         schemaName: string,
         entities: EntityDefinition[],
@@ -672,6 +789,25 @@ export class SchemaGenerator {
         const knex = options?.trx ?? this.knex
         const userId = options?.userId ?? null
         await this.ensureSystemTables(schemaName, options?.trx)
+
+        if (options?.removeMissing) {
+            const entityIds = entities.map((entity) => entity.id)
+            const attributeIds = entities.flatMap((entity) => entity.fields.map((field) => field.id))
+
+            const objectsTable = knex.withSchema(schemaName).table('_app_objects')
+            if (entityIds.length > 0) {
+                await objectsTable.whereNotIn('id', entityIds).del()
+            } else {
+                await objectsTable.del()
+            }
+
+            const attributesTable = knex.withSchema(schemaName).table('_app_attributes')
+            if (attributeIds.length > 0) {
+                await attributesTable.whereNotIn('id', attributeIds).del()
+            } else {
+                await attributesTable.del()
+            }
+        }
 
         const objectRows = entities.map((entity) => ({
             id: entity.id,
@@ -737,25 +873,6 @@ export class SchemaGenerator {
                     '_upl_updated_at',
                     '_upl_updated_by'
                 ])
-        }
-
-        if (options?.removeMissing) {
-            const entityIds = entities.map((entity) => entity.id)
-            const attributeIds = entities.flatMap((entity) => entity.fields.map((field) => field.id))
-
-            const attributesTable = knex.withSchema(schemaName).table('_app_attributes')
-            if (attributeIds.length > 0) {
-                await attributesTable.whereNotIn('id', attributeIds).del()
-            } else {
-                await attributesTable.del()
-            }
-
-            const objectsTable = knex.withSchema(schemaName).table('_app_objects')
-            if (entityIds.length > 0) {
-                await objectsTable.whereNotIn('id', entityIds).del()
-            } else {
-                await objectsTable.del()
-            }
         }
     }
 

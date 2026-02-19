@@ -19,7 +19,7 @@ export enum ApplicationSchemaStatus {
     /** Schema update available but not yet applied */
     UPDATE_AVAILABLE = 'update_available',
     /** Schema is being migrated — read-only mode */
-    MAINTENANCE = 'maintenance',
+    MAINTENANCE = 'maintenance'
 }
 
 /**
@@ -69,7 +69,7 @@ export class Application {
         enum: ApplicationSchemaStatus,
         enumName: 'application_schema_status',
         default: ApplicationSchemaStatus.DRAFT,
-        nullable: true,
+        nullable: true
     })
     schemaStatus?: ApplicationSchemaStatus | null
 
