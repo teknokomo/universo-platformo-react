@@ -540,6 +540,7 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 30,
         group: 'danger',
         enabled: (ctx) => !ctx.entity.isDefault,

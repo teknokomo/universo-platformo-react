@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, IconButton, Skeleton, Stack, Typography } from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -29,7 +28,7 @@ import {
     useConfirm,
     RoleChip
 } from '@universo/template-mui'
-import type { ActionContext, AssignableRole, TableColumn, TriggerProps } from '@universo/template-mui'
+import type { ActionContext, AssignableRole, TableColumn } from '@universo/template-mui'
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { BaseEntityMenu, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 import type { MemberFormData } from '@universo/template-mui'
@@ -39,7 +38,8 @@ import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as metahubsApi from '../api'
 import { metahubsQueryKeys } from '../../shared'
-import { MetahubMember } from '../../../types'
+import { MetahubMember, getVLCString } from '../../../types'
+import { extractLocalizedInput } from '../../../utils/localizedInput'
 import metahubMemberActions from './MetahubMemberActions'
 
 // Re-export MemberFormData as MemberData for backward compatibility
@@ -48,11 +48,15 @@ type MemberData = MemberFormData
 function isMemberFormData(data: unknown): data is MemberData {
     if (!data || typeof data !== 'object') return false
     const d = data as Record<string, unknown>
+    const hasValidCommentVlc =
+        d.commentVlc === undefined ||
+        (typeof d.commentVlc === 'object' && d.commentVlc !== null && 'locales' in (d.commentVlc as Record<string, unknown>))
     return (
         typeof d.email === 'string' &&
         typeof d.role === 'string' &&
         ['admin', 'editor', 'member'].includes(d.role) &&
-        (d.comment === undefined || typeof d.comment === 'string')
+        (d.comment === undefined || typeof d.comment === 'string') &&
+        hasValidCommentVlc
     )
 }
 
@@ -71,7 +75,7 @@ interface ConfirmSpec {
 export const MetahubMembers = () => {
     const { metahubId } = useParams<{ metahubId: string }>()
     const { user } = useAuth()
-    const { i18n } = useTranslation(['metahubs', 'roles', 'common', 'flowList'])
+    const { t, i18n } = useTranslation(['metahubs', 'roles', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
@@ -128,17 +132,19 @@ export const MetahubMembers = () => {
         setInviteDialogOpen(false)
     }
 
-    const handleInviteMember = async (data: { email: string; role: AssignableRole; comment?: string }) => {
+    const handleInviteMember = async (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
         if (!metahubId) return
 
         setInviteDialogError(null)
         try {
+            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
             await inviteMember.mutateAsync({
                 metahubId,
                 data: {
                     email: data.email,
                     role: data.role,
-                    comment: data.comment
+                    comment: commentInput ?? null,
+                    commentPrimaryLocale
                 }
             })
             handleInviteDialogSave()
@@ -159,6 +165,11 @@ export const MetahubMembers = () => {
             console.error('Failed to invite member', error)
         }
     }
+
+    const resolveMemberComment = useCallback(
+        (member: MetahubMember) => getVLCString(member.commentVlc ?? undefined, i18n.language) || member.comment || '',
+        [i18n.language]
+    )
 
     const handleChange = (_event: React.MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
@@ -196,10 +207,11 @@ export const MetahubMembers = () => {
             width: '25%',
             align: 'left',
             render: (row: MetahubMember) => {
-                if (!row.comment) return null
+                const comment = resolveMemberComment(row)
+                if (!comment) return null
                 return (
                     <Typography variant='body2' noWrap sx={{ maxWidth: 200 }}>
-                        {row.comment}
+                        {comment}
                     </Typography>
                 )
             }
@@ -243,10 +255,14 @@ export const MetahubMembers = () => {
                     await updateMemberRoleMutation.mutateAsync({
                         metahubId,
                         memberId: id,
-                        data: {
-                            role: data.role as AssignableRole,
-                            comment: data.comment
-                        }
+                        data: (() => {
+                            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+                            return {
+                                role: data.role as AssignableRole,
+                                comment: commentInput ?? null,
+                                commentPrimaryLocale
+                            }
+                        })()
                     })
                 },
                 deleteEntity: async (id: string) => {
@@ -395,7 +411,9 @@ export const MetahubMembers = () => {
                                                 data={{
                                                     ...member,
                                                     name: member.email || tc('noEmail'),
-                                                    description: [member.nickname, member.comment].filter(Boolean).join('\n') || undefined
+                                                    description:
+                                                        [member.nickname, resolveMemberComment(member)].filter(Boolean).join('\n') ||
+                                                        undefined
                                                 }}
                                                 images={images[member.id] || []}
                                                 onClick={undefined}
@@ -410,15 +428,6 @@ export const MetahubMembers = () => {
                                                                 namespace='metahubs'
                                                                 i18nInstance={i18n}
                                                                 createContext={createMemberContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null
@@ -485,12 +494,15 @@ export const MetahubMembers = () => {
             <MemberFormDialog
                 open={isInviteDialogOpen}
                 mode='create'
-                title={tc('members.inviteMember')}
+                title={t('members.addMemberTitle', 'Add member')}
                 emailLabel={tc('members.emailLabel')}
                 roleLabel={tc('members.roleLabel')}
                 commentLabel={tc('members.commentLabel')}
                 commentPlaceholder={tc('members.commentPlaceholder')}
                 commentCharacterCountFormatter={(count, max) => tc('members.validation.commentCharacterCount', { count, max })}
+                commentTooLongMessage={tc('members.validation.commentTooLong')}
+                commentMode='localized'
+                uiLocale={i18n.language}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}

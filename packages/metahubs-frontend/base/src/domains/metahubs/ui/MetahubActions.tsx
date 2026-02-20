@@ -424,6 +424,7 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         dialog: {

@@ -65,6 +65,14 @@ export interface FieldConfig {
     refTargetEntityId?: string | null
     /** Optional target entity kind for REF fields */
     refTargetEntityKind?: string | null
+    /** Runtime options for REF fields (catalog/enumeration). */
+    refOptions?: Array<{
+        id: string
+        label: string
+        codename?: string
+        isDefault?: boolean
+        sortOrder?: number
+    }>
     /** Runtime options for REF->enumeration fields. */
     enumOptions?: Array<{
         id: string
@@ -860,7 +868,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             }
             case 'REF':
                 if (field.refTargetEntityKind === 'enumeration' && Array.isArray(field.enumOptions)) {
-                    const options = field.enumOptions
+                    const options = field.refOptions && field.refOptions.length > 0 ? field.refOptions : field.enumOptions
                     const mode = field.enumPresentationMode ?? 'select'
                     const selectedOption = options.find((option) => option.id === value)
                     const allowEmpty = field.enumAllowEmpty !== false
@@ -916,6 +924,30 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 {!field.required && allowEmpty && <MenuItem value=''>{'\u00A0'}</MenuItem>}
                                 {!allowEmpty && <MenuItem value='' sx={{ display: 'none' }} />}
                                 {options.map((option) => (
+                                    <MenuItem key={option.id} value={option.id}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {helperText ? <FormHelperText>{helperText}</FormHelperText> : null}
+                        </FormControl>
+                    )
+                }
+
+                if (Array.isArray(field.refOptions) && field.refOptions.length > 0) {
+                    return (
+                        <FormControl fullWidth error={Boolean(fieldError)}>
+                            <InputLabel id={`${field.id}-ref-select-label`}>{field.label}</InputLabel>
+                            <Select
+                                labelId={`${field.id}-ref-select-label`}
+                                value={typeof value === 'string' ? value : ''}
+                                label={field.label}
+                                onChange={(event) => handleFieldChange(field.id, event.target.value || null)}
+                                required={field.required}
+                                disabled={disabled}
+                            >
+                                {!field.required && <MenuItem value=''>{'\u00A0'}</MenuItem>}
+                                {field.refOptions.map((option) => (
                                     <MenuItem key={option.id} value={option.id}>
                                         {option.label}
                                     </MenuItem>

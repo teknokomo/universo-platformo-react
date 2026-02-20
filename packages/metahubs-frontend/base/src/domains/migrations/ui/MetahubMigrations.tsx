@@ -230,7 +230,7 @@ const MetahubMigrations = () => {
             <Stack flexDirection='column' sx={{ gap: 1 }}>
                 <ViewHeader title={t('metahubs:migrations.title', 'Migrations')} />
 
-                <Stack sx={{ pb: 2 }} spacing={2}>
+                <Stack sx={{ pb: 2, mx: { xs: -1.5, md: -2 } }} spacing={2}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
                         <FormControl size='small' sx={{ minWidth: 320 }}>
                             <InputLabel>{t('metahubs:migrations.branchLabel', 'Branch')}</InputLabel>
@@ -312,7 +312,7 @@ const MetahubMigrations = () => {
                         />
                     ) : (
                         <>
-                            <Box sx={{ mx: { xs: -2, md: -2 } }}>
+                            <Box>
                                 <FlowListTable<MigrationDisplayRow>
                                     data={rows}
                                     images={{}}
@@ -323,7 +323,7 @@ const MetahubMigrations = () => {
                             </Box>
 
                             {totalItems > 0 ? (
-                                <Box sx={{ mx: { xs: -2, md: -2 }, mt: 2 }}>
+                                <Box sx={{ mt: 2 }}>
                                     <PaginationControls
                                         pagination={pagination}
                                         actions={paginationActions}

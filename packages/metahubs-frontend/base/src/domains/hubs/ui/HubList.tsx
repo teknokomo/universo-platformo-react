@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Divider } from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography, Divider } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -28,7 +27,6 @@ import {
 } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps } from '@universo/template-mui'
 
 import { useCreateHub, useUpdateHub, useDeleteHub } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
@@ -144,14 +142,14 @@ const HubList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Use paginated hook for hubs list
-    const paginationResult = usePaginated<Hub, 'codename' | 'created' | 'updated'>({
+    const paginationResult = usePaginated<Hub, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn: metahubId ? (params) => metahubsQueryKeys.hubsList(metahubId, params) : () => ['empty'],
         queryFn: metahubId
             ? (params) => hubsApi.listHubs(metahubId, params)
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
-        sortBy: 'updated',
-        sortOrder: 'desc',
+        sortBy: 'sortOrder',
+        sortOrder: 'asc',
         enabled: !!metahubId
     })
 
@@ -263,6 +261,19 @@ const HubList = () => {
 
     const hubColumns = useMemo(
         () => [
+            {
+                id: 'sortOrder',
+                label: t('attributes.table.order', '#'),
+                width: '4%',
+                align: 'center' as const,
+                sortable: true,
+                sortAccessor: (row: HubDisplay) => row.sortOrder ?? 0,
+                render: (row: HubDisplay) => (
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
+                        {typeof row.sortOrder === 'number' ? row.sortOrder : '—'}
+                    </Typography>
+                )
+            },
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
@@ -602,15 +613,6 @@ const HubList = () => {
                                                                 namespace='metahubs'
                                                                 i18nInstance={i18n}
                                                                 createContext={createHubContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null

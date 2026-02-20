@@ -105,6 +105,13 @@ const resolveLocalizedContent = (value: unknown, locale: string, fallback: strin
 }
 
 type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON'
+type RuntimeRefOption = {
+    id: string
+    label: string
+    codename?: string
+    isDefault?: boolean
+    sortOrder?: number
+}
 
 const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: string): unknown => {
     if (value === null || value === undefined) {
@@ -564,6 +571,110 @@ export function createApplicationsRoutes(
                 }
             }
 
+            const catalogTargetObjectIds = Array.from(
+                new Set(
+                    safeAttributes
+                        .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'catalog' && attr.target_object_id)
+                        .map((attr) => String(attr.target_object_id))
+                )
+            )
+
+            const catalogRefOptionsMap = new Map<string, RuntimeRefOption[]>()
+            if (catalogTargetObjectIds.length > 0) {
+                const targetCatalogs = (await manager.query(
+                    `
+                        SELECT id, codename, table_name
+                        FROM ${schemaIdent}._app_objects
+                        WHERE id = ANY($1::uuid[])
+                          AND kind = 'catalog'
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                    `,
+                    [catalogTargetObjectIds]
+                )) as Array<{
+                    id: string
+                    codename: string
+                    table_name: string
+                }>
+
+                const targetCatalogAttrs = (await manager.query(
+                    `
+                        SELECT object_id, column_name, codename, data_type, is_display_attribute, sort_order
+                        FROM ${schemaIdent}._app_attributes
+                        WHERE object_id = ANY($1::uuid[])
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        ORDER BY object_id ASC, is_display_attribute DESC, sort_order ASC, codename ASC
+                    `,
+                    [catalogTargetObjectIds]
+                )) as Array<{
+                    object_id: string
+                    column_name: string
+                    codename: string
+                    data_type: RuntimeDataType
+                    is_display_attribute: boolean
+                    sort_order?: number
+                }>
+
+                const attrsByCatalogId = new Map<string, typeof targetCatalogAttrs>()
+                for (const row of targetCatalogAttrs) {
+                    const list = attrsByCatalogId.get(row.object_id) ?? []
+                    list.push(row)
+                    attrsByCatalogId.set(row.object_id, list)
+                }
+
+                for (const targetCatalog of targetCatalogs) {
+                    if (!IDENTIFIER_REGEX.test(targetCatalog.table_name)) {
+                        continue
+                    }
+
+                    const targetAttrs = attrsByCatalogId.get(targetCatalog.id) ?? []
+                    const preferredDisplayAttr =
+                        targetAttrs.find((attr) => attr.is_display_attribute) ??
+                        targetAttrs.find((attr) => attr.data_type === 'STRING') ??
+                        targetAttrs[0]
+
+                    const selectLabelSql =
+                        preferredDisplayAttr && IDENTIFIER_REGEX.test(preferredDisplayAttr.column_name)
+                            ? `${quoteIdentifier(preferredDisplayAttr.column_name)} AS label_value`
+                            : 'NULL AS label_value'
+
+                    const targetRows = (await manager.query(
+                        `
+                            SELECT id, ${selectLabelSql}
+                            FROM ${schemaIdent}.${quoteIdentifier(targetCatalog.table_name)}
+                            WHERE COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                            ORDER BY _upl_created_at ASC NULLS LAST, id ASC
+                            LIMIT 1000
+                        `
+                    )) as Array<{
+                        id: string
+                        label_value?: unknown
+                    }>
+
+                    const options: RuntimeRefOption[] = targetRows.map((row, index) => {
+                        const rawLabel = row.label_value
+                        const localizedLabel =
+                            preferredDisplayAttr?.data_type === 'STRING'
+                                ? resolveRuntimeValue(rawLabel, 'STRING', requestedLocale)
+                                : rawLabel
+                        const label =
+                            typeof localizedLabel === 'string' && localizedLabel.trim().length > 0 ? localizedLabel : String(row.id)
+
+                        return {
+                            id: row.id,
+                            label,
+                            codename: targetCatalog.codename,
+                            isDefault: false,
+                            sortOrder: index
+                        }
+                    })
+
+                    catalogRefOptionsMap.set(targetCatalog.id, options)
+                }
+            }
+
             const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
             const selectColumns = ['id', ...safeAttributes.map((attr) => quoteIdentifier(attr.column_name))]
 
@@ -827,6 +938,14 @@ export function createApplicationsRoutes(
                     uiConfig: attribute.ui_config ?? {},
                     refTargetEntityId: attribute.target_object_id ?? null,
                     refTargetEntityKind: attribute.target_object_kind ?? null,
+                    refOptions:
+                        attribute.data_type === 'REF' &&
+                        typeof attribute.target_object_id === 'string' &&
+                        (attribute.target_object_kind === 'enumeration' || attribute.target_object_kind === 'catalog')
+                            ? attribute.target_object_kind === 'enumeration'
+                                ? enumOptionsMap.get(attribute.target_object_id) ?? []
+                                : catalogRefOptionsMap.get(attribute.target_object_id) ?? []
+                            : undefined,
                     enumOptions:
                         attribute.data_type === 'REF' &&
                         attribute.target_object_kind === 'enumeration' &&

@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import { useTranslation } from 'react-i18next'
@@ -32,7 +31,7 @@ import {
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps, ActionDescriptor } from '@universo/template-mui'
+import type { ActionDescriptor } from '@universo/template-mui'
 
 import { useUpdateApplication, useDeleteApplication, useCopyApplication } from '../hooks/mutations'
 import { useViewPreference } from '../hooks/useViewPreference'
@@ -561,15 +560,6 @@ const ApplicationList = () => {
                                                                 namespace='applications'
                                                                 i18nInstance={i18n}
                                                                 createContext={createApplicationContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null

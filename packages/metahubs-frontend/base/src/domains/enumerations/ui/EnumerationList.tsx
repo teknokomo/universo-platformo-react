@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Chip, Divider, Tabs, Tab } from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography, Chip, Divider, Tabs, Tab } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -29,7 +28,6 @@ import {
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps } from '@universo/template-mui'
 
 import {
     useCreateEnumeration,
@@ -248,7 +246,7 @@ const EnumerationList = () => {
     const hubs = useMemo(() => hubsData?.items ?? [], [hubsData?.items])
 
     // Use paginated hook for enumerations list - conditional API based on isHubScoped
-    const paginationResult = usePaginated<EnumerationWithHubs, 'codename' | 'created' | 'updated'>({
+    const paginationResult = usePaginated<EnumerationWithHubs, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn: metahubId
             ? isHubScoped
                 ? (params) => metahubsQueryKeys.enumerationsList(metahubId, hubId!, params)
@@ -260,8 +258,8 @@ const EnumerationList = () => {
                 : (params) => enumerationsApi.listAllEnumerations(metahubId, params)
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
-        sortBy: 'updated',
-        sortOrder: 'desc',
+        sortBy: 'sortOrder',
+        sortOrder: 'asc',
         enabled: !!metahubId && (isHubScoped ? !!hubId : true)
     })
 
@@ -435,6 +433,19 @@ const EnumerationList = () => {
     const enumerationColumns = useMemo(() => {
         // Base columns for both modes
         const baseColumns = [
+            {
+                id: 'sortOrder',
+                label: t('attributes.table.order', '#'),
+                width: '4%',
+                align: 'center' as const,
+                sortable: true,
+                sortAccessor: (row: EnumerationWithHubsDisplay) => row.sortOrder ?? 0,
+                render: (row: EnumerationWithHubsDisplay) => (
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
+                        {typeof row.sortOrder === 'number' ? row.sortOrder : '—'}
+                    </Typography>
+                )
+            },
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
@@ -1003,15 +1014,6 @@ const EnumerationList = () => {
                                                                 namespace='metahubs'
                                                                 i18nInstance={i18n}
                                                                 createContext={createEnumerationContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null

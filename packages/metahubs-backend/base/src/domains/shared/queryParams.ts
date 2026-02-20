@@ -11,7 +11,7 @@ export const ListQuerySchema = z.object({
     offset: z.coerce.number().int().min(0, 'Offset must be non-negative').default(0),
 
     // Sorting
-    sortBy: z.enum(['name', 'codename', 'created', 'updated']).default('updated'),
+    sortBy: z.enum(['name', 'codename', 'created', 'updated', 'sortOrder']).default('updated'),
 
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
 

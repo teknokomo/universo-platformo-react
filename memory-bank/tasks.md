@@ -2,6 +2,51 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: PR #686 Bot Review Fixes — 2026-02-20 ✅
+
+> **Context**: IMPLEMENT mode. Applied fixes for 5 valid bot review comments (Gemini + Copilot) on PR #686.
+
+### Code fixes
+- [x] Add `_upl_version` increment to `removeHubFromObjectAssociations` update in `hubsRoutes.ts`
+- [x] Standardize error response envelope in `metahubsRoutes.ts` for `normalizedComment.error` (2 locations)
+- [x] Add `maxLength={510}` to `LocalizedInlineField` in `MemberFormDialog.tsx` and replace hardcoded English validation message with i18n prop
+- [x] Add missing i18n keys (`members.validation.commentCharacterCount`, `members.validation.commentTooLong`) to EN/RU `metahubs.json`
+- [x] Revert migration `1766351182000` back to `comment TEXT` and create new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts`
+- [x] Update `MetahubMembers.tsx` to pass `commentTooLongMessage` prop to `MemberFormDialog`
+- [x] Update test assertion in `metahubsRoutes.test.ts` to match new error envelope format
+
+### Verification
+- [x] Build: 66/66 packages
+- [x] Tests: 15/15 suites, 83 passed
+- [x] Commit and push to PR #686
+
+---
+
+## Completed: Hub Delete Blockers for Enumerations — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode. Extend hub delete blocker logic and UI from catalogs-only to catalogs + enumerations.
+
+### Execution checklist
+- [x] Analyze current hub delete blocker flow in backend and frontend dialog
+- [x] Add backend blocker detection for enumerations with same rule as catalogs (`isSingleHub` + `isRequiredHub` + only this hub linked)
+- [x] Extend hub delete API blocker payload with grouped sections (`catalogs`, `enumerations`) and totals
+- [x] Update frontend hub delete dialog to show separate tables for blocking catalogs and blocking enumerations
+- [x] Run targeted tests/lint/build for touched packages and record outcomes
+
+## Completed: Unified Action Menus, Row Indexing, Access Member Dialog, Migrations Spacing — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode. Unify action menu UX and row numbering across metahubs/applications lists; modernize access member dialog (including VLC comment); align migrations page spacing.
+
+### Execution checklist
+- [x] Finalize unified `BaseEntityMenu` behavior (three-dot trigger + icon/text spacing + danger action color) and remove per-page trigger deviations in target lists/cards
+- [x] Ensure all delete actions in affected metahub/application menus use `tone: 'danger'` so destructive entries are red and visually consistent
+- [x] Complete `#` auto-number column parity for hubs, catalogs, enumerations (frontend columns + stable backend sorting by `sortOrder`)
+- [x] Refactor metahub access add/edit member dialog to standard spacing and migrate member comment to VLC payload/storage/rendering
+- [x] Update add-member dialog title to localized “Добавление участника / Add member” while preserving short toolbar button text
+- [x] Verify and align migrations page horizontal gutters with other list sections (no extra side padding)
+- [x] Keep structure/template default versions unchanged and avoid adding legacy fallback branches
+- [x] Run targeted lint/build checks for touched packages and record outcomes
+
 ## Completed: Enumerations QA Remediation Round 5 — 2026-02-19 ✅
 
 > **Context**: IMPLEMENT mode after latest QA report. Goal is to close critical runtime/backend gaps without widening scope.

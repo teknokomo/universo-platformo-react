@@ -136,6 +136,127 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null
 }
 
+function resolveLocalizedPreviewText(value: unknown): string | null {
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed.length > 0 ? trimmed : null
+    }
+
+    if (!isRecord(value)) return null
+
+    const locales = value.locales
+    const primary = value._primary
+    if (!isRecord(locales)) return null
+
+    if (typeof primary === 'string' && isRecord(locales[primary]) && typeof locales[primary].content === 'string') {
+        const content = locales[primary].content.trim()
+        if (content.length > 0) return content
+    }
+
+    for (const localeValue of Object.values(locales)) {
+        if (isRecord(localeValue) && typeof localeValue.content === 'string') {
+            const content = localeValue.content.trim()
+            if (content.length > 0) return content
+        }
+    }
+
+    return null
+}
+
+function normalizeReferenceId(value: unknown): string | null {
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed.length > 0 ? trimmed : null
+    }
+    if (!isRecord(value)) return null
+
+    const directId = value.id
+    if (typeof directId === 'string' && directId.trim().length > 0) {
+        return directId.trim()
+    }
+
+    const nestedValue = value.value
+    if (typeof nestedValue === 'string' && nestedValue.trim().length > 0) {
+        return nestedValue.trim()
+    }
+
+    if (isRecord(nestedValue) && typeof nestedValue.id === 'string' && nestedValue.id.trim().length > 0) {
+        return nestedValue.id.trim()
+    }
+
+    return null
+}
+
+function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string[] {
+    const catalogs = entities.filter((entity) => entity.kind === 'catalog')
+    const catalogById = new Map(catalogs.map((entity) => [entity.id, entity]))
+    const adjacency = new Map<string, Set<string>>()
+    const indegree = new Map<string, number>()
+
+    for (const entity of catalogs) {
+        adjacency.set(entity.id, new Set())
+        indegree.set(entity.id, 0)
+    }
+
+    for (const entity of catalogs) {
+        for (const field of entity.fields ?? []) {
+            if (field.dataType !== AttributeDataType.REF) continue
+            if (field.targetEntityKind !== 'catalog') continue
+            const targetId = field.targetEntityId
+            if (typeof targetId !== 'string' || targetId.length === 0 || targetId === entity.id) continue
+            if (!catalogById.has(targetId)) continue
+
+            const neighbors = adjacency.get(targetId)
+            if (!neighbors || neighbors.has(entity.id)) continue
+            neighbors.add(entity.id)
+            indegree.set(entity.id, (indegree.get(entity.id) ?? 0) + 1)
+        }
+    }
+
+    const queue = catalogs
+        .filter((entity) => (indegree.get(entity.id) ?? 0) === 0)
+        .map((entity) => entity.id)
+        .sort((a, b) => {
+            const aEntity = catalogById.get(a)
+            const bEntity = catalogById.get(b)
+            if (!aEntity || !bEntity) return a.localeCompare(b)
+            const codenameCmp = aEntity.codename.localeCompare(bEntity.codename)
+            return codenameCmp !== 0 ? codenameCmp : a.localeCompare(b)
+        })
+
+    const ordered: string[] = []
+    while (queue.length > 0) {
+        const current = queue.shift()
+        if (!current) continue
+        ordered.push(current)
+
+        const nextIds = Array.from(adjacency.get(current) ?? []).sort((a, b) => {
+            const aEntity = catalogById.get(a)
+            const bEntity = catalogById.get(b)
+            if (!aEntity || !bEntity) return a.localeCompare(b)
+            const codenameCmp = aEntity.codename.localeCompare(bEntity.codename)
+            return codenameCmp !== 0 ? codenameCmp : a.localeCompare(b)
+        })
+        for (const nextId of nextIds) {
+            const nextDegree = (indegree.get(nextId) ?? 0) - 1
+            indegree.set(nextId, nextDegree)
+            if (nextDegree === 0) {
+                queue.push(nextId)
+                queue.sort((a, b) => {
+                    const aEntity = catalogById.get(a)
+                    const bEntity = catalogById.get(b)
+                    if (!aEntity || !bEntity) return a.localeCompare(b)
+                    const codenameCmp = aEntity.codename.localeCompare(bEntity.codename)
+                    return codenameCmp !== 0 ? codenameCmp : a.localeCompare(b)
+                })
+            }
+        }
+    }
+
+    const unprocessed = catalogs.map((entity) => entity.id).filter((id) => !ordered.includes(id))
+    return [...ordered, ...unprocessed]
+}
+
 /**
  * Validates numeric values against NUMERIC(precision, scale) constraints.
  * Throws an error if the value is invalid or overflows.
@@ -202,8 +323,11 @@ async function seedPredefinedElements(
     const now = new Date()
     const warnings: string[] = []
 
+    const catalogOrder = resolveCatalogSeedingOrder(entities)
+
     await knex.transaction(async (trx) => {
-        for (const [objectId, rawElements] of Object.entries(snapshot.elements ?? {})) {
+        for (const objectId of catalogOrder) {
+            const rawElements = snapshot.elements?.[objectId] as unknown[] | undefined
             const elements = (rawElements ?? []) as SnapshotElementRow[]
             if (!elements || elements.length === 0) continue
 
@@ -261,6 +385,8 @@ async function seedPredefinedElements(
                                 tableName,
                                 elementId: element.id
                             })
+                        } else if (field.dataType === AttributeDataType.REF) {
+                            row[columnName] = normalizeReferenceId(rawValue)
                         } else {
                             row[columnName] = rawValue
                         }
@@ -658,6 +784,71 @@ type SnapshotElementRow = {
     sortOrder?: number
 }
 
+function resolveElementPreviewLabel(entity: EntityDefinition, data: Record<string, unknown>): string | null {
+    const fields = entity.fields ?? []
+    const displayField =
+        fields.find((field) => field.isDisplayAttribute) ?? fields.find((field) => field.dataType === AttributeDataType.STRING) ?? fields[0]
+
+    if (!displayField) return null
+    const rawValue = data[displayField.codename]
+    if (rawValue === null || rawValue === undefined) return null
+
+    const localized = resolveLocalizedPreviewText(rawValue)
+    if (localized) return localized
+
+    if (typeof rawValue === 'string') return rawValue
+    if (typeof rawValue === 'number' || typeof rawValue === 'boolean') return String(rawValue)
+    return null
+}
+
+function buildPreviewLabelMaps(
+    entities: EntityDefinition[],
+    snapshot: MetahubSnapshot
+): {
+    catalogElementLabels: Map<string, Map<string, string>>
+    enumerationValueLabels: Map<string, Map<string, string>>
+} {
+    const entityMap = new Map(entities.map((entity) => [entity.id, entity]))
+    const catalogElementLabels = new Map<string, Map<string, string>>()
+    const enumerationValueLabels = new Map<string, Map<string, string>>()
+
+    for (const [objectId, rawElements] of Object.entries(snapshot.elements ?? {})) {
+        const entity = entityMap.get(objectId)
+        if (!entity || entity.kind !== 'catalog') continue
+
+        const labels = new Map<string, string>()
+        for (const rawElement of rawElements ?? []) {
+            const element = (rawElement ?? {}) as SnapshotElementRow
+            if (!element.id || !isRecord(element.data)) continue
+
+            const label = resolveElementPreviewLabel(entity, element.data as Record<string, unknown>)
+            if (label) {
+                labels.set(element.id, label)
+            }
+        }
+        if (labels.size > 0) {
+            catalogElementLabels.set(objectId, labels)
+        }
+    }
+
+    for (const [objectId, values] of Object.entries(snapshot.enumerationValues ?? {})) {
+        const labels = new Map<string, string>()
+        for (const value of values ?? []) {
+            const presentation = isRecord(value.presentation) ? (value.presentation as Record<string, unknown>) : null
+            const localizedName = resolveLocalizedPreviewText(presentation?.name)
+            const label = localizedName || value.codename || value.id
+            if (value.id && label) {
+                labels.set(value.id, label)
+            }
+        }
+        if (labels.size > 0) {
+            enumerationValueLabels.set(objectId, labels)
+        }
+    }
+
+    return { catalogElementLabels, enumerationValueLabels }
+}
+
 function buildCreateTableDetails(options: {
     entities: EntityDefinition[]
     snapshot: MetahubSnapshot
@@ -665,6 +856,7 @@ function buildCreateTableDetails(options: {
 }): DiffTableDetails[] {
     const { entities, snapshot, includeEntityIds } = options
     const catalogEntities = entities.filter((entity) => entity.kind === 'catalog')
+    const { catalogElementLabels, enumerationValueLabels } = buildPreviewLabelMaps(entities, snapshot)
 
     return catalogEntities
         .filter((entity) => (includeEntityIds ? includeEntityIds.has(entity.id) : true))
@@ -680,9 +872,45 @@ function buildCreateTableDetails(options: {
             const predefinedElements = Array.isArray(elements)
                 ? elements.map((el) => {
                       const normalized = (el ?? {}) as Record<string, unknown>
+                      const rawData = (normalized.data as Record<string, unknown>) ?? {}
+                      const previewData: Record<string, unknown> = {}
+
+                      for (const field of entity.fields ?? []) {
+                          const rawValue = rawData[field.codename]
+                          if (rawValue === null || rawValue === undefined) {
+                              previewData[field.codename] = rawValue
+                              continue
+                          }
+
+                          if (field.dataType !== AttributeDataType.REF) {
+                              previewData[field.codename] = rawValue
+                              continue
+                          }
+
+                          const refId = normalizeReferenceId(rawValue)
+                          if (!refId) {
+                              previewData[field.codename] = rawValue
+                              continue
+                          }
+
+                          if (field.targetEntityKind === ENUMERATION_KIND && field.targetEntityId) {
+                              const label = enumerationValueLabels.get(field.targetEntityId)?.get(refId)
+                              previewData[field.codename] = label ?? refId
+                              continue
+                          }
+
+                          if (field.targetEntityKind === 'catalog' && field.targetEntityId) {
+                              const label = catalogElementLabels.get(field.targetEntityId)?.get(refId)
+                              previewData[field.codename] = label ?? refId
+                              continue
+                          }
+
+                          previewData[field.codename] = refId
+                      }
+
                       return {
                           id: String(normalized.id ?? ''),
-                          data: (normalized.data as Record<string, unknown>) ?? {},
+                          data: previewData,
                           sortOrder: typeof normalized.sortOrder === 'number' ? normalized.sortOrder : 0
                       }
                   })

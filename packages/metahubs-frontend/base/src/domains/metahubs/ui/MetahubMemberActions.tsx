@@ -7,5 +7,12 @@ import type { MetahubMember } from '../../../types'
  */
 export default createMemberActions<MetahubMember>({
     i18nPrefix: 'metahubs',
-    entityType: 'metahub'
+    entityType: 'metahub',
+    localizedComment: true,
+    getInitialFormData: (member) => ({
+        initialEmail: member.email || '',
+        initialRole: member.role,
+        initialComment: member.comment || '',
+        initialCommentVlc: member.commentVlc ?? null
+    })
 })

@@ -205,6 +205,7 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         // Use custom onSelect to open HubDeleteDialog with blocking catalogs check

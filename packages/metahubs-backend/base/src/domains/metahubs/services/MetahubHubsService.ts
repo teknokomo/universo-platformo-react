@@ -1,3 +1,4 @@
+import type { Knex } from 'knex'
 import { KnexClient, generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { escapeLikeWildcards } from '../../../utils'
@@ -17,6 +18,25 @@ export class MetahubHubsService {
 
     private get knex() {
         return KnexClient.getInstance()
+    }
+
+    private async getNextSortOrder(schemaName: string, trx?: Knex.Transaction): Promise<number> {
+        const runner = trx ?? this.knex
+        const result = await runner
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind: 'hub' })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .select(this.knex.raw("COALESCE(MAX((config->>'sortOrder')::int), 0) as max_sort_order"))
+            .first<{ max_sort_order: number | string | null }>()
+
+        const maxSortOrder = Number(result?.max_sort_order ?? 0)
+        if (!Number.isFinite(maxSortOrder)) {
+            return 1
+        }
+
+        return maxSortOrder + 1
     }
 
     /**
@@ -71,6 +91,8 @@ export class MetahubHubsService {
             query = query.orderByRaw(`presentation->'name'->>'en' ${sortOrder}`)
         } else if (options.sortBy === 'codename') {
             query = query.orderBy('codename', sortOrder)
+        } else if (options.sortBy === 'sortOrder') {
+            query = query.orderByRaw(`COALESCE((config->>'sortOrder')::int, 0) ${sortOrder}`)
         } else if (options.sortBy === 'created') {
             query = query.orderBy('_upl_created_at', sortOrder)
         } else if (options.sortBy === 'updated') {
@@ -141,37 +163,43 @@ export class MetahubHubsService {
         userId?: string
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        return this.knex.transaction(async (trx) => {
+            const sortOrder =
+                typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
+                    ? input.sortOrder
+                    : await this.getNextSortOrder(schemaName, trx)
 
-        const [created] = await this.knex
-            .withSchema(schemaName)
-            .into('_mhb_objects')
-            .insert({
-                kind: 'hub',
-                codename: input.codename,
-                table_name: null,
-                presentation: {
-                    name: input.name,
-                    description: input.description ?? null
-                },
-                config: {
-                    sortOrder: input.sortOrder ?? 0
-                },
-                _upl_created_at: new Date(),
-                _upl_created_by: input.createdBy ?? null,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: input.createdBy ?? null
-            })
-            .returning('*')
+            const [created] = await trx
+                .withSchema(schemaName)
+                .into('_mhb_objects')
+                .insert({
+                    kind: 'hub',
+                    codename: input.codename,
+                    table_name: null,
+                    presentation: {
+                        name: input.name,
+                        description: input.description ?? null
+                    },
+                    config: {
+                        sortOrder
+                    },
+                    _upl_created_at: new Date(),
+                    _upl_created_by: input.createdBy ?? null,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: input.createdBy ?? null
+                })
+                .returning('*')
 
-        const tableName = generateTableName(created.id, 'hub')
-        const [updated] = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_objects')
-            .where({ id: created.id })
-            .update({ table_name: tableName })
-            .returning('*')
+            const tableName = generateTableName(created.id, 'hub')
+            const [updated] = await trx
+                .withSchema(schemaName)
+                .from('_mhb_objects')
+                .where({ id: created.id })
+                .update({ table_name: tableName })
+                .returning('*')
 
-        return this.mapHubFromObject(updated)
+            return this.mapHubFromObject(updated)
+        })
     }
 
     /**

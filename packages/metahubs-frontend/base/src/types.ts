@@ -68,6 +68,7 @@ export interface MetahubMember {
     nickname: string | null
     role: MetahubRole
     comment?: string
+    commentVlc?: VersionedLocalizedContent<string> | null
     createdAt: string
 }
 

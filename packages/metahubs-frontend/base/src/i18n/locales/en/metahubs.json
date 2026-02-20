@@ -358,9 +358,14 @@
       "title": "Delete Hub",
       "message": "Are you sure you want to delete this hub? All catalogs, attributes and elements will be permanently removed.",
       "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
-      "fetchError": "Failed to check for blocking catalogs",
+      "fetchError": "Failed to check for blocking entities",
       "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
-      "resolutionHint": "To delete this hub, first add another hub to these catalogs or disable the \"Hub required\" option."
+      "hasBlockingObjects": "Cannot delete hub. The following entities require at least one hub and are only linked to this one:",
+      "resolutionHint": "To delete this hub, first add another hub to these catalogs and enumerations or disable the \"Hub required\" option.",
+      "sections": {
+        "catalogs": "Catalogs",
+        "enumerations": "Enumerations"
+      }
     },
     "codename": "Codename",
     "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
@@ -737,6 +742,7 @@
     "searchPlaceholder": "Search members...",
     "noMembersFound": "No members found",
     "inviteMember": "Invite Member",
+    "addMemberTitle": "Add member",
     "editRole": "Change Role",
     "removeMember": "Remove Member",
     "inviteSuccess": "Member successfully invited",
@@ -752,6 +758,10 @@
       "nickname": "Nickname",
       "role": "Role",
       "joinedAt": "Joined"
+    },
+    "validation": {
+      "commentCharacterCount": "{{count}}/{{max}} characters (after trim)",
+      "commentTooLong": "Comment must be 500 characters or less"
     }
   },
   "publications": {

@@ -247,6 +247,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
         id: 'delete',
         labelKey: 'publications.actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         // Use custom onSelect to open ConfirmDeleteDialog via helper (defined in PublicationList.tsx)

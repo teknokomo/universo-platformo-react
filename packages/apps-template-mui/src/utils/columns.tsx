@@ -28,8 +28,10 @@ export interface ToGridColumnsOptions {
  */
 export function toGridColumns(response: AppDataResponse, options?: ToGridColumnsOptions): GridColDef[] {
     const cols: GridColDef[] = response.columns.map((c) => {
-        const enumOptionLabels =
-            c.dataType === 'REF' && Array.isArray(c.enumOptions) && c.enumOptions.length > 0
+        const refOptionLabels =
+            c.dataType === 'REF' && Array.isArray(c.refOptions) && c.refOptions.length > 0
+                ? new Map(c.refOptions.map((option) => [option.id, option.label]))
+                : c.dataType === 'REF' && Array.isArray(c.enumOptions) && c.enumOptions.length > 0
                 ? new Map(c.enumOptions.map((option) => [option.id, option.label]))
                 : null
 
@@ -58,7 +60,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                 if (c.dataType === 'BOOLEAN') {
                     return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
                 }
-                if (c.dataType === 'REF' && enumOptionLabels) {
+                if (c.dataType === 'REF' && refOptionLabels) {
                     let value = ''
                     if (typeof params.value === 'string') {
                         value = params.value
@@ -77,7 +79,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                     }
                     if (!value) return ''
 
-                    return enumOptionLabels.get(value) ?? ''
+                    return refOptionLabels.get(value) ?? ''
                 }
                 if (params.value === null || params.value === undefined) return ''
                 return String(params.value)
@@ -140,6 +142,7 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
         validationRules: (c.validationRules ?? {}) as FieldValidationRules,
         refTargetEntityId: c.refTargetEntityId ?? null,
         refTargetEntityKind: c.refTargetEntityKind ?? null,
+        refOptions: c.refOptions ?? c.enumOptions ?? [],
         enumOptions: c.enumOptions ?? [],
         enumPresentationMode:
             c.uiConfig?.enumPresentationMode === 'radio' || c.uiConfig?.enumPresentationMode === 'label'

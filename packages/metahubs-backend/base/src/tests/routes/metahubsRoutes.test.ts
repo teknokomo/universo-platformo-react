@@ -926,7 +926,17 @@ describe('Metahubs Routes', () => {
                 // Verify comment was trimmed before saving
                 expect(metahubUserRepo.create).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        comment: 'This comment has leading and trailing spaces'
+                        comment: expect.objectContaining({
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({
+                                    content: 'This comment has leading and trailing spaces',
+                                    version: 1,
+                                    isActive: true
+                                })
+                            })
+                        })
                     })
                 )
             })
@@ -957,11 +967,12 @@ describe('Metahubs Routes', () => {
                     .expect(400)
 
                 expect(response.body).toMatchObject({
-                    error: 'Invalid payload'
+                    error: 'Invalid payload',
+                    details: {
+                        formErrors: ['Comment must be 500 characters or less'],
+                        fieldErrors: { comment: ['Comment must be 500 characters or less'] }
+                    }
                 })
-
-                // Verify Zod validation error details
-                expect(response.body.details).toBeDefined()
             })
 
             it('should return 400 with validation details for invalid role or email', async () => {

@@ -43,6 +43,93 @@
 
 ---
 
+## PR #686 Bot Review Fixes (2026-02-20)
+
+Applied all 5 valid bot review recommendations from Gemini Code Assist and Copilot PR Reviewer on PR #686.
+
+### Fixes delivered
+1. **Optimistic locking bug** (`hubsRoutes.ts`): Added missing `_upl_version: knex.raw('_upl_version + 1')` to `removeHubFromObjectAssociations` update query.
+2. **Error response consistency** (`metahubsRoutes.ts`): Changed `normalizedComment.error` responses from `{ error }` to standardized `{ error: 'Invalid payload', details: { formErrors, fieldErrors } }` envelope (2 locations: invite + update).
+3. **LocalizedInlineField maxLength** (`MemberFormDialog.tsx`): Added `maxLength={510}` prop so users see input limit while typing; added `commentTooLongMessage` i18n prop replacing hardcoded English string.
+4. **Missing i18n keys** (EN/RU `metahubs.json`): Added `members.validation.commentCharacterCount` and `members.validation.commentTooLong` keys in both locales.
+5. **Migration safety** (`1766351182000`): Reverted `comment JSONB` back to `comment TEXT` in the already-applied initial migration; created new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts` for the type change.
+
+### Verification
+- Build: 66/66 packages successful
+- Tests: 15/15 suites, 83/83 passed (3 skipped)
+- Updated test assertion in `metahubsRoutes.test.ts` to match new error envelope
+
+---
+
+## Unified Action Menus, Row Indexing, Access Member VLC, Migrations Spacing (2026-02-19)
+
+Completed the implementation pass for menu/action consistency, numbering parity, and metahub access dialog modernization.
+
+### Delivered
+1. **Unified action menu behavior across target lists/cards**:
+   - Removed remaining custom trigger override in `ApplicationMembers` so card/table actions now use the shared three-dot trigger from `BaseEntityMenu`.
+   - Kept the Enumerations Values menu as the visual reference implementation.
+   - Preserved red destructive entries via `tone: 'danger'` in target action descriptors.
+
+2. **Auto-numbering parity for Hubs/Catalogs/Enumerations**:
+   - Added backend auto-assignment for `sortOrder` on create (`max + 1`) in:
+     - `MetahubHubsService.create()`
+     - `MetahubObjectsService.createObject()` (covers catalogs/enumerations and future object kinds).
+   - Updated create routes to stop forcing `sortOrder: 0` when client omits value, enabling service-level sequencing.
+   - Kept list sorting by `sortOrder asc` for stable `#` column behavior.
+
+3. **Metahub members dialog modernization (VLC comments)**:
+   - `MemberFormDialog` now supports localized comment mode (`commentMode='localized'`) with `LocalizedInlineField`.
+   - Metahub member add/edit now reads/writes `commentVlc` payloads and returns both resolved text and VLC object.
+   - Add-member title uses localized key (`members.addMemberTitle`) while toolbar trigger text remains short.
+
+4. **Migrations page horizontal spacing alignment**:
+   - Preserved/validated negative horizontal compensation in `MetahubMigrations` so table/pagination gutters match list pages.
+
+5. **Type/build hardening during implementation**:
+   - Fixed `sortBy` narrow-type comparisons in catalogs/enumerations list sorting blocks.
+   - Fixed union typing for member comment normalization in `metahubsRoutes`.
+
+### Verification
+- `pnpm --filter @universo/template-mui build` ✅
+- `pnpm --filter @universo/applications-frontend build` ✅
+- `pnpm --filter @universo/metahubs-frontend build` ✅
+- `pnpm --filter @universo/metahubs-backend build` ✅
+- `pnpm --filter @universo/template-mui exec eslint src/components/menu/BaseEntityMenu.tsx src/components/dialogs/MemberFormDialog.tsx src/factories/createMemberActions.tsx` ✅ (warnings only)
+- `pnpm --filter @universo/applications-frontend exec eslint src/pages/ApplicationMembers.tsx` ✅ (warnings only)
+- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/metahubs/services/MetahubObjectsService.ts src/domains/metahubs/services/MetahubHubsService.ts src/domains/hubs/routes/hubsRoutes.ts src/domains/catalogs/routes/catalogsRoutes.ts src/domains/enumerations/routes/enumerationsRoutes.ts src/domains/metahubs/routes/metahubsRoutes.ts` ✅ (warnings only)
+
+---
+
+## Hub Delete Blockers for Enumerations (2026-02-19)
+
+Implemented parity blocker logic for Hub deletion so required Enumerations now block deletion exactly like required Catalogs.
+
+### Delivered
+1. **Backend blocker detection expanded**:
+   - Replaced catalogs-only lookup with grouped object detection in `hubsRoutes`.
+   - Added SQL filtering for `kind IN (catalog, enumeration)` with strict required/single-hub conditions.
+   - `GET /blocking-catalogs` now returns grouped payload: `blockingCatalogs`, `blockingEnumerations`, `totalBlocking`, `canDelete`.
+   - `DELETE /hub/:hubId` now blocks when either group is non-empty and returns grouped `409` payload.
+
+2. **Frontend delete dialog upgraded**:
+   - Reworked `HubDeleteDialog` to query grouped blocker payload via TanStack Query.
+   - Added separate tables for blocking Catalogs and blocking Enumerations.
+   - Added links to object editors (`/catalog/:id/attributes`, `/enumeration/:id/values`).
+   - Delete button is now disabled when any blocking object exists.
+
+3. **Localization updated (RU/EN)**:
+   - Added grouped warning strings and section labels for catalogs/enumerations.
+   - Updated blocker fetch error wording from catalogs-only to generic blocking entities.
+
+### Verification
+- `pnpm --filter ./packages/metahubs-backend/base exec eslint src/domains/hubs/routes/hubsRoutes.ts` ✅ (warnings only, no new errors)
+- `pnpm --filter ./packages/metahubs-frontend/base exec eslint src/components/HubDeleteDialog.tsx src/domains/hubs/api/hubs.ts` ✅
+- `pnpm --filter ./packages/metahubs-backend/base build` ✅
+- `pnpm --filter ./packages/metahubs-frontend/base build` ✅
+
+---
+
 ## Enumerations QA Remediation Round 5 (2026-02-19)
 
 Implemented final targeted fixes for runtime consistency and connector sync metadata.

@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, IconButton, Skeleton, Stack, Typography } from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -29,7 +28,7 @@ import {
     useConfirm,
     RoleChip
 } from '@universo/template-mui'
-import type { ActionContext, AssignableRole, TableColumn, TriggerProps } from '@universo/template-mui'
+import type { ActionContext, AssignableRole, TableColumn } from '@universo/template-mui'
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { BaseEntityMenu, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 import type { MemberFormData } from '@universo/template-mui'
@@ -410,15 +409,6 @@ export const ApplicationMembers = () => {
                                                                 namespace='applications'
                                                                 i18nInstance={i18n}
                                                                 createContext={createMemberContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null

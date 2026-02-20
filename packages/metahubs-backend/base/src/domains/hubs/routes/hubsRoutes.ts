@@ -73,33 +73,108 @@ export function createHubsRoutes(
         }
     }
 
+    type BlockingHubObject = {
+        id: string
+        name: unknown
+        codename: string
+    }
+
     /**
-     * Helper function to find catalogs that would block hub deletion.
-     * Uses SQL-level JSONB filtering instead of loading all catalogs into memory.
-     * Returns catalogs with isRequiredHub=true that have this as their ONLY hub association.
+     * Helper function to find objects that would block hub deletion.
+     * Returns objects with:
+     * - config.hubs containing this hub
+     * - config.isRequiredHub=true
+     * - exactly one hub association (this hub only)
      */
-    const findBlockingCatalogs = async (metahubId: string, hubId: string, schemaService: MetahubSchemaService, userId?: string) => {
+    const findBlockingHubObjects = async (metahubId: string, hubId: string, schemaService: MetahubSchemaService, userId?: string) => {
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
         const knex = KnexClient.getInstance()
 
-        // SQL-level filtering using JSONB operators
-        const catalogs = await knex
+        const objects = await knex
             .withSchema(schemaName)
             .from('_mhb_objects')
-            .where({ kind: MetaEntityKind.CATALOG })
-            // hubId exists in config.hubs array
+            .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.ENUMERATION])
             .whereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
-            // isRequiredHub is true
-            .whereRaw(`(config->>'isRequiredHub')::boolean = true`)
-            // hubs array has exactly 1 element
+            .whereRaw(`jsonb_typeof(config->'hubs') = 'array'`)
+            .whereRaw(`COALESCE((config->>'isRequiredHub')::boolean, false) = true`)
             .whereRaw(`jsonb_array_length(config->'hubs') = 1`)
-            .select('id', 'codename', 'presentation')
+            .select('id', 'kind', 'codename', 'presentation')
 
-        return catalogs.map((c: any) => ({
-            id: c.id,
-            name: c.presentation?.name,
-            codename: c.codename
-        }))
+        const blockingCatalogs: BlockingHubObject[] = []
+        const blockingEnumerations: BlockingHubObject[] = []
+
+        for (const objectRow of objects as Array<{
+            id: string
+            kind: string
+            codename: string
+            presentation?: { name?: unknown }
+        }>) {
+            const mapped: BlockingHubObject = {
+                id: objectRow.id,
+                name: objectRow.presentation?.name,
+                codename: objectRow.codename
+            }
+
+            if (objectRow.kind === MetaEntityKind.CATALOG) {
+                blockingCatalogs.push(mapped)
+                continue
+            }
+            if (objectRow.kind === MetaEntityKind.ENUMERATION) {
+                blockingEnumerations.push(mapped)
+            }
+        }
+
+        return {
+            blockingCatalogs,
+            blockingEnumerations
+        }
+    }
+
+    const removeHubFromObjectAssociations = async (
+        metahubId: string,
+        hubId: string,
+        schemaService: MetahubSchemaService,
+        userId?: string
+    ) => {
+        const schemaName = await schemaService.ensureSchema(metahubId, userId)
+        const knex = KnexClient.getInstance()
+
+        await knex.transaction(async (trx) => {
+            const linkedObjects = (await trx
+                .withSchema(schemaName)
+                .from('_mhb_objects')
+                .whereIn('kind', [MetaEntityKind.CATALOG, MetaEntityKind.ENUMERATION])
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .andWhereRaw(`config->'hubs' @> ?::jsonb`, [JSON.stringify([hubId])])
+                .select('id', 'config')) as Array<{ id: string; config?: Record<string, unknown> }>
+
+            if (linkedObjects.length === 0) return
+
+            const now = new Date()
+            for (const objectRow of linkedObjects) {
+                const currentConfig =
+                    objectRow.config && typeof objectRow.config === 'object' ? { ...(objectRow.config as Record<string, unknown>) } : {}
+
+                const currentHubs = Array.isArray(currentConfig.hubs) ? (currentConfig.hubs as unknown[]) : []
+                const filteredHubIds = currentHubs.filter((value): value is string => typeof value === 'string' && value !== hubId)
+
+                if (filteredHubIds.length === currentHubs.length) continue
+
+                currentConfig.hubs = filteredHubIds
+
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_objects')
+                    .where({ id: objectRow.id })
+                    .update({
+                        config: currentConfig,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: knex.raw('_upl_version + 1')
+                    })
+            }
+        })
     }
 
     /**
@@ -273,7 +348,7 @@ export function createHubsRoutes(
                     codename: normalizedCodename,
                     name: nameVlc as unknown as Record<string, unknown>,
                     description: descriptionVlc as unknown as Record<string, unknown> | undefined,
-                    sortOrder: sortOrder ?? 0,
+                    sortOrder,
                     createdBy: userId
                 },
                 userId
@@ -395,8 +470,9 @@ export function createHubsRoutes(
 
     /**
      * GET /metahub/:metahubId/hub/:hubId/blocking-catalogs
-     * Get catalogs that would block this hub's deletion
-     * (catalogs with isRequiredHub=true that have this as their only hub)
+     * Get objects that would block this hub's deletion:
+     * - catalogs with isRequiredHub=true and only this hub
+     * - enumerations with isRequiredHub=true and only this hub
      */
     router.get(
         '/metahub/:metahubId/hub/:hubId/blocking-catalogs',
@@ -411,20 +487,22 @@ export function createHubsRoutes(
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            // Use helper function to find blocking catalogs
-            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService, userId)
+            const { blockingCatalogs, blockingEnumerations } = await findBlockingHubObjects(metahubId, hubId, schemaService, userId)
+            const totalBlocking = blockingCatalogs.length + blockingEnumerations.length
 
             res.json({
                 hubId,
                 blockingCatalogs,
-                canDelete: blockingCatalogs.length === 0
+                blockingEnumerations,
+                totalBlocking,
+                canDelete: totalBlocking === 0
             })
         })
     )
 
     /**
      * DELETE /metahub/:metahubId/hub/:hubId
-     * Delete a hub (blocked if catalogs with isRequiredHub=true would become orphaned)
+     * Delete a hub (blocked if required catalog/enumeration objects would become orphaned)
      */
     router.delete(
         '/metahub/:metahubId/hub/:hubId',
@@ -439,16 +517,19 @@ export function createHubsRoutes(
                 return res.status(404).json({ error: 'Hub not found' })
             }
 
-            // Use helper function to check for blocking catalogs
-            const blockingCatalogs = await findBlockingCatalogs(metahubId, hubId, schemaService, userId)
+            const { blockingCatalogs, blockingEnumerations } = await findBlockingHubObjects(metahubId, hubId, schemaService, userId)
+            const totalBlocking = blockingCatalogs.length + blockingEnumerations.length
 
-            if (blockingCatalogs.length > 0) {
+            if (totalBlocking > 0) {
                 return res.status(409).json({
-                    error: 'Cannot delete hub: catalogs with required hub flag would become orphaned',
-                    blockingCatalogs
+                    error: 'Cannot delete hub: required objects would become orphaned',
+                    blockingCatalogs,
+                    blockingEnumerations,
+                    totalBlocking
                 })
             }
 
+            await removeHubFromObjectAssociations(metahubId, hubId, schemaService, userId)
             await hubsService.delete(metahubId, hubId, userId)
             res.status(204).send()
         })

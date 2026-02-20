@@ -241,7 +241,7 @@ export function createApplicationMigrationsRoutes(
             }
 
             const blockers: StructuredBlocker[] = []
-            const schemaExists = Boolean(app.schemaName)
+            const schemaExists = app.schemaName ? await generator.schemaExists(app.schemaName) : false
 
             if (!schemaExists) {
                 blockers.push({

@@ -1,3 +1,4 @@
+import type { Knex } from 'knex'
 import { KnexClient, generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
@@ -23,6 +24,25 @@ export class MetahubObjectsService {
 
     private get knex() {
         return KnexClient.getInstance()
+    }
+
+    private async getNextSortOrder(schemaName: string, kind: MetahubObjectKind, trx?: Knex.Transaction): Promise<number> {
+        const runner = trx ?? this.knex
+        const result = await runner
+            .withSchema(schemaName)
+            .from('_mhb_objects')
+            .where({ kind })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .select(this.knex.raw("COALESCE(MAX((config->>'sortOrder')::int), 0) as max_sort_order"))
+            .first<{ max_sort_order: number | string | null }>()
+
+        const maxSortOrder = Number(result?.max_sort_order ?? 0)
+        if (!Number.isFinite(maxSortOrder)) {
+            return 1
+        }
+
+        return maxSortOrder + 1
     }
 
     /**
@@ -89,38 +109,51 @@ export class MetahubObjectsService {
         userId?: string
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const [created] = await this.knex
-            .withSchema(schemaName)
-            .into('_mhb_objects')
-            .insert({
-                kind,
-                codename: input.codename,
-                table_name: null,
-                presentation: {
-                    name: input.name,
-                    description: input.description
-                },
-                config: input.config || {},
-                _upl_created_at: new Date(),
-                _upl_created_by: input.createdBy ?? null,
-                _upl_updated_at: new Date(),
-                _upl_updated_by: input.createdBy ?? null
-            })
-            .returning('*')
 
-        // Only catalogs/documents/hubs may need physical runtime tables.
-        if (kind !== 'enumeration') {
-            const tableName = generateTableName(created.id, kind)
-            const [updated] = await this.knex
+        return this.knex.transaction(async (trx) => {
+            const config =
+                input.config && typeof input.config === 'object'
+                    ? { ...(input.config as Record<string, unknown>) }
+                    : ({} as Record<string, unknown>)
+
+            const hasExplicitSortOrder = typeof config.sortOrder === 'number' && Number.isFinite(config.sortOrder)
+            if (!hasExplicitSortOrder) {
+                config.sortOrder = await this.getNextSortOrder(schemaName, kind, trx)
+            }
+
+            const [created] = await trx
                 .withSchema(schemaName)
-                .from('_mhb_objects')
-                .where({ id: created.id })
-                .update({ table_name: tableName })
+                .into('_mhb_objects')
+                .insert({
+                    kind,
+                    codename: input.codename,
+                    table_name: null,
+                    presentation: {
+                        name: input.name,
+                        description: input.description
+                    },
+                    config,
+                    _upl_created_at: new Date(),
+                    _upl_created_by: input.createdBy ?? null,
+                    _upl_updated_at: new Date(),
+                    _upl_updated_by: input.createdBy ?? null
+                })
                 .returning('*')
-            return updated
-        }
 
-        return created
+            // Only catalogs/documents/hubs may need physical runtime tables.
+            if (kind !== 'enumeration') {
+                const tableName = generateTableName(created.id, kind)
+                const [updated] = await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_objects')
+                    .where({ id: created.id })
+                    .update({ table_name: tableName })
+                    .returning('*')
+                return updated
+            }
+
+            return created
+        })
     }
 
     /**

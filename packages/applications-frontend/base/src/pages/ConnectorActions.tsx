@@ -99,11 +99,7 @@ const ConnectorEditFields = ({
  * Tab 1: General (name, description)
  * Tab 2: Publications (read-only display of linked publications with locked constraints)
  */
-const buildFormTabs = (
-    ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>,
-    applicationId: string,
-    connectorId: string
-) => {
+const buildFormTabs = (ctx: ActionContext<ConnectorDisplay, ConnectorLocalizedPayload>, applicationId: string, connectorId: string) => {
     return ({
         values,
         setValue,
@@ -173,9 +169,7 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: applicationId
-                        ? buildFormTabs(ctx, applicationId, connectorId)
-                        : undefined,
+                    tabs: applicationId ? buildFormTabs(ctx, applicationId, connectorId) : undefined,
                     // Fallback to extraFields if applicationId is not available
                     extraFields: applicationId
                         ? undefined
@@ -226,6 +220,7 @@ const connectorActions: readonly ActionDescriptor<ConnectorDisplay, ConnectorLoc
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         // Deletion is disabled: connectors cannot be deleted individually, only with the whole application

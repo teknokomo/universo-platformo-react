@@ -12,6 +12,7 @@ import { Template } from '../../../database/entities/Template'
 import { Profile } from '@universo/profile-backend'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } from '../../shared/guards'
 import { z } from 'zod'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
@@ -119,6 +120,53 @@ const resolveMetahubCopyConflictError = (error: unknown): string | null => {
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
 
+const isCommentVlc = (value: unknown): value is VersionedLocalizedContent<string> =>
+    Boolean(value && typeof value === 'object' && 'locales' in value && '_primary' in value)
+
+const resolveLocalizedCommentText = (commentValue: unknown): string | undefined => {
+    if (typeof commentValue === 'string') {
+        const trimmed = commentValue.trim()
+        return trimmed.length > 0 ? trimmed : undefined
+    }
+    if (!isCommentVlc(commentValue)) return undefined
+
+    const primary = commentValue._primary
+    const primaryContent = commentValue.locales[primary]?.content
+    if (typeof primaryContent === 'string' && primaryContent.trim().length > 0) {
+        return primaryContent.trim()
+    }
+
+    for (const entry of Object.values(commentValue.locales)) {
+        if (typeof entry?.content === 'string' && entry.content.trim().length > 0) {
+            return entry.content.trim()
+        }
+    }
+
+    return undefined
+}
+
+const normalizeCommentVlcOutput = (commentValue: unknown): VersionedLocalizedContent<string> | null =>
+    isCommentVlc(commentValue) ? commentValue : null
+
+const normalizeMemberCommentInput = (
+    comment: Record<string, string | undefined> | null | undefined,
+    primaryLocale?: string
+): { commentVlc: VersionedLocalizedContent<string> | null; error?: string } => {
+    if (comment === null) {
+        return { commentVlc: null }
+    }
+
+    const sanitized = sanitizeLocalizedInput(comment ?? {})
+    for (const value of Object.values(sanitized)) {
+        if (value.length > 500) {
+            return { commentVlc: null, error: 'Comment must be 500 characters or less' }
+        }
+    }
+
+    const commentVlc = buildLocalizedContent(sanitized, primaryLocale, 'en')
+    return { commentVlc: commentVlc ?? null }
+}
+
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
     const entries = Object.entries(locales)
@@ -172,13 +220,18 @@ export function createMetahubsRoutes(
         }
     }
 
+    const memberCommentInputSchema = z
+        .union([z.string(), z.record(z.string(), z.string().optional())])
+        .transform((value) => (typeof value === 'string' ? { en: value } : value))
+
     const mapMember = (member: MetahubUser, email: string | null, nickname: string | null) => ({
         id: member.id,
         userId: member.userId,
         email,
         nickname,
         role: (member.role || 'member') as MetahubRole,
-        comment: member.comment,
+        comment: resolveLocalizedCommentText(member.comment),
+        commentVlc: normalizeCommentVlcOutput(member.comment),
         createdAt: member._uplCreatedAt
     })
 
@@ -1285,10 +1338,6 @@ export function createMetahubsRoutes(
         '/metahub/:metahubId/members',
         writeLimiter,
         asyncHandler(async (req, res) => {
-            // ... code snippet logic ...
-            // Reusing previous logic, just ensuring no changes needed for members
-            // ...
-            // Shortening for file writing purposes to full content
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
@@ -1303,17 +1352,18 @@ export function createMetahubsRoutes(
             const schema = z.object({
                 email: z.string().email(),
                 role: z.enum(['admin', 'editor', 'member']),
-                comment: z
-                    .string()
-                    .trim()
-                    .max(500)
-                    .optional()
-                    .transform((val) => (val && val.length > 0 ? val : undefined))
+                comment: memberCommentInputSchema.nullable().optional(),
+                commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
             })
 
             const result = schema.safeParse(req.body)
             if (!result.success) {
                 return res.status(400).json({ error: 'Invalid payload', details: result.error.flatten() })
+            }
+
+            const normalizedComment = normalizeMemberCommentInput(result.data.comment, result.data.commentPrimaryLocale)
+            if (normalizedComment.error) {
+                return res.status(400).json({ error: 'Invalid payload', details: { formErrors: [normalizedComment.error], fieldErrors: { comment: [normalizedComment.error] } } })
             }
 
             // Find user by email
@@ -1341,7 +1391,7 @@ export function createMetahubsRoutes(
                 metahubId,
                 userId: authUser.id,
                 role: result.data.role,
-                comment: result.data.comment,
+                comment: normalizedComment.commentVlc,
                 _uplCreatedBy: userId,
                 _uplUpdatedBy: userId
             })
@@ -1352,7 +1402,8 @@ export function createMetahubsRoutes(
                 userId: authUser.id,
                 email: authUser.email,
                 role: membership.role,
-                comment: membership.comment,
+                comment: resolveLocalizedCommentText(membership.comment),
+                commentVlc: normalizeCommentVlcOutput(membership.comment),
                 createdAt: membership._uplCreatedAt
             })
         })
@@ -1385,12 +1436,8 @@ export function createMetahubsRoutes(
 
             const schema = z.object({
                 role: z.enum(['admin', 'editor', 'member']).optional(),
-                comment: z
-                    .string()
-                    .trim()
-                    .max(500)
-                    .optional()
-                    .transform((val) => (val && val.length > 0 ? val : undefined))
+                comment: memberCommentInputSchema.nullable().optional(),
+                commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -1398,8 +1445,17 @@ export function createMetahubsRoutes(
                 return res.status(400).json({ error: 'Invalid payload', details: result.error.flatten() })
             }
 
+            const normalizedComment: { commentVlc: VersionedLocalizedContent<string> | null | undefined; error?: string } =
+                result.data.comment !== undefined
+                    ? normalizeMemberCommentInput(result.data.comment, result.data.commentPrimaryLocale)
+                    : { commentVlc: undefined }
+
+            if (normalizedComment.error) {
+                return res.status(400).json({ error: 'Invalid payload', details: { formErrors: [normalizedComment.error], fieldErrors: { comment: [normalizedComment.error] } } })
+            }
+
             if (result.data.role !== undefined) membership.role = result.data.role
-            if (result.data.comment !== undefined) membership.comment = result.data.comment
+            if (result.data.comment !== undefined) membership.comment = normalizedComment.commentVlc ?? null
             membership._uplUpdatedBy = userId
 
             await metahubUserRepo.save(membership)
@@ -1408,7 +1464,8 @@ export function createMetahubsRoutes(
                 id: membership.id,
                 userId: membership.userId,
                 role: membership.role,
-                comment: membership.comment,
+                comment: resolveLocalizedCommentText(membership.comment),
+                commentVlc: normalizeCommentVlcOutput(membership.comment),
                 createdAt: membership._uplCreatedAt
             })
         })

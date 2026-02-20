@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, VersionColumn } from 'typeorm'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { Metahub } from './Metahub'
 
 @Entity({ name: 'metahubs_users', schema: 'metahubs' })
@@ -18,8 +19,8 @@ export class MetahubUser {
     @Column({ type: 'varchar', length: 50, default: 'owner' })
     role!: string
 
-    @Column({ type: 'text', nullable: true })
-    comment?: string
+    @Column({ type: 'jsonb', nullable: true })
+    comment?: VersionedLocalizedContent<string> | null
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Platform-level system fields (_upl_*)
