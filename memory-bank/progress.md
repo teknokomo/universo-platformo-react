@@ -43,6 +43,24 @@
 
 ---
 
+## PR #686 Bot Review Fixes (2026-02-20)
+
+Applied all 5 valid bot review recommendations from Gemini Code Assist and Copilot PR Reviewer on PR #686.
+
+### Fixes delivered
+1. **Optimistic locking bug** (`hubsRoutes.ts`): Added missing `_upl_version: knex.raw('_upl_version + 1')` to `removeHubFromObjectAssociations` update query.
+2. **Error response consistency** (`metahubsRoutes.ts`): Changed `normalizedComment.error` responses from `{ error }` to standardized `{ error: 'Invalid payload', details: { formErrors, fieldErrors } }` envelope (2 locations: invite + update).
+3. **LocalizedInlineField maxLength** (`MemberFormDialog.tsx`): Added `maxLength={510}` prop so users see input limit while typing; added `commentTooLongMessage` i18n prop replacing hardcoded English string.
+4. **Missing i18n keys** (EN/RU `metahubs.json`): Added `members.validation.commentCharacterCount` and `members.validation.commentTooLong` keys in both locales.
+5. **Migration safety** (`1766351182000`): Reverted `comment JSONB` back to `comment TEXT` in the already-applied initial migration; created new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts` for the type change.
+
+### Verification
+- Build: 66/66 packages successful
+- Tests: 15/15 suites, 83/83 passed (3 skipped)
+- Updated test assertion in `metahubsRoutes.test.ts` to match new error envelope
+
+---
+
 ## Unified Action Menus, Row Indexing, Access Member VLC, Migrations Spacing (2026-02-19)
 
 Completed the implementation pass for menu/action consistency, numbering parity, and metahub access dialog modernization.

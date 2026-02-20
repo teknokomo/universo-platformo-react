@@ -1,12 +1,31 @@
 # Active Context
 
-> **Last Updated**: 2026-02-19
+> **Last Updated**: 2026-02-20
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Enumerations QA Remediation Round 4 Completed
+## Current Focus: PR #686 Bot Review Fixes Completed
+
+**Status**: Completed in IMPLEMENT mode, all 5 bot review recommendations applied and pushed.
+**Date**: 2026-02-20
+**Branch**: `feature/metahubs-tables-improvement`
+**PR**: #686
+
+### Applied Fixes
+1. **Optimistic locking**: Added `_upl_version` increment in `removeHubFromObjectAssociations` (`hubsRoutes.ts`).
+2. **Error envelope**: Standardized `normalizedComment.error` responses to `{error, details}` pattern (`metahubsRoutes.ts`, 2 locations).
+3. **LocalizedInlineField UX**: Added `maxLength={510}` prop + i18n `commentTooLongMessage` prop (`MemberFormDialog.tsx`).
+4. **i18n completeness**: Added `members.validation.commentCharacterCount` and `commentTooLong` keys to EN/RU locales.
+5. **Migration safety**: Reverted initial migration back to `TEXT`, created new `1766351182001-AlterMetahubUsersCommentToJsonb.ts` migration.
+
+### Verification
+- Build: 66/66 packages ✅
+- Tests: 15/15 suites, 83 passed ✅
+- Pushed to PR #686 ✅
+
+## Previous Focus: Enumerations QA Remediation Round 4 Completed
 
 **Status**: Completed in IMPLEMENT mode, safety fixes + regression tests delivered.
 **Date**: 2026-02-19

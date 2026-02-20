@@ -2,21 +2,23 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
-## PR #686 Bot Review Fixes — 2026-02-20
+## Completed: PR #686 Bot Review Fixes — 2026-02-20 ✅
 
-> **Context**: IMPLEMENT mode. Apply fixes for 5 valid bot review comments (Gemini + Copilot) on PR #686.
+> **Context**: IMPLEMENT mode. Applied fixes for 5 valid bot review comments (Gemini + Copilot) on PR #686.
 
 ### Code fixes
-- [ ] Add `_upl_version` increment to `removeHubFromObjectAssociations` update in `hubsRoutes.ts`
-- [ ] Standardize error response envelope in `metahubsRoutes.ts` for `normalizedComment.error` (2 locations)
-- [ ] Add `maxLength={510}` to `LocalizedInlineField` in `MemberFormDialog.tsx` and replace hardcoded English validation message with i18n prop
-- [ ] Add missing i18n keys (`members.validation.commentCharacterCount`, `members.validation.commentTooLong`) to EN/RU `metahubs.json`
-- [ ] Revert migration `1766351182000` back to `comment TEXT` and create new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts`
-- [ ] Update `MetahubMembers.tsx` to pass `commentTooLongMessage` prop to `MemberFormDialog`
+- [x] Add `_upl_version` increment to `removeHubFromObjectAssociations` update in `hubsRoutes.ts`
+- [x] Standardize error response envelope in `metahubsRoutes.ts` for `normalizedComment.error` (2 locations)
+- [x] Add `maxLength={510}` to `LocalizedInlineField` in `MemberFormDialog.tsx` and replace hardcoded English validation message with i18n prop
+- [x] Add missing i18n keys (`members.validation.commentCharacterCount`, `members.validation.commentTooLong`) to EN/RU `metahubs.json`
+- [x] Revert migration `1766351182000` back to `comment TEXT` and create new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts`
+- [x] Update `MetahubMembers.tsx` to pass `commentTooLongMessage` prop to `MemberFormDialog`
+- [x] Update test assertion in `metahubsRoutes.test.ts` to match new error envelope format
 
 ### Verification
-- [ ] Build affected packages
-- [ ] Commit and push to PR #686
+- [x] Build: 66/66 packages
+- [x] Tests: 15/15 suites, 83 passed
+- [x] Commit and push to PR #686
 
 ---
 
