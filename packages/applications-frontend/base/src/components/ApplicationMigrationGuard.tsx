@@ -12,13 +12,14 @@
  */
 
 import { type ReactNode } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Chip, DialogTitle, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { UpdateSeverity } from '@universo/types'
 import { MigrationGuardShell, type GuardRenderContext } from '@universo/migration-guard-shared'
 import type { ApplicationMigrationStatusResponse } from '@universo/types'
 import { AppMainLayout } from '@universo/apps-template-mui'
+import { extractAxiosError } from '@universo/utils'
 import { useApplicationMigrationStatus } from '../hooks/useApplicationMigrationStatus'
 import UnderDevelopmentPage from '../pages/UnderDevelopmentPage'
 import MaintenancePage from '../pages/MaintenancePage'
@@ -38,6 +39,15 @@ const ApplicationMigrationGuard = ({ children }: ApplicationMigrationGuardProps)
     const statusQuery = useApplicationMigrationStatus(applicationId ?? '', {
         enabled: Boolean(applicationId)
     })
+    const statusError = statusQuery.error ? extractAxiosError(statusQuery.error) : null
+
+    if (statusQuery.isLoading && !statusQuery.data) {
+        return null
+    }
+
+    if (statusError?.status === 403) {
+        return <Navigate to='/' replace />
+    }
 
     return (
         <AppMainLayout>
@@ -50,12 +60,12 @@ const ApplicationMigrationGuard = ({ children }: ApplicationMigrationGuardProps)
                 errorText={t('migrationGuard.statusError', 'Failed to load update status')}
                 retryText={t('migrationGuard.retry', 'Retry')}
                 renderPreDialog={(status) => {
+                    const isPrivileged = status.currentUserRole === 'owner' || status.currentUserRole === 'admin'
                     // Schema does not exist yet — show "under development" page
-                    if (status.severity === UpdateSeverity.MANDATORY && !status.schemaExists) {
-                        return <UnderDevelopmentPage />
+                    if (status.severity === UpdateSeverity.MANDATORY && !status.schemaExists && !isPrivileged) {
+                        return <UnderDevelopmentPage isPrivileged={false} />
                     }
                     // Non-privileged users during maintenance — show friendly maintenance page
-                    const isPrivileged = status.currentUserRole === 'owner' || status.currentUserRole === 'admin'
                     if (status.isMaintenance && !isPrivileged) {
                         return <MaintenancePage />
                     }

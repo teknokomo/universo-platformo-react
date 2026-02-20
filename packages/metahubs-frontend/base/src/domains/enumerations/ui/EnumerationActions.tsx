@@ -316,6 +316,7 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         onSelect: async (ctx) => {

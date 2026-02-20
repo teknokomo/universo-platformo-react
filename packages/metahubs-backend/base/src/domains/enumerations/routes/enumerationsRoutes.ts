@@ -264,15 +264,19 @@ export function createEnumerationsRoutes(
             }
 
             items.sort((a: any, b: any) => {
+                const sortField = sortBy as string
                 let valA
                 let valB
-                if (sortBy === 'name') {
+                if (sortField === 'name') {
                     valA = getLocalizedSortValue(a.name, a.codename)
                     valB = getLocalizedSortValue(b.name, b.codename)
-                } else if (sortBy === 'codename') {
+                } else if (sortField === 'codename') {
                     valA = a.codename
                     valB = b.codename
-                } else if (sortBy === 'updated') {
+                } else if (sortField === 'sortOrder') {
+                    valA = a.sortOrder ?? 0
+                    valB = b.sortOrder ?? 0
+                } else if (sortField === 'updated') {
                     valA = new Date(a.updatedAt).getTime()
                     valB = new Date(b.updatedAt).getTime()
                 } else {
@@ -402,7 +406,7 @@ export function createEnumerationsRoutes(
                         config: {
                             isSingleHub: isSingleHub ?? false,
                             isRequiredHub: effectiveIsRequired,
-                            sortOrder: sortOrder ?? 0,
+                            sortOrder,
                             hubs: targetHubIds
                         },
                         createdBy: userId
@@ -638,15 +642,19 @@ export function createEnumerationsRoutes(
             }
 
             items.sort((a: any, b: any) => {
+                const sortField = sortBy as string
                 let valA
                 let valB
-                if (sortBy === 'name') {
+                if (sortField === 'name') {
                     valA = getLocalizedSortValue(a.name, a.codename)
                     valB = getLocalizedSortValue(b.name, b.codename)
-                } else if (sortBy === 'codename') {
+                } else if (sortField === 'codename') {
                     valA = a.codename
                     valB = b.codename
-                } else if (sortBy === 'updated') {
+                } else if (sortField === 'sortOrder') {
+                    valA = a.sortOrder ?? 0
+                    valB = b.sortOrder ?? 0
+                } else if (sortField === 'updated') {
                     valA = new Date(a.updatedAt).getTime()
                     valB = new Date(b.updatedAt).getTime()
                 } else {
@@ -821,7 +829,7 @@ export function createEnumerationsRoutes(
                             hubs: targetHubIds,
                             isSingleHub: isSingleHub ?? false,
                             isRequiredHub: effectiveIsRequired,
-                            sortOrder: sortOrder ?? 0
+                            sortOrder
                         },
                         createdBy: userId
                     },

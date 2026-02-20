@@ -78,6 +78,17 @@ export const appDataResponseSchema = z.object({
             uiConfig: z.record(z.unknown()).optional().default({}),
             refTargetEntityId: z.string().nullable().optional(),
             refTargetEntityKind: z.string().nullable().optional(),
+            refOptions: z
+                .array(
+                    z.object({
+                        id: z.string(),
+                        label: z.string(),
+                        codename: z.string().optional(),
+                        isDefault: z.boolean().optional(),
+                        sortOrder: z.number().optional()
+                    })
+                )
+                .optional(),
             enumOptions: z
                 .array(
                     z.object({

@@ -25,7 +25,7 @@ interface CopyMetahubParams {
 interface UpdateMemberRoleParams {
     metahubId: string
     memberId: string
-    data: { role: AssignableRole; comment?: string }
+    data: { role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
 }
 
 interface RemoveMemberParams {
@@ -35,7 +35,7 @@ interface RemoveMemberParams {
 
 interface InviteMemberParams {
     metahubId: string
-    data: { email: string; role: AssignableRole; comment?: string }
+    data: { email: string; role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
 }
 
 const buildLocalizedInput = (value: string | undefined, locale: string): SimpleLocalizedInput | undefined => {
@@ -222,13 +222,21 @@ export function useMemberMutations(metahubId: string) {
     const removeMutation = useRemoveMember()
 
     return {
-        inviteMember: async (data: { email: string; role: AssignableRole; comment?: string }) => {
+        inviteMember: async (data: {
+            email: string
+            role: AssignableRole
+            comment?: SimpleLocalizedInput | null
+            commentPrimaryLocale?: string
+        }) => {
             return inviteMutation.mutateAsync({ metahubId, data })
         },
         isInviting: inviteMutation.isPending,
         inviteError: inviteMutation.error,
 
-        updateMemberRole: async (memberId: string, data: { role: AssignableRole; comment?: string }) => {
+        updateMemberRole: async (
+            memberId: string,
+            data: { role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
+        ) => {
             return updateMutation.mutateAsync({ metahubId, memberId, data })
         },
         isUpdating: updateMutation.isPending,

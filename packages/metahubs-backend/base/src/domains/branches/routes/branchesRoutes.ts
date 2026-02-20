@@ -143,7 +143,12 @@ export function createBranchesRoutes(
             }
 
             const { sortBy, sortOrder, search } = validatedQuery
-            const { branches } = await branchesService.listAllBranches(metahubId, { sortBy, sortOrder, search })
+            const branchSortBy = sortBy === 'sortOrder' ? 'updated' : sortBy
+            const { branches } = await branchesService.listAllBranches(metahubId, {
+                sortBy: branchSortBy,
+                sortOrder,
+                search
+            })
 
             const defaultBranchId = await branchesService.getDefaultBranchId(metahubId)
             const activeBranchId = userId ? await branchesService.getUserActiveBranchId(metahubId, userId) : null
@@ -199,10 +204,11 @@ export function createBranchesRoutes(
             }
 
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+            const branchSortBy = sortBy === 'sortOrder' ? 'updated' : sortBy
             const { branches, total } = await branchesService.listBranches(metahubId, {
                 limit,
                 offset,
-                sortBy,
+                sortBy: branchSortBy,
                 sortOrder,
                 search
             })

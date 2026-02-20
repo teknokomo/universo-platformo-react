@@ -1,5 +1,13 @@
 import { apiClient } from '../../shared'
-import { Metahub, MetahubMember, MetahubAssignableRole, PaginationParams, PaginatedResponse, MetahubLocalizedPayload } from '../../../types'
+import {
+    Metahub,
+    MetahubMember,
+    MetahubAssignableRole,
+    PaginationParams,
+    PaginatedResponse,
+    MetahubLocalizedPayload,
+    SimpleLocalizedInput
+} from '../../../types'
 
 // Input type for creating/updating metahubs with localized content
 export interface MetahubInput extends MetahubLocalizedPayload {
@@ -93,11 +101,16 @@ export const listMetahubMembers = async (metahubId: string, params?: PaginationP
     }
 }
 
-export const inviteMetahubMember = (metahubId: string, data: { email: string; role: MetahubAssignableRole; comment?: string }) =>
-    apiClient.post<MetahubMember>(`/metahub/${metahubId}/members`, data)
+export const inviteMetahubMember = (
+    metahubId: string,
+    data: { email: string; role: MetahubAssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
+) => apiClient.post<MetahubMember>(`/metahub/${metahubId}/members`, data)
 
-export const updateMetahubMemberRole = (metahubId: string, memberId: string, data: { role: MetahubAssignableRole; comment?: string }) =>
-    apiClient.patch<MetahubMember>(`/metahub/${metahubId}/member/${memberId}`, data)
+export const updateMetahubMemberRole = (
+    metahubId: string,
+    memberId: string,
+    data: { role: MetahubAssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
+) => apiClient.patch<MetahubMember>(`/metahub/${metahubId}/member/${memberId}`, data)
 
 export const removeMetahubMember = (metahubId: string, memberId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/member/${memberId}`)

@@ -287,6 +287,7 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         dialog: {

@@ -191,11 +191,27 @@ export interface ApplicationRuntimeColumn {
     id: string
     codename: string
     field: string
-    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'JSON'
+    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON'
     headerName: string
     isRequired?: boolean
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
+    refTargetEntityId?: string | null
+    refTargetEntityKind?: string | null
+    refOptions?: Array<{
+        id: string
+        label: string
+        codename?: string
+        isDefault?: boolean
+        sortOrder?: number
+    }>
+    enumOptions?: Array<{
+        id: string
+        label: string
+        codename?: string
+        isDefault?: boolean
+        sortOrder?: number
+    }>
 }
 
 export interface ApplicationRuntimeCatalog {

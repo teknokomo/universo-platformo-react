@@ -2,6 +2,31 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: Hub Delete Blockers for Enumerations — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode. Extend hub delete blocker logic and UI from catalogs-only to catalogs + enumerations.
+
+### Execution checklist
+- [x] Analyze current hub delete blocker flow in backend and frontend dialog
+- [x] Add backend blocker detection for enumerations with same rule as catalogs (`isSingleHub` + `isRequiredHub` + only this hub linked)
+- [x] Extend hub delete API blocker payload with grouped sections (`catalogs`, `enumerations`) and totals
+- [x] Update frontend hub delete dialog to show separate tables for blocking catalogs and blocking enumerations
+- [x] Run targeted tests/lint/build for touched packages and record outcomes
+
+## Completed: Unified Action Menus, Row Indexing, Access Member Dialog, Migrations Spacing — 2026-02-19 ✅
+
+> **Context**: IMPLEMENT mode. Unify action menu UX and row numbering across metahubs/applications lists; modernize access member dialog (including VLC comment); align migrations page spacing.
+
+### Execution checklist
+- [x] Finalize unified `BaseEntityMenu` behavior (three-dot trigger + icon/text spacing + danger action color) and remove per-page trigger deviations in target lists/cards
+- [x] Ensure all delete actions in affected metahub/application menus use `tone: 'danger'` so destructive entries are red and visually consistent
+- [x] Complete `#` auto-number column parity for hubs, catalogs, enumerations (frontend columns + stable backend sorting by `sortOrder`)
+- [x] Refactor metahub access add/edit member dialog to standard spacing and migrate member comment to VLC payload/storage/rendering
+- [x] Update add-member dialog title to localized “Добавление участника / Add member” while preserving short toolbar button text
+- [x] Verify and align migrations page horizontal gutters with other list sections (no extra side padding)
+- [x] Keep structure/template default versions unchanged and avoid adding legacy fallback branches
+- [x] Run targeted lint/build checks for touched packages and record outcomes
+
 ## Completed: Enumerations QA Remediation Round 5 — 2026-02-19 ✅
 
 > **Context**: IMPLEMENT mode after latest QA report. Goal is to close critical runtime/backend gaps without widening scope.

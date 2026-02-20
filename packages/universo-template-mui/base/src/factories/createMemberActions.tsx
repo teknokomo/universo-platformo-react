@@ -1,6 +1,6 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import type { BaseMemberEntity, DynamicMemberEntity, AnyMemberEntity } from '@universo/types'
+import type { BaseMemberEntity, DynamicMemberEntity, AnyMemberEntity, VersionedLocalizedContent } from '@universo/types'
 import type { ActionDescriptor, ActionContext } from '../components/menu'
 
 /**
@@ -10,6 +10,7 @@ export interface MemberFormData {
     email: string
     role: string
     comment?: string
+    commentVlc?: VersionedLocalizedContent<string> | null
 }
 
 /**
@@ -69,7 +70,14 @@ export interface MemberActionsConfig<TMember extends AnyMemberEntity> {
         initialEmail: string
         initialRole: string
         initialComment: string
+        initialCommentVlc?: VersionedLocalizedContent<string> | null
     }
+
+    /**
+     * Enable localized VLC comment editing in member dialog.
+     * When false, plain string comment mode is used.
+     */
+    localizedComment?: boolean
 
     /**
      * Available roles to select from in the edit dialog
@@ -176,7 +184,7 @@ export function createMemberActions<TMember extends AnyMemberEntity>(
     config: MemberActionsConfig<TMember>
 ): readonly ActionDescriptor<TMember, MemberFormData>[] {
     const {
-        i18nPrefix,
+        i18nPrefix: _i18nPrefix,
         entityType,
         i18nKeys = {},
         availableRoles,
@@ -188,8 +196,10 @@ export function createMemberActions<TMember extends AnyMemberEntity>(
         getInitialFormData = (member) => ({
             initialEmail: member.email || '',
             initialRole: 'role' in member ? (member as BaseMemberEntity).role : (member as DynamicMemberEntity).roleName,
-            initialComment: member.comment || ''
-        })
+            initialComment: member.comment || '',
+            initialCommentVlc: null
+        }),
+        localizedComment = false
     } = config
 
     // Default i18n key patterns
@@ -263,6 +273,8 @@ export function createMemberActions<TMember extends AnyMemberEntity>(
                         cancelButtonText: ctx.t('common:actions.cancel'),
                         availableRoles: roles,
                         roleLabels,
+                        commentMode: localizedComment ? ('localized' as const) : ('plain' as const),
+                        uiLocale: (ctx.uiLocale as string | undefined) ?? 'en',
                         ...getInitialFormData(ctx.entity),
                         onClose: () => {
                             // BaseEntityMenu handles dialog closing
@@ -293,6 +305,7 @@ export function createMemberActions<TMember extends AnyMemberEntity>(
             id: 'remove',
             labelKey: 'common:actions.delete',
             icon: <DeleteIcon />,
+            tone: 'danger',
             order: 100,
             group: 'danger',
             dialog: {

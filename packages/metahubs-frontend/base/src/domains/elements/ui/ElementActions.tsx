@@ -27,6 +27,7 @@ const elementActions: readonly ActionDescriptor<HubElementDisplay, ElementData>[
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         onSelect: (ctx) => {

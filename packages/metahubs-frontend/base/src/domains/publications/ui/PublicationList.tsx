@@ -1,20 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-    Box,
-    Skeleton,
-    Stack,
-    Typography,
-    IconButton,
-    Chip,
-    Alert,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    FormHelperText
-} from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography, Chip, Alert, FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
@@ -41,7 +27,7 @@ import {
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps, PaginationState, PaginationActions } from '@universo/template-mui'
+import type { PaginationState, PaginationActions } from '@universo/template-mui'
 
 import { useCreatePublication, useDeletePublication, useSyncPublication, useUpdatePublication } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
@@ -809,15 +795,6 @@ const PublicationList = () => {
                                                                 namespace='metahubs'
                                                                 i18nInstance={i18n}
                                                                 createContext={createPublicationContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null

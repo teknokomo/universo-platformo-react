@@ -151,6 +151,16 @@ describe('Catalogs Routes', () => {
             expect(mockObjectsService.findAll).toHaveBeenCalledWith('test-metahub-id', 'test-user-id')
         })
 
+        it('accepts sortBy=sortOrder query parameter', async () => {
+            const app = buildApp()
+
+            const response = await request(app)
+                .get('/metahub/test-metahub-id/catalogs?limit=20&offset=0&sortBy=sortOrder&sortOrder=asc')
+                .expect(200)
+
+            expect(response.body).toMatchObject({ items: [], pagination: { total: 0, limit: 20, offset: 0 } })
+        })
+
         it('returns catalogs with counts and hub associations', async () => {
             const now = new Date('2026-02-11T00:00:00.000Z')
             const rawCatalogs = [

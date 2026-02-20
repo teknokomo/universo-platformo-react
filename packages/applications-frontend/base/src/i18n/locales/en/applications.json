@@ -430,6 +430,7 @@
             "optional": "Optional"
         },
         "blockers": {
+            "schema_not_created": "Application schema has not been created yet.",
             "seed.current_unavailable": "Current template seed is unavailable. Cleanup cannot be analyzed safely.",
             "seed.target_unavailable": "Target template seed is unavailable. Cleanup cannot be analyzed safely.",
             "entity.audit_provenance": "Entity \"{{entityKey}}\" has been modified by a user and cannot be cleaned up automatically.",
@@ -450,6 +451,8 @@
     "underDevelopment": {
         "title": "Section under development",
         "description": "This section is not available yet. We are working on it and it will be ready soon.",
+        "memberTitle": "Application is under development",
+        "memberDescription": "This application is currently under development. Please come back later.",
         "backToApp": "Back to application",
         "backToList": "Back to applications"
     },

@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Alert, Chip } from '@mui/material'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { Box, Skeleton, Stack, Typography, Alert, Chip } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
@@ -29,7 +28,6 @@ import {
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps } from '@universo/template-mui'
 
 import { useCreateConnector, useUpdateConnector, useDeleteConnector } from '../hooks/mutations'
 import { useAvailablePublications } from '../hooks/useConnectorPublications'
@@ -38,9 +36,9 @@ import { STORAGE_KEYS } from '../constants/storage'
 import * as connectorsApi from '../api/connectors'
 import { applicationsQueryKeys, invalidateConnectorsQueries } from '../api/queryKeys'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { Connector, ConnectorDisplay, ConnectorLocalizedPayload, getVLCString, toConnectorDisplay } from '../types'
+import { Connector, ConnectorDisplay, ConnectorLocalizedPayload, toConnectorDisplay } from '../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
-import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
+import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 import { ConnectorDeleteDialog, PublicationSelectionPanel } from '../components'
 import connectorActions from './ConnectorActions'
 
@@ -61,15 +59,7 @@ type ConnectorFormFieldsProps = {
     descriptionLabel: string
 }
 
-const ConnectorFormFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    uiLocale,
-    nameLabel,
-    descriptionLabel
-}: ConnectorFormFieldsProps) => {
+const ConnectorFormFields = ({ values, setValue, isLoading, errors, uiLocale, nameLabel, descriptionLabel }: ConnectorFormFieldsProps) => {
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
 
@@ -155,7 +145,7 @@ const ConnectorList = () => {
 
     // Fetch available publications for selection in create dialog
     const { data: availablePublications = [] } = useAvailablePublications()
-    
+
     // Memoize images object
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
@@ -174,10 +164,7 @@ const ConnectorList = () => {
         return new Map(connectors.map((connector) => [connector.id, connector]))
     }, [connectors])
 
-    const localizedFormDefaults = useMemo<ConnectorFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, publicationIds: [] }),
-        []
-    )
+    const localizedFormDefaults = useMemo<ConnectorFormValues>(() => ({ nameVlc: null, descriptionVlc: null, publicationIds: [] }), [])
 
     const validateConnectorForm = useCallback(
         (values: Record<string, any>) => {
@@ -346,14 +333,7 @@ const ConnectorList = () => {
                 label: t('connectors.table.relation', 'Relation'),
                 width: '25%',
                 align: 'center' as const,
-                render: () => (
-                    <Chip
-                        label={t('connectors.relation.metahub', 'Metahub')}
-                        color='primary'
-                        size='small'
-                        variant='outlined'
-                    />
-                )
+                render: () => <Chip label={t('connectors.relation.metahub', 'Metahub')} color='primary' size='small' variant='outlined' />
             }
         ],
         [t, tc, applicationId]
@@ -421,15 +401,24 @@ const ConnectorList = () => {
                 },
                 openDeleteDialog: (connectorOrDisplay: Connector | ConnectorDisplay) => {
                     // Handle both Connector and ConnectorDisplay (from BaseEntityMenu context)
-                    const connector =
-                        'applicationId' in connectorOrDisplay ? connectorOrDisplay : connectorMap.get(connectorOrDisplay.id)
+                    const connector = 'applicationId' in connectorOrDisplay ? connectorOrDisplay : connectorMap.get(connectorOrDisplay.id)
                     if (connector) {
                         setDeleteDialogState({ open: true, connector })
                     }
                 }
             }
         }),
-        [confirm, deleteConnectorMutation, enqueueSnackbar, connectorMap, i18n.language, applicationId, queryClient, t, updateConnectorMutation]
+        [
+            confirm,
+            deleteConnectorMutation,
+            enqueueSnackbar,
+            connectorMap,
+            i18n.language,
+            applicationId,
+            queryClient,
+            t,
+            updateConnectorMutation
+        ]
     )
 
     // Validate applicationId from URL AFTER all hooks
@@ -561,7 +550,7 @@ const ConnectorList = () => {
                     {/* Info banner: temporary single-connector limit - shown below header, above content */}
                     {connectors.length > 0 && (
                         <Alert
-                            severity="info"
+                            severity='info'
                             icon={<InfoIcon />}
                             sx={{
                                 mx: { xs: -1.5, md: -2 },
@@ -634,15 +623,6 @@ const ConnectorList = () => {
                                                                 namespace='applications'
                                                                 i18nInstance={i18n}
                                                                 createContext={createConnectorContext}
-                                                                renderTrigger={(props: TriggerProps) => (
-                                                                    <IconButton
-                                                                        size='small'
-                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                        {...props}
-                                                                    >
-                                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                                    </IconButton>
-                                                                )}
                                                             />
                                                         </Box>
                                                     ) : null
@@ -659,9 +639,7 @@ const ConnectorList = () => {
                                         isLoading={isLoading}
                                         getRowLink={(row: any) => {
                                             // Navigate to connector board within Applications
-                                            return applicationId && row?.id
-                                                ? `/a/${applicationId}/admin/connector/${row.id}`
-                                                : undefined
+                                            return applicationId && row?.id ? `/a/${applicationId}/admin/connector/${row.id}` : undefined
                                         }}
                                         customColumns={connectorColumns}
                                         i18nNamespace='flowList'

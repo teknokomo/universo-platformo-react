@@ -1,8 +1,8 @@
 import React, { useState, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { i18n as I18nInstance } from 'i18next'
-import { Menu, MenuItem, Divider, Button } from '@mui/material'
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import { Menu, MenuItem, Divider, IconButton } from '@mui/material'
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 
 /**
  * Props passed to the custom trigger renderer function
@@ -240,11 +240,25 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
         }
     }
 
-    // Default trigger: Button with dropdown icon
-    const defaultTrigger = (props: TriggerProps) => (
-        <Button endIcon={<KeyboardArrowDownIcon />} {...props}>
-            {t(menuButtonLabelKey)}
-        </Button>
+    // Default trigger: compact icon button with three dots
+    const defaultTrigger = ({ onClick, disabled }: TriggerProps) => (
+        <IconButton
+            size='small'
+            aria-label={t(menuButtonLabelKey)}
+            aria-haspopup='true'
+            disabled={disabled}
+            sx={{
+                width: 28,
+                height: 28,
+                p: 0.5
+            }}
+            onClick={(event) => {
+                event.stopPropagation()
+                onClick(event)
+            }}
+        >
+            <MoreVertRoundedIcon fontSize='small' />
+        </IconButton>
     )
 
     // Use custom trigger if provided, otherwise use default

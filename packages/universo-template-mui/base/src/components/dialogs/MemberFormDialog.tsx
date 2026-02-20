@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, MenuItem, Alert } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { memberFormSchema, type MemberFormData, type MemberRole } from '@universo/types'
+import { memberFormSchema, type MemberFormData, type MemberRole, type VersionedLocalizedContent } from '@universo/types'
+import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 
 export interface MemberFormDialogProps {
     open: boolean
@@ -21,12 +22,20 @@ export interface MemberFormDialogProps {
     initialEmail?: string
     initialRole?: MemberRole
     initialComment?: string
+    initialCommentVlc?: VersionedLocalizedContent<string> | null
+    commentMode?: 'plain' | 'localized'
+    uiLocale?: string
     loading?: boolean
     error?: string
     /** Show warning when trying to downgrade or remove self */
     selfActionWarning?: string
     onClose: () => void
-    onSave: (data: { email: string; role: MemberRole; comment?: string }) => Promise<void> | void
+    onSave: (data: {
+        email: string
+        role: MemberRole
+        comment?: string
+        commentVlc?: VersionedLocalizedContent<string> | null
+    }) => Promise<void> | void
     /** Optional callback called after successful save */
     onSuccess?: () => void
     /** If true (default), the dialog will auto-close after a successful save */
@@ -56,6 +65,9 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
     initialEmail = '',
     initialRole = 'member',
     initialComment = '',
+    initialCommentVlc = null,
+    commentMode = 'plain',
+    uiLocale = 'en',
     loading = false,
     error,
     selfActionWarning,
@@ -71,6 +83,8 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
     }
 }) => {
     const emailInputRef = useRef<HTMLInputElement | null>(null)
+    const [commentVlcState, setCommentVlcState] = useState<VersionedLocalizedContent<string> | null>(initialCommentVlc ?? null)
+    const [commentVlcError, setCommentVlcError] = useState<string | null>(null)
     const {
         control,
         handleSubmit,
@@ -93,8 +107,12 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                 role: initialRole,
                 comment: initialComment
             })
+            if (commentMode === 'localized') {
+                setCommentVlcState(initialCommentVlc ?? null)
+                setCommentVlcError(null)
+            }
         }
-    }, [open, initialEmail, initialRole, initialComment, reset])
+    }, [open, initialEmail, initialRole, initialComment, initialCommentVlc, commentMode, reset])
 
     useEffect(() => {
         if (open && mode === 'create') {
@@ -102,12 +120,48 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
         }
     }, [open, mode])
 
+    const normalizedCommentVlc = useMemo(() => {
+        if (!commentVlcState?.locales) return null
+        const nextLocales = Object.entries(commentVlcState.locales).reduce<Record<string, any>>((acc, [locale, entry]) => {
+            if (!entry || typeof entry.content !== 'string') return acc
+            const trimmed = entry.content.trim()
+            if (trimmed.length === 0) return acc
+            acc[locale] = { ...entry, content: trimmed }
+            return acc
+        }, {})
+
+        const localeCodes = Object.keys(nextLocales)
+        if (localeCodes.length === 0) return null
+        const primary = nextLocales[commentVlcState._primary] ? commentVlcState._primary : localeCodes[0]
+        return {
+            ...commentVlcState,
+            _primary: primary,
+            locales: nextLocales
+        } as VersionedLocalizedContent<string>
+    }, [commentVlcState])
+
+    const localizedMaxLength = useMemo(() => {
+        if (!commentVlcState?.locales) return 0
+        return Object.values(commentVlcState.locales).reduce((max, entry: any) => {
+            const length = typeof entry?.content === 'string' ? entry.content.trim().length : 0
+            return Math.max(max, length)
+        }, 0)
+    }, [commentVlcState])
+
     const onSubmit = async (data: MemberFormData) => {
         try {
+            if (commentMode === 'localized') {
+                if (localizedMaxLength > 500) {
+                    setCommentVlcError('Comment must be 500 characters or less')
+                    return
+                }
+            }
+
             await onSave({
                 email: data.email.trim(),
                 role: data.role,
-                comment: data.comment?.trim() || undefined
+                comment: commentMode === 'plain' ? data.comment?.trim() || undefined : undefined,
+                commentVlc: commentMode === 'localized' ? normalizedCommentVlc : undefined
             })
 
             // Call optional success callback
@@ -135,6 +189,10 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
         reset()
         onClose()
     }
+
+    const localizedCharacterCountText = commentCharacterCountFormatter
+        ? commentCharacterCountFormatter(localizedMaxLength, 500)
+        : `${localizedMaxLength}/500 characters (after trim)`
 
     return (
         <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
@@ -208,7 +266,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                         />
 
                         {/* Comment field */}
-                        {commentLabel && (
+                        {commentLabel && commentMode === 'plain' && (
                             <Controller
                                 name='comment'
                                 control={control}
@@ -239,22 +297,27 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                                                     // below shows error when trimmed length exceeds 500.
                                                 }
                                             }}
-                                            sx={{
-                                                // !important is required here because MUI theme applies padding: 16.5px 14px
-                                                // to .MuiInputBase-root container. We need padding: 0 on container and explicit
-                                                // padding on textarea only. slotProps.htmlInput.style was tested but did not work
-                                                // (see PR #528 history - 5 attempts). Current solution is user-validated.
-                                                borderRadius: 1,
-                                                '& .MuiInputBase-root': {
-                                                    padding: 0
-                                                },
-                                                '& .MuiInputBase-input': {
-                                                    padding: '8px 14px !important'
-                                                }
-                                            }}
                                         />
                                     )
                                 }}
+                            />
+                        )}
+
+                        {commentLabel && commentMode === 'localized' && (
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={commentLabel}
+                                value={commentVlcState}
+                                onChange={(next) => {
+                                    setCommentVlcState(next)
+                                    if (commentVlcError) setCommentVlcError(null)
+                                }}
+                                disabled={isLoading}
+                                uiLocale={uiLocale}
+                                multiline
+                                rows={3}
+                                helperText={commentVlcError || localizedCharacterCountText}
+                                error={commentVlcError}
                             />
                         )}
                     </Box>

@@ -470,6 +470,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
+        tone: 'danger',
         order: 100,
         group: 'danger',
         enabled: (ctx) => !isDisplayAttributeEntity(ctx),

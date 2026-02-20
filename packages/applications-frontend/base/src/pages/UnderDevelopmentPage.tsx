@@ -14,7 +14,11 @@ import ConstructionIcon from '@mui/icons-material/Construction'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
-const UnderDevelopmentPage = () => {
+export interface UnderDevelopmentPageProps {
+    isPrivileged?: boolean
+}
+
+const UnderDevelopmentPage = ({ isPrivileged = false }: UnderDevelopmentPageProps) => {
     const { applicationId } = useParams<{ applicationId: string }>()
     const navigate = useNavigate()
     const { t } = useTranslation('applications')
@@ -27,7 +31,7 @@ const UnderDevelopmentPage = () => {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: 400,
+                minHeight: '100dvh',
                 p: 4
             }}
         >
@@ -35,26 +39,35 @@ const UnderDevelopmentPage = () => {
                 <ConstructionIcon sx={{ fontSize: 64, color: 'text.secondary', opacity: 0.5 }} />
 
                 <Typography variant='h5' color='text.primary'>
-                    {t('underDevelopment.title', 'Section under development')}
+                    {isPrivileged
+                        ? t('underDevelopment.title', 'Section under development')
+                        : t('underDevelopment.memberTitle', 'Application is under development')}
                 </Typography>
 
                 <Typography variant='body1' color='text.secondary'>
-                    {t(
-                        'underDevelopment.description',
-                        'This section is not available yet. We are working on it and it will be ready soon.'
-                    )}
+                    {isPrivileged
+                        ? t(
+                              'underDevelopment.description',
+                              'This section is not available yet. We are working on it and it will be ready soon.'
+                          )
+                        : t(
+                              'underDevelopment.memberDescription',
+                              'This application is currently under development. Please come back later.'
+                          )}
                 </Typography>
 
-                <Stack direction='row' spacing={1} sx={{ pt: 1 }}>
-                    {applicationId && (
-                        <Button variant='outlined' onClick={() => navigate(`/a/${applicationId}/admin`)}>
-                            {t('underDevelopment.backToApp', 'Back to application')}
+                {isPrivileged && (
+                    <Stack direction='row' spacing={1} sx={{ pt: 1 }}>
+                        {applicationId && (
+                            <Button variant='outlined' onClick={() => navigate(`/a/${applicationId}/admin`)}>
+                                {t('underDevelopment.backToApp', 'Back to application')}
+                            </Button>
+                        )}
+                        <Button variant='contained' onClick={() => navigate('/applications')}>
+                            {t('underDevelopment.backToList', 'Back to applications')}
                         </Button>
-                    )}
-                    <Button variant='contained' onClick={() => navigate('/applications')}>
-                        {t('underDevelopment.backToList', 'Back to applications')}
-                    </Button>
-                </Stack>
+                    </Stack>
+                )}
             </Stack>
         </Box>
     )
