@@ -967,7 +967,11 @@ describe('Metahubs Routes', () => {
                     .expect(400)
 
                 expect(response.body).toMatchObject({
-                    error: 'Comment must be 500 characters or less'
+                    error: 'Invalid payload',
+                    details: {
+                        formErrors: ['Comment must be 500 characters or less'],
+                        fieldErrors: { comment: ['Comment must be 500 characters or less'] }
+                    }
                 })
             })
 

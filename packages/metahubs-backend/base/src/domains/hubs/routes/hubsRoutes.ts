@@ -170,7 +170,8 @@ export function createHubsRoutes(
                     .update({
                         config: currentConfig,
                         _upl_updated_at: now,
-                        _upl_updated_by: userId ?? null
+                        _upl_updated_by: userId ?? null,
+                        _upl_version: knex.raw('_upl_version + 1')
                     })
             }
         })

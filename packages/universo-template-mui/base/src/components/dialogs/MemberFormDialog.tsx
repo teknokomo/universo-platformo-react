@@ -40,6 +40,8 @@ export interface MemberFormDialogProps {
     onSuccess?: () => void
     /** If true (default), the dialog will auto-close after a successful save */
     autoCloseOnSuccess?: boolean
+    /** Localized message shown when the localized comment exceeds 500 characters */
+    commentTooLongMessage?: string
     /** Available roles to select from */
     availableRoles?: MemberRole[]
     /** Role labels for dropdown */
@@ -75,6 +77,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
     onSave,
     onSuccess,
     autoCloseOnSuccess = true,
+    commentTooLongMessage,
     availableRoles = ['admin', 'editor', 'member'],
     roleLabels = {
         admin: 'Admin',
@@ -152,7 +155,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
         try {
             if (commentMode === 'localized') {
                 if (localizedMaxLength > 500) {
-                    setCommentVlcError('Comment must be 500 characters or less')
+                    setCommentVlcError(commentTooLongMessage || 'Comment must be 500 characters or less')
                     return
                 }
             }
@@ -316,6 +319,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                                 uiLocale={uiLocale}
                                 multiline
                                 rows={3}
+                                maxLength={510}
                                 helperText={commentVlcError || localizedCharacterCountText}
                                 error={commentVlcError}
                             />

@@ -500,6 +500,7 @@ export const MetahubMembers = () => {
                 commentLabel={tc('members.commentLabel')}
                 commentPlaceholder={tc('members.commentPlaceholder')}
                 commentCharacterCountFormatter={(count, max) => tc('members.validation.commentCharacterCount', { count, max })}
+                commentTooLongMessage={tc('members.validation.commentTooLong')}
                 commentMode='localized'
                 uiLocale={i18n.language}
                 saveButtonText={tc('actions.save', 'Save')}

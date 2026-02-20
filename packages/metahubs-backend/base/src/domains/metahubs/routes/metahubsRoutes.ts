@@ -1363,7 +1363,7 @@ export function createMetahubsRoutes(
 
             const normalizedComment = normalizeMemberCommentInput(result.data.comment, result.data.commentPrimaryLocale)
             if (normalizedComment.error) {
-                return res.status(400).json({ error: normalizedComment.error })
+                return res.status(400).json({ error: 'Invalid payload', details: { formErrors: [normalizedComment.error], fieldErrors: { comment: [normalizedComment.error] } } })
             }
 
             // Find user by email
@@ -1451,7 +1451,7 @@ export function createMetahubsRoutes(
                     : { commentVlc: undefined }
 
             if (normalizedComment.error) {
-                return res.status(400).json({ error: normalizedComment.error })
+                return res.status(400).json({ error: 'Invalid payload', details: { formErrors: [normalizedComment.error], fieldErrors: { comment: [normalizedComment.error] } } })
             }
 
             if (result.data.role !== undefined) membership.role = result.data.role

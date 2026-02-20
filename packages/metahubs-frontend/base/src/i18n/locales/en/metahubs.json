@@ -758,6 +758,10 @@
       "nickname": "Nickname",
       "role": "Role",
       "joinedAt": "Joined"
+    },
+    "validation": {
+      "commentCharacterCount": "{{count}}/{{max}} characters (after trim)",
+      "commentTooLong": "Comment must be 500 characters or less"
     }
   },
   "publications": {

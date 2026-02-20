@@ -768,6 +768,10 @@
             "nickname": "Никнейм",
             "role": "Роль",
             "joinedAt": "Присоединился"
+        },
+        "validation": {
+            "commentCharacterCount": "{{count}}/{{max}} символов (после обрезки)",
+            "commentTooLong": "Комментарий должен содержать не более 500 символов"
         }
     },
     "publications": {

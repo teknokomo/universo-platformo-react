@@ -2,6 +2,24 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## PR #686 Bot Review Fixes — 2026-02-20
+
+> **Context**: IMPLEMENT mode. Apply fixes for 5 valid bot review comments (Gemini + Copilot) on PR #686.
+
+### Code fixes
+- [ ] Add `_upl_version` increment to `removeHubFromObjectAssociations` update in `hubsRoutes.ts`
+- [ ] Standardize error response envelope in `metahubsRoutes.ts` for `normalizedComment.error` (2 locations)
+- [ ] Add `maxLength={510}` to `LocalizedInlineField` in `MemberFormDialog.tsx` and replace hardcoded English validation message with i18n prop
+- [ ] Add missing i18n keys (`members.validation.commentCharacterCount`, `members.validation.commentTooLong`) to EN/RU `metahubs.json`
+- [ ] Revert migration `1766351182000` back to `comment TEXT` and create new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts`
+- [ ] Update `MetahubMembers.tsx` to pass `commentTooLongMessage` prop to `MemberFormDialog`
+
+### Verification
+- [ ] Build affected packages
+- [ ] Commit and push to PR #686
+
+---
+
 ## Completed: Hub Delete Blockers for Enumerations — 2026-02-19 ✅
 
 > **Context**: IMPLEMENT mode. Extend hub delete blocker logic and UI from catalogs-only to catalogs + enumerations.

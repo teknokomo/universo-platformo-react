@@ -355,7 +355,7 @@ export class CreateMetahubsSchema1766351182000 implements MigrationInterface {
                 user_id UUID NOT NULL,
                 active_branch_id UUID,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
-                comment JSONB,
+                comment TEXT,
 
                 -- Platform-level system fields (_upl_*)
                 _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
