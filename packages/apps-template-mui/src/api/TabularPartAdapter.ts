@@ -113,7 +113,9 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             const resolvedCatalogId = listParams.catalogId ?? catalogId
             const { limit, offset } = listParams
 
-            const res = await fetch(url(resolvedCatalogId), { credentials: 'include' })
+            // Pass limit/offset to backend for server-side pagination
+            const listUrl = `${url(resolvedCatalogId)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`
+            const res = await fetch(listUrl, { credentials: 'include' })
             if (!res.ok) throw new Error(await extractError(res, 'Fetch tabular rows failed'))
 
             const json = (await res.json()) as { items: Array<Record<string, unknown> & { id: string }>; total: number }
@@ -144,7 +146,7 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
                 catalog: { id: resolvedCatalogId, codename: '', tableName: '', name: '' },
                 catalogs: [],
                 columns,
-                rows: json.items.slice(offset, offset + limit),
+                rows: json.items,
                 pagination: { total: json.total, limit, offset },
                 menus: []
             }

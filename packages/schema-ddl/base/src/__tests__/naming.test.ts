@@ -165,5 +165,16 @@ describe('DDL Naming Utilities', () => {
             const result = generateTabularTableName(longParent, 'ff000000-0000-0000-0000-000000000001')
             expect(result.length).toBeLessThanOrEqual(63)
         })
+
+        it('should preserve cleanId suffix even when parentTableName is very long', () => {
+            // Parent name that exceeds 47 chars (63 - 4 - 12) to trigger prefix truncation
+            const veryLongParent = 'cat_' + 'a'.repeat(60) // 64 chars total
+            const attrId = 'ff112233-4455-6677-8899-aabbccddeeff'
+            const result = generateTabularTableName(veryLongParent, attrId)
+            // cleanId = first 12 hex chars of UUID without hyphens = 'ff1122334455'
+            expect(result.length).toBeLessThanOrEqual(63)
+            expect(result).toContain('_tp_')
+            expect(result.endsWith('_tp_ff1122334455')).toBe(true)
+        })
     })
 })

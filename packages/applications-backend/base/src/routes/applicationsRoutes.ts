@@ -20,6 +20,16 @@ import { getVLCString } from '@universo/utils/vlc'
 import { OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
+/**
+ * Thrown inside `manager.transaction()` callbacks to signal a business-logic
+ * failure that should trigger transaction rollback and a specific HTTP response.
+ */
+class UpdateFailure extends Error {
+    constructor(public readonly statusCode: number, public readonly body: Record<string, unknown>) {
+        super('Update failed')
+    }
+}
+
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner
 }
@@ -1635,12 +1645,11 @@ export function createApplicationsRoutes(
 
             const hasTableUpdates = tableDataEntries.length > 0
 
-            if (hasTableUpdates) {
-                await ctx.manager.query('BEGIN')
-            }
-
-            try {
-                const updated = (await ctx.manager.query(
+            // Helper: execute the UPDATE + optional child row replace.
+            // Throws UpdateFailure on business errors so the wrapping
+            // transaction (if any) is rolled back automatically.
+            const performBulkUpdate = async (mgr: ReturnType<typeof getRequestManager>) => {
+                const updated = (await mgr.query(
                     `
                         UPDATE ${dataTableIdent}
                         SET ${setClauses.join(', ')}
@@ -1655,84 +1664,104 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string }>
 
                 if (updated.length === 0) {
-                    const exists = (await ctx.manager.query(
+                    const exists = (await mgr.query(
                         `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
                         [rowId]
                     )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
 
-                    if (hasTableUpdates) await ctx.manager.query('ROLLBACK').catch(() => {})
-
                     if (exists.length > 0 && exists[0]._upl_locked) {
-                        return res.status(423).json({ error: 'Record is locked' })
+                        throw new UpdateFailure(423, { error: 'Record is locked' })
                     }
                     if (exists.length > 0 && expectedVersion !== undefined) {
                         const actualVersion = Number(exists[0]._upl_version ?? 1)
                         if (actualVersion !== expectedVersion) {
-                            return res.status(409).json({
+                            throw new UpdateFailure(409, {
                                 error: 'Version mismatch',
                                 expectedVersion,
                                 actualVersion
                             })
                         }
                     }
-                    return res.status(404).json({ error: 'Row not found' })
+                    throw new UpdateFailure(404, { error: 'Row not found' })
                 }
 
-                if (hasTableUpdates) {
-                    for (const { tabTableName, rows: childRows } of tableDataEntries) {
-                        const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+                // Replace child rows for each TABLE attribute using batch INSERT
+                for (const { tabTableName, rows: childRows } of tableDataEntries) {
+                    const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
 
-                        await ctx.manager.query(
-                            `
-                                UPDATE ${tabTableIdent}
-                                SET _upl_deleted = true,
-                                    _upl_deleted_at = NOW(),
-                                    _upl_deleted_by = $1,
-                                    _upl_updated_at = NOW(),
-                                    _upl_version = COALESCE(_upl_version, 1) + 1
-                                WHERE _tp_parent_id = $2
-                                  AND COALESCE(_upl_deleted, false) = false
-                                  AND COALESCE(_app_deleted, false) = false
-                            `,
-                            [ctx.userId, rowId]
-                        )
+                    // Soft-delete existing child rows
+                    await mgr.query(
+                        `
+                            UPDATE ${tabTableIdent}
+                            SET _upl_deleted = true,
+                                _upl_deleted_at = NOW(),
+                                _upl_deleted_by = $1,
+                                _upl_updated_at = NOW(),
+                                _upl_version = COALESCE(_upl_version, 1) + 1
+                            WHERE _tp_parent_id = $2
+                              AND COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                        `,
+                        [ctx.userId, rowId]
+                    )
+
+                    // Batch insert new child rows (single INSERT with multi-VALUES)
+                    if (childRows.length > 0) {
+                        const dataColSet = new Set<string>()
+                        for (const rd of childRows) {
+                            for (const cn of Object.keys(rd)) {
+                                if (IDENTIFIER_REGEX.test(cn)) dataColSet.add(cn)
+                            }
+                        }
+                        const dataColumns = [...dataColSet]
+                        const headerCols: string[] = ['_tp_parent_id', '_tp_sort_order']
+                        if (ctx.userId) headerCols.push('_upl_created_by')
+                        const allColumns = [...headerCols, ...dataColumns.map((c) => quoteIdentifier(c))]
+                        const allValues: unknown[] = []
+                        const valueTuples: string[] = []
+                        let pIdx = 1
 
                         for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
                             const rowData = childRows[rowIdx]
-                            const childColNames: string[] = ['_tp_parent_id', '_tp_sort_order']
-                            const childPlaceholders: string[] = ['$1', '$2']
-                            const childValues: unknown[] = [rowId, rowIdx]
-                            let pIdx = 3
-
+                            const ph: string[] = []
+                            ph.push(`$${pIdx++}`)
+                            allValues.push(rowId)
+                            ph.push(`$${pIdx++}`)
+                            allValues.push(rowIdx)
                             if (ctx.userId) {
-                                childColNames.push('_upl_created_by')
-                                childPlaceholders.push(`$${pIdx}`)
-                                childValues.push(ctx.userId)
-                                pIdx++
+                                ph.push(`$${pIdx++}`)
+                                allValues.push(ctx.userId)
                             }
-
-                            for (const [columnName, cCoerced] of Object.entries(rowData)) {
-                                if (!IDENTIFIER_REGEX.test(columnName)) continue
-                                childColNames.push(quoteIdentifier(columnName))
-                                childPlaceholders.push(`$${pIdx}`)
-                                childValues.push(cCoerced)
-                                pIdx++
+                            for (const cn of dataColumns) {
+                                ph.push(`$${pIdx++}`)
+                                allValues.push(rowData[cn] ?? null)
                             }
-
-                            await ctx.manager.query(
-                                `INSERT INTO ${tabTableIdent} (${childColNames.join(', ')}) VALUES (${childPlaceholders.join(', ')})`,
-                                childValues
-                            )
+                            valueTuples.push(`(${ph.join(', ')})`)
                         }
+
+                        await mgr.query(
+                            `INSERT INTO ${tabTableIdent} (${allColumns.join(', ')}) VALUES ${valueTuples.join(', ')}`,
+                            allValues
+                        )
                     }
-
-                    await ctx.manager.query('COMMIT')
                 }
+            }
 
+            try {
+                if (hasTableUpdates) {
+                    // Use TypeORM transaction management — creates savepoint when
+                    // manager is already queryRunner-bound (RLS), or a new
+                    // queryRunner with proper isolation otherwise.
+                    await ctx.manager.transaction(async (txManager) => {
+                        await performBulkUpdate(txManager)
+                    })
+                } else {
+                    await performBulkUpdate(ctx.manager)
+                }
                 return res.json({ status: 'ok' })
             } catch (e) {
-                if (hasTableUpdates) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                if (e instanceof UpdateFailure) {
+                    return res.status(e.statusCode).json(e.body)
                 }
                 throw e
             }
@@ -1971,54 +2000,63 @@ export function createApplicationsRoutes(
             }
 
             // Use transaction if TABLE data is present to ensure atomicity
-            if (tableDataEntries.length > 0) {
-                await ctx.manager.query('BEGIN')
-                try {
-                    const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
-                    const parentId = inserted.id
+            // Helper: insert parent row + batch-insert child rows
+            const performCreate = async (mgr: ReturnType<typeof getRequestManager>): Promise<string> => {
+                const [inserted] = (await mgr.query(insertSql, values)) as Array<{ id: string }>
+                const parentId = inserted.id
 
-                    for (const { rows: childRows, tabTableName } of tableDataEntries) {
-                        const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+                for (const { rows: childRows, tabTableName } of tableDataEntries) {
+                    if (childRows.length === 0) continue
+                    const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
 
-                        for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
-                            const rowData = childRows[rowIdx]
-                            const childColNames: string[] = ['_tp_parent_id', '_tp_sort_order']
-                            const childPlaceholders: string[] = ['$1', '$2']
-                            const childValues: unknown[] = [parentId, rowIdx]
-                            let pIdx = 3
-
-                            if (ctx.userId) {
-                                childColNames.push('_upl_created_by')
-                                childPlaceholders.push(`$${pIdx}`)
-                                childValues.push(ctx.userId)
-                                pIdx++
-                            }
-
-                            for (const [columnName, cCoerced] of Object.entries(rowData)) {
-                                if (!IDENTIFIER_REGEX.test(columnName)) continue
-                                childColNames.push(quoteIdentifier(columnName))
-                                childPlaceholders.push(`$${pIdx}`)
-                                childValues.push(cCoerced)
-                                pIdx++
-                            }
-
-                            await ctx.manager.query(
-                                `INSERT INTO ${tabTableIdent} (${childColNames.join(', ')}) VALUES (${childPlaceholders.join(', ')})`,
-                                childValues
-                            )
+                    // Collect union of all data columns for batch INSERT
+                    const dataColSet = new Set<string>()
+                    for (const rd of childRows) {
+                        for (const cn of Object.keys(rd)) {
+                            if (IDENTIFIER_REGEX.test(cn)) dataColSet.add(cn)
                         }
                     }
+                    const dataColumns = [...dataColSet]
+                    const headerCols: string[] = ['_tp_parent_id', '_tp_sort_order']
+                    if (ctx.userId) headerCols.push('_upl_created_by')
+                    const allColumns = [...headerCols, ...dataColumns.map((c) => quoteIdentifier(c))]
+                    const allValues: unknown[] = []
+                    const valueTuples: string[] = []
+                    let pIdx = 1
 
-                    await ctx.manager.query('COMMIT')
-                    return res.status(201).json({ id: parentId, status: 'created' })
-                } catch (e) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
-                    throw e
+                    for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
+                        const rowData = childRows[rowIdx]
+                        const ph: string[] = []
+                        ph.push(`$${pIdx++}`)
+                        allValues.push(parentId)
+                        ph.push(`$${pIdx++}`)
+                        allValues.push(rowIdx)
+                        if (ctx.userId) {
+                            ph.push(`$${pIdx++}`)
+                            allValues.push(ctx.userId)
+                        }
+                        for (const cn of dataColumns) {
+                            ph.push(`$${pIdx++}`)
+                            allValues.push(rowData[cn] ?? null)
+                        }
+                        valueTuples.push(`(${ph.join(', ')})`)
+                    }
+
+                    await mgr.query(`INSERT INTO ${tabTableIdent} (${allColumns.join(', ')}) VALUES ${valueTuples.join(', ')}`, allValues)
                 }
-            } else {
-                const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
-                return res.status(201).json({ id: inserted.id, status: 'created' })
+
+                return parentId
             }
+
+            let parentId: string
+            if (tableDataEntries.length > 0) {
+                parentId = await ctx.manager.transaction(async (txManager) => {
+                    return performCreate(txManager)
+                })
+            } else {
+                parentId = await performCreate(ctx.manager)
+            }
+            return res.status(201).json({ id: parentId, status: 'created' })
         })
     )
 
@@ -2087,12 +2125,9 @@ export function createApplicationsRoutes(
             const tableAttrsForDelete = attrs.filter((a) => a.data_type === 'TABLE')
             const needsTransaction = tableAttrsForDelete.length > 0
 
-            if (needsTransaction) {
-                await ctx.manager.query('BEGIN')
-            }
-
-            try {
-                const deleted = (await ctx.manager.query(
+            // Helper: soft-delete parent row + cascade to child tables
+            const performDelete = async (mgr: ReturnType<typeof getRequestManager>) => {
+                const deleted = (await mgr.query(
                     `
                         UPDATE ${dataTableIdent}
                         SET _upl_deleted = true,
@@ -2110,16 +2145,14 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string }>
 
                 if (deleted.length === 0) {
-                    // Distinguish locked from not-found
-                    const exists = (await ctx.manager.query(
+                    const exists = (await mgr.query(
                         `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
                         [rowId]
                     )) as Array<{ id: string; _upl_locked?: boolean }>
-                    if (needsTransaction) await ctx.manager.query('ROLLBACK').catch(() => {})
                     if (exists.length > 0 && exists[0]._upl_locked) {
-                        return res.status(423).json({ error: 'Record is locked' })
+                        throw new UpdateFailure(423, { error: 'Record is locked' })
                     }
-                    return res.status(404).json({ error: 'Row not found' })
+                    throw new UpdateFailure(404, { error: 'Row not found' })
                 }
 
                 // Soft-delete child rows in TABLE child tables
@@ -2131,7 +2164,7 @@ export function createApplicationsRoutes(
                             : fallbackTabTableName
                     if (!IDENTIFIER_REGEX.test(tabTableName)) continue
                     const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
-                    await ctx.manager.query(
+                    await mgr.query(
                         `
                             UPDATE ${tabTableIdent}
                             SET _upl_deleted = true,
@@ -2146,11 +2179,21 @@ export function createApplicationsRoutes(
                         [ctx.userId, rowId]
                     )
                 }
+            }
 
-                if (needsTransaction) await ctx.manager.query('COMMIT')
+            try {
+                if (needsTransaction) {
+                    await ctx.manager.transaction(async (txManager) => {
+                        await performDelete(txManager)
+                    })
+                } else {
+                    await performDelete(ctx.manager)
+                }
                 return res.json({ status: 'deleted' })
             } catch (e) {
-                if (needsTransaction) await ctx.manager.query('ROLLBACK').catch(() => {})
+                if (e instanceof UpdateFailure) {
+                    return res.status(e.statusCode).json(e.body)
+                }
                 throw e
             }
         })
@@ -2256,6 +2299,12 @@ export function createApplicationsRoutes(
             const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
             if (!catalogId || !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'catalogId query parameter is required' })
 
+            // Server-side pagination (optional, defaults to all rows)
+            const limitParam = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : undefined
+            const offsetParam = typeof req.query.offset === 'string' ? parseInt(req.query.offset, 10) : undefined
+            const limit = Number.isFinite(limitParam) && (limitParam as number) > 0 ? (limitParam as number) : 1000
+            const offset = Number.isFinite(offsetParam) && (offsetParam as number) >= 0 ? (offsetParam as number) : 0
+
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
 
@@ -2265,6 +2314,19 @@ export function createApplicationsRoutes(
             const safeChildAttrs = tc.childAttrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
             const selectCols = ['id', '_tp_sort_order', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
 
+            // Get total count
+            const countResult = (await ctx.manager.query(
+                `
+                    SELECT COUNT(*)::int AS total
+                    FROM ${tc.tabTableIdent}
+                    WHERE _tp_parent_id = $1
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                `,
+                [recordId]
+            )) as Array<{ total: number }>
+            const total = countResult[0]?.total ?? 0
+
             const rows = (await ctx.manager.query(
                 `
                     SELECT ${selectCols.join(', ')}
@@ -2273,8 +2335,9 @@ export function createApplicationsRoutes(
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
                     ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
+                    LIMIT $2 OFFSET $3
                 `,
-                [recordId]
+                [recordId, limit, offset]
             )) as Array<Record<string, unknown>>
 
             const items = rows.map((row) => {
@@ -2286,7 +2349,7 @@ export function createApplicationsRoutes(
                 return mapped
             })
 
-            return res.json({ items, total: items.length })
+            return res.json({ items, total })
         })
     )
 
