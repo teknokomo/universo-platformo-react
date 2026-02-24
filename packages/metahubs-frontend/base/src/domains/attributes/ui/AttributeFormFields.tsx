@@ -114,6 +114,7 @@ const AttributeFormFields = ({
     const isRequired = Boolean(values.isRequired)
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
     const validationRules = (values.validationRules as AttributeValidationRules | undefined) ?? getDefaultValidationRules(dataType)
+    const uiConfig = (values.uiConfig ?? {}) as Record<string, unknown>
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
     const nextCodename = sanitizeCodename(nameValue)
@@ -298,12 +299,41 @@ const AttributeFormFields = ({
                         uiLocale={uiLocale}
                     />
                 )
+            case 'TABLE':
+                return (
+                    <Stack spacing={2}>
+                        <Stack direction='row' spacing={2}>
+                            <TextField
+                                label={t('attributes.typeSettings.table.minRows', 'Min rows')}
+                                type='number'
+                                size='small'
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.minRows ?? ''}
+                                onChange={(e) => updateValidationRule('minRows', e.target.value ? parseInt(e.target.value, 10) : null)}
+                                inputProps={{ min: 0 }}
+                                helperText={t('attributes.typeSettings.table.minRowsHelper', 'Leave empty for no limit')}
+                            />
+                            <TextField
+                                label={t('attributes.typeSettings.table.maxRows', 'Max rows')}
+                                type='number'
+                                size='small'
+                                fullWidth
+                                disabled={isLoading}
+                                value={validationRules.maxRows ?? ''}
+                                onChange={(e) => updateValidationRule('maxRows', e.target.value ? parseInt(e.target.value, 10) : null)}
+                                inputProps={{ min: 1 }}
+                                helperText={t('attributes.typeSettings.table.maxRowsHelper', 'Leave empty for no limit')}
+                            />
+                        </Stack>
+                    </Stack>
+                )
             default:
                 return null
         }
     }
 
-    const hasTypeSettings = ['STRING', 'NUMBER', 'DATE', 'REF'].includes(dataType)
+    const hasTypeSettings = ['STRING', 'NUMBER', 'DATE', 'REF', 'TABLE'].includes(dataType)
 
     return (
         <Stack spacing={2}>
@@ -363,14 +393,23 @@ const AttributeFormFields = ({
             )}
             {/* Physical PostgreSQL type info */}
             <Alert severity='info' sx={{ py: 0.5 }}>
-                {physicalTypeLabel}: <strong>{physicalTypeInfo.physicalTypeStr}</strong>
+                {physicalTypeLabel}:{' '}
+                <strong>
+                    {dataType === 'TABLE'
+                        ? t('attributes.physicalType.childTable', 'Child table (tabular part)')
+                        : physicalTypeInfo.physicalTypeStr}
+                </strong>
                 {physicalTypeInfo.physicalInfo.isVLC && ' (VLC)'}
             </Alert>
-            <FormControlLabel
-                control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
-                label={requiredLabel}
-                disabled={isLoading}
-            />
+            {/* TABLE type is always optional - hide required toggle */}
+            {dataType !== 'TABLE' && (
+                <FormControlLabel
+                    control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
+                    label={requiredLabel}
+                    disabled={isLoading}
+                />
+            )}
+            {/* Display attribute toggle (hidden when Presentation tab handles it) */}
             {!hideDisplayAttribute && (
                 <Box>
                     <FormControlLabel
@@ -499,6 +538,25 @@ export const PresentationTabFields = ({
                 />
                 {displayAttributeHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayAttributeHelper}</FormHelperText>}
             </Box>
+            {dataType === 'TABLE' && (
+                <>
+                    <Divider />
+                    <Box>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={(uiConfig.showTitle as boolean) ?? true}
+                                    onChange={(_, checked) => {
+                                        updateUiConfig({ showTitle: checked })
+                                    }}
+                                    disabled={isLoading}
+                                />
+                            }
+                            label={t('attributes.typeSettings.table.showTitle', 'Show table title')}
+                        />
+                    </Box>
+                </>
+            )}
             {dataType === 'BOOLEAN' && (
                 <>
                     <Divider />

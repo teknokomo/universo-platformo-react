@@ -1,34 +1,263 @@
 # Active Context
 
-> **Last Updated**: 2026-02-20
+> **Last Updated**: 2026-02-24
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: PR #686 Bot Review Fixes Completed
+## Current Focus: Round 5 UX Fixes Complete
 
-**Status**: Completed in IMPLEMENT mode, all 5 bot review recommendations applied and pushed.
-**Date**: 2026-02-20
-**Branch**: `feature/metahubs-tables-improvement`
-**PR**: #686
+**Status**: Completed in IMPLEMENT mode.
+**Date**: 2026-02-24
 
-### Applied Fixes
-1. **Optimistic locking**: Added `_upl_version` increment in `removeHubFromObjectAssociations` (`hubsRoutes.ts`).
-2. **Error envelope**: Standardized `normalizedComment.error` responses to `{error, details}` pattern (`metahubsRoutes.ts`, 2 locations).
-3. **LocalizedInlineField UX**: Added `maxLength={510}` prop + i18n `commentTooLongMessage` prop (`MemberFormDialog.tsx`).
-4. **i18n completeness**: Added `members.validation.commentCharacterCount` and `commentTooLong` keys to EN/RU locales.
-5. **Migration safety**: Reverted initial migration back to `TEXT`, created new `1766351182001-AlterMetahubUsersCommentToJsonb.ts` migration.
+### What Was Done
+1. **Main DataGrid edge separators removed**: `CustomizedDataGrid` now computes the first real data column and renders separator pseudo-lines only for columns after it, preventing left-edge artifacts while preserving internal vertical separators.
+2. **Child TABLE cache freshness after Save**:
+   - `useCrudDashboard` now invalidates all `tabularRows` queries for the updated parent row right after successful parent `updateRow`.
+   - `RuntimeInlineTabularEditor` tabular query now uses `staleTime: 0` + `refetchOnMount: 'always'`, ensuring fresh rows on dialog reopen even when global query defaults are more permissive.
+3. **Child TABLE separator selector refinement**: both `TabularPartEditor` and `RuntimeInlineTabularEditor` now exclude `__rowNumber` from separator pseudo-lines to avoid extra edge/filler visual artifacts.
 
 ### Verification
-- Build: 66/66 packages ✅
-- Tests: 15/15 suites, 83 passed ✅
-- Pushed to PR #686 ✅
+- `pnpm --filter apps-template-mui lint` ✅ (0 errors)
+- `pnpm --filter apps-template-mui build` ✅
+- `pnpm build` ✅ (66/66)
 
-## Previous Focus: Enumerations QA Remediation Round 4 Completed
+---
 
-**Status**: Completed in IMPLEMENT mode, safety fixes + regression tests delivered.
-**Date**: 2026-02-19
+## Current Focus: Round 4 UX Fixes Complete
+
+**Status**: Completed in IMPLEMENT mode.
+**Date**: 2026-02-24
+
+### What Was Done
+1. **EDIT add-row autofocus parity**: `RuntimeInlineTabularEditor` now auto-focuses and starts editing in the first left STRING/NUMBER child cell after adding a row in deferred EDIT mode, matching CREATE behavior.
+2. **Child TABLE separators cleanup**: Updated DataGrid separator selectors in both `TabularPartEditor` and `RuntimeInlineTabularEditor` to render only internal vertical separators and remove edge artifacts.
+3. **Main table separator parity**: Added the same internal vertical separator pattern to `CustomizedDataGrid` used by the main app table.
+4. **Child TABLE row actions menu**: Replaced the right-side delete-only icon column with a `⋮` actions pattern (header + row icon buttons), adding a row menu with `Edit` and `Delete` in both create/edit TABLE editors.
+5. **Menu "Edit" behavior**: Selecting `Edit` now opens inline editing in the row's leftmost STRING/NUMBER cell.
+6. **Cancel localization**: Runtime child-row delete confirmation now receives localized `cancelButtonText` from `tabular.cancel`, removing English fallback in RU UI.
+
+### Verification
+- `pnpm --filter apps-template-mui lint` ✅ (0 errors)
+- `pnpm --filter apps-template-mui build` ✅
+
+---
+
+## Current Focus: Round 3 UX Fixes Complete
+
+**Status**: Completed in IMPLEMENT mode.
+**Date**: 2026-02-24
+
+### What Was Done
+1. **Plain child-table select styling**: Removed residual rounded/bordered visual decoration from child REF dropdowns in both `apps-template-mui` (`tabularColumns.tsx`) and `metahubs-frontend` (`InlineTableEditor.tsx`), preserving only the value text + default arrow icon.
+2. **Deferred TABLE persistence in edit dialog**: `RuntimeInlineTabularEditor` now supports local-only editing mode (`deferPersistence`) with row emission through `onChange`. `FormDialog` edit path now uses this mode so child table mutations are committed only on main Save.
+3. **Row append order fix**: New rows now append at the end (via `_tp_sort_order = max + 1` in immediate mode; local append in deferred mode).
+4. **Backend bulk update TABLE support**: Extended `PATCH /:applicationId/runtime/rows/:rowId` to accept TABLE payload updates transactionally (validate/coerce, apply required defaults, replace child rows in submitted order).
+
+### Verification
+- `pnpm --filter apps-template-mui lint` ✅ (0 errors)
+- `pnpm --filter applications-backend lint` ✅ (0 errors)
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors)
+- `pnpm build` ✅ (66/66)
+
+---
+
+## Current Focus: QA Remediation + UX Fixes Complete
+
+**Status**: Completed in IMPLEMENT mode. QA-found enum validation gap fixed, double-click editing restored, runtime Select styling aligned.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **HIGH: Child attribute defaultEnumValueId validation** (`attributesRoutes.ts`): Added full enum validation block (identical to root create) in the child attribute create endpoint. Now validates that `defaultEnumValueId` references a valid value from the target enumeration, normalizes `enumAllowEmpty`, `enumPresentationMode`, and `enumLabelEmptyDisplay`.
+2. **InlineTableEditor double-click editing** (`InlineTableEditor.tsx`): Moved cell editing activation from inner Box `onMouseDown` to TableCell `onDoubleClick`. When another cell is already editing, `onMouseDown` with blur-suppression enables quick cell switching. The entire cell area is now clickable (no CSS height issues with percentage-based Box inside `<td>`).
+3. **Runtime child TABLE Select styling** (`tabularColumns.tsx`, `TabularPartEditor.tsx`, `RuntimeInlineTabularEditor.tsx`): Made Select column non-editable (`editable: false`) and rendered a real always-visible Select in `renderCell` instead of only showing it in edit mode. Removed `UnfoldMoreIcon` (uses default MUI dropdown arrow), removed rounded corners, added `onSelectChange` callback for direct value updates.
+
+### Verification
+- `pnpm --filter apps-template-mui lint` ✅ (0 errors, 30 warnings)
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors, 400 warnings)
+- `pnpm --filter @universo/metahubs-backend lint` ✅ (0 errors, 285 warnings)
+- `pnpm build` ✅ (66/66, 6m26s)
+
+---
+
+## Current Focus: Child TABLE Editing & Select UX Parity Complete
+
+**Status**: Completed in IMPLEMENT mode. Metahub click-to-edit reliability and runtime create TABLE UX parity are implemented and verified.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **Metahub child TABLE click-to-edit reliability**: In `InlineTableEditor.tsx`, added a blur-suppression guard (`suppressNextBlurRef`) around cell switching. The editor now avoids blur/mousedown race during cell switch and still exits edit mode correctly on true outside blur.
+2. **Runtime create TABLE dropdown parity**: In `apps-template-mui` `tabularColumns.tsx`, replaced default singleSelect edit behavior with custom MUI `Select` edit renderer for REF-enum cells:
+   - empty option uses `minHeight: 36` and non-breaking space,
+   - selected item is visibly highlighted (`Mui-selected` style),
+   - explicit up/down indicator icon (`UnfoldMoreIcon`) is shown in the editor.
+3. **Runtime create TABLE auto-edit on add row**: In `TabularPartEditor.tsx`, after row creation the first left STRING/NUMBER child field now automatically enters edit mode via DataGrid API (`setCellFocus` + `startCellEditMode`).
+4. **Tech context acquisition (requested by user)**: Gathered stack guidance via Rube (`CONTEXT7_MCP_QUERY_DOCS` for React/MUI and `COMPOSIO_SEARCH_WEB`) before implementation.
+
+### Verification
+- `pnpm --filter apps-template-mui lint` ✅ (0 errors, 30 warnings)
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors)
+- `pnpm --filter apps-template-mui build` ✅
+- `pnpm build` ✅ (66/66, 5m04s)
+
+---
+
+## Previous Focus: QA Recommendations Implementation Complete
+
+**Status**: Completed in IMPLEMENT mode. Both QA recommendations implemented and verified.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **changeCounts pluralization**: Replaced raw interpolation `{{additiveCount}} change(s)` with nested plural-aware `t()` calls (same composition pattern as `tableMeta`). Added `additiveChangesCount` and `destructiveChangesCount` plural keys for EN (`_one`/`_other`) and RU (`_one`/`_few`/`_many`). Russian now correctly uses "1 безопасное изменение", "3 безопасных изменения", "5 безопасных изменений".
+2. **Backend child search batch optimization**: Added `findChildAttributesByParentIds()` method to `MetahubAttributesService` using single `whereIn` query. Replaced N individual `findChildAttributes()` calls in `Promise.all` loop with one batch call, reducing DB round-trips from N+1 to 2 (ensureSchema + batch select).
+
+### Verification
+- `pnpm --filter applications-frontend lint` ✅ (0 errors)
+- `pnpm --filter metahubs-backend lint` ✅ (0 errors)
+- `pnpm build` ✅ (66/66, 5m29s)
+
+---
+
+## Previous Focus: Inline Edit, Empty Option & Schema Diff i18n Fixes Complete
+
+**Status**: Completed in IMPLEMENT mode. All 3 issues fixed and verified.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **Click-to-edit broken**: Changed `onClick` to `onMouseDown` with `e.preventDefault()` on the clickable Box in `InlineTableEditor.tsx`. This prevents the `onBlur`/`onClick` race condition where the TextField's blur-triggered re-render consumed the click event before it reached the new target cell.
+2. **Empty option height in root REF**: Added `renderOption` to `EnumerationFieldAutocomplete`'s `Autocomplete` in `ElementList.tsx` that applies `minHeight: 36` and non-breaking space for empty options, matching the child TABLE select behavior.
+3. **Schema diff i18n pluralization**:
+   - Added proper i18next plural keys (`_one`/`_other` for EN; `_one`/`_few`/`_many` for RU) for field count, element count, row count, and table count in schema diff dialog.
+   - Composed `tableMeta` label from two separate plural-aware `t()` calls via interpolation.
+   - Added `TABLE`→Таблица and `REF`→Ссылка data type translations.
+   - Added `common.yes`→Да and `common.no`→Нет keys.
+
+### Verification
+- `pnpm build` ✅ (66/66, 5m38s)
+
+---
+
+## Previous Focus: Element Create & Attribute List UX Fixes Complete
+
+**Status**: Completed in IMPLEMENT mode. All 6 UX issues fixed and verified.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **Stale enum display mode cache**: Added invalidation of `childAttributesForElements` and `childEnumValues` query keys in `ChildAttributeList.invalidateChildQueries()`, ensuring child TABLE REF enum presentation mode changes take effect immediately without page refresh.
+2. **REF label UUID flash**: Modified `EnumerationFieldAutocomplete` label mode in `ElementList.tsx` to show non-breaking space while options are loading instead of fallback UUID-based label.
+3. **Table cell click area**: Wrapped non-editing Typography in a full-height `<Box>` with `onClick` and `cursor: 'text'` in `InlineTableEditor.tsx`, making the entire cell clickable when radio mode expands row height.
+4. **Auto-edit first cell on add**: `handleAddRow` in `InlineTableEditor.tsx` now finds the first STRING/NUMBER child field and activates inline editing on it automatically.
+5. **Empty option height**: Empty `<MenuItem>` in child TABLE select dropdown now has `sx={{ minHeight: 36 }}` with non-breaking space content.
+6. **Search includes child attributes**: Backend search now checks child attributes of TABLE parents and returns `childSearchMatchParentIds` in response meta. Frontend auto-expands matched TABLE parents and passes search filter to `ChildAttributeList` for client-side child filtering.
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors, 400 warnings)
+- `pnpm --filter @universo/metahubs-backend lint` ✅ (0 errors, 285 warnings)
+- `pnpm build` ✅ (66/66, 5m41s)
+
+---
+
+## Previous Focus: QA Remediation Pass Complete
+
+**Status**: Completed in IMPLEMENT mode. All blocker findings from the latest QA summary are implemented and verified.
+**Date**: 2026-02-23
+
+### What Was Done
+1. Fixed runtime TABLE list pagination wiring in the shared dashboard path so tabular rows no longer truncate on page boundaries.
+2. Added missing tabular child REF FK diff coverage for add/remove/retarget paths in `schema-ddl`.
+3. Enforced TABLE non-required invariant in backend attribute update/toggle-required routes.
+4. Aligned runtime TABLE edit rendering path with the shared `useCrudDashboard`-based tabular view.
+5. Added regression tests for child REF FK add/drop operations in tabular diff logic.
+
+### Verification
+- `pnpm --filter schema-ddl test` ✅ (8/8 suites, 112 tests)
+- `pnpm --filter schema-ddl lint` ✅ (warnings only, 0 errors)
+- `pnpm --filter apps-template-mui build` ✅
+- `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only, 0 errors)
+- `pnpm build` ✅ (66/66, 5m27s)
+
+---
+
+## Current Focus: Element Create TABLE UX Fixes Complete
+
+**Status**: Completed in IMPLEMENT mode for metahubs element create form.
+**Date**: 2026-02-23
+
+### What Was Done
+1. Updated child TABLE visual styling with thin vertical separators using inset pseudo-lines:
+   - white separators in header cells;
+   - `grey.100` separators in body/action cells.
+2. Aligned NUMBER field content to the right in child TABLE cells for both display and edit states.
+3. Removed synthetic empty radio option in child TABLE REF enumeration `radio` mode when empty values are allowed.
+4. Reworked child TABLE REF enumeration `label` mode rendering to be read-only and to honor default value + empty display behavior (`dash` or empty).
+5. Fixed root REF enumeration `label` mode in element create form to correctly render dash when configured (`emptyDisplay = dash`) instead of forcing an empty selection.
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend exec eslint src/domains/elements/ui/ElementList.tsx src/domains/elements/ui/InlineTableEditor.tsx --fix` ✅ (warnings only)
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors, warnings only)
+- `pnpm --filter @universo/metahubs-frontend build` ✅
+
+---
+
+## Current Focus: Implementation Finalization Complete
+
+**Status**: Completed in IMPLEMENT mode. No additional blocker-level regressions found after verification rerun.
+**Date**: 2026-02-23
+
+### What Was Done
+1. Added a dedicated implementation-finalization checklist to `memory-bank/tasks.md` and tracked this pass to completion.
+2. Revalidated key affected packages after the prior QA remediation summary.
+3. Confirmed repository-wide build health from project root without introducing new code changes.
+
+### Verification
+- `pnpm --filter @universo/schema-ddl test` ✅ (8/8 suites, 110 tests)
+- `pnpm --filter @universo/applications-backend test` ✅ (2/2 suites, 35 tests)
+- `pnpm --filter @universo/applications-backend lint` ✅ (0 errors, warnings only)
+- `pnpm build` ✅ (66/66)
+
+---
+
+## Current Focus: QA Blockers & Concurrency Hardening Complete
+
+**Status**: Completed in IMPLEMENT mode. All blocker-level issues from the latest comprehensive QA pass were addressed.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **Type diagnostics unblock**: fixed `DynamicFieldConfig` type import in metahubs frontend by using package root export from `@universo/template-mui`.
+2. **Applications frontend lint gate restored**: applied safe eslint/prettier auto-fixes in `applications-frontend`; package lint now reports warnings only (0 errors).
+3. **Runtime TABLE race hardening**: tabular child create/delete now run in DB transactions with parent-row `FOR UPDATE` lock to eliminate `minRows/maxRows` race windows.
+4. **Optimistic locking added**:
+   - runtime parent row single-field and bulk updates now accept optional `expectedVersion` and return HTTP `409` on mismatch;
+   - runtime tabular child row update now accepts optional `expectedVersion` and returns HTTP `409` on mismatch.
+
+### Verification
+- `pnpm --filter applications-frontend lint` ✅ (0 errors, warnings only)
+- `pnpm --filter @universo/applications-backend lint` ✅ (0 errors, warnings only)
+- `pnpm --filter @universo/applications-backend test` ✅ (2/2 suites, 35 tests)
+- `pnpm build` ✅ (66/66)
+
+---
+
+## Current Focus: Child TABLE Select UX Alignment Complete
+
+**Status**: Completed in IMPLEMENT mode. The requested child TABLE UX parity updates are implemented for both metahub element create and app runtime create/edit flows.
+**Date**: 2026-02-23
+
+### What Was Done
+1. **Metahub child TABLE empty-state cleanup**: removed dash placeholders for empty values in inline table cells and switched allowed-empty dropdown option to an empty first option.
+2. **Unified empty selection flow**: metahub enumeration select now uses dropdown-only empty selection (first empty option) with clear/reset cross disabled.
+3. **Metahub child TABLE enum parity**: added support for `enumPresentationMode` = `radio` and `label` in child TABLE REF fields.
+4. **Metahub child TABLE layout stability**: forced fixed table layout to prevent column width expansion while editing string/number cells.
+5. **Apps child TABLE enum parity**: added `radio` and `label` rendering support in shared DataGrid tabular column builder.
+6. **Apps child TABLE empty-state cleanup**: removed dash placeholders and switched select-mode empty option labels to true empty strings.
+
+### Verification
+- `pnpm --filter metahubs-frontend lint` ✅ (0 errors, warnings only)
+- `pnpm --filter apps-template-mui lint` ✅ (0 errors, warnings only)
+- `pnpm build` ✅ (66/66)
+
+## Previous Focus: TABLE Attribute UX & Bug Fix Round 6 Complete
 
 ### Applied Fixes
 1. Runtime `FormDialog` enum defaults no longer overwrite explicit `null` values during edit flow.

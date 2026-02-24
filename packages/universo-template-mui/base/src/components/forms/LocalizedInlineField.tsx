@@ -467,26 +467,19 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
 
                 const isFocused = focusedLocale === locale
                 const shouldShrink = Boolean(entry?.content?.trim()) || isFocused
-                
+
                 // Check minLength validation for this specific locale
                 const localeContent = entry?.content ?? ''
-                const hasMinLengthError = minLength != null && 
-                    localeContent.length > 0 && 
-                    localeContent.length < minLength
-                
+                const hasMinLengthError = minLength != null && localeContent.length > 0 && localeContent.length < minLength
+
                 // Determine if error should show under THIS locale:
                 // - If errorLocale is specified, show error only on that locale
                 // - If errorLocale is not specified (null/undefined), show error on primary (backward compat)
                 // - Also show minLength error independently for visual feedback
-                const isErrorLocale = errorLocale 
-                    ? locale.toLowerCase() === errorLocale.toLowerCase()
-                    : isPrimary
+                const isErrorLocale = errorLocale ? locale.toLowerCase() === errorLocale.toLowerCase() : isPrimary
                 const showError = (isErrorLocale && error) || hasMinLengthError
-                const fieldHelperText = isErrorLocale && error 
-                    ? error 
-                    : hasMinLengthError 
-                        ? `min: ${minLength}` 
-                        : (helperText || constraintText)
+                const fieldHelperText =
+                    isErrorLocale && error ? error : hasMinLengthError ? `min: ${minLength}` : helperText || constraintText
 
                 return (
                     <Box key={locale} sx={{ position: 'relative', overflow: 'visible' }}>
@@ -600,7 +593,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
 /**
  * Unified field component that switches between simple, versioned, and localized modes.
  * No hooks are called conditionally - each variant is a separate component.
- * 
+ *
  * Modes:
  * - 'simple' (default): Plain text field, no VLC structure
  * - 'versioned': VLC structure with version tracking, single locale (no language switching)

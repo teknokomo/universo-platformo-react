@@ -1,8 +1,10 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import StarIcon from '@mui/icons-material/Star'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -53,6 +55,7 @@ import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import attributeActions from './AttributeActions'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+import ChildAttributeList from './ChildAttributeList'
 
 type AttributeFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -125,6 +128,8 @@ const getDataTypeColor = (dataType: AttributeDataType): 'default' | 'primary' | 
             return 'info'
         case 'JSON':
             return 'default'
+        case 'TABLE':
+            return 'warning'
         default:
             return 'default'
     }
@@ -139,6 +144,7 @@ const AttributeList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
+    const [expandedTableIds, setExpandedTableIds] = useState<Set<string>>(new Set())
 
     // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
     // Resolve a stable hubId from the catalog's hub associations.
@@ -203,16 +209,35 @@ const AttributeList = () => {
     const { data: attributes, isLoading, error } = paginationResult
     // usePaginated already extracts items array, so data IS the array
 
-    const attributesMeta = paginationResult.meta as { totalAll?: number; limit?: number; limitReached?: boolean } | undefined
+    const attributesMeta = paginationResult.meta as
+        | {
+              totalAll?: number
+              limit?: number
+              limitReached?: boolean
+              childSearchMatchParentIds?: string[]
+          }
+        | undefined
     const limitValue = attributesMeta?.limit ?? attributesLimit
     const totalAttributes = attributesMeta?.totalAll ?? paginationResult.pagination.totalItems
     const limitReached = attributesMeta?.limitReached ?? totalAttributes >= limitValue
+    const childSearchMatchParentIds = attributesMeta?.childSearchMatchParentIds ?? []
 
     // Instant search for better UX
     const { searchValue, handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
+
+    // Auto-expand TABLE parents that have matching child attributes during search
+    useEffect(() => {
+        if (childSearchMatchParentIds.length > 0) {
+            setExpandedTableIds((prev) => {
+                const next = new Set(prev)
+                childSearchMatchParentIds.forEach((id) => next.add(id))
+                return next
+            })
+        }
+    }, [childSearchMatchParentIds])
 
     // State for independent ConfirmDeleteDialog
     const [deleteDialogState, setDeleteDialogState] = useState<{
@@ -357,7 +382,8 @@ const AttributeList = () => {
                                 { value: 'BOOLEAN', label: t('attributes.dataTypeOptions.boolean', 'Boolean') },
                                 { value: 'DATE', label: t('attributes.dataTypeOptions.date', 'Date') },
                                 { value: 'REF', label: t('attributes.dataTypeOptions.ref', 'Reference') },
-                                { value: 'JSON', label: t('attributes.dataTypeOptions.json', 'JSON') }
+                                { value: 'JSON', label: t('attributes.dataTypeOptions.json', 'JSON') },
+                                { value: 'TABLE', label: t('attributes.dataTypeOptions.table', 'Table') }
                             ]}
                             typeSettingsLabel={t('attributes.typeSettings.title', 'Type Settings')}
                             stringMaxLengthLabel={t('attributes.typeSettings.string.maxLength', 'Max Length')}
@@ -423,8 +449,8 @@ const AttributeList = () => {
                 align: 'center' as const,
                 sortable: true,
                 sortAccessor: (row: AttributeDisplay) => row.sortOrder ?? 0,
-                render: (row: AttributeDisplay) => (
-                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ? row.sortOrder : '—'}</Typography>
+                render: (_row: AttributeDisplay, index: number) => (
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, textAlign: 'center' }}>{index + 1}</Typography>
                 )
             },
             {
@@ -923,18 +949,75 @@ const AttributeList = () => {
                                     if (!originalAttribute) return null
 
                                     const descriptors = [...attributeActions] as any[]
-                                    if (!descriptors.length) return null
 
                                     return (
-                                        <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
-                                            entity={toAttributeDisplay(originalAttribute, i18n.language)}
-                                            entityKind='attribute'
-                                            descriptors={descriptors}
-                                            namespace='metahubs'
-                                            menuButtonLabelKey='flowList:menu.button'
-                                            i18nInstance={i18n}
-                                            createContext={createAttributeContext}
-                                        />
+                                        <Stack direction='row' spacing={0} alignItems='center'>
+                                            {row.dataType === 'TABLE' && (
+                                                <IconButton
+                                                    size='small'
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setExpandedTableIds((prev) => {
+                                                            const next = new Set(prev)
+                                                            if (next.has(row.id)) {
+                                                                next.delete(row.id)
+                                                            } else {
+                                                                next.add(row.id)
+                                                            }
+                                                            return next
+                                                        })
+                                                    }}
+                                                    sx={{ width: 28, height: 28, p: 0.5 }}
+                                                >
+                                                    {expandedTableIds.has(row.id) ? (
+                                                        <KeyboardArrowUpIcon fontSize='small' />
+                                                    ) : (
+                                                        <KeyboardArrowDownIcon fontSize='small' />
+                                                    )}
+                                                </IconButton>
+                                            )}
+                                            {descriptors.length > 0 && (
+                                                <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
+                                                    entity={toAttributeDisplay(originalAttribute, i18n.language)}
+                                                    entityKind='attribute'
+                                                    descriptors={descriptors}
+                                                    namespace='metahubs'
+                                                    menuButtonLabelKey='flowList:menu.button'
+                                                    i18nInstance={i18n}
+                                                    createContext={createAttributeContext}
+                                                />
+                                            )}
+                                        </Stack>
+                                    )
+                                }}
+                                renderRowExpansion={(row: any) => {
+                                    if (row.dataType !== 'TABLE') return null
+                                    if (!expandedTableIds.has(row.id)) return null
+                                    return (
+                                        <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
+                                            <Box sx={{ borderTop: '1px dashed', borderColor: 'divider', mx: 2, mb: 1 }} />
+                                            <ChildAttributeList
+                                                metahubId={metahubId!}
+                                                hubId={effectiveHubId}
+                                                catalogId={catalogId!}
+                                                parentAttributeId={row.id}
+                                                searchFilter={childSearchMatchParentIds.includes(row.id) ? searchValue : undefined}
+                                                onRefresh={async () => {
+                                                    if (effectiveHubId) {
+                                                        await invalidateAttributesQueries.all(
+                                                            queryClient,
+                                                            metahubId!,
+                                                            effectiveHubId,
+                                                            catalogId!
+                                                        )
+                                                    } else {
+                                                        queryClient.invalidateQueries({
+                                                            queryKey: metahubsQueryKeys.attributesDirect(metahubId!, catalogId!)
+                                                        })
+                                                    }
+                                                }}
+                                            />
+                                        </Box>
                                     )
                                 }}
                             />

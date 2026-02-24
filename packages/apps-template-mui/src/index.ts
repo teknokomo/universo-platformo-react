@@ -51,6 +51,20 @@ export { getDataGridLocaleText } from './utils/getDataGridLocale'
 export type { CrudDataAdapter, CellRendererOverrides } from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 
+// Tabular part (TABLE attribute) adapter & components
+/** @deprecated Use direct API helpers with RuntimeInlineTabularEditor instead */
+export { createTabularPartAdapter } from './api/TabularPartAdapter'
+/** @deprecated Use direct API helpers with RuntimeInlineTabularEditor instead */
+export type { TabularPartAdapterParams } from './api/TabularPartAdapter'
+/** @deprecated Use RuntimeInlineTabularEditor instead */
+export { RuntimeTabularPartView } from './components/RuntimeTabularPartView'
+/** @deprecated Use RuntimeInlineTabularEditorProps instead */
+export type { RuntimeTabularPartViewProps } from './components/RuntimeTabularPartView'
+export { RuntimeInlineTabularEditor } from './components/RuntimeInlineTabularEditor'
+export type { RuntimeInlineTabularEditorProps } from './components/RuntimeInlineTabularEditor'
+export { TabularPartEditor } from './components/TabularPartEditor'
+export type { TabularPartEditorProps } from './components/TabularPartEditor'
+
 // API — query keys & low-level hooks (still useful for custom scenarios)
 export { appQueryKeys } from './api/mutations'
 /** @deprecated Use appQueryKeys instead */

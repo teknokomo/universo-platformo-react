@@ -297,6 +297,12 @@ const PublicationList = () => {
         return { nameVlc, descriptionVlc: null, versionBranchId: defaultBranchId ?? null }
     }, [metahub, defaultBranchId, i18n.language])
 
+    const createDialogKey = useMemo(() => {
+        const primaryLocale = localizedFormDefaults.nameVlc?._primary ?? 'none'
+        const primaryName = localizedFormDefaults.nameVlc?.locales?.[primaryLocale]?.content ?? ''
+        return `publication-create-${primaryLocale}-${primaryName}-${localizedFormDefaults.versionBranchId ?? 'none'}`
+    }, [localizedFormDefaults.nameVlc, localizedFormDefaults.versionBranchId])
+
     const validatePublicationForm = useCallback(
         (values: Record<string, any>) => {
             const errors: Record<string, string> = {}
@@ -851,6 +857,7 @@ const PublicationList = () => {
             )}
 
             <EntityFormDialog
+                key={createDialogKey}
                 open={isDialogOpen}
                 title={t('publications.createDialog.title', 'Create Publication')}
                 nameLabel={tc('fields.name', 'Name')}

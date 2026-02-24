@@ -458,43 +458,122 @@ export class TemplateSeedMigrator {
                     })
                     .first()
 
+                let parentAttributeId: string | null = attrExists?.id ?? null
+                let parentInserted = false
                 if (attrExists) {
                     result.skipped.push(`attribute:${entity.codename}.${attr.codename} (already exists)`)
-                    continue
+                    if (attr.dataType !== 'TABLE') {
+                        continue
+                    }
+                }
+
+                if (!attrExists) {
+                    parentInserted = true
+                    if (!dryRun) {
+                        const [inserted] = await trx
+                            .withSchema(this.schemaName)
+                            .into('_mhb_attributes')
+                            .insert({
+                                object_id: entityId,
+                                codename: attr.codename,
+                                data_type: attr.dataType,
+                                presentation: { name: attr.name, description: attr.description },
+                                validation_rules: attr.validationRules ?? {},
+                                ui_config: attr.uiConfig ?? {},
+                                sort_order: attr.sortOrder ?? i,
+                                is_required: attr.isRequired ?? false,
+                                is_display_attribute: attr.isDisplayAttribute ?? false,
+                                target_object_id: attr.targetEntityCodename
+                                    ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
+                                    : null,
+                                target_object_kind: attr.targetEntityKind ?? null,
+                                _upl_created_at: now,
+                                _upl_created_by: null,
+                                _upl_updated_at: now,
+                                _upl_updated_by: null,
+                                _upl_version: 1,
+                                _upl_archived: false,
+                                _upl_deleted: false,
+                                _upl_locked: false,
+                                _mhb_published: true,
+                                _mhb_archived: false,
+                                _mhb_deleted: false
+                            })
+                            .returning('id')
+                        parentAttributeId = inserted?.id ?? null
+                    }
                 }
 
                 if (!dryRun) {
-                    await trx
-                        .withSchema(this.schemaName)
-                        .into('_mhb_attributes')
-                        .insert({
-                            object_id: entityId,
-                            codename: attr.codename,
-                            data_type: attr.dataType,
-                            presentation: { name: attr.name, description: attr.description },
-                            validation_rules: attr.validationRules ?? {},
-                            ui_config: attr.uiConfig ?? {},
-                            sort_order: attr.sortOrder ?? i,
-                            is_required: attr.isRequired ?? false,
-                            is_display_attribute: attr.isDisplayAttribute ?? false,
-                            target_object_id: attr.targetEntityCodename
-                                ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
-                                : null,
-                            target_object_kind: attr.targetEntityKind ?? null,
-                            _upl_created_at: now,
-                            _upl_created_by: null,
-                            _upl_updated_at: now,
-                            _upl_updated_by: null,
-                            _upl_version: 1,
-                            _upl_archived: false,
-                            _upl_deleted: false,
-                            _upl_locked: false,
-                            _mhb_published: true,
-                            _mhb_archived: false,
-                            _mhb_deleted: false
-                        })
+                    const childAttributes = (attr as unknown as Record<string, unknown>).childAttributes as
+                        | Array<Record<string, unknown>>
+                        | undefined
+                    if (attr.dataType === 'TABLE' && childAttributes?.length && parentAttributeId) {
+                        for (let ci = 0; ci < childAttributes.length; ci++) {
+                            const child = childAttributes[ci]
+                            const childExists = await trx
+                                .withSchema(this.schemaName)
+                                .from('_mhb_attributes')
+                                .where({
+                                    parent_attribute_id: parentAttributeId,
+                                    codename: child.codename as string,
+                                    _upl_deleted: false,
+                                    _mhb_deleted: false
+                                })
+                                .first()
+
+                            if (childExists) {
+                                result.skipped.push(
+                                    `child-attribute:${entity.codename}.${attr.codename}.${child.codename as string} (already exists)`
+                                )
+                                continue
+                            }
+
+                            await trx
+                                .withSchema(this.schemaName)
+                                .into('_mhb_attributes')
+                                .insert({
+                                    object_id: entityId,
+                                    parent_attribute_id: parentAttributeId,
+                                    codename: child.codename as string,
+                                    data_type: child.dataType as string,
+                                    presentation: {
+                                        name: child.name,
+                                        description: child.description ?? null
+                                    },
+                                    validation_rules: (child.validationRules as Record<string, unknown>) ?? {},
+                                    ui_config: (child.uiConfig as Record<string, unknown>) ?? {},
+                                    sort_order: (child.sortOrder as number) ?? ci,
+                                    is_required: (child.isRequired as boolean) ?? false,
+                                    is_display_attribute: false,
+                                    target_object_id:
+                                        typeof child.targetEntityCodename === 'string'
+                                            ? resolveEntityIdByCodename(
+                                                  entityIdMap,
+                                                  child.targetEntityCodename,
+                                                  (child.targetEntityKind as string | undefined) ?? undefined
+                                              )
+                                            : null,
+                                    target_object_kind: (child.targetEntityKind as string | null | undefined) ?? null,
+                                    _upl_created_at: now,
+                                    _upl_created_by: null,
+                                    _upl_updated_at: now,
+                                    _upl_updated_by: null,
+                                    _upl_version: 1,
+                                    _upl_archived: false,
+                                    _upl_deleted: false,
+                                    _upl_locked: false,
+                                    _mhb_published: true,
+                                    _mhb_archived: false,
+                                    _mhb_deleted: false
+                                })
+                            result.attributesAdded++
+                        }
+                    }
                 }
-                result.attributesAdded++
+                if (parentInserted) {
+                    result.attributesAdded++
+                }
             }
         }
 

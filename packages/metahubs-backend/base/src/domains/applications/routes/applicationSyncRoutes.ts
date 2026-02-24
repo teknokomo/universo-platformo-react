@@ -30,6 +30,7 @@ import {
     generateSchemaName,
     generateTableName,
     generateColumnName,
+    generateTabularTableName,
     generateMigrationName,
     KnexClient,
     uuidToLockKey,
@@ -187,6 +188,32 @@ function normalizeReferenceId(value: unknown): string | null {
     return null
 }
 
+/**
+ * Normalize a child field value for TABLE row seeding.
+ * Applies the same type-specific handling as parent seed logic.
+ */
+function normalizeChildFieldValue(
+    value: unknown,
+    field: { dataType: AttributeDataType; validationRules?: Record<string, unknown> },
+    codename: string,
+    tableName: string,
+    elementId: string
+): unknown {
+    if (value === null || value === undefined) return null
+    if (isVLCField(field)) return prepareJsonbValue(value)
+    if (field.dataType === AttributeDataType.JSON) return prepareJsonbValue(value)
+    if (field.dataType === AttributeDataType.NUMBER) {
+        return validateNumericValue({
+            value,
+            field: { codename, validationRules: field.validationRules },
+            tableName,
+            elementId
+        })
+    }
+    if (field.dataType === AttributeDataType.REF) return normalizeReferenceId(value)
+    return value
+}
+
 function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string[] {
     const catalogs = entities.filter((entity) => entity.kind === 'catalog')
     const catalogById = new Map(catalogs.map((entity) => [entity.id, entity]))
@@ -336,15 +363,24 @@ async function seedPredefinedElements(
 
             const tableName = generateTableName(entity.id, entity.kind)
             // Build field map: codename -> { columnName, field definition }
+            // Exclude TABLE-type fields (no physical column) and child fields (belong to tabular tables)
             const fieldByCodename = new Map<string, { columnName: string; field: EntityField }>(
-                entity.fields.map((field: EntityField) => [field.codename, { columnName: generateColumnName(field.id), field }])
+                entity.fields
+                    .filter((field: EntityField) => field.dataType !== AttributeDataType.TABLE && !field.parentAttributeId)
+                    .map((field: EntityField) => [field.codename, { columnName: generateColumnName(field.id), field }])
             )
             const dataColumns = Array.from(fieldByCodename.values()).map((v) => v.columnName)
+            // Collect TABLE-type fields for child row seeding
+            const tableFields = entity.fields.filter(
+                (field: EntityField) => field.dataType === AttributeDataType.TABLE && field.childFields && field.childFields.length > 0
+            )
 
             const rows = elements.map((element: SnapshotElementRow) => {
                 const data = element.data ?? {}
                 const missingRequired = entity.fields
-                    .filter((field: EntityField) => field.isRequired)
+                    .filter(
+                        (field: EntityField) => field.isRequired && field.dataType !== AttributeDataType.TABLE && !field.parentAttributeId
+                    )
                     .filter((field: EntityField) => {
                         if (!Object.prototype.hasOwnProperty.call(data, field.codename)) return true
                         const value = (data as Record<string, unknown>)[field.codename]
@@ -403,6 +439,43 @@ async function seedPredefinedElements(
 
             const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns]
             await trx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
+
+            // Seed TABLE child rows
+            if (tableFields.length > 0) {
+                for (const element of elements) {
+                    if (!element.data) continue
+                    for (const tableField of tableFields) {
+                        const tableData = (element.data as Record<string, unknown>)[tableField.codename]
+                        if (!Array.isArray(tableData) || tableData.length === 0) continue
+
+                        const tabularTableName = generateTabularTableName(tableName, tableField.id)
+                        const childFieldMap = new Map(
+                            tableField.childFields!.map((c) => [c.codename, { columnName: generateColumnName(c.id), field: c }])
+                        )
+
+                        const childRows = tableData.map((rowData, index) => {
+                            const childRow: Record<string, unknown> = {
+                                id: knex.raw('public.uuid_generate_v7()'),
+                                _tp_parent_id: element.id,
+                                _tp_sort_order: (rowData as Record<string, unknown>)?._tp_sort_order ?? index,
+                                _upl_created_at: now,
+                                _upl_created_by: userId ?? null,
+                                _upl_updated_at: now,
+                                _upl_updated_by: userId ?? null
+                            }
+                            for (const [codename, { columnName, field: childField }] of childFieldMap) {
+                                const value = (rowData as Record<string, unknown>)[codename]
+                                childRow[columnName] = normalizeChildFieldValue(value, childField, codename, tableName, element.id)
+                            }
+                            return childRow
+                        })
+
+                        // Delete existing child rows for this parent element (re-seed pattern)
+                        await trx.withSchema(schemaName).table(tabularTableName).where('_tp_parent_id', element.id).del()
+                        await trx.withSchema(schemaName).table(tabularTableName).insert(childRows)
+                    }
+                }
+            }
         }
     })
 
@@ -966,6 +1039,17 @@ async function persistPublishedLayouts(options: { schemaName: string; snapshot: 
             .select(['id'])
         const existingIds = new Set(existingRows.map((row) => String(row.id)))
 
+        // Clear is_default on all existing active layouts to avoid unique partial
+        // index violation (idx_app_layouts_default_active) when inserting a new
+        // default layout while the old one still exists.
+        if (existingRows.length > 0) {
+            await trx
+                .withSchema(schemaName)
+                .from('_app_layouts')
+                .where({ _upl_deleted: false, _app_deleted: false, is_default: true })
+                .update({ is_default: false })
+        }
+
         for (const row of nextLayouts) {
             const payload = {
                 template_key: row.templateKey,
@@ -1418,11 +1502,23 @@ export function createApplicationSyncRoutes(
                         await persistPublishedLayouts({ schemaName: application.schemaName!, snapshot, userId })
                         await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
                         await syncEnumerationValues(application.schemaName!, snapshot, userId)
+
+                        // Seed predefined elements even on hash match — previous seed may have failed
+                        let seedWarnings: string[] = []
+                        try {
+                            seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
+                            await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+                        } catch (seedErr: unknown) {
+                            const msg = seedErr instanceof Error ? seedErr.message : String(seedErr)
+                            console.warn(`[sync] Seed predefined elements failed on hash-match fast path: ${msg}`)
+                            seedWarnings = [`Seed error: ${msg}`]
+                        }
                         await touchConnectorUpdatedAt()
 
                         return res.json({
-                            status: hasUiChanges ? 'ui_updated' : 'no_changes',
-                            message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
+                            status: hasUiChanges || seedWarnings.length > 0 ? 'ui_updated' : 'no_changes',
+                            message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date',
+                            ...(seedWarnings.length > 0 ? { seedWarnings } : {})
                         })
                     }
                 }
@@ -1509,6 +1605,10 @@ export function createApplicationSyncRoutes(
                         await persistPublishedWidgets({ schemaName: application.schemaName!, snapshot, userId })
                         await syncEnumerationValues(application.schemaName!, snapshot, userId)
 
+                        // Seed predefined elements even when schema DDL hasn't changed —
+                        // new elements may have been added to the metahub since the last sync.
+                        const seedWarnings = await seedPredefinedElements(application.schemaName!, snapshot, catalogDefs, userId)
+
                         // Record a migration even if DDL didn't change, so the applied snapshot hash is updated.
                         // This prevents the diff endpoint from repeatedly suggesting a sync when only UI/meta changed.
                         const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
@@ -1538,11 +1638,21 @@ export function createApplicationSyncRoutes(
                             application.schemaSnapshot = snapshotAfter as unknown as Record<string, unknown>
                             await applicationRepo.save(application)
                         }
+
+                        if (seedWarnings.length > 0) {
+                            await persistSeedWarnings(application.schemaName!, migrationManager, seedWarnings)
+                        }
                         await touchConnectorUpdatedAt()
 
+                        const hasElementChanges = seedWarnings.length > 0
                         return res.json({
-                            status: hasUiChanges ? 'ui_updated' : 'no_changes',
-                            message: hasUiChanges ? 'UI layout settings updated' : 'Schema is already up to date'
+                            status: hasUiChanges || hasElementChanges ? 'ui_updated' : 'no_changes',
+                            message: hasUiChanges
+                                ? 'UI layout settings updated'
+                                : hasElementChanges
+                                ? 'Predefined elements updated'
+                                : 'Schema is already up to date',
+                            ...(seedWarnings.length > 0 ? { seedWarnings } : {})
                         })
                     }
 

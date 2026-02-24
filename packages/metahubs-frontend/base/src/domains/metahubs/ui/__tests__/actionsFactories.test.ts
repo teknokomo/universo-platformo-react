@@ -44,7 +44,6 @@ beforeEach(() => {
 
 describe('Metahubs page action factories', () => {
     it('MetahubActions exports edit/copy/delete descriptors for localized forms', async () => {
-        vi.resetModules()
         const mod = await import('../MetahubActions')
 
         expect(createEntityActions).not.toHaveBeenCalled()
@@ -65,7 +64,6 @@ describe('Metahubs page action factories', () => {
     }, 30000)
 
     it('HubActions exports edit/delete descriptors for localized forms', async () => {
-        vi.resetModules()
         const mod = await import('../../../hubs/ui/HubActions')
 
         // HubActions exports an array of ActionDescriptors directly (not via createEntityActions)
@@ -82,7 +80,6 @@ describe('Metahubs page action factories', () => {
     }, 20000)
 
     it('CatalogActions exports edit/delete descriptors for localized forms', async () => {
-        vi.resetModules()
         const mod = await import('../../../catalogs/ui/CatalogActions')
 
         // CatalogActions exports an array of ActionDescriptors directly (not via createEntityActions)
@@ -99,7 +96,6 @@ describe('Metahubs page action factories', () => {
     }, 30000)
 
     it('MetahubMemberActions passes correct config', async () => {
-        vi.resetModules()
         const mod = await import('../MetahubMemberActions')
 
         const cfg = mod.default as any

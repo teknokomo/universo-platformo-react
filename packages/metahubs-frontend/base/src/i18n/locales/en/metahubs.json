@@ -581,7 +581,8 @@
       "boolean": "Boolean",
       "date": "Date",
       "ref": "Reference",
-      "json": "JSON"
+      "json": "JSON",
+      "table": "Table"
     },
     "typeSettings": {
       "title": "Type Settings",
@@ -610,11 +611,24 @@
           "time": "Time only",
           "datetime": "Date and Time"
         }
+      },
+      "table": {
+        "showTitle": "Show table title",
+        "hint": "TABLE attributes store rows in a separate child table. Each row can have its own set of fields.",
+        "minRows": "Min rows",
+        "minRowsHelper": "Leave empty for no limit",
+        "maxRows": "Max rows",
+        "maxRowsHelper": "Leave empty for no limit",
+        "addRow": "Add row",
+        "deleteRow": "Delete row",
+        "noRows": "No rows yet",
+        "rowCount": "{{count}} row(s)"
       }
     },
     "physicalType": {
       "label": "PostgreSQL type",
-      "tooltip": "PostgreSQL: {{type}}"
+      "tooltip": "PostgreSQL: {{type}}",
+      "childTable": "Child table (tabular part)"
     },
     "tabs": {
       "general": "General",
@@ -682,7 +696,25 @@
     "setDisplaySuccess": "Attribute set as display attribute",
     "setDisplayError": "Failed to set display attribute",
     "clearDisplaySuccess": "Display attribute flag cleared",
-    "clearDisplayError": "Failed to clear display attribute"
+    "clearDisplayError": "Failed to clear display attribute",
+    "childAttributes": "Child Attributes",
+    "noChildAttributes": "No child attributes yet",
+    "createChildDialog": {
+      "title": "Add Child Attribute"
+    },
+    "editChildDialog": {
+      "title": "Edit Child Attribute"
+    },
+    "deleteChildDialog": {
+      "message": "Are you sure you want to delete this child attribute?"
+    },
+    "tableValidation": {
+      "maxTableAttributes": "Maximum {{max}} TABLE attributes per catalog",
+      "maxChildAttributes": "Maximum {{max}} child attributes per TABLE",
+      "nestedTableNotAllowed": "Nested TABLE attributes are not allowed",
+      "tableCannotBeDisplay": "TABLE attributes cannot be set as the display attribute",
+      "tableCannotBeRequired": "TABLE attributes cannot be set as required"
+    }
   },
   "ref": {
     "targetEntityKind": "Target Entity Type",
@@ -731,7 +763,10 @@
       "message": "Are you sure you want to delete this element? This action cannot be undone."
     },
     "table": {
-      "updated": "Updated"
+      "updated": "Updated",
+      "addRow": "Add Row",
+      "noRows": "No rows yet. Click \"Add Row\" to add data.",
+      "rowCount": "{{count}} rows"
     },
     "createError": "Failed to create element",
     "updateError": "Failed to update element",

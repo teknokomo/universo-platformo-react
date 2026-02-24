@@ -35,4 +35,17 @@ export const generateMetahubSchemaName = (metahubId: string): string => {
 
 export const isValidSchemaName = (schemaName: string): boolean => /^(app_[a-f0-9]+|mhb_[a-f0-9]+(_b[0-9]+)?)$/.test(schemaName)
 
+/**
+ * Generates table name for a tabular part (TABLE attribute).
+ * Convention: {parentTableName}_tp_{attributeUuid12}
+ * Uses first 12 hex chars of UUID (48 bits) for uniqueness within a catalog.
+ * Keeps total name ≤ 63 chars (PostgreSQL NAMEDATALEN limit).
+ * Example: cat_abc123def456...gggg_tp_111122223333
+ */
+export const generateTabularTableName = (parentTableName: string, attributeId: string): string => {
+    const cleanId = attributeId.replace(/-/g, '').substring(0, 12)
+    const name = `${parentTableName}_tp_${cleanId}`
+    return name.substring(0, 63)
+}
+
 export const buildFkConstraintName = (tableName: string, columnName: string): string => `fk_${tableName}_${columnName}`.substring(0, 63)

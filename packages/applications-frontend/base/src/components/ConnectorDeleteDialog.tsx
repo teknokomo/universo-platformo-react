@@ -24,7 +24,14 @@ export interface ConnectorDeleteDialogProps {
  * Dialog for confirming connector deletion.
  * Simple confirmation dialog without blocking entities check.
  */
-export function ConnectorDeleteDialog({ open, connector, onClose, onConfirm, isDeleting = false, uiLocale = 'en' }: ConnectorDeleteDialogProps) {
+export function ConnectorDeleteDialog({
+    open,
+    connector,
+    onClose,
+    onConfirm,
+    isDeleting = false,
+    uiLocale = 'en'
+}: ConnectorDeleteDialogProps) {
     const { t } = useTranslation(['applications'])
 
     if (!connector) return null

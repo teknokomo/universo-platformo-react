@@ -50,10 +50,7 @@ const isLocalStorageAvailable = (): boolean => {
  * }
  * ```
  */
-export function useViewPreference(
-    storageKey: string,
-    defaultView: ViewStyle = DEFAULT_VIEW_STYLE
-): [ViewStyle, (view: ViewStyle) => void] {
+export function useViewPreference(storageKey: string, defaultView: ViewStyle = DEFAULT_VIEW_STYLE): [ViewStyle, (view: ViewStyle) => void] {
     const [view, setViewState] = useState<ViewStyle>(() => {
         if (!isLocalStorageAvailable()) return defaultView
         try {

@@ -208,8 +208,7 @@ export default function MenuContent() {
                                     {getAdminMenuItems().map((item) => {
                                         if (item.type === 'divider') return null
                                         const Icon = item.icon
-                                        const isSelected =
-                                            location.pathname === item.url || location.pathname.startsWith('/admin')
+                                        const isSelected = location.pathname === item.url || location.pathname.startsWith('/admin')
                                         return (
                                             <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
                                                 <ListItemButton component={NavLink} to={item.url} selected={isSelected}>

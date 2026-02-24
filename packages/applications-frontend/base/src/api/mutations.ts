@@ -12,12 +12,7 @@ import { applicationsQueryKeys } from './queryKeys'
  * Fetch a single row (raw data for edit forms).
  * Uses staleTime: 0 and gcTime: 0 to always refetch fresh data.
  */
-export function useRuntimeRow(options: {
-    applicationId: string | undefined
-    rowId: string | null
-    catalogId?: string
-    enabled?: boolean
-}) {
+export function useRuntimeRow(options: { applicationId: string | undefined; rowId: string | null; catalogId?: string; enabled?: boolean }) {
     const { applicationId, rowId, catalogId, enabled = true } = options
     return useQuery({
         queryKey: applicationId && rowId ? applicationsQueryKeys.runtimeRow(applicationId, rowId) : ['noop'],
@@ -32,10 +27,7 @@ export function useRuntimeRow(options: {
 }
 
 /** Create a new runtime row and invalidate list queries. */
-export function useCreateRuntimeRow(options: {
-    applicationId: string | undefined
-    catalogId?: string
-}) {
+export function useCreateRuntimeRow(options: { applicationId: string | undefined; catalogId?: string }) {
     const { applicationId, catalogId } = options
     const queryClient = useQueryClient()
 
@@ -52,10 +44,7 @@ export function useCreateRuntimeRow(options: {
 }
 
 /** Update an existing runtime row and invalidate list + row queries. */
-export function useUpdateRuntimeRow(options: {
-    applicationId: string | undefined
-    catalogId?: string
-}) {
+export function useUpdateRuntimeRow(options: { applicationId: string | undefined; catalogId?: string }) {
     const { applicationId, catalogId } = options
     const queryClient = useQueryClient()
 
@@ -73,10 +62,7 @@ export function useUpdateRuntimeRow(options: {
 }
 
 /** Soft-delete a runtime row and invalidate list queries. */
-export function useDeleteRuntimeRow(options: {
-    applicationId: string | undefined
-    catalogId?: string
-}) {
+export function useDeleteRuntimeRow(options: { applicationId: string | undefined; catalogId?: string }) {
     const { applicationId, catalogId } = options
     const queryClient = useQueryClient()
 
@@ -93,10 +79,7 @@ export function useDeleteRuntimeRow(options: {
 }
 
 /** Inline cell mutation (e.g. checkbox toggle). */
-export function useUpdateRuntimeCell(options: {
-    applicationId: string | undefined
-    catalogId?: string
-}) {
+export function useUpdateRuntimeCell(options: { applicationId: string | undefined; catalogId?: string }) {
     const { applicationId, catalogId } = options
     const queryClient = useQueryClient()
 

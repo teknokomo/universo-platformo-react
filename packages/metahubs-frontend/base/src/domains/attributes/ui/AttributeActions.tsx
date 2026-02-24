@@ -246,7 +246,8 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                             { value: 'BOOLEAN', label: ctx.t('attributes.dataTypeOptions.boolean', 'Boolean') },
                                             { value: 'DATE', label: ctx.t('attributes.dataTypeOptions.date', 'Date') },
                                             { value: 'REF', label: ctx.t('attributes.dataTypeOptions.ref', 'Reference') },
-                                            { value: 'JSON', label: ctx.t('attributes.dataTypeOptions.json', 'JSON') }
+                                            { value: 'JSON', label: ctx.t('attributes.dataTypeOptions.json', 'JSON') },
+                                            { value: 'TABLE', label: ctx.t('attributes.dataTypeOptions.table', 'Table') }
                                         ]}
                                         typeSettingsLabel={ctx.t('attributes.typeSettings.title', 'Type Settings')}
                                         stringMaxLengthLabel={ctx.t('attributes.typeSettings.string.maxLength', 'Max Length')}
@@ -406,6 +407,8 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         order: 40,
         group: 'flags',
         visible: (ctx) => {
+            // TABLE type cannot be required (it's always optional at parent level)
+            if (ctx.entity.dataType === 'TABLE') return false
             const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
             const raw = attributeMap?.get(ctx.entity.id)
             const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false

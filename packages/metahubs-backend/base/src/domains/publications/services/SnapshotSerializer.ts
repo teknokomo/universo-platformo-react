@@ -143,7 +143,18 @@ export class SnapshotSerializer {
         }
 
         for (const catalog of catalogs) {
-            const attributes = await this.attributesService.findAll(metahubId, catalog.id)
+            // Fetch ALL attributes (root + child) for snapshot completeness
+            const allAttributes = await this.attributesService.findAllFlat(metahubId, catalog.id)
+            const rootAttributes = allAttributes.filter((a: any) => !a.parentAttributeId)
+            const childAttributesByParent = new Map<string, typeof allAttributes>()
+
+            for (const attr of allAttributes) {
+                if ((attr as any).parentAttributeId) {
+                    const list = childAttributesByParent.get((attr as any).parentAttributeId) ?? []
+                    list.push(attr)
+                    childAttributesByParent.set((attr as any).parentAttributeId, list)
+                }
+            }
 
             // Get associated hubs from config
             const hubIds: string[] = catalog.config?.hubs || []
@@ -167,12 +178,12 @@ export class SnapshotSerializer {
                     isSingleHub: catalog.config?.isSingleHub ?? false,
                     isRequiredHub: catalog.config?.isRequiredHub ?? false
                 },
-                fields: attributes.map((attr) => {
+                fields: rootAttributes.map((attr) => {
                     const resolvedTargetEntityId = attr.targetEntityId ?? attr.targetCatalogId ?? undefined
                     const resolvedTargetEntityKind: MetaEntityKind | undefined =
                         attr.targetEntityKind ?? (attr.targetCatalogId ? MetaEntityKind.CATALOG : undefined)
 
-                    return {
+                    const fieldDef: MetaFieldSnapshot = {
                         id: attr.id,
                         codename: attr.codename,
                         dataType: attr.dataType,
@@ -188,6 +199,30 @@ export class SnapshotSerializer {
                         uiConfig: (attr.uiConfig || {}) as any,
                         sortOrder: attr.sortOrder
                     }
+
+                    // Include child fields for TABLE attributes
+                    if (attr.dataType === 'TABLE') {
+                        const children = childAttributesByParent.get(attr.id) ?? []
+                        fieldDef.childFields = children.map((child) => ({
+                            id: child.id,
+                            codename: child.codename,
+                            dataType: child.dataType,
+                            isRequired: child.isRequired,
+                            isDisplayAttribute: false,
+                            targetEntityId: child.targetEntityId ?? undefined,
+                            targetEntityKind: child.targetEntityKind ?? undefined,
+                            presentation: {
+                                name: child.name || {},
+                                description: child.description || {}
+                            },
+                            validationRules: (child.validationRules || {}) as any,
+                            uiConfig: (child.uiConfig || {}) as any,
+                            sortOrder: child.sortOrder,
+                            parentAttributeId: attr.id
+                        }))
+                    }
+
+                    return fieldDef
                 }),
                 hubs: hubIds
             }
@@ -308,17 +343,40 @@ export class SnapshotSerializer {
     }
 
     /**
-     * Deserializes a snapshot into EntityDefinition array for DDL generator
+     * Deserializes a snapshot into EntityDefinition array for DDL generator.
+     *
+     * Child fields of TABLE attributes are represented in two ways:
+     * 1. Nested inside the parent field's `childFields` (used by seedPredefinedElements).
+     * 2. As separate entries in `entity.fields` with `parentAttributeId` set
+     *    (required by SchemaGenerator, SchemaMigrator and diff engine).
      */
     deserializeSnapshot(snapshot: MetahubSnapshot): EntityDefinition[] {
         return Object.values(snapshot.entities).map((entity) => ({
             ...entity,
             id: entity.id,
-            fields: entity.fields.map((field) => ({
-                ...field,
-                targetEntityId: field.targetEntityId,
-                targetEntityKind: field.targetEntityKind
-            }))
+            fields: entity.fields.flatMap((field) => {
+                const mapped = {
+                    ...field,
+                    targetEntityId: field.targetEntityId,
+                    targetEntityKind: field.targetEntityKind,
+                    childFields: field.childFields?.map((child) => ({
+                        ...child,
+                        targetEntityId: child.targetEntityId,
+                        targetEntityKind: child.targetEntityKind
+                    })),
+                    parentAttributeId: field.parentAttributeId
+                }
+
+                // Flatten TABLE child fields into the entity.fields array
+                const children = (field.childFields ?? []).map((child) => ({
+                    ...child,
+                    targetEntityId: child.targetEntityId,
+                    targetEntityKind: child.targetEntityKind,
+                    parentAttributeId: field.id
+                }))
+
+                return [mapped, ...children]
+            })
         }))
     }
 
@@ -344,7 +402,32 @@ export class SnapshotSerializer {
                         presentation: field.presentation ?? {},
                         validationRules: field.validationRules ?? {},
                         uiConfig: field.uiConfig ?? {},
-                        sortOrder: field.sortOrder ?? 0
+                        sortOrder: field.sortOrder ?? 0,
+                        parentAttributeId: field.parentAttributeId ?? null,
+                        // Normalize child fields for TABLE attributes
+                        childFields: field.childFields
+                            ? [...field.childFields]
+                                  .map((child) => {
+                                      const childSortOrder = (child as MetaFieldSnapshot).sortOrder ?? 0
+                                      return {
+                                          id: child.id,
+                                          codename: child.codename,
+                                          dataType: child.dataType,
+                                          isRequired: child.isRequired,
+                                          targetEntityId: child.targetEntityId ?? null,
+                                          targetEntityKind: child.targetEntityKind ?? null,
+                                          presentation: child.presentation ?? {},
+                                          validationRules: child.validationRules ?? {},
+                                          uiConfig: child.uiConfig ?? {},
+                                          sortOrder: childSortOrder
+                                      }
+                                  })
+                                  .sort((a, b) => {
+                                      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+                                      if (a.codename !== b.codename) return a.codename.localeCompare(b.codename)
+                                      return a.id.localeCompare(b.id)
+                                  })
+                            : undefined
                     }))
                     .sort((a, b) => {
                         if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder

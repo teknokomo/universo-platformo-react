@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, Divider, IconButton, Stack, Switch, FormControlLabel, Tooltip, Typography } from '@mui/material'
+import { Box, Divider, Stack, Switch, FormControlLabel, Tooltip, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
@@ -27,7 +26,7 @@ import {
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
-import type { ActionDescriptor, TriggerProps } from '@universo/template-mui'
+import type { ActionDescriptor } from '@universo/template-mui'
 import type { EnumerationValue, EnumerationValueDisplay } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
 import { normalizeLocale, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
@@ -596,20 +595,6 @@ const EnumerationValueList = () => {
                                         menuButtonLabelKey='flowList:menu.button'
                                         i18nInstance={i18n}
                                         createContext={createValueActionContext}
-                                        renderTrigger={(triggerProps: TriggerProps) => (
-                                            <IconButton
-                                                size='small'
-                                                aria-label={t('common:actions.actions', 'Actions')}
-                                                aria-haspopup={triggerProps['aria-haspopup']}
-                                                disabled={triggerProps.disabled}
-                                                onClick={(event) => {
-                                                    event.stopPropagation()
-                                                    triggerProps.onClick(event)
-                                                }}
-                                            >
-                                                <MoreVertRoundedIcon fontSize='small' />
-                                            </IconButton>
-                                        )}
                                     />
                                 )}
                             />

@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName } from '@universo/schema-ddl'
+import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateTabularTableName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
 import { ApplicationSchemaStatus } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
@@ -104,7 +104,7 @@ const resolveLocalizedContent = (value: unknown, locale: string, fallback: strin
     return fallback
 }
 
-type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON'
+type RuntimeDataType = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 type RuntimeRefOption = {
     id: string
     label: string
@@ -504,7 +504,8 @@ export function createApplicationsRoutes(
                            target_object_id, target_object_kind
                     FROM ${schemaIdent}._app_attributes
                     WHERE object_id = $1
-                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON')
+                      AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE')
+                      AND parent_attribute_id IS NULL
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
                     ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
@@ -526,12 +527,47 @@ export function createApplicationsRoutes(
 
             const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
 
+            // Separate physical (non-TABLE) attributes from virtual TABLE attributes
+            const physicalAttributes = safeAttributes.filter((a) => a.data_type !== 'TABLE')
+
+            // Fetch child attributes for TABLE-type attributes
+            const tableAttrs = safeAttributes.filter((a) => a.data_type === 'TABLE')
+            const childAttrsByTableId = new Map<string, typeof attributes>()
+            if (tableAttrs.length > 0) {
+                const tableAttrIds = tableAttrs.map((a) => a.id)
+                const childAttrs = (await manager.query(
+                    `
+                        SELECT id, codename, column_name, data_type, is_required,
+                               presentation, validation_rules, sort_order, ui_config,
+                               target_object_id, target_object_kind, parent_attribute_id
+                        FROM ${schemaIdent}._app_attributes
+                        WHERE parent_attribute_id = ANY($1::uuid[])
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
+                    `,
+                    [tableAttrIds]
+                )) as Array<(typeof attributes)[number] & { parent_attribute_id: string }>
+
+                for (const child of childAttrs) {
+                    const list = childAttrsByTableId.get(child.parent_attribute_id) ?? []
+                    list.push(child)
+                    childAttrsByTableId.set(child.parent_attribute_id, list)
+                }
+            }
+
+            // Collect all child attributes (across all TABLE attributes) for REF target resolution
+            const allChildAttributes = Array.from(childAttrsByTableId.values()).flat()
+
             const enumTargetObjectIds = Array.from(
-                new Set(
-                    safeAttributes
+                new Set([
+                    ...safeAttributes
+                        .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && attr.target_object_id)
+                        .map((attr) => String(attr.target_object_id)),
+                    ...allChildAttributes
                         .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && attr.target_object_id)
                         .map((attr) => String(attr.target_object_id))
-                )
+                ])
             )
 
             const enumOptionsMap = new Map<
@@ -572,11 +608,14 @@ export function createApplicationsRoutes(
             }
 
             const catalogTargetObjectIds = Array.from(
-                new Set(
-                    safeAttributes
+                new Set([
+                    ...safeAttributes
+                        .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'catalog' && attr.target_object_id)
+                        .map((attr) => String(attr.target_object_id)),
+                    ...allChildAttributes
                         .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'catalog' && attr.target_object_id)
                         .map((attr) => String(attr.target_object_id))
-                )
+                ])
             )
 
             const catalogRefOptionsMap = new Map<string, RuntimeRefOption[]>()
@@ -599,9 +638,10 @@ export function createApplicationsRoutes(
 
                 const targetCatalogAttrs = (await manager.query(
                     `
-                        SELECT object_id, column_name, codename, data_type, is_display_attribute, sort_order
+                                                SELECT object_id, column_name, codename, data_type, is_display_attribute, sort_order
                         FROM ${schemaIdent}._app_attributes
                         WHERE object_id = ANY($1::uuid[])
+                                                    AND parent_attribute_id IS NULL
                           AND COALESCE(_upl_deleted, false) = false
                           AND COALESCE(_app_deleted, false) = false
                         ORDER BY object_id ASC, is_display_attribute DESC, sort_order ASC, codename ASC
@@ -676,7 +716,24 @@ export function createApplicationsRoutes(
             }
 
             const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
-            const selectColumns = ['id', ...safeAttributes.map((attr) => quoteIdentifier(attr.column_name))]
+            // Use physicalAttributes for SQL — TABLE attrs have no physical column in parent table
+            const selectColumns = ['id', ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))]
+
+            // Add correlated subqueries for TABLE attributes to include child row counts
+            for (const tAttr of tableAttrs) {
+                const fallbackTabTableName = generateTabularTableName(activeCatalog.table_name, tAttr.id)
+                const tabTableName =
+                    typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
+                        ? tAttr.column_name
+                        : fallbackTabTableName
+                if (!IDENTIFIER_REGEX.test(tabTableName)) continue
+                const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
+                selectColumns.push(
+                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false) AS ${quoteIdentifier(
+                        tAttr.column_name
+                    )}`
+                )
+            }
 
             const [{ total }] = (await manager.query(
                 `
@@ -705,6 +762,11 @@ export function createApplicationsRoutes(
                 }
 
                 for (const attribute of safeAttributes) {
+                    // TABLE attributes contain child row counts from subqueries
+                    if (attribute.data_type === 'TABLE') {
+                        mappedRow[attribute.column_name] = typeof row[attribute.column_name] === 'number' ? row[attribute.column_name] : 0
+                        continue
+                    }
                     mappedRow[attribute.column_name] = resolveRuntimeValue(row[attribute.column_name], attribute.data_type, requestedLocale)
                 }
 
@@ -952,6 +1014,37 @@ export function createApplicationsRoutes(
                         attribute.target_object_id &&
                         enumOptionsMap.has(attribute.target_object_id)
                             ? enumOptionsMap.get(attribute.target_object_id)
+                            : undefined,
+                    // Include child column definitions for TABLE attributes
+                    childColumns:
+                        attribute.data_type === 'TABLE'
+                            ? (childAttrsByTableId.get(attribute.id) ?? []).map((child) => ({
+                                  id: child.id,
+                                  codename: child.codename,
+                                  field: child.column_name,
+                                  dataType: child.data_type,
+                                  headerName: resolvePresentationName(child.presentation, requestedLocale, child.codename),
+                                  isRequired: child.is_required ?? false,
+                                  validationRules: child.validation_rules ?? {},
+                                  uiConfig: child.ui_config ?? {},
+                                  refTargetEntityId: child.target_object_id ?? null,
+                                  refTargetEntityKind: child.target_object_kind ?? null,
+                                  refOptions:
+                                      child.data_type === 'REF' &&
+                                      typeof child.target_object_id === 'string' &&
+                                      (child.target_object_kind === 'enumeration' || child.target_object_kind === 'catalog')
+                                          ? child.target_object_kind === 'enumeration'
+                                              ? enumOptionsMap.get(child.target_object_id) ?? []
+                                              : catalogRefOptionsMap.get(child.target_object_id) ?? []
+                                          : undefined,
+                                  enumOptions:
+                                      child.data_type === 'REF' &&
+                                      child.target_object_kind === 'enumeration' &&
+                                      child.target_object_id &&
+                                      enumOptionsMap.has(child.target_object_id)
+                                          ? enumOptionsMap.get(child.target_object_id)
+                                          : undefined
+                              }))
                             : undefined
                 })),
                 rows,
@@ -972,11 +1065,12 @@ export function createApplicationsRoutes(
     const runtimeUpdateBodySchema = z.object({
         field: z.string().min(1),
         value: z.unknown(),
-        catalogId: z.string().uuid().optional()
+        catalogId: z.string().uuid().optional(),
+        expectedVersion: z.number().int().positive().optional()
     })
 
     /** Supported runtime data types for write operations */
-    const RUNTIME_WRITABLE_TYPES = new Set(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON'])
+    const RUNTIME_WRITABLE_TYPES = new Set(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE'])
 
     /**
      * Validates and coerces a value to match the expected runtime column type.
@@ -1023,9 +1117,39 @@ export function createApplicationsRoutes(
             case 'JSON':
                 // Accept any serializable value for JSONB columns
                 return typeof value === 'object' ? value : JSON.stringify(value)
+            case 'TABLE':
+                // TABLE is a virtual type — no physical column in parent table.
+                // Data lives in a separate child table. Skip coercion.
+                return null
             default:
                 throw new Error(`Unsupported data type: ${dataType}`)
         }
+    }
+
+    const parseRowLimit = (value: unknown): number | null => {
+        if (typeof value !== 'number' || !Number.isFinite(value)) return null
+        const normalized = Math.floor(value)
+        return normalized >= 0 ? normalized : null
+    }
+
+    const getTableRowLimits = (validationRules?: Record<string, unknown>): { minRows: number | null; maxRows: number | null } => {
+        const minRows = parseRowLimit(validationRules?.minRows)
+        const maxRows = parseRowLimit(validationRules?.maxRows)
+        return { minRows, maxRows }
+    }
+
+    const getTableRowCountError = (
+        rowCount: number,
+        tableCodename: string,
+        limits: { minRows: number | null; maxRows: number | null }
+    ): string | null => {
+        if (limits.minRows !== null && rowCount < limits.minRows) {
+            return `TABLE ${tableCodename} requires at least ${limits.minRows} row(s)`
+        }
+        if (limits.maxRows !== null && rowCount > limits.maxRows) {
+            return `TABLE ${tableCodename} allows at most ${limits.maxRows} row(s)`
+        }
+        return null
     }
 
     /**
@@ -1059,6 +1183,7 @@ export function createApplicationsRoutes(
                        , target_object_id, target_object_kind, ui_config
                 FROM ${schemaIdent}._app_attributes
                 WHERE object_id = $1
+                  AND parent_attribute_id IS NULL
                   AND COALESCE(_upl_deleted, false) = false
                   AND COALESCE(_app_deleted, false) = false
             `,
@@ -1178,7 +1303,7 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
             }
 
-            const { field, value, catalogId: requestedCatalogId } = parsedBody.data
+            const { field, value, catalogId: requestedCatalogId, expectedVersion } = parsedBody.data
             if (!IDENTIFIER_REGEX.test(field)) {
                 return res.status(400).json({ error: 'Invalid field name' })
             }
@@ -1190,6 +1315,10 @@ export function createApplicationsRoutes(
             if (!attr) return res.status(404).json({ error: 'Attribute not found' })
             if (!RUNTIME_WRITABLE_TYPES.has(attr.data_type)) {
                 return res.status(400).json({ error: `Field type ${attr.data_type} is not editable` })
+            }
+
+            if (attr.data_type === 'TABLE') {
+                return res.status(400).json({ error: `Field type ${attr.data_type} must be edited via tabular endpoints` })
             }
 
             if (
@@ -1225,6 +1354,7 @@ export function createApplicationsRoutes(
             }
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const versionCheckClause = expectedVersion !== undefined ? 'AND COALESCE(_upl_version, 1) = $4' : ''
             const updated = (await ctx.manager.query(
                 `
                     UPDATE ${dataTableIdent}
@@ -1235,12 +1365,32 @@ export function createApplicationsRoutes(
                     WHERE id = $3
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
+                      AND COALESCE(_upl_locked, false) = false
+                      ${versionCheckClause}
                     RETURNING id
                 `,
-                [coerced, ctx.userId, rowId]
+                expectedVersion !== undefined ? [coerced, ctx.userId, rowId, expectedVersion] : [coerced, ctx.userId, rowId]
             )) as Array<{ id: string }>
 
             if (updated.length === 0) {
+                // Distinguish locked from not-found
+                const exists = (await ctx.manager.query(
+                    `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
+                    [rowId]
+                )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
+                if (exists.length > 0 && exists[0]._upl_locked) {
+                    return res.status(423).json({ error: 'Record is locked' })
+                }
+                if (exists.length > 0 && expectedVersion !== undefined) {
+                    const actualVersion = Number(exists[0]._upl_version ?? 1)
+                    if (actualVersion !== expectedVersion) {
+                        return res.status(409).json({
+                            error: 'Version mismatch',
+                            expectedVersion,
+                            actualVersion
+                        })
+                    }
+                }
                 return res.status(404).json({ error: 'Row not found' })
             }
 
@@ -1251,7 +1401,8 @@ export function createApplicationsRoutes(
     // ============ APPLICATION RUNTIME ROW BULK UPDATE ============
     const runtimeBulkUpdateBodySchema = z.object({
         catalogId: z.string().uuid().optional(),
-        data: z.record(z.unknown())
+        data: z.record(z.unknown()),
+        expectedVersion: z.number().int().positive().optional()
     })
 
     router.patch(
@@ -1269,7 +1420,7 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
             }
 
-            const { catalogId: requestedCatalogId, data } = parsedBody.data
+            const { catalogId: requestedCatalogId, data, expectedVersion } = parsedBody.data
 
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
@@ -1279,8 +1430,10 @@ export function createApplicationsRoutes(
             let paramIndex = 1
 
             const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type))
+            const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')
+            const tableAttrs = safeAttrs.filter((a) => a.data_type === 'TABLE')
 
-            for (const attr of safeAttrs) {
+            for (const attr of nonTableAttrs) {
                 const raw = data[attr.column_name] ?? data[attr.codename]
                 if (raw === undefined) continue
 
@@ -1316,7 +1469,151 @@ export function createApplicationsRoutes(
                 }
             }
 
-            if (setClauses.length === 0) {
+            const tableDataEntries: Array<{ tabTableName: string; rows: Array<Record<string, unknown>> }> = []
+
+            for (const tAttr of tableAttrs) {
+                const hasUserValue =
+                    Object.prototype.hasOwnProperty.call(data, tAttr.column_name) ||
+                    Object.prototype.hasOwnProperty.call(data, tAttr.codename)
+                if (!hasUserValue) continue
+
+                const raw = data[tAttr.column_name] ?? data[tAttr.codename]
+                if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
+                    return res.status(400).json({ error: `Invalid value for ${tAttr.codename}: TABLE value must be an array` })
+                }
+
+                const childRows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []
+                const rowCountError = getTableRowCountError(childRows.length, tAttr.codename, getTableRowLimits(tAttr.validation_rules))
+                if (rowCountError) {
+                    return res.status(400).json({ error: rowCountError })
+                }
+
+                const fallbackTabTableName = generateTabularTableName(catalog.table_name, tAttr.id)
+                const tabTableName =
+                    typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
+                        ? tAttr.column_name
+                        : fallbackTabTableName
+                if (!IDENTIFIER_REGEX.test(tabTableName)) {
+                    return res.status(400).json({ error: `Invalid tabular table name for ${tAttr.codename}` })
+                }
+
+                const childAttrsResult = (await ctx.manager.query(
+                    `
+                        SELECT id, codename, column_name, data_type, is_required, validation_rules,
+                               target_object_id, target_object_kind, ui_config
+                        FROM ${ctx.schemaIdent}._app_attributes
+                        WHERE parent_attribute_id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        ORDER BY sort_order ASC
+                    `,
+                    [tAttr.id]
+                )) as Array<{
+                    id: string
+                    codename: string
+                    column_name: string
+                    data_type: string
+                    is_required: boolean
+                    validation_rules?: Record<string, unknown>
+                    target_object_id?: string | null
+                    target_object_kind?: string | null
+                    ui_config?: Record<string, unknown>
+                }>
+
+                const preparedRows: Array<Record<string, unknown>> = []
+
+                for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
+                    const rowData = childRows[rowIdx]
+                    if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
+                        return res.status(400).json({ error: `Invalid row ${rowIdx + 1} for ${tAttr.codename}: row must be an object` })
+                    }
+
+                    const preparedRow: Record<string, unknown> = {}
+
+                    for (const cAttr of childAttrsResult) {
+                        if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+
+                        const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
+                        const hasChildUserValue =
+                            Object.prototype.hasOwnProperty.call(rowData, cAttr.column_name) ||
+                            Object.prototype.hasOwnProperty.call(rowData, cAttr.codename)
+                        let cRaw = rowData[cAttr.column_name] ?? rowData[cAttr.codename]
+
+                        if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasChildUserValue) {
+                            return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                        }
+
+                        if (cRaw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
+                            const defaultEnumValueId = getDefaultEnumValueId(cAttr.ui_config)
+                            if (defaultEnumValueId) {
+                                try {
+                                    await ensureEnumerationValueBelongsToTarget(
+                                        ctx.manager,
+                                        ctx.schemaIdent,
+                                        defaultEnumValueId,
+                                        cAttr.target_object_id
+                                    )
+                                    cRaw = defaultEnumValueId
+                                } catch (error) {
+                                    if (
+                                        error instanceof Error &&
+                                        error.message === 'Enumeration value does not belong to target enumeration'
+                                    ) {
+                                        cRaw = undefined
+                                    } else {
+                                        throw error
+                                    }
+                                }
+                            }
+                        }
+
+                        if (cRaw === undefined || cRaw === null) {
+                            if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                                let defaultValue: unknown
+                                switch (cAttr.data_type) {
+                                    case 'STRING':
+                                        defaultValue = ''
+                                        break
+                                    case 'NUMBER':
+                                        defaultValue = 0
+                                        break
+                                    default:
+                                        defaultValue = ''
+                                }
+                                preparedRow[cAttr.column_name] = defaultValue
+                            }
+                            continue
+                        }
+
+                        try {
+                            const cCoerced = coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules)
+
+                            if (isEnumRef && typeof cAttr.target_object_id === 'string' && cCoerced) {
+                                await ensureEnumerationValueBelongsToTarget(
+                                    ctx.manager,
+                                    ctx.schemaIdent,
+                                    String(cCoerced),
+                                    cAttr.target_object_id
+                                )
+                            }
+
+                            preparedRow[cAttr.column_name] = cCoerced
+                        } catch (err) {
+                            return res.status(400).json({
+                                error: `Invalid value for ${tAttr.codename}.${cAttr.codename}: ${
+                                    err instanceof Error ? err.message : String(err)
+                                }`
+                            })
+                        }
+                    }
+
+                    preparedRows.push(preparedRow)
+                }
+
+                tableDataEntries.push({ tabTableName, rows: preparedRows })
+            }
+
+            if (setClauses.length === 0 && tableDataEntries.length === 0) {
                 return res.status(400).json({ error: 'No valid fields to update' })
             }
 
@@ -1328,24 +1625,117 @@ export function createApplicationsRoutes(
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
             values.push(rowId)
+            const rowIdParamIndex = paramIndex
+            let versionCheckClause = ''
 
-            const updated = (await ctx.manager.query(
-                `
-                    UPDATE ${dataTableIdent}
-                    SET ${setClauses.join(', ')}
-                    WHERE id = $${paramIndex}
-                      AND COALESCE(_upl_deleted, false) = false
-                      AND COALESCE(_app_deleted, false) = false
-                    RETURNING id
-                `,
-                values
-            )) as Array<{ id: string }>
-
-            if (updated.length === 0) {
-                return res.status(404).json({ error: 'Row not found' })
+            if (expectedVersion !== undefined) {
+                values.push(expectedVersion)
+                versionCheckClause = `AND COALESCE(_upl_version, 1) = $${rowIdParamIndex + 1}`
             }
 
-            return res.json({ status: 'ok' })
+            const hasTableUpdates = tableDataEntries.length > 0
+
+            if (hasTableUpdates) {
+                await ctx.manager.query('BEGIN')
+            }
+
+            try {
+                const updated = (await ctx.manager.query(
+                    `
+                        UPDATE ${dataTableIdent}
+                        SET ${setClauses.join(', ')}
+                        WHERE id = $${rowIdParamIndex}
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                          AND COALESCE(_upl_locked, false) = false
+                          ${versionCheckClause}
+                        RETURNING id
+                    `,
+                    values
+                )) as Array<{ id: string }>
+
+                if (updated.length === 0) {
+                    const exists = (await ctx.manager.query(
+                        `SELECT id, _upl_locked, _upl_version FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
+                        [rowId]
+                    )) as Array<{ id: string; _upl_locked?: boolean; _upl_version?: number }>
+
+                    if (hasTableUpdates) await ctx.manager.query('ROLLBACK').catch(() => {})
+
+                    if (exists.length > 0 && exists[0]._upl_locked) {
+                        return res.status(423).json({ error: 'Record is locked' })
+                    }
+                    if (exists.length > 0 && expectedVersion !== undefined) {
+                        const actualVersion = Number(exists[0]._upl_version ?? 1)
+                        if (actualVersion !== expectedVersion) {
+                            return res.status(409).json({
+                                error: 'Version mismatch',
+                                expectedVersion,
+                                actualVersion
+                            })
+                        }
+                    }
+                    return res.status(404).json({ error: 'Row not found' })
+                }
+
+                if (hasTableUpdates) {
+                    for (const { tabTableName, rows: childRows } of tableDataEntries) {
+                        const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+
+                        await ctx.manager.query(
+                            `
+                                UPDATE ${tabTableIdent}
+                                SET _upl_deleted = true,
+                                    _upl_deleted_at = NOW(),
+                                    _upl_deleted_by = $1,
+                                    _upl_updated_at = NOW(),
+                                    _upl_version = COALESCE(_upl_version, 1) + 1
+                                WHERE _tp_parent_id = $2
+                                  AND COALESCE(_upl_deleted, false) = false
+                                  AND COALESCE(_app_deleted, false) = false
+                            `,
+                            [ctx.userId, rowId]
+                        )
+
+                        for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
+                            const rowData = childRows[rowIdx]
+                            const childColNames: string[] = ['_tp_parent_id', '_tp_sort_order']
+                            const childPlaceholders: string[] = ['$1', '$2']
+                            const childValues: unknown[] = [rowId, rowIdx]
+                            let pIdx = 3
+
+                            if (ctx.userId) {
+                                childColNames.push('_upl_created_by')
+                                childPlaceholders.push(`$${pIdx}`)
+                                childValues.push(ctx.userId)
+                                pIdx++
+                            }
+
+                            for (const [columnName, cCoerced] of Object.entries(rowData)) {
+                                if (!IDENTIFIER_REGEX.test(columnName)) continue
+                                childColNames.push(quoteIdentifier(columnName))
+                                childPlaceholders.push(`$${pIdx}`)
+                                childValues.push(cCoerced)
+                                pIdx++
+                            }
+
+                            await ctx.manager.query(
+                                `INSERT INTO ${tabTableIdent} (${childColNames.join(', ')}) VALUES (${childPlaceholders.join(', ')})`,
+                                childValues
+                            )
+                        }
+                    }
+
+                    await ctx.manager.query('COMMIT')
+                }
+
+                return res.json({ status: 'ok' })
+            } catch (e) {
+                if (hasTableUpdates) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                }
+                throw e
+            }
         })
     )
 
@@ -1376,7 +1766,9 @@ export function createApplicationsRoutes(
 
             // Build column→value pairs from input data
             const columnValues: Array<{ column: string; value: unknown }> = []
-            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type))
+            const safeAttrs = attrs.filter(
+                (a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type) && a.data_type !== 'TABLE'
+            )
 
             for (const attr of safeAttrs) {
                 const hasUserValue =
@@ -1451,9 +1843,182 @@ export function createApplicationsRoutes(
                     ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
                     : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
 
-            const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
+            // Collect TABLE-type data from request body for child row insertion
+            const tableAttrsForCreate = attrs.filter((a) => a.data_type === 'TABLE')
+            const tableDataEntries: Array<{ attr: (typeof attrs)[number]; rows: Array<Record<string, unknown>>; tabTableName: string }> = []
+            for (const tAttr of tableAttrsForCreate) {
+                const raw = data[tAttr.column_name] ?? data[tAttr.codename]
+                if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
+                    return res.status(400).json({ error: `Invalid value for ${tAttr.codename}: TABLE value must be an array` })
+                }
 
-            return res.status(201).json({ id: inserted.id, status: 'created' })
+                const childRows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []
+                const rowCountError = getTableRowCountError(childRows.length, tAttr.codename, getTableRowLimits(tAttr.validation_rules))
+                if (rowCountError) {
+                    return res.status(400).json({ error: rowCountError })
+                }
+
+                if (childRows.length > 0) {
+                    const fallbackTabTableName = generateTabularTableName(catalog.table_name, tAttr.id)
+                    const tabTableName =
+                        typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
+                            ? tAttr.column_name
+                            : fallbackTabTableName
+                    if (!IDENTIFIER_REGEX.test(tabTableName)) {
+                        return res.status(400).json({ error: `Invalid tabular table name for ${tAttr.codename}` })
+                    }
+
+                    const childAttrsResult = (await ctx.manager.query(
+                        `
+                                                        SELECT id, codename, column_name, data_type, is_required, validation_rules,
+                                                                     target_object_id, target_object_kind, ui_config
+                            FROM ${ctx.schemaIdent}._app_attributes
+                            WHERE parent_attribute_id = $1
+                              AND COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                            ORDER BY sort_order ASC
+                        `,
+                        [tAttr.id]
+                    )) as Array<{
+                        id: string
+                        codename: string
+                        column_name: string
+                        data_type: string
+                        is_required: boolean
+                        validation_rules?: Record<string, unknown>
+                        target_object_id?: string | null
+                        target_object_kind?: string | null
+                        ui_config?: Record<string, unknown>
+                    }>
+
+                    const preparedRows: Array<Record<string, unknown>> = []
+
+                    for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
+                        const rowData = childRows[rowIdx]
+                        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
+                            return res.status(400).json({ error: `Invalid row ${rowIdx + 1} for ${tAttr.codename}: row must be an object` })
+                        }
+
+                        const preparedRow: Record<string, unknown> = {}
+                        for (const cAttr of childAttrsResult) {
+                            if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+                            const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
+                            const hasUserValue =
+                                Object.prototype.hasOwnProperty.call(rowData, cAttr.column_name) ||
+                                Object.prototype.hasOwnProperty.call(rowData, cAttr.codename)
+                            let cRaw = rowData[cAttr.column_name] ?? rowData[cAttr.codename]
+
+                            if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasUserValue) {
+                                return res.status(400).json({ error: `Field is read-only: ${tAttr.codename}.${cAttr.codename}` })
+                            }
+
+                            if (cRaw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
+                                const defaultEnumValueId = getDefaultEnumValueId(cAttr.ui_config)
+                                if (defaultEnumValueId) {
+                                    try {
+                                        await ensureEnumerationValueBelongsToTarget(
+                                            ctx.manager,
+                                            ctx.schemaIdent,
+                                            defaultEnumValueId,
+                                            cAttr.target_object_id
+                                        )
+                                        cRaw = defaultEnumValueId
+                                    } catch (error) {
+                                        if (
+                                            error instanceof Error &&
+                                            error.message === 'Enumeration value does not belong to target enumeration'
+                                        ) {
+                                            cRaw = undefined
+                                        } else {
+                                            throw error
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (cRaw === undefined || cRaw === null) {
+                                if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                                    return res.status(400).json({ error: `Required field missing: ${tAttr.codename}.${cAttr.codename}` })
+                                }
+                                continue
+                            }
+
+                            try {
+                                const cCoerced = coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules)
+                                if (isEnumRef && typeof cAttr.target_object_id === 'string' && cCoerced) {
+                                    await ensureEnumerationValueBelongsToTarget(
+                                        ctx.manager,
+                                        ctx.schemaIdent,
+                                        String(cCoerced),
+                                        cAttr.target_object_id
+                                    )
+                                }
+                                preparedRow[cAttr.column_name] = cCoerced
+                            } catch (err) {
+                                return res.status(400).json({
+                                    error: `Invalid value for ${tAttr.codename}.${cAttr.codename}: ${
+                                        err instanceof Error ? err.message : String(err)
+                                    }`
+                                })
+                            }
+                        }
+
+                        preparedRows.push(preparedRow)
+                    }
+
+                    tableDataEntries.push({ attr: tAttr, rows: preparedRows, tabTableName })
+                }
+            }
+
+            // Use transaction if TABLE data is present to ensure atomicity
+            if (tableDataEntries.length > 0) {
+                await ctx.manager.query('BEGIN')
+                try {
+                    const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
+                    const parentId = inserted.id
+
+                    for (const { rows: childRows, tabTableName } of tableDataEntries) {
+                        const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+
+                        for (let rowIdx = 0; rowIdx < childRows.length; rowIdx++) {
+                            const rowData = childRows[rowIdx]
+                            const childColNames: string[] = ['_tp_parent_id', '_tp_sort_order']
+                            const childPlaceholders: string[] = ['$1', '$2']
+                            const childValues: unknown[] = [parentId, rowIdx]
+                            let pIdx = 3
+
+                            if (ctx.userId) {
+                                childColNames.push('_upl_created_by')
+                                childPlaceholders.push(`$${pIdx}`)
+                                childValues.push(ctx.userId)
+                                pIdx++
+                            }
+
+                            for (const [columnName, cCoerced] of Object.entries(rowData)) {
+                                if (!IDENTIFIER_REGEX.test(columnName)) continue
+                                childColNames.push(quoteIdentifier(columnName))
+                                childPlaceholders.push(`$${pIdx}`)
+                                childValues.push(cCoerced)
+                                pIdx++
+                            }
+
+                            await ctx.manager.query(
+                                `INSERT INTO ${tabTableIdent} (${childColNames.join(', ')}) VALUES (${childPlaceholders.join(', ')})`,
+                                childValues
+                            )
+                        }
+                    }
+
+                    await ctx.manager.query('COMMIT')
+                    return res.status(201).json({ id: parentId, status: 'created' })
+                } catch (e) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    throw e
+                }
+            } else {
+                const [inserted] = (await ctx.manager.query(insertSql, values)) as Array<{ id: string }>
+                return res.status(201).json({ id: inserted.id, status: 'created' })
+            }
         })
     )
 
@@ -1473,7 +2038,7 @@ export function createApplicationsRoutes(
             const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
-            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
+            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
             const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name))]
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
 
@@ -1513,29 +2078,677 @@ export function createApplicationsRoutes(
             const ctx = await resolveRuntimeSchema(req, res, applicationId)
             if (!ctx) return
 
-            const { catalog, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
             if (!catalog) return res.status(404).json({ error: catalogError })
 
             const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
-            const deleted = (await ctx.manager.query(
+
+            // Cascade soft-delete to child tables if any TABLE attributes exist
+            const tableAttrsForDelete = attrs.filter((a) => a.data_type === 'TABLE')
+            const needsTransaction = tableAttrsForDelete.length > 0
+
+            if (needsTransaction) {
+                await ctx.manager.query('BEGIN')
+            }
+
+            try {
+                const deleted = (await ctx.manager.query(
+                    `
+                        UPDATE ${dataTableIdent}
+                        SET _upl_deleted = true,
+                            _upl_deleted_at = NOW(),
+                            _upl_deleted_by = $1,
+                            _upl_updated_at = NOW(),
+                            _upl_version = COALESCE(_upl_version, 1) + 1
+                        WHERE id = $2
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                          AND COALESCE(_upl_locked, false) = false
+                        RETURNING id
+                    `,
+                    [ctx.userId, rowId]
+                )) as Array<{ id: string }>
+
+                if (deleted.length === 0) {
+                    // Distinguish locked from not-found
+                    const exists = (await ctx.manager.query(
+                        `SELECT id, _upl_locked FROM ${dataTableIdent} WHERE id = $1 AND COALESCE(_upl_deleted, false) = false AND COALESCE(_app_deleted, false) = false`,
+                        [rowId]
+                    )) as Array<{ id: string; _upl_locked?: boolean }>
+                    if (needsTransaction) await ctx.manager.query('ROLLBACK').catch(() => {})
+                    if (exists.length > 0 && exists[0]._upl_locked) {
+                        return res.status(423).json({ error: 'Record is locked' })
+                    }
+                    return res.status(404).json({ error: 'Row not found' })
+                }
+
+                // Soft-delete child rows in TABLE child tables
+                for (const tAttr of tableAttrsForDelete) {
+                    const fallbackTabTableName = generateTabularTableName(catalog.table_name, tAttr.id)
+                    const tabTableName =
+                        typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
+                            ? tAttr.column_name
+                            : fallbackTabTableName
+                    if (!IDENTIFIER_REGEX.test(tabTableName)) continue
+                    const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+                    await ctx.manager.query(
+                        `
+                            UPDATE ${tabTableIdent}
+                            SET _upl_deleted = true,
+                                _upl_deleted_at = NOW(),
+                                _upl_deleted_by = $1,
+                                _upl_updated_at = NOW(),
+                                _upl_version = COALESCE(_upl_version, 1) + 1
+                            WHERE _tp_parent_id = $2
+                              AND COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                        `,
+                        [ctx.userId, rowId]
+                    )
+                }
+
+                if (needsTransaction) await ctx.manager.query('COMMIT')
+                return res.json({ status: 'deleted' })
+            } catch (e) {
+                if (needsTransaction) await ctx.manager.query('ROLLBACK').catch(() => {})
+                throw e
+            }
+        })
+    )
+
+    // ============ APPLICATION RUNTIME TABULAR PART — SHARED HELPERS ============
+
+    /**
+     * Resolve a TABLE attribute and its child table for tabular CRUD operations.
+     */
+    const resolveTabularContext = async (
+        manager: ReturnType<typeof getRequestManager>,
+        schemaIdent: string,
+        catalogId: string,
+        attributeId: string
+    ) => {
+        if (!UUID_REGEX.test(catalogId) || !UUID_REGEX.test(attributeId)) {
+            return { error: 'Invalid catalog or attribute ID format' } as const
+        }
+
+        // Find the catalog
+        const catalogs = (await manager.query(
+            `
+                SELECT id, codename, table_name
+                FROM ${schemaIdent}._app_objects
+                WHERE id = $1 AND kind = 'catalog'
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_app_deleted, false) = false
+            `,
+            [catalogId]
+        )) as Array<{ id: string; codename: string; table_name: string }>
+
+        if (catalogs.length === 0) return { error: 'Catalog not found' } as const
+
+        const catalog = catalogs[0]
+        if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { error: 'Invalid table name' } as const
+
+        // Find the TABLE attribute
+        const tableAttrs = (await manager.query(
+            `
+                SELECT id, codename, column_name, data_type, validation_rules
+                FROM ${schemaIdent}._app_attributes
+                WHERE id = $1 AND object_id = $2 AND data_type = 'TABLE'
+                  AND parent_attribute_id IS NULL
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_app_deleted, false) = false
+            `,
+            [attributeId, catalogId]
+        )) as Array<{ id: string; codename: string; column_name: string; data_type: string; validation_rules?: Record<string, unknown> }>
+
+        if (tableAttrs.length === 0) return { error: 'TABLE attribute not found' } as const
+
+        const tableAttr = tableAttrs[0]
+        const fallbackTabTableName = generateTabularTableName(catalog.table_name, tableAttr.id)
+        const tabTableName =
+            typeof tableAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tableAttr.column_name)
+                ? tableAttr.column_name
+                : fallbackTabTableName
+        if (!IDENTIFIER_REGEX.test(tabTableName)) return { error: 'Invalid tabular table name' } as const
+
+        // Fetch child attributes
+        const childAttrs = (await manager.query(
+            `
+                                SELECT id, codename, column_name, data_type, is_required, validation_rules,
+                                             target_object_id, target_object_kind, ui_config
+                FROM ${schemaIdent}._app_attributes
+                WHERE parent_attribute_id = $1
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_app_deleted, false) = false
+                ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST
+            `,
+            [attributeId]
+        )) as Array<{
+            id: string
+            codename: string
+            column_name: string
+            data_type: string
+            is_required: boolean
+            validation_rules?: Record<string, unknown>
+            target_object_id?: string | null
+            target_object_kind?: string | null
+            ui_config?: Record<string, unknown>
+        }>
+
+        return {
+            error: null,
+            catalog,
+            tableAttr,
+            tabTableName,
+            tabTableIdent: `${schemaIdent}.${quoteIdentifier(tabTableName)}`,
+            parentTableIdent: `${schemaIdent}.${quoteIdentifier(catalog.table_name)}`,
+            childAttrs
+        } as const
+    }
+
+    // ============ APPLICATION RUNTIME TABULAR — LIST CHILD ROWS ============
+    router.get(
+        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, recordId, attributeId } = req.params
+            if (!UUID_REGEX.test(recordId)) return res.status(400).json({ error: 'Invalid record ID format' })
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (!catalogId || !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'catalogId query parameter is required' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
+            if (tc.error) return res.status(400).json({ error: tc.error })
+
+            const safeChildAttrs = tc.childAttrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
+            const selectCols = ['id', '_tp_sort_order', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
+
+            const rows = (await ctx.manager.query(
                 `
-                    UPDATE ${dataTableIdent}
-                    SET _upl_deleted = true,
-                        _upl_deleted_at = NOW(),
-                        _upl_deleted_by = $1,
-                        _upl_updated_at = NOW(),
-                        _upl_version = COALESCE(_upl_version, 1) + 1
-                    WHERE id = $2
+                    SELECT ${selectCols.join(', ')}
+                    FROM ${tc.tabTableIdent}
+                    WHERE _tp_parent_id = $1
                       AND COALESCE(_upl_deleted, false) = false
                       AND COALESCE(_app_deleted, false) = false
+                    ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
+                `,
+                [recordId]
+            )) as Array<Record<string, unknown>>
+
+            const items = rows.map((row) => {
+                const mapped: Record<string, unknown> & { id: string } = { id: String(row.id) }
+                mapped._tp_sort_order = row._tp_sort_order ?? 0
+                for (const attr of safeChildAttrs) {
+                    mapped[attr.column_name] = row[attr.column_name] ?? null
+                }
+                return mapped
+            })
+
+            return res.json({ items, total: items.length })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME TABULAR — CREATE CHILD ROW ============
+    router.post(
+        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, recordId, attributeId } = req.params
+            if (!UUID_REGEX.test(recordId)) return res.status(400).json({ error: 'Invalid record ID format' })
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (!catalogId || !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'catalogId query parameter is required' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
+            if (tc.error) return res.status(400).json({ error: tc.error })
+            const data = (req.body?.data ?? req.body) as Record<string, unknown>
+            const sortOrder = typeof data._tp_sort_order === 'number' ? data._tp_sort_order : 0
+
+            const colNames: string[] = ['_tp_parent_id', '_tp_sort_order']
+            const placeholders: string[] = ['$1', '$2']
+            const values: unknown[] = [recordId, sortOrder]
+            let pIdx = 3
+
+            if (ctx.userId) {
+                colNames.push('_upl_created_by')
+                placeholders.push(`$${pIdx}`)
+                values.push(ctx.userId)
+                pIdx++
+            }
+
+            for (const cAttr of tc.childAttrs) {
+                if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+                const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
+                const hasUserValue =
+                    Object.prototype.hasOwnProperty.call(data, cAttr.column_name) ||
+                    Object.prototype.hasOwnProperty.call(data, cAttr.codename)
+                let raw = data[cAttr.column_name] ?? data[cAttr.codename]
+
+                if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasUserValue) {
+                    return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                }
+
+                if (raw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
+                    const defaultEnumValueId = getDefaultEnumValueId(cAttr.ui_config)
+                    if (defaultEnumValueId) {
+                        try {
+                            await ensureEnumerationValueBelongsToTarget(
+                                ctx.manager,
+                                ctx.schemaIdent,
+                                defaultEnumValueId,
+                                cAttr.target_object_id
+                            )
+                            raw = defaultEnumValueId
+                        } catch (error) {
+                            if (error instanceof Error && error.message === 'Enumeration value does not belong to target enumeration') {
+                                raw = undefined
+                            } else {
+                                throw error
+                            }
+                        }
+                    }
+                }
+
+                if (raw === undefined || raw === null) {
+                    // Inline editing: user adds an empty row, then fills fields.
+                    // For required (NOT NULL) columns, insert a type-appropriate default
+                    // to satisfy the DB constraint; user will edit the value afterwards.
+                    if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                        let defaultValue: unknown
+                        switch (cAttr.data_type) {
+                            case 'STRING':
+                                defaultValue = ''
+                                break
+                            case 'NUMBER':
+                                defaultValue = 0
+                                break
+                            default:
+                                defaultValue = ''
+                        }
+                        colNames.push(quoteIdentifier(cAttr.column_name))
+                        placeholders.push(`$${pIdx}`)
+                        values.push(defaultValue)
+                        pIdx++
+                    }
+                    continue
+                }
+                try {
+                    const coerced = coerceRuntimeValue(raw, cAttr.data_type, cAttr.validation_rules)
+                    if (isEnumRef && typeof cAttr.target_object_id === 'string' && coerced) {
+                        await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), cAttr.target_object_id)
+                    }
+                    colNames.push(quoteIdentifier(cAttr.column_name))
+                    placeholders.push(`$${pIdx}`)
+                    values.push(coerced)
+                    pIdx++
+                } catch (err) {
+                    return res.status(400).json({
+                        error: `Invalid value for ${tc.tableAttr.codename}.${cAttr.codename}: ${
+                            err instanceof Error ? err.message : String(err)
+                        }`
+                    })
+                }
+            }
+
+            await ctx.manager.query('BEGIN')
+            try {
+                const parentRows = (await ctx.manager.query(
+                    `
+                        SELECT id, _upl_locked
+                        FROM ${tc.parentTableIdent}
+                        WHERE id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        FOR UPDATE
+                    `,
+                    [recordId]
+                )) as Array<{ id: string; _upl_locked?: boolean }>
+
+                if (parentRows.length === 0) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(404).json({ error: 'Parent record not found' })
+                }
+                if (parentRows[0]._upl_locked) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(423).json({ error: 'Parent record is locked' })
+                }
+
+                const { minRows, maxRows } = getTableRowLimits(tc.tableAttr.validation_rules)
+                const activeCountRows = (await ctx.manager.query(
+                    `
+                        SELECT COUNT(*)::int AS cnt
+                        FROM ${tc.tabTableIdent}
+                        WHERE _tp_parent_id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                    `,
+                    [recordId]
+                )) as Array<{ cnt: number }>
+                const activeCount = Number(activeCountRows[0]?.cnt ?? 0)
+                const maxRowsError = getTableRowCountError(activeCount + 1, tc.tableAttr.codename, { minRows, maxRows })
+                if (maxRowsError && maxRows !== null) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(400).json({ error: maxRowsError })
+                }
+
+                const [inserted] = (await ctx.manager.query(
+                    `INSERT INTO ${tc.tabTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`,
+                    values
+                )) as Array<{ id: string }>
+
+                await ctx.manager.query('COMMIT')
+                return res.status(201).json({ id: inserted.id, status: 'created' })
+            } catch (error) {
+                await ctx.manager.query('ROLLBACK').catch(() => {})
+                throw error
+            }
+        })
+    )
+
+    const tabularUpdateBodySchema = z
+        .object({
+            data: z.record(z.unknown()).optional(),
+            expectedVersion: z.number().int().positive().optional()
+        })
+        .passthrough()
+
+    // ============ APPLICATION RUNTIME TABULAR — UPDATE CHILD ROW ============
+    router.patch(
+        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, recordId, attributeId, childRowId } = req.params
+            if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
+                return res.status(400).json({ error: 'Invalid ID format' })
+            }
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (!catalogId || !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'catalogId query parameter is required' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
+            if (tc.error) return res.status(400).json({ error: tc.error })
+
+            const parsedBody = tabularUpdateBodySchema.safeParse(req.body ?? {})
+            if (!parsedBody.success) {
+                return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+            }
+
+            // Check parent record is not locked
+            const parentRows = (await ctx.manager.query(
+                `
+                    SELECT id, _upl_locked
+                    FROM ${tc.parentTableIdent}
+                    WHERE id = $1
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                `,
+                [recordId]
+            )) as Array<{ id: string; _upl_locked?: boolean }>
+
+            if (parentRows.length === 0) return res.status(404).json({ error: 'Parent record not found' })
+            if (parentRows[0]._upl_locked) return res.status(423).json({ error: 'Parent record is locked' })
+
+            const { expectedVersion } = parsedBody.data
+            const data = (() => {
+                if (parsedBody.data.data) {
+                    return parsedBody.data.data
+                }
+                const bodyData = parsedBody.data as Record<string, unknown>
+                const { expectedVersion: _ignoredExpectedVersion, ...raw } = bodyData
+                return raw
+            })() as Record<string, unknown>
+            const setClauses: string[] = []
+            const values: unknown[] = []
+            let pIdx = 1
+
+            for (const cAttr of tc.childAttrs) {
+                if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+                const raw = data[cAttr.column_name] ?? data[cAttr.codename]
+                if (raw === undefined) continue
+                if (
+                    cAttr.data_type === 'REF' &&
+                    cAttr.target_object_kind === 'enumeration' &&
+                    getEnumPresentationMode(cAttr.ui_config) === 'label'
+                ) {
+                    return res.status(400).json({ error: `Field is read-only: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                }
+                if (raw === null && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                    return res
+                        .status(400)
+                        .json({ error: `Required field cannot be set to null: ${tc.tableAttr.codename}.${cAttr.codename}` })
+                }
+                try {
+                    const coerced = coerceRuntimeValue(raw, cAttr.data_type, cAttr.validation_rules)
+                    if (
+                        cAttr.data_type === 'REF' &&
+                        cAttr.target_object_kind === 'enumeration' &&
+                        typeof cAttr.target_object_id === 'string' &&
+                        coerced
+                    ) {
+                        await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), cAttr.target_object_id)
+                    }
+                    setClauses.push(`${quoteIdentifier(cAttr.column_name)} = $${pIdx}`)
+                    values.push(coerced)
+                    pIdx++
+                } catch (err) {
+                    return res.status(400).json({
+                        error: `Invalid value for ${tc.tableAttr.codename}.${cAttr.codename}: ${
+                            err instanceof Error ? err.message : String(err)
+                        }`
+                    })
+                }
+            }
+
+            // Handle _tp_sort_order update
+            if (typeof data._tp_sort_order === 'number') {
+                setClauses.push(`_tp_sort_order = $${pIdx}`)
+                values.push(data._tp_sort_order)
+                pIdx++
+            }
+
+            if (setClauses.length === 0) {
+                return res.status(400).json({ error: 'No valid fields to update' })
+            }
+
+            setClauses.push('_upl_updated_at = NOW()')
+            setClauses.push(`_upl_updated_by = $${pIdx}`)
+            values.push(ctx.userId)
+            pIdx++
+            setClauses.push('_upl_version = COALESCE(_upl_version, 1) + 1')
+
+            values.push(childRowId)
+            values.push(recordId)
+            const childIdParam = pIdx
+            const parentIdParam = pIdx + 1
+
+            let expectedVersionClause = ''
+            if (expectedVersion !== undefined) {
+                values.push(expectedVersion)
+                expectedVersionClause = `AND COALESCE(_upl_version, 1) = $${parentIdParam + 1}`
+            }
+
+            const updated = (await ctx.manager.query(
+                `
+                    UPDATE ${tc.tabTableIdent}
+                    SET ${setClauses.join(', ')}
+                    WHERE id = $${childIdParam}
+                      AND _tp_parent_id = $${parentIdParam}
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                      AND NOT EXISTS (SELECT 1 FROM ${
+                          tc.parentTableIdent
+                      } WHERE id = $${parentIdParam} AND COALESCE(_upl_locked, false) = true)
+                      ${expectedVersionClause}
                     RETURNING id
                 `,
-                [ctx.userId, rowId]
+                values
             )) as Array<{ id: string }>
 
-            if (deleted.length === 0) return res.status(404).json({ error: 'Row not found' })
+            if (updated.length === 0) {
+                const parentLockRows = (await ctx.manager.query(
+                    `
+                        SELECT _upl_locked
+                        FROM ${tc.parentTableIdent}
+                        WHERE id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        LIMIT 1
+                    `,
+                    [recordId]
+                )) as Array<{ _upl_locked?: boolean }>
 
-            return res.json({ status: 'deleted' })
+                if (parentLockRows.length > 0 && parentLockRows[0]._upl_locked) {
+                    return res.status(423).json({ error: 'Parent record is locked' })
+                }
+
+                const childRows = (await ctx.manager.query(
+                    `
+                        SELECT id, _upl_version
+                        FROM ${tc.tabTableIdent}
+                        WHERE id = $1
+                          AND _tp_parent_id = $2
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        LIMIT 1
+                    `,
+                    [childRowId, recordId]
+                )) as Array<{ id: string; _upl_version?: number }>
+
+                if (childRows.length === 0) {
+                    return res.status(404).json({ error: 'Child row not found' })
+                }
+
+                if (expectedVersion !== undefined) {
+                    const actualVersion = Number(childRows[0]._upl_version ?? 1)
+                    if (actualVersion !== expectedVersion) {
+                        return res.status(409).json({
+                            error: 'Version mismatch',
+                            expectedVersion,
+                            actualVersion
+                        })
+                    }
+                }
+
+                return res.status(404).json({ error: 'Child row not found' })
+            }
+
+            return res.json({ status: 'ok' })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME TABULAR — DELETE CHILD ROW (soft) ============
+    router.delete(
+        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, recordId, attributeId, childRowId } = req.params
+            if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
+                return res.status(400).json({ error: 'Invalid ID format' })
+            }
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (!catalogId || !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'catalogId query parameter is required' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
+            if (tc.error) return res.status(400).json({ error: tc.error })
+
+            await ctx.manager.query('BEGIN')
+            try {
+                const parentRows = (await ctx.manager.query(
+                    `
+                        SELECT id, _upl_locked
+                        FROM ${tc.parentTableIdent}
+                        WHERE id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        FOR UPDATE
+                    `,
+                    [recordId]
+                )) as Array<{ id: string; _upl_locked?: boolean }>
+
+                if (parentRows.length === 0) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(404).json({ error: 'Parent record not found' })
+                }
+                if (parentRows[0]._upl_locked) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(423).json({ error: 'Parent record is locked' })
+                }
+
+                const childRows = (await ctx.manager.query(
+                    `
+                        SELECT id
+                        FROM ${tc.tabTableIdent}
+                        WHERE id = $1
+                          AND _tp_parent_id = $2
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        LIMIT 1
+                    `,
+                    [childRowId, recordId]
+                )) as Array<{ id: string }>
+
+                if (childRows.length === 0) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(404).json({ error: 'Child row not found' })
+                }
+
+                const { minRows } = getTableRowLimits(tc.tableAttr.validation_rules)
+                if (minRows !== null) {
+                    const activeCountRows = (await ctx.manager.query(
+                        `
+                            SELECT COUNT(*)::int AS cnt
+                            FROM ${tc.tabTableIdent}
+                            WHERE _tp_parent_id = $1
+                              AND COALESCE(_upl_deleted, false) = false
+                              AND COALESCE(_app_deleted, false) = false
+                        `,
+                        [recordId]
+                    )) as Array<{ cnt: number }>
+                    const activeCount = Number(activeCountRows[0]?.cnt ?? 0)
+                    const minRowsError = getTableRowCountError(activeCount - 1, tc.tableAttr.codename, { minRows, maxRows: null })
+                    if (minRowsError) {
+                        await ctx.manager.query('ROLLBACK').catch(() => {})
+                        return res.status(400).json({ error: minRowsError })
+                    }
+                }
+
+                const deleted = (await ctx.manager.query(
+                    `
+                        UPDATE ${tc.tabTableIdent}
+                        SET _upl_deleted = true,
+                            _upl_deleted_at = NOW(),
+                            _upl_deleted_by = $1,
+                            _upl_updated_at = NOW(),
+                            _upl_version = COALESCE(_upl_version, 1) + 1
+                        WHERE id = $2
+                          AND _tp_parent_id = $3
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        RETURNING id
+                    `,
+                    [ctx.userId, childRowId, recordId]
+                )) as Array<{ id: string }>
+
+                if (deleted.length === 0) {
+                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    return res.status(404).json({ error: 'Child row not found' })
+                }
+
+                await ctx.manager.query('COMMIT')
+                return res.json({ status: 'deleted' })
+            } catch (error) {
+                await ctx.manager.query('ROLLBACK').catch(() => {})
+                throw error
+            }
         })
     )
 

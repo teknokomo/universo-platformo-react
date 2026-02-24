@@ -61,4 +61,3 @@ export function useViewPreference(storageKey: string, defaultView: ViewStyle = D
 
     return [view, setView]
 }
-

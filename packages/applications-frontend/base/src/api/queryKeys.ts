@@ -56,8 +56,7 @@ export const applicationsQueryKeys = {
         [...applicationsQueryKeys.connectors(applicationId), 'detail', connectorId] as const,
 
     // Application schema diff (for sync dialog)
-    applicationDiff: (applicationId: string) =>
-        [...applicationsQueryKeys.detail(applicationId), 'diff'] as const,
+    applicationDiff: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'diff'] as const,
 
     // @deprecated Use applicationDiff instead
     connectorDiff: (applicationId: string, connectorId: string) =>
@@ -80,8 +79,7 @@ export const applicationsQueryKeys = {
     migrationAnalysis: (applicationId: string, migrationId: string) =>
         [...applicationsQueryKeys.migrations(applicationId), 'analysis', migrationId] as const,
 
-    migrationStatus: (applicationId: string) =>
-        [...applicationsQueryKeys.migrations(applicationId), 'status'] as const,
+    migrationStatus: (applicationId: string) => [...applicationsQueryKeys.migrations(applicationId), 'status'] as const,
 
     runtimeTable: (applicationId: string, params?: { limit?: number; offset?: number; locale?: string; catalogId?: string }) => {
         const normalized = {
@@ -97,8 +95,7 @@ export const applicationsQueryKeys = {
     runtimeAll: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime'] as const,
 
     /** Key for fetching a single runtime row (raw data for edit forms). */
-    runtimeRow: (applicationId: string, rowId: string) =>
-        [...applicationsQueryKeys.detail(applicationId), 'runtime', 'row', rowId] as const
+    runtimeRow: (applicationId: string, rowId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime', 'row', rowId] as const
 }
 
 /**

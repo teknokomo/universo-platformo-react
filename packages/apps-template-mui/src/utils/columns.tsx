@@ -1,7 +1,9 @@
 import type { GridColDef } from '@mui/x-data-grid'
 import Checkbox from '@mui/material/Checkbox'
+import Chip from '@mui/material/Chip'
 import Box from '@mui/material/Box'
 import IconButton from '@mui/material/IconButton'
+import TableRowsIcon from '@mui/icons-material/TableRows'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { AppDataResponse } from '../api/api'
 import type { FieldConfig, FieldValidationRules } from '../components/dialogs/FormDialog'
@@ -28,6 +30,21 @@ export interface ToGridColumnsOptions {
  */
 export function toGridColumns(response: AppDataResponse, options?: ToGridColumnsOptions): GridColDef[] {
     const cols: GridColDef[] = response.columns.map((c) => {
+        // TABLE columns are virtual — not sortable/filterable, show chip
+        if (c.dataType === 'TABLE') {
+            return {
+                field: c.field,
+                headerName: c.headerName,
+                width: 140,
+                sortable: false,
+                filterable: false,
+                renderCell: (params) => {
+                    const count = typeof params.value === 'number' ? params.value : 0
+                    return <Chip label={`${count}`} size='small' variant='outlined' icon={<TableRowsIcon fontSize='small' />} />
+                }
+            }
+        }
+
         const refOptionLabels =
             c.dataType === 'REF' && Array.isArray(c.refOptions) && c.refOptions.length > 0
                 ? new Map(c.refOptions.map((option) => [option.id, option.label]))
@@ -137,7 +154,7 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
     return response.columns.map((c) => ({
         id: c.field,
         label: c.headerName,
-        type: c.dataType,
+        type: c.dataType as FieldConfig['type'],
         required: c.isRequired,
         validationRules: (c.validationRules ?? {}) as FieldValidationRules,
         refTargetEntityId: c.refTargetEntityId ?? null,
@@ -150,6 +167,31 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
                 : 'select',
         defaultEnumValueId: typeof c.uiConfig?.defaultEnumValueId === 'string' ? c.uiConfig.defaultEnumValueId : null,
         enumAllowEmpty: c.uiConfig?.enumAllowEmpty !== false,
-        enumLabelEmptyDisplay: c.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
+        enumLabelEmptyDisplay: c.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash',
+        // TABLE-specific: child field definitions and attribute UUID
+        ...(c.dataType === 'TABLE' && c.childColumns
+            ? {
+                  attributeId: c.id,
+                  childFields: c.childColumns.map((child) => ({
+                      id: child.field,
+                      label: child.headerName,
+                      type: child.dataType as FieldConfig['type'],
+                      required: child.isRequired,
+                      validationRules: (child.validationRules ?? {}) as FieldValidationRules,
+                      refTargetEntityId: child.refTargetEntityId ?? null,
+                      refTargetEntityKind: child.refTargetEntityKind ?? null,
+                      refOptions: child.refOptions ?? child.enumOptions ?? [],
+                      enumOptions: child.enumOptions ?? [],
+                      enumPresentationMode:
+                          child.uiConfig?.enumPresentationMode === 'radio' || child.uiConfig?.enumPresentationMode === 'label'
+                              ? child.uiConfig.enumPresentationMode
+                              : 'select',
+                      defaultEnumValueId: typeof child.uiConfig?.defaultEnumValueId === 'string' ? child.uiConfig.defaultEnumValueId : null,
+                      enumAllowEmpty: child.uiConfig?.enumAllowEmpty !== false,
+                      enumLabelEmptyDisplay: child.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
+                  })),
+                  tableUiConfig: c.uiConfig
+              }
+            : {})
     }))
 }

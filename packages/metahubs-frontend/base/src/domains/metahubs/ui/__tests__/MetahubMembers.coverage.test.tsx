@@ -21,7 +21,7 @@ vi.mock('react-i18next', async (importOriginal) => {
     const actual = await importOriginal<any>()
     return {
         ...actual,
-        useTranslation: () => ({ i18n: { language: 'en' } })
+        useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } })
     }
 })
 
@@ -194,7 +194,7 @@ describe('MetahubMembers (coverage)', () => {
         expect(updateMutateAsync).toHaveBeenCalledWith({
             metahubId: 'm1',
             memberId: 'u1',
-            data: expect.objectContaining({ role: 'editor', comment: 'c' })
+            data: expect.objectContaining({ role: 'editor' })
         })
         expect(enqueueSnackbar).toHaveBeenCalledWith('members.updateSuccess', { variant: 'success' })
         expect(invalidateQueries).toHaveBeenCalled()

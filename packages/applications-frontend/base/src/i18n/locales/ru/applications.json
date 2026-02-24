@@ -215,7 +215,13 @@
             "schemaNotExists": "Схема ещё не существует. Она будет создана при первой синхронизации.",
             "schemaWillBeCreated": "Будет создана следующая схема:",
             "tablesWillBeCreated": "Таблицы для создания",
-            "tableMeta": "{{fieldsCount}} полей, {{elementsCount}} элементов",
+            "tableMeta": "{{fields}}, {{elements}}",
+            "fieldsCount_one": "{{count}} поле",
+            "fieldsCount_few": "{{count}} поля",
+            "fieldsCount_many": "{{count}} полей",
+            "elementsCount_one": "{{count}} элемент",
+            "elementsCount_few": "{{count}} элемента",
+            "elementsCount_many": "{{count}} элементов",
             "fields": "Поля",
             "predefinedElements": "Элементы по умолчанию",
             "columns": {
@@ -227,14 +233,27 @@
                 "boolean": "Булево",
                 "string": "Строка",
                 "number": "Число",
-                "json": "JSON"
+                "json": "JSON",
+                "table": "Таблица",
+                "ref": "Ссылка"
             },
+            "tableRowCount_one": "{{count}} строка",
+            "tableRowCount_few": "{{count}} строки",
+            "tableRowCount_many": "{{count}} строк",
             "summary": {
-                "create": "Создать {{tablesCount}} табл. в новой схеме",
+                "create_one": "Создать {{count}} таблицу в новой схеме",
+                "create_few": "Создать {{count}} таблицы в новой схеме",
+                "create_many": "Создать {{count}} таблиц в новой схеме",
                 "uiChanged": "Изменились настройки UI",
                 "upToDate": "Схема уже актуальна",
                 "metadataChanged": "Будут обновлены системные метаданные",
-                "changeCounts": "{{additiveCount}} безопасных, {{destructiveCount}} деструктивных изменений"
+                "changeCounts": "{{additive}}, {{destructive}}",
+                "additiveChangesCount_one": "{{count}} безопасное изменение",
+                "additiveChangesCount_few": "{{count}} безопасных изменения",
+                "additiveChangesCount_many": "{{count}} безопасных изменений",
+                "destructiveChangesCount_one": "{{count}} деструктивное изменение",
+                "destructiveChangesCount_few": "{{count}} деструктивных изменения",
+                "destructiveChangesCount_many": "{{count}} деструктивных изменений"
             },
             "structured": {
                 "addColumn": "Добавить поле \"{{field}}\" ({{type}}) в \"{{table}}\"",
@@ -369,7 +388,9 @@
         "actions": "Действия",
         "details": "Детали",
         "updated": "Обновлено",
-        "search": "Поиск..."
+        "search": "Поиск...",
+        "yes": "Да",
+        "no": "Нет"
     },
     "table": {
         "name": "Название",

@@ -14,12 +14,23 @@ export const dataGridCustomizations: Components<Theme> = {
     MuiDataGrid: {
         styleOverrides: {
             root: ({ theme }) => ({
-                '--DataGrid-overlayHeight': '300px',
+                '--DataGrid-overlayHeight': '52px',
                 overflow: 'clip',
                 borderColor: (theme.vars || theme).palette.divider,
                 backgroundColor: (theme.vars || theme).palette.background.default,
                 [`& .${gridClasses.columnHeader}`]: {
-                    backgroundColor: (theme.vars || theme).palette.background.paper
+                    backgroundColor: (theme.vars || theme).palette.background.paper,
+                    position: 'relative',
+                    // Column separator: inset vertical line between header cells
+                    '&:not(:first-of-type)::before': {
+                        content: '""',
+                        position: 'absolute',
+                        left: 0,
+                        top: 6,
+                        bottom: 6,
+                        width: '1px',
+                        backgroundColor: (theme.vars || theme).palette.divider
+                    }
                 },
                 [`& .${gridClasses.footerContainer}`]: {
                     backgroundColor: (theme.vars || theme).palette.background.paper
@@ -41,7 +52,20 @@ export const dataGridCustomizations: Components<Theme> = {
                     }
                 }
             }),
-            cell: ({ theme }) => ({ borderTopColor: (theme.vars || theme).palette.divider }),
+            cell: ({ theme }) => ({
+                borderTopColor: (theme.vars || theme).palette.divider,
+                position: 'relative',
+                // Column separator: inset vertical line between body cells
+                '&:not(:first-of-type)::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: 6,
+                    bottom: 6,
+                    width: '1px',
+                    backgroundColor: (theme.vars || theme).palette.grey[100]
+                }
+            }),
             menu: ({ theme }) => ({
                 borderRadius: theme.shape.borderRadius,
                 backgroundImage: 'none',

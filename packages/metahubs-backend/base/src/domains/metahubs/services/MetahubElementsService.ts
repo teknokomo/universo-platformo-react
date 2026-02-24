@@ -205,8 +205,8 @@ export class MetahubElementsService {
         const catalog = await this.objectsService.findById(metahubId, catalogId, userId)
         if (!catalog) throw new Error('Catalog not found')
 
-        // Validate element data against catalog attributes
-        const attributes = await this.attributesService.findAll(metahubId, catalogId, userId)
+        // Validate element data against catalog attributes (use findAllFlat to include child attrs for TABLE validation)
+        const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
         const validation = this.validateElementData(input.data, attributes)
         if (!validation.valid) {
             throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
@@ -266,7 +266,8 @@ export class MetahubElementsService {
 
         if (input.data) {
             const mergedData = { ...existing.data, ...input.data }
-            const attributes = await this.attributesService.findAll(metahubId, catalogId, userId)
+            // Use findAllFlat to include child attrs for TABLE validation
+            const attributes = await this.attributesService.findAllFlat(metahubId, catalogId, userId)
             const validation = this.validateElementData(mergedData, attributes)
             if (!validation.valid) {
                 throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
@@ -317,10 +318,11 @@ export class MetahubElementsService {
     // Validation helpers
     private validateElementData(data: Record<string, unknown>, attributes: any[]): { valid: boolean; errors: string[] } {
         const errors: string[] = []
-        const attributeMap = new Map(attributes.map((a) => [a.codename, a]))
+        const rootAttributes = attributes.filter((a) => !a.parentAttributeId)
+        const attributeMap = new Map(rootAttributes.map((a) => [a.codename, a]))
 
-        // Check required fields
-        for (const attr of attributes) {
+        // Check required fields (root-level only)
+        for (const attr of rootAttributes) {
             if (attr.isRequired && !this.hasRequiredValue(attr, data[attr.codename])) {
                 errors.push(`Field "${attr.codename}" is required`)
             }
@@ -332,6 +334,35 @@ export class MetahubElementsService {
             if (!attr) continue // Unknown field allowed
 
             if (value === null || value === undefined) continue
+
+            // TABLE type: validate as array of child objects
+            if (attr.dataType === AttributeDataType.TABLE) {
+                if (!Array.isArray(value)) {
+                    errors.push(`Field "${key}" (TABLE): expected array`)
+                    continue
+                }
+                const childAttrs = attributes.filter((a) => a.parentAttributeId === attr.id)
+                for (let i = 0; i < value.length; i++) {
+                    const row = value[i]
+                    if (typeof row !== 'object' || row === null) {
+                        errors.push(`Field "${key}" row ${i}: expected object`)
+                        continue
+                    }
+                    for (const child of childAttrs) {
+                        const childValue = (row as Record<string, unknown>)[child.codename]
+                        if (child.isRequired && (childValue === null || childValue === undefined)) {
+                            errors.push(`Field "${key}" row ${i}: child "${child.codename}" is required`)
+                        }
+                        if (childValue !== null && childValue !== undefined) {
+                            const typeError = this.validateType(childValue, child)
+                            if (typeError) {
+                                errors.push(`Field "${key}" row ${i}, child "${child.codename}": ${typeError}`)
+                            }
+                        }
+                    }
+                }
+                continue
+            }
 
             const typeError = this.validateType(value, attr)
             if (typeError) {

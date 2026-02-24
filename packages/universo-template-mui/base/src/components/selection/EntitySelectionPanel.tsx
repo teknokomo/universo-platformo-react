@@ -274,22 +274,24 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 <Box sx={{ mb: 2 }}>
                     <CompactListTable<T & FlowListTableData>
                         data={selectedEntities as (T & FlowListTableData)[]}
-                        columns={[
-                            {
-                                id: 'name',
-                                label: labels.nameHeader,
-                                render: (entity) => getDisplayName(entity)
-                            },
-                            {
-                                id: 'codename',
-                                label: labels.codenameHeader,
-                                render: (entity) => (
-                                    <Typography variant='body2' color='text.secondary' fontFamily='monospace'>
-                                        {getCodename(entity)}
-                                    </Typography>
-                                )
-                            }
-                        ] as TableColumn<T & FlowListTableData>[]}
+                        columns={
+                            [
+                                {
+                                    id: 'name',
+                                    label: labels.nameHeader,
+                                    render: (entity) => getDisplayName(entity)
+                                },
+                                {
+                                    id: 'codename',
+                                    label: labels.codenameHeader,
+                                    render: (entity) => (
+                                        <Typography variant='body2' color='text.secondary' fontFamily='monospace'>
+                                            {getCodename(entity)}
+                                        </Typography>
+                                    )
+                                }
+                            ] as TableColumn<T & FlowListTableData>[]
+                        }
                         renderRowAction={(entity) => (
                             <IconButton
                                 size='small'
@@ -318,7 +320,11 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 <Box sx={{ mt: 2 }}>
                     <FormControlLabel
                         control={
-                            <Switch checked={!!isRequired} onChange={(e) => onRequiredChange?.(e.target.checked)} disabled={disabled || togglesDisabled} />
+                            <Switch
+                                checked={!!isRequired}
+                                onChange={(e) => onRequiredChange?.(e.target.checked)}
+                                disabled={disabled || togglesDisabled}
+                            />
                         }
                         label={labels.requiredLabel}
                     />

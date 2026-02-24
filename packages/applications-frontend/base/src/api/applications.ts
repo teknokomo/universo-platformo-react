@@ -140,11 +140,7 @@ export const updateApplicationRuntimeRow = async (params: {
 }
 
 /** Soft-delete a runtime row. */
-export const deleteApplicationRuntimeRow = async (params: {
-    applicationId: string
-    rowId: string
-    catalogId?: string
-}): Promise<void> => {
+export const deleteApplicationRuntimeRow = async (params: { applicationId: string; rowId: string; catalogId?: string }): Promise<void> => {
     const { applicationId, rowId, catalogId } = params
     await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
         params: catalogId ? { catalogId } : undefined

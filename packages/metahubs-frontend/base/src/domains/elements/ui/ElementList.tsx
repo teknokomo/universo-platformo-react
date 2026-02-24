@@ -50,6 +50,7 @@ import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import { HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import elementActions from './ElementActions'
+import InlineTableEditor from './InlineTableEditor'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui/components/dialogs'
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
@@ -272,7 +273,8 @@ const EnumerationFieldAutocomplete = ({
         if (found) return found
         return {
             id: value,
-            label: t('ref.unknownEnumerationValue', 'Value {{id}}', { id: value.slice(0, 8) })
+            label: t('ref.unknownEnumerationValue', 'Value {{id}}', { id: value.slice(0, 8) }),
+            isDefault: false
         }
     }, [options, t, value])
 
@@ -283,16 +285,36 @@ const EnumerationFieldAutocomplete = ({
     }, [options, selectedOption])
 
     const fallbackDefaultValueId = defaultValueId ?? optionsWithFallback.find((option) => option.isDefault)?.id ?? null
-    const effectiveValue = typeof value === 'string' && value.length > 0 ? value : fallbackDefaultValueId
-    const effectiveOption = effectiveValue ? optionsWithFallback.find((option) => option.id === effectiveValue) ?? null : null
+    const explicitValue = typeof value === 'string' && value.length > 0 ? value : null
+
+    const isEmptySelectable = allowEmpty && !required
+    const optionsWithEmpty = useMemo<EnumerationValueOption[]>(() => {
+        if (!isEmptySelectable) return optionsWithFallback
+        if (optionsWithFallback.some((option) => option.id === '')) return optionsWithFallback
+        return [{ id: '', label: '', isDefault: false }, ...optionsWithFallback]
+    }, [isEmptySelectable, optionsWithFallback])
+
+    const effectiveValueForLabel = explicitValue ?? fallbackDefaultValueId
+    const effectiveOptionForLabel = effectiveValueForLabel
+        ? optionsWithFallback.find((option) => option.id === effectiveValueForLabel) ?? null
+        : null
+
+    const effectiveValueForRadio = explicitValue ?? fallbackDefaultValueId ?? ''
+
+    const effectiveValueForSelect = explicitValue ?? fallbackDefaultValueId ?? (isEmptySelectable ? '' : null)
+    const effectiveOptionForSelect =
+        effectiveValueForSelect !== null ? optionsWithEmpty.find((option) => option.id === effectiveValueForSelect) ?? null : null
 
     if (mode === 'label') {
+        // While loading, show a non-breaking space to preserve layout height without garbage IDs
+        const labelText =
+            isLoading && options.length === 0 ? '\u00A0' : effectiveOptionForLabel?.label ?? (emptyDisplay === 'empty' ? '' : '—')
         return (
             <FormControl fullWidth error={Boolean(error)}>
                 <Typography variant='caption' color='text.secondary'>
                     {label}
                 </Typography>
-                <Typography variant='body1'>{effectiveOption?.label ?? (emptyDisplay === 'empty' ? '' : '—')}</Typography>
+                <Typography variant='body1'>{labelText}</Typography>
                 {helperText && <FormHelperText>{helperText}</FormHelperText>}
             </FormControl>
         )
@@ -304,7 +326,7 @@ const EnumerationFieldAutocomplete = ({
                 <Typography variant='caption' color='text.secondary' sx={{ mb: 0.5 }}>
                     {label}
                 </Typography>
-                <RadioGroup value={effectiveValue ?? ''} onChange={(event) => onChange(event.target.value || null)}>
+                <RadioGroup value={effectiveValueForRadio} onChange={(event) => onChange(event.target.value || null)}>
                     {options.map((option) => (
                         <FormControlLabel
                             key={option.id}
@@ -330,10 +352,10 @@ const EnumerationFieldAutocomplete = ({
         <Autocomplete
             fullWidth
             disabled={disabled}
-            disableClearable={required || !allowEmpty}
-            options={optionsWithFallback}
-            value={effectiveOption}
-            onChange={(_event, newValue) => onChange(newValue?.id ?? null)}
+            disableClearable
+            options={optionsWithEmpty}
+            value={effectiveOptionForSelect}
+            onChange={(_event, newValue) => onChange(newValue?.id ? newValue.id : null)}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
             popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
@@ -353,6 +375,11 @@ const EnumerationFieldAutocomplete = ({
             loading={isLoading}
             loadingText={t('common.loading', 'Loading...')}
             noOptionsText={t('ref.noEnumerationValuesAvailable', 'No values available')}
+            renderOption={(props, option) => (
+                <li {...props} key={option.id} style={option.id === '' ? { minHeight: 36 } : undefined}>
+                    {option.label || '\u00A0'}
+                </li>
+            )}
             sx={{
                 '& .MuiAutocomplete-endAdornment': {
                     top: '50%',
@@ -448,6 +475,80 @@ const ElementList = () => {
 
     const attributes = attributesData?.items ?? []
 
+    // Identify TABLE attributes and fetch their children for inline editing
+    const tableAttributes = useMemo(() => attributes.filter((a) => a.dataType === 'TABLE'), [attributes])
+
+    const { data: childAttributesMap } = useQuery({
+        queryKey: ['metahubs', 'childAttributesForElements', metahubId, catalogId, tableAttributes.map((a) => a.id).join(',')],
+        queryFn: async () => {
+            if (!metahubId || !catalogId || tableAttributes.length === 0) return {}
+            const results: Record<string, typeof attributes> = {}
+            await Promise.all(
+                tableAttributes.map(async (tableAttr) => {
+                    try {
+                        const resp = effectiveHubId
+                            ? await attributesApi.listChildAttributes(metahubId, effectiveHubId, catalogId, tableAttr.id)
+                            : await attributesApi.listChildAttributesDirect(metahubId, catalogId, tableAttr.id)
+                        results[tableAttr.id] = resp.items ?? []
+                    } catch {
+                        results[tableAttr.id] = []
+                    }
+                })
+            )
+            return results
+        },
+        enabled: canLoadData && tableAttributes.length > 0
+    })
+
+    // Collect all unique enumeration target IDs from child REF attributes
+    const childEnumTargetIds = useMemo(() => {
+        if (!childAttributesMap) return [] as string[]
+        const ids = new Set<string>()
+        Object.values(childAttributesMap).forEach((children) => {
+            children.forEach((child) => {
+                if (child.dataType !== 'REF') return
+                const kind = child.targetEntityKind ?? (child.targetCatalogId ? 'catalog' : null)
+                const targetId = child.targetEntityId ?? child.targetCatalogId ?? null
+                if (kind === 'enumeration' && targetId) ids.add(targetId)
+            })
+        })
+        return Array.from(ids)
+    }, [childAttributesMap])
+
+    // Fetch enum values for child REF→enumeration attributes
+    const { data: childEnumValuesMap } = useQuery({
+        queryKey: ['metahubs', 'childEnumValues', metahubId, [...childEnumTargetIds].sort().join(','), i18n.language],
+        queryFn: async () => {
+            if (!metahubId || childEnumTargetIds.length === 0) return {}
+            const result: Record<
+                string,
+                Array<{ id: string; label: string; codename?: string; isDefault?: boolean; sortOrder?: number }>
+            > = {}
+            await Promise.all(
+                childEnumTargetIds.map(async (enumId) => {
+                    try {
+                        const resp = await listEnumerationValues(metahubId, enumId)
+                        result[enumId] = (resp.items ?? [])
+                            .slice()
+                            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                            .map((item) => ({
+                                id: item.id,
+                                label: getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename || item.id,
+                                codename: item.codename,
+                                isDefault: Boolean(item.isDefault),
+                                sortOrder: item.sortOrder
+                            }))
+                    } catch (err) {
+                        console.warn(`[ElementList] Failed to load enum values for ${enumId}:`, err)
+                        result[enumId] = []
+                    }
+                })
+            )
+            return result
+        },
+        enabled: Boolean(metahubId) && childEnumTargetIds.length > 0
+    })
+
     const orderedAttributes = useMemo(
         () =>
             attributes
@@ -515,6 +616,48 @@ const ElementList = () => {
                 const enumAllowEmpty = uiConfig.enumAllowEmpty !== false
                 const enumLabelEmptyDisplay = uiConfig.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
 
+                // Build childFields for TABLE attributes
+                let childFields: DynamicFieldConfig[] | undefined
+                if (attribute.dataType === 'TABLE' && childAttributesMap?.[attribute.id]) {
+                    const children = childAttributesMap[attribute.id]
+                    childFields = children
+                        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                        .map((child) => {
+                            const childTargetId = child.targetEntityId ?? child.targetCatalogId ?? null
+                            const childTargetKind = child.targetEntityKind ?? (child.targetCatalogId ? 'catalog' : null)
+                            const childUiConfig = (child.uiConfig ?? {}) as Record<string, unknown>
+                            const childEnumPresentationMode =
+                                childUiConfig.enumPresentationMode === 'radio' || childUiConfig.enumPresentationMode === 'label'
+                                    ? childUiConfig.enumPresentationMode
+                                    : 'select'
+                            const childDefaultEnumValueId =
+                                typeof childUiConfig.defaultEnumValueId === 'string' ? childUiConfig.defaultEnumValueId : null
+                            const childEnumAllowEmpty = childUiConfig.enumAllowEmpty !== false
+                            const childEnumLabelEmptyDisplay = childUiConfig.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
+
+                            // Resolve enum options for REF→enumeration children
+                            let enumOptions: DynamicFieldConfig['enumOptions']
+                            if (child.dataType === 'REF' && childTargetKind === 'enumeration' && childTargetId) {
+                                enumOptions = childEnumValuesMap?.[childTargetId] ?? []
+                            }
+
+                            return {
+                                id: child.codename,
+                                label: getVLCString(child.name, i18n.language) || child.codename,
+                                type: child.dataType as DynamicFieldConfig['type'],
+                                required: child.isRequired,
+                                validationRules: child.validationRules as DynamicFieldValidationRules | undefined,
+                                refTargetEntityId: childTargetId,
+                                refTargetEntityKind: childTargetKind,
+                                enumOptions,
+                                enumPresentationMode: childEnumPresentationMode as DynamicFieldConfig['enumPresentationMode'],
+                                defaultEnumValueId: childDefaultEnumValueId,
+                                enumAllowEmpty: childEnumAllowEmpty,
+                                enumLabelEmptyDisplay: childEnumLabelEmptyDisplay as DynamicFieldConfig['enumLabelEmptyDisplay']
+                            }
+                        })
+                }
+
                 return {
                     id: attribute.codename,
                     label: getVLCString(attribute.name, i18n.language) || attribute.codename,
@@ -532,10 +675,11 @@ const ElementList = () => {
                     enumPresentationMode,
                     defaultEnumValueId,
                     enumAllowEmpty,
-                    enumLabelEmptyDisplay
+                    enumLabelEmptyDisplay,
+                    childFields
                 }
             }),
-        [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText]
+        [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText, childAttributesMap, childEnumValuesMap]
     )
 
     const renderElementField = useCallback(
@@ -549,6 +693,21 @@ const ElementList = () => {
             locale: string
         }) => {
             const { field, value, onChange, disabled, error, helperText, locale } = params
+
+            // Handle TABLE type with inline table editor
+            if (field.type === 'TABLE' && field.childFields && field.childFields.length > 0) {
+                const tableRows = Array.isArray(value) ? (value as Record<string, unknown>[]) : []
+                return (
+                    <InlineTableEditor
+                        label={field.label}
+                        value={tableRows}
+                        onChange={(rows) => onChange(rows)}
+                        childFields={field.childFields}
+                        disabled={disabled}
+                        locale={locale}
+                    />
+                )
+            }
 
             if (field.type !== 'REF') return undefined
 
@@ -856,6 +1015,14 @@ const ElementList = () => {
                         }
                         case 'BOOLEAN':
                             return value ? '✓' : '✗'
+                        case 'TABLE': {
+                            const rowCount = Array.isArray(value) ? value.length : 0
+                            return (
+                                <Typography sx={{ fontSize: 13, color: 'text.secondary' }} noWrap>
+                                    {rowCount > 0 ? t('elements.table.rowCount', '{{count}} rows', { count: rowCount }) : '—'}
+                                </Typography>
+                            )
+                        }
                         case 'JSON':
                             return (
                                 <Typography sx={{ fontFamily: 'monospace', fontSize: 12 }} noWrap>

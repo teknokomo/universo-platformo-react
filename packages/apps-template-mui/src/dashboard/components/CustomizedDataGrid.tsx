@@ -29,6 +29,8 @@ export default function CustomizedDataGrid({
     pageSizeOptions = [10, 20, 50],
     localeText
 }: CustomizedDataGridProps) {
+    const firstDataField = columns.find((column) => typeof column.field === 'string' && !String(column.field).startsWith('__'))?.field
+
     return (
         <DataGrid
             checkboxSelection={checkboxSelection}
@@ -52,6 +54,38 @@ export default function CustomizedDataGrid({
             disableColumnResize
             density='compact'
             localeText={localeText}
+            sx={{
+                [`& .MuiDataGrid-columnHeader`]: {
+                    position: 'relative'
+                },
+                '& .MuiDataGrid-cell': {
+                    position: 'relative'
+                },
+                ...(firstDataField
+                    ? {
+                          // Internal header separators only (exclude first real column)
+                          [`& .MuiDataGrid-columnHeader[data-field]:not([data-field="${firstDataField}"])::before`]: {
+                              content: '""',
+                              position: 'absolute',
+                              left: 0,
+                              top: 6,
+                              bottom: 6,
+                              width: '1px',
+                              backgroundColor: 'common.white'
+                          },
+                          // Internal body separators only (exclude first real column)
+                          [`& .MuiDataGrid-cell[data-field]:not([data-field="${firstDataField}"])::before`]: {
+                              content: '""',
+                              position: 'absolute',
+                              left: 0,
+                              top: 6,
+                              bottom: 6,
+                              width: '1px',
+                              backgroundColor: 'grey.100'
+                          }
+                      }
+                    : {})
+            }}
             slotProps={{
                 filterPanel: {
                     filterFormProps: {

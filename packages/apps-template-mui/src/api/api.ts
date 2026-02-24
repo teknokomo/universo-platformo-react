@@ -71,7 +71,7 @@ export const appDataResponseSchema = z.object({
             id: z.string(),
             codename: z.string(),
             field: z.string(),
-            dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON']),
+            dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE']),
             headerName: z.string(),
             isRequired: z.boolean().optional().default(false),
             validationRules: z.record(z.unknown()).optional().default({}),
@@ -97,6 +97,45 @@ export const appDataResponseSchema = z.object({
                         codename: z.string().optional(),
                         isDefault: z.boolean().optional(),
                         sortOrder: z.number().optional()
+                    })
+                )
+                .optional(),
+            // Child column definitions for TABLE-type attributes
+            childColumns: z
+                .array(
+                    z.object({
+                        id: z.string(),
+                        codename: z.string(),
+                        field: z.string(),
+                        dataType: z.string(),
+                        headerName: z.string(),
+                        isRequired: z.boolean().optional().default(false),
+                        validationRules: z.record(z.unknown()).optional().default({}),
+                        uiConfig: z.record(z.unknown()).optional().default({}),
+                        refTargetEntityId: z.string().nullable().optional(),
+                        refTargetEntityKind: z.string().nullable().optional(),
+                        refOptions: z
+                            .array(
+                                z.object({
+                                    id: z.string(),
+                                    label: z.string(),
+                                    codename: z.string().optional(),
+                                    isDefault: z.boolean().optional(),
+                                    sortOrder: z.number().optional()
+                                })
+                            )
+                            .optional(),
+                        enumOptions: z
+                            .array(
+                                z.object({
+                                    id: z.string(),
+                                    label: z.string(),
+                                    codename: z.string().optional(),
+                                    isDefault: z.boolean().optional(),
+                                    sortOrder: z.number().optional()
+                                })
+                            )
+                            .optional()
                     })
                 )
                 .optional()
@@ -311,5 +350,114 @@ export async function deleteAppRow(options: {
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Delete row failed'))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tabular (TABLE attribute child rows) API helpers
+// ---------------------------------------------------------------------------
+
+/** Zod schema for the tabular child rows API response. */
+export const tabularRowsResponseSchema = z.object({
+    items: z.array(z.record(z.unknown()).and(z.object({ id: z.string() }))),
+    total: z.number()
+})
+
+export type TabularRowsResponse = z.infer<typeof tabularRowsResponseSchema>
+
+/** Fetch child rows for a TABLE attribute. */
+export async function fetchTabularRows(options: {
+    apiBaseUrl: string
+    applicationId: string
+    parentRecordId: string
+    attributeId: string
+    catalogId: string
+}): Promise<TabularRowsResponse> {
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId } = options
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
+    url += `?catalogId=${encodeURIComponent(catalogId)}`
+
+    const res = await fetch(url, { credentials: 'include' })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Fetch tabular rows failed'))
+    }
+    const json = await res.json()
+    const parsed = tabularRowsResponseSchema.safeParse(json)
+    if (!parsed.success) {
+        throw new Error('Tabular rows response validation failed')
+    }
+    return parsed.data
+}
+
+/** Create a new child row in a TABLE attribute. */
+export async function createTabularRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    parentRecordId: string
+    attributeId: string
+    catalogId: string
+    data: Record<string, unknown>
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, data } = options
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
+    url += `?catalogId=${encodeURIComponent(catalogId)}`
+
+    const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Create tabular row failed'))
+    }
+    return res.json()
+}
+
+/** Update a child row in a TABLE attribute. */
+export async function updateTabularRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    parentRecordId: string
+    attributeId: string
+    catalogId: string
+    childRowId: string
+    data: Record<string, unknown>
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, childRowId, data } = options
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
+    url += `?catalogId=${encodeURIComponent(catalogId)}`
+
+    const res = await fetch(url, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Update tabular row failed'))
+    }
+    return res.json()
+}
+
+/** Delete a child row in a TABLE attribute. */
+export async function deleteTabularRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    parentRecordId: string
+    attributeId: string
+    catalogId: string
+    childRowId: string
+}): Promise<void> {
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, childRowId } = options
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
+    url += `?catalogId=${encodeURIComponent(catalogId)}`
+
+    const res = await fetch(url, {
+        method: 'DELETE',
+        credentials: 'include'
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Delete tabular row failed'))
     }
 }

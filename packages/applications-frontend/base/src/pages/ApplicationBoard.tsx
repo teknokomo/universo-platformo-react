@@ -112,7 +112,6 @@ const ApplicationBoard = () => {
                     {t('board.overview', 'Overview')}
                 </Typography>
                 <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
-
                     {/* Connectors Count */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard

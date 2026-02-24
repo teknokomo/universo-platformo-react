@@ -17,12 +17,12 @@
             "require": "./dist/index.js"
         },
         "./components/dialogs": {
-            "types": "./dist/index.d.ts",
+            "types": "./dist/components/dialogs/index.d.ts",
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
         },
         "./components/dialogs/EntityFormDialog": {
-            "types": "./dist/index.d.ts",
+            "types": "./dist/components/dialogs/EntityFormDialog.d.ts",
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
         },
@@ -30,7 +30,7 @@
     },
     "scripts": {
         "clean": "rimraf dist",
-        "build": "NODE_OPTIONS='--max-old-space-size=8192' tsdown && NODE_OPTIONS='--max-old-space-size=8192' tsc --emitDeclarationOnly",
+        "build": "NODE_OPTIONS='--max-old-space-size=8192' tsdown && NODE_OPTIONS='--max-old-space-size=8192' tsc --emitDeclarationOnly --noEmit false",
         "dev": "tsdown --watch",
         "lint": "eslint --ext .ts,.tsx,.jsx src/",
         "test": "NODE_OPTIONS='--require ./jest-canvas-mock.js' jest",

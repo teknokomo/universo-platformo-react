@@ -1,6 +1,8 @@
 import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { AttributeDataType } from '@universo/types'
+import { randomUUID } from 'crypto'
 
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
@@ -13,8 +15,30 @@ export class MetahubAttributesService {
         return KnexClient.getInstance()
     }
 
+    private async generateUniqueTableAttributeId(schemaName: string, catalogId: string): Promise<string> {
+        const existingTableAttrs = (await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .select('id')
+            .where({ object_id: catalogId, data_type: AttributeDataType.TABLE })
+            .whereNull('parent_attribute_id')) as Array<{ id: string }>
+
+        const usedPrefixes = new Set(existingTableAttrs.map((row) => row.id.replace(/-/g, '').substring(0, 12)))
+
+        for (let attempt = 0; attempt < 64; attempt++) {
+            const candidate = randomUUID()
+            const prefix = candidate.replace(/-/g, '').substring(0, 12)
+            if (!usedPrefixes.has(prefix)) {
+                return candidate
+            }
+        }
+
+        throw new Error('Failed to generate a unique TABLE attribute ID')
+    }
+
     /**
-     * Count attributes for a specific object (catalog).
+     * Count root-level attributes for a specific object (catalog).
+     * Excludes child attributes of TABLE types.
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -22,6 +46,36 @@ export class MetahubAttributesService {
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .where({ object_id: objectId })
+            .whereNull('parent_attribute_id')
+            .count('* as count')
+            .first()
+        return result ? parseInt(result.count as string, 10) : 0
+    }
+
+    /**
+     * Count TABLE-type attributes for a specific object.
+     */
+    async countTableAttributes(metahubId: string, objectId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const result = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .where({ object_id: objectId, data_type: AttributeDataType.TABLE })
+            .whereNull('parent_attribute_id')
+            .count('* as count')
+            .first()
+        return result ? parseInt(result.count as string, 10) : 0
+    }
+
+    /**
+     * Count child attributes of a TABLE attribute.
+     */
+    async countChildAttributes(metahubId: string, parentAttributeId: string, userId?: string): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const result = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .where({ parent_attribute_id: parentAttributeId })
             .count('* as count')
             .first()
         return result ? parseInt(result.count as string, 10) : 0
@@ -49,7 +103,27 @@ export class MetahubAttributesService {
         return counts
     }
 
+    /**
+     * Returns only root-level attributes (parent_attribute_id IS NULL).
+     * Use findAllFlat() to get all attributes including children.
+     */
     async findAll(metahubId: string, objectId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .where({ object_id: objectId })
+            .whereNull('parent_attribute_id')
+            .orderBy('sort_order', 'asc')
+            .orderBy('_upl_created_at', 'asc')
+
+        return rows.map(this.mapRowToAttribute)
+    }
+
+    /**
+     * Returns ALL attributes (root + child) for snapshot/sync purposes.
+     */
+    async findAllFlat(metahubId: string, objectId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const rows = await this.knex
             .withSchema(schemaName)
@@ -59,6 +133,50 @@ export class MetahubAttributesService {
             .orderBy('_upl_created_at', 'asc')
 
         return rows.map(this.mapRowToAttribute)
+    }
+
+    /**
+     * Returns child attributes of a TABLE attribute.
+     */
+    async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .where({ parent_attribute_id: parentAttributeId })
+            .orderBy('sort_order', 'asc')
+            .orderBy('_upl_created_at', 'asc')
+
+        return rows.map(this.mapRowToAttribute)
+    }
+
+    /**
+     * Returns child attributes for multiple TABLE parents in a single query.
+     * Grouped by parent attribute ID for efficient batch lookup.
+     */
+    async findChildAttributesByParentIds(metahubId: string, parentAttributeIds: string[], userId?: string) {
+        const result = new Map<string, ReturnType<typeof this.mapRowToAttribute>[]>()
+        for (const parentId of parentAttributeIds) {
+            result.set(parentId, [])
+        }
+        if (parentAttributeIds.length === 0) return result
+
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const rows = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .whereIn('parent_attribute_id', parentAttributeIds)
+            .orderBy('sort_order', 'asc')
+            .orderBy('_upl_created_at', 'asc')
+
+        for (const row of rows) {
+            const attr = this.mapRowToAttribute(row)
+            const parentId = attr.parentAttributeId
+            if (parentId && result.has(parentId)) {
+                result.get(parentId)!.push(attr)
+            }
+        }
+        return result
     }
 
     async getAllAttributes(metahubId: string, userId?: string) {
@@ -81,7 +199,13 @@ export class MetahubAttributesService {
 
     async findByCodename(metahubId: string, objectId: string, codename: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId, codename }).first()
+        const row = await this.knex
+            .withSchema(schemaName)
+            .from('_mhb_attributes')
+            .where({ object_id: objectId, codename })
+            .andWhere('_upl_deleted', false)
+            .andWhere('_mhb_deleted', false)
+            .first()
 
         return row ? this.mapRowToAttribute(row) : null
     }
@@ -258,9 +382,38 @@ export class MetahubAttributesService {
 
     async create(metahubId: string, data: any, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        let explicitAttributeId: string | undefined
 
-        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId))
-        const dbData = {
+        // TABLE attribute limits validation
+        if (data.parentAttributeId) {
+            const parent = await this.findById(metahubId, data.parentAttributeId, userId)
+            if (!parent) {
+                throw new Error(`Parent attribute ${data.parentAttributeId} not found`)
+            }
+            if (parent.dataType !== AttributeDataType.TABLE) {
+                throw new Error(`Parent attribute must be TABLE type, got ${parent.dataType}`)
+            }
+            if (data.dataType === AttributeDataType.TABLE) {
+                throw new Error('Nested TABLE attributes are not allowed')
+            }
+            const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId)
+            if (childCount >= 20) {
+                throw new Error('Maximum 20 child attributes per TABLE')
+            }
+        }
+
+        if (data.dataType === AttributeDataType.TABLE) {
+            const tableCount = await this.countTableAttributes(metahubId, data.catalogId, userId)
+            if (tableCount >= 10) {
+                throw new Error('Maximum 10 TABLE attributes per catalog')
+            }
+
+            explicitAttributeId = await this.generateUniqueTableAttributeId(schemaName, data.catalogId)
+        }
+
+        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId, data.parentAttributeId))
+        const dbData: Record<string, unknown> = {
+            ...(explicitAttributeId ? { id: explicitAttributeId } : {}),
             object_id: data.catalogId, // Map catalogId to object_id
             codename: data.codename,
             data_type: data.dataType,
@@ -268,6 +421,7 @@ export class MetahubAttributesService {
             is_display_attribute: data.isDisplayAttribute ?? false,
             target_object_id: data.targetEntityId ?? data.targetCatalogId ?? null,
             target_object_kind: data.targetEntityKind ?? null,
+            parent_attribute_id: data.parentAttributeId ?? null,
             sort_order: sortOrder,
             presentation: {
                 name: data.name
@@ -331,24 +485,45 @@ export class MetahubAttributesService {
 
     async delete(metahubId: string, id: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id }).delete()
+
+        await this.knex.transaction(async (trx) => {
+            // If TABLE type, explicitly delete children before parent
+            // (FK ON DELETE CASCADE would handle hard-delete, but explicit delete ensures consistency)
+            const attribute = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
+            if (attribute?.data_type === AttributeDataType.TABLE) {
+                await trx.withSchema(schemaName).from('_mhb_attributes').where({ parent_attribute_id: id }).delete()
+            }
+
+            await trx.withSchema(schemaName).from('_mhb_attributes').where({ id }).delete()
+        })
     }
 
     async moveAttribute(metahubId: string, objectId: string, attributeId: string, direction: 'up' | 'down', userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         return this.knex.transaction(async (trx) => {
-            // Ensure sequential order first
-            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId)
-
+            // Fetch current attribute to know its parent scope
             const current = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
 
             if (!current) throw new Error('Attribute not found')
 
-            const currentOrder = current.sort_order
+            const parentAttributeId: string | null = current.parent_attribute_id ?? null
 
-            // Find neighbor
+            // Ensure sequential order only among siblings (same parent)
+            await this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, parentAttributeId)
+
+            // Re-fetch after reordering
+            const refreshed = await trx.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
+            const currentOrder = refreshed.sort_order
+
+            // Find neighbor among siblings only
             let neighborQuery = trx.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+
+            if (parentAttributeId) {
+                neighborQuery = neighborQuery.where({ parent_attribute_id: parentAttributeId })
+            } else {
+                neighborQuery = neighborQuery.whereNull('parent_attribute_id')
+            }
 
             if (direction === 'up') {
                 neighborQuery = neighborQuery.where('sort_order', '<', currentOrder).orderBy('sort_order', 'desc')
@@ -374,16 +549,28 @@ export class MetahubAttributesService {
         })
     }
 
-    // Internal method passing transaction
-    private async _ensureSequentialSortOrder(metahubId: string, objectId: string, trx: any, userId?: string) {
+    /**
+     * Ensure sequential sort order among sibling attributes.
+     * Scoped by parentAttributeId: null = root attributes, string = children of that parent.
+     */
+    private async _ensureSequentialSortOrder(
+        metahubId: string,
+        objectId: string,
+        trx: any,
+        userId?: string,
+        parentAttributeId?: string | null
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
-        const attributes = await trx
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId })
-            .orderBy('sort_order', 'asc')
-            .orderBy('_upl_created_at', 'asc')
+        let query = trx.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+
+        if (parentAttributeId) {
+            query = query.where({ parent_attribute_id: parentAttributeId })
+        } else {
+            query = query.whereNull('parent_attribute_id')
+        }
+
+        const attributes = await query.orderBy('sort_order', 'asc').orderBy('_upl_created_at', 'asc')
 
         // Check consistency
         let consistent = true
@@ -409,30 +596,55 @@ export class MetahubAttributesService {
     }
 
     // Public wrapper if needed independently
-    async ensureSequentialSortOrder(metahubId: string, objectId: string, userId?: string) {
-        return this.knex.transaction((trx) => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId))
+    async ensureSequentialSortOrder(metahubId: string, objectId: string, userId?: string, parentAttributeId?: string | null) {
+        return this.knex.transaction((trx) => this._ensureSequentialSortOrder(metahubId, objectId, trx, userId, parentAttributeId))
     }
 
     /**
      * Set an attribute as the display attribute for its catalog.
-     * Only one attribute per catalog can be the display attribute.
-     * This method atomically clears the flag from all other attributes in the catalog
-     * and sets it on the specified attribute.
+     * Only one attribute per catalog can be the display attribute at each level:
+     * - Root attributes: only one root attribute can be exhibit
+     * - Child attributes: only one child per parent can be exhibit
+     * TABLE type attributes cannot be display attributes.
      */
     async setDisplayAttribute(metahubId: string, catalogId: string, attributeId: string, userId?: string): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
+        const attribute = await this.findById(metahubId, attributeId, userId)
+        if (!attribute) {
+            throw new Error('Attribute not found')
+        }
+
+        // TABLE type attributes cannot be display attributes
+        if (attribute.dataType === AttributeDataType.TABLE) {
+            throw new Error('TABLE attributes cannot be set as display attribute')
+        }
+
         await this.knex.transaction(async (trx) => {
-            // Reset all attributes in this catalog
-            await trx
-                .withSchema(schemaName)
-                .from('_mhb_attributes')
-                .where({ object_id: catalogId })
-                .update({
-                    is_display_attribute: false,
-                    _upl_updated_at: new Date(),
-                    _upl_updated_by: userId ?? null
-                })
+            if (attribute.parentAttributeId) {
+                // Child attribute: reset only siblings (children of the same parent)
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_attributes')
+                    .where({ parent_attribute_id: attribute.parentAttributeId })
+                    .update({
+                        is_display_attribute: false,
+                        _upl_updated_at: new Date(),
+                        _upl_updated_by: userId ?? null
+                    })
+            } else {
+                // Root attribute: reset only root attributes in this catalog
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_attributes')
+                    .where({ object_id: catalogId })
+                    .whereNull('parent_attribute_id')
+                    .update({
+                        is_display_attribute: false,
+                        _upl_updated_at: new Date(),
+                        _upl_updated_by: userId ?? null
+                    })
+            }
 
             // Set the specified attribute as display attribute
             await trx
@@ -464,13 +676,16 @@ export class MetahubAttributesService {
             })
     }
 
-    private async getNextSortOrder(schemaName: string, objectId: string): Promise<number> {
-        const result = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_attributes')
-            .where({ object_id: objectId })
-            .max('sort_order as max')
-            .first()
+    private async getNextSortOrder(schemaName: string, objectId: string, parentAttributeId?: string | null): Promise<number> {
+        let query = this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+
+        if (parentAttributeId) {
+            query = query.where({ parent_attribute_id: parentAttributeId })
+        } else {
+            query = query.whereNull('parent_attribute_id')
+        }
+
+        const result = await query.max('sort_order as max').first()
 
         const max = result?.max
         if (typeof max === 'number') return max + 1
@@ -491,6 +706,8 @@ export class MetahubAttributesService {
             targetEntityKind: row.target_object_kind,
             // Legacy alias for backward compatibility
             targetCatalogId: row.target_object_id,
+            // TABLE parent reference
+            parentAttributeId: row.parent_attribute_id ?? null,
             sortOrder: row.sort_order,
             name: row.presentation?.name,
             description: row.presentation?.description,
