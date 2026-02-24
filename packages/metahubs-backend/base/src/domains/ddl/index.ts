@@ -19,6 +19,7 @@ export {
     generateSchemaName,
     generateTableName,
     generateColumnName,
+    generateTabularTableName,
     buildFkConstraintName,
     isValidSchemaName,
     uuidToLockKey,

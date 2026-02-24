@@ -1065,7 +1065,14 @@ export function createCatalogsRoutes(
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
             if (!catalog) {
-                return res.status(404).json({ error: 'Catalog not found' })
+                // Return empty result for non-existent catalogs instead of 404.
+                // This prevents noisy console errors when React Query refetches
+                // after a successful catalog deletion (race condition).
+                return res.json({
+                    catalogId,
+                    blockingReferences: [],
+                    canDelete: true
+                })
             }
 
             const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)

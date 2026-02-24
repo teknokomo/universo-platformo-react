@@ -170,5 +170,132 @@ describe('DDL Snapshot Utilities', () => {
             expect(Object.keys(snapshot.entities['entity-a-0000-0000-000000000001'].fields)).toHaveLength(2)
             expect(Object.keys(snapshot.entities['entity-b-0000-0000-000000000002'].fields)).toHaveLength(1)
         })
+
+        describe('TABLE attribute (childFields)', () => {
+            it('should store TABLE field with tabular table name in columnName', () => {
+                const entity = createTestEntity({
+                    id: 'entity-t-0000-0000-000000000001',
+                    codename: 'orders',
+                    kind: 'catalog',
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        }
+                    ]
+                })
+
+                const snapshot = buildSchemaSnapshot([entity])
+                const field = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-attr-1111-2222-333344445555']
+
+                expect(field).toBeDefined()
+                expect(field.dataType).toBe('TABLE')
+                // columnName for TABLE is the tabular table name: {parentTableName}_tp_{cleanAttrId}
+                expect(field.columnName).toContain('_tp_')
+                expect(field.columnName).toBe('cat_entityt00000000000000000001_tp_tableattr111')
+            })
+
+            it('should nest child fields inside TABLE field as childFields', () => {
+                const entity = createTestEntity({
+                    id: 'entity-t-0000-0000-000000000001',
+                    codename: 'orders',
+                    kind: 'catalog',
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        },
+                        {
+                            id: 'child-field-aaaa-bbbb-ccccddddeeee',
+                            codename: 'quantity',
+                            dataType: 'integer',
+                            isRequired: true,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                        },
+                        {
+                            id: 'child-field-ffff-0000-111122223333',
+                            codename: 'price',
+                            dataType: 'decimal',
+                            isRequired: false,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                        }
+                    ]
+                })
+
+                const snapshot = buildSchemaSnapshot([entity])
+                const tableField = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-attr-1111-2222-333344445555']
+
+                expect(tableField.childFields).toBeDefined()
+                expect(Object.keys(tableField.childFields!)).toHaveLength(2)
+
+                const qtyChild = tableField.childFields!['child-field-aaaa-bbbb-ccccddddeeee']
+                expect(qtyChild.codename).toBe('quantity')
+                expect(qtyChild.dataType).toBe('integer')
+                expect(qtyChild.isRequired).toBe(true)
+                expect(qtyChild.columnName).toBe('attr_childfieldaaaabbbbccccddddeeee')
+
+                const priceChild = tableField.childFields!['child-field-ffff-0000-111122223333']
+                expect(priceChild.codename).toBe('price')
+                expect(priceChild.dataType).toBe('decimal')
+                expect(priceChild.isRequired).toBe(false)
+            })
+
+            it('should not include child fields at top level of entity fields', () => {
+                const entity = createTestEntity({
+                    id: 'entity-t-0000-0000-000000000001',
+                    codename: 'orders',
+                    kind: 'catalog',
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        },
+                        {
+                            id: 'child-field-aaaa-bbbb-ccccddddeeee',
+                            codename: 'quantity',
+                            dataType: 'integer',
+                            isRequired: true,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                        }
+                    ]
+                })
+
+                const snapshot = buildSchemaSnapshot([entity])
+                const entityFields = snapshot.entities['entity-t-0000-0000-000000000001'].fields
+
+                // Only TABLE field at top level, child is nested
+                expect(Object.keys(entityFields)).toHaveLength(1)
+                expect(entityFields['child-field-aaaa-bbbb-ccccddddeeee']).toBeUndefined()
+                expect(entityFields['table-attr-1111-2222-333344445555'].childFields).toBeDefined()
+            })
+
+            it('should omit childFields when TABLE attribute has no children', () => {
+                const entity = createTestEntity({
+                    id: 'entity-t-0000-0000-000000000001',
+                    codename: 'orders',
+                    kind: 'catalog',
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        }
+                    ]
+                })
+
+                const snapshot = buildSchemaSnapshot([entity])
+                const tableField = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-attr-1111-2222-333344445555']
+
+                // childFields should be omitted (not set to empty object)
+                expect(tableField.childFields).toBeUndefined()
+            })
+        })
     })
 })

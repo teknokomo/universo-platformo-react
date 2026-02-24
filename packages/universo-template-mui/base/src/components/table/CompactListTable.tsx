@@ -133,11 +133,7 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
                                             </StyledTableCell>
                                         )
                                     })}
-                                    {renderRowAction && (
-                                        <StyledTableCell align='right'>
-                                            {renderRowAction(row, index)}
-                                        </StyledTableCell>
-                                    )}
+                                    {renderRowAction && <StyledTableCell align='right'>{renderRowAction(row, index)}</StyledTableCell>}
                                 </StyledTableRow>
                             )
                         })}

@@ -18,10 +18,7 @@ interface UseApplicationDiffOptions {
  * Hook to get the first publication for a metahub (kept for backward compatibility)
  * @deprecated Use useApplicationDiff instead
  */
-export function useMetahubPublication(
-    metahubId: string,
-    options?: { enabled?: boolean }
-) {
+export function useMetahubPublication(metahubId: string, options?: { enabled?: boolean }) {
     return useQuery<PublicationSummary | null, Error>({
         queryKey: ['metahub', metahubId, 'publications', 'first'],
         queryFn: async () => {
@@ -37,13 +34,10 @@ export function useMetahubPublication(
  * Hook for fetching schema diff for an application
  * Uses the Application's linked Metahub via Connector
  *
- * @param applicationId - The application ID 
+ * @param applicationId - The application ID
  * @param options - Query options
  */
-export function useApplicationDiff(
-    applicationId: string,
-    options?: UseApplicationDiffOptions
-) {
+export function useApplicationDiff(applicationId: string, options?: UseApplicationDiffOptions) {
     const { enabled = true } = options ?? {}
 
     return useQuery<SchemaDiffResponse, Error>({
@@ -60,12 +54,7 @@ export function useApplicationDiff(
 /**
  * @deprecated Use useApplicationDiff instead
  */
-export function useConnectorDiff(
-    _metahubId: string,
-    _publicationId: string,
-    _connectorId: string,
-    options?: UseApplicationDiffOptions
-) {
+export function useConnectorDiff(_metahubId: string, _publicationId: string, _connectorId: string, options?: UseApplicationDiffOptions) {
     // This is kept for backward compatibility but now requires applicationId
     // Real implementation should use useApplicationDiff
     console.warn('useConnectorDiff is deprecated. Use useApplicationDiff instead.')

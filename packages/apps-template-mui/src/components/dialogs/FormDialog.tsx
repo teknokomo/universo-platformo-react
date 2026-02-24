@@ -26,14 +26,16 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { createLocalizedContent, NUMBER_DEFAULTS } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
+import { TabularPartEditor } from '../TabularPartEditor'
+import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
 
-export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON'
+export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
 /**
  * Validation rules for form fields.
  * Matches AttributeValidationRules from @universo/types.
  */
-export interface FieldValidationRules {
+export interface FieldValidationRules extends Record<string, unknown> {
     // STRING settings
     minLength?: number | null
     maxLength?: number | null
@@ -89,6 +91,12 @@ export interface FieldConfig {
     enumAllowEmpty?: boolean
     /** Defines how empty label-mode value should be rendered. */
     enumLabelEmptyDisplay?: 'empty' | 'dash'
+    /** Child field definitions for TABLE-type attributes. */
+    childFields?: FieldConfig[]
+    /** UI configuration for TABLE-type attributes. */
+    tableUiConfig?: Record<string, unknown>
+    /** Original attribute UUID — used for TABLE-type API calls (tabular part endpoint). */
+    attributeId?: string
 }
 
 export interface FormDialogProps {
@@ -111,6 +119,14 @@ export interface FormDialogProps {
     onClose: () => void
     onSubmit: (data: Record<string, unknown>) => Promise<void>
     isValuePresent?: (field: FieldConfig, value: unknown) => boolean
+    /** API base URL — required for TABLE inline editing in EDIT mode. */
+    apiBaseUrl?: string
+    /** Application UUID — required for TABLE inline editing in EDIT mode. */
+    applicationId?: string
+    /** Catalog UUID — required for TABLE inline editing in EDIT mode. */
+    catalogId?: string
+    /** Row being edited (null = create mode) — used for TABLE rendering. */
+    editRowId?: string | null
     renderField?: (params: {
         field: FieldConfig
         value: unknown
@@ -206,7 +222,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     onClose,
     onSubmit,
     isValuePresent,
-    renderField: renderFieldOverride
+    renderField: renderFieldOverride,
+    apiBaseUrl,
+    applicationId,
+    catalogId,
+    editRowId
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
@@ -420,7 +440,15 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         fields.forEach((field) => {
             const value = formData[field.id]
             if (!resolveValuePresent(field, value)) return
-            payload[field.id] = value
+            // Strip internal-only properties from TABLE row arrays before sending to the API
+            if (field.type === 'TABLE' && Array.isArray(value)) {
+                payload[field.id] = value.map((row: Record<string, unknown>) => {
+                    const { _localId, __rowId, ...rest } = row
+                    return rest
+                })
+            } else {
+                payload[field.id] = value
+            }
         })
         return payload
     }, [fields, formData, resolveValuePresent])
@@ -920,8 +948,10 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 onChange={(event) => handleFieldChange(field.id, event.target.value || null)}
                                 required={field.required}
                                 disabled={disabled}
+                                sx={{ bgcolor: 'background.default' }}
+                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
                             >
-                                {!field.required && allowEmpty && <MenuItem value=''>{'\u00A0'}</MenuItem>}
+                                {!field.required && allowEmpty && <MenuItem value=''> </MenuItem>}
                                 {!allowEmpty && <MenuItem value='' sx={{ display: 'none' }} />}
                                 {options.map((option) => (
                                     <MenuItem key={option.id} value={option.id}>
@@ -945,8 +975,10 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 onChange={(event) => handleFieldChange(field.id, event.target.value || null)}
                                 required={field.required}
                                 disabled={disabled}
+                                sx={{ bgcolor: 'background.default' }}
+                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
                             >
-                                {!field.required && <MenuItem value=''>{'\u00A0'}</MenuItem>}
+                                {!field.required && <MenuItem value=''> </MenuItem>}
                                 {field.refOptions.map((option) => (
                                     <MenuItem key={option.id} value={option.id}>
                                         {option.label}
@@ -971,6 +1003,55 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         helperText={helperText}
                     />
                 )
+            case 'TABLE': {
+                const childFieldDefs = field.childFields ?? []
+                const tableValue = (formData[field.id] as Record<string, unknown>[]) ?? []
+
+                // EDIT mode: inline editor with deferred persistence (commit on form Save)
+                if (editRowId && apiBaseUrl && applicationId && catalogId) {
+                    return (
+                        <RuntimeInlineTabularEditor
+                            apiBaseUrl={apiBaseUrl}
+                            applicationId={applicationId}
+                            catalogId={catalogId}
+                            parentRecordId={editRowId}
+                            attributeId={field.attributeId ?? field.id}
+                            childFields={childFieldDefs}
+                            showTitle
+                            label={field.label}
+                            locale={locale}
+                            deferPersistence
+                            onChange={(rows) => handleFieldChange(field.id, rows)}
+                        />
+                    )
+                }
+
+                // CREATE mode: inline local editor
+                if (childFieldDefs.length > 0) {
+                    return (
+                        <TabularPartEditor
+                            label={field.label}
+                            value={tableValue}
+                            onChange={(rows) => handleFieldChange(field.id, rows)}
+                            childFields={childFieldDefs}
+                            showTitle
+                            locale={locale}
+                        />
+                    )
+                }
+
+                // Fallback: no child fields configured
+                return (
+                    <Box sx={{ py: 1, px: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
+                        <Typography variant='body2' color='text.secondary'>
+                            {field.label}
+                        </Typography>
+                        <Typography variant='caption' color='text.secondary'>
+                            {t('table.editAfterSave', 'Table data can be edited after saving the record.')}
+                        </Typography>
+                    </Box>
+                )
+            }
             default:
                 return (
                     <TextField
@@ -991,8 +1072,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const isSubmitDisabled =
         isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
 
+    const hasTableFields = fields.some((f) => f.type === 'TABLE')
+    const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
+
     return (
-        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+        <Dialog open={open} onClose={onClose} maxWidth={dialogMaxWidth} fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
             <DialogTitle>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>
                 <Stack spacing={2} sx={{ mt: 1 }}>

@@ -14,6 +14,8 @@ export interface SchemaFieldSnapshot {
     targetEntityId?: string | null
     /** Kind of the target entity for REF field type (polymorphic discriminator) */
     targetEntityKind?: MetaEntityKind | null
+    /** Child field snapshots for TABLE data type, keyed by child field ID */
+    childFields?: Record<string, SchemaFieldSnapshot>
 }
 
 export interface SchemaEntitySnapshot {

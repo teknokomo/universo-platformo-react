@@ -85,14 +85,14 @@ export const PublicationSelectionPanel = ({
     const getDisplayName = (publication: PublicationSummary): string => {
         // Show metahub name - this is what users see
         if (publication.metahub) {
-            return getVLCString(publication.metahub.name, uiLocale) ||
-                   getVLCString(publication.metahub.name, 'en') ||
-                   publication.metahub.codename
+            return (
+                getVLCString(publication.metahub.name, uiLocale) ||
+                getVLCString(publication.metahub.name, 'en') ||
+                publication.metahub.codename
+            )
         }
         // Fallback to publication name if metahub not populated
-        return getVLCString(publication.name, uiLocale) ||
-               getVLCString(publication.name, 'en') ||
-               publication.codename
+        return getVLCString(publication.name, uiLocale) || getVLCString(publication.name, 'en') || publication.codename
     }
 
     // Display the metahub codename

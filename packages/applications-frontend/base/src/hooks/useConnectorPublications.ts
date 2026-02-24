@@ -13,7 +13,7 @@ export const connectorPublicationsQueryKeys = {
     all: ['connectorPublications'] as const,
     byConnector: (applicationId: string, connectorId: string) =>
         [...connectorPublicationsQueryKeys.all, applicationId, connectorId] as const,
-    availablePublications: ['availablePublications'] as const,
+    availablePublications: ['availablePublications'] as const
 }
 
 /**
@@ -23,7 +23,7 @@ export function useConnectorPublications(applicationId: string, connectorId: str
     return useQuery({
         queryKey: connectorPublicationsQueryKeys.byConnector(applicationId, connectorId),
         queryFn: () => connectorPublicationsApi.listConnectorPublications(applicationId, connectorId),
-        enabled: Boolean(applicationId && connectorId),
+        enabled: Boolean(applicationId && connectorId)
     })
 }
 
@@ -34,7 +34,7 @@ export function useAvailablePublications() {
     return useQuery({
         queryKey: connectorPublicationsQueryKeys.availablePublications,
         queryFn: connectorPublicationsApi.listAvailablePublications,
-        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+        staleTime: 1000 * 60 * 5 // Cache for 5 minutes
     })
 }
 
@@ -51,17 +51,17 @@ export function useLinkPublication(applicationId: string, connectorId: string) {
             connectorPublicationsApi.linkPublication(applicationId, connectorId, publicationId, sortOrder),
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: connectorPublicationsQueryKeys.byConnector(applicationId, connectorId),
+                queryKey: connectorPublicationsQueryKeys.byConnector(applicationId, connectorId)
             })
             enqueueSnackbar(t('connectors.publications.linkSuccess', 'Publication linked successfully'), {
-                variant: 'success',
+                variant: 'success'
             })
         },
         onError: () => {
             enqueueSnackbar(t('connectors.publications.linkError', 'Failed to link publication'), {
-                variant: 'error',
+                variant: 'error'
             })
-        },
+        }
     })
 }
 
@@ -74,21 +74,20 @@ export function useUnlinkPublication(applicationId: string, connectorId: string)
     const { t } = useTranslation('applications')
 
     return useMutation({
-        mutationFn: (linkId: string) =>
-            connectorPublicationsApi.unlinkPublication(applicationId, connectorId, linkId),
+        mutationFn: (linkId: string) => connectorPublicationsApi.unlinkPublication(applicationId, connectorId, linkId),
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: connectorPublicationsQueryKeys.byConnector(applicationId, connectorId),
+                queryKey: connectorPublicationsQueryKeys.byConnector(applicationId, connectorId)
             })
             enqueueSnackbar(t('connectors.publications.unlinkSuccess', 'Publication unlinked successfully'), {
-                variant: 'success',
+                variant: 'success'
             })
         },
         onError: () => {
             enqueueSnackbar(t('connectors.publications.unlinkError', 'Failed to unlink publication'), {
-                variant: 'error',
+                variant: 'error'
             })
-        },
+        }
     })
 }
 
@@ -104,11 +103,7 @@ export interface ConnectorDetailsResult {
  * Hook to fetch connector details along with its linked publication
  * Used by ConnectorBoard for schema sync functionality
  */
-export function useConnectorDetails(
-    applicationId: string,
-    connectorId: string,
-    options?: { enabled?: boolean }
-) {
+export function useConnectorDetails(applicationId: string, connectorId: string, options?: { enabled?: boolean }) {
     return useQuery<ConnectorDetailsResult, Error>({
         queryKey: [...applicationsQueryKeys.connectorDetail(applicationId, connectorId), 'withPublication'],
         queryFn: async (): Promise<ConnectorDetailsResult> => {
@@ -135,10 +130,7 @@ export function useConnectorDetails(
  * Hook to fetch the first (default) connector for an application with its linked publication
  * Used by ConnectorBoard when navigating from Publication (without connectorId in URL)
  */
-export function useFirstConnectorDetails(
-    applicationId: string,
-    options?: { enabled?: boolean }
-) {
+export function useFirstConnectorDetails(applicationId: string, options?: { enabled?: boolean }) {
     return useQuery<ConnectorDetailsResult, Error>({
         queryKey: [...applicationsQueryKeys.connectors(applicationId), 'first', 'withPublication'],
         queryFn: async (): Promise<ConnectorDetailsResult> => {

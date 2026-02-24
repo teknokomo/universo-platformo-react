@@ -295,6 +295,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             queryClient.invalidateQueries({
                 queryKey: [...queryKeyPrefix, 'row', variables.rowId]
             })
+            queryClient.invalidateQueries({
+                predicate: (query) => {
+                    const key = query.queryKey
+                    return Array.isArray(key) && key[0] === 'tabularRows' && String(key[2] ?? '') === variables.rowId
+                }
+            })
         }
     })
 

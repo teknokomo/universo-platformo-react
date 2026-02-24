@@ -1,6 +1,6 @@
 import { MetaEntityKind } from '@universo/types'
 import type { EntityDefinition, SchemaSnapshot } from './types'
-import { generateColumnName, generateTableName } from './naming'
+import { generateColumnName, generateTableName, generateTabularTableName } from './naming'
 
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
@@ -14,7 +14,13 @@ export enum ChangeType {
     ALTER_COLUMN = 'ALTER_COLUMN',
     MODIFY_FIELD = 'MODIFY_FIELD',
     ADD_FK = 'ADD_FK',
-    DROP_FK = 'DROP_FK'
+    DROP_FK = 'DROP_FK',
+    // Tabular part (TABLE attribute) change types
+    ADD_TABULAR_TABLE = 'ADD_TABULAR_TABLE',
+    DROP_TABULAR_TABLE = 'DROP_TABULAR_TABLE',
+    ADD_TABULAR_COLUMN = 'ADD_TABULAR_COLUMN',
+    DROP_TABULAR_COLUMN = 'DROP_TABULAR_COLUMN',
+    ALTER_TABULAR_COLUMN = 'ALTER_TABULAR_COLUMN'
 }
 
 export interface SchemaChange {
@@ -30,6 +36,8 @@ export interface SchemaChange {
     newValue?: unknown
     isDestructive: boolean
     description: string
+    /** ON DELETE action for FK constraints (default: SET NULL) */
+    onDeleteAction?: 'SET NULL' | 'CASCADE'
 }
 
 export interface SchemaDiff {
@@ -123,7 +131,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
         const oldEntity = oldEntitiesById.get(entity.id)
         if (!oldEntity) continue
-        const newFieldIds = new Set(entity.fields.map((field) => field.id))
+        const newFieldIds = new Set(entity.fields.filter((f) => !f.parentAttributeId).map((field) => field.id))
         const oldFieldIds = new Set(Object.keys(oldEntity.fields))
         const tableName = generateTableName(entity.id, entity.kind)
 
@@ -157,45 +165,246 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         }
 
         for (const field of entity.fields) {
+            // Skip child fields — they are diffed through their TABLE parent
+            if (field.parentAttributeId) continue
+
             if (!oldFieldIds.has(field.id)) {
-                diff.additive.push({
-                    type: ChangeType.ADD_COLUMN,
-                    entityId: entity.id,
-                    entityKind: entity.kind,
-                    entityCodename: entity.codename,
-                    tableName,
-                    fieldId: field.id,
-                    fieldCodename: field.codename,
-                    columnName: generateColumnName(field.id),
-                    newValue: field.dataType,
-                    isDestructive: false,
-                    description: `Add column "${field.codename}" (${field.dataType}) to "${entity.codename}"`
-                })
+                if (field.dataType === 'TABLE') {
+                    // New TABLE attribute → create tabular table
+                    const tabularTableName = generateTabularTableName(tableName, field.id)
+                    diff.additive.push({
+                        type: ChangeType.ADD_TABULAR_TABLE,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName: tabularTableName,
+                        fieldId: field.id,
+                        fieldCodename: field.codename,
+                        isDestructive: false,
+                        description: `Create tabular table for "${field.codename}" in "${entity.codename}"`
+                    })
+
+                    const newChildFields = entity.fields.filter((childField) => childField.parentAttributeId === field.id)
+                    for (const childField of newChildFields) {
+                        if (childField.dataType !== 'REF' || !childField.targetEntityId) continue
+
+                        diff.additive.push({
+                            type: ChangeType.ADD_FK,
+                            entityId: entity.id,
+                            entityKind: entity.kind,
+                            entityCodename: entity.codename,
+                            tableName: tabularTableName,
+                            fieldId: childField.id,
+                            fieldCodename: childField.codename,
+                            columnName: generateColumnName(childField.id),
+                            newValue: childField.targetEntityId,
+                            isDestructive: false,
+                            description: `Add FK on tabular field "${field.codename}.${childField.codename}"`
+                        })
+                    }
+                } else {
+                    diff.additive.push({
+                        type: ChangeType.ADD_COLUMN,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName,
+                        fieldId: field.id,
+                        fieldCodename: field.codename,
+                        columnName: generateColumnName(field.id),
+                        newValue: field.dataType,
+                        isDestructive: false,
+                        description: `Add column "${field.codename}" (${field.dataType}) to "${entity.codename}"`
+                    })
+                }
             }
         }
 
         for (const oldFieldId of oldFieldIds) {
             if (!newFieldIds.has(oldFieldId)) {
                 const oldField = oldEntity.fields[oldFieldId]
-                diff.destructive.push({
-                    type: ChangeType.DROP_COLUMN,
-                    entityId: entity.id,
-                    entityKind: entity.kind,
-                    entityCodename: entity.codename,
-                    tableName,
-                    fieldId: oldFieldId,
-                    fieldCodename: oldField.codename,
-                    columnName: oldField.columnName,
-                    isDestructive: true,
-                    description: `Drop column "${oldField.codename}" from "${entity.codename}" (DATA WILL BE LOST)`
-                })
+                if (oldField.dataType === 'TABLE') {
+                    // Removed TABLE attribute → drop tabular table
+                    diff.destructive.push({
+                        type: ChangeType.DROP_TABULAR_TABLE,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName: oldField.columnName, // columnName stores tabular table name
+                        fieldId: oldFieldId,
+                        fieldCodename: oldField.codename,
+                        isDestructive: true,
+                        description: `Drop tabular table "${oldField.codename}" from "${entity.codename}" (DATA WILL BE LOST)`
+                    })
+                } else {
+                    diff.destructive.push({
+                        type: ChangeType.DROP_COLUMN,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName,
+                        fieldId: oldFieldId,
+                        fieldCodename: oldField.codename,
+                        columnName: oldField.columnName,
+                        isDestructive: true,
+                        description: `Drop column "${oldField.codename}" from "${entity.codename}" (DATA WILL BE LOST)`
+                    })
+                }
+            }
+        }
+
+        // ─── TABLE child field diffs ─────────────────────────────────────
+        for (const field of entity.fields) {
+            if (field.dataType !== 'TABLE' || field.parentAttributeId) continue
+            if (!oldFieldIds.has(field.id)) continue // new TABLE — handled above
+
+            const oldField = oldEntity.fields[field.id]
+            if (!oldField || oldField.dataType !== 'TABLE') continue // type changed — handled by ALTER
+
+            const tabularTableName = generateTabularTableName(tableName, field.id)
+            const oldChildFields = oldField.childFields ?? {}
+            const oldChildIds = new Set(Object.keys(oldChildFields))
+            const newChildFields = entity.fields.filter((f) => f.parentAttributeId === field.id)
+            const newChildIds = new Set(newChildFields.map((f) => f.id))
+
+            // New child fields
+            for (const child of newChildFields) {
+                if (!oldChildIds.has(child.id)) {
+                    diff.additive.push({
+                        type: ChangeType.ADD_TABULAR_COLUMN,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName: tabularTableName,
+                        fieldId: child.id,
+                        fieldCodename: child.codename,
+                        columnName: generateColumnName(child.id),
+                        newValue: child.dataType,
+                        isDestructive: false,
+                        description: `Add column "${child.codename}" (${child.dataType}) to tabular "${field.codename}"`
+                    })
+
+                    if (child.dataType === 'REF' && child.targetEntityId) {
+                        diff.additive.push({
+                            type: ChangeType.ADD_FK,
+                            entityId: entity.id,
+                            entityKind: entity.kind,
+                            entityCodename: entity.codename,
+                            tableName: tabularTableName,
+                            fieldId: child.id,
+                            fieldCodename: child.codename,
+                            columnName: generateColumnName(child.id),
+                            newValue: child.targetEntityId,
+                            isDestructive: false,
+                            description: `Add FK on tabular field "${field.codename}.${child.codename}"`
+                        })
+                    }
+                }
+            }
+
+            // Removed child fields
+            for (const oldChildId of oldChildIds) {
+                if (!newChildIds.has(oldChildId)) {
+                    const oldChild = oldChildFields[oldChildId]
+
+                    if (oldChild.targetEntityId) {
+                        diff.destructive.push({
+                            type: ChangeType.DROP_FK,
+                            entityId: entity.id,
+                            entityKind: entity.kind,
+                            entityCodename: entity.codename,
+                            tableName: tabularTableName,
+                            fieldId: oldChildId,
+                            fieldCodename: oldChild.codename,
+                            columnName: oldChild.columnName,
+                            oldValue: oldChild.targetEntityId,
+                            isDestructive: true,
+                            description: `Drop FK on tabular field "${field.codename}.${oldChild.codename}"`
+                        })
+                    }
+
+                    diff.destructive.push({
+                        type: ChangeType.DROP_TABULAR_COLUMN,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName: tabularTableName,
+                        fieldId: oldChildId,
+                        fieldCodename: oldChild.codename,
+                        columnName: oldChild.columnName,
+                        isDestructive: true,
+                        description: `Drop column "${oldChild.codename}" from tabular "${field.codename}" (DATA WILL BE LOST)`
+                    })
+                }
+            }
+
+            // Changed child fields (type change)
+            for (const child of newChildFields) {
+                if (!oldChildIds.has(child.id)) continue
+                const oldChild = oldChildFields[child.id]
+
+                if (oldChild.targetEntityId !== child.targetEntityId || oldChild.targetEntityKind !== child.targetEntityKind) {
+                    if (oldChild.targetEntityId) {
+                        diff.destructive.push({
+                            type: ChangeType.DROP_FK,
+                            entityId: entity.id,
+                            entityKind: entity.kind,
+                            entityCodename: entity.codename,
+                            tableName: tabularTableName,
+                            fieldId: child.id,
+                            fieldCodename: child.codename,
+                            columnName: oldChild.columnName,
+                            oldValue: oldChild.targetEntityId,
+                            isDestructive: true,
+                            description: `Drop FK on tabular field "${field.codename}.${child.codename}"`
+                        })
+                    }
+
+                    if (child.targetEntityId) {
+                        diff.additive.push({
+                            type: ChangeType.ADD_FK,
+                            entityId: entity.id,
+                            entityKind: entity.kind,
+                            entityCodename: entity.codename,
+                            tableName: tabularTableName,
+                            fieldId: child.id,
+                            fieldCodename: child.codename,
+                            columnName: generateColumnName(child.id),
+                            newValue: child.targetEntityId,
+                            isDestructive: false,
+                            description: `Add FK on tabular field "${field.codename}.${child.codename}"`
+                        })
+                    }
+                }
+
+                if (oldChild.dataType !== child.dataType) {
+                    diff.destructive.push({
+                        type: ChangeType.ALTER_TABULAR_COLUMN,
+                        entityId: entity.id,
+                        entityKind: entity.kind,
+                        entityCodename: entity.codename,
+                        tableName: tabularTableName,
+                        fieldId: child.id,
+                        fieldCodename: child.codename,
+                        columnName: oldChild.columnName,
+                        oldValue: oldChild.dataType,
+                        newValue: child.dataType,
+                        isDestructive: true,
+                        description: `Change type of "${child.codename}" in tabular "${field.codename}" from ${oldChild.dataType} to ${child.dataType}`
+                    })
+                }
             }
         }
 
         for (const field of entity.fields) {
+            // Skip child fields and TABLE fields — handled separately
+            if (field.parentAttributeId) continue
+            if (field.dataType === 'TABLE') continue
             if (!oldFieldIds.has(field.id)) continue
 
             const oldField = oldEntity.fields[field.id]
+            // Skip if old field was TABLE (type change TABLE→non-TABLE)
+            if (oldField.dataType === 'TABLE') continue
 
             if (oldField.dataType !== field.dataType) {
                 diff.destructive.push({

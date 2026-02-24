@@ -7,7 +7,7 @@ import { getRequestManager } from '../../../utils'
 import { localizedContent, validation } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodename, isValidCodename } = validation
-import { AttributeDataType, ATTRIBUTE_DATA_TYPES, MetaEntityKind, META_ENTITY_KINDS } from '@universo/types'
+import { AttributeDataType, ATTRIBUTE_DATA_TYPES, TABLE_CHILD_DATA_TYPES, MetaEntityKind, META_ENTITY_KINDS } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -92,7 +92,9 @@ const uiConfigSchema = z
         enumPresentationMode: z.enum(ENUM_PRESENTATION_MODES).optional(),
         defaultEnumValueId: z.string().uuid().nullable().optional(),
         enumAllowEmpty: z.boolean().optional(),
-        enumLabelEmptyDisplay: z.enum(ENUM_LABEL_EMPTY_DISPLAY_MODES).optional()
+        enumLabelEmptyDisplay: z.enum(ENUM_LABEL_EMPTY_DISPLAY_MODES).optional(),
+        // TABLE-specific settings
+        showTitle: z.boolean().optional()
     })
     .optional()
 
@@ -112,7 +114,9 @@ const createAttributeSchema = z.object({
     uiConfig: uiConfigSchema,
     isRequired: z.boolean().optional(),
     isDisplayAttribute: z.boolean().optional(),
-    sortOrder: z.number().int().optional()
+    sortOrder: z.number().int().optional(),
+    // TABLE parent reference
+    parentAttributeId: z.string().uuid().nullish()
 })
 
 const updateAttributeSchema = z.object({
@@ -203,6 +207,7 @@ export function createAttributesRoutes(
             // Usually search filters total.
 
             // Search filter
+            let childSearchMatchParentIds: string[] = []
             if (search) {
                 const searchLower = search.toLowerCase()
                 const matchesName = (name: any) => {
@@ -224,7 +229,27 @@ export function createAttributesRoutes(
                     }
                     return false
                 }
-                items = items.filter((item) => item.codename.toLowerCase().includes(searchLower) || matchesName(item.name))
+                const matchesItem = (item: any) => item.codename.toLowerCase().includes(searchLower) || matchesName(item.name)
+
+                // Also search among children of TABLE attributes
+                const tableParents = items.filter((item) => item.dataType === AttributeDataType.TABLE)
+                if (tableParents.length > 0) {
+                    const childMatchParentIds = new Set<string>()
+                    try {
+                        const parentIds = tableParents.map((p) => p.id)
+                        const childrenByParent = await attributesService.findChildAttributesByParentIds(metahubId, parentIds, userId)
+                        for (const [parentId, children] of childrenByParent) {
+                            if (children.some((child: any) => matchesItem(child))) {
+                                childMatchParentIds.add(parentId)
+                            }
+                        }
+                    } catch {
+                        // Ignore failures
+                    }
+                    childSearchMatchParentIds = Array.from(childMatchParentIds)
+                }
+
+                items = items.filter((item) => matchesItem(item) || childSearchMatchParentIds.includes(item.id))
             }
 
             const total = items.length
@@ -286,7 +311,12 @@ export function createAttributesRoutes(
             res.json({
                 items: paginatedItems,
                 pagination: { total, limit, offset },
-                meta: { totalAll, limit: ATTRIBUTE_LIMIT, limitReached }
+                meta: {
+                    totalAll,
+                    limit: ATTRIBUTE_LIMIT,
+                    limitReached,
+                    ...(childSearchMatchParentIds.length > 0 ? { childSearchMatchParentIds } : {})
+                }
             })
         })
     )
@@ -362,9 +392,28 @@ export function createAttributesRoutes(
                 uiConfig,
                 isRequired,
                 isDisplayAttribute,
-                sortOrder
+                sortOrder,
+                parentAttributeId
             } = parsed.data
             const effectiveIsRequired = Boolean(isRequired)
+
+            // TABLE-specific validation
+            if (dataType === AttributeDataType.TABLE) {
+                if (parentAttributeId) {
+                    return res.status(400).json({
+                        error: 'Nested TABLE attributes are not allowed',
+                        code: 'NESTED_TABLE_FORBIDDEN'
+                    })
+                }
+            }
+
+            // Validate child data type is allowed (no TABLE in children)
+            if (parentAttributeId && !TABLE_CHILD_DATA_TYPES.includes(dataType as any)) {
+                return res.status(400).json({
+                    error: `Data type "${dataType}" is not allowed for child attributes`,
+                    code: 'INVALID_CHILD_DATA_TYPE'
+                })
+            }
 
             // Resolve target entity with compatibility fallback
             const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
@@ -455,8 +504,8 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            // Normalize sort orders
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+            // Normalize sort orders (scoped to siblings at same parent level)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
 
             // If sortOrder not provided, append to end
             // We can fetch max sort order or trust service default (0 might overlap)
@@ -477,16 +526,17 @@ export function createAttributesRoutes(
                     targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
                     validationRules: validationRules ?? {},
                     uiConfig: normalizedUiConfig,
-                    isRequired: isRequired ?? false,
+                    isRequired: dataType === AttributeDataType.TABLE ? false : isRequired ?? false,
                     isDisplayAttribute: isDisplayAttribute ?? false,
                     sortOrder: sortOrder,
+                    parentAttributeId: parentAttributeId ?? null,
                     createdBy: userId
                 },
                 userId
             )
 
-            // Normalize again to fit new item
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+            // Normalize again to fit new item (scoped to siblings)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
 
             // If isDisplayAttribute was set, ensure exclusivity (clear from others)
             if (isDisplayAttribute) {
@@ -581,7 +631,15 @@ export function createAttributesRoutes(
             const targetChanged = resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined
 
             const updateData: any = {}
-            const isRefType = (dataType || attribute.dataType) === AttributeDataType.REF
+            const effectiveDataType = dataType ?? attribute.dataType
+            const isRefType = effectiveDataType === AttributeDataType.REF
+
+            if (effectiveDataType === AttributeDataType.TABLE && isRequired === true) {
+                return res.status(400).json({
+                    error: 'TABLE attributes cannot be set as required'
+                })
+            }
+
             let effectiveTargetEntityId = attribute.targetEntityId ?? null
             let effectiveTargetEntityKind = attribute.targetEntityKind ?? null
 
@@ -655,7 +713,7 @@ export function createAttributesRoutes(
             }
 
             if (validationRules) updateData.validationRules = validationRules
-            const effectiveIsRequired = isRequired ?? attribute.isRequired
+            const effectiveIsRequired = effectiveDataType === AttributeDataType.TABLE ? false : isRequired ?? attribute.isRequired
             if (uiConfig || targetChanged || (isRefType && effectiveTargetEntityKind === ENUMERATION_KIND && isRequired !== undefined)) {
                 const currentUiConfig = (attribute.uiConfig as Record<string, unknown>) ?? {}
                 const mergedUiConfig: Record<string, unknown> = { ...currentUiConfig, ...(uiConfig ?? {}) }
@@ -705,7 +763,9 @@ export function createAttributesRoutes(
 
                 updateData.uiConfig = mergedUiConfig
             }
-            if (isRequired !== undefined) updateData.isRequired = isRequired
+            if (isRequired !== undefined) {
+                updateData.isRequired = effectiveDataType === AttributeDataType.TABLE ? false : isRequired
+            }
             // isDisplayAttribute is handled separately via setDisplayAttribute for atomicity
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
             if (expectedVersion !== undefined) updateData.expectedVersion = expectedVersion
@@ -721,7 +781,9 @@ export function createAttributesRoutes(
             }
 
             if (sortOrder !== undefined) {
-                await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+                // Scope reordering to the attribute's sibling level
+                const existingAttr = await attributesService.findById(metahubId, attributeId, userId)
+                await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, existingAttr?.parentAttributeId ?? null)
             }
 
             await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
@@ -787,6 +849,12 @@ export function createAttributesRoutes(
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
+            }
+
+            if (attribute.dataType === AttributeDataType.TABLE) {
+                return res.status(400).json({
+                    error: 'TABLE attributes cannot be set as required'
+                })
             }
 
             const newValue = !attribute.isRequired
@@ -865,6 +933,11 @@ export function createAttributesRoutes(
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
+            // TABLE attributes cannot be display attributes
+            if (attribute.dataType === AttributeDataType.TABLE) {
+                return res.status(400).json({ error: 'TABLE attributes cannot be set as display attribute' })
+            }
+
             await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
 
             await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
@@ -933,15 +1006,227 @@ export function createAttributesRoutes(
                 })
             }
 
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, attribute.parentAttributeId ?? null)
             await attributesService.delete(metahubId, attributeId, userId)
-            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId)
+            await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, attribute.parentAttributeId ?? null)
 
             await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
             })
 
             return res.status(204).send()
+        })
+    )
+
+    // ─── Child attribute endpoints (TABLE tabular parts) ─────────────────────
+
+    /**
+     * GET /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/children
+     * List child attributes of a TABLE attribute
+     */
+    router.get(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/children',
+            '/metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/children'
+        ],
+        readLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const parent = await attributesService.findById(metahubId, attributeId, userId)
+            if (!parent || parent.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Attribute not found' })
+            }
+            if (parent.dataType !== AttributeDataType.TABLE) {
+                return res.status(400).json({ error: 'Attribute is not a TABLE type' })
+            }
+
+            const children = await attributesService.findChildAttributes(metahubId, attributeId, userId)
+
+            res.json({ items: children, total: children.length })
+        })
+    )
+
+    /**
+     * POST /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/children
+     * Create a child attribute inside a TABLE attribute
+     */
+    router.post(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/children',
+            '/metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/children'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService, objectsService, enumerationValuesService, ds, manager } = services(req)
+            const userId = resolveUserId(req)
+
+            // Verify parent TABLE attribute exists
+            const parent = await attributesService.findById(metahubId, attributeId, userId)
+            if (!parent || parent.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Parent attribute not found' })
+            }
+            if (parent.dataType !== AttributeDataType.TABLE) {
+                return res.status(400).json({ error: 'Parent attribute must be TABLE type' })
+            }
+
+            // Force parentAttributeId and restrict data types
+            const parsed = createAttributeSchema.safeParse({
+                ...req.body,
+                parentAttributeId: attributeId
+            })
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const {
+                codename,
+                dataType,
+                name,
+                namePrimaryLocale,
+                targetEntityId,
+                targetEntityKind,
+                targetCatalogId,
+                validationRules,
+                uiConfig,
+                isRequired,
+                sortOrder
+            } = parsed.data
+
+            // Validate child data type
+            if (!TABLE_CHILD_DATA_TYPES.includes(dataType as any)) {
+                return res.status(400).json({
+                    error: `Data type "${dataType}" is not allowed for child attributes`,
+                    code: 'INVALID_CHILD_DATA_TYPE'
+                })
+            }
+
+            const normalizedCodename = normalizeCodename(codename)
+            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
+
+            const resolvedTargetEntityId = targetEntityId ?? targetCatalogId
+            const resolvedTargetEntityKind = targetEntityKind ?? (targetCatalogId ? MetaEntityKind.CATALOG : undefined)
+
+            if (dataType === AttributeDataType.REF) {
+                if (!resolvedTargetEntityId || !resolvedTargetEntityKind) {
+                    return res.status(400).json({
+                        error: 'REF type requires targetEntityId and targetEntityKind'
+                    })
+                }
+                if (resolvedTargetEntityKind !== MetaEntityKind.CATALOG && resolvedTargetEntityKind !== ENUMERATION_KIND) {
+                    return res.status(400).json({
+                        error: 'Unsupported targetEntityKind for REF',
+                        details: { targetEntityKind: resolvedTargetEntityKind }
+                    })
+                }
+
+                const targetEntity = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
+                if (!targetEntity || targetEntity.kind !== resolvedTargetEntityKind) {
+                    return res.status(400).json({
+                        error: resolvedTargetEntityKind === ENUMERATION_KIND ? 'Target enumeration not found' : 'Target catalog not found'
+                    })
+                }
+            }
+
+            const normalizedUiConfig: Record<string, unknown> = { ...(uiConfig ?? {}) }
+            if (dataType === AttributeDataType.REF && resolvedTargetEntityKind === ENUMERATION_KIND && resolvedTargetEntityId) {
+                if (normalizedUiConfig.enumPresentationMode === undefined) {
+                    normalizedUiConfig.enumPresentationMode = 'select'
+                }
+                if (normalizedUiConfig.enumAllowEmpty === undefined) {
+                    normalizedUiConfig.enumAllowEmpty = true
+                }
+                if (normalizedUiConfig.enumLabelEmptyDisplay !== 'empty' && normalizedUiConfig.enumLabelEmptyDisplay !== 'dash') {
+                    normalizedUiConfig.enumLabelEmptyDisplay = 'dash'
+                }
+
+                const defaultEnumValueId = normalizedUiConfig.defaultEnumValueId
+                if (typeof defaultEnumValueId === 'string') {
+                    const enumValue = await enumerationValuesService.findById(metahubId, defaultEnumValueId, userId)
+                    if (!enumValue || enumValue.objectId !== resolvedTargetEntityId) {
+                        return res.status(400).json({
+                            error: 'defaultEnumValueId must reference a value from the selected target enumeration'
+                        })
+                    }
+                } else if (defaultEnumValueId !== null && defaultEnumValueId !== undefined) {
+                    return res.status(400).json({
+                        error: 'defaultEnumValueId must be UUID string or null'
+                    })
+                }
+
+                const effectiveIsRequired = isRequired ?? false
+                const hasDefaultEnumValueId = typeof normalizedUiConfig.defaultEnumValueId === 'string'
+                if (hasDefaultEnumValueId || effectiveIsRequired) {
+                    normalizedUiConfig.enumAllowEmpty = false
+                } else if (normalizedUiConfig.enumAllowEmpty === true) {
+                    normalizedUiConfig.defaultEnumValueId = null
+                }
+            } else {
+                delete normalizedUiConfig.enumPresentationMode
+                delete normalizedUiConfig.defaultEnumValueId
+                delete normalizedUiConfig.enumAllowEmpty
+                delete normalizedUiConfig.enumLabelEmptyDisplay
+            }
+
+            // Check for duplicate codename among active attributes in the same catalog
+            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, userId)
+            if (existing) {
+                return res.status(409).json({ error: 'Attribute with this codename already exists' })
+            }
+
+            const sanitizedName = sanitizeLocalizedInput(name ?? {})
+            if (Object.keys(sanitizedName).length === 0) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+            const nameVlc = buildLocalizedContent(sanitizedName, namePrimaryLocale, namePrimaryLocale ?? 'en')
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const shouldBeDisplayAttribute = Boolean(req.body.isDisplayAttribute)
+
+            const attribute = await attributesService.create(
+                metahubId,
+                {
+                    catalogId,
+                    codename: normalizedCodename,
+                    dataType,
+                    name: nameVlc,
+                    validationRules: validationRules ?? {},
+                    uiConfig: normalizedUiConfig,
+                    isRequired: isRequired ?? false,
+                    isDisplayAttribute: false,
+                    targetEntityId: resolvedTargetEntityId,
+                    targetEntityKind: resolvedTargetEntityKind,
+                    sortOrder,
+                    parentAttributeId: attributeId,
+                    createdBy: userId
+                },
+                userId
+            )
+
+            // If this should be the display attribute, set it (clears siblings automatically)
+            if (shouldBeDisplayAttribute && attribute.id) {
+                try {
+                    await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
+                } catch (err) {
+                    console.warn('[Attributes] Failed to set display attribute on child:', err)
+                }
+            }
+
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
+                console.error('[Attributes] Child attribute schema sync failed:', err)
+            })
+
+            res.status(201).json(attribute)
         })
     )
 

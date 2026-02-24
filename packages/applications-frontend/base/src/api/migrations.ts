@@ -79,50 +79,32 @@ export async function fetchMigrations(
     applicationId: string,
     params?: { limit?: number; offset?: number }
 ): Promise<MigrationsListResponse> {
-    const response = await apiClient.get<MigrationsListResponse>(
-        `/application/${applicationId}/migrations`,
-        { params }
-    )
+    const response = await apiClient.get<MigrationsListResponse>(`/application/${applicationId}/migrations`, { params })
     return response.data
 }
 
 /**
  * Fetch a single migration with full details
  */
-export async function fetchMigration(
-    applicationId: string,
-    migrationId: string
-): Promise<MigrationDetail> {
-    const response = await apiClient.get<MigrationDetail>(
-        `/application/${applicationId}/migration/${migrationId}`
-    )
+export async function fetchMigration(applicationId: string, migrationId: string): Promise<MigrationDetail> {
+    const response = await apiClient.get<MigrationDetail>(`/application/${applicationId}/migration/${migrationId}`)
     return response.data
 }
 
 /**
  * Analyze if rollback to a migration is possible
  */
-export async function analyzeMigrationRollback(
-    applicationId: string,
-    migrationId: string
-): Promise<RollbackAnalysis> {
-    const response = await apiClient.get<RollbackAnalysis>(
-        `/application/${applicationId}/migration/${migrationId}/analyze`
-    )
+export async function analyzeMigrationRollback(applicationId: string, migrationId: string): Promise<RollbackAnalysis> {
+    const response = await apiClient.get<RollbackAnalysis>(`/application/${applicationId}/migration/${migrationId}/analyze`)
     return response.data
 }
 
 /**
  * Rollback to a specific migration
  */
-export async function rollbackMigration(
-    applicationId: string,
-    migrationId: string,
-    confirmDestructive = false
-): Promise<RollbackResult> {
-    const response = await apiClient.post<RollbackResult>(
-        `/application/${applicationId}/migration/${migrationId}/rollback`,
-        { confirmDestructive }
-    )
+export async function rollbackMigration(applicationId: string, migrationId: string, confirmDestructive = false): Promise<RollbackResult> {
+    const response = await apiClient.post<RollbackResult>(`/application/${applicationId}/migration/${migrationId}/rollback`, {
+        confirmDestructive
+    })
     return response.data
 }

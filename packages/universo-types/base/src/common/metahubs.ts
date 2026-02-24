@@ -7,7 +7,7 @@ import type { VersionedLocalizedContent } from './admin'
  * Supported attribute data types.
  * Note: DATETIME was removed in favor of DATE with dateComposition setting.
  */
-export const ATTRIBUTE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON'] as const
+export const ATTRIBUTE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] as const
 
 export type AttributeDataType = (typeof ATTRIBUTE_DATA_TYPES)[number]
 
@@ -92,6 +92,12 @@ export interface AttributeValidationRules {
 
     // DATE settings
     dateComposition?: 'date' | 'time' | 'datetime'
+
+    // TABLE settings
+    /** Minimum number of rows in TABLE child table (leave empty for no limit) */
+    minRows?: number | null
+    /** Maximum number of rows in TABLE child table (leave empty for no limit) */
+    maxRows?: number | null
 }
 
 /**
@@ -107,6 +113,8 @@ export function getDefaultValidationRules(dataType: AttributeDataType): Partial<
             return { dateComposition: 'datetime' } // Full datetime by default
         case 'JSON':
             return {}
+        case 'TABLE':
+            return {} // TABLE has no validation rules — it's a container
         default:
             return {}
     }
@@ -182,6 +190,10 @@ export function getPhysicalDataType(dataType: AttributeDataType, rules?: Partial
         case 'JSON':
             return { type: 'JSONB', isVLC: false }
 
+        case 'TABLE':
+            // TABLE is not a physical column — it's a virtual container
+            return { type: 'TABLE', isVLC: false }
+
         default:
             return { type: 'TEXT', isVLC: false }
     }
@@ -238,6 +250,10 @@ export interface MetaFieldDefinition {
     presentation: MetaPresentation
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
+    /** Parent TABLE attribute ID (for child attributes of tabular parts) */
+    parentAttributeId?: string | null
+    /** Child fields for TABLE attributes (populated in snapshots) */
+    childFields?: MetaFieldDefinition[]
 }
 
 export interface MetaEntityDefinition {
@@ -267,6 +283,19 @@ export interface AttributeRefUiConfig {
     /** Optional default enum value id used by runtime forms. */
     defaultEnumValueId?: string | null
 }
+
+/**
+ * TABLE type UI configuration.
+ * Controls how the tabular part is displayed.
+ */
+export interface TableTypeUiConfig {
+    /** Whether to show the table title in element forms */
+    showTitle?: boolean
+}
+
+/** Data types allowed as children inside TABLE attributes (no nesting) */
+export const TABLE_CHILD_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON'] as const
+export type TableChildDataType = (typeof TABLE_CHILD_DATA_TYPES)[number]
 
 /**
  * Enumeration value row used in metahub/app snapshots and API responses.
@@ -455,6 +484,8 @@ export interface TemplateSeedAttribute {
     targetEntityKind?: MetaEntityKind
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
+    /** Child attributes for TABLE data type (no nesting allowed) */
+    childAttributes?: TemplateSeedAttribute[]
 }
 
 /** Seed entity definition (catalog, hub, document). */

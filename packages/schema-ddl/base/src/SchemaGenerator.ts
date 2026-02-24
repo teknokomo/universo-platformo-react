@@ -2,7 +2,7 @@ import type { Knex } from 'knex'
 import { AttributeDataType, MetaEntityKind, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildSchemaSnapshot } from './snapshot'
-import { buildFkConstraintName, generateColumnName, generateTableName, isValidSchemaName } from './naming'
+import { buildFkConstraintName, generateColumnName, generateTableName, generateTabularTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
@@ -50,6 +50,9 @@ export class SchemaGenerator {
      * @returns PostgreSQL type string
      */
     public static mapDataType(dataType: AttributeDataType, config?: Partial<AttributeValidationRules>): string {
+        if (dataType === AttributeDataType.TABLE) {
+            throw new Error('TABLE is a virtual type with no physical column. Use createTabularTable() instead.')
+        }
         const info = getPhysicalDataType(dataType, config)
         return formatPhysicalType(info)
     }
@@ -100,15 +103,45 @@ export class SchemaGenerator {
                     }
                     await this.createEntityTable(schemaName, entity, trx)
                     result.tablesCreated.push(entity.codename)
+
+                    // Create tabular tables for TABLE attributes
+                    const tableFields = entity.fields.filter((f) => f.dataType === AttributeDataType.TABLE && !f.parentAttributeId)
+                    for (const tableField of tableFields) {
+                        const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
+                        const parentTableName = generateTableName(entity.id, entity.kind)
+                        await this.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
+                        result.tablesCreated.push(`${entity.codename}__tp__${tableField.codename}`)
+                    }
                 }
 
                 // Ensure system tables before adding REF FKs that may target _app_enum_values.
                 await this.ensureSystemTables(schemaName, trx)
 
                 for (const entity of entities) {
-                    const refFields = entity.fields.filter((field) => field.dataType === AttributeDataType.REF && field.targetEntityId)
-                    for (const field of refFields) {
+                    const rootRefFields = entity.fields.filter(
+                        (field) => field.dataType === AttributeDataType.REF && field.targetEntityId && !field.parentAttributeId
+                    )
+                    for (const field of rootRefFields) {
                         await this.addForeignKey(schemaName, entity, field, entities, trx)
+                    }
+
+                    const childRefFields = entity.fields.filter(
+                        (field) => field.dataType === AttributeDataType.REF && field.targetEntityId && Boolean(field.parentAttributeId)
+                    )
+                    for (const childRefField of childRefFields) {
+                        const tableParentField = entity.fields.find(
+                            (field) => field.id === childRefField.parentAttributeId && field.dataType === AttributeDataType.TABLE
+                        )
+                        if (!tableParentField) {
+                            console.warn(
+                                `[SchemaGenerator] TABLE parent field ${childRefField.parentAttributeId} not found for child REF field ${childRefField.id}`
+                            )
+                            continue
+                        }
+
+                        const parentTableName = generateTableName(entity.id, entity.kind)
+                        const tabularTableName = generateTabularTableName(parentTableName, tableParentField.id)
+                        await this.addForeignKeyToTable(schemaName, tabularTableName, childRefField, entities, trx)
                     }
                 }
 
@@ -168,8 +201,13 @@ export class SchemaGenerator {
         await knex.schema.withSchema(schemaName).createTable(tableName, (table: Knex.CreateTableBuilder) => {
             table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
 
-            // User-defined fields
+            // User-defined fields (skip TABLE and child fields)
             for (const field of entity.fields) {
+                // TABLE fields create separate child tables, not columns
+                if (field.dataType === AttributeDataType.TABLE) continue
+                // Child fields belong to tabular tables, not the parent entity table
+                if (field.parentAttributeId) continue
+
                 const columnName = generateColumnName(field.id)
                 const pgType = SchemaGenerator.mapDataType(
                     field.dataType,
@@ -249,9 +287,134 @@ export class SchemaGenerator {
         console.log(`[SchemaGenerator] Table ${schemaName}.${tableName} created`)
     }
 
+    /**
+     * Creates a tabular part table for a TABLE attribute.
+     * Child table has: id, _tp_parent_id (FK CASCADE), _tp_sort_order,
+     * child attribute columns, and full _upl_* + _app_* system fields.
+     */
+    public async createTabularTable(
+        schemaName: string,
+        parentTableName: string,
+        tableField: FieldDefinition,
+        childFields: FieldDefinition[],
+        trx?: Knex.Transaction
+    ): Promise<void> {
+        const tabularTableName = generateTabularTableName(parentTableName, tableField.id)
+        console.log(`[SchemaGenerator] Creating tabular table: ${schemaName}.${tabularTableName}`)
+
+        const knex = trx ?? this.knex
+        await knex.schema.withSchema(schemaName).createTable(tabularTableName, (table: Knex.CreateTableBuilder) => {
+            table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+
+            // Parent reference with CASCADE delete
+            table.uuid('_tp_parent_id').notNullable()
+            table.integer('_tp_sort_order').notNullable().defaultTo(0)
+
+            // Child attribute columns
+            for (const child of childFields) {
+                const columnName = generateColumnName(child.id)
+                const pgType = SchemaGenerator.mapDataType(
+                    child.dataType,
+                    child.validationRules as Partial<AttributeValidationRules> | undefined
+                )
+                if (child.isRequired) {
+                    table.specificType(columnName, pgType).notNullable()
+                } else {
+                    const col = table.specificType(columnName, pgType).nullable()
+                    if (child.dataType === AttributeDataType.BOOLEAN) {
+                        col.defaultTo(false)
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // Platform-level system fields (_upl_*)
+            // ═══════════════════════════════════════════════════════════════════════
+            table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+            table.uuid('_upl_created_by').nullable()
+            table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+            table.uuid('_upl_updated_by').nullable()
+            table.integer('_upl_version').notNullable().defaultTo(1)
+            table.boolean('_upl_archived').notNullable().defaultTo(false)
+            table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+            table.uuid('_upl_archived_by').nullable()
+            table.boolean('_upl_deleted').notNullable().defaultTo(false)
+            table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+            table.uuid('_upl_deleted_by').nullable()
+            table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+            table.boolean('_upl_locked').notNullable().defaultTo(false)
+            table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+            table.uuid('_upl_locked_by').nullable()
+            table.text('_upl_locked_reason').nullable()
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // Application-level system fields (_app_*)
+            // ═══════════════════════════════════════════════════════════════════════
+            table.boolean('_app_published').notNullable().defaultTo(true)
+            table.timestamp('_app_published_at', { useTz: true }).nullable()
+            table.uuid('_app_published_by').nullable()
+            table.boolean('_app_archived').notNullable().defaultTo(false)
+            table.timestamp('_app_archived_at', { useTz: true }).nullable()
+            table.uuid('_app_archived_by').nullable()
+            table.boolean('_app_deleted').notNullable().defaultTo(false)
+            table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+            table.uuid('_app_deleted_by').nullable()
+            table.uuid('_app_owner_id').nullable()
+            table.string('_app_access_level', 20).notNullable().defaultTo('private')
+        })
+
+        // FK: _tp_parent_id → parent table with CASCADE delete
+        const fkName = buildFkConstraintName(tabularTableName, '_tp_parent_id')
+        await knex.raw(`ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY ("_tp_parent_id") REFERENCES ??.??(id) ON DELETE CASCADE`, [
+            schemaName,
+            tabularTableName,
+            fkName,
+            schemaName,
+            parentTableName
+        ])
+
+        // Indexes — use abbreviated suffixes to stay within PostgreSQL 63-char identifier limit
+        const idxParent = `idx_${tabularTableName}_pi`.substring(0, 63)
+        const idxParentSort = `idx_${tabularTableName}_ps`.substring(0, 63)
+        const idxAppDeleted = `idx_${tabularTableName}_ad`.substring(0, 63)
+        const idxUplDeleted = `idx_${tabularTableName}_ud`.substring(0, 63)
+
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS "${idxParent}"
+            ON "${schemaName}"."${tabularTableName}" (_tp_parent_id)
+        `)
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS "${idxParentSort}"
+            ON "${schemaName}"."${tabularTableName}" (_tp_parent_id, _tp_sort_order)
+        `)
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS "${idxAppDeleted}"
+            ON "${schemaName}"."${tabularTableName}" (_app_deleted_at)
+            WHERE _app_deleted = true
+        `)
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS "${idxUplDeleted}"
+            ON "${schemaName}"."${tabularTableName}" (_upl_deleted_at)
+            WHERE _upl_deleted = true
+        `)
+
+        console.log(`[SchemaGenerator] Tabular table ${schemaName}.${tabularTableName} created`)
+    }
+
     public async addForeignKey(
         schemaName: string,
         entity: EntityDefinition,
+        field: FieldDefinition,
+        entities: EntityDefinition[],
+        trx?: Knex.Transaction
+    ): Promise<void> {
+        const sourceTableName = generateTableName(entity.id, entity.kind)
+        await this.addForeignKeyToTable(schemaName, sourceTableName, field, entities, trx)
+    }
+
+    private async addForeignKeyToTable(
+        schemaName: string,
+        sourceTableName: string,
         field: FieldDefinition,
         entities: EntityDefinition[],
         trx?: Knex.Transaction
@@ -260,7 +423,6 @@ export class SchemaGenerator {
             return
         }
 
-        const sourceTableName = generateTableName(entity.id, entity.kind)
         const columnName = generateColumnName(field.id)
         const constraintName = buildFkConstraintName(sourceTableName, columnName)
         const knex = trx ?? this.knex
@@ -392,6 +554,8 @@ export class SchemaGenerator {
                 // Polymorphic reference: target entity ID and kind
                 table.uuid('target_object_id').nullable()
                 table.string('target_object_kind', 20).nullable() // 'catalog', 'document', 'hub', etc.
+                // Self-reference: parent TABLE attribute ID for child attributes
+                table.uuid('parent_attribute_id').nullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('validation_rules').notNullable().defaultTo('{}')
                 table.jsonb('ui_config').notNullable().defaultTo('{}')
@@ -437,8 +601,10 @@ export class SchemaGenerator {
 
                 table.foreign('object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
                 table.foreign('target_object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('SET NULL')
+                table.foreign('parent_attribute_id').references('id').inTable(`${schemaName}._app_attributes`).onDelete('CASCADE')
                 table.unique(['object_id', 'codename'])
                 table.unique(['object_id', 'column_name'])
+                table.index(['parent_attribute_id'], 'idx_app_attributes_parent')
             })
             console.log(`[SchemaGenerator] _app_attributes created`)
         } else {
@@ -459,6 +625,28 @@ export class SchemaGenerator {
                 console.log(`[SchemaGenerator] Adding sort_order column to _app_attributes...`)
                 await knex.schema.withSchema(schemaName).table('_app_attributes', (t) => {
                     t.integer('sort_order').notNullable().defaultTo(0)
+                })
+            }
+
+            // Backward compatibility: older schemas may lack parent_attribute_id column
+            const parentAttrResult = await knex.raw<{ rows: { exists: boolean }[] }>(
+                `
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = ? AND table_name = '_app_attributes' AND column_name = 'parent_attribute_id'
+                    ) AS exists
+                `,
+                [schemaName]
+            )
+            const hasParentAttributeId = parentAttrResult.rows?.[0]?.exists === true
+
+            if (!hasParentAttributeId) {
+                console.log(`[SchemaGenerator] Adding parent_attribute_id column to _app_attributes...`)
+                await knex.schema.withSchema(schemaName).table('_app_attributes', (t) => {
+                    t.uuid('parent_attribute_id').nullable()
+                    t.foreign('parent_attribute_id').references('id').inTable(`${schemaName}._app_attributes`).onDelete('CASCADE')
+                    t.index(['parent_attribute_id'], 'idx_app_attributes_parent')
                 })
             }
         }
@@ -831,26 +1019,38 @@ export class SchemaGenerator {
                 .merge(['kind', 'codename', 'table_name', 'presentation', 'config', '_upl_updated_at', '_upl_updated_by'])
         }
 
-        const attributeRows = entities.flatMap((entity) =>
-            entity.fields.map((field) => ({
-                id: field.id,
-                object_id: entity.id,
-                codename: field.codename,
-                sort_order: typeof (field as any)?.sortOrder === 'number' ? (field as any).sortOrder : 0,
-                column_name: generateColumnName(field.id),
-                data_type: field.dataType,
-                is_required: field.isRequired,
-                target_object_id: field.targetEntityId ?? null,
-                target_object_kind: field.targetEntityKind ?? null,
-                presentation: field.presentation,
-                validation_rules: field.validationRules ?? {},
-                ui_config: field.uiConfig ?? {},
-                _upl_created_at: knex.fn.now(),
-                _upl_created_by: userId,
-                _upl_updated_at: knex.fn.now(),
-                _upl_updated_by: userId
-            }))
-        )
+        const attributeRows = entities.flatMap((entity) => {
+            const entityTableName = generateTableName(entity.id, entity.kind)
+            return entity.fields.map((field) => {
+                // For TABLE fields, column_name stores the tabular table name
+                // For child fields, column_name is the physical column in the tabular table
+                const columnName =
+                    field.dataType === AttributeDataType.TABLE && !field.parentAttributeId
+                        ? generateTabularTableName(entityTableName, field.id)
+                        : generateColumnName(field.id)
+
+                return {
+                    id: field.id,
+                    object_id: entity.id,
+                    codename: field.codename,
+                    sort_order: typeof (field as any)?.sortOrder === 'number' ? (field as any).sortOrder : 0,
+                    column_name: columnName,
+                    data_type: field.dataType,
+                    is_required: field.isRequired,
+                    is_display_attribute: field.isDisplayAttribute ?? false,
+                    target_object_id: field.targetEntityId ?? null,
+                    target_object_kind: field.targetEntityKind ?? null,
+                    parent_attribute_id: field.parentAttributeId ?? null,
+                    presentation: field.presentation,
+                    validation_rules: field.validationRules ?? {},
+                    ui_config: field.uiConfig ?? {},
+                    _upl_created_at: knex.fn.now(),
+                    _upl_created_by: userId,
+                    _upl_updated_at: knex.fn.now(),
+                    _upl_updated_by: userId
+                }
+            })
+        })
 
         if (attributeRows.length > 0) {
             await knex
@@ -865,8 +1065,10 @@ export class SchemaGenerator {
                     'column_name',
                     'data_type',
                     'is_required',
+                    'is_display_attribute',
                     'target_object_id',
                     'target_object_kind',
+                    'parent_attribute_id',
                     'presentation',
                     'validation_rules',
                     'ui_config',

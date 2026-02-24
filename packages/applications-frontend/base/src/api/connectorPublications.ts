@@ -4,10 +4,7 @@ import type { ConnectorPublication, ConnectorPublicationsResponse, PublicationSu
 /**
  * List all publications linked to a connector
  */
-export const listConnectorPublications = async (
-    applicationId: string,
-    connectorId: string
-): Promise<ConnectorPublicationsResponse> => {
+export const listConnectorPublications = async (applicationId: string, connectorId: string): Promise<ConnectorPublicationsResponse> => {
     const response = await apiClient.get<ConnectorPublicationsResponse>(
         `/applications/${applicationId}/connectors/${connectorId}/publications`
     )
@@ -23,21 +20,17 @@ export const linkPublication = async (
     publicationId: string,
     sortOrder = 0
 ): Promise<ConnectorPublication> => {
-    const response = await apiClient.post<ConnectorPublication>(
-        `/applications/${applicationId}/connectors/${connectorId}/publications`,
-        { publicationId, sortOrder }
-    )
+    const response = await apiClient.post<ConnectorPublication>(`/applications/${applicationId}/connectors/${connectorId}/publications`, {
+        publicationId,
+        sortOrder
+    })
     return response.data
 }
 
 /**
  * Unlink a publication from a connector
  */
-export const unlinkPublication = async (
-    applicationId: string,
-    connectorId: string,
-    linkId: string
-): Promise<void> => {
+export const unlinkPublication = async (applicationId: string, connectorId: string, linkId: string): Promise<void> => {
     await apiClient.delete(`/applications/${applicationId}/connectors/${connectorId}/publications/${linkId}`)
 }
 

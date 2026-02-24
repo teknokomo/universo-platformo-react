@@ -49,6 +49,18 @@ const seedSettingSchema = z.object({
     value: z.union([z.record(z.unknown()), z.string(), z.number(), z.boolean()])
 })
 
+/** Schema for a child attribute inside a TABLE attribute (no nesting). */
+const seedChildAttributeSchema = z.object({
+    codename: z.string().min(1).max(100),
+    dataType: z.enum(ATTRIBUTE_DATA_TYPES),
+    name: vlcSchema,
+    description: vlcSchema.optional(),
+    isRequired: z.boolean().optional(),
+    sortOrder: z.number().int().optional(),
+    validationRules: z.record(z.unknown()).optional(),
+    uiConfig: z.record(z.unknown()).optional()
+})
+
 const seedAttributeSchema = z.object({
     codename: z.string().min(1).max(100),
     dataType: z.enum(ATTRIBUTE_DATA_TYPES),
@@ -60,7 +72,9 @@ const seedAttributeSchema = z.object({
     targetEntityCodename: z.string().optional(),
     targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
     validationRules: z.record(z.unknown()).optional(),
-    uiConfig: z.record(z.unknown()).optional()
+    uiConfig: z.record(z.unknown()).optional(),
+    /** Child attributes for TABLE data type (tabular parts). */
+    childAttributes: z.array(seedChildAttributeSchema).optional()
 })
 
 const seedEntitySchema = z.object({

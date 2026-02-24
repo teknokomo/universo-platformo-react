@@ -224,5 +224,387 @@ describe('DDL Diff Utilities', () => {
             expect(ChangeType.ADD_FK).toBe('ADD_FK')
             expect(ChangeType.DROP_FK).toBe('DROP_FK')
         })
+
+        it('should have tabular change types', () => {
+            expect(ChangeType.ADD_TABULAR_TABLE).toBe('ADD_TABULAR_TABLE')
+            expect(ChangeType.DROP_TABULAR_TABLE).toBe('DROP_TABULAR_TABLE')
+            expect(ChangeType.ADD_TABULAR_COLUMN).toBe('ADD_TABULAR_COLUMN')
+            expect(ChangeType.DROP_TABULAR_COLUMN).toBe('DROP_TABULAR_COLUMN')
+            expect(ChangeType.ALTER_TABULAR_COLUMN).toBe('ALTER_TABULAR_COLUMN')
+        })
+    })
+
+    describe('tabular (TABLE attribute) diff', () => {
+        const createTestEntity = (overrides: Partial<EntityDefinition> = {}): EntityDefinition => ({
+            id: 'entity-1111-2222-3333-444455556666',
+            codename: 'test_entity',
+            kind: 'catalog',
+            fields: [],
+            ...overrides
+        })
+
+        const createTestSnapshot = (entities: Partial<Record<string, SchemaSnapshot['entities'][string]>> = {}): SchemaSnapshot => ({
+            applicationId: 'app-1111-2222-3333-444455556666',
+            schemaName: 'app_test',
+            snapshotVersion: 1,
+            createdAt: new Date().toISOString(),
+            entities: {
+                'entity-1111-2222-3333-444455556666': {
+                    codename: 'test_entity',
+                    kind: 'catalog',
+                    tableName: 'cat_entity11112222333344445555',
+                    fields: {}
+                },
+                ...entities
+            }
+        })
+
+        it('should detect new TABLE attribute as ADD_TABULAR_TABLE', () => {
+            const snapshot = createTestSnapshot()
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        }
+                    ]
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            expect(diff.additive).toHaveLength(1)
+            expect(diff.additive[0].type).toBe(ChangeType.ADD_TABULAR_TABLE)
+            expect(diff.additive[0].fieldCodename).toBe('order_items')
+            expect(diff.additive[0].isDestructive).toBe(false)
+        })
+
+        it('should detect removed TABLE attribute as DROP_TABULAR_TABLE', () => {
+            const snapshot = createTestSnapshot()
+            snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
+                'table-attr-1111-2222-333344445555': {
+                    codename: 'order_items',
+                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111222233334444555',
+                    dataType: 'TABLE',
+                    isRequired: false,
+                    childFields: {}
+                }
+            }
+
+            const entities: EntityDefinition[] = [createTestEntity({ fields: [] })]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            expect(diff.destructive).toHaveLength(1)
+            expect(diff.destructive[0].type).toBe(ChangeType.DROP_TABULAR_TABLE)
+            expect(diff.destructive[0].fieldCodename).toBe('order_items')
+            expect(diff.destructive[0].isDestructive).toBe(true)
+        })
+
+        it('should detect new child column as ADD_TABULAR_COLUMN', () => {
+            const snapshot = createTestSnapshot()
+            snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
+                'table-attr-1111-2222-333344445555': {
+                    codename: 'order_items',
+                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    dataType: 'TABLE',
+                    isRequired: false,
+                    childFields: {}
+                }
+            }
+
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        },
+                        {
+                            id: 'child-field-aaaa-bbbb-ccccddddeeee',
+                            codename: 'quantity',
+                            dataType: 'integer',
+                            isRequired: true,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                        }
+                    ]
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            expect(diff.additive).toHaveLength(1)
+            expect(diff.additive[0].type).toBe(ChangeType.ADD_TABULAR_COLUMN)
+            expect(diff.additive[0].fieldCodename).toBe('quantity')
+            expect(diff.additive[0].isDestructive).toBe(false)
+        })
+
+        it('should detect removed child column as DROP_TABULAR_COLUMN', () => {
+            const snapshot = createTestSnapshot()
+            snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
+                'table-attr-1111-2222-333344445555': {
+                    codename: 'order_items',
+                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    dataType: 'TABLE',
+                    isRequired: false,
+                    childFields: {
+                        'child-field-aaaa-bbbb-ccccddddeeee': {
+                            codename: 'quantity',
+                            columnName: 'attr_childfieldaaaabbbbccccddddeeee',
+                            dataType: 'integer',
+                            isRequired: true
+                        }
+                    }
+                }
+            }
+
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        }
+                        // child field removed — no child field with parentAttributeId
+                    ]
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            expect(diff.destructive).toHaveLength(1)
+            expect(diff.destructive[0].type).toBe(ChangeType.DROP_TABULAR_COLUMN)
+            expect(diff.destructive[0].fieldCodename).toBe('quantity')
+            expect(diff.destructive[0].isDestructive).toBe(true)
+        })
+
+        it('should detect no changes when TABLE attribute and children are identical', () => {
+            const snapshot = createTestSnapshot()
+            snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
+                'table-attr-1111-2222-333344445555': {
+                    codename: 'order_items',
+                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    dataType: 'TABLE',
+                    isRequired: false,
+                    childFields: {
+                        'child-field-aaaa-bbbb-ccccddddeeee': {
+                            codename: 'quantity',
+                            columnName: 'attr_childfieldaaaabbbbccccddddeeee',
+                            dataType: 'integer',
+                            isRequired: true
+                        }
+                    }
+                }
+            }
+
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        },
+                        {
+                            id: 'child-field-aaaa-bbbb-ccccddddeeee',
+                            codename: 'quantity',
+                            dataType: 'integer',
+                            isRequired: true,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                        }
+                    ]
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(false)
+            expect(diff.additive).toHaveLength(0)
+            expect(diff.destructive).toHaveLength(0)
+        })
+
+        it('should detect ALTER_TABULAR_COLUMN when child field data type changes', () => {
+            const snapshot = createTestSnapshot({
+                'entity-1111-2222-3333-444455556666': {
+                    codename: 'test_entity',
+                    kind: 'catalog',
+                    tableName: 'cat_entity11112222333344445555',
+                    fields: {
+                        'table-attr-1111-2222-333344445555': {
+                            codename: 'order_items',
+                            columnName: 'cat_entity11112222333344445555_tp_tableattr111122223333',
+                            dataType: 'TABLE',
+                            isRequired: false,
+                            targetEntityId: null,
+                            targetEntityKind: null,
+                            childFields: {
+                                'child-field-aaaa-bbbb-ccccddddeeee': {
+                                    codename: 'quantity',
+                                    columnName: 'attr_childfieldaaaabbbbccccddddeeee',
+                                    dataType: 'integer',
+                                    isRequired: true,
+                                    targetEntityId: null,
+                                    targetEntityKind: null
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        },
+                        {
+                            id: 'child-field-aaaa-bbbb-ccccddddeeee',
+                            codename: 'quantity',
+                            dataType: 'decimal',
+                            isRequired: true,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                        }
+                    ]
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            const alterOp = diff.destructive.find((op) => op.type === 'ALTER_TABULAR_COLUMN')
+            expect(alterOp).toBeDefined()
+            expect(alterOp?.oldValue).toBe('integer')
+            expect(alterOp?.newValue).toBe('decimal')
+        })
+
+        it('should add ADD_FK when child REF field is added to existing TABLE attribute', () => {
+            const snapshot = createTestSnapshot({
+                'entity-1111-2222-3333-444455556666': {
+                    codename: 'test_entity',
+                    kind: 'catalog',
+                    tableName: 'cat_entity11112222333344445555',
+                    fields: {
+                        'table-attr-1111-2222-333344445555': {
+                            codename: 'order_items',
+                            columnName: 'cat_entity11112222333344445555_tp_tableattr111122223333',
+                            dataType: 'TABLE',
+                            isRequired: false,
+                            targetEntityId: null,
+                            targetEntityKind: null,
+                            childFields: {}
+                        }
+                    }
+                }
+            })
+
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        },
+                        {
+                            id: 'child-ref-aaaa-bbbb-ccccddddeeee',
+                            codename: 'product_ref',
+                            dataType: 'REF',
+                            isRequired: false,
+                            parentAttributeId: 'table-attr-1111-2222-333344445555',
+                            targetEntityId: 'entity-9999-8888-7777-666655554444',
+                            targetEntityKind: 'catalog'
+                        }
+                    ]
+                }),
+                createTestEntity({
+                    id: 'entity-9999-8888-7777-666655554444',
+                    codename: 'product'
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            const addFkOp = diff.additive.find((op) => op.type === ChangeType.ADD_FK)
+            expect(addFkOp).toBeDefined()
+            expect(addFkOp?.fieldCodename).toBe('product_ref')
+        })
+
+        it('should add DROP_FK when child REF field is removed from TABLE attribute', () => {
+            const snapshot = createTestSnapshot({
+                'entity-1111-2222-3333-444455556666': {
+                    codename: 'test_entity',
+                    kind: 'catalog',
+                    tableName: 'cat_entity11112222333344445555',
+                    fields: {
+                        'table-attr-1111-2222-333344445555': {
+                            codename: 'order_items',
+                            columnName: 'cat_entity11112222333344445555_tp_tableattr111122223333',
+                            dataType: 'TABLE',
+                            isRequired: false,
+                            targetEntityId: null,
+                            targetEntityKind: null,
+                            childFields: {
+                                'child-ref-aaaa-bbbb-ccccddddeeee': {
+                                    codename: 'product_ref',
+                                    columnName: 'attr_childrefaaaabbbbccccddddeeee',
+                                    dataType: 'REF',
+                                    isRequired: false,
+                                    targetEntityId: 'entity-9999-8888-7777-666655554444',
+                                    targetEntityKind: 'catalog'
+                                }
+                            }
+                        }
+                    }
+                },
+                'entity-9999-8888-7777-666655554444': {
+                    codename: 'product',
+                    kind: 'catalog',
+                    tableName: 'cat_entity99998888777766665555',
+                    fields: {}
+                }
+            })
+
+            const entities: EntityDefinition[] = [
+                createTestEntity({
+                    fields: [
+                        {
+                            id: 'table-attr-1111-2222-333344445555',
+                            codename: 'order_items',
+                            dataType: 'TABLE',
+                            isRequired: false
+                        }
+                    ]
+                }),
+                createTestEntity({
+                    id: 'entity-9999-8888-7777-666655554444',
+                    codename: 'product'
+                })
+            ]
+
+            const diff = calculateSchemaDiff(snapshot, entities)
+
+            expect(diff.hasChanges).toBe(true)
+            const dropFkOp = diff.destructive.find((op) => op.type === ChangeType.DROP_FK)
+            expect(dropFkOp).toBeDefined()
+            expect(dropFkOp?.fieldCodename).toBe('product_ref')
+        })
     })
 })

@@ -291,6 +291,7 @@ export class SchemaMigrator {
                 const targetEntityKind = field.targetEntityKind ?? targetEntity?.kind ?? null
                 const columnName = change.columnName ?? generateColumnName(change.fieldId!)
                 const constraintName = buildFkConstraintName(change.tableName!, columnName)
+                const onDelete = change.onDeleteAction ?? 'SET NULL'
 
                 let targetTableName: string
                 if (targetEntityKind === ENUMERATION_KIND) {
@@ -304,7 +305,7 @@ export class SchemaMigrator {
                     targetTableName = generateTableName(targetEntity.id, targetEntity.kind)
                 }
 
-                await trx.raw(`ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL`, [
+                await trx.raw(`ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE ${onDelete}`, [
                     schemaName,
                     change.tableName,
                     constraintName,
@@ -337,6 +338,70 @@ export class SchemaMigrator {
                 break
             }
 
+            case ChangeType.ADD_TABULAR_TABLE: {
+                // Create a new tabular part table for a TABLE attribute
+                const entity = entities.find((item) => item.id === change.entityId)
+                if (!entity) throw new Error(`Entity ${change.entityId} not found`)
+                const tableField = entity.fields.find((f) => f.id === change.fieldId)
+                if (!tableField) throw new Error(`TABLE field ${change.fieldId} not found`)
+                const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
+                const parentTableName = generateTableName(entity.id, entity.kind)
+                await this.generator.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
+                break
+            }
+
+            case ChangeType.DROP_TABULAR_TABLE: {
+                // Drop the tabular part table
+                await trx.schema.withSchema(schemaName).dropTableIfExists(change.tableName!)
+                break
+            }
+
+            case ChangeType.ADD_TABULAR_COLUMN: {
+                // Add a column to an existing tabular table
+                const entity = entities.find((item) => item.id === change.entityId)
+                if (!entity) throw new Error(`Entity ${change.entityId} not found`)
+                const field = entity.fields.find((f) => f.id === change.fieldId)
+                if (!field) throw new Error(`Child field ${change.fieldId} not found`)
+                const pgType = SchemaGenerator.mapDataType(
+                    field.dataType,
+                    field.validationRules as Partial<AttributeValidationRules> | undefined
+                )
+                const columnName = change.columnName ?? generateColumnName(field.id)
+
+                await trx.schema.withSchema(schemaName).alterTable(change.tableName!, (table: Knex.AlterTableBuilder) => {
+                    const col = table.specificType(columnName, pgType).nullable()
+                    if (field.dataType === AttributeDataType.BOOLEAN) {
+                        col.defaultTo(false)
+                    }
+                })
+                break
+            }
+
+            case ChangeType.DROP_TABULAR_COLUMN: {
+                // Drop a column from a tabular table
+                await trx.schema.withSchema(schemaName).alterTable(change.tableName!, (table: Knex.AlterTableBuilder) => {
+                    table.dropColumn(change.columnName!)
+                })
+                break
+            }
+
+            case ChangeType.ALTER_TABULAR_COLUMN: {
+                // Change column type in a tabular table
+                const entity = entities.find((item) => item.id === change.entityId)
+                const field = entity?.fields.find((f) => f.id === change.fieldId) ?? null
+                const newType = SchemaGenerator.mapDataType(
+                    change.newValue as AttributeDataType,
+                    field?.validationRules as Partial<AttributeValidationRules> | undefined
+                )
+                await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
+                    schemaName,
+                    change.tableName,
+                    change.columnName,
+                    change.columnName
+                ])
+                break
+            }
+
             default:
                 console.warn(`[SchemaMigrator] Unknown change type: ${change.type}`)
         }
@@ -359,9 +424,15 @@ export class SchemaMigrator {
                 switch (change.type) {
                     case ChangeType.DROP_FK:
                         return 10
+                    case ChangeType.DROP_TABULAR_COLUMN:
+                        return 15
                     case ChangeType.DROP_COLUMN:
                         return 20
                     case ChangeType.ALTER_COLUMN:
+                        return 25
+                    case ChangeType.ALTER_TABULAR_COLUMN:
+                        return 26
+                    case ChangeType.DROP_TABULAR_TABLE:
                         return 30
                     case ChangeType.DROP_TABLE:
                         return 40
@@ -377,10 +448,16 @@ export class SchemaMigrator {
             switch (change.type) {
                 case ChangeType.ADD_TABLE:
                     return 10
+                case ChangeType.ADD_TABULAR_TABLE:
+                    return 12
                 case ChangeType.ADD_COLUMN:
                     return 20
+                case ChangeType.ADD_TABULAR_COLUMN:
+                    return 22
                 case ChangeType.ALTER_COLUMN:
                     return 30
+                case ChangeType.ALTER_TABULAR_COLUMN:
+                    return 32
                 case ChangeType.ADD_FK:
                     return 40
                 case ChangeType.RENAME_TABLE:

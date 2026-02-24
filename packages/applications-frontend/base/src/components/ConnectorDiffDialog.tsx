@@ -39,6 +39,28 @@ import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector, SchemaStatus } from '../types'
 import { getVLCString } from '../types'
 
+/**
+ * Format a cell value for predefined elements preview.
+ * Handles: VLC objects, arrays (TABLE child rows), plain values.
+ */
+function formatPreviewCellValue(
+    value: unknown,
+    uiLocale: string,
+    t: (key: string, fallback: string, params?: Record<string, unknown>) => string
+): string {
+    if (value === null || value === undefined) return ''
+    if (Array.isArray(value)) {
+        return value.length > 0 ? t('connectors.diffDialog.tableRowCount', '{{count}} rows', { count: value.length }) : ''
+    }
+    if (typeof value === 'object' && 'locales' in (value as Record<string, unknown>)) {
+        return getVLCString(value as any, uiLocale) || getVLCString(value as any, 'en') || ''
+    }
+    if (typeof value === 'object') {
+        return JSON.stringify(value)
+    }
+    return String(value)
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -99,7 +121,7 @@ export function ConnectorDiffDialog({
     const formatSummary = (summaryKey?: string, summaryParams?: Record<string, unknown>, fallback?: string) => {
         if (summaryKey === 'schema.create.summary') {
             const tablesCount = typeof summaryParams?.tablesCount === 'number' ? summaryParams.tablesCount : 0
-            return t('connectors.diffDialog.summary.create', 'Create {{tablesCount}} table(s) in new schema', { tablesCount })
+            return t('connectors.diffDialog.summary.create', 'Create {{count}} tables in new schema', { count: tablesCount })
         }
         if (summaryKey === 'ui.layout.changed') {
             return t('connectors.diffDialog.summary.uiChanged', 'UI settings have changed')
@@ -114,14 +136,14 @@ export function ConnectorDiffDialog({
             const additiveCount = diffData?.diff?.additive?.length ?? 0
             const destructiveCount = diffData?.diff?.destructive?.length ?? 0
             if (additiveCount > 0 || destructiveCount > 0) {
-                return t(
-                    'connectors.diffDialog.summary.changeCounts',
-                    '{{additiveCount}} additive change(s), {{destructiveCount}} destructive change(s)',
-                    {
-                        additiveCount,
-                        destructiveCount
-                    }
-                )
+                return t('connectors.diffDialog.summary.changeCounts', '{{additive}}, {{destructive}}', {
+                    additive: t('connectors.diffDialog.summary.additiveChangesCount', '{{count}} additive changes', {
+                        count: additiveCount
+                    }),
+                    destructive: t('connectors.diffDialog.summary.destructiveChangesCount', '{{count}} destructive changes', {
+                        count: destructiveCount
+                    })
+                })
             }
         }
         return fallback || ''
@@ -133,6 +155,8 @@ export function ConnectorDiffDialog({
         if (normalized === 'STRING') return t('connectors.diffDialog.dataTypes.string', 'String')
         if (normalized === 'NUMBER') return t('connectors.diffDialog.dataTypes.number', 'Number')
         if (normalized === 'JSON') return t('connectors.diffDialog.dataTypes.json', 'JSON')
+        if (normalized === 'TABLE') return t('connectors.diffDialog.dataTypes.table', 'Table')
+        if (normalized === 'REF') return t('connectors.diffDialog.dataTypes.ref', 'Reference')
         return dataType
     }
 
@@ -286,14 +310,14 @@ export function ConnectorDiffDialog({
                                                     {table.codename}
                                                 </Typography>
                                                 <Typography variant='body2' color='text.secondary' sx={{ ml: 2 }}>
-                                                    {t(
-                                                        'connectors.diffDialog.tableMeta',
-                                                        '{{fieldsCount}} fields, {{elementsCount}} elements',
-                                                        {
-                                                            fieldsCount: fields.length,
-                                                            elementsCount: table.predefinedElementsCount ?? 0
-                                                        }
-                                                    )}
+                                                    {t('connectors.diffDialog.tableMeta', '{{fields}}, {{elements}}', {
+                                                        fields: t('connectors.diffDialog.fieldsCount', '{{count}} fields', {
+                                                            count: fields.length
+                                                        }),
+                                                        elements: t('connectors.diffDialog.elementsCount', '{{count}} elements', {
+                                                            count: table.predefinedElementsCount ?? 0
+                                                        })
+                                                    })}
                                                 </Typography>
                                             </AccordionSummary>
                                             <AccordionDetails>
@@ -340,13 +364,11 @@ export function ConnectorDiffDialog({
                                                                 {preview.map((row) => (
                                                                     <TableRow key={row.id}>
                                                                         {fields.map((f) => {
-                                                                            const value = row.data?.[f.codename]
-                                                                            const display =
-                                                                                value === null || value === undefined
-                                                                                    ? ''
-                                                                                    : typeof value === 'object'
-                                                                                    ? JSON.stringify(value)
-                                                                                    : String(value)
+                                                                            const display = formatPreviewCellValue(
+                                                                                row.data?.[f.codename],
+                                                                                uiLocale,
+                                                                                t
+                                                                            )
                                                                             return <TableCell key={f.id}>{display}</TableCell>
                                                                         })}
                                                                     </TableRow>
@@ -436,14 +458,14 @@ export function ConnectorDiffDialog({
                                                             {table.codename}
                                                         </Typography>
                                                         <Typography variant='body2' color='text.secondary' sx={{ ml: 2 }}>
-                                                            {t(
-                                                                'connectors.diffDialog.tableMeta',
-                                                                '{{fieldsCount}} fields, {{elementsCount}} elements',
-                                                                {
-                                                                    fieldsCount: fields.length,
-                                                                    elementsCount: table.predefinedElementsCount ?? 0
-                                                                }
-                                                            )}
+                                                            {t('connectors.diffDialog.tableMeta', '{{fields}}, {{elements}}', {
+                                                                fields: t('connectors.diffDialog.fieldsCount', '{{count}} fields', {
+                                                                    count: fields.length
+                                                                }),
+                                                                elements: t('connectors.diffDialog.elementsCount', '{{count}} elements', {
+                                                                    count: table.predefinedElementsCount ?? 0
+                                                                })
+                                                            })}
                                                         </Typography>
                                                     </AccordionSummary>
                                                     <AccordionDetails>
@@ -494,13 +516,11 @@ export function ConnectorDiffDialog({
                                                                         {preview.map((row) => (
                                                                             <TableRow key={row.id}>
                                                                                 {fields.map((f) => {
-                                                                                    const value = row.data?.[f.codename]
-                                                                                    const display =
-                                                                                        value === null || value === undefined
-                                                                                            ? ''
-                                                                                            : typeof value === 'object'
-                                                                                            ? JSON.stringify(value)
-                                                                                            : String(value)
+                                                                                    const display = formatPreviewCellValue(
+                                                                                        row.data?.[f.codename],
+                                                                                        uiLocale,
+                                                                                        t
+                                                                                    )
                                                                                     return <TableCell key={f.id}>{display}</TableCell>
                                                                                 })}
                                                                             </TableRow>

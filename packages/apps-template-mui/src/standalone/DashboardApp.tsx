@@ -81,6 +81,9 @@ export default function DashboardApp(props: DashboardAppProps) {
             <CrudDialogs
                 state={state}
                 locale={props.locale}
+                apiBaseUrl={props.apiBaseUrl}
+                applicationId={props.applicationId}
+                catalogId={state.selectedCatalogId ?? state.activeCatalogId}
                 labels={{
                     editTitle: t('app.editRow', 'Edit record'),
                     createTitle: t('app.createRecordTitle', 'Create record'),

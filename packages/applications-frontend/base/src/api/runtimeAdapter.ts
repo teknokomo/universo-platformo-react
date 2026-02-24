@@ -1,10 +1,10 @@
 import type { CrudDataAdapter, AppDataResponse } from '@universo/apps-template-mui'
 import {
-  getApplicationRuntime,
-  getApplicationRuntimeRow,
-  createApplicationRuntimeRow,
-  updateApplicationRuntimeRow,
-  deleteApplicationRuntimeRow
+    getApplicationRuntime,
+    getApplicationRuntimeRow,
+    createApplicationRuntimeRow,
+    updateApplicationRuntimeRow,
+    deleteApplicationRuntimeRow
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
 
@@ -15,27 +15,23 @@ import { applicationsQueryKeys } from './queryKeys'
  * authenticated Axios `apiClient`.
  */
 export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
-  return {
-    queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
+    return {
+        queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
 
-    fetchList: ({ limit, offset, locale, catalogId }) =>
-      getApplicationRuntime(applicationId, {
-        limit,
-        offset,
-        locale,
-        catalogId
-      }) as Promise<AppDataResponse>,
+        fetchList: ({ limit, offset, locale, catalogId }) =>
+            getApplicationRuntime(applicationId, {
+                limit,
+                offset,
+                locale,
+                catalogId
+            }) as Promise<AppDataResponse>,
 
-    fetchRow: (rowId, catalogId) =>
-      getApplicationRuntimeRow({ applicationId, rowId, catalogId }),
+        fetchRow: (rowId, catalogId) => getApplicationRuntimeRow({ applicationId, rowId, catalogId }),
 
-    createRow: (data, catalogId) =>
-      createApplicationRuntimeRow({ applicationId, data, catalogId }),
+        createRow: (data, catalogId) => createApplicationRuntimeRow({ applicationId, data, catalogId }),
 
-    updateRow: (rowId, data, catalogId) =>
-      updateApplicationRuntimeRow({ applicationId, rowId, data, catalogId }),
+        updateRow: (rowId, data, catalogId) => updateApplicationRuntimeRow({ applicationId, rowId, data, catalogId }),
 
-    deleteRow: (rowId, catalogId) =>
-      deleteApplicationRuntimeRow({ applicationId, rowId, catalogId })
-  }
+        deleteRow: (rowId, catalogId) => deleteApplicationRuntimeRow({ applicationId, rowId, catalogId })
+    }
 }

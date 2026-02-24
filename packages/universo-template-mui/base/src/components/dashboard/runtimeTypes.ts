@@ -28,4 +28,3 @@ export interface DashboardDetailsSlot {
     onPaginationModelChange?: (model: GridPaginationModel) => void
     pageSizeOptions?: number[]
 }
-

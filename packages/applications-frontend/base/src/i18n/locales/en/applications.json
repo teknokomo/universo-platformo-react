@@ -215,7 +215,11 @@
             "schemaNotExists": "Schema does not exist yet. It will be created on first sync.",
             "schemaWillBeCreated": "The following schema will be created:",
             "tablesWillBeCreated": "Tables to be created",
-            "tableMeta": "{{fieldsCount}} fields, {{elementsCount}} elements",
+            "tableMeta": "{{fields}}, {{elements}}",
+            "fieldsCount_one": "{{count}} field",
+            "fieldsCount_other": "{{count}} fields",
+            "elementsCount_one": "{{count}} element",
+            "elementsCount_other": "{{count}} elements",
             "fields": "Fields",
             "predefinedElements": "Predefined elements",
             "columns": {
@@ -227,14 +231,23 @@
                 "boolean": "Boolean",
                 "string": "String",
                 "number": "Number",
-                "json": "JSON"
+                "json": "JSON",
+                "table": "Table",
+                "ref": "Reference"
             },
+            "tableRowCount_one": "{{count}} row",
+            "tableRowCount_other": "{{count}} rows",
             "summary": {
-                "create": "Create {{tablesCount}} table(s) in new schema",
+                "create_one": "Create {{count}} table in new schema",
+                "create_other": "Create {{count}} tables in new schema",
                 "uiChanged": "UI settings have changed",
                 "upToDate": "Schema is already up to date",
                 "metadataChanged": "System metadata will be updated",
-                "changeCounts": "{{additiveCount}} additive change(s), {{destructiveCount}} destructive change(s)"
+                "changeCounts": "{{additive}}, {{destructive}}",
+                "additiveChangesCount_one": "{{count}} additive change",
+                "additiveChangesCount_other": "{{count}} additive changes",
+                "destructiveChangesCount_one": "{{count}} destructive change",
+                "destructiveChangesCount_other": "{{count}} destructive changes"
             },
             "structured": {
                 "addColumn": "Add column \"{{field}}\" ({{type}}) to \"{{table}}\"",
@@ -369,7 +382,9 @@
         "actions": "Actions",
         "details": "Details",
         "updated": "Updated",
-        "search": "Search..."
+        "search": "Search...",
+        "yes": "Yes",
+        "no": "No"
     },
     "table": {
         "name": "Name",

@@ -20,11 +20,7 @@ import { applicationsQueryKeys, invalidateMigrationsQueries } from '../api/query
 /**
  * Hook to fetch list of migrations for an application
  */
-export function useMigrations(
-    applicationId: string,
-    params?: { limit?: number; offset?: number },
-    options?: { enabled?: boolean }
-) {
+export function useMigrations(applicationId: string, params?: { limit?: number; offset?: number }, options?: { enabled?: boolean }) {
     return useQuery<MigrationsListResponse, Error>({
         queryKey: applicationsQueryKeys.migrationsList(applicationId, params),
         queryFn: () => fetchMigrations(applicationId, params),
@@ -36,11 +32,7 @@ export function useMigrations(
 /**
  * Hook to fetch a single migration with full details
  */
-export function useMigrationDetail(
-    applicationId: string,
-    migrationId: string,
-    options?: { enabled?: boolean }
-) {
+export function useMigrationDetail(applicationId: string, migrationId: string, options?: { enabled?: boolean }) {
     return useQuery<MigrationDetail, Error>({
         queryKey: applicationsQueryKeys.migrationDetail(applicationId, migrationId),
         queryFn: () => fetchMigration(applicationId, migrationId),
@@ -52,11 +44,7 @@ export function useMigrationDetail(
 /**
  * Hook to analyze rollback possibility
  */
-export function useMigrationRollbackAnalysis(
-    applicationId: string,
-    migrationId: string,
-    options?: { enabled?: boolean }
-) {
+export function useMigrationRollbackAnalysis(applicationId: string, migrationId: string, options?: { enabled?: boolean }) {
     return useQuery<RollbackAnalysis, Error>({
         queryKey: applicationsQueryKeys.migrationAnalysis(applicationId, migrationId),
         queryFn: () => analyzeMigrationRollback(applicationId, migrationId),
@@ -72,8 +60,7 @@ export function useRollbackMigration(applicationId: string) {
     const queryClient = useQueryClient()
 
     return useMutation<RollbackResult, Error, { migrationId: string; confirmDestructive?: boolean }>({
-        mutationFn: ({ migrationId, confirmDestructive }) =>
-            rollbackMigration(applicationId, migrationId, confirmDestructive),
+        mutationFn: ({ migrationId, confirmDestructive }) => rollbackMigration(applicationId, migrationId, confirmDestructive),
         onSuccess: () => {
             // Invalidate migrations list and application detail
             invalidateMigrationsQueries.all(queryClient, applicationId)

@@ -2,7 +2,12 @@ export { EntityFormDialog } from './EntityFormDialog'
 export type { EntityFormDialogProps, TabConfig } from './EntityFormDialog'
 
 export { DynamicEntityFormDialog } from './DynamicEntityFormDialog'
-export type { DynamicEntityFormDialogProps, DynamicFieldConfig, DynamicFieldType, DynamicFieldValidationRules } from './DynamicEntityFormDialog'
+export type {
+    DynamicEntityFormDialogProps,
+    DynamicFieldConfig,
+    DynamicFieldType,
+    DynamicFieldValidationRules
+} from './DynamicEntityFormDialog'
 
 export { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
 export type { ConfirmDeleteDialogProps } from './ConfirmDeleteDialog'

@@ -230,3 +230,67 @@ export const clearDisplayAttribute = (metahubId: string, hubId: string, catalogI
  */
 export const clearDisplayAttributeDirect = (metahubId: string, catalogId: string, attributeId: string) =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/clear-display`, {})
+
+// ============ Child Attribute API functions (TABLE tabular parts) ============
+
+/**
+ * List child attributes of a TABLE attribute (with hubId)
+ */
+export const listChildAttributes = async (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    parentAttributeId: string
+): Promise<{ items: Attribute[]; total: number }> => {
+    const response = await apiClient.get<{ items: Attribute[]; total: number }>(
+        `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`
+    )
+    return response.data
+}
+
+/**
+ * List child attributes of a TABLE attribute (without hubId)
+ */
+export const listChildAttributesDirect = async (
+    metahubId: string,
+    catalogId: string,
+    parentAttributeId: string
+): Promise<{ items: Attribute[]; total: number }> => {
+    const response = await apiClient.get<{ items: Attribute[]; total: number }>(
+        `/metahub/${metahubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`
+    )
+    return response.data
+}
+
+/**
+ * Create a child attribute inside a TABLE attribute (with hubId)
+ */
+export const createChildAttribute = (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    parentAttributeId: string,
+    data: AttributeLocalizedPayload & {
+        validationRules?: Record<string, unknown>
+        uiConfig?: Record<string, unknown>
+        isRequired?: boolean
+        targetEntityId?: string | null
+        targetEntityKind?: string | null
+    }
+) => apiClient.post<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`, data)
+
+/**
+ * Create a child attribute inside a TABLE attribute (without hubId)
+ */
+export const createChildAttributeDirect = (
+    metahubId: string,
+    catalogId: string,
+    parentAttributeId: string,
+    data: AttributeLocalizedPayload & {
+        validationRules?: Record<string, unknown>
+        uiConfig?: Record<string, unknown>
+        isRequired?: boolean
+        targetEntityId?: string | null
+        targetEntityKind?: string | null
+    }
+) => apiClient.post<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${parentAttributeId}/children`, data)

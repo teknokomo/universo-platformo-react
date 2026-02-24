@@ -26,55 +26,49 @@ export function ConflictResolutionDialog({
 
     if (!conflict) return null
 
-    const formattedDate = conflict.updatedAt
-        ? new Date(conflict.updatedAt).toLocaleString()
-        : t('common:unknown', 'Unknown')
+    const formattedDate = conflict.updatedAt ? new Date(conflict.updatedAt).toLocaleString() : t('common:unknown', 'Unknown')
 
     // Display email (uuid) format if available
     const updatedByEmail = (conflict as any).updatedByEmail
     const updatedByUuid = conflict.updatedBy
-    const updatedBy = updatedByEmail
-        ? `${updatedByEmail} (${updatedByUuid})`
-        : updatedByUuid || t('common:unknown', 'Unknown')
+    const updatedBy = updatedByEmail ? `${updatedByEmail} (${updatedByUuid})` : updatedByUuid || t('common:unknown', 'Unknown')
 
     return (
-        <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
+        <Dialog open={open} onClose={onCancel} maxWidth='sm' fullWidth>
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WarningIcon color="warning" />
+                <WarningIcon color='warning' />
                 {t('conflict.title')}
             </DialogTitle>
             <DialogContent>
-                <Alert severity="warning" sx={{ mb: 2 }}>
+                <Alert severity='warning' sx={{ mb: 2 }}>
                     {t('conflict.description')}
                 </Alert>
                 <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant='body2' color='text.secondary'>
                         {t('conflict.modifiedBy')}: <strong>{updatedBy}</strong>
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant='body2' color='text.secondary'>
                         {t('conflict.modifiedAt')}: <strong>{formattedDate}</strong>
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
                         {t('conflict.yourVersion')}: <strong>{conflict.expectedVersion}</strong>
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant='body2' color='text.secondary'>
                         {t('conflict.serverVersion')}: <strong>{conflict.actualVersion}</strong>
                     </Typography>
                 </Box>
-                <Typography variant="body2">
-                    {t('conflict.chooseAction')}
-                </Typography>
+                <Typography variant='body2'>{t('conflict.chooseAction')}</Typography>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
                 <Button onClick={onCancel} disabled={isLoading}>
                     {t('common:actions.cancel', 'Cancel')}
                 </Button>
                 {onReload && (
-                    <Button onClick={onReload} variant="outlined" disabled={isLoading}>
+                    <Button onClick={onReload} variant='outlined' disabled={isLoading}>
                         {t('conflict.useServerVersion', 'Use Server Version')}
                     </Button>
                 )}
-                <Button onClick={onOverwrite} variant="contained" color="warning" disabled={isLoading}>
+                <Button onClick={onOverwrite} variant='contained' color='warning' disabled={isLoading}>
                     {t('conflict.overwrite')}
                 </Button>
             </DialogActions>

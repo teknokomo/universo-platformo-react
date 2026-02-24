@@ -25,7 +25,7 @@ export interface ConnectorPublicationInfoPanelProps {
 /**
  * Panel for displaying locked Metahub info in Connector edit dialog.
  * Shows the linked Metahub(s) with locked constraint switches.
- * 
+ *
  * Internally this works with publications, but UI shows Metahub names.
  * Constraints are temporarily locked:
  * - isSinglePublication is always true (one metahub)
@@ -49,14 +49,14 @@ export const ConnectorPublicationInfoPanel = ({
         if (!publication) return publicationId.substring(0, 8) + '...'
         // Show metahub name, not publication name
         if (publication.metahub) {
-            return getVLCString(publication.metahub.name, uiLocale) ||
-                   getVLCString(publication.metahub.name, 'en') ||
-                   publication.metahub.codename
+            return (
+                getVLCString(publication.metahub.name, uiLocale) ||
+                getVLCString(publication.metahub.name, 'en') ||
+                publication.metahub.codename
+            )
         }
         // Fallback to publication name
-        return getVLCString(publication.name, uiLocale) ||
-               getVLCString(publication.name, 'en') ||
-               publication.codename
+        return getVLCString(publication.name, uiLocale) || getVLCString(publication.name, 'en') || publication.codename
     }
 
     const getMetahubCodename = (publicationId: string): string => {
@@ -67,7 +67,7 @@ export const ConnectorPublicationInfoPanel = ({
     if (isLoading) {
         return (
             <Box sx={{ p: 2 }}>
-                <Typography color="text.secondary">{t('common.loading', 'Loading...')}</Typography>
+                <Typography color='text.secondary'>{t('common.loading', 'Loading...')}</Typography>
             </Box>
         )
     }
@@ -75,27 +75,32 @@ export const ConnectorPublicationInfoPanel = ({
     return (
         <Stack spacing={2}>
             {/* Info alert about locked settings */}
-            <Alert severity="info" icon={<InfoIcon />}>
-                {t('connectors.metahubInfo.locked', 'Metahub links and constraints are currently locked. This functionality will be available in a future update.')}
+            <Alert severity='info' icon={<InfoIcon />}>
+                {t(
+                    'connectors.metahubInfo.locked',
+                    'Metahub links and constraints are currently locked. This functionality will be available in a future update.'
+                )}
             </Alert>
 
             {/* Linked metahubs display */}
-            <Box sx={{ 
-                p: 2, 
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 1,
-                bgcolor: 'action.hover'
-            }}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                    <Typography variant="subtitle2" color="text.secondary">
+            <Box
+                sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    bgcolor: 'action.hover'
+                }}
+            >
+                <Stack direction='row' alignItems='center' spacing={1} mb={1}>
+                    <Typography variant='subtitle2' color='text.secondary'>
                         {t('connectors.metahubs.title', 'Linked Metahubs')}
                     </Typography>
-                    <LockIcon fontSize="small" color="action" />
+                    <LockIcon fontSize='small' color='action' />
                 </Stack>
-                
+
                 {linkedPublications.length === 0 ? (
-                    <Typography color="text.secondary" variant="body2">
+                    <Typography color='text.secondary' variant='body2'>
                         {t('connectors.metahubs.noLinked', 'No metahubs linked yet')}
                     </Typography>
                 ) : (
@@ -115,10 +120,10 @@ export const ConnectorPublicationInfoPanel = ({
                                 <ListItemText
                                     primary={getMetahubName(link.publicationId)}
                                     secondary={
-                                        <Chip 
-                                            label={getMetahubCodename(link.publicationId)} 
-                                            size="small" 
-                                            variant="outlined"
+                                        <Chip
+                                            label={getMetahubCodename(link.publicationId)}
+                                            size='small'
+                                            variant='outlined'
                                             sx={{ mt: 0.5 }}
                                         />
                                     }
@@ -130,62 +135,48 @@ export const ConnectorPublicationInfoPanel = ({
             </Box>
 
             {/* Locked constraint switches */}
-            <Box sx={{ 
-                p: 2, 
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 1
-            }}>
-                <Typography variant="subtitle2" color="text.secondary" mb={1.5}>
+            <Box
+                sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1
+                }}
+            >
+                <Typography variant='subtitle2' color='text.secondary' mb={1.5}>
                     {t('connectors.metahubInfo.constraints', 'Connector Constraints')}
                 </Typography>
 
                 <Stack spacing={1}>
                     <Tooltip title={t('connectors.metahubInfo.isSingleLocked', 'This setting is currently locked to "On"')}>
                         <FormControlLabel
-                            control={
-                                <Switch 
-                                    checked={isSinglePublication} 
-                                    disabled 
-                                    size="small"
-                                />
-                            }
+                            control={<Switch checked={isSinglePublication} disabled size='small' />}
                             label={
-                                <Stack direction="row" alignItems="center" spacing={0.5}>
-                                    <Typography variant="body2">
-                                        {t('connectors.metahubs.singleLimit', 'Single metahub')}
-                                    </Typography>
-                                    <LockIcon fontSize="inherit" color="action" />
+                                <Stack direction='row' alignItems='center' spacing={0.5}>
+                                    <Typography variant='body2'>{t('connectors.metahubs.singleLimit', 'Single metahub')}</Typography>
+                                    <LockIcon fontSize='inherit' color='action' />
                                 </Stack>
                             }
                         />
                     </Tooltip>
 
-                    <Typography variant="caption" color="text.secondary" sx={{ pl: 4.5 }}>
+                    <Typography variant='caption' color='text.secondary' sx={{ pl: 4.5 }}>
                         {t('connectors.metahubInfo.isSingleHelp', 'Connector can only be linked to one Metahub')}
                     </Typography>
 
                     <Tooltip title={t('connectors.metahubInfo.isRequiredLocked', 'This setting is currently locked to "On"')}>
                         <FormControlLabel
-                            control={
-                                <Switch 
-                                    checked={isRequiredPublication} 
-                                    disabled 
-                                    size="small"
-                                />
-                            }
+                            control={<Switch checked={isRequiredPublication} disabled size='small' />}
                             label={
-                                <Stack direction="row" alignItems="center" spacing={0.5}>
-                                    <Typography variant="body2">
-                                        {t('connectors.metahubs.required', 'Required')}
-                                    </Typography>
-                                    <LockIcon fontSize="inherit" color="action" />
+                                <Stack direction='row' alignItems='center' spacing={0.5}>
+                                    <Typography variant='body2'>{t('connectors.metahubs.required', 'Required')}</Typography>
+                                    <LockIcon fontSize='inherit' color='action' />
                                 </Stack>
                             }
                         />
                     </Tooltip>
 
-                    <Typography variant="caption" color="text.secondary" sx={{ pl: 4.5 }}>
+                    <Typography variant='caption' color='text.secondary' sx={{ pl: 4.5 }}>
                         {t('connectors.metahubInfo.isRequiredHelp', 'Connector must have at least one Metahub linked')}
                     </Typography>
                 </Stack>

@@ -11,4 +11,3 @@ export const isAccessDeniedError = (error: unknown): boolean => {
     }
     return false
 }
-

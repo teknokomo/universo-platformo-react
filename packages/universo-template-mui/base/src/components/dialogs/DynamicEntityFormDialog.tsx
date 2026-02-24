@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeleteIcon from '@mui/icons-material/Delete'
+import AddIcon from '@mui/icons-material/Add'
 import {
     Alert,
     Box,
@@ -11,7 +12,14 @@ import {
     DialogContent,
     DialogTitle,
     FormControlLabel,
+    IconButton,
     Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
     TextField,
     Typography
 } from '@mui/material'
@@ -19,7 +27,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import { createLocalizedContent, NUMBER_DEFAULTS } from '@universo/utils'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 
-export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON'
+export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
 /**
  * Validation rules for dynamic fields.
@@ -73,6 +81,8 @@ export interface DynamicFieldConfig {
     enumAllowEmpty?: boolean
     /** Defines how empty label-mode value should be rendered. */
     enumLabelEmptyDisplay?: 'empty' | 'dash'
+    /** Child field definitions for TABLE type attributes */
+    childFields?: DynamicFieldConfig[]
 }
 
 export interface DynamicEntityFormDialogProps {
@@ -197,6 +207,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
+    const tableLocalIdRef = useRef(1)
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {
@@ -398,7 +409,15 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         fields.forEach((field) => {
             const value = formData[field.id]
             if (!resolveValuePresent(field, value)) return
-            payload[field.id] = value
+            // Strip internal-only properties from TABLE row arrays before sending to the API
+            if (field.type === 'TABLE' && Array.isArray(value)) {
+                payload[field.id] = value.map((row: Record<string, unknown>) => {
+                    const { _localId, __rowId, ...rest } = row
+                    return rest
+                })
+            } else {
+                payload[field.id] = value
+            }
         })
         return payload
     }, [fields, formData, resolveValuePresent])
@@ -880,6 +899,141 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         helperText={helperText}
                     />
                 )
+            case 'TABLE': {
+                const childFieldDefs = field.childFields ?? []
+                const tableRows = (Array.isArray(value) ? value : []) as Record<string, unknown>[]
+
+                const handleAddTableRow = () => {
+                    const localId = tableLocalIdRef.current++
+                    const newRow: Record<string, unknown> = { _localId: `__local_new_${localId}` }
+                    for (const child of childFieldDefs) {
+                        newRow[child.id] = child.type === 'BOOLEAN' ? false : null
+                    }
+                    handleFieldChange(field.id, [...tableRows, newRow])
+                }
+
+                const handleDeleteTableRow = (rowId: string) => {
+                    handleFieldChange(
+                        field.id,
+                        tableRows.filter((row, idx) => String(row._localId ?? row.id ?? `__local_${idx}`) !== rowId)
+                    )
+                }
+
+                const handleTableCellChange = (rowId: string, childId: string, cellValue: unknown) => {
+                    handleFieldChange(
+                        field.id,
+                        tableRows.map((row, idx) => {
+                            if (String(row._localId ?? row.id ?? `__local_${idx}`) !== rowId) return row
+                            return { ...row, [childId]: cellValue }
+                        })
+                    )
+                }
+
+                return (
+                    <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant='subtitle2' color='text.secondary'>
+                                {field.label}
+                            </Typography>
+                            {!disabled && (
+                                <Button
+                                    size='small'
+                                    startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                                    onClick={handleAddTableRow}
+                                    sx={{ height: 28, fontSize: 12, textTransform: 'none' }}
+                                >
+                                    {formatMessage('Add Row', 'Добавить строку')}
+                                </Button>
+                            )}
+                        </Box>
+
+                        <TableContainer
+                            sx={{
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: 1,
+                                height: tableRows.length > 1 ? 'auto' : 108
+                            }}
+                        >
+                            <Table size='small' stickyHeader>
+                                <TableHead>
+                                    <TableRow>
+                                        {childFieldDefs.map((child) => (
+                                            <TableCell
+                                                key={child.id}
+                                                sx={{ p: '4px 8px', fontSize: 12, fontWeight: 600, backgroundColor: 'grey.100' }}
+                                            >
+                                                {child.label}
+                                            </TableCell>
+                                        ))}
+                                        {!disabled && <TableCell sx={{ width: 40, p: '4px 8px', backgroundColor: 'grey.100' }} />}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {tableRows.length > 0 ? (
+                                        tableRows.map((row, index) => {
+                                            const rowId = String(row._localId ?? row.id ?? `__local_${index}`)
+                                            return (
+                                                <TableRow key={rowId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                    {childFieldDefs.map((child) => (
+                                                        <TableCell key={child.id} sx={{ p: '4px 8px' }}>
+                                                            <TextField
+                                                                size='small'
+                                                                variant='standard'
+                                                                type={child.type === 'NUMBER' ? 'number' : 'text'}
+                                                                value={row[child.id] ?? ''}
+                                                                onChange={(e) =>
+                                                                    handleTableCellChange(
+                                                                        rowId,
+                                                                        child.id,
+                                                                        child.type === 'NUMBER'
+                                                                            ? e.target.value === ''
+                                                                                ? null
+                                                                                : Number(e.target.value)
+                                                                            : e.target.value
+                                                                    )
+                                                                }
+                                                                disabled={disabled}
+                                                                fullWidth
+                                                                InputProps={{ sx: { fontSize: 13 }, disableUnderline: true }}
+                                                            />
+                                                        </TableCell>
+                                                    ))}
+                                                    {!disabled && (
+                                                        <TableCell align='center' sx={{ p: '2px 4px' }}>
+                                                            <IconButton
+                                                                size='small'
+                                                                onClick={() => handleDeleteTableRow(rowId)}
+                                                                sx={{ width: 24, height: 24 }}
+                                                            >
+                                                                <DeleteIcon sx={{ fontSize: 16 }} />
+                                                            </IconButton>
+                                                        </TableCell>
+                                                    )}
+                                                </TableRow>
+                                            )
+                                        })
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={childFieldDefs.length + (disabled ? 0 : 1)}
+                                                sx={{ textAlign: 'center', py: 2, color: 'text.secondary', border: 0 }}
+                                            >
+                                                <Typography variant='body2' color='text.secondary'>
+                                                    {formatMessage(
+                                                        'No rows yet. Click "Add Row" to start.',
+                                                        'Строк пока нет. Нажмите «Добавить строку», чтобы начать.'
+                                                    )}
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Box>
+                )
+            }
             default:
                 return (
                     <TextField
@@ -900,8 +1054,11 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     const isSubmitDisabled =
         isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
 
+    const hasTableFields = fields.some((f) => f.type === 'TABLE')
+    const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
+
     return (
-        <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+        <Dialog open={open} onClose={onClose} maxWidth={dialogMaxWidth} fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
             <DialogTitle>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>
                 <Stack spacing={2} sx={{ mt: 1 }}>

@@ -24,6 +24,7 @@ export {
     generateSchemaName,
     generateTableName,
     generateColumnName,
+    generateTabularTableName,
     buildFkConstraintName,
     isValidSchemaName,
     generateMetahubSchemaName
@@ -48,7 +49,7 @@ export type {
 } from './types'
 
 // Snapshot utilities
-export { buildSchemaSnapshot } from './snapshot'
+export { buildSchemaSnapshot, CURRENT_SCHEMA_SNAPSHOT_VERSION } from './snapshot'
 
 // Diff utilities
 export { calculateSchemaDiff, ChangeType } from './diff'

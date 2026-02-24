@@ -140,6 +140,9 @@ const ApplicationRuntime = () => {
             <CrudDialogs
                 state={state}
                 locale={i18n.language}
+                apiBaseUrl='/api/v1'
+                applicationId={applicationId}
+                catalogId={state.selectedCatalogId ?? state.activeCatalogId}
                 labels={{
                     editTitle: t('app.editRow', 'Edit record'),
                     createTitle: t('app.createRecordTitle', 'Create record'),

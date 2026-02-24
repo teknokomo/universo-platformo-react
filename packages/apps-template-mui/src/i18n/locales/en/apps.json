@@ -23,6 +23,26 @@
         "errorLoadRow": "Failed to load record data",
         "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again."
     },
+    "tabular": {
+        "addRow": "Add Row",
+        "delete": "Delete",
+        "noRows": "No rows yet. Click \"Add Row\" to start.",
+        "editTitle": "Edit Row",
+        "createTitle": "New Row",
+        "save": "Save",
+        "create": "Create",
+        "saving": "Saving…",
+        "creating": "Creating…",
+        "cancel": "Cancel",
+        "noFields": "No fields configured",
+        "deleteTitle": "Delete Row",
+        "deleteDescription": "Are you sure you want to delete this row?",
+        "deleting": "Deleting…",
+        "edit": "Edit"
+    },
+    "table": {
+        "editAfterSave": "Table data can be edited after saving the record."
+    },
     "validation": {
         "vlcMinLength": "Language \"{{locale}}\": minimum length {{min}}",
         "lengthBetween": "Length must be between {{min}} and {{max}}",

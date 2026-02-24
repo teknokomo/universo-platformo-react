@@ -9,6 +9,12 @@ export interface CrudDialogsProps {
     locale: string
     /** i18n-resolved labels for the dialogs. */
     labels: CrudDialogsLabels
+    /** Base API URL for TABLE (tabular part) CRUD operations. */
+    apiBaseUrl?: string
+    /** Application ID for TABLE (tabular part) CRUD operations. */
+    applicationId?: string
+    /** Catalog ID for TABLE (tabular part) CRUD operations. */
+    catalogId?: string
 }
 
 export interface CrudDialogsLabels {
@@ -32,7 +38,7 @@ export interface CrudDialogsLabels {
  * Extracts the duplicated dialog JSX from both `DashboardApp` and
  * `ApplicationRuntime`. Connect it to the `CrudDashboardState`.
  */
-export function CrudDialogs({ state, locale, labels }: CrudDialogsProps) {
+export function CrudDialogs({ state, locale, labels, apiBaseUrl, applicationId, catalogId }: CrudDialogsProps) {
     return (
         <>
             <FormDialog
@@ -49,6 +55,10 @@ export function CrudDialogs({ state, locale, labels }: CrudDialogsProps) {
                 emptyStateText={labels.noFieldsText}
                 onClose={state.handleCloseForm}
                 onSubmit={state.handleFormSubmit}
+                apiBaseUrl={apiBaseUrl}
+                applicationId={applicationId}
+                catalogId={catalogId}
+                editRowId={state.editRowId}
             />
 
             <ConfirmDeleteDialog

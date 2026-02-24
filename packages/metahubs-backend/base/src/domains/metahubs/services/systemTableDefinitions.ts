@@ -146,12 +146,17 @@ const mhbAttributes: SystemTableDef = {
         { name: 'is_required', type: 'boolean', defaultTo: false },
         { name: 'is_display_attribute', type: 'boolean', defaultTo: false },
         { name: 'target_object_id', type: 'uuid', nullable: true },
-        { name: 'target_object_kind', type: 'string', length: 20, nullable: true }
+        { name: 'target_object_kind', type: 'string', length: 20, nullable: true },
+        { name: 'parent_attribute_id', type: 'uuid', nullable: true }
     ],
-    foreignKeys: [{ column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    foreignKeys: [
+        { column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'parent_attribute_id', referencesTable: '_mhb_attributes', referencesColumn: 'id', onDelete: 'CASCADE' }
+    ],
     indexes: [
         { name: 'idx_mhb_attributes_object_id', columns: ['object_id'] },
         { name: 'idx_mhb_attributes_target_object_id', columns: ['target_object_id'] },
+        { name: 'idx_mhb_attributes_parent_attribute_id', columns: ['parent_attribute_id'] },
         {
             name: 'idx_mhb_attributes_object_codename_active',
             columns: ['object_id', 'codename'],
