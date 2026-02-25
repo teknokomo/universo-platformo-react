@@ -407,8 +407,6 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         order: 40,
         group: 'flags',
         visible: (ctx) => {
-            // TABLE type cannot be required (it's always optional at parent level)
-            if (ctx.entity.dataType === 'TABLE') return false
             const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
             const raw = attributeMap?.get(ctx.entity.id)
             const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import {
     Alert,
     Box,
@@ -13,6 +15,7 @@ import {
     DialogTitle,
     FormControlLabel,
     IconButton,
+    InputAdornment,
     Stack,
     Table,
     TableBody,
@@ -24,7 +27,8 @@ import {
     Typography
 } from '@mui/material'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { createLocalizedContent, NUMBER_DEFAULTS } from '@universo/utils'
+import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
+import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 
 export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
@@ -49,6 +53,10 @@ export interface DynamicFieldValidationRules {
 
     // DATE settings
     dateComposition?: 'date' | 'time' | 'datetime'
+
+    // TABLE settings
+    minRows?: number | null
+    maxRows?: number | null
 }
 
 export interface DynamicFieldConfig {
@@ -83,6 +91,8 @@ export interface DynamicFieldConfig {
     enumLabelEmptyDisplay?: 'empty' | 'dash'
     /** Child field definitions for TABLE type attributes */
     childFields?: DynamicFieldConfig[]
+    /** Whether to show the TABLE title (default: true) */
+    tableShowTitle?: boolean
 }
 
 export interface DynamicEntityFormDialogProps {
@@ -90,6 +100,8 @@ export interface DynamicEntityFormDialogProps {
     title: string
     fields: DynamicFieldConfig[]
     locale: string
+    /** i18n namespace for react-i18next t() calls (e.g. 'metahubs', 'apps'). */
+    i18nNamespace?: string
     initialData?: Record<string, unknown>
     isSubmitting?: boolean
     error?: string | null
@@ -183,11 +195,292 @@ const normalizeDateValue = (value: string, inputType: 'date' | 'time' | 'datetim
     return value
 }
 
+/**
+ * Inline table cell component for NUMBER fields.
+ * Replicates the full standalone NUMBER field behavior:
+ * - Formatted display with locale-aware decimal separator (comma for 'ru')
+ * - Zone-based selection (integer vs decimal part) on focus/click
+ * - ArrowUp/ArrowDown zone-aware stepping
+ * - Stepper buttons (▲▼)
+ * - Blocks "-" for nonNegative, protects decimal separator
+ * - Digit replacement in decimal zone (overwrites digits instead of inserting)
+ */
+interface NumberTableCellProps {
+    value: unknown
+    onChange: (value: unknown) => void
+    rules: DynamicFieldValidationRules | undefined
+    locale: string
+    disabled: boolean
+}
+
+function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTableCellProps) {
+    const precision = typeof rules?.precision === 'number' ? rules.precision : NUMBER_DEFAULTS.precision
+    const scale = typeof rules?.scale === 'number' ? rules.scale : NUMBER_DEFAULTS.scale
+    const maxIntegerDigits = precision - scale
+    const allowNegative = !rules?.nonNegative
+    const lang = locale.split(/[-_]/)[0].toLowerCase()
+    const decimalSeparator = scale > 0 ? (lang === 'ru' ? ',' : '.') : ''
+
+    const inputRef = useRef<HTMLInputElement>(null)
+    const cursorZoneRef = useRef<'integer' | 'decimal'>('integer')
+
+    const formatValue = (val: unknown): string => {
+        if (val == null || val === '' || (typeof val === 'number' && Number.isNaN(val))) {
+            return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+        }
+        if (typeof val === 'number') {
+            return scale > 0 ? val.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(val))
+        }
+        const parsed = parseFloat(String(val))
+        if (Number.isNaN(parsed)) {
+            return scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'
+        }
+        return scale > 0 ? parsed.toFixed(scale).replace('.', decimalSeparator) : String(Math.trunc(parsed))
+    }
+
+    const selectNumberPart = (target: HTMLInputElement) => {
+        if (!target || target.value == null) return
+        if (scale <= 0) {
+            target.setSelectionRange(0, target.value.length)
+            cursorZoneRef.current = 'integer'
+            return
+        }
+        const text = target.value
+        const signOffset = text.startsWith('-') ? 1 : 0
+        const sepIdx = text.indexOf(decimalSeparator)
+        if (sepIdx === -1) {
+            target.setSelectionRange(signOffset, text.length)
+            cursorZoneRef.current = 'integer'
+            return
+        }
+        const cursor = target.selectionStart ?? 0
+        if (cursor <= sepIdx) {
+            target.setSelectionRange(signOffset, sepIdx)
+            cursorZoneRef.current = 'integer'
+        } else {
+            target.setSelectionRange(sepIdx + 1, text.length)
+            cursorZoneRef.current = 'decimal'
+        }
+    }
+
+    const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+        window.requestAnimationFrame(() => selectNumberPart(event.target))
+    }
+
+    const handleClick = (event: React.MouseEvent<HTMLInputElement>) => {
+        const target = event.target as HTMLInputElement
+        window.requestAnimationFrame(() => selectNumberPart(target))
+    }
+
+    // Zone-aware stepper
+    const numberRules = toNumberRules(rules)
+    const doStep = (direction: 1 | -1, zone?: 'integer' | 'decimal') => {
+        const effectiveZone = zone ?? cursorZoneRef.current
+        const step = scale > 0 && effectiveZone === 'decimal' ? Math.pow(10, -scale) : 1
+        const current = typeof value === 'number' && Number.isFinite(value) ? value : 0
+        let next = Number((current + direction * step).toFixed(scale))
+        if (rules?.nonNegative && next < 0) next = 0
+        if (typeof numberRules.min === 'number' && next < numberRules.min) next = numberRules.min
+        if (typeof numberRules.max === 'number' && next > numberRules.max) next = numberRules.max
+        if (!validateNumber(next, numberRules).valid) return
+        onChange(next)
+    }
+
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = event.target.value
+
+        if (raw === '' || raw === '-') {
+            if (raw === '-' && !allowNegative) return
+            onChange(null)
+            return
+        }
+
+        const normalized = raw.replace(/,/g, '.')
+        const pattern = allowNegative
+            ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/)
+            : (scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/)
+
+        if (!pattern.test(normalized)) return
+
+        const isNeg = normalized.startsWith('-')
+        const abs = isNeg ? normalized.slice(1) : normalized
+        const [intPart = '', decPart = ''] = abs.split('.')
+
+        if (intPart.length > maxIntegerDigits) return
+        if (decPart.length > scale) return
+
+        const parsed = parseFloat(normalized)
+        if (Number.isFinite(parsed)) {
+            onChange(parsed)
+        }
+    }
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        const key = event.key
+        const target = event.target as HTMLInputElement
+        const currentValue = target.value
+        const selectionStart = target.selectionStart ?? 0
+        const selectionEnd = target.selectionEnd ?? selectionStart
+        const hasSelection = selectionEnd > selectionStart
+        const separatorIndex = scale > 0 ? currentValue.indexOf(decimalSeparator) : -1
+
+        // Protect decimal separator from deletion
+        if ((key === 'Backspace' || key === 'Delete') && scale > 0 && separatorIndex !== -1) {
+            const crossesSep = selectionStart <= separatorIndex && selectionEnd > separatorIndex
+            const bsOnSep = key === 'Backspace' && selectionStart === separatorIndex + 1 && !hasSelection
+            const delOnSep = key === 'Delete' && selectionStart === separatorIndex && !hasSelection
+            if (crossesSep || bsOnSep || delOnSep) {
+                event.preventDefault()
+                return
+            }
+        }
+
+        // Zone-aware ArrowUp/ArrowDown
+        if (key === 'ArrowUp') {
+            event.preventDefault()
+            const zone: 'integer' | 'decimal' =
+                scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex ? 'decimal' : 'integer'
+            cursorZoneRef.current = zone
+            doStep(1, zone)
+            return
+        }
+        if (key === 'ArrowDown') {
+            event.preventDefault()
+            const zone: 'integer' | 'decimal' =
+                scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex ? 'decimal' : 'integer'
+            cursorZoneRef.current = zone
+            doStep(-1, zone)
+            return
+        }
+
+        // Navigation keys
+        if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return
+
+        // Ctrl/Cmd
+        if (event.ctrlKey || event.metaKey) return
+
+        // Minus
+        if (key === '-') {
+            if (!allowNegative) { event.preventDefault(); return }
+            if (selectionStart !== 0 || currentValue.includes('-')) event.preventDefault()
+            return
+        }
+
+        // Decimal separator
+        if (key === '.' || key === ',') {
+            event.preventDefault()
+            if (scale === 0) return
+            if (separatorIndex !== -1) {
+                const decStart = separatorIndex + 1
+                window.requestAnimationFrame(() => target.setSelectionRange(decStart, currentValue.length))
+                cursorZoneRef.current = 'decimal'
+            }
+            return
+        }
+
+        // Digits
+        if (/^\d$/.test(key)) {
+            // Decimal zone: replace digit in-place
+            if (scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex) {
+                event.preventDefault()
+                const decStart = separatorIndex + 1
+                const localIdx = Math.min(selectionStart, currentValue.length) - decStart
+                const decChars = currentValue.slice(decStart).split('')
+                if (localIdx >= 0 && localIdx < decChars.length) {
+                    decChars[localIdx] = key
+                    const nextText = `${currentValue.slice(0, decStart)}${decChars.join('')}`
+                    const parsed = parseFloat(nextText.replace(/,/g, '.'))
+                    if (Number.isFinite(parsed)) {
+                        onChange(parsed)
+                    }
+                    const nextCaret = Math.min(decStart + localIdx + 1, decStart + scale)
+                    window.requestAnimationFrame(() => target.setSelectionRange(nextCaret, nextCaret))
+                }
+                return
+            }
+
+            // Integer zone: check digit limit
+            const normVal = currentValue.replace(/,/g, '.')
+            const isNeg = normVal.startsWith('-')
+            const absVal = isNeg ? normVal.slice(1) : normVal
+            const decIdx = absVal.indexOf('.')
+
+            if (decIdx === -1) {
+                if (absVal.length >= maxIntegerDigits && selectionStart >= (isNeg ? 1 : 0) && !hasSelection) {
+                    event.preventDefault()
+                }
+            } else {
+                const adjPos = isNeg ? selectionStart - 1 : selectionStart
+                if (adjPos <= decIdx) {
+                    if (absVal.slice(0, decIdx).length >= maxIntegerDigits && !hasSelection) {
+                        event.preventDefault()
+                    }
+                }
+            }
+            return
+        }
+
+        event.preventDefault()
+    }
+
+    const handleBlur = () => {
+        // No special handling needed — value is always formatted from prop
+    }
+
+    return (
+        <TextField
+            inputRef={inputRef}
+            size='small'
+            variant='standard'
+            type='text'
+            inputProps={{
+                inputMode: scale > 0 ? 'decimal' : 'numeric',
+                style: { textAlign: 'right' }
+            }}
+            value={formatValue(value)}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
+            onClick={handleClick}
+            onBlur={handleBlur}
+            disabled={disabled}
+            fullWidth
+            InputProps={{
+                sx: { fontSize: 13 },
+                disableUnderline: true,
+                endAdornment: !disabled ? (
+                    <InputAdornment position='end' sx={{ ml: 0 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <IconButton
+                                size='small'
+                                tabIndex={-1}
+                                onClick={() => doStep(1)}
+                                sx={{ width: 16, height: 12, p: 0 }}
+                            >
+                                <ArrowDropUpIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                            <IconButton
+                                size='small'
+                                tabIndex={-1}
+                                onClick={() => doStep(-1)}
+                                sx={{ width: 16, height: 12, p: 0 }}
+                            >
+                                <ArrowDropDownIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                        </Box>
+                    </InputAdornment>
+                ) : undefined
+            }}
+        />
+    )
+}
+
 export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = ({
     open,
     title,
     fields,
     locale,
+    i18nNamespace,
     initialData,
     isSubmitting = false,
     error = null,
@@ -208,6 +501,9 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
     const tableLocalIdRef = useRef(1)
+    // Track NUMBER input refs and last cursor zone for zone-aware steppers
+    const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
+    const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {
@@ -243,8 +539,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
 
-    const isRuLocale = normalizedLocale === 'ru'
-    const formatMessage = useCallback((en: string, ru: string) => (isRuLocale ? ru : en), [isRuLocale])
+    const { t } = useTranslation(i18nNamespace)
 
     const handleFieldChange = useCallback((id: string, value: unknown) => {
         setFormData((prev) => ({ ...prev, [id]: value }))
@@ -323,10 +618,11 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 if (isLocalizedContent(value) && minLength !== null) {
                     const failedLocale = getVlcMinLengthError(value, minLength)
                     if (failedLocale) {
-                        return formatMessage(
-                            `Language "${failedLocale.toUpperCase()}": minimum length ${minLength}`,
-                            `Язык "${failedLocale.toUpperCase()}": минимальная длина ${minLength}`
-                        )
+                        return t('validation.vlcMinLength', {
+                            defaultValue: 'Language "{{locale}}": minimum length {{min}}',
+                            locale: failedLocale.toUpperCase(),
+                            min: minLength
+                        })
                     }
                 }
 
@@ -335,15 +631,16 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 if (typeof stringValue === 'string') {
                     if (minLength !== null && maxLength !== null) {
                         if (stringValue.length < minLength || stringValue.length > maxLength) {
-                            return formatMessage(
-                                `Length must be between ${minLength} and ${maxLength}`,
-                                `Длина должна быть от ${minLength} до ${maxLength}`
-                            )
+                            return t('validation.lengthBetween', {
+                                defaultValue: 'Length must be between {{min}} and {{max}}',
+                                min: minLength,
+                                max: maxLength
+                            })
                         }
                     } else if (minLength !== null && stringValue.length < minLength) {
-                        return formatMessage(`Minimum length: ${minLength}`, `Минимальная длина: ${minLength}`)
+                        return t('validation.minLength', { defaultValue: 'Minimum length: {{min}}', min: minLength })
                     } else if (maxLength !== null && stringValue.length > maxLength) {
-                        return formatMessage(`Maximum length: ${maxLength}`, `Максимальная длина: ${maxLength}`)
+                        return t('validation.maxLength', { defaultValue: 'Maximum length: {{max}}', max: maxLength })
                     }
                 }
             }
@@ -356,13 +653,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 }
 
                 if (rules.nonNegative === true && value < 0) {
-                    return formatMessage('Must be non-negative', 'Только неотрицательное значение')
+                    return t('validation.nonNegative', 'Must be non-negative')
                 }
                 if (typeof rules.min === 'number' && value < rules.min) {
-                    return formatMessage(`Minimum value: ${rules.min}`, `Минимальное значение: ${rules.min}`)
+                    return t('validation.minValue', { defaultValue: 'Minimum value: {{min}}', min: rules.min })
                 }
                 if (typeof rules.max === 'number' && value > rules.max) {
-                    return formatMessage(`Maximum value: ${rules.max}`, `Максимальное значение: ${rules.max}`)
+                    return t('validation.maxValue', { defaultValue: 'Maximum value: {{max}}', max: rules.max })
                 }
             }
 
@@ -371,22 +668,22 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
                 const composition = rules.dateComposition ?? 'datetime'
                 if (composition === 'time') {
-                    return isValidTimeString(value) ? null : formatMessage('Expected time format: HH:MM', 'Ожидается время в формате ЧЧ:ММ')
+                    return isValidTimeString(value) ? null : t('validation.timeFormat', 'Expected time format: HH:MM')
                 }
                 if (composition === 'date') {
                     return isValidDateString(value)
                         ? null
-                        : formatMessage('Expected date format: YYYY-MM-DD', 'Ожидается дата в формате ГГГГ-ММ-ДД')
+                        : t('validation.dateFormat', 'Expected date format: YYYY-MM-DD')
                 }
 
                 return isValidDateTimeString(value)
                     ? null
-                    : formatMessage('Expected date & time format: YYYY-MM-DD HH:MM', 'Ожидаются дата и время в формате ГГГГ-ММ-ДД ЧЧ:ММ')
+                    : t('validation.datetimeFormat', 'Expected date & time format: YYYY-MM-DD HH:MM')
             }
 
             return null
         },
-        [formatMessage, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
+        [t, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
     )
 
     const hasAnyValue = useMemo(
@@ -395,7 +692,19 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     )
 
     const hasMissingRequired = useMemo(
-        () => fields.some((field) => field.required && !resolveValuePresent(field, formData[field.id])),
+        () =>
+            fields.some((field) => {
+                if (field.type === 'TABLE' && field.required) {
+                    // TABLE required: must have at least max(1, minRows) rows
+                    const rows = formData[field.id]
+                    const rowCount = Array.isArray(rows) ? rows.length : 0
+                    const minRequired = Math.max(1, typeof field.validationRules?.minRows === 'number' ? field.validationRules.minRows : 1)
+                    if (rowCount < minRequired) return true
+                    return false
+                }
+                if (field.required && !resolveValuePresent(field, formData[field.id])) return true
+                return false
+            }),
         [fields, formData, resolveValuePresent]
     )
 
@@ -556,8 +865,11 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 }
 
                 const selectNumberPart = (target: HTMLInputElement) => {
+                    // Guard against stale DOM target after re-render (rAF may fire after unmount)
+                    if (!target || target.value == null) return
                     if (scale <= 0) {
                         target.setSelectionRange(0, target.value.length)
+                        numberCursorZoneRef.current.set(field.id, 'integer')
                         return
                     }
                     const valueText = target.value
@@ -565,13 +877,16 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     const separatorIndex = valueText.indexOf(decimalSeparator)
                     if (separatorIndex === -1) {
                         target.setSelectionRange(signOffset, valueText.length)
+                        numberCursorZoneRef.current.set(field.id, 'integer')
                         return
                     }
                     const cursor = target.selectionStart ?? 0
                     if (cursor <= separatorIndex) {
                         target.setSelectionRange(signOffset, separatorIndex)
+                        numberCursorZoneRef.current.set(field.id, 'integer')
                     } else {
                         target.setSelectionRange(separatorIndex + 1, valueText.length)
+                        numberCursorZoneRef.current.set(field.id, 'decimal')
                     }
                 }
 
@@ -651,6 +966,24 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         }
                     }
 
+                    // ArrowUp/ArrowDown: trigger zone-aware stepper increment/decrement
+                    if (key === 'ArrowUp') {
+                        event.preventDefault()
+                        const zone: 'integer' | 'decimal' =
+                            scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex ? 'decimal' : 'integer'
+                        numberCursorZoneRef.current.set(field.id, zone)
+                        handleStepUp(zone)
+                        return
+                    }
+                    if (key === 'ArrowDown') {
+                        event.preventDefault()
+                        const zone: 'integer' | 'decimal' =
+                            scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex ? 'decimal' : 'integer'
+                        numberCursorZoneRef.current.set(field.id, zone)
+                        handleStepDown(zone)
+                        return
+                    }
+
                     // Allow navigation and control keys
                     if (
                         [
@@ -661,8 +994,6 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             'Enter',
                             'ArrowLeft',
                             'ArrowRight',
-                            'ArrowUp',
-                            'ArrowDown',
                             'Home',
                             'End'
                         ].includes(key)
@@ -768,25 +1099,55 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 // Build helper text showing constraints (like STRING shows "Макс. длина: 10")
                 const constraintParts: string[] = []
 
-                // Show precision format: "Длина: 8,2" means 8 digits before decimal, 2 after
+                // Show precision format: "Length: 8,2" means 8 digits before decimal, 2 after
                 const formatInfo =
                     scale > 0
-                        ? formatMessage(`Length: ${maxIntegerDigits},${scale}`, `Длина: ${maxIntegerDigits},${scale}`)
-                        : formatMessage(`Length: ${maxIntegerDigits}`, `Длина: ${maxIntegerDigits}`)
+                        ? t('validation.numberLengthWithScale', { defaultValue: 'Length: {{integer}},{{scale}}', integer: maxIntegerDigits, scale })
+                        : t('validation.numberLength', { defaultValue: 'Length: {{integer}}', integer: maxIntegerDigits })
                 constraintParts.push(formatInfo)
 
                 if (typeof rules?.min === 'number' && typeof rules?.max === 'number') {
-                    constraintParts.push(formatMessage(`Range: ${rules.min}–${rules.max}`, `Диапазон: ${rules.min}–${rules.max}`))
+                    constraintParts.push(t('validation.range', { defaultValue: 'Range: {{min}}–{{max}}', min: rules.min, max: rules.max }))
                 } else if (typeof rules?.min === 'number') {
-                    constraintParts.push(formatMessage(`Min: ${rules.min}`, `Мин: ${rules.min}`))
+                    constraintParts.push(t('validation.min', { defaultValue: 'Min: {{min}}', min: rules.min }))
                 } else if (typeof rules?.max === 'number') {
-                    constraintParts.push(formatMessage(`Max: ${rules.max}`, `Макс: ${rules.max}`))
+                    constraintParts.push(t('validation.max', { defaultValue: 'Max: {{max}}', max: rules.max }))
                 }
                 if (rules?.nonNegative) {
-                    constraintParts.push(formatMessage('Non-negative only', 'Только неотрицательное значение'))
+                    constraintParts.push(t('validation.nonNegativeOnly', 'Non-negative only'))
                 }
 
                 const numberHelperText = fieldError ?? constraintParts.join(', ')
+
+                // Zone-aware stepper: integer zone → step 1, decimal zone → step 10^(-scale)
+                const stepValue = scale > 0 ? Math.pow(10, -scale) : 1
+                const getStepValue = (zone?: 'integer' | 'decimal') => {
+                    if (scale <= 0) return 1
+                    return zone === 'decimal' ? stepValue : 1
+                }
+                const handleStepUp = (zone?: 'integer' | 'decimal') => {
+                    const effectiveZone = zone ?? numberCursorZoneRef.current.get(field.id) ?? 'integer'
+                    const step = getStepValue(effectiveZone)
+                    const current = typeof value === 'number' && Number.isFinite(value) ? value : 0
+                    let next = Number((current + step).toFixed(scale))
+                    if (typeof rules?.max === 'number' && next > rules.max) next = rules.max
+                    // Validate precision limits before applying
+                    const result = validateNumber(next, { precision, scale, min: rules?.min, max: rules?.max, nonNegative: rules?.nonNegative })
+                    if (!result.valid) return
+                    handleFieldChange(field.id, next)
+                }
+                const handleStepDown = (zone?: 'integer' | 'decimal') => {
+                    const effectiveZone = zone ?? numberCursorZoneRef.current.get(field.id) ?? 'integer'
+                    const step = getStepValue(effectiveZone)
+                    const current = typeof value === 'number' && Number.isFinite(value) ? value : 0
+                    let next = Number((current - step).toFixed(scale))
+                    if (rules?.nonNegative && next < 0) next = 0
+                    if (typeof rules?.min === 'number' && next < rules.min) next = rules.min
+                    // Validate precision limits before applying
+                    const result = validateNumber(next, { precision, scale, min: rules?.min, max: rules?.max, nonNegative: rules?.nonNegative })
+                    if (!result.valid) return
+                    handleFieldChange(field.id, next)
+                }
 
                 return (
                     <TextField
@@ -805,6 +1166,40 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         placeholder={scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'}
                         error={Boolean(fieldError)}
                         helperText={numberHelperText}
+                        inputRef={(el: HTMLInputElement | null) => {
+                            if (el) {
+                                numberInputRefsRef.current.set(field.id, el)
+                            } else {
+                                numberInputRefsRef.current.delete(field.id)
+                            }
+                        }}
+                        inputProps={{ style: { textAlign: 'right' } }}
+                        InputProps={{
+                            endAdornment: !disabled ? (
+                                <InputAdornment position='end'>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5, mr: -0.5 }}>
+                                        <IconButton
+                                            size='small'
+                                            tabIndex={-1}
+                                            onClick={() => handleStepUp()}
+                                            sx={{ width: 20, height: 16, p: 0 }}
+                                            aria-label={t('number.increment', 'Increment')}
+                                        >
+                                            <ArrowDropUpIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                        <IconButton
+                                            size='small'
+                                            tabIndex={-1}
+                                            onClick={() => handleStepDown()}
+                                            sx={{ width: 20, height: 16, p: 0 }}
+                                            aria-label={t('number.decrement', 'Decrement')}
+                                        >
+                                            <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                    </Box>
+                                </InputAdornment>
+                            ) : undefined
+                        }}
                     />
                 )
             }
@@ -902,6 +1297,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
             case 'TABLE': {
                 const childFieldDefs = field.childFields ?? []
                 const tableRows = (Array.isArray(value) ? value : []) as Record<string, unknown>[]
+                const tableMinRows = typeof field.validationRules?.minRows === 'number' ? field.validationRules.minRows : null
+                const tableMaxRows = typeof field.validationRules?.maxRows === 'number' ? field.validationRules.maxRows : null
+
+                const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
+                    required: field.required, minRows: tableMinRows, maxRows: tableMaxRows, t
+                })
+                const isMissing = checkMissing(tableRows.length)
 
                 const handleAddTableRow = () => {
                     const localId = tableLocalIdRef.current++
@@ -920,6 +1322,15 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 }
 
                 const handleTableCellChange = (rowId: string, childId: string, cellValue: unknown) => {
+                    // Validate NUMBER child fields against their validationRules
+                    const childField = childFieldDefs.find((c) => c.id === childId)
+                    if (childField?.type === 'NUMBER' && cellValue != null && cellValue !== '') {
+                        const numVal = Number(cellValue)
+                        if (!Number.isNaN(numVal) && childField.validationRules) {
+                            const result = validateNumber(numVal, toNumberRules(childField.validationRules))
+                            if (!result.valid) return
+                        }
+                    }
                     handleFieldChange(
                         field.id,
                         tableRows.map((row, idx) => {
@@ -942,7 +1353,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                     onClick={handleAddTableRow}
                                     sx={{ height: 28, fontSize: 12, textTransform: 'none' }}
                                 >
-                                    {formatMessage('Add Row', 'Добавить строку')}
+                                    {t('tableField.addRow', 'Add Row')}
                                 </Button>
                             )}
                         </Box>
@@ -977,26 +1388,28 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                                 <TableRow key={rowId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                                     {childFieldDefs.map((child) => (
                                                         <TableCell key={child.id} sx={{ p: '4px 8px' }}>
-                                                            <TextField
-                                                                size='small'
-                                                                variant='standard'
-                                                                type={child.type === 'NUMBER' ? 'number' : 'text'}
-                                                                value={row[child.id] ?? ''}
-                                                                onChange={(e) =>
-                                                                    handleTableCellChange(
-                                                                        rowId,
-                                                                        child.id,
-                                                                        child.type === 'NUMBER'
-                                                                            ? e.target.value === ''
-                                                                                ? null
-                                                                                : Number(e.target.value)
-                                                                            : e.target.value
-                                                                    )
-                                                                }
-                                                                disabled={disabled}
-                                                                fullWidth
-                                                                InputProps={{ sx: { fontSize: 13 }, disableUnderline: true }}
-                                                            />
+                                                            {child.type === 'NUMBER' ? (
+                                                                <NumberTableCell
+                                                                    value={row[child.id]}
+                                                                    onChange={(cellValue) => handleTableCellChange(rowId, child.id, cellValue)}
+                                                                    rules={child.validationRules}
+                                                                    locale={normalizedLocale}
+                                                                    disabled={disabled}
+                                                                />
+                                                            ) : (
+                                                                <TextField
+                                                                    size='small'
+                                                                    variant='standard'
+                                                                    type='text'
+                                                                    value={row[child.id] ?? ''}
+                                                                    onChange={(e) =>
+                                                                        handleTableCellChange(rowId, child.id, e.target.value)
+                                                                    }
+                                                                    disabled={disabled}
+                                                                    fullWidth
+                                                                    InputProps={{ sx: { fontSize: 13 }, disableUnderline: true }}
+                                                                />
+                                                            )}
                                                         </TableCell>
                                                     ))}
                                                     {!disabled && (
@@ -1020,10 +1433,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                                 sx={{ textAlign: 'center', py: 2, color: 'text.secondary', border: 0 }}
                                             >
                                                 <Typography variant='body2' color='text.secondary'>
-                                                    {formatMessage(
-                                                        'No rows yet. Click "Add Row" to start.',
-                                                        'Строк пока нет. Нажмите «Добавить строку», чтобы начать.'
-                                                    )}
+                                                    {t('tableField.noRowsYet', 'No rows yet. Click "Add Row" to start.')}
                                                 </Typography>
                                             </TableCell>
                                         </TableRow>
@@ -1031,6 +1441,15 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                 </TableBody>
                             </Table>
                         </TableContainer>
+                        {tableHelperText && (
+                            <Typography
+                                variant='caption'
+                                color={isMissing ? 'error' : 'text.secondary'}
+                                sx={{ mt: 0.5, ml: 1.75 }}
+                            >
+                                {tableHelperText}
+                            </Typography>
+                        )}
                     </Box>
                 )
             }

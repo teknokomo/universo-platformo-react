@@ -167,7 +167,7 @@ const mhbAttributes: SystemTableDef = {
 }
 
 const mhbEnumerationValues: SystemTableDef = {
-    name: '_mhb_enum_values',
+    name: '_mhb_values',
     description: 'Enumeration values for objects with kind=enumeration',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
@@ -179,21 +179,21 @@ const mhbEnumerationValues: SystemTableDef = {
     ],
     foreignKeys: [{ column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' }],
     indexes: [
-        { name: 'idx_mhb_enum_values_object_id', columns: ['object_id'] },
-        { name: 'idx_mhb_enum_values_object_sort', columns: ['object_id', 'sort_order'] },
+        { name: 'idx_mhb_values_object_id', columns: ['object_id'] },
+        { name: 'idx_mhb_values_object_sort', columns: ['object_id', 'sort_order'] },
         {
-            name: 'idx_mhb_enum_values_object_codename_active',
+            name: 'idx_mhb_values_object_codename_active',
             columns: ['object_id', 'codename'],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
         },
         {
-            name: 'idx_mhb_enum_values_default_active',
+            name: 'idx_mhb_values_default_active',
             columns: ['object_id', 'is_default'],
             where: 'is_default = true AND _upl_deleted = false AND _mhb_deleted = false'
         },
         {
-            name: 'uidx_mhb_enum_values_default_active',
+            name: 'uidx_mhb_values_default_active',
             columns: ['object_id'],
             unique: true,
             where: 'is_default = true AND _upl_deleted = false AND _mhb_deleted = false'

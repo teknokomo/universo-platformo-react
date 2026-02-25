@@ -358,8 +358,19 @@ export class MetahubElementsService {
                             if (typeError) {
                                 errors.push(`Field "${key}" row ${i}, child "${child.codename}": ${typeError}`)
                             }
+                            // Validate child field rules (nonNegative, min, max, precision, scale, minLength, maxLength, pattern)
+                            const ruleErrors = this.validateRules(childValue, child.validationRules || {}, `${key}[${i}].${child.codename}`)
+                            errors.push(...ruleErrors)
                         }
                     }
+                }
+                // Validate minRows / maxRows constraints
+                const tableRules = attr.validationRules || {}
+                if (typeof tableRules.minRows === 'number' && value.length < tableRules.minRows) {
+                    errors.push(`Field "${key}": minimum ${tableRules.minRows} row(s) required, got ${value.length}`)
+                }
+                if (typeof tableRules.maxRows === 'number' && value.length > tableRules.maxRows) {
+                    errors.push(`Field "${key}": maximum ${tableRules.maxRows} row(s) allowed, got ${value.length}`)
                 }
                 continue
             }
@@ -379,6 +390,11 @@ export class MetahubElementsService {
 
     private hasRequiredValue(attr: any, value: unknown): boolean {
         if (value === undefined || value === null) return false
+        if (attr.dataType === AttributeDataType.TABLE) {
+            if (!Array.isArray(value)) return false
+            const minRows = typeof attr.validationRules?.minRows === 'number' ? attr.validationRules.minRows : 1
+            return value.length >= Math.max(1, minRows)
+        }
         if (attr.dataType === AttributeDataType.STRING) {
             if (this.hasAnyLocalizedContent(value)) return true
             const text = this.extractLocalizedString(value)

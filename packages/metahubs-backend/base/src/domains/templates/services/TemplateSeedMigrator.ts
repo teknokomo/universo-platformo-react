@@ -612,7 +612,7 @@ export class TemplateSeedMigrator {
 
                 const exists = await trx
                     .withSchema(this.schemaName)
-                    .from('_mhb_enum_values')
+                    .from('_mhb_values')
                     .where({
                         object_id: objectId,
                         codename: value.codename,
@@ -630,7 +630,7 @@ export class TemplateSeedMigrator {
                     if (value.isDefault) {
                         await trx
                             .withSchema(this.schemaName)
-                            .from('_mhb_enum_values')
+                            .from('_mhb_values')
                             .where({
                                 object_id: objectId,
                                 _upl_deleted: false,
@@ -645,7 +645,7 @@ export class TemplateSeedMigrator {
 
                     await trx
                         .withSchema(this.schemaName)
-                        .into('_mhb_enum_values')
+                        .into('_mhb_values')
                         .insert({
                             object_id: objectId,
                             codename: value.codename,

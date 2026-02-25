@@ -51,6 +51,25 @@ export const NUMBER_DEFAULTS = {
 } as const
 
 /**
+ * Extract NUMBER-relevant validation rules from a generic rules object.
+ * Useful for converting FieldValidationRules / DynamicFieldValidationRules
+ * to the NumberValidationRules shape expected by validateNumber().
+ *
+ * Accepts any object type (typed interfaces without index signatures are OK).
+ */
+export function toNumberRules<T extends object>(rules: T | undefined | null): NumberValidationRules {
+    if (!rules) return {}
+    const r = rules as Record<string, unknown>
+    return {
+        precision: typeof r.precision === 'number' ? r.precision : undefined,
+        scale: typeof r.scale === 'number' ? r.scale : undefined,
+        min: typeof r.min === 'number' ? r.min : undefined,
+        max: typeof r.max === 'number' ? r.max : undefined,
+        nonNegative: r.nonNegative === true
+    }
+}
+
+/**
  * Calculate max allowed value for given precision/scale.
  *
  * @example

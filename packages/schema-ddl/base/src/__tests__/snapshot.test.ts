@@ -192,9 +192,9 @@ describe('DDL Snapshot Utilities', () => {
 
                 expect(field).toBeDefined()
                 expect(field.dataType).toBe('TABLE')
-                // columnName for TABLE is the tabular table name: {parentTableName}_tp_{cleanAttrId}
-                expect(field.columnName).toContain('_tp_')
-                expect(field.columnName).toBe('cat_entityt00000000000000000001_tp_tableattr111')
+                // columnName for TABLE is the child table name: tbl_{cleanAttrId}
+                expect(field.columnName).toContain('tbl_')
+                expect(field.columnName).toBe('tbl_tableattr11112222333344445555')
             })
 
             it('should nest child fields inside TABLE field as childFields', () => {

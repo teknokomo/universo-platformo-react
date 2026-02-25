@@ -7,6 +7,6 @@ describe('structureVersions registry', () => {
 
     it('exposes enumeration values table in current structure version', () => {
         const current = getStructureVersion(CURRENT_STRUCTURE_VERSION)
-        expect(current.tables).toContain('_mhb_enum_values')
+        expect(current.tables).toContain('_mhb_values')
     })
 })

@@ -279,6 +279,7 @@ describe('DDL Diff Utilities', () => {
             expect(diff.hasChanges).toBe(true)
             expect(diff.additive).toHaveLength(1)
             expect(diff.additive[0].type).toBe(ChangeType.ADD_TABULAR_TABLE)
+            expect(diff.additive[0].tableName).toBe('tbl_tableattr11112222333344445555')
             expect(diff.additive[0].fieldCodename).toBe('order_items')
             expect(diff.additive[0].isDestructive).toBe(false)
         })
@@ -288,7 +289,7 @@ describe('DDL Diff Utilities', () => {
             snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
                 'table-attr-1111-2222-333344445555': {
                     codename: 'order_items',
-                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111222233334444555',
+                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
                     dataType: 'TABLE',
                     isRequired: false,
                     childFields: {}
@@ -489,6 +490,8 @@ describe('DDL Diff Utilities', () => {
             expect(diff.hasChanges).toBe(true)
             const alterOp = diff.destructive.find((op) => op.type === 'ALTER_TABULAR_COLUMN')
             expect(alterOp).toBeDefined()
+            // Must use the stored table name from the old snapshot, not a recalculated one
+            expect(alterOp?.tableName).toBe('cat_entity11112222333344445555_tp_tableattr111122223333')
             expect(alterOp?.oldValue).toBe('integer')
             expect(alterOp?.newValue).toBe('decimal')
         })

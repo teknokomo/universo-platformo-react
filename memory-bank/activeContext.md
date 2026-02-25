@@ -1,31 +1,111 @@
 # Active Context
 
-> **Last Updated**: 2026-02-24
+> **Last Updated**: 2026-02-26
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: Round 5 UX Fixes Complete
+## Current Focus: NUMBER field parity — catalog inline table NumberTableCell — Complete
 
-**Status**: Completed in IMPLEMENT mode.
-**Date**: 2026-02-24
+**Status**: ✅ Fully implemented — 2026-02-26
+**Date**: 2026-02-26
+
+### Summary
+Replicated correct standalone NUMBER field behavior into catalog inline table (DynamicEntityFormDialog TABLE case). FormDialog and apps inline table (NumberEditCell) were already correct from previous session.
 
 ### What Was Done
-1. **Main DataGrid edge separators removed**: `CustomizedDataGrid` now computes the first real data column and renders separator pseudo-lines only for columns after it, preventing left-edge artifacts while preserving internal vertical separators.
-2. **Child TABLE cache freshness after Save**:
-   - `useCrudDashboard` now invalidates all `tabularRows` queries for the updated parent row right after successful parent `updateRow`.
-   - `RuntimeInlineTabularEditor` tabular query now uses `staleTime: 0` + `refetchOnMount: 'always'`, ensuring fresh rows on dialog reopen even when global query defaults are more permissive.
-3. **Child TABLE separator selector refinement**: both `TabularPartEditor` and `RuntimeInlineTabularEditor` now exclude `__rowNumber` from separator pseudo-lines to avoid extra edge/filler visual artifacts.
+1. **Analysis**: Compared reference implementation (DynamicEntityFormDialog standalone NUMBER) with all 3 other contexts. Found FormDialog standalone and NumberEditCell (apps inline table) already match. Only gap was catalog inline table using basic TextField.
+2. **NumberTableCell component**: Created ~200-line component in DynamicEntityFormDialog.tsx with full NUMBER field behavior: locale-aware formatted display (`0,000` template), zone-based selection, zone-aware stepping, stepper buttons (▲▼), full keyDown handling, digit replacement in decimal zone.
+3. **Integration**: Replaced simple TextField in TABLE case with conditional rendering — `NumberTableCell` for NUMBER children, TextField for others.
+
+### Files Modified
+- **`universo-template-mui`**: DynamicEntityFormDialog.tsx (NumberTableCell component + TABLE cell rendering)
 
 ### Verification
-- `pnpm --filter apps-template-mui lint` ✅ (0 errors)
-- `pnpm --filter apps-template-mui build` ✅
-- `pnpm build` ✅ (66/66)
+- Full build: 66/66 SUCCESS
+
+### What's Next
+- Runtime QA verification across all 4 NUMBER field contexts
+- Test that comma separator shows consistently in catalog table, app standalone, and app table
 
 ---
 
-## Current Focus: Round 4 UX Fixes Complete
+## Previous Focus: Zone-aware NUMBER stepper + inline table parity — Complete
+
+**Status**: ✅ Fully implemented — 2026-02-26
+**Date**: 2026-02-26
+
+### Summary
+Implemented zone-aware ArrowUp/ArrowDown stepping across all three form contexts (DynamicEntityFormDialog, FormDialog, inline table). Completely rewrote NumberEditCell for full parity with standalone NUMBER field. 5 files across 3 packages.
+
+### What Was Done
+1. **Zone-aware stepping**: Cursor position relative to decimal separator determines step size — integer zone = step by 1, decimal zone = step by 10^(-scale). Implemented in DynamicEntityFormDialog, FormDialog, and NumberEditCell.
+2. **NumberEditCell full rewrite**: ~250 lines with InputBase + InputAdornment. Includes stepper buttons (▲▼), locale-aware formatting (comma for 'ru'), zone-based selection on focus/click, full keyDown handling.
+3. **Locale wiring**: Added `locale` prop to `BuildTabularColumnsOptions`, passed `resolvedLocale` from TabularPartEditor and RuntimeInlineTabularEditor. Custom `renderCell` for formatted display.
+4. **Button onClick fix**: Wrapped stepper `onClick` in `() => handler()` to prevent MouseEvent being passed as zone arg.
+
+---
+
+## Previous Focus: Fix inline table nonNegative + number alignment — Complete
+
+**Status**: ✅ Fully implemented — 2026-02-262. **Issue 2 — Constraint text format**: Rewrote `buildTableConstraintText()` with unified format "Required: min. rows: X, max. rows: Y". Replaced i18n keys `tableRequiredMin`/`tableRequired` with `tableRequiredPrefix` + lowercase `tableMinRows`/`tableMaxRows` in all 4 JSON files.
+3. **Issue 3 — Constraint spacing**: Removed `mb: 2` from outer Box in TabularPartEditor and RuntimeInlineTabularEditor. Stack spacing=2 handles inter-field gaps.
+4. **Issue 4 — 3-dot menu for InlineTableEditor**: Replaced per-row DeleteIcon with MoreVertRoundedIcon button that opens a Menu with Edit + Delete items. Delete shows ConfirmDeleteDialog. Added MoreVertRoundedIcon to header column. Added 6 i18n keys to metahubs.json (en+ru).
+
+### Files Modified
+- **`universo-utils`**: tableConstraints.ts (rewritten format logic)
+- **`universo-template-mui`**: DynamicEntityFormDialog.tsx (NUMBER validation in TABLE cells)
+- **`apps-template-mui`**: TabularPartEditor.tsx (processRowUpdate validation, ConfirmDeleteDialog, mb removal), RuntimeInlineTabularEditor.tsx (processRowUpdate validation, mb removal), apps.json en+ru (key replacements)
+- **`metahubs-frontend`**: InlineTableEditor.tsx (3-dot menu + ConfirmDeleteDialog), metahubs.json en+ru (key replacements + 6 new keys)
+
+### Verification
+- Full build: 66/66 SUCCESS
+
+### What's Next
+- Recreate test database with new metahub and application
+- Runtime QA verification
+
+---
+
+## Previous Focus: QA Round-5 — Runtime Bug Fixes (TypeError, deleteDisabled, i18n) — Complete
+
+**Status**: ✅ Fully implemented — 2026-02-25
+**Date**: 2026-02-25
+
+### Summary
+Fixed 3 runtime bugs found during QA verification + dead code cleanup. 11 files across 5 packages modified.
+
+### What Was Done
+1. **Bug 1 — TypeError `selectNumberPart`**: Added guard `if (!target || target.value == null) return` in both DynamicEntityFormDialog and FormDialog. Prevents crash when `requestAnimationFrame` callback fires after React re-render unmounts the input element.
+2. **Bug 2 — Delete button blocked by `minRows`**: Removed `deleteDisabled` logic from 3 files (InlineTableEditor, RuntimeInlineTabularEditor, TabularPartEditor). Row deletion is always allowed; validation happens at Submit/Save level via `isMissing`/`tableMissing`.
+3. **Bug 3 — Non-internationalized texts**: Added `i18nNamespace` prop to DynamicEntityFormDialog for flexible namespace support. Standardized i18n key names between DynamicEntityFormDialog and FormDialog. Added 26 translation keys to metahubs.json (en+ru) for the `metahubs` namespace. Added 6 missing keys to apps.json (en+ru) for table constraints and ARIA labels. ElementList passes `i18nNamespace='metahubs'`.
+4. **Dead code cleanup**: Removed `tableCannotBeRequired` error mapping from ChildAttributeList.tsx and both metahubs.json files (backend no longer blocks TABLE isRequired).
+
+### Files Modified
+- **`universo-template-mui`**: DynamicEntityFormDialog.tsx (selectNumberPart guard, i18nNamespace prop, standardized keys)
+- **`apps-template-mui`**: FormDialog.tsx (selectNumberPart guard), RuntimeInlineTabularEditor.tsx (deleteDisabled removal), TabularPartEditor.tsx (deleteDisabled removal), apps.json en+ru (added 6 keys)
+- **`metahubs-frontend`**: InlineTableEditor.tsx (deleteDisabled removal), ElementList.tsx (i18nNamespace='metahubs'), ChildAttributeList.tsx (dead code), metahubs.json en+ru (added 26 keys, removed 1 dead key)
+
+### Verification
+- Full build: 66/66 SUCCESS
+
+### What's Next
+- Recreate test database
+- Runtime QA verification — ensure Russian translations appear, delete buttons work, no TypeError
+
+---
+
+## Previous Focus: QA Round-4 — Comprehensive QA Fixes — Complete
+
+**Status**: ✅ Fully implemented — 2026-02-25
+**Date**: 2026-02-25
+4. **NUMBER backend validation**: Added nonNegative/min/max checks to `coerceRuntimeValue` with descriptive error messages
+5. **NUMBER frontend validation**: Added `validateNumberField`, `cellErrors` state, `preProcessEditCellProps` for NUMBER columns in DataGrid
+
+---
+
+## Previous Focus: Architectural Improvements — Independent Child Tables + Enum Values Rename
 
 **Status**: Completed in IMPLEMENT mode.
 **Date**: 2026-02-24

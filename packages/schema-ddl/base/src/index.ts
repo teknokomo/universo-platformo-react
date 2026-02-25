@@ -24,7 +24,7 @@ export {
     generateSchemaName,
     generateTableName,
     generateColumnName,
-    generateTabularTableName,
+    generateChildTableName,
     buildFkConstraintName,
     isValidSchemaName,
     generateMetahubSchemaName

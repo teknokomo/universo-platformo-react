@@ -748,7 +748,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_enum_values')) {
+                if (sql.includes('FROM "app_runtime_test"._app_values')) {
                     return []
                 }
                 return []
@@ -800,7 +800,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_enum_values')) {
+                if (sql.includes('FROM "app_runtime_test"._app_values')) {
                     return [{ id: defaultEnumValueId }]
                 }
                 if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {

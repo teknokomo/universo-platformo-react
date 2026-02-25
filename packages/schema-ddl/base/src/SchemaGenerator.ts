@@ -2,7 +2,7 @@ import type { Knex } from 'knex'
 import { AttributeDataType, MetaEntityKind, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildSchemaSnapshot } from './snapshot'
-import { buildFkConstraintName, generateColumnName, generateTableName, generateTabularTableName, isValidSchemaName } from './naming'
+import { buildFkConstraintName, generateColumnName, generateTableName, generateChildTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
@@ -110,11 +110,11 @@ export class SchemaGenerator {
                         const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
                         const parentTableName = generateTableName(entity.id, entity.kind)
                         await this.createTabularTable(schemaName, parentTableName, tableField, childFields, trx)
-                        result.tablesCreated.push(`${entity.codename}__tp__${tableField.codename}`)
+                        result.tablesCreated.push(`${entity.codename}__tbl__${tableField.codename}`)
                     }
                 }
 
-                // Ensure system tables before adding REF FKs that may target _app_enum_values.
+                // Ensure system tables before adding REF FKs that may target _app_values.
                 await this.ensureSystemTables(schemaName, trx)
 
                 for (const entity of entities) {
@@ -140,7 +140,7 @@ export class SchemaGenerator {
                         }
 
                         const parentTableName = generateTableName(entity.id, entity.kind)
-                        const tabularTableName = generateTabularTableName(parentTableName, tableParentField.id)
+                        const tabularTableName = generateChildTableName(tableParentField.id)
                         await this.addForeignKeyToTable(schemaName, tabularTableName, childRefField, entities, trx)
                     }
                 }
@@ -299,7 +299,7 @@ export class SchemaGenerator {
         childFields: FieldDefinition[],
         trx?: Knex.Transaction
     ): Promise<void> {
-        const tabularTableName = generateTabularTableName(parentTableName, tableField.id)
+        const tabularTableName = generateChildTableName(tableField.id)
         console.log(`[SchemaGenerator] Creating tabular table: ${schemaName}.${tabularTableName}`)
 
         const knex = trx ?? this.knex
@@ -429,13 +429,13 @@ export class SchemaGenerator {
 
         if (field.targetEntityKind === ENUMERATION_KIND) {
             await this.ensureSystemTables(schemaName, trx)
-            console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> _app_enum_values.id`)
+            console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> _app_values.id`)
             await knex.raw(
                 `
                 ALTER TABLE ??.??
                 ADD CONSTRAINT ??
                 FOREIGN KEY (??)
-                REFERENCES ??._app_enum_values(id)
+                REFERENCES ??._app_values(id)
                 ON DELETE SET NULL
             `,
                 [schemaName, sourceTableName, constraintName, columnName, schemaName]
@@ -824,11 +824,11 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_widgets created`)
         }
 
-        const hasEnumValues = await knex.schema.withSchema(schemaName).hasTable('_app_enum_values')
-        console.log(`[SchemaGenerator] _app_enum_values exists: ${hasEnumValues}`)
+        const hasEnumValues = await knex.schema.withSchema(schemaName).hasTable('_app_values')
+        console.log(`[SchemaGenerator] _app_values exists: ${hasEnumValues}`)
         if (!hasEnumValues) {
-            console.log(`[SchemaGenerator] Creating _app_enum_values...`)
-            await knex.schema.withSchema(schemaName).createTable('_app_enum_values', (table) => {
+            console.log(`[SchemaGenerator] Creating _app_values...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_values', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
                 table.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
                 table.string('codename', 100).notNullable()
@@ -863,26 +863,26 @@ export class SchemaGenerator {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
                 table.uuid('_app_deleted_by').nullable()
 
-                table.index(['object_id'], 'idx_app_enum_values_object_id')
-                table.index(['object_id', 'sort_order'], 'idx_app_enum_values_object_sort')
+                table.index(['object_id'], 'idx_app_values_object_id')
+                table.index(['object_id', 'sort_order'], 'idx_app_values_object_sort')
             })
-            console.log(`[SchemaGenerator] _app_enum_values created`)
+            console.log(`[SchemaGenerator] _app_values created`)
         }
 
         await this.normalizeAppEnumValueDefaults(schemaName, knex)
         await knex.raw(`
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_enum_values_object_codename_active
-            ON "${schemaName}"._app_enum_values (object_id, codename)
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_values_object_codename_active
+            ON "${schemaName}"._app_values (object_id, codename)
             WHERE _upl_deleted = false AND _app_deleted = false
         `)
         await knex.raw(`
-            CREATE INDEX IF NOT EXISTS idx_app_enum_values_default_active
-            ON "${schemaName}"._app_enum_values (object_id, is_default)
+            CREATE INDEX IF NOT EXISTS idx_app_values_default_active
+            ON "${schemaName}"._app_values (object_id, is_default)
             WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
         `)
         await knex.raw(`
-            CREATE UNIQUE INDEX IF NOT EXISTS uidx_app_enum_values_default_active
-            ON "${schemaName}"._app_enum_values (object_id)
+            CREATE UNIQUE INDEX IF NOT EXISTS uidx_app_values_default_active
+            ON "${schemaName}"._app_values (object_id)
             WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
         `)
 
@@ -950,12 +950,12 @@ export class SchemaGenerator {
                             PARTITION BY object_id
                             ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
                         ) AS row_number
-                    FROM "${schemaName}"._app_enum_values
+                    FROM "${schemaName}"._app_values
                     WHERE is_default = true
                       AND _upl_deleted = false
                       AND _app_deleted = false
                 )
-                UPDATE "${schemaName}"._app_enum_values AS ev
+                UPDATE "${schemaName}"._app_values AS ev
                 SET is_default = false,
                     _upl_updated_at = NOW()
                 FROM ranked
@@ -1026,7 +1026,7 @@ export class SchemaGenerator {
                 // For child fields, column_name is the physical column in the tabular table
                 const columnName =
                     field.dataType === AttributeDataType.TABLE && !field.parentAttributeId
-                        ? generateTabularTableName(entityTableName, field.id)
+                        ? generateChildTableName(field.id)
                         : generateColumnName(field.id)
 
                 return {

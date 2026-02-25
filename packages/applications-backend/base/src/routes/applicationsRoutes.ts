@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateTabularTableName } from '@universo/schema-ddl'
+import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
 import { ApplicationSchemaStatus } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
@@ -588,7 +588,7 @@ export function createApplicationsRoutes(
                 const enumRows = (await manager.query(
                     `
                         SELECT id, object_id, codename, presentation, sort_order, is_default
-                        FROM ${schemaIdent}._app_enum_values
+                        FROM ${schemaIdent}._app_values
                         WHERE object_id = ANY($1::uuid[])
                           AND COALESCE(_upl_deleted, false) = false
                           AND COALESCE(_app_deleted, false) = false
@@ -731,7 +731,7 @@ export function createApplicationsRoutes(
 
             // Add correlated subqueries for TABLE attributes to include child row counts
             for (const tAttr of tableAttrs) {
-                const fallbackTabTableName = generateTabularTableName(activeCatalog.table_name, tAttr.id)
+                const fallbackTabTableName = generateChildTableName(tAttr.id)
                 const tabTableName =
                     typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
                         ? tAttr.column_name
@@ -1093,9 +1093,21 @@ export function createApplicationsRoutes(
             case 'BOOLEAN':
                 if (typeof value !== 'boolean') throw new Error('Expected boolean value')
                 return value
-            case 'NUMBER':
+            case 'NUMBER': {
                 if (typeof value !== 'number') throw new Error('Expected number value')
+                if (validationRules) {
+                    if (validationRules.nonNegative === true && value < 0) {
+                        throw new Error('Value must be non-negative')
+                    }
+                    if (typeof validationRules.min === 'number' && value < validationRules.min) {
+                        throw new Error(`Value must be >= ${validationRules.min}`)
+                    }
+                    if (typeof validationRules.max === 'number' && value > validationRules.max) {
+                        throw new Error(`Value must be <= ${validationRules.max}`)
+                    }
+                }
                 return value
+            }
             case 'STRING': {
                 const isVLC = Boolean(validationRules?.versioned) || Boolean(validationRules?.localized)
                 if (isVLC) {
@@ -1283,7 +1295,7 @@ export function createApplicationsRoutes(
         const rows = (await manager.query(
             `
                 SELECT id
-                FROM ${schemaIdent}._app_enum_values
+                FROM ${schemaIdent}._app_values
                 WHERE id = $1
                   AND object_id = $2
                   AND COALESCE(_upl_deleted, false) = false
@@ -1498,7 +1510,7 @@ export function createApplicationsRoutes(
                     return res.status(400).json({ error: rowCountError })
                 }
 
-                const fallbackTabTableName = generateTabularTableName(catalog.table_name, tAttr.id)
+                const fallbackTabTableName = generateChildTableName(tAttr.id)
                 const tabTableName =
                     typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
                         ? tAttr.column_name
@@ -1888,7 +1900,7 @@ export function createApplicationsRoutes(
                 }
 
                 if (childRows.length > 0) {
-                    const fallbackTabTableName = generateTabularTableName(catalog.table_name, tAttr.id)
+                    const fallbackTabTableName = generateChildTableName(tAttr.id)
                     const tabTableName =
                         typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
                             ? tAttr.column_name
@@ -2157,7 +2169,7 @@ export function createApplicationsRoutes(
 
                 // Soft-delete child rows in TABLE child tables
                 for (const tAttr of tableAttrsForDelete) {
-                    const fallbackTabTableName = generateTabularTableName(catalog.table_name, tAttr.id)
+                    const fallbackTabTableName = generateChildTableName(tAttr.id)
                     const tabTableName =
                         typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
                             ? tAttr.column_name
@@ -2247,7 +2259,7 @@ export function createApplicationsRoutes(
         if (tableAttrs.length === 0) return { error: 'TABLE attribute not found' } as const
 
         const tableAttr = tableAttrs[0]
-        const fallbackTabTableName = generateTabularTableName(catalog.table_name, tableAttr.id)
+        const fallbackTabTableName = generateChildTableName(tableAttr.id)
         const tabTableName =
             typeof tableAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tableAttr.column_name)
                 ? tableAttr.column_name

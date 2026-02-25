@@ -10,7 +10,9 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { DataGrid, type GridRowsProp, useGridApiRef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
+import { validateNumber, toNumberRules } from '@universo/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
+import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 import { buildTabularColumns } from '../utils/tabularColumns'
 
@@ -27,6 +29,10 @@ export interface TabularPartEditorProps {
     showTitle?: boolean
     /** BCP-47 locale string for DataGrid i18n (e.g. "en", "ru"). */
     locale?: string
+    /** Minimum number of rows (disables delete when at limit). */
+    minRows?: number | null
+    /** Maximum number of rows (disables add when at limit). */
+    maxRows?: number | null
 }
 
 /** Retrieve a stable identifier for a row. */
@@ -40,13 +46,23 @@ function getRowId(row: Record<string, unknown>, index: number): string {
  * Manages local state (no API calls). Rows produced here are submitted
  * as part of the parent record's create payload.
  */
-export function TabularPartEditor({ label, value, onChange, childFields, showTitle = true, locale }: TabularPartEditorProps) {
+export function TabularPartEditor({
+    label,
+    value,
+    onChange,
+    childFields,
+    showTitle = true,
+    locale,
+    minRows,
+    maxRows
+}: TabularPartEditorProps) {
     const { t, i18n } = useTranslation('apps')
     const nextLocalIdRef = useRef(1)
     const pendingCellEditRef = useRef<{ rowId: string; fieldId: string } | null>(null)
     const apiRef = useGridApiRef()
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
     const [menuRowId, setMenuRowId] = useState<string | null>(null)
+    const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
     const resolvedLocale = locale ?? i18n.language ?? 'en'
     const dataGridLocale = useMemo(() => getDataGridLocaleText(resolvedLocale), [resolvedLocale])
     const firstEditableFieldId = useMemo(
@@ -78,7 +94,10 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
         [value]
     )
 
+    const addDisabled = typeof maxRows === 'number' && value.length >= maxRows
+
     const handleAddRow = useCallback(() => {
+        if (typeof maxRows === 'number' && value.length >= maxRows) return
         const localId = nextLocalIdRef.current++
         const newRow: Record<string, unknown> = {
             _localId: `__local_new_${localId}`,
@@ -94,7 +113,7 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
         }
 
         onChange([...value, newRow])
-    }, [value, onChange, childFields])
+    }, [value, onChange, childFields, maxRows])
 
     useEffect(() => {
         const pending = pendingCellEditRef.current
@@ -133,10 +152,21 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
 
     const handleDeleteRowFromMenu = useCallback(() => {
         if (menuRowId) {
-            handleDeleteRow(menuRowId)
+            setDeleteRowId(menuRowId)
         }
         handleCloseRowMenu()
-    }, [menuRowId, handleDeleteRow, handleCloseRowMenu])
+    }, [menuRowId, handleCloseRowMenu])
+
+    const handleConfirmDelete = useCallback(() => {
+        if (deleteRowId) {
+            handleDeleteRow(deleteRowId)
+        }
+        setDeleteRowId(null)
+    }, [deleteRowId, handleDeleteRow])
+
+    const handleCancelDelete = useCallback(() => {
+        setDeleteRowId(null)
+    }, [])
 
     const handleSelectChange = useCallback(
         (rowId: string, fieldId: string, newValue: unknown) => {
@@ -166,20 +196,21 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
                 onOpenRowMenu: handleOpenRowMenu,
                 onSelectChange: handleSelectChange,
                 deleteAriaLabel: t('tabular.delete', 'Delete'),
-                actionsAriaLabel: t('app.actions', 'Actions')
+                actionsAriaLabel: t('app.actions', 'Actions'),
+                locale: resolvedLocale
             }),
-        [childFields, rowNumberById, handleDeleteRow, handleOpenRowMenu, handleSelectChange, t]
+        [childFields, rowNumberById, handleDeleteRow, handleOpenRowMenu, handleSelectChange, t, resolvedLocale]
     )
 
     return (
-        <Box sx={{ mt: 1, mb: 2 }}>
+        <Box sx={{ mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: showTitle ? 'space-between' : 'flex-end', mb: 1 }}>
                 {showTitle && (
                     <Typography variant='subtitle2' color='text.secondary'>
                         {label}
                     </Typography>
                 )}
-                <Button size='small' startIcon={<AddIcon />} onClick={handleAddRow}>
+                <Button size='small' startIcon={<AddIcon />} onClick={handleAddRow} disabled={addDisabled}>
                     {t('tabular.addRow', 'Add Row')}
                 </Button>
             </Box>
@@ -200,8 +231,9 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
                         ...dataGridLocale,
                         noRowsLabel: t('tabular.noRows', 'No rows yet. Click "Add Row" to start.')
                     }}
-                    processRowUpdate={(newRow) => {
+                    processRowUpdate={(newRow, oldRow) => {
                         const rowId = String(newRow.id)
+                        const correctedRow = { ...newRow }
                         const updated = value.map((row, idx) => {
                             if (getRowId(row, idx) !== rowId) return row
                             const patched = { ...row }
@@ -212,13 +244,21 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
                                     if (field.type === 'REF' && cellValue === '') {
                                         cellValue = null
                                     }
+                                    // Validate NUMBER fields — revert to old value if invalid
+                                    if (field.type === 'NUMBER' && cellValue != null && typeof cellValue === 'number' && !Number.isNaN(cellValue) && field.validationRules) {
+                                        const result = validateNumber(cellValue, toNumberRules(field.validationRules))
+                                        if (!result.valid) {
+                                            cellValue = oldRow[field.id] ?? null
+                                        }
+                                    }
                                     patched[field.id] = cellValue
+                                    correctedRow[field.id] = cellValue
                                 }
                             }
                             return patched
                         })
                         onChange(updated)
-                        return newRow
+                        return correctedRow
                     }}
                     onProcessRowUpdateError={(error) => {
                         console.error('[TabularPartEditor] Row update error:', error)
@@ -248,6 +288,10 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
                             py: '8px',
                             minHeight: 36,
                             position: 'relative'
+                        },
+                        // Right-aligned cells (NUMBER type) need flex-end in flex context
+                        '& .MuiDataGrid-cell--textRight': {
+                            justifyContent: 'flex-end'
                         },
                         // Internal body separators only (exclude the first real column)
                         '& .MuiDataGrid-cell[data-field]:not([data-field="__rowNumber"])::before': {
@@ -281,11 +325,24 @@ export function TabularPartEditor({ label, value, onChange, childFields, showTit
                     {t('app.edit', 'Edit')}
                 </MenuItem>
                 <Divider />
-                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
+                <MenuItem
+                    onClick={handleDeleteRowFromMenu}
+                    sx={{ color: 'error.main' }}
+                >
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('tabular.delete', 'Delete')}
                 </MenuItem>
             </Menu>
+
+            <ConfirmDeleteDialog
+                open={Boolean(deleteRowId)}
+                title={t('tabular.deleteTitle', 'Delete Row')}
+                description={t('tabular.deleteDescription', 'Are you sure you want to delete this row?')}
+                confirmButtonText={t('tabular.delete', 'Delete')}
+                cancelButtonText={t('tabular.cancel', 'Cancel')}
+                onCancel={handleCancelDelete}
+                onConfirm={handleConfirmDelete}
+            />
         </Box>
     )
 }

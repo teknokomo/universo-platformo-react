@@ -676,7 +676,8 @@ const ElementList = () => {
                     defaultEnumValueId,
                     enumAllowEmpty,
                     enumLabelEmptyDisplay,
-                    childFields
+                    childFields,
+                    tableShowTitle: attribute.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined
                 }
             }),
         [orderedAttributes, i18n.language, buildStringLengthHelperText, buildNumberRangeHelperText, childAttributesMap, childEnumValuesMap]
@@ -705,6 +706,10 @@ const ElementList = () => {
                         childFields={field.childFields}
                         disabled={disabled}
                         locale={locale}
+                        showTitle={field.tableShowTitle}
+                        minRows={field.validationRules?.minRows as number | undefined}
+                        maxRows={field.validationRules?.maxRows as number | undefined}
+                        required={field.required}
                     />
                 )
             }
@@ -1412,6 +1417,7 @@ const ElementList = () => {
                 onClose={handleDialogClose}
                 onSubmit={handleCreateElement}
                 fields={elementFields}
+                i18nNamespace='metahubs'
                 isSubmitting={isSubmitting}
                 error={dialogError}
                 title={t('elements.createDialog.title', 'Add Element')}
@@ -1430,6 +1436,7 @@ const ElementList = () => {
                 onClose={handleEditClose}
                 onSubmit={handleUpdateElement}
                 initialData={editingElement?.data}
+                i18nNamespace='metahubs'
                 isSubmitting={isSubmitting}
                 error={dialogError}
                 title={t('elements.editDialog.title', 'Edit Element')}

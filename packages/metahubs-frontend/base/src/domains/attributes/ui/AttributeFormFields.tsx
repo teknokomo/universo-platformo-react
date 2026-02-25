@@ -401,14 +401,12 @@ const AttributeFormFields = ({
                 </strong>
                 {physicalTypeInfo.physicalInfo.isVLC && ' (VLC)'}
             </Alert>
-            {/* TABLE type is always optional - hide required toggle */}
-            {dataType !== 'TABLE' && (
-                <FormControlLabel
-                    control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
-                    label={requiredLabel}
-                    disabled={isLoading}
-                />
-            )}
+            {/* Required toggle (all attribute types including TABLE) */}
+            <FormControlLabel
+                control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
+                label={requiredLabel}
+                disabled={isLoading}
+            />
             {/* Display attribute toggle (hidden when Presentation tab handles it) */}
             {!hideDisplayAttribute && (
                 <Box>
