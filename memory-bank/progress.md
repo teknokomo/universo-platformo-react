@@ -43,6 +43,232 @@
 
 ---
 
+## NUMBER field parity — catalog inline table NumberTableCell (2026-02-26)
+
+Replicated correct standalone NUMBER field behavior into DynamicEntityFormDialog inline table (catalog TABLE cells). Analysis confirmed FormDialog and apps inline table (NumberEditCell) were already correct.
+
+### Changes
+1. **NumberTableCell component**: ~200 lines in DynamicEntityFormDialog.tsx. Full NUMBER behavior: locale-aware formatting (`0,000` template with comma for 'ru'), zone-based selection, zone-aware stepping, stepper buttons (▲▼), full keyDown handling, digit replacement in decimal zone.
+2. **TABLE rendering**: Conditional rendering in TABLE case — `NumberTableCell` for NUMBER children, plain TextField for others. Removed old basic TextField with raw value display.
+
+### Files Modified
+- `DynamicEntityFormDialog.tsx` — NumberTableCell component + TABLE cell conditional rendering
+
+### Verification
+- Full build: 66/66 SUCCESS
+
+## Zone-aware NUMBER stepper + inline table parity (2026-02-26)
+
+Implemented zone-aware ArrowUp/ArrowDown stepping and full NumberEditCell rewrite for inline table parity with standalone NUMBER field. 5 files across 3 packages.
+
+### Changes
+1. **Zone-aware stepping**: Cursor position relative to decimal separator determines step size — integer zone = step by 1, decimal zone = step by 10^(-scale). Applied to DynamicEntityFormDialog, FormDialog, and NumberEditCell.
+2. **NumberEditCell full rewrite**: ~250 lines replacing minimal text input. InputBase + InputAdornment with stepper buttons (▲▼), locale-aware formatting (comma for 'ru'), zone-based selection on focus/click, full keyDown handling, handleBlur re-formatting.
+3. **Locale wiring**: Added `locale` to `BuildTabularColumnsOptions` interface and `buildTabularColumns` function. TabularPartEditor and RuntimeInlineTabularEditor pass `resolvedLocale`. Custom `renderCell` with locale-aware decimal separator for display mode.
+4. **Button onClick fix**: Stepper `onClick` wrapped in `() => handler()` to prevent MouseEvent being passed as zone argument.
+
+### Files Modified
+- `DynamicEntityFormDialog.tsx` — zone-aware steppers (refs, selectNumberPart tracking, ArrowUp/Down zone detection, getStepValue, inputRef, button onClick wrapping)
+- `FormDialog.tsx` — same zone-aware stepper pattern
+- `tabularColumns.tsx` — complete NumberEditCell rewrite, getDecimalSeparator helper, locale in BuildTabularColumnsOptions + buildTabularColumns, renderCell with formatted display, MouseEvent → ReactMouseEvent fix
+- `TabularPartEditor.tsx` — locale: resolvedLocale in buildTabularColumns call
+- `RuntimeInlineTabularEditor.tsx` — locale: resolvedLocale in buildTabularColumns call
+
+### Verification
+- TypeScript: 0 errors
+- Full build: 66/66 SUCCESS
+
+## Fix inline table nonNegative + number alignment (2026-02-26)
+
+Fixed 2 MEDIUM + 3 LOW issues from QA analysis of Round-6 implementation across 8 files in 4 packages.
+
+### Changes
+1. **M1 — processRowUpdate return value**: TabularPartEditor now returns a `correctedRow` with reverted NUMBER values instead of the original unvalidated `newRow`, ensuring DataGrid internal state matches validated data.
+2. **M2 — Edit menu disabled**: InlineTableEditor Edit MenuItem now has `disabled={!firstEditableFieldId}` — visually blocked when table has no STRING/NUMBER editable fields. Memoized via `useMemo`.
+3. **L1 — Dead code in tableConstraints**: Removed duplicate `effectiveMin` variable (identical to `minRequired`) and unreachable `else if (required)` branch.
+4. **L2 — Dead min:0 inputProp**: Removed `min: 0` spread from DynamicEntityFormDialog table cell TextField — `type='text'` ignores HTML `min` attribute.
+5. **L3 — toNumberRules helper**: Created generic `toNumberRules<T extends object>()` helper in `numberValidation.ts` to extract NUMBER-relevant fields from any rules object. Replaced 4 inline 5-line parameter building blocks across 3 files.
+
+### Files Modified
+- `numberValidation.ts` — new `toNumberRules()` helper
+- `validation/index.ts`, `index.ts`, `index.browser.ts` — export `toNumberRules`
+- `tableConstraints.ts` — removed dead code
+- `TabularPartEditor.tsx` — M1 fix (correctedRow) + L3 (toNumberRules)
+- `RuntimeInlineTabularEditor.tsx` — L3 (toNumberRules in 2 places)
+- `DynamicEntityFormDialog.tsx` — L2 fix (min:0 removed) + L3 (toNumberRules)
+- `InlineTableEditor.tsx` — M2 fix (disabled Edit)
+
+### Build
+- 66/66 SUCCESS
+
+---
+
+## QA Round-6 — Negative Numbers, Constraint Text, Spacing, 3-Dot Menu (2026-02-25)
+
+Fixed 4 issues from user screenshots across 8 files in 4 packages.
+
+### Changes
+1. **Negative numbers in nonNegative NUMBER table cells**: Added `validateNumber()` validation in DynamicEntityFormDialog `handleTableCellChange`, TabularPartEditor/RuntimeInlineTabularEditor `processRowUpdate`. Blocks '-' key, adds `min: 0` inputProp for nonNegative.
+2. **Constraint text format**: Rewrote `buildTableConstraintText()` — new format "Required: min. rows: X, max. rows: Y". New i18n keys: `tableRequiredPrefix`, lowercase `tableMinRows`/`tableMaxRows`. Updated all 4 JSON files.
+3. **Constraint spacing**: Removed `mb: 2` from TabularPartEditor and RuntimeInlineTabularEditor outer Box.
+4. **3-dot menu for InlineTableEditor**: Replaced per-row DeleteIcon with MoreVertRoundedIcon → Menu (Edit + Delete) + ConfirmDeleteDialog. Header column shows MoreVertRoundedIcon. Added 6 i18n keys to metahubs.json (en+ru): edit, delete, actions, deleteTitle, deleteDescription, cancel.
+
+### Files Modified
+- `tableConstraints.ts` — rewritten format logic
+- `DynamicEntityFormDialog.tsx` — NUMBER validation in TABLE cells, '-' key blocking
+- `TabularPartEditor.tsx` — processRowUpdate validation, ConfirmDeleteDialog, mb removal
+- `RuntimeInlineTabularEditor.tsx` — processRowUpdate validation, mb removal
+- `InlineTableEditor.tsx` — 3-dot menu + ConfirmDeleteDialog (MoreVertRoundedIcon, Menu, EditIcon)
+- `metahubs.json` en+ru — key replacements + 6 new keys
+- `apps.json` en+ru — key replacements
+
+### Build: 66/66 SUCCESS
+
+---
+
+## QA Round-5 — Runtime Bug Fixes: TypeError, deleteDisabled, i18n (2026-02-25)
+
+Fixed 3 runtime bugs found during QA testing + dead code cleanup. 11 files across 5 packages.
+
+### Changes
+1. **TypeError `selectNumberPart`**: Added guard `if (!target || target.value == null) return` in DynamicEntityFormDialog and FormDialog. Prevents crash when `requestAnimationFrame` callback fires after React re-render.
+2. **Delete button blocked by `minRows`**: Removed `deleteDisabled` logic from InlineTableEditor, RuntimeInlineTabularEditor, TabularPartEditor. Row deletion always allowed; validation at Submit/Save level via `isMissing`.
+3. **Non-internationalized texts**: Added `i18nNamespace` prop to DynamicEntityFormDialog. Standardized keys between dialogs (`lengthRange`→`lengthBetween`, `dateTimeFormat`→`datetimeFormat`, `numberLength2`→`numberLengthWithScale`). Added 26 keys to metahubs.json (en+ru), 6 keys to apps.json (en+ru). ElementList passes `i18nNamespace='metahubs'`.
+4. **Dead code**: Removed `tableCannotBeRequired` from ChildAttributeList.tsx and metahubs.json (TABLE isRequired now allowed).
+
+### Build
+- Full build: **66/66 SUCCESS**
+
+---
+
+## QA Round-4 — D1+H1+M1-M7+L1-L2 Comprehensive Fixes (2026-02-27)
+
+Fixed ALL findings from comprehensive QA analysis across 10 files in 5 packages.
+
+### Changes
+1. **D1+H1 (CRITICAL/HIGH) — TABLE required refactoring**: Removed `requiredFilling` from uiConfig. Unblocked `isRequired` for TABLE at all levels. Backend `hasRequiredValue` validates TABLE: `Array.isArray(value) && value.length >= Math.max(1, minRows)`.
+2. **M1 — Stepper precision**: `handleStepUp`/`handleStepDown` validate with `validateNumber()` before applying.
+3. **M2 — ArrowUp/ArrowDown keyboard**: Intercept in `handleNumberKeyDown` (both dialogs).
+4. **M3 — ARIA labels**: Localized with `t('number.increment/decrement', ...)`.
+5. **M4+M5 — Error tooltip**: InlineTableEditor shows `<Tooltip title={errorMessage}>` for NUMBER validation errors.
+6. **M6 — i18n standardization**: DynamicEntityFormDialog fully migrated from `formatMessage` to react-i18next `t()`.
+7. **M7 — Deduplicate constraint text**: New `buildTableConstraintText()` in `@universo/utils/validation/tableConstraints.ts`. Shared across 3 components.
+8. **L1+L2 — TABLE cells**: NUMBER cells use `type='text'` + `inputMode='decimal'` + right-alignment.
+
+### Files Modified
+- `tableConstraints.ts` (NEW) — shared TABLE constraint text builder in `@universo/utils`
+- `attributesRoutes.ts` — removed requiredFilling, unblocked TABLE isRequired (5 changes)
+- `MetahubElementsService.ts` — TABLE handleRequiredValue logic
+- `AttributeFormFields.tsx` — isRequired toggle for TABLE, removed requiredFilling toggle
+- `AttributeActions.tsx` — removed TABLE exclusion from set-required
+- `ElementList.tsx` — removed tableRequiredFilling, pass `required`
+- `InlineTableEditor.tsx` — renamed `requiredFilling` → `required`, error Tooltip, shared constraint text
+- `DynamicEntityFormDialog.tsx` — stepper precision, ArrowUp/Down, ARIA, i18n migration, shared constraints, TABLE cell type+alignment
+- `FormDialog.tsx` — stepper precision, ArrowUp/Down, ARIA, shared constraints
+
+### Build: 66/66 SUCCESS
+
+---
+
+## QA Fixes + NUMBER Stepper + TABLE Required Filling (2026-02-25)
+
+Implemented 3 groups of changes across 6 packages, 10 files.
+
+### Changes
+1. **F1 — Shared validateNumber on frontend**: Replaced custom validators in InlineTableEditor.tsx and tabularColumns.tsx with `validateNumber` from `@universo/utils`. Now consistently checks precision, scale, min, max, nonNegative.
+2. **F2 — cellErrors cleanup on row delete**: InlineTableEditor `handleDeleteRow` now removes cellErrors entries with matching `${rowId}:` prefix.
+3. **NUMBER alignment & stepper buttons**: Standalone NUMBER fields in DynamicEntityFormDialog and FormDialog have right-aligned text and custom ArrowDropUp/ArrowDropDown stepper buttons (via InputAdornment). Step value = 10^(-scale) or 1. Respects min/max/nonNegative.
+4. **TABLE requiredFilling**: New `requiredFilling` boolean in uiConfig (backend Zod schema). Toggle in AttributeFormFields PresentationTab (default: ON). TABLE must have ≥ max(1, minRows) rows. Constraint text shown below table editors (error color when insufficient). Applied to DynamicEntityFormDialog, FormDialog, InlineTableEditor.
+
+### Files Modified
+- `attributesRoutes.ts` — `requiredFilling: z.boolean().optional()` in uiConfigSchema
+- `AttributeFormFields.tsx` — New "Required table filling" Switch toggle
+- `ElementList.tsx` — Pass `tableRequiredFilling` from uiConfig
+- `InlineTableEditor.tsx` — F1 (validateNumber) + F2 (cellErrors cleanup) + requiredFilling prop + constraint text
+- `DynamicEntityFormDialog.tsx` — NUMBER stepper/alignment + TABLE required filling + DynamicFieldValidationRules minRows/maxRows
+- `FormDialog.tsx` — NUMBER stepper/alignment + TABLE required filling + constraint text
+- `tabularColumns.tsx` — F1 (validateNumber)
+
+### Build
+- Full build: 66/66 SUCCESS (5m19s)
+
+---
+
+## QA Round-3 — TABLE Validation & Row Limits (2026-02-26)
+
+Fixed 6 bugs found during QA analysis of TABLE attribute validation across 5 packages, 8 files.
+
+### Bug Fixes
+1. **H1 — validateRules for TABLE children**: Added `this.validateRules(...)` call for each child field value in MetahubElementsService.ts TABLE loop. Previously only `validateType` was called for children, allowing invalid NUMBER/STRING values (violating nonNegative, min, max, precision, scale, minLength, maxLength, pattern) to be saved.
+2. **H2 — minRows/maxRows backend enforcement**: Added `value.length` checks against `attr.validationRules.minRows`/`maxRows` in `validateElementData` TABLE branch. Previously row count was never validated server-side for design-time elements.
+3. **M1 — InlineTableEditor saves invalid NUMBER**: Changed `handleCellChange` to reject invalid values instead of saving them (return original row when validation fails). Previously visual error was shown but invalid value was persisted.
+4. **M2 — onKeyDown blocks `-` for nonNegative**: Added `e.preventDefault()` for `-` key in InlineTableEditor NUMBER cells when `validationRules.nonNegative` is true (matches FormDialog pattern).
+5. **M3 — Frontend minRows/maxRows enforcement**: Added `minRows`/`maxRows` props to InlineTableEditor, TabularPartEditor, RuntimeInlineTabularEditor. Add Row button disabled at maxRows, Delete disabled at minRows. Props passed from ElementList.tsx and FormDialog.tsx using existing `validationRules`.
+
+### Files Modified
+- **`@universo/metahubs-backend`**: MetahubElementsService.ts (validateRules + minRows/maxRows)
+- **`@universo/metahubs-frontend`**: InlineTableEditor.tsx (M1+M2+M3), ElementList.tsx (pass minRows/maxRows)
+- **`apps-template-mui`**: TabularPartEditor.tsx (M3), RuntimeInlineTabularEditor.tsx (M3), FormDialog.tsx (pass minRows/maxRows + FieldValidationRules)
+
+### Verification
+- Tests: metahubs-backend 83/83 + 3 skipped, applications-backend 35/35
+- Lint: 0 errors across metahubs-backend, metahubs-frontend, apps-template-mui
+- Full build: 66/66 packages SUCCESS (5m9s)
+
+---
+
+## TABLE Attribute Settings Bugfixes (2026-02-26)
+
+Fixed 5 bugs in TABLE attribute type identified by QA analysis across 5 packages.
+
+### Bug Fixes
+1. **minRows/maxRows Zod schema (Bug #2)**: Added `minRows`/`maxRows` fields to `validationRulesSchema` in metahubs-backend attributesRoutes.ts. Added cross-validation (minRows ≤ maxRows). Previously Zod's `.strip()` mode silently removed these unknown keys.
+2. **showTitle runtime FormDialog (Bug #3a)**: Replaced hardcoded `showTitle` boolean shorthand with `field.tableUiConfig?.showTitle !== false` in FormDialog.tsx for both EDIT and CREATE modes.
+3. **showTitle metahub InlineTableEditor (Bug #3b)**: Added `showTitle?: boolean` prop to InlineTableEditor, conditional title rendering, `tableShowTitle` field in DynamicFieldConfig interface, and prop passing from ElementList.tsx.
+4. **NUMBER backend validation (Bug #4a)**: Added `nonNegative`, `min`, `max` validation checks in `coerceRuntimeValue` NUMBER case (applications-backend). Throws descriptive errors for constraint violations.
+5. **NUMBER frontend validation (Bugs #4b, #4c)**: Added `validateNumberField` + `getNumberInputConstraints` helpers in InlineTableEditor, `cellErrors` state for visual feedback, and `preProcessEditCellProps` for NUMBER columns in `buildTabularColumns` (tabularColumns.tsx).
+
+### Files Modified
+- **`@universo/metahubs-backend`**: attributesRoutes.ts (Zod schema + refine)
+- **`@universo/applications-backend`**: applicationsRoutes.ts (coerceRuntimeValue)
+- **`@universo/metahubs-frontend`**: InlineTableEditor.tsx, ElementList.tsx
+- **`@universo/template-mui`**: DynamicEntityFormDialog.tsx (DynamicFieldConfig interface)
+- **`apps-template-mui`**: FormDialog.tsx, tabularColumns.tsx
+
+### Verification
+- Tests: metahubs-backend 83/83 + 3 skipped, applications-backend 35/35
+- Lint: 0 errors across all 5 packages
+- Full build: 66/66 packages SUCCESS (6m55s)
+
+---
+
+## Architectural Improvements — Independent Child Tables + Enum Values Rename (2026-02-26)
+
+Implemented two related DDL architecture improvements across 3 backend packages and 1 frontend package.
+
+### Changes
+1. **Enum values table rename**: `_mhb_enum_values` → `_mhb_values`, `_app_enum_values` → `_app_values` (simplified naming — no other "values" tables exist)
+2. **Child table naming**: `generateTabularTableName(parent, attrId)` → `generateChildTableName(attrId)` producing `tbl_<uuid_hex32>` (36 chars, parent-independent, NAMEDATALEN-safe)
+3. **Schema snapshot version**: Bumped from 1 → 2
+
+### Files Modified
+- **`@universo/schema-ddl`** (6 source + 4 test files): naming.ts, index.ts, snapshot.ts, diff.ts, SchemaGenerator.ts, SchemaMigrator.ts + all tests
+- **`@universo/metahubs-backend`** (5 source + 2 test files): ddl/index.ts, systemTableDefinitions.ts, MetahubEnumerationValuesService.ts, applicationSyncRoutes.ts, TemplateSeedExecutor.ts, TemplateSeedMigrator.ts + tests
+- **`@universo/applications-backend`** (1 source + 1 test file): applicationsRoutes.ts + test
+- **`metahubs-frontend`** (1 file): types.ts JSDoc comment
+
+### Verification
+- Full build: 66/66 packages SUCCESS
+- Global grep: 0 matches for `generateTabularTableName`, `_app_enum_values`, `_mhb_enum_values`
+- diff.test.ts fixtures preserved as historical V1 snapshot data
+
+### QA Remediation (2026-02-26)
+- **Forward-compatibility fix in `diff.ts`**: Changed TABLE field diff to use stored `oldField.columnName` instead of recalculating via `generateChildTableName(field.id)`. This ensures migrations reference the actual table name in PostgreSQL even if the naming convention changes between schema versions.
+- **Test assertion added**: `diff.test.ts` now asserts `tableName` matches the stored V1 snapshot name (`cat_entity..._tp_tableattr...`), preventing regression.
+- All 113 tests pass, lint 0 errors, build SUCCESS.
+
+---
+
 ## UX Fixes Round 5 — Separator Edge Cleanup + Tabular Refresh (2026-02-24)
 
 Implemented final fixes for two residual runtime issues reported after Round 4.

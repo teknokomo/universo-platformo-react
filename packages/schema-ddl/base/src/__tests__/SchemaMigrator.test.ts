@@ -5,7 +5,7 @@ import type { SchemaChange } from '../diff'
 import type { EntityDefinition, FieldDefinition } from '../types'
 
 describe('SchemaMigrator', () => {
-    it('routes REF->enumeration foreign keys to _app_enum_values', async () => {
+    it('routes REF->enumeration foreign keys to _app_values', async () => {
         const trx = {
             raw: jest.fn().mockResolvedValue(undefined)
         } as unknown as import('knex').Knex.Transaction
@@ -56,7 +56,7 @@ describe('SchemaMigrator', () => {
         expect(generator.ensureSystemTables).toHaveBeenCalledWith('app_test_schema', trx)
         expect(trx.raw).toHaveBeenCalledWith(
             'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL',
-            ['app_test_schema', 'cat_orders', 'fk_cat_orders_attr_status', 'attr_status', 'app_test_schema', '_app_enum_values']
+            ['app_test_schema', 'cat_orders', 'fk_cat_orders_attr_status', 'attr_status', 'app_test_schema', '_app_values']
         )
     })
 })

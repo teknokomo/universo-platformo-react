@@ -59,6 +59,15 @@
         "range": "Диапазон: {{min}}–{{max}}",
         "min": "Мин: {{min}}",
         "max": "Макс: {{max}}",
-        "nonNegativeOnly": "Только неотрицательное значение"
+        "nonNegativeOnly": "Только неотрицательное значение",
+        "numberPrecisionExceeded": "Значение превышает допустимую точность",
+        "invalidNumber": "Некорректное число",
+        "tableRequiredPrefix": "Обязательно",
+        "tableMinRows": "мин. строк: {{count}}",
+        "tableMaxRows": "макс. строк: {{count}}"
+    },
+    "number": {
+        "increment": "Увеличить",
+        "decrement": "Уменьшить"
     }
 }

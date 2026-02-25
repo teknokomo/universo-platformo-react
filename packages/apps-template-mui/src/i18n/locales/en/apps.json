@@ -59,6 +59,15 @@
         "range": "Range: {{min}}–{{max}}",
         "min": "Min: {{min}}",
         "max": "Max: {{max}}",
-        "nonNegativeOnly": "Non-negative only"
+        "nonNegativeOnly": "Non-negative only",
+        "numberPrecisionExceeded": "Value exceeds allowed precision",
+        "invalidNumber": "Invalid number",
+        "tableRequiredPrefix": "Required",
+        "tableMinRows": "min. rows: {{count}}",
+        "tableMaxRows": "max. rows: {{count}}"
+    },
+    "number": {
+        "increment": "Increment",
+        "decrement": "Decrement"
     }
 }

@@ -58,9 +58,6 @@ function localizeTableValidationError(
     if (msg.includes('TABLE attributes cannot be set as display attribute')) {
         return t('attributes.tableValidation.tableCannotBeDisplay', 'TABLE attributes cannot be set as the display attribute')
     }
-    if (msg.includes('TABLE attributes cannot be set as required')) {
-        return t('attributes.tableValidation.tableCannotBeRequired', 'TABLE attributes cannot be set as required')
-    }
     return null
 }
 

@@ -4,7 +4,7 @@ import {
     generateColumnName,
     isValidSchemaName,
     buildFkConstraintName,
-    generateTabularTableName
+    generateChildTableName
 } from '../naming'
 
 describe('DDL Naming Utilities', () => {
@@ -136,45 +136,40 @@ describe('DDL Naming Utilities', () => {
         })
     })
 
-    describe('generateTabularTableName', () => {
-        it('should generate tabular table name with _tp_ infix using first 12 chars of UUID', () => {
-            const result = generateTabularTableName('cat_abc123', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890')
-            expect(result).toBe('cat_abc123_tp_a1b2c3d4e5f6')
+    describe('generateChildTableName', () => {
+        it('should generate child table name with tbl_ prefix using full UUID hex', () => {
+            const result = generateChildTableName('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+            expect(result).toBe('tbl_a1b2c3d4e5f67890abcdef1234567890')
         })
 
         it('should strip hyphens from attribute ID', () => {
-            const result = generateTabularTableName('hub_parent', '12345678-1234-1234-1234-123456789abc')
+            const result = generateChildTableName('12345678-1234-1234-1234-123456789abc')
             expect(result).not.toContain('-')
-            expect(result).toBe('hub_parent_tp_123456781234')
+            expect(result).toBe('tbl_12345678123412341234123456789abc')
         })
 
         it('should handle already clean attribute ID', () => {
-            const result = generateTabularTableName('doc_parent', 'abcdef1234567890abcdef1234567890')
-            expect(result).toBe('doc_parent_tp_abcdef123456')
+            const result = generateChildTableName('abcdef1234567890abcdef1234567890')
+            expect(result).toBe('tbl_abcdef1234567890abcdef1234567890')
         })
 
-        it('should preserve the parent table name exactly', () => {
-            const parentTableName = 'cat_a1b2c3d4e5f67890abcdef1234567890'
-            const result = generateTabularTableName(parentTableName, 'ff000000-0000-0000-0000-000000000001')
-            expect(result.startsWith(parentTableName + '_tp_')).toBe(true)
+        it('should always produce 36-char name for standard UUIDs', () => {
+            // tbl_ (4) + 32 hex = 36 chars
+            const result = generateChildTableName('ff000000-0000-0000-0000-000000000001')
+            expect(result.length).toBe(36)
         })
 
-        it('should not exceed PostgreSQL 63-char NAMEDATALEN limit', () => {
-            // Worst case: cat_ + 32 hex = 36 chars parent + _tp_ + 12 hex = 52 chars total
-            const longParent = 'cat_a1b2c3d4e5f67890abcdef12345678'
-            const result = generateTabularTableName(longParent, 'ff000000-0000-0000-0000-000000000001')
+        it('should be well within PostgreSQL 63-char NAMEDATALEN limit', () => {
+            const result = generateChildTableName('ff112233-4455-6677-8899-aabbccddeeff')
             expect(result.length).toBeLessThanOrEqual(63)
+            expect(result).toBe('tbl_ff112233445566778899aabbccddeeff')
         })
 
-        it('should preserve cleanId suffix even when parentTableName is very long', () => {
-            // Parent name that exceeds 47 chars (63 - 4 - 12) to trigger prefix truncation
-            const veryLongParent = 'cat_' + 'a'.repeat(60) // 64 chars total
-            const attrId = 'ff112233-4455-6677-8899-aabbccddeeff'
-            const result = generateTabularTableName(veryLongParent, attrId)
-            // cleanId = first 12 hex chars of UUID without hyphens = 'ff1122334455'
-            expect(result.length).toBeLessThanOrEqual(63)
-            expect(result).toContain('_tp_')
-            expect(result.endsWith('_tp_ff1122334455')).toBe(true)
+        it('should not depend on parent table name', () => {
+            // Same attribute ID should produce same table name regardless of parent
+            const attrId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+            const result = generateChildTableName(attrId)
+            expect(result).toBe('tbl_a1b2c3d4e5f67890abcdef1234567890')
         })
     })
 })

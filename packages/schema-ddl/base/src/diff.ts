@@ -1,6 +1,6 @@
 import { MetaEntityKind } from '@universo/types'
 import type { EntityDefinition, SchemaSnapshot } from './types'
-import { generateColumnName, generateTableName, generateTabularTableName } from './naming'
+import { generateColumnName, generateTableName, generateChildTableName } from './naming'
 
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
@@ -171,7 +171,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
             if (!oldFieldIds.has(field.id)) {
                 if (field.dataType === 'TABLE') {
                     // New TABLE attribute → create tabular table
-                    const tabularTableName = generateTabularTableName(tableName, field.id)
+                    const tabularTableName = generateChildTableName(field.id)
                     diff.additive.push({
                         type: ChangeType.ADD_TABULAR_TABLE,
                         entityId: entity.id,
@@ -261,7 +261,10 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
             const oldField = oldEntity.fields[field.id]
             if (!oldField || oldField.dataType !== 'TABLE') continue // type changed — handled by ALTER
 
-            const tabularTableName = generateTabularTableName(tableName, field.id)
+            // Use the stored table name from the old snapshot — this is the actual
+            // table name in PostgreSQL, which may differ from generateChildTableName()
+            // if the naming convention has changed between schema versions.
+            const tabularTableName = oldField.columnName
             const oldChildFields = oldField.childFields ?? {}
             const oldChildIds = new Set(Object.keys(oldChildFields))
             const newChildFields = entity.fields.filter((f) => f.parentAttributeId === field.id)

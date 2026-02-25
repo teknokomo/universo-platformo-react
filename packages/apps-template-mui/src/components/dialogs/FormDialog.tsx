@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import {
     Alert,
     Box,
@@ -13,6 +15,8 @@ import {
     FormControl,
     FormControlLabel,
     FormHelperText,
+    IconButton,
+    InputAdornment,
     InputLabel,
     MenuItem,
     Radio,
@@ -23,7 +27,7 @@ import {
     Typography
 } from '@mui/material'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { createLocalizedContent, NUMBER_DEFAULTS } from '@universo/utils'
+import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { TabularPartEditor } from '../TabularPartEditor'
@@ -51,6 +55,10 @@ export interface FieldValidationRules extends Record<string, unknown> {
 
     // DATE settings
     dateComposition?: 'date' | 'time' | 'datetime'
+
+    // TABLE settings
+    minRows?: number | null
+    maxRows?: number | null
 }
 
 export interface FieldConfig {
@@ -231,6 +239,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
     const wasOpenRef = useRef(false)
+    // Track NUMBER input refs and last cursor zone for zone-aware steppers
+    const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
+    const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {
@@ -384,20 +395,28 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     return null
                 }
 
-                if (rules.nonNegative === true && value < 0) {
-                    return t('validation.nonNegative', 'Must be non-negative')
-                }
-                if (typeof rules.min === 'number' && value < rules.min) {
-                    return t('validation.minValue', {
-                        defaultValue: 'Minimum value: {{min}}',
-                        min: rules.min
-                    })
-                }
-                if (typeof rules.max === 'number' && value > rules.max) {
-                    return t('validation.maxValue', {
-                        defaultValue: 'Maximum value: {{max}}',
-                        max: rules.max
-                    })
+                const result = validateNumber(value, toNumberRules(rules))
+                if (result.valid) return null
+
+                switch (result.errorKey) {
+                    case 'mustBeNonNegative':
+                        return t('validation.nonNegative', 'Must be non-negative')
+                    case 'belowMinimum':
+                        return t('validation.minValue', {
+                            defaultValue: 'Minimum value: {{min}}',
+                            min: rules.min
+                        })
+                    case 'aboveMaximum':
+                        return t('validation.maxValue', {
+                            defaultValue: 'Maximum value: {{max}}',
+                            max: rules.max
+                        })
+                    case 'tooManyIntegerDigits':
+                    case 'tooManyDecimalDigits':
+                    case 'exceedsSafeInteger':
+                        return t('validation.numberPrecisionExceeded', 'Value exceeds allowed precision')
+                    default:
+                        return result.errorMessage ?? t('validation.invalidNumber', 'Invalid number')
                 }
             }
 
@@ -426,7 +445,21 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     )
 
     const hasMissingRequired = useMemo(
-        () => fields.some((field) => field.required && !resolveValuePresent(field, formData[field.id])),
+        () =>
+            fields.some((field) => {
+                if (field.type === 'TABLE' && field.required) {
+                    // TABLE required: must have at least max(1, minRows) rows
+                    const rows = formData[field.id]
+                    const rowCount = Array.isArray(rows) ? rows.length : 0
+                    const tableMinRows =
+                        typeof field.validationRules?.minRows === 'number' ? field.validationRules.minRows : null
+                    const minRequired = Math.max(1, tableMinRows ?? 1)
+                    if (rowCount < minRequired) return true
+                    return false
+                }
+                if (field.required && !resolveValuePresent(field, formData[field.id])) return true
+                return false
+            }),
         [fields, formData, resolveValuePresent]
     )
 
@@ -572,8 +605,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 }
 
                 const selectNumberPart = (target: HTMLInputElement) => {
+                    // Guard against stale DOM target after re-render (rAF may fire after unmount)
+                    if (!target || target.value == null) return
                     if (scale <= 0) {
                         target.setSelectionRange(0, target.value.length)
+                        numberCursorZoneRef.current.set(field.id, 'integer')
                         return
                     }
                     const valueText = target.value
@@ -581,13 +617,16 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     const separatorIndex = valueText.indexOf(decimalSeparator)
                     if (separatorIndex === -1) {
                         target.setSelectionRange(signOffset, valueText.length)
+                        numberCursorZoneRef.current.set(field.id, 'integer')
                         return
                     }
                     const cursor = target.selectionStart ?? 0
                     if (cursor <= separatorIndex) {
                         target.setSelectionRange(signOffset, separatorIndex)
+                        numberCursorZoneRef.current.set(field.id, 'integer')
                     } else {
                         target.setSelectionRange(separatorIndex + 1, valueText.length)
+                        numberCursorZoneRef.current.set(field.id, 'decimal')
                     }
                 }
 
@@ -654,6 +693,24 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         }
                     }
 
+                    // ArrowUp/ArrowDown: trigger zone-aware stepper increment/decrement
+                    if (key === 'ArrowUp') {
+                        event.preventDefault()
+                        const zone: 'integer' | 'decimal' =
+                            scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex ? 'decimal' : 'integer'
+                        numberCursorZoneRef.current.set(field.id, zone)
+                        handleStepUp(zone)
+                        return
+                    }
+                    if (key === 'ArrowDown') {
+                        event.preventDefault()
+                        const zone: 'integer' | 'decimal' =
+                            scale > 0 && separatorIndex !== -1 && selectionStart > separatorIndex ? 'decimal' : 'integer'
+                        numberCursorZoneRef.current.set(field.id, zone)
+                        handleStepDown(zone)
+                        return
+                    }
+
                     if (
                         [
                             'Backspace',
@@ -663,8 +720,6 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             'Enter',
                             'ArrowLeft',
                             'ArrowRight',
-                            'ArrowUp',
-                            'ArrowDown',
                             'Home',
                             'End'
                         ].includes(key)
@@ -799,6 +854,32 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
                 const numberHelperText = fieldError ?? constraintParts.join(', ')
 
+                // Zone-aware stepper: integer zone → step 1, decimal zone → step 10^(-scale)
+                const numberRules = toNumberRules(rules)
+                const getStepValue = (zone?: 'integer' | 'decimal') => {
+                    if (scale <= 0) return 1
+                    return zone === 'decimal' ? Math.pow(10, -scale) : 1
+                }
+                const handleStepUp = (zone?: 'integer' | 'decimal') => {
+                    const effectiveZone = zone ?? numberCursorZoneRef.current.get(field.id) ?? 'integer'
+                    const step = getStepValue(effectiveZone)
+                    const current = typeof value === 'number' && Number.isFinite(value) ? value : 0
+                    let next = Number((current + step).toFixed(scale))
+                    if (typeof rules?.max === 'number' && next > rules.max) next = rules.max
+                    if (!validateNumber(next, numberRules).valid) return
+                    handleFieldChange(field.id, next)
+                }
+                const handleStepDown = (zone?: 'integer' | 'decimal') => {
+                    const effectiveZone = zone ?? numberCursorZoneRef.current.get(field.id) ?? 'integer'
+                    const step = getStepValue(effectiveZone)
+                    const current = typeof value === 'number' && Number.isFinite(value) ? value : 0
+                    let next = Number((current - step).toFixed(scale))
+                    if (rules?.nonNegative && next < 0) next = 0
+                    if (typeof rules?.min === 'number' && next < rules.min) next = rules.min
+                    if (!validateNumber(next, numberRules).valid) return
+                    handleFieldChange(field.id, next)
+                }
+
                 return (
                     <TextField
                         fullWidth
@@ -816,6 +897,40 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         placeholder={scale > 0 ? `0${decimalSeparator}${'0'.repeat(scale)}` : '0'}
                         error={Boolean(fieldError)}
                         helperText={numberHelperText}
+                        inputRef={(el: HTMLInputElement | null) => {
+                            if (el) {
+                                numberInputRefsRef.current.set(field.id, el)
+                            } else {
+                                numberInputRefsRef.current.delete(field.id)
+                            }
+                        }}
+                        inputProps={{ style: { textAlign: 'right' } }}
+                        InputProps={{
+                            endAdornment: !disabled ? (
+                                <InputAdornment position='end'>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5, mr: -0.5 }}>
+                                        <IconButton
+                                            size='small'
+                                            tabIndex={-1}
+                                            onClick={() => handleStepUp()}
+                                            sx={{ width: 20, height: 16, p: 0 }}
+                                            aria-label={t('number.increment', 'Increment')}
+                                        >
+                                            <ArrowDropUpIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                        <IconButton
+                                            size='small'
+                                            tabIndex={-1}
+                                            onClick={() => handleStepDown()}
+                                            sx={{ width: 20, height: 16, p: 0 }}
+                                            aria-label={t('number.decrement', 'Decrement')}
+                                        >
+                                            <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                    </Box>
+                                </InputAdornment>
+                            ) : undefined
+                        }}
                     />
                 )
             }
@@ -1006,37 +1121,72 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             case 'TABLE': {
                 const childFieldDefs = field.childFields ?? []
                 const tableValue = (formData[field.id] as Record<string, unknown>[]) ?? []
+                const tableShowTitle = field.tableUiConfig?.showTitle !== false
+                const tableMinRows = field.validationRules?.minRows as number | undefined
+                const tableMaxRows = field.validationRules?.maxRows as number | undefined
+                const rowCount = tableValue.length
+
+                const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
+                    required: field.required, minRows: tableMinRows, maxRows: tableMaxRows, t
+                })
+                const tableMissing = checkMissing(rowCount)
 
                 // EDIT mode: inline editor with deferred persistence (commit on form Save)
                 if (editRowId && apiBaseUrl && applicationId && catalogId) {
                     return (
-                        <RuntimeInlineTabularEditor
-                            apiBaseUrl={apiBaseUrl}
-                            applicationId={applicationId}
-                            catalogId={catalogId}
-                            parentRecordId={editRowId}
-                            attributeId={field.attributeId ?? field.id}
-                            childFields={childFieldDefs}
-                            showTitle
-                            label={field.label}
-                            locale={locale}
-                            deferPersistence
-                            onChange={(rows) => handleFieldChange(field.id, rows)}
-                        />
+                        <Box>
+                            <RuntimeInlineTabularEditor
+                                apiBaseUrl={apiBaseUrl}
+                                applicationId={applicationId}
+                                catalogId={catalogId}
+                                parentRecordId={editRowId}
+                                attributeId={field.attributeId ?? field.id}
+                                childFields={childFieldDefs}
+                                showTitle={tableShowTitle}
+                                label={field.label}
+                                locale={locale}
+                                deferPersistence
+                                onChange={(rows) => handleFieldChange(field.id, rows)}
+                                minRows={tableMinRows}
+                                maxRows={tableMaxRows}
+                            />
+                            {tableHelperText && (
+                                <Typography
+                                    variant='caption'
+                                    color={tableMissing ? 'error' : 'text.secondary'}
+                                    sx={{ mt: 0.5, ml: 1.75 }}
+                                >
+                                    {tableHelperText}
+                                </Typography>
+                            )}
+                        </Box>
                     )
                 }
 
                 // CREATE mode: inline local editor
                 if (childFieldDefs.length > 0) {
                     return (
-                        <TabularPartEditor
-                            label={field.label}
-                            value={tableValue}
-                            onChange={(rows) => handleFieldChange(field.id, rows)}
-                            childFields={childFieldDefs}
-                            showTitle
-                            locale={locale}
-                        />
+                        <Box>
+                            <TabularPartEditor
+                                label={field.label}
+                                value={tableValue}
+                                onChange={(rows) => handleFieldChange(field.id, rows)}
+                                childFields={childFieldDefs}
+                                showTitle={tableShowTitle}
+                                locale={locale}
+                                minRows={tableMinRows}
+                                maxRows={tableMaxRows}
+                            />
+                            {tableHelperText && (
+                                <Typography
+                                    variant='caption'
+                                    color={tableMissing ? 'error' : 'text.secondary'}
+                                    sx={{ mt: 0.5, ml: 1.75 }}
+                                >
+                                    {tableHelperText}
+                                </Typography>
+                            )}
+                        </Box>
                     )
                 }
 

@@ -48,10 +48,19 @@ export {
     validateNumber,
     validateNumberOrThrow,
     getMaxValueForPrecision,
+    toNumberRules,
     NUMBER_DEFAULTS,
     type NumberValidationResult,
     type NumberValidationRules
 } from './validation/numberValidation'
+
+// Table constraint text builder
+export {
+    buildTableConstraintText,
+    type TranslateFn,
+    type TableConstraintParams,
+    type TableConstraintResult
+} from './validation/tableConstraints'
 
 // Optimistic locking error utilities
 export { OptimisticLockError, type ConflictInfo } from './errors/OptimisticLockError'

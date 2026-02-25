@@ -146,7 +146,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
         seedExpectedTables([
             '_mhb_objects',
             '_mhb_attributes',
-            '_mhb_enum_values',
+            '_mhb_values',
             '_mhb_elements',
             '_mhb_settings',
             '_mhb_layouts',

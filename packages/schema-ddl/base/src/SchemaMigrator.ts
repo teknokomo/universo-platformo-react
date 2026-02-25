@@ -296,7 +296,7 @@ export class SchemaMigrator {
                 let targetTableName: string
                 if (targetEntityKind === ENUMERATION_KIND) {
                     await this.generator.ensureSystemTables(schemaName, trx)
-                    targetTableName = '_app_enum_values'
+                    targetTableName = '_app_values'
                 } else {
                     if (!targetEntity) {
                         console.warn(`[SchemaMigrator] Target entity ${targetEntityId ?? change.newValue} not found for FK`)

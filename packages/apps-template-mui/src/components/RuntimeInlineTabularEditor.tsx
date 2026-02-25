@@ -13,6 +13,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import { DataGrid, type GridRowsProp, useGridApiRef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { validateNumber, toNumberRules } from '@universo/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
@@ -47,6 +48,10 @@ export interface RuntimeInlineTabularEditorProps {
     deferPersistence?: boolean
     /** Emits local table rows (child-field payload) when deferPersistence is enabled. */
     onChange?: (rows: Record<string, unknown>[]) => void
+    /** Minimum number of rows (disables delete when at limit). */
+    minRows?: number | null
+    /** Maximum number of rows (disables add when at limit). */
+    maxRows?: number | null
 }
 
 /**
@@ -69,7 +74,9 @@ export function RuntimeInlineTabularEditor({
     locale,
     onError,
     deferPersistence = false,
-    onChange
+    onChange,
+    minRows,
+    maxRows
 }: RuntimeInlineTabularEditorProps) {
     const { t, i18n } = useTranslation('apps')
     const resolvedLocale = locale ?? i18n.language ?? 'en'
@@ -182,6 +189,10 @@ export function RuntimeInlineTabularEditor({
 
     // CREATE a new row via API and refetch
     const handleAddRow = useCallback(async () => {
+        // Row limit guard
+        const currentCount = deferPersistence ? draftRows.length : rows.length
+        if (typeof maxRows === 'number' && currentCount >= maxRows) return
+
         if (deferPersistence) {
             setMutationError(null)
             const localId = nextLocalIdRef.current++
@@ -226,6 +237,7 @@ export function RuntimeInlineTabularEditor({
         firstEditableFieldId,
         emitRowsChange,
         rows,
+        maxRows,
         apiBaseUrl,
         applicationId,
         parentRecordId,
@@ -244,6 +256,10 @@ export function RuntimeInlineTabularEditor({
 
     const handleConfirmDelete = useCallback(async () => {
         if (!deleteRowId) return
+
+        // Row minimum guard
+        const currentCount = deferPersistence ? draftRows.length : rows.length
+        if (typeof minRows === 'number' && currentCount <= minRows) return
 
         if (deferPersistence) {
             const nextRows = draftRows.filter((row) => String(row.id) !== deleteRowId)
@@ -275,6 +291,8 @@ export function RuntimeInlineTabularEditor({
         deleteRowId,
         deferPersistence,
         draftRows,
+        rows,
+        minRows,
         emitRowsChange,
         apiBaseUrl,
         applicationId,
@@ -321,11 +339,21 @@ export function RuntimeInlineTabularEditor({
         async (newRow: Record<string, unknown>, oldRow: Record<string, unknown>) => {
             if (deferPersistence) {
                 const rowId = String(newRow.id)
-                const nextRows = draftRows.map((row) => (String(row.id) === rowId ? { ...row, ...newRow } : row))
+                // Validate NUMBER fields — revert invalid values
+                const validatedRow = { ...newRow }
+                for (const field of childFields) {
+                    if (field.type === 'NUMBER' && validatedRow[field.id] != null && typeof validatedRow[field.id] === 'number' && !Number.isNaN(validatedRow[field.id] as number) && field.validationRules) {
+                        const result = validateNumber(validatedRow[field.id] as number, toNumberRules(field.validationRules))
+                        if (!result.valid) {
+                            validatedRow[field.id] = oldRow[field.id] ?? null
+                        }
+                    }
+                }
+                const nextRows = draftRows.map((row) => (String(row.id) === rowId ? { ...row, ...validatedRow } : row))
                 setDraftRows(nextRows)
                 setHasLocalChanges(true)
                 emitRowsChange(nextRows)
-                return newRow
+                return validatedRow
             }
 
             const rowId = String(newRow.id)
@@ -337,6 +365,13 @@ export function RuntimeInlineTabularEditor({
                     let value = newRow[field.id]
                     if (field.type === 'REF' && value === '') {
                         value = null
+                    }
+                    // Validate NUMBER fields — revert to old value if invalid
+                    if (field.type === 'NUMBER' && value != null && typeof value === 'number' && !Number.isNaN(value) && field.validationRules) {
+                        const result = validateNumber(value, toNumberRules(field.validationRules))
+                        if (!result.valid) {
+                            value = oldRow[field.id] ?? null
+                        }
                     }
                     data[field.id] = value
                 }
@@ -461,24 +496,27 @@ export function RuntimeInlineTabularEditor({
                 onOpenRowMenu: handleOpenRowMenu,
                 onSelectChange: handleSelectChange,
                 deleteAriaLabel: t('tabular.delete', 'Delete'),
-                actionsAriaLabel: t('app.actions', 'Actions')
+                actionsAriaLabel: t('app.actions', 'Actions'),
+                locale: resolvedLocale
             }),
-        [childFields, rowNumberById, handleRequestDelete, handleOpenRowMenu, handleSelectChange, t]
+        [childFields, rowNumberById, handleRequestDelete, handleOpenRowMenu, handleSelectChange, t, resolvedLocale]
     )
+
+    const addDisabled = typeof maxRows === 'number' && effectiveRows.length >= maxRows
 
     const gridRows: GridRowsProp = useMemo(() => effectiveRows, [effectiveRows])
 
     const fetchErrorMessage = fetchError instanceof Error ? fetchError.message : fetchError ? String(fetchError) : null
 
     return (
-        <Box sx={{ mt: 1, mb: 2 }}>
+        <Box sx={{ mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: showTitle ? 'space-between' : 'flex-end', mb: 1 }}>
                 {showTitle && (
                     <Typography variant='subtitle2' color='text.secondary'>
                         {label}
                     </Typography>
                 )}
-                <Button size='small' startIcon={<AddIcon />} onClick={handleAddRow}>
+                <Button size='small' startIcon={<AddIcon />} onClick={handleAddRow} disabled={addDisabled}>
                     {t('tabular.addRow', 'Add Row')}
                 </Button>
             </Box>
@@ -542,6 +580,10 @@ export function RuntimeInlineTabularEditor({
                                 minHeight: 36,
                                 position: 'relative'
                             },
+                            // Right-aligned cells (NUMBER type) need flex-end in flex context
+                            '& .MuiDataGrid-cell--textRight': {
+                                justifyContent: 'flex-end'
+                            },
                             // Internal body separators only (exclude the first real column)
                             '& .MuiDataGrid-cell[data-field]:not([data-field="__rowNumber"])::before': {
                                 content: '""',
@@ -575,7 +617,10 @@ export function RuntimeInlineTabularEditor({
                     {t('app.edit', 'Edit')}
                 </MenuItem>
                 <Divider />
-                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
+                <MenuItem
+                    onClick={handleDeleteRowFromMenu}
+                    sx={{ color: 'error.main' }}
+                >
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('tabular.delete', 'Delete')}
                 </MenuItem>

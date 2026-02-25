@@ -352,7 +352,7 @@ export interface CatalogDisplay {
 
 /**
  * Enumeration - fixed list of values (like 1C Enumerations).
- * Stores value options in `_mhb_enum_values`.
+ * Stores value options in `_mhb_values`.
  */
 export interface Enumeration {
     id: string

@@ -30,7 +30,7 @@ import {
     generateSchemaName,
     generateTableName,
     generateColumnName,
-    generateTabularTableName,
+    generateChildTableName,
     generateMigrationName,
     KnexClient,
     uuidToLockKey,
@@ -448,7 +448,7 @@ async function seedPredefinedElements(
                         const tableData = (element.data as Record<string, unknown>)[tableField.codename]
                         if (!Array.isArray(tableData) || tableData.length === 0) continue
 
-                        const tabularTableName = generateTabularTableName(tableName, tableField.id)
+                        const tabularTableName = generateChildTableName(tableField.id)
                         const childFieldMap = new Map(
                             tableField.childFields!.map((c) => [c.codename, { columnName: generateColumnName(c.id), field: c }])
                         )
@@ -673,7 +673,7 @@ async function syncEnumerationValues(schemaName: string, snapshot: MetahubSnapsh
     }
 
     await knex.transaction(async (trx) => {
-        const tableQuery = () => trx.withSchema(schemaName).table('_app_enum_values')
+        const tableQuery = () => trx.withSchema(schemaName).table('_app_values')
         const existingActiveRows = (await tableQuery()
             .select(['id', 'object_id'])
             .where((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))) as Array<{

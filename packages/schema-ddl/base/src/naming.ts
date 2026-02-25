@@ -36,19 +36,17 @@ export const generateMetahubSchemaName = (metahubId: string): string => {
 export const isValidSchemaName = (schemaName: string): boolean => /^(app_[a-f0-9]+|mhb_[a-f0-9]+(_b[0-9]+)?)$/.test(schemaName)
 
 /**
- * Generates table name for a tabular part (TABLE attribute).
- * Convention: {parentTableName}_tp_{attributeUuid12}
- * Uses first 12 hex chars of UUID (48 bits) for uniqueness within a catalog.
- * Keeps total name ≤ 63 chars (PostgreSQL NAMEDATALEN limit).
- * The parent prefix is truncated first to guarantee _tp_ (4 chars) and
- * cleanId (12 chars) are always fully preserved, preventing name collisions.
- * Example: cat_abc123def456...gggg_tp_111122223333
+ * Generates independent table name for a child table (TABLE attribute).
+ * Convention: tbl_{attributeUuid32}
+ * Uses full UUID v7 hex (32 chars) of the TABLE attribute ID.
+ * Total name = 4 ('tbl_') + 32 (hex) = 36 chars, well within PostgreSQL 63-char limit.
+ * The name is independent of the parent table, enabling future multi-parent (junction table) support.
+ *
+ * Example: tbl_0196117f8e037db3bbe2d3e0f1a2b3c4
  */
-export const generateTabularTableName = (parentTableName: string, attributeId: string): string => {
-    const cleanId = attributeId.replace(/-/g, '').substring(0, 12)
-    // Reserve 16 chars for suffix: '_tp_' (4) + cleanId (12)
-    const prefix = parentTableName.substring(0, 63 - 4 - 12)
-    return `${prefix}_tp_${cleanId}`
+export const generateChildTableName = (attributeId: string): string => {
+    const cleanId = attributeId.replace(/-/g, '')
+    return `tbl_${cleanId}`
 }
 
 export const buildFkConstraintName = (tableName: string, columnName: string): string => `fk_${tableName}_${columnName}`.substring(0, 63)

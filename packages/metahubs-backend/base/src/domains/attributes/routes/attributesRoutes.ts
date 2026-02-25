@@ -52,7 +52,10 @@ const validationRulesSchema = z
         max: z.number().nullable().optional(),
         nonNegative: z.boolean().nullable().optional(),
         // DATE settings (replaces DATETIME type)
-        dateComposition: z.enum(['date', 'time', 'datetime']).nullable().optional()
+        dateComposition: z.enum(['date', 'time', 'datetime']).nullable().optional(),
+        // TABLE settings (row count limits for child table)
+        minRows: z.number().int().min(0).nullable().optional(),
+        maxRows: z.number().int().min(1).nullable().optional()
     })
     .optional()
     .refine(
@@ -76,9 +79,21 @@ const validationRulesSchema = z
             ) {
                 if (rules.minLength > rules.maxLength) return false
             }
+            // Validate minRows <= maxRows for TABLE (only if both are non-null numbers)
+            if (
+                typeof rules.minRows === 'number' &&
+                rules.minRows !== null &&
+                typeof rules.maxRows === 'number' &&
+                rules.maxRows !== null
+            ) {
+                if (rules.minRows > rules.maxRows) return false
+            }
             return true
         },
-        { message: 'Invalid validation rules: scale must be less than precision, min must be <= max, and minLength must be <= maxLength.' }
+        {
+            message:
+                'Invalid validation rules: scale must be less than precision, min must be <= max, minLength must be <= maxLength, and minRows must be <= maxRows.'
+        }
     )
 
 const uiConfigSchema = z
@@ -526,7 +541,7 @@ export function createAttributesRoutes(
                     targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
                     validationRules: validationRules ?? {},
                     uiConfig: normalizedUiConfig,
-                    isRequired: dataType === AttributeDataType.TABLE ? false : isRequired ?? false,
+                    isRequired: isRequired ?? false,
                     isDisplayAttribute: isDisplayAttribute ?? false,
                     sortOrder: sortOrder,
                     parentAttributeId: parentAttributeId ?? null,
@@ -634,12 +649,6 @@ export function createAttributesRoutes(
             const effectiveDataType = dataType ?? attribute.dataType
             const isRefType = effectiveDataType === AttributeDataType.REF
 
-            if (effectiveDataType === AttributeDataType.TABLE && isRequired === true) {
-                return res.status(400).json({
-                    error: 'TABLE attributes cannot be set as required'
-                })
-            }
-
             let effectiveTargetEntityId = attribute.targetEntityId ?? null
             let effectiveTargetEntityKind = attribute.targetEntityKind ?? null
 
@@ -713,7 +722,7 @@ export function createAttributesRoutes(
             }
 
             if (validationRules) updateData.validationRules = validationRules
-            const effectiveIsRequired = effectiveDataType === AttributeDataType.TABLE ? false : isRequired ?? attribute.isRequired
+            const effectiveIsRequired = isRequired ?? attribute.isRequired
             if (uiConfig || targetChanged || (isRefType && effectiveTargetEntityKind === ENUMERATION_KIND && isRequired !== undefined)) {
                 const currentUiConfig = (attribute.uiConfig as Record<string, unknown>) ?? {}
                 const mergedUiConfig: Record<string, unknown> = { ...currentUiConfig, ...(uiConfig ?? {}) }
@@ -849,12 +858,6 @@ export function createAttributesRoutes(
             const attribute = await attributesService.findById(metahubId, attributeId, userId)
             if (!attribute || attribute.catalogId !== catalogId) {
                 return res.status(404).json({ error: 'Attribute not found' })
-            }
-
-            if (attribute.dataType === AttributeDataType.TABLE) {
-                return res.status(400).json({
-                    error: 'TABLE attributes cannot be set as required'
-                })
             }
 
             const newValue = !attribute.isRequired

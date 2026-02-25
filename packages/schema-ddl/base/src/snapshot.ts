@@ -1,7 +1,7 @@
 import type { EntityDefinition, SchemaSnapshot } from './types'
-import { generateColumnName, generateTableName, generateTabularTableName } from './naming'
+import { generateColumnName, generateTableName, generateChildTableName } from './naming'
 
-export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 1
+export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 2
 
 export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapshot => {
     const snapshot: SchemaSnapshot = {
@@ -25,7 +25,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
             if (field.parentAttributeId) continue
 
             const isTable = field.dataType === 'TABLE'
-            const columnName = isTable ? generateTabularTableName(entityTableName, field.id) : generateColumnName(field.id)
+            const columnName = isTable ? generateChildTableName(field.id) : generateColumnName(field.id)
 
             // Collect child fields for TABLE attributes
             const childFields = isTable

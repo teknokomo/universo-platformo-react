@@ -425,7 +425,7 @@ export class TemplateSeedExecutor {
                 const value = values[index]
                 const exists = await qb
                     .withSchema(this.schemaName)
-                    .from('_mhb_enum_values')
+                    .from('_mhb_values')
                     .where({
                         object_id: objectId,
                         codename: value.codename,
@@ -439,7 +439,7 @@ export class TemplateSeedExecutor {
                 if (value.isDefault) {
                     await qb
                         .withSchema(this.schemaName)
-                        .from('_mhb_enum_values')
+                        .from('_mhb_values')
                         .where({
                             object_id: objectId,
                             _upl_deleted: false,
@@ -454,7 +454,7 @@ export class TemplateSeedExecutor {
 
                 await qb
                     .withSchema(this.schemaName)
-                    .into('_mhb_enum_values')
+                    .into('_mhb_values')
                     .insert({
                         object_id: objectId,
                         codename: value.codename,
