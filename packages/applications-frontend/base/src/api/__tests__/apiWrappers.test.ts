@@ -87,8 +87,12 @@ describe('applications-frontend api wrappers', () => {
         api.deleteApplication('m1')
         expect(del).toHaveBeenCalledWith('/applications/m1')
 
-        api.copyApplication('m1', { name: { en: 'Copy Name' }, copyAccess: true })
-        expect(post).toHaveBeenCalledWith('/applications/m1/copy', { name: { en: 'Copy Name' }, copyAccess: true })
+        api.copyApplication('m1', { name: { en: 'Copy Name' }, copyConnector: true, createSchema: false, copyAccess: true })
+        expect(post).toHaveBeenCalledWith('/applications/m1/copy', {
+            name: { en: 'Copy Name' },
+            copyConnector: true,
+            copyAccess: true
+        })
 
         const members = await api.listApplicationMembers('m1', { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' })
         expect(get).toHaveBeenCalledWith('/applications/m1/members', {

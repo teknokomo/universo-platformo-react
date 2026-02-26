@@ -36,6 +36,35 @@ interface CopyBranchParams {
     data: BranchLocalizedPayload
 }
 
+type BranchMutationError = Error & {
+    response?: {
+        status?: number
+        data?: {
+            code?: string
+            error?: string
+        }
+    }
+}
+
+const resolveBranchCopyCompatibilityCode = (
+    errorCode?: string,
+    backendMessage?: string
+): 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES' | null => {
+    if (errorCode === 'BRANCH_COPY_ENUM_REFERENCES' || errorCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+        return errorCode
+    }
+
+    const normalizedMessage = (backendMessage ?? '').toUpperCase()
+    if (normalizedMessage.includes('BRANCH_COPY_ENUM_REFERENCES') || normalizedMessage.includes('ENUMERATIONS COPY')) {
+        return 'BRANCH_COPY_ENUM_REFERENCES'
+    }
+    if (normalizedMessage.includes('BRANCH_COPY_DANGLING_REFERENCES') || normalizedMessage.includes('DANGLING OBJECT REFERENCES')) {
+        return 'BRANCH_COPY_DANGLING_REFERENCES'
+    }
+
+    return null
+}
+
 export function useCreateBranch() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -52,10 +81,11 @@ export function useCreateBranch() {
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.createSuccess', 'Branch created'), { variant: 'success' })
         },
-        onError: (error: Error & { response?: { status?: number; data?: { code?: string; error?: string } } }) => {
+        onError: (error: BranchMutationError) => {
             const status = error?.response?.status
             const errorCode = error?.response?.data?.code
             const backendMessage = error?.response?.data?.error
+            const compatibilityCode = resolveBranchCopyCompatibilityCode(errorCode, backendMessage)
 
             if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
                 enqueueSnackbar(t('branches.createLocked', 'Branch creation is already in progress. Please try again.'), {
@@ -69,6 +99,26 @@ export function useCreateBranch() {
             }
             if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
                 enqueueSnackbar(t('branches.numberConflict', 'Branch numbering conflict. Please try again.'), { variant: 'warning' })
+                return
+            }
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+                enqueueSnackbar(
+                    t(
+                        'branches.copyEnumReferencesError',
+                        'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
+                    ),
+                    { variant: 'warning' }
+                )
+                return
+            }
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+                enqueueSnackbar(
+                    t(
+                        'branches.copyDanglingReferencesError',
+                        'Copy options would create invalid references. Keep all referenced entity groups enabled.'
+                    ),
+                    { variant: 'warning' }
+                )
                 return
             }
 
@@ -93,10 +143,11 @@ export function useCopyBranch() {
             queryClient.invalidateQueries({ queryKey: ['metahub-branches'], exact: false })
             enqueueSnackbar(t('branches.copySuccess', 'Branch copied'), { variant: 'success' })
         },
-        onError: (error: Error & { response?: { status?: number; data?: { code?: string; error?: string } } }) => {
+        onError: (error: BranchMutationError) => {
             const status = error?.response?.status
             const errorCode = error?.response?.data?.code
             const backendMessage = error?.response?.data?.error
+            const compatibilityCode = resolveBranchCopyCompatibilityCode(errorCode, backendMessage)
 
             if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
                 enqueueSnackbar(t('branches.createLocked', 'Branch creation is already in progress. Please try again.'), {
@@ -110,6 +161,26 @@ export function useCopyBranch() {
             }
             if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
                 enqueueSnackbar(t('branches.numberConflict', 'Branch numbering conflict. Please try again.'), { variant: 'warning' })
+                return
+            }
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+                enqueueSnackbar(
+                    t(
+                        'branches.copyEnumReferencesError',
+                        'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
+                    ),
+                    { variant: 'warning' }
+                )
+                return
+            }
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+                enqueueSnackbar(
+                    t(
+                        'branches.copyDanglingReferencesError',
+                        'Copy options would create invalid references. Keep all referenced entity groups enabled.'
+                    ),
+                    { variant: 'warning' }
+                )
                 return
             }
 

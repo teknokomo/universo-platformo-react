@@ -2,6 +2,125 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## In Progress: QA Remediation Round 4 — Copy Flows Final Hardening — 2026-02-26 🚧
+
+> **Goal**: Fix residual correctness gaps from the latest QA review without introducing regressions in existing copy flows.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q4-R1. Application copy `createSchema` server-side contract alignment
+- [x] Align copy API contract so backend copy endpoint handles only copy-state options (`copyConnector`, `copyAccess`) and ignores legacy `createSchema` payload
+- [x] Keep deterministic schema creation orchestration in frontend (`copy -> sync`) and adjust API/backend tests for contract behavior
+
+### Q4-R2. Branch create dialog error mapping completeness
+- [x] Map branch copy compatibility 400 codes to stable i18n messages in create dialog
+- [x] Keep fallback handling backward-safe for unexpected backend error payloads
+
+### Q4-R3. Verification and bookkeeping
+- [x] Run targeted tests/lint for changed packages
+- [x] Mark checklist done and append progress entry
+
+## In Progress: QA Remediation Round 3 — Copy Flows Stabilization — 2026-02-26 🚧
+
+> **Goal**: Close remaining QA findings for copy flows and apply UI/logic adjustments requested after manual review.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q3-R1. Application copy: UI spacing + race-safe slug behavior
+- [x] Restore standard vertical spacing before description field in application copy dialog ("General" tab)
+- [x] Harden backend copy endpoint against concurrent slug collisions with deterministic conflict handling
+
+### Q3-R2. Branch copy: mandatory migrations + option model cleanup
+- [x] Remove `copyMigrations` option from branch copy UI, shared types, and backend validation
+- [x] Force migrations to always copy during branch clone and keep selective copy for other entities only
+- [x] Align branch copy tests (frontend/backend) with new mandatory-migrations behavior
+
+### Q3-R3. Branch copy errors: deterministic i18n mapping
+- [x] Add stable frontend error mapping for structured branch copy compatibility codes
+- [x] Keep backward-safe fallback for legacy string-based backend messages
+
+### Q3-R4. Verification and bookkeeping
+- [x] Run targeted tests and package-level lint for changed packages
+- [x] Mark checklist done and append progress entry
+
+## In Progress: Copying UX/Logic Upgrade — Metahubs, Applications, Branches — 2026-02-26 🚧
+
+> **Goal**: Implement approved plan from `memory-bank/plan/copy-improvements-plan-2026-02-26.md` with QA addendum corrections.
+> **Complexity**: Level 3 (Significant)
+> **Status**: ✅ Implemented (awaiting dedicated QA pass)
+
+## In Progress: QA Remediation Round 2 — Copying Reliability Hardening — 2026-02-26 🚧
+
+> **Goal**: Close all remaining QA findings for copy flows with focus on data integrity and deterministic API behavior.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q2-R1. Application copy slug collision resilience
+- [x] Remove UI-blocking slug conflicts for repeated copy operations when source has slug
+- [x] Add backend test for automatic unique slug resolution in copy flow
+
+### Q2-R2. Branch partial-copy data integrity
+- [x] Eliminate dangling `config.hubs` references when hubs are excluded from branch copy
+- [x] Keep branch copy compatibility guard deterministic for attribute target references
+- [x] Add backend test coverage for hub-reference cleanup on partial copy
+
+### Q2-R3. Deterministic error contract plumbing
+- [x] Replace fragile string-matching branch-copy error mapping with structured error codes (with backward-safe fallback)
+- [x] Keep HTTP response contract unchanged for existing frontend behavior
+
+### Q2-R4. Frontend test coverage gap
+- [x] Add branch create-flow test to assert options payload forwarding (`fullCopy` and child flags)
+
+### Q2-R5. Verification and bookkeeping
+- [x] Run targeted tests and lint for changed packages
+- [x] Mark checklist done and append progress entry
+
+### A. Metahub copy dialog
+- [x] Rename metahub copy tab label from "Copy options" / "Опции копирования" to "Options" / "Опции" (i18n + usage checks)
+
+### B. Application copy dialog + backend contract
+- [x] Extend application copy payload with `copyConnector`, `createSchema`, `copyAccess` and conditional validation
+- [x] Implement tabbed copy dialog in applications frontend: "General" + "Options"
+- [x] Add options behavior: `copyConnector` default true, `createSchema` default false, disable+reset createSchema when copyConnector=false, `copyAccess` moved to options
+- [x] Update applications backend copy route: no runtime schema clone, conditional connector copy, safe schema metadata reset
+- [x] Implement copy->sync orchestration in `useCopyApplication` when `createSchema=true` with non-destructive failure handling
+- [x] Update application i18n keys (ru/en) and adjust API/hooks/page tests
+
+### C. Branch copy options (metahub branches)
+- [x] Add branch copy options payload and frontend state machine (`fullCopy`, `copyLayouts`, `copyHubs`, `copyCatalogs`, `copyEnumerations`, `copyMigrations`)
+- [x] Add "Options" tab to branch copy entry points and ensure parity for both flows (copy action + create-from-source)
+- [x] Extend backend branch create validation schema with copy options and dependency rules
+- [x] Implement selective prune in `MetahubBranchesService.createBranch` after clone inside single transaction context
+- [x] Add backend/frontend tests for branch copy options and validation error cases
+- [x] Update metahubs i18n keys (ru/en) for branch options UI
+
+### D. Verification and bookkeeping
+- [x] Run targeted tests/lint for changed packages
+- [x] Mark completed checklist items and add implementation entry to `memory-bank/progress.md`
+
+## Completed: QA Remediation — Copying UX/Logic Upgrade — 2026-02-26 ✅
+
+> **Goal**: Fix all QA findings from the latest audit and close remaining reliability gaps in copy flows.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### R1. Application copy partial-success consistency
+- [x] Ensure `copy -> sync` partial failure still refreshes application list cache so created copies are visible
+- [x] Add frontend hook test for `copy created + sync failed` behavior (error message + cache refresh)
+
+### R2. Branch copy safety checks
+- [x] Extend backend compatibility checks to prevent dangling references for non-enumeration partial-copy combinations
+- [x] Map new backend incompatibility error to deterministic HTTP 400 contract
+- [x] Add/extend backend tests for new incompatibility branch-copy response
+
+### R3. i18n parity and frontend tests
+- [x] Fix EN metahub copy tab label (`copy.optionsTab`) to `Options`
+- [x] Add frontend branch copy action test for options payload/state behavior
+
+### R4. Lint quality gate
+- [x] Fix current `@universo/metahubs-frontend` lint errors (prettier violations) that block the package lint command
+- [x] Re-run targeted tests/lints for changed packages and record results
+
 ## Completed: NUMBER field parity — catalog inline table NumberTableCell — 2026-02-26 ✅
 
 > **Goal**: Replicate correct standalone NUMBER field behavior from DynamicEntityFormDialog into all 3 other NUMBER field contexts: (1) catalog inline table, (2) app standalone NUMBER (FormDialog), (3) app inline table (NumberEditCell via DataGrid).

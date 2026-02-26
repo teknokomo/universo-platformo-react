@@ -358,6 +358,8 @@ const ApplicationList = () => {
                         description?: Record<string, string>
                         namePrimaryLocale?: string
                         descriptionPrimaryLocale?: string
+                        copyConnector?: boolean
+                        createSchema?: boolean
                         copyAccess?: boolean
                     }
                 ) => {

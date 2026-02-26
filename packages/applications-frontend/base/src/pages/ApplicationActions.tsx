@@ -1,10 +1,11 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import { Checkbox, FormControlLabel } from '@mui/material'
+import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, notifyError } from '@universo/template-mui'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { ApplicationCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import { normalizeApplicationCopyOptions } from '@universo/utils'
 import type { Application, ApplicationDisplay, ApplicationLocalizedPayload } from '../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
 
@@ -76,7 +77,7 @@ const buildCopyInitialValues = (ctx: ActionContext<ApplicationDisplay, Applicati
             uiLocale,
             ctx.entity?.name || ''
         ),
-        copyAccess: false
+        ...normalizeApplicationCopyOptions()
     }
 }
 
@@ -91,6 +92,14 @@ const validateApplicationForm = (ctx: ActionContext<ApplicationDisplay, Applicat
 const canSaveApplicationForm = (values: Record<string, any>) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     return hasPrimaryContent(nameVlc)
+}
+
+const getApplicationCopyOptions = (values: Record<string, any>): ApplicationCopyOptions => {
+    return normalizeApplicationCopyOptions({
+        copyConnector: values.copyConnector,
+        createSchema: values.createSchema,
+        copyAccess: values.copyAccess
+    })
 }
 
 const toPayload = (values: Record<string, any>): ApplicationLocalizedPayload => {
@@ -215,43 +224,93 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: any) => {
+                    tabs: ({ values, setValue, isLoading, errors }: any) => {
                         const fieldErrors = errors ?? {}
-                        return (
-                            <>
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={ctx.t('common:fields.name')}
-                                    required
-                                    disabled={isLoading}
-                                    value={values.nameVlc ?? null}
-                                    onChange={(next) => setValue('nameVlc', next)}
-                                    error={fieldErrors.nameVlc || null}
-                                    helperText={fieldErrors.nameVlc}
-                                    uiLocale={ctx.uiLocale as string}
-                                />
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={ctx.t('common:fields.description')}
-                                    disabled={isLoading}
-                                    value={values.descriptionVlc ?? null}
-                                    onChange={(next) => setValue('descriptionVlc', next)}
-                                    uiLocale={ctx.uiLocale as string}
-                                    multiline
-                                    rows={2}
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            checked={Boolean(values.copyAccess ?? false)}
-                                            onChange={(event) => setValue('copyAccess', event.target.checked)}
+                        const copyOptions = getApplicationCopyOptions(values)
+
+                        return [
+                            {
+                                id: 'general',
+                                label: ctx.t('copy.generalTab', 'General'),
+                                content: (
+                                    <Stack spacing={2}>
+                                        <LocalizedInlineField
+                                            mode='localized'
+                                            label={ctx.t('common:fields.name')}
+                                            required
                                             disabled={isLoading}
+                                            value={values.nameVlc ?? null}
+                                            onChange={(next) => setValue('nameVlc', next)}
+                                            error={fieldErrors.nameVlc || null}
+                                            helperText={fieldErrors.nameVlc}
+                                            uiLocale={ctx.uiLocale as string}
                                         />
-                                    }
-                                    label={ctx.t('copy.copyAccess', 'Copy access permissions')}
-                                />
-                            </>
-                        )
+                                        <LocalizedInlineField
+                                            mode='localized'
+                                            label={ctx.t('common:fields.description')}
+                                            disabled={isLoading}
+                                            value={values.descriptionVlc ?? null}
+                                            onChange={(next) => setValue('descriptionVlc', next)}
+                                            uiLocale={ctx.uiLocale as string}
+                                            multiline
+                                            rows={2}
+                                        />
+                                    </Stack>
+                                )
+                            },
+                            {
+                                id: 'options',
+                                label: ctx.t('copy.optionsTab', 'Options'),
+                                content: (
+                                    <Stack spacing={1}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={copyOptions.copyConnector}
+                                                    onChange={(event) => {
+                                                        const checked = event.target.checked
+                                                        setValue('copyConnector', checked)
+                                                        if (!checked) {
+                                                            setValue('createSchema', false)
+                                                        }
+                                                    }}
+                                                    disabled={isLoading}
+                                                />
+                                            }
+                                            label={ctx.t('copy.copyConnector', 'Copy connector')}
+                                        />
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={copyOptions.createSchema}
+                                                    onChange={(event) => setValue('createSchema', event.target.checked)}
+                                                    disabled={isLoading || !copyOptions.copyConnector}
+                                                />
+                                            }
+                                            label={ctx.t('copy.createSchema', 'Create application schema')}
+                                        />
+                                        {!copyOptions.copyConnector ? (
+                                            <Typography variant='caption' color='text.secondary' sx={{ ml: 4 }}>
+                                                {ctx.t(
+                                                    'copy.createSchemaDisabledHint',
+                                                    'Enable "Copy connector" to make schema creation available.'
+                                                )}
+                                            </Typography>
+                                        ) : null}
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={copyOptions.copyAccess}
+                                                    onChange={(event) => setValue('copyAccess', event.target.checked)}
+                                                    disabled={isLoading}
+                                                />
+                                            }
+                                            label={ctx.t('copy.copyAccess', 'Copy access permissions')}
+                                        />
+                                    </Stack>
+                                )
+                            }
+                        ]
                     },
                     validate: (values: Record<string, any>) => validateApplicationForm(ctx, values),
                     canSave: canSaveApplicationForm,
@@ -269,9 +328,10 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     onSave: async (data: Record<string, any>) => {
                         try {
                             const payload = toPayload(data)
+                            const copyOptions = getApplicationCopyOptions(data)
                             await ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
-                                copyAccess: Boolean(data.copyAccess ?? false)
+                                ...copyOptions
                             })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {

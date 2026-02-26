@@ -14,7 +14,8 @@ import type {
     AttributeDataType,
     MetaEntityKind,
     DashboardLayoutZone,
-    DashboardLayoutWidgetKey
+    DashboardLayoutWidgetKey,
+    BranchCopyOptions
 } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
@@ -519,6 +520,11 @@ export interface BranchLocalizedPayload {
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     sourceBranchId?: string
+    fullCopy?: BranchCopyOptions['fullCopy']
+    copyLayouts?: BranchCopyOptions['copyLayouts']
+    copyHubs?: BranchCopyOptions['copyHubs']
+    copyCatalogs?: BranchCopyOptions['copyCatalogs']
+    copyEnumerations?: BranchCopyOptions['copyEnumerations']
 }
 
 /** Payload for creating/updating Catalog */

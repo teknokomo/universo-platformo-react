@@ -267,7 +267,7 @@ const buildEditTabs = (
     if (options?.includeCopyOptions) {
         tabs.push({
             id: 'copy-options',
-            label: ctx.t('copy.optionsTab', 'Copy options'),
+            label: ctx.t('copy.optionsTab', 'Options'),
             content: (
                 <Stack sx={{ mt: 1 }}>
                     <FormControlLabel

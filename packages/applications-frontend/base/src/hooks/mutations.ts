@@ -14,6 +14,7 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import type { AssignableRole } from '@universo/template-mui'
+import { normalizeApplicationCopyOptions } from '@universo/utils'
 import type { ConnectorLocalizedPayload, ApplicationLocalizedPayload, SimpleLocalizedInput } from '../types'
 import { normalizeLocale } from '../utils/localizedInput'
 
@@ -35,6 +36,14 @@ interface UpdateApplicationParams {
 interface CopyApplicationParams {
     id: string
     data?: applicationsApi.ApplicationCopyInput
+}
+
+class CopySyncStepError extends Error {
+    constructor(readonly copiedApplicationId: string, readonly originalError: unknown) {
+        const message = originalError instanceof Error ? originalError.message : 'Unknown sync error'
+        super(message)
+        this.name = 'CopySyncStepError'
+    }
 }
 
 interface UpdateMemberRoleParams {
@@ -186,15 +195,42 @@ export function useCopyApplication() {
 
     return useMutation({
         mutationFn: async ({ id, data }: CopyApplicationParams) => {
-            const response = await applicationsApi.copyApplication(id, data ?? {})
-            return response.data
+            const copyOptions = normalizeApplicationCopyOptions(data ?? {})
+            const response = await applicationsApi.copyApplication(id, {
+                ...(data ?? {}),
+                ...copyOptions
+            })
+            const copiedApplication = response.data
+
+            if (copyOptions.createSchema) {
+                try {
+                    await connectorsApi.syncApplication(copiedApplication.id, false)
+                } catch (error: unknown) {
+                    throw new CopySyncStepError(copiedApplication.id, error)
+                }
+            }
+
+            return copiedApplication
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
             enqueueSnackbar(t('copySuccess', 'Application copied'), { variant: 'success' })
         },
         onError: (error: Error) => {
+            if (error instanceof CopySyncStepError) {
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(error.copiedApplicationId) })
+                enqueueSnackbar(
+                    t(
+                        'copy.syncFailed',
+                        'Application was copied, but schema creation failed. You can retry schema sync from the application panel.'
+                    ),
+                    { variant: 'error' }
+                )
+                return
+            }
             enqueueSnackbar(error.message || t('copyError', 'Failed to copy application'), { variant: 'error' })
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
         }
     })
 }

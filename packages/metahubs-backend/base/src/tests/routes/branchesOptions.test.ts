@@ -157,4 +157,121 @@ describe('Branches Options Routes', () => {
             error: 'Branch deletion in progress'
         })
     })
+
+    it('returns 400 for incompatible branch copy options', async () => {
+        const metahubUserRepo = createMockRepository<any>()
+        const branchRepo = createMockRepository<any>()
+        const dataSource = createMockDataSource({
+            MetahubUser: metahubUserRepo,
+            MetahubBranch: branchRepo
+        })
+
+        const metahubId = 'metahub-1'
+        metahubUserRepo.findOne.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            role: 'owner'
+        })
+        branchRepo.createQueryBuilder().getOne.mockResolvedValue(null)
+
+        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_ENUM_REFERENCES'))
+
+        const app = buildApp(dataSource)
+
+        const response = await request(app)
+            .post(`/metahub/${metahubId}/branches`)
+            .send({
+                codename: 'copy-test',
+                name: { en: 'Copy Test' },
+                sourceBranchId: '00000000-0000-0000-0000-000000000001',
+                fullCopy: false,
+                copyCatalogs: true,
+                copyEnumerations: false
+            })
+            .expect(400)
+
+        expect(response.body).toEqual({
+            code: 'BRANCH_COPY_ENUM_REFERENCES',
+            error: 'Cannot disable enumerations copy while catalogs/hubs with enumeration references are copied'
+        })
+    })
+
+    it('returns 400 for branch copy options that produce dangling references', async () => {
+        const metahubUserRepo = createMockRepository<any>()
+        const branchRepo = createMockRepository<any>()
+        const dataSource = createMockDataSource({
+            MetahubUser: metahubUserRepo,
+            MetahubBranch: branchRepo
+        })
+
+        const metahubId = 'metahub-1'
+        metahubUserRepo.findOne.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            role: 'owner'
+        })
+        branchRepo.createQueryBuilder().getOne.mockResolvedValue(null)
+
+        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_DANGLING_REFERENCES'))
+
+        const app = buildApp(dataSource)
+
+        const response = await request(app)
+            .post(`/metahub/${metahubId}/branches`)
+            .send({
+                codename: 'copy-test-2',
+                name: { en: 'Copy Test 2' },
+                sourceBranchId: '00000000-0000-0000-0000-000000000001',
+                fullCopy: false,
+                copyHubs: true,
+                copyCatalogs: false
+            })
+            .expect(400)
+
+        expect(response.body).toEqual({
+            code: 'BRANCH_COPY_DANGLING_REFERENCES',
+            error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
+        })
+    })
+
+    it('maps structured branch-copy compatibility error code to deterministic 400 response', async () => {
+        const metahubUserRepo = createMockRepository<any>()
+        const branchRepo = createMockRepository<any>()
+        const dataSource = createMockDataSource({
+            MetahubUser: metahubUserRepo,
+            MetahubBranch: branchRepo
+        })
+
+        const metahubId = 'metahub-1'
+        metahubUserRepo.findOne.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            role: 'owner'
+        })
+        branchRepo.createQueryBuilder().getOne.mockResolvedValue(null)
+
+        const structuredError = Object.assign(new Error('copy compatibility failed'), {
+            code: 'BRANCH_COPY_DANGLING_REFERENCES'
+        })
+        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(structuredError)
+
+        const app = buildApp(dataSource)
+
+        const response = await request(app)
+            .post(`/metahub/${metahubId}/branches`)
+            .send({
+                codename: 'copy-test-structured',
+                name: { en: 'Copy Test Structured' },
+                sourceBranchId: '00000000-0000-0000-0000-000000000001',
+                fullCopy: false,
+                copyHubs: true,
+                copyCatalogs: false
+            })
+            .expect(400)
+
+        expect(response.body).toEqual({
+            code: 'BRANCH_COPY_DANGLING_REFERENCES',
+            error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
+        })
+    })
 })

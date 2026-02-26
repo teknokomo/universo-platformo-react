@@ -1,5 +1,6 @@
 export { schemas } from './schemas'
 export { CODENAME_PATTERN, normalizeCodename, isValidCodename, sanitizeCodename } from './codename'
+export { normalizeApplicationCopyOptions, normalizeBranchCopyOptions } from './copyOptions'
 export {
     validateNumber,
     validateNumberOrThrow,
@@ -9,9 +10,4 @@ export {
     type NumberValidationResult,
     type NumberValidationRules
 } from './numberValidation'
-export {
-    buildTableConstraintText,
-    type TranslateFn,
-    type TableConstraintParams,
-    type TableConstraintResult
-} from './tableConstraints'
+export { buildTableConstraintText, type TranslateFn, type TableConstraintParams, type TableConstraintResult } from './tableConstraints'

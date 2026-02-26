@@ -16,7 +16,13 @@
         "copy": {
             "action": "Copy",
             "actionLoading": "Copying...",
-            "copyAccess": "Copy access permissions"
+            "generalTab": "General",
+            "optionsTab": "Options",
+            "copyConnector": "Copy connector",
+            "createSchema": "Create application schema",
+            "createSchemaDisabledHint": "Enable \"Copy connector\" to make schema creation available.",
+            "copyAccess": "Copy access permissions",
+            "syncFailed": "Application was copied, but schema creation failed. You can retry schema sync from the application panel."
         },
         "actions": {
             "edit": "Edit",

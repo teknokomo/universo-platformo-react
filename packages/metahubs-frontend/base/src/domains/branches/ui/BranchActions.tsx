@@ -1,4 +1,4 @@
-import { Divider, Stack, Button, Chip, Typography, Box } from '@mui/material'
+import { Divider, Stack, Button, Chip, Typography, Box, Checkbox, FormControlLabel } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -9,7 +9,9 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { BranchCopyOptionKey, BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
+import { normalizeBranchCopyOptions } from '@universo/utils'
 import type { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
@@ -89,8 +91,113 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchL
             uiLocale,
             ctx.entity?.name || ctx.entity?.codename || ''
         ),
-        codenameTouched: false
+        codenameTouched: false,
+        ...normalizeBranchCopyOptions()
     }
+}
+
+const getBranchCopyOptions = (values: Record<string, any>): BranchCopyOptions => {
+    return normalizeBranchCopyOptions({
+        fullCopy: values.fullCopy,
+        copyLayouts: values.copyLayouts,
+        copyHubs: values.copyHubs,
+        copyCatalogs: values.copyCatalogs,
+        copyEnumerations: values.copyEnumerations
+    })
+}
+
+const setAllBranchCopyChildren = (setValue: (name: string, value: any) => void, checked: boolean) => {
+    for (const key of BRANCH_COPY_OPTION_KEYS) {
+        setValue(key, checked)
+    }
+    setValue('fullCopy', checked)
+}
+
+const toggleBranchCopyChild = (
+    setValue: (name: string, value: any) => void,
+    key: BranchCopyOptionKey,
+    checked: boolean,
+    values: Record<string, any>
+) => {
+    setValue(key, checked)
+    const nextOptions = getBranchCopyOptions({
+        ...values,
+        [key]: checked,
+        fullCopy: false
+    })
+    setValue('fullCopy', nextOptions.fullCopy)
+}
+
+const BranchCopyOptionsTab = ({
+    values,
+    setValue,
+    isLoading,
+    t
+}: {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    t: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>['t']
+}) => {
+    const options = getBranchCopyOptions(values)
+    const allChildrenChecked = BRANCH_COPY_OPTION_KEYS.every((key) => options[key])
+    const hasCheckedChildren = BRANCH_COPY_OPTION_KEYS.some((key) => options[key])
+
+    return (
+        <Stack spacing={1}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={allChildrenChecked}
+                        indeterminate={!allChildrenChecked && hasCheckedChildren}
+                        onChange={(event) => setAllBranchCopyChildren(setValue, event.target.checked)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.fullCopy', 'Полное копирование')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyLayouts}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyLayouts', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyLayouts', 'Макеты')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyHubs}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyHubs', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyHubs', 'Хабы')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyCatalogs}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyCatalogs', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyCatalogs', 'Каталоги')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyEnumerations}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyEnumerations', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyEnumerations', 'Перечисления')}
+            />
+        </Stack>
+    )
 }
 
 const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>, values: Record<string, any>) => {
@@ -472,6 +579,11 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                                     showActivateControl={false}
                                 />
                             )
+                        },
+                        {
+                            id: 'options',
+                            label: ctx.t('metahubs:branches.tabs.options', 'Опции'),
+                            content: <BranchCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={ctx.t} />
                         }
                     ],
                     validate: (values: Record<string, any>) => validateBranchForm(ctx, values),
@@ -490,9 +602,11 @@ const branchActions: readonly ActionDescriptor<MetahubBranchDisplay, BranchLocal
                     onSave: async (data: Record<string, any>) => {
                         try {
                             const payload = toPayload(data)
+                            const copyOptions = getBranchCopyOptions(data)
                             await ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...payload,
-                                sourceBranchId: ctx.entity.id
+                                sourceBranchId: ctx.entity.id,
+                                ...copyOptions
                             })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {

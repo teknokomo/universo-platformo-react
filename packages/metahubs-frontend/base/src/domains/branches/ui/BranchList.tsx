@@ -1,6 +1,20 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Divider, Chip, FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material'
+import {
+    Box,
+    Skeleton,
+    Stack,
+    Typography,
+    Divider,
+    Chip,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormHelperText,
+    Checkbox,
+    FormControlLabel
+} from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -38,9 +52,11 @@ import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as branchesApi from '../api'
 import { metahubsQueryKeys, invalidateBranchesQueries } from '../../shared'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { BranchCopyOptionKey, BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload, getVLCString, toBranchDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
+import { normalizeBranchCopyOptions } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, BranchDeleteDialog } from '../../../components'
@@ -52,6 +68,62 @@ type BranchFormValues = {
     codename: string
     codenameTouched?: boolean
     sourceBranchId?: string | null
+    fullCopy?: boolean
+    copyLayouts?: boolean
+    copyHubs?: boolean
+    copyCatalogs?: boolean
+    copyEnumerations?: boolean
+}
+
+const getBranchCopyOptions = (values: Record<string, any>): BranchCopyOptions => {
+    return normalizeBranchCopyOptions({
+        fullCopy: values.fullCopy,
+        copyLayouts: values.copyLayouts,
+        copyHubs: values.copyHubs,
+        copyCatalogs: values.copyCatalogs,
+        copyEnumerations: values.copyEnumerations
+    })
+}
+
+const setAllBranchCopyChildren = (setValue: (name: string, value: any) => void, checked: boolean) => {
+    for (const key of BRANCH_COPY_OPTION_KEYS) {
+        setValue(key, checked)
+    }
+    setValue('fullCopy', checked)
+}
+
+const toggleBranchCopyChild = (
+    setValue: (name: string, value: any) => void,
+    key: BranchCopyOptionKey,
+    checked: boolean,
+    values: Record<string, any>
+) => {
+    setValue(key, checked)
+    const nextOptions = getBranchCopyOptions({
+        ...values,
+        [key]: checked,
+        fullCopy: false
+    })
+    setValue('fullCopy', nextOptions.fullCopy)
+}
+
+const resolveBranchCopyCompatibilityCode = (
+    errorCode?: string,
+    backendMessage?: string
+): 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES' | null => {
+    if (errorCode === 'BRANCH_COPY_ENUM_REFERENCES' || errorCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+        return errorCode
+    }
+
+    const normalizedMessage = (backendMessage ?? '').toUpperCase()
+    if (normalizedMessage.includes('BRANCH_COPY_ENUM_REFERENCES') || normalizedMessage.includes('ENUMERATIONS COPY')) {
+        return 'BRANCH_COPY_ENUM_REFERENCES'
+    }
+    if (normalizedMessage.includes('BRANCH_COPY_DANGLING_REFERENCES') || normalizedMessage.includes('DANGLING OBJECT REFERENCES')) {
+        return 'BRANCH_COPY_DANGLING_REFERENCES'
+    }
+
+    return null
 }
 
 type BranchFormFieldsProps = {
@@ -230,6 +302,77 @@ const BranchSourceFields = ({
     )
 }
 
+type BranchCopyOptionsFieldsProps = {
+    values: Record<string, any>
+    setValue: (name: string, value: any) => void
+    isLoading: boolean
+    t: (key: string, defaultValue?: string) => string
+}
+
+const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyOptionsFieldsProps) => {
+    const options = getBranchCopyOptions(values)
+    const allChildrenChecked = BRANCH_COPY_OPTION_KEYS.every((key) => options[key])
+    const hasCheckedChildren = BRANCH_COPY_OPTION_KEYS.some((key) => options[key])
+    const hasSourceBranch = typeof values.sourceBranchId === 'string' && values.sourceBranchId.length > 0
+    const controlDisabled = isLoading || !hasSourceBranch
+
+    return (
+        <Stack spacing={1}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={allChildrenChecked}
+                        indeterminate={!allChildrenChecked && hasCheckedChildren}
+                        onChange={(event) => setAllBranchCopyChildren(setValue, event.target.checked)}
+                        disabled={controlDisabled}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.fullCopy', 'Полное копирование')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyLayouts}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyLayouts', event.target.checked, values)}
+                        disabled={controlDisabled}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyLayouts', 'Макеты')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyHubs}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyHubs', event.target.checked, values)}
+                        disabled={controlDisabled}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyHubs', 'Хабы')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyCatalogs}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyCatalogs', event.target.checked, values)}
+                        disabled={controlDisabled}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyCatalogs', 'Каталоги')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyEnumerations}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyEnumerations', event.target.checked, values)}
+                        disabled={controlDisabled}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyEnumerations', 'Перечисления')}
+            />
+        </Stack>
+    )
+}
+
 const BranchList = () => {
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
@@ -326,7 +469,8 @@ const BranchList = () => {
             descriptionVlc: null,
             codename: '',
             codenameTouched: false,
-            sourceBranchId: preferredSourceBranchId
+            sourceBranchId: preferredSourceBranchId,
+            ...normalizeBranchCopyOptions()
         }),
         [preferredSourceBranchId]
     )
@@ -382,6 +526,11 @@ const BranchList = () => {
                         sourceOptions={sourceOptions}
                     />
                 )
+            },
+            {
+                id: 'options',
+                label: t('metahubs:branches.tabs.options', 'Опции'),
+                content: <BranchCopyOptionsFields values={values} setValue={setValue} isLoading={isFormLoading} t={t} />
             }
         ],
         [i18n.language, sourceOptions, t, tc]
@@ -540,6 +689,11 @@ const BranchList = () => {
                     _id: string,
                     payload: BranchLocalizedPayload & {
                         sourceBranchId?: string
+                        fullCopy?: boolean
+                        copyLayouts?: boolean
+                        copyHubs?: boolean
+                        copyCatalogs?: boolean
+                        copyEnumerations?: boolean
                     }
                 ) => {
                     if (!metahubId) return
@@ -631,6 +785,7 @@ const BranchList = () => {
             }
             const sourceBranchId =
                 typeof data.sourceBranchId === 'string' && data.sourceBranchId.length > 0 ? data.sourceBranchId : undefined
+            const copyOptions = getBranchCopyOptions(data)
 
             await createBranchMutation.mutateAsync({
                 metahubId,
@@ -640,7 +795,8 @@ const BranchList = () => {
                     description: descriptionInput,
                     namePrimaryLocale,
                     descriptionPrimaryLocale,
-                    ...(sourceBranchId ? { sourceBranchId } : {})
+                    ...(sourceBranchId ? { sourceBranchId } : {}),
+                    ...copyOptions
                 }
             })
 
@@ -649,12 +805,27 @@ const BranchList = () => {
             const status = error?.response?.status
             const errorCode = error?.response?.data?.code
             const backendMessage = error?.response?.data?.error
+            const compatibilityCode = resolveBranchCopyCompatibilityCode(errorCode, backendMessage)
             if (status === 409 && errorCode === 'BRANCH_CREATION_IN_PROGRESS') {
                 setDialogError(t('metahubs:branches.createLocked', 'Branch creation is already in progress. Please try again.'))
             } else if (status === 409 && errorCode === 'BRANCH_CODENAME_EXISTS') {
                 setDialogError(t('metahubs:branches.codenameExists', 'Branch with this codename already exists'))
             } else if (status === 409 && errorCode === 'BRANCH_NUMBER_CONFLICT') {
                 setDialogError(t('metahubs:branches.numberConflict', 'Branch numbering conflict. Please try again.'))
+            } else if (status === 400 && compatibilityCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+                setDialogError(
+                    t(
+                        'metahubs:branches.copyEnumReferencesError',
+                        'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
+                    )
+                )
+            } else if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+                setDialogError(
+                    t(
+                        'metahubs:branches.copyDanglingReferencesError',
+                        'Copy options would create invalid references. Keep all referenced entity groups enabled.'
+                    )
+                )
             } else {
                 setDialogError(backendMessage || error.message || t('metahubs:branches.createError', 'Failed to create branch'))
             }

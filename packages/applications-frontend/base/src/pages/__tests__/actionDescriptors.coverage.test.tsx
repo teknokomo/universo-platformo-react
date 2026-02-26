@@ -181,8 +181,22 @@ describe('Action descriptors (coverage)', () => {
         const copyProps = copy.dialog.buildProps(ctx)
         expect(copyProps.validate({ nameVlc: null })).toMatchObject({ nameVlc: 'Name is required' })
         expect(copyProps.canSave({ nameVlc: makeVlc('X') })).toBe(true)
-        await copyProps.onSave({ nameVlc: makeVlc('My App (copy)'), descriptionVlc: makeVlc('Desc'), copyAccess: true })
-        expect(copyEntity).toHaveBeenCalledWith('app-1', expect.objectContaining({ namePrimaryLocale: 'en', copyAccess: true }))
+        await copyProps.onSave({
+            nameVlc: makeVlc('My App (copy)'),
+            descriptionVlc: makeVlc('Desc'),
+            copyAccess: true,
+            copyConnector: true,
+            createSchema: false
+        })
+        expect(copyEntity).toHaveBeenCalledWith(
+            'app-1',
+            expect.objectContaining({
+                namePrimaryLocale: 'en',
+                copyConnector: true,
+                createSchema: false,
+                copyAccess: true
+            })
+        )
         expect(refreshList).toHaveBeenCalled()
 
         editProps.onDelete?.()

@@ -53,7 +53,8 @@ describe('applications mutation hooks', () => {
         const connectorsApi = {
             createConnector: vi.fn().mockResolvedValue({ id: 'h1' }),
             updateConnector: vi.fn().mockResolvedValue({ id: 'h1' }),
-            deleteConnector: vi.fn().mockResolvedValue({ data: {} })
+            deleteConnector: vi.fn().mockResolvedValue({ data: {} }),
+            syncApplication: vi.fn().mockResolvedValue({ status: 'created' })
         }
 
         vi.doMock('../../api/applications', () => applicationsApi)
@@ -92,7 +93,10 @@ describe('applications mutation hooks', () => {
             await createApplication!.mutateAsync({ name: 'Name', description: 'Desc' })
             await updateApplication!.mutateAsync({ id: 'm1', data: { name: 'Name2' } })
             await deleteApplication!.mutateAsync('m1')
-            await copyApplication!.mutateAsync({ id: 'm1', data: { name: { en: 'Name copy' }, copyAccess: true } })
+            await copyApplication!.mutateAsync({
+                id: 'm1',
+                data: { name: { en: 'Name copy' }, copyConnector: true, createSchema: true, copyAccess: true }
+            })
 
             await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
             await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
@@ -113,7 +117,13 @@ describe('applications mutation hooks', () => {
             descriptionPrimaryLocale: undefined
         })
         expect(applicationsApi.deleteApplication).toHaveBeenCalledWith('m1')
-        expect(applicationsApi.copyApplication).toHaveBeenCalledWith('m1', { name: { en: 'Name copy' }, copyAccess: true })
+        expect(applicationsApi.copyApplication).toHaveBeenCalledWith('m1', {
+            name: { en: 'Name copy' },
+            copyConnector: true,
+            createSchema: true,
+            copyAccess: true
+        })
+        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('m2', false)
 
         expect(applicationsApi.inviteApplicationMember).toHaveBeenCalledWith('m1', { email: 'a@b.c', role: 'viewer' })
         expect(applicationsApi.updateApplicationMemberRole).toHaveBeenCalledWith('m1', 'u1', { role: 'admin' })
@@ -184,5 +194,78 @@ describe('applications mutation hooks', () => {
         const firstCall = enqueueSnackbar.mock.calls[0]
         expect(firstCall[0]).toContain('boom')
         expect(firstCall[1]).toMatchObject({ variant: 'error' })
+    })
+
+    it('invalidates lists and shows partial-failure message when copy succeeds but sync fails', async () => {
+        const enqueueSnackbar = vi.fn()
+
+        vi.doMock('notistack', () => ({
+            useSnackbar: () => ({ enqueueSnackbar })
+        }))
+
+        vi.doMock('react-i18next', () => ({
+            useTranslation: () => ({
+                t: (_key: string, fallback?: string) => fallback ?? _key,
+                i18n: { language: 'en' }
+            })
+        }))
+
+        vi.doMock('@universo/i18n', () => ({
+            useCommonTranslations: () => ({
+                t: (key: string) => key
+            })
+        }))
+
+        const applicationsApi = {
+            copyApplication: vi.fn().mockResolvedValue({ data: { id: 'copied-app-id' } })
+        }
+
+        const connectorsApi = {
+            syncApplication: vi.fn().mockRejectedValue(new Error('sync failed'))
+        }
+
+        vi.doMock('../../api/applications', () => applicationsApi)
+        vi.doMock('../../api/connectors', () => connectorsApi)
+
+        const hooks = await import('../mutations')
+        const queryClient = createTestQueryClient()
+        const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+        let copyApplication: ReturnType<typeof hooks.useCopyApplication> | undefined
+
+        function Probe() {
+            copyApplication = hooks.useCopyApplication()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await expect(
+                copyApplication!.mutateAsync({
+                    id: 'app-1',
+                    data: { name: { en: 'Copied' }, copyConnector: true, createSchema: true, copyAccess: false }
+                })
+            ).rejects.toThrow('sync failed')
+        })
+
+        expect(applicationsApi.copyApplication).toHaveBeenCalledWith('app-1', {
+            name: { en: 'Copied' },
+            copyConnector: true,
+            createSchema: true,
+            copyAccess: false
+        })
+        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('copied-app-id', false)
+        expect(invalidateSpy).toHaveBeenCalled()
+
+        const partialFailureCall = enqueueSnackbar.mock.calls.find((call) =>
+            String(call?.[0] ?? '').includes('Application was copied, but schema creation failed')
+        )
+        expect(partialFailureCall).toBeTruthy()
+        expect(partialFailureCall?.[1]).toMatchObject({ variant: 'error' })
     })
 })
