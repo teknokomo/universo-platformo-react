@@ -125,6 +125,8 @@ export { OptimisticLockError, type ConflictInfo, isOptimisticLockConflict, extra
 export { generateUuidV7, isValidUuid } from './uuid'
 
 // Number validation utilities for precision/scale constraints
+export { normalizeApplicationCopyOptions, normalizeBranchCopyOptions } from './validation/copyOptions'
+
 export {
     validateNumber,
     validateNumberOrThrow,

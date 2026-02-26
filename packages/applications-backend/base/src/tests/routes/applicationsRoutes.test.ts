@@ -259,7 +259,7 @@ describe('Applications Routes', () => {
     })
 
     describe('POST /applications/:applicationId/copy', () => {
-        it('should copy application, schema and access (excluding requester duplicate role)', async () => {
+        it('should copy application with connectors and access (excluding requester duplicate role)', async () => {
             const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
 
             applicationUserRepo.findOne.mockResolvedValueOnce({
@@ -329,20 +329,15 @@ describe('Applications Routes', () => {
                 .post('/applications/application-1/copy')
                 .send({
                     name: { en: 'Source App (copy)' },
+                    copyConnector: true,
+                    createSchema: false,
                     copyAccess: true
                 })
                 .expect(201)
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334444')
             expect(mockGenerateSchemaName).toHaveBeenCalledWith('018f8a78-7b8f-7c1d-a111-222233334444')
-            expect(mockCloneSchemaWithExecutor).toHaveBeenCalledWith(
-                expect.any(Object),
-                expect.objectContaining({
-                    sourceSchema: 'app_source001',
-                    targetSchema: 'app_018f8a787b8f7c1da111222233334444',
-                    copyData: true
-                })
-            )
+            expect(mockCloneSchemaWithExecutor).not.toHaveBeenCalled()
 
             expect(applicationUserRepo.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -365,6 +360,225 @@ describe('Applications Routes', () => {
                     _appDeleted: false
                 }
             })
+        })
+
+        it('should copy without connectors when copyConnector is false', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                applicationId: 'application-1',
+                role: 'owner'
+            })
+
+            applicationRepo.findOne.mockResolvedValueOnce({
+                id: 'application-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Source App' } }
+                },
+                description: null,
+                slug: 'source-app',
+                isPublic: false,
+                schemaName: 'app_source001',
+                schemaStatus: 'synced',
+                schemaSyncedAt: new Date(),
+                schemaError: null,
+                schemaSnapshot: { entities: {} },
+                appStructureVersion: 1,
+                _uplVersion: 1,
+                _uplCreatedAt: new Date(),
+                _uplUpdatedAt: new Date()
+            })
+            applicationRepo.findOne.mockResolvedValueOnce(null)
+            applicationRepo.create.mockImplementation((entity: any) => entity)
+            applicationRepo.save.mockImplementation(async (entity: any) => ({
+                ...entity,
+                id: entity.id ?? 'copied-application-id'
+            }))
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334445' }])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications/application-1/copy')
+                .send({
+                    name: { en: 'Source App (copy)' },
+                    copyConnector: false,
+                    createSchema: false,
+                    copyAccess: false
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334445')
+            expect(connectorRepo.find).not.toHaveBeenCalled()
+            expect(connectorPublicationRepo.find).not.toHaveBeenCalled()
+            const createdApplicationPayload = applicationRepo.create.mock.calls[0][0]
+            expect(createdApplicationPayload.schemaStatus).toBe('draft')
+            expect(createdApplicationPayload.schemaSnapshot).toBeNull()
+            expect(createdApplicationPayload.appStructureVersion).toBeNull()
+            expect(createdApplicationPayload.lastSyncedPublicationVersionId).toBeNull()
+        })
+
+        it('should auto-resolve slug collisions for repeated copies when slug is not provided explicitly', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                applicationId: 'application-1',
+                role: 'owner'
+            })
+
+            applicationRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'application-1',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Source App' } }
+                    },
+                    description: null,
+                    slug: 'source-app',
+                    isPublic: false,
+                    schemaName: 'app_source001',
+                    schemaStatus: 'synced',
+                    _uplVersion: 1,
+                    _uplCreatedAt: new Date(),
+                    _uplUpdatedAt: new Date()
+                })
+                .mockResolvedValueOnce({ id: 'existing-copy-1' })
+                .mockResolvedValueOnce(null)
+
+            applicationRepo.create.mockImplementation((entity: any) => entity)
+            applicationRepo.save.mockImplementation(async (entity: any) => ({
+                ...entity,
+                id: entity.id ?? 'copied-application-id'
+            }))
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334447' }])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications/application-1/copy')
+                .send({
+                    name: { en: 'Source App (copy)' },
+                    copyConnector: false,
+                    createSchema: false,
+                    copyAccess: false
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334447')
+            const createdApplicationPayload = applicationRepo.create.mock.calls[0][0]
+            expect(createdApplicationPayload.slug).toBe('source-app-copy-2')
+        })
+
+        it('should retry with next generated slug when insert fails with concurrent slug conflict', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                applicationId: 'application-1',
+                role: 'owner'
+            })
+
+            applicationRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'application-1',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Source App' } }
+                    },
+                    description: null,
+                    slug: 'source-app',
+                    isPublic: false,
+                    schemaName: 'app_source001',
+                    schemaStatus: 'synced',
+                    _uplVersion: 1,
+                    _uplCreatedAt: new Date(),
+                    _uplUpdatedAt: new Date()
+                })
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(null)
+
+            const slugRaceError = Object.assign(new Error('duplicate key value violates unique constraint "applications_slug_key"'), {
+                code: '23505',
+                constraint: 'applications_slug_key'
+            })
+
+            applicationRepo.create.mockImplementation((entity: any) => entity)
+            applicationRepo.save.mockRejectedValueOnce(slugRaceError).mockImplementation(async (entity: any) => ({
+                ...entity,
+                id: entity.id ?? 'copied-application-id'
+            }))
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334448' }])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications/application-1/copy')
+                .send({
+                    name: { en: 'Source App (copy)' },
+                    copyConnector: false,
+                    createSchema: false,
+                    copyAccess: false
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334448')
+            expect(applicationRepo.save).toHaveBeenCalledTimes(2)
+
+            const firstAttemptPayload = applicationRepo.create.mock.calls[0][0]
+            const secondAttemptPayload = applicationRepo.create.mock.calls[1][0]
+            expect(firstAttemptPayload.slug).toBe('source-app-copy')
+            expect(secondAttemptPayload.slug).toBe('source-app-copy-2')
+        })
+
+        it('should ignore legacy createSchema flag and still copy without connectors when copyConnector=false', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo, connectorRepo, connectorPublicationRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValueOnce({
+                userId: 'test-user-id',
+                applicationId: 'application-1',
+                role: 'owner'
+            })
+
+            applicationRepo.findOne.mockResolvedValueOnce({
+                id: 'application-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Source App' } }
+                },
+                description: null,
+                slug: 'source-app',
+                isPublic: false,
+                schemaName: 'app_source001'
+            })
+            applicationRepo.findOne.mockResolvedValueOnce(null)
+            applicationRepo.create.mockImplementation((entity: any) => entity)
+            applicationRepo.save.mockImplementation(async (entity: any) => ({
+                ...entity,
+                id: entity.id ?? 'copied-application-id'
+            }))
+            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([{ id: '018f8a78-7b8f-7c1d-a111-222233334449' }])
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications/application-1/copy')
+                .send({
+                    name: { en: 'Source App (copy)' },
+                    copyConnector: false,
+                    createSchema: true
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334449')
+            expect(connectorRepo.find).not.toHaveBeenCalled()
+            expect(connectorPublicationRepo.find).not.toHaveBeenCalled()
         })
     })
 

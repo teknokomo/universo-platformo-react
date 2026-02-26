@@ -43,6 +43,266 @@
 
 ---
 
+## PR #692 Bot Review Remediation (2026-02-26)
+
+Implemented the validated bot-review recommendations from PR #692 with focused deduplication and regression-safe verification.
+
+### Delivered
+1. **Branch copy helpers deduplicated in frontend domain**
+- Added shared utility: `packages/metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`.
+- Moved and reused:
+  - `getBranchCopyOptions`
+  - `setAllBranchCopyChildren`
+  - `toggleBranchCopyChild`
+  - `resolveBranchCopyCompatibilityCode`
+- Replaced duplicate local implementations in:
+  - `BranchList.tsx`
+  - `BranchActions.tsx`
+  - `hooks/mutations.ts`
+
+2. **DB error helper deduplication in shared utils**
+- Extended `@universo/utils` database errors module with:
+  - `getDbErrorCode`
+  - `getDbErrorConstraint`
+  - `getDbErrorDetail`
+  - `isUniqueViolation`
+  - `isSlugUniqueViolation`
+- Exported helpers via `packages/universo-utils/base/src/database/index.ts`.
+- Added focused tests in `src/database/__tests__/errors.test.ts`.
+
+3. **Backend routes switched to shared DB helpers**
+- Removed duplicate local DB-error helper implementations from:
+  - `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
+  - `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
+- Replaced with shared imports from `@universo/utils`.
+
+### Verification
+- Tests:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
+  - `pnpm --filter @universo/metahubs-backend test -- branchesOptions.test.ts` ✅
+  - `pnpm --filter @universo/utils exec vitest run src/database/__tests__/errors.test.ts --config vitest.config.ts --no-coverage` ✅
+  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
+- Lint:
+  - `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/utils lint` ⚠️ failed due pre-existing unrelated Prettier errors outside this remediation scope.
+
+## QA Remediation Round 4 — Copy Flows Final Hardening (2026-02-26)
+
+Implemented and verified the latest copy-flow hardening updates requested after QA.
+
+### Delivered
+1. **Application copy contract alignment**
+- Backend copy endpoint contract was narrowed to copy-state options only (`copyConnector`, `copyAccess`).
+- Legacy `createSchema` input is now treated as non-contract/ignored by backend copy flow.
+- Frontend `copyApplication` API wrapper now strips `createSchema` before sending payload to backend.
+- Deterministic runtime schema creation remains in dedicated frontend orchestration (`copy -> sync`) to keep behavior explicit and isolated.
+
+2. **Branch create dialog error mapping completeness**
+- Added deterministic mapping in `BranchList` create dialog for backend 400 compatibility codes:
+  - `BRANCH_COPY_ENUM_REFERENCES`
+  - `BRANCH_COPY_DANGLING_REFERENCES`
+- Preserved backward-safe fallback for unknown/unstructured backend error payloads.
+
+3. **Test coverage updates**
+- Updated backend copy-route test to validate legacy `createSchema` compatibility behavior.
+- Updated frontend API wrapper test to verify sanitized copy payload (without `createSchema`).
+- Extended `BranchList` create-flow tests with assertions for both new compatibility-code dialog errors.
+
+### Verification
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
+- `pnpm --filter @universo/applications-frontend exec vitest run src/api/__tests__/apiWrappers.test.ts src/hooks/__tests__/mutations.test.tsx --config vitest.config.ts --no-coverage` ✅
+- `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
+- `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
+- `pnpm --filter @universo/applications-frontend lint` ✅ (warnings only)
+- `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
+
+## QA Remediation Round 3 — Copy Flows Stabilization (2026-02-26)
+
+Implemented all requested follow-up fixes after QA and visual review for copy flows.
+
+### Delivered
+1. **Application copy dialog spacing parity**
+- Updated `ApplicationActions` copy dialog ("General" tab) to use standard vertical spacing between localized fields, matching other entity dialogs.
+
+2. **Race-safe application copy slug handling**
+- Hardened backend `/applications/:applicationId/copy` flow against concurrent slug collisions.
+- Added deterministic retry path for auto-generated copy slugs (`-copy`, `-copy-2`, ...), with bounded attempts.
+- Preserved explicit-slug behavior (`409` on conflict) and added a regression test for insert-time race conflicts.
+
+3. **Branch copy options model cleanup (migrations always copied)**
+- Removed `copyMigrations` from:
+  - shared copy option types (`@universo/types`)
+  - normalization utilities (`@universo/utils`)
+  - metahub branch frontend forms and payload types
+  - metahub backend route schema/normalization
+  - branch copy tests (frontend + backend)
+- Updated branch clone pruning to never delete `_mhb_migrations`, so migrations are always retained on branch copy.
+
+4. **Deterministic branch-copy compatibility error i18n mapping**
+- Added frontend mapping for structured backend codes:
+  - `BRANCH_COPY_ENUM_REFERENCES`
+  - `BRANCH_COPY_DANGLING_REFERENCES`
+- Added backward-safe fallback for legacy string-based backend messages.
+- Added new RU/EN translation keys for both cases.
+
+5. **Schema-level dependency guard**
+- Added `createBranchSchema.superRefine(...)` rule to reject contradictory payloads (`fullCopy=true` with disabled child copy flags).
+
+### Verification
+- Backend tests:
+  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
+  - `pnpm --filter @universo/metahubs-backend test -- branchesOptions.test.ts metahubBranchesService.test.ts` ✅
+- Frontend targeted tests (no coverage, focused on changed files):
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
+  - `pnpm --filter @universo/applications-frontend exec vitest run src/pages/__tests__/actionDescriptors.coverage.test.tsx --config vitest.config.ts --no-coverage` ✅
+- Lint:
+  - `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/applications-frontend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/metahubs-backend lint` ✅ after Prettier alignment (warnings only)
+  - `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/types lint` ✅ (warnings only)
+  - `pnpm --filter @universo/utils lint` ⚠️ failed due pre-existing unrelated Prettier errors outside this task scope.
+
+## QA Remediation Round 2 — Copying Reliability Hardening (2026-02-26)
+
+Implemented and verified all Round-2 copy-flow hardening tasks.
+
+### Delivered
+1. **Application copy slug collision resilience**
+- Added deterministic backend slug auto-resolution for copy requests without explicit `slug`: `source-slug-copy`, then `-2`, `-3`, ... (bounded attempts).
+- Preserved existing behavior for explicit `slug` input (`409` on conflict).
+- Added backend route test for repeated copy operations with automatic slug conflict resolution.
+
+2. **Branch partial-copy data integrity**
+- Added structured service-level copy compatibility error class with explicit codes:
+  - `BRANCH_COPY_ENUM_REFERENCES`
+  - `BRANCH_COPY_DANGLING_REFERENCES`
+- Hardened partial copy pruning:
+  - when `copyHubs=false` and catalogs/enumerations are retained, `config.hubs` references are removed
+  - stale `isRequiredHub` / `isSingleHub` flags are reset.
+- Added backend service test coverage for hub-reference cleanup on partial copy.
+
+3. **Deterministic error contract mapping**
+- Updated branch routes to map compatibility failures by structured `error.code`, with backward-safe fallback to `error.message`.
+- Kept HTTP response contract stable for existing frontend behavior.
+- Added route-level test asserting structured-code handling.
+
+4. **Frontend create-flow coverage**
+- Added `BranchList` create-flow test to assert:
+  - options tab presence in create dialog
+  - forwarding of `sourceBranchId`, `fullCopy`, and child copy flags into create mutation payload.
+- Adjusted mocks for `@universo/template-mui` / `@universo/template-mui/components/dialogs` export shape compatibility.
+
+5. **Documentation-driven implementation**
+- Validated Vitest mocking pattern using Context7 (`/vitest-dev/vitest`) and applied compatible mock strategy for shared root/subpath exports.
+
+### Verification
+- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/branchesOptions.test.ts src/tests/services/metahubBranchesService.test.ts`
+- `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx`
+- `pnpm --filter @universo/applications-backend exec eslint --ext .ts src/routes/applicationsRoutes.ts src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend exec eslint --ext .ts src/domains/branches/routes/branchesRoutes.ts src/domains/branches/services/MetahubBranchesService.ts src/tests/routes/branchesOptions.test.ts src/tests/services/metahubBranchesService.test.ts`
+- `pnpm --filter @universo/metahubs-frontend exec eslint --ext .ts,.tsx src/domains/branches/ui/BranchList.tsx src/domains/branches/ui/BranchActions.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx`
+- Result: targeted tests passed; targeted lint checks report warnings only (no error-level issues in changed copy-flow files).
+
+## Copying UX/Logic Upgrade — Metahubs, Applications, Branches (2026-02-26)
+
+Implemented the approved copy-improvements plan across metahub, application, and branch flows.
+
+### Delivered
+1. **Metahub copy dialog**
+- Renamed copy tab label from `Copy options` / `Опции копирования` to `Options` / `Опции`.
+
+2. **Application copy flow**
+- Added shared copy contract (`copyConnector`, `createSchema`, `copyAccess`) in `@universo/types` and normalization helpers in `@universo/utils`.
+- Refactored application copy dialog to two tabs: `General` + `Options`.
+- Added options behavior:
+  - `copyConnector` default `true`
+  - `createSchema` default `false`
+  - `createSchema` disabled + auto-reset when `copyConnector=false`
+  - `copyAccess` moved into `Options`.
+- Backend copy route now:
+  - validates incompatible option combinations (`createSchema` requires `copyConnector`)
+  - stops runtime schema cloning
+  - copies connectors/publication links only when `copyConnector=true`
+  - resets schema sync metadata to safe defaults.
+- `useCopyApplication` now orchestrates `copy -> sync` when `createSchema=true` with non-destructive failure handling (copy remains, user receives actionable error).
+
+3. **Branch copy flow**
+- Added branch copy options contract (`fullCopy`, `copyLayouts`, `copyHubs`, `copyCatalogs`, `copyEnumerations`, `copyMigrations`).
+- Added `Options` tab to both branch copy entry points:
+  - branch row action copy dialog
+  - create-branch dialog (source-based flow).
+- Implemented parent-child checkbox state machine with master toggle and indeterminate state.
+- Extended backend create-branch schema to accept copy options.
+- Implemented selective prune after schema clone in `MetahubBranchesService.createBranch`:
+  - optional layouts removal
+  - optional migrations removal
+  - optional object-group removal (hubs/catalogs/enumerations) with FK cascade cleanup.
+- Added compatibility guard:
+  - rejects `copyEnumerations=false` when kept copied entities still contain enumeration references.
+
+4. **i18n**
+- Added/updated EN+RU keys for:
+  - application copy tabs/options/hints
+  - branch options tab and all branch copy option labels.
+
+5. **Tests**
+- Updated application frontend tests (API wrappers, mutation hooks, action descriptors).
+- Updated application backend route tests for new copy contract and validation.
+- Added backend branch-route test for incompatible copy options response (`BRANCH_COPY_ENUM_REFERENCES`).
+
+### Verification
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/utils build`
+- `pnpm --filter @universo/applications-frontend exec vitest run --config vitest.config.ts --coverage.enabled=false src/hooks/__tests__/mutations.test.tsx src/pages/__tests__/actionDescriptors.coverage.test.tsx src/api/__tests__/apiWrappers.test.ts`
+- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/branchesOptions.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/metahubBranchesService.test.ts`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm exec eslint <changed files>`: no errors on changed files (warnings from legacy `any` remain in existing codebase).
+
+## QA Remediation — Copying UX/Logic Upgrade (2026-02-26)
+
+Closed all follow-up QA findings for the copy-improvements feature set.
+
+### Delivered
+1. **Application copy partial-success consistency**
+- Updated `useCopyApplication` cache strategy:
+  - list invalidation moved to `onSettled` to refresh data on both success and error paths
+  - detail invalidation for copied entity added on `CopySyncStepError`.
+- Added frontend test coverage for `copy created + sync failed` flow (error snackbar + cache refresh).
+
+2. **Branch copy safety hardening**
+- Replaced narrow enumeration-only compatibility guard with generalized dangling-reference guard in `MetahubBranchesService`.
+- Added deterministic backend error path for partial-copy incompatibilities:
+  - `BRANCH_COPY_ENUM_REFERENCES` for enum-specific conflicts
+  - `BRANCH_COPY_DANGLING_REFERENCES` for other removed-group references.
+- Added HTTP 400 mapping and route/service tests for the new incompatibility contract.
+
+3. **i18n and UI parity**
+- Fixed EN metahub copy tab label from `Copy options` to `Options`.
+- Added frontend branch-copy test for options tab and payload normalization on save.
+
+4. **Lint gate unblock**
+- Fixed blocking prettier violations in `InlineTableEditor.tsx` so package lint runs cleanly.
+
+### Verification
+- `pnpm --filter @universo/applications-frontend exec vitest run --config vitest.config.ts --coverage.enabled=false src/hooks/__tests__/mutations.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/branchesOptions.test.ts src/tests/services/metahubBranchesService.test.ts`
+- `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts --coverage.enabled=false src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx`
+- `pnpm --filter @universo/applications-frontend lint`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/metahubs-backend lint`
+- Result: all targeted test/lint commands passed; remaining lint output is legacy warnings only (no errors).
+
 ## NUMBER field parity — catalog inline table NumberTableCell (2026-02-26)
 
 Replicated correct standalone NUMBER field behavior into DynamicEntityFormDialog inline table (catalog TABLE cells). Analysis confirmed FormDialog and apps inline table (NumberEditCell) were already correct.

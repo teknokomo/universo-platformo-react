@@ -189,6 +189,166 @@ describe('MetahubBranchesService', () => {
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
 
+    it('throws BRANCH_COPY_DANGLING_REFERENCES when partial copy removes referenced object groups', async () => {
+        const metahubId = 'metahub-1'
+
+        const metahubQb = {
+            setLock: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            getOne: jest.fn().mockResolvedValue({
+                id: metahubId,
+                lastBranchNumber: 1,
+                templateVersionId: 'tpl-v1'
+            })
+        }
+        const metahubUpdateQb = {
+            update: jest.fn().mockReturnThis(),
+            set: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            execute: jest.fn().mockResolvedValue({ affected: 1 })
+        }
+        const metahubRepo = {
+            createQueryBuilder: jest.fn((alias?: string) => (alias === 'm' ? metahubQb : metahubUpdateQb))
+        }
+
+        const sourceBranch = {
+            id: 'source-branch-1',
+            metahubId,
+            schemaName: 'mhb_metahub1_b1',
+            structureVersion: 1,
+            lastTemplateVersionId: null,
+            lastTemplateVersionLabel: null,
+            lastTemplateSyncedAt: null
+        }
+
+        const branchStatsQb = {
+            select: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            getRawOne: jest.fn().mockResolvedValue({ maxBranchNumber: '1' })
+        }
+        const branchRepo = {
+            findOne: jest.fn().mockResolvedValue(sourceBranch),
+            createQueryBuilder: jest.fn(() => branchStatsQb),
+            create: jest.fn((payload: Record<string, unknown>) => payload),
+            save: jest.fn(async (payload: Record<string, unknown>) => ({ ...payload, id: 'branch-2' }))
+        }
+
+        const manager = {
+            transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<unknown>) => callback(manager)),
+            getRepository: jest.fn((entity: { name?: string }) => {
+                if (entity?.name === 'Metahub') return metahubRepo
+                if (entity?.name === 'MetahubBranch') return branchRepo
+                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
+            }),
+            query: jest.fn().mockResolvedValue([{ target_kind: 'catalog' }])
+        }
+
+        const service = new MetahubBranchesService({} as any, manager as any)
+
+        await expect(
+            service.createBranch({
+                metahubId,
+                sourceBranchId: sourceBranch.id,
+                codename: 'dev-partial',
+                name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Dev Partial' } } } as any,
+                copyOptions: {
+                    fullCopy: false,
+                    copyHubs: true,
+                    copyCatalogs: false,
+                    copyEnumerations: true,
+                    copyLayouts: true
+                }
+            })
+        ).rejects.toThrow('BRANCH_COPY_DANGLING_REFERENCES')
+
+        expect(mockDropSchema).toHaveBeenCalledWith('mhb_metahub1_b2')
+        expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
+    })
+
+    it('clears hub references from kept object configs when hubs are excluded from partial copy', async () => {
+        const metahubId = 'metahub-1'
+
+        const metahubQb = {
+            setLock: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            getOne: jest.fn().mockResolvedValue({
+                id: metahubId,
+                lastBranchNumber: 1,
+                templateVersionId: null
+            })
+        }
+        const metahubUpdateQb = {
+            update: jest.fn().mockReturnThis(),
+            set: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            execute: jest.fn().mockResolvedValue({ affected: 1 })
+        }
+        const metahubRepo = {
+            createQueryBuilder: jest.fn((alias?: string) => (alias === 'm' ? metahubQb : metahubUpdateQb))
+        }
+
+        const sourceBranch = {
+            id: 'source-branch-1',
+            metahubId,
+            schemaName: 'mhb_metahub1_b1',
+            structureVersion: 1,
+            lastTemplateVersionId: null,
+            lastTemplateVersionLabel: null,
+            lastTemplateSyncedAt: null
+        }
+
+        const branchStatsQb = {
+            select: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            getRawOne: jest.fn().mockResolvedValue({ maxBranchNumber: '1' })
+        }
+        const branchRepo = {
+            findOne: jest.fn().mockResolvedValue(sourceBranch),
+            createQueryBuilder: jest.fn(() => branchStatsQb),
+            create: jest.fn((payload: Record<string, unknown>) => payload),
+            save: jest.fn(async (payload: Record<string, unknown>) => ({ ...payload, id: 'branch-2' }))
+        }
+
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind')) {
+                return []
+            }
+            return undefined
+        })
+
+        const manager = {
+            transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<unknown>) => callback(manager)),
+            getRepository: jest.fn((entity: { name?: string }) => {
+                if (entity?.name === 'Metahub') return metahubRepo
+                if (entity?.name === 'MetahubBranch') return branchRepo
+                throw new Error(`Unexpected repository: ${entity?.name ?? 'unknown'}`)
+            }),
+            query: queryMock
+        }
+
+        const service = new MetahubBranchesService({} as any, manager as any)
+
+        await service.createBranch({
+            metahubId,
+            sourceBranchId: sourceBranch.id,
+            codename: 'dev-partial-hubs',
+            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Dev Partial Hubs' } } } as any,
+            copyOptions: {
+                fullCopy: false,
+                copyHubs: false,
+                copyCatalogs: true,
+                copyEnumerations: false,
+                copyLayouts: true
+            }
+        })
+
+        expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('UPDATE "mhb_metahub1_b2"._mhb_objects'), [['catalog']])
+        expect(queryMock).toHaveBeenCalledWith(
+            expect.stringContaining('DELETE FROM "mhb_metahub1_b2"._mhb_objects WHERE kind = ANY($1::text[])'),
+            [['hub', 'enumeration']]
+        )
+    })
+
     it('findByCodename checks only active branches', async () => {
         const qb = {
             where: jest.fn().mockReturnThis(),

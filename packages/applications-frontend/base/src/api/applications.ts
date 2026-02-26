@@ -1,4 +1,5 @@
 import apiClient from './apiClient'
+import type { ApplicationCopyOptions } from '@universo/types'
 import {
     Application,
     ApplicationMember,
@@ -16,9 +17,7 @@ export interface ApplicationInput extends ApplicationLocalizedPayload {
     expectedVersion?: number
 }
 
-export interface ApplicationCopyInput extends Partial<ApplicationInput> {
-    copyAccess?: boolean
-}
+export interface ApplicationCopyInput extends Partial<ApplicationInput>, Partial<ApplicationCopyOptions> {}
 
 // Extended pagination params with showAll for admin users
 export interface ApplicationPaginationParams extends PaginationParams {
@@ -70,8 +69,10 @@ export const updateApplication = (id: string, data: Partial<ApplicationInput>) =
 
 export const deleteApplication = (id: string) => apiClient.delete<void>(`/applications/${id}`)
 
-export const copyApplication = (id: string, data: ApplicationCopyInput = {}) =>
-    apiClient.post<Application>(`/applications/${id}/copy`, data)
+export const copyApplication = (id: string, data: ApplicationCopyInput = {}) => {
+    const { createSchema: _createSchema, ...backendPayload } = data
+    return apiClient.post<Application>(`/applications/${id}/copy`, backendPayload)
+}
 
 export const getApplicationRuntime = async (
     applicationId: string,

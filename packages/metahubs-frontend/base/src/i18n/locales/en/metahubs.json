@@ -16,7 +16,7 @@
     "copy": {
       "action": "Copy",
       "actionLoading": "Copying...",
-      "optionsTab": "Copy options",
+      "optionsTab": "Options",
       "copyDefaultBranchOnly": "Copy only default branch",
       "copyAccess": "Copy access permissions"
     },
@@ -331,7 +331,8 @@
     "sourceChainTitle": "Source chain",
     "tabs": {
       "general": "General",
-      "source": "Source"
+      "source": "Source",
+      "options": "Options"
     },
     "activate": "Activate",
     "actions": {
@@ -353,6 +354,8 @@
     "copyError": "Failed to copy branch",
     "codenameExists": "Branch with this codename already exists",
     "numberConflict": "Branch numbering conflict. Please try again.",
+    "copyEnumReferencesError": "Cannot disable enumerations copy while related catalogs or hubs are being copied.",
+    "copyDanglingReferencesError": "Copy options would create invalid references. Keep all referenced entity groups enabled.",
     "updateError": "Failed to update branch",
     "deleteError": "Failed to delete branch",
     "activateError": "Failed to activate branch",
@@ -364,7 +367,14 @@
     },
     "copy": {
       "action": "Copy",
-      "actionLoading": "Copying..."
+      "actionLoading": "Copying...",
+      "options": {
+        "fullCopy": "Full copy",
+        "copyLayouts": "Layouts",
+        "copyHubs": "Hubs",
+        "copyCatalogs": "Catalogs",
+        "copyEnumerations": "Enumerations"
+      }
     }
   },
   "hubs": {

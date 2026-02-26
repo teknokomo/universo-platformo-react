@@ -1,5 +1,6 @@
 import type { DataSource, EntityManager } from 'typeorm'
-import type { VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
+import type { BranchCopyOptions, MetahubTemplateManifest, VersionedLocalizedContent } from '@universo/types'
+import { normalizeBranchCopyOptions } from '@universo/utils'
 import { Metahub } from '../../../database/entities/Metahub'
 import { MetahubBranch } from '../../../database/entities/MetahubBranch'
 import { MetahubUser } from '../../../database/entities/MetahubUser'
@@ -35,6 +36,15 @@ export interface BlockingBranchUser {
     role: string
 }
 
+type BranchCopyCompatibilityErrorCode = 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES'
+
+class BranchCopyCompatibilityError extends Error {
+    constructor(public readonly code: BranchCopyCompatibilityErrorCode) {
+        super(code)
+        this.name = 'BranchCopyCompatibilityError'
+    }
+}
+
 export class MetahubBranchesService {
     constructor(private dataSource: DataSource, private manager?: EntityManager) {}
 
@@ -58,6 +68,114 @@ export class MetahubBranchesService {
     private assertSafeSchemaName(schemaName: string): void {
         if (!/^[a-z_][a-z0-9_]*$/.test(schemaName)) {
             throw new Error(`Unsafe schema name: ${schemaName}`)
+        }
+    }
+
+    private async assertCopyCompatibility(manager: EntityManager, schemaName: string, options: BranchCopyOptions): Promise<void> {
+        const keptKinds: string[] = []
+        if (options.copyCatalogs) keptKinds.push('catalog')
+        if (options.copyHubs) keptKinds.push('hub')
+        if (options.copyEnumerations) keptKinds.push('enumeration')
+
+        const removedKinds: string[] = []
+        if (!options.copyCatalogs) removedKinds.push('catalog')
+        if (!options.copyHubs) removedKinds.push('hub')
+        if (!options.copyEnumerations) removedKinds.push('enumeration')
+
+        if (keptKinds.length === 0 || removedKinds.length === 0) return
+
+        this.assertSafeSchemaName(schemaName)
+        const schemaIdent = this.quoteIdent(schemaName)
+
+        const rows = (await manager.query(
+            `
+                SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind
+                FROM ${schemaIdent}._mhb_attributes attr
+                INNER JOIN ${schemaIdent}._mhb_objects obj
+                    ON obj.id = attr.object_id
+                LEFT JOIN ${schemaIdent}._mhb_objects target
+                    ON target.id = attr.target_object_id
+                WHERE obj.kind = ANY($1::text[])
+                  AND (
+                      (attr.target_object_id IS NOT NULL AND target.kind = ANY($2::text[]))
+                      OR attr.target_object_kind = ANY($2::text[])
+                  )
+                  AND COALESCE(attr._upl_deleted, false) = false
+                  AND COALESCE(attr._mhb_deleted, false) = false
+                  AND COALESCE(obj._upl_deleted, false) = false
+                  AND COALESCE(obj._mhb_deleted, false) = false
+                  AND (
+                      attr.target_object_id IS NULL
+                      OR (
+                          COALESCE(target._upl_deleted, false) = false
+                          AND COALESCE(target._mhb_deleted, false) = false
+                      )
+                  )
+            `,
+            [keptKinds, removedKinds]
+        )) as Array<{ target_kind: string | null }>
+
+        const incompatibleKinds = new Set(rows.map((row) => row.target_kind).filter((kind): kind is string => typeof kind === 'string'))
+        if (incompatibleKinds.size === 0) return
+
+        if (incompatibleKinds.has('enumeration')) {
+            throw new BranchCopyCompatibilityError('BRANCH_COPY_ENUM_REFERENCES')
+        }
+
+        throw new BranchCopyCompatibilityError('BRANCH_COPY_DANGLING_REFERENCES')
+    }
+
+    private async sanitizeHubReferencesInObjectConfigs(
+        manager: EntityManager,
+        schemaIdent: string,
+        options: BranchCopyOptions
+    ): Promise<void> {
+        if (options.copyHubs) return
+
+        const kindsWithHubConfig: string[] = []
+        if (options.copyCatalogs) kindsWithHubConfig.push('catalog')
+        if (options.copyEnumerations) kindsWithHubConfig.push('enumeration')
+        if (kindsWithHubConfig.length === 0) return
+
+        await manager.query(
+            `
+                UPDATE ${schemaIdent}._mhb_objects
+                SET config = jsonb_set(
+                    jsonb_set(
+                        jsonb_set(COALESCE(config, '{}'::jsonb), '{hubs}', '[]'::jsonb, true),
+                        '{isRequiredHub}',
+                        'false'::jsonb,
+                        true
+                    ),
+                    '{isSingleHub}',
+                    'false'::jsonb,
+                    true
+                )
+                WHERE kind = ANY($1::text[])
+                  AND COALESCE(_upl_deleted, false) = false
+                  AND COALESCE(_mhb_deleted, false) = false
+            `,
+            [kindsWithHubConfig]
+        )
+    }
+
+    private async pruneClonedSchema(manager: EntityManager, schemaName: string, options: BranchCopyOptions): Promise<void> {
+        this.assertSafeSchemaName(schemaName)
+        const schemaIdent = this.quoteIdent(schemaName)
+
+        if (!options.copyLayouts) {
+            await manager.query(`DELETE FROM ${schemaIdent}._mhb_layouts`)
+        }
+
+        await this.sanitizeHubReferencesInObjectConfigs(manager, schemaIdent, options)
+
+        const kindsToDelete: string[] = []
+        if (!options.copyHubs) kindsToDelete.push('hub')
+        if (!options.copyCatalogs) kindsToDelete.push('catalog')
+        if (!options.copyEnumerations) kindsToDelete.push('enumeration')
+
+        if (kindsToDelete.length > 0) {
+            await manager.query(`DELETE FROM ${schemaIdent}._mhb_objects WHERE kind = ANY($1::text[])`, [kindsToDelete])
         }
     }
 
@@ -293,9 +411,11 @@ export class MetahubBranchesService {
         codename: string
         name: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
+        copyOptions?: Partial<BranchCopyOptions>
         createdBy?: string | null
     }): Promise<MetahubBranch> {
-        const { metahubId, sourceBranchId, codename, name, description, createdBy } = params
+        const { metahubId, sourceBranchId, codename, name, description, createdBy, copyOptions } = params
+        const normalizedCopyOptions = normalizeBranchCopyOptions(copyOptions)
         const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
 
         // Use a dedicated lock namespace for branch creation.
@@ -353,6 +473,10 @@ export class MetahubBranchesService {
                         createTargetSchema: true,
                         copyData: true
                     })
+                    await this.assertCopyCompatibility(manager, schemaName, normalizedCopyOptions)
+                    if (!normalizedCopyOptions.fullCopy) {
+                        await this.pruneClonedSchema(manager, schemaName, normalizedCopyOptions)
+                    }
                     branchStructureVersion = sourceBranch.structureVersion ?? CURRENT_STRUCTURE_VERSION
                     templateVersionSyncId = sourceBranch.lastTemplateVersionId ?? null
                     templateVersionSyncLabel = sourceBranch.lastTemplateVersionLabel ?? null

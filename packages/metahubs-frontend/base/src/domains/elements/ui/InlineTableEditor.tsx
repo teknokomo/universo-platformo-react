@@ -115,7 +115,7 @@ function isVlcField(field: DynamicFieldConfig): boolean {
 function validateNumberField(value: number, rules?: Record<string, unknown>): string | null {
     if (!rules) return null
     const result = validateNumber(value, toNumberRules(rules))
-    return result.valid ? null : (result.errorKey ?? 'invalid')
+    return result.valid ? null : result.errorKey ?? 'invalid'
 }
 
 function resolveEnumMode(mode: DynamicFieldConfig['enumPresentationMode']): EnumMode {
@@ -250,9 +250,7 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
         }
 
         const normalized = raw.replace(/,/g, '.')
-        const pattern = allowNegative
-            ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/)
-            : (scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/)
+        const pattern = allowNegative ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/) : scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/
 
         if (!pattern.test(normalized)) return
 
@@ -315,7 +313,10 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
 
         // Minus
         if (key === '-') {
-            if (!allowNegative) { event.preventDefault(); return }
+            if (!allowNegative) {
+                event.preventDefault()
+                return
+            }
             if (selectionStart !== 0 || currentValue.includes('-')) event.preventDefault()
             return
         }
@@ -400,20 +401,10 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
                 endAdornment: !disabled ? (
                     <InputAdornment position='end' sx={{ ml: 0 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <IconButton
-                                size='small'
-                                tabIndex={-1}
-                                onClick={() => doStep(1)}
-                                sx={{ width: 16, height: 12, p: 0 }}
-                            >
+                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 16, height: 12, p: 0 }}>
                                 <ArrowDropUpIcon sx={{ fontSize: 14 }} />
                             </IconButton>
-                            <IconButton
-                                size='small'
-                                tabIndex={-1}
-                                onClick={() => doStep(-1)}
-                                sx={{ width: 16, height: 12, p: 0 }}
-                            >
+                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 16, height: 12, p: 0 }}>
                                 <ArrowDropDownIcon sx={{ fontSize: 14 }} />
                             </IconButton>
                         </Box>
@@ -715,10 +706,7 @@ export function InlineTableEditor({
 
         if (disabled) {
             return (
-                <Typography
-                    sx={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                    noWrap
-                >
+                <Typography sx={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }} noWrap>
                     {displayText}
                 </Typography>
             )
@@ -783,7 +771,10 @@ export function InlineTableEditor({
     const addDisabled = typeof maxRows === 'number' && value.length >= maxRows
 
     const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
-        required, minRows, maxRows, t
+        required,
+        minRows,
+        maxRows,
+        t
     })
     const tableMissing = checkMissing(value.length)
 
@@ -990,11 +981,7 @@ export function InlineTableEditor({
                 </Table>
             </TableContainer>
             {tableHelperText && (
-                <Typography
-                    variant='caption'
-                    color={tableMissing ? 'error' : 'text.secondary'}
-                    sx={{ mt: 0.5, ml: 1.75 }}
-                >
+                <Typography variant='caption' color={tableMissing ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.75 }}>
                     {tableHelperText}
                 </Typography>
             )}
@@ -1011,10 +998,7 @@ export function InlineTableEditor({
                     {t('elements.table.edit', 'Edit')}
                 </MenuItem>
                 <Divider />
-                <MenuItem
-                    onClick={handleDeleteRowFromMenu}
-                    sx={{ color: 'error.main' }}
-                >
+                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('elements.table.delete', 'Delete')}
                 </MenuItem>

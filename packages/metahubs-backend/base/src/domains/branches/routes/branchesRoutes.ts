@@ -4,13 +4,13 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
-import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
+import { database, localizedContent, validation, OptimisticLockError } from '@universo/utils'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
 import { ensureMetahubAccess } from '../../shared/guards'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCodename, isValidCodename } = validation
+const { normalizeCodename, isValidCodename, normalizeBranchCopyOptions } = validation
 
 interface AuthLikeUser {
     id?: string
@@ -46,31 +46,46 @@ const optionalLocalizedInputSchema = z
 
 const sourceBranchIdSchema = z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().uuid().optional())
 
-const createBranchSchema = z.object({
-    codename: z.string().min(1).max(100),
-    name: localizedInputSchema.optional(),
-    description: optionalLocalizedInputSchema.optional(),
-    namePrimaryLocale: z.string().optional(),
-    descriptionPrimaryLocale: z.string().optional(),
-    sourceBranchId: sourceBranchIdSchema
-})
+const createBranchSchema = z
+    .object({
+        codename: z.string().min(1).max(100),
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        sourceBranchId: sourceBranchIdSchema,
+        fullCopy: z.boolean().optional(),
+        copyLayouts: z.boolean().optional(),
+        copyHubs: z.boolean().optional(),
+        copyCatalogs: z.boolean().optional(),
+        copyEnumerations: z.boolean().optional()
+    })
+    .superRefine((value, ctx) => {
+        const childFlags = [value.copyLayouts, value.copyHubs, value.copyCatalogs, value.copyEnumerations]
+        const hasExplicitChildDisabled = childFlags.some((flag) => flag === false)
 
-const getDbErrorCode = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { code?: string; driverError?: { code?: string } }
-    return dbError.code ?? dbError.driverError?.code
-}
-
-const getDbErrorConstraint = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { constraint?: string; driverError?: { constraint?: string } }
-    return dbError.constraint ?? dbError.driverError?.constraint
-}
-
-const isUniqueViolation = (error: unknown): boolean => getDbErrorCode(error) === '23505'
+        if (value.fullCopy === true && hasExplicitChildDisabled) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['fullCopy'],
+                message: 'fullCopy=true requires all copy options enabled'
+            })
+        }
+    })
 
 const getErrorMessage = (error: unknown): string => {
     return error instanceof Error ? error.message : ''
+}
+
+const getBranchCopyCompatibilityErrorCode = (error: unknown): 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES' | null => {
+    if (!error || typeof error !== 'object') return null
+    const code = (error as { code?: unknown }).code ?? (error as { message?: unknown }).message
+
+    if (code === 'BRANCH_COPY_ENUM_REFERENCES' || code === 'BRANCH_COPY_DANGLING_REFERENCES') {
+        return code
+    }
+
+    return null
 }
 
 const updateBranchSchema = z.object({
@@ -307,6 +322,13 @@ export function createBranchesRoutes(
             }
 
             const { codename, name, description, namePrimaryLocale, descriptionPrimaryLocale, sourceBranchId } = parsed.data
+            const copyOptions: BranchCopyOptions = normalizeBranchCopyOptions({
+                fullCopy: parsed.data.fullCopy,
+                copyLayouts: parsed.data.copyLayouts,
+                copyHubs: parsed.data.copyHubs,
+                copyCatalogs: parsed.data.copyCatalogs,
+                copyEnumerations: parsed.data.copyEnumerations
+            })
 
             const normalizedCodename = normalizeCodename(codename)
             if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
@@ -349,6 +371,7 @@ export function createBranchesRoutes(
                     codename: normalizedCodename,
                     name: nameVlc,
                     description: descriptionVlc ?? null,
+                    copyOptions,
                     createdBy: userId
                 })
 
@@ -366,6 +389,7 @@ export function createBranchesRoutes(
                 })
             } catch (error: unknown) {
                 const errorMessage = getErrorMessage(error)
+                const branchCopyErrorCode = getBranchCopyCompatibilityErrorCode(error)
                 if (errorMessage.includes('Branch creation in progress')) {
                     return res.status(409).json({
                         code: 'BRANCH_CREATION_IN_PROGRESS',
@@ -375,8 +399,20 @@ export function createBranchesRoutes(
                 if (errorMessage.includes('Source branch not found')) {
                     return res.status(404).json({ error: 'Source branch not found' })
                 }
-                if (isUniqueViolation(error)) {
-                    const constraint = getDbErrorConstraint(error)
+                if (branchCopyErrorCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+                    return res.status(400).json({
+                        code: 'BRANCH_COPY_ENUM_REFERENCES',
+                        error: 'Cannot disable enumerations copy while catalogs/hubs with enumeration references are copied'
+                    })
+                }
+                if (branchCopyErrorCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+                    return res.status(400).json({
+                        code: 'BRANCH_COPY_DANGLING_REFERENCES',
+                        error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
+                    })
+                }
+                if (database.isUniqueViolation(error)) {
+                    const constraint = database.getDbErrorConstraint(error)
                     if (constraint === 'idx_branches_metahub_codename_active') {
                         return res.status(409).json({
                             code: 'BRANCH_CODENAME_EXISTS',

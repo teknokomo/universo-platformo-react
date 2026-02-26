@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-backend'
 import { AuthUser } from '@universo/auth-backend'
 import { isSuperuserByDataSource, getGlobalRoleCodenameByDataSource, hasSubjectPermissionByDataSource } from '@universo/admin-backend'
-import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo/schema-ddl'
+import { generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo/schema-ddl'
 import { Application } from '../database/entities/Application'
 import { ApplicationSchemaStatus } from '../database/entities/Application'
 import { ApplicationUser } from '../database/entities/ApplicationUser'
@@ -17,7 +17,7 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { getVLCString } from '@universo/utils/vlc'
-import { OptimisticLockError } from '@universo/utils'
+import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
 /**
@@ -165,6 +165,15 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
         result[locale] = `${content}${suffix}`
     }
     return result
+}
+
+const buildCopiedApplicationSlugCandidate = (sourceSlug: string, attempt: number): string => {
+    const copySuffix = '-copy'
+    const maxBaseLength = Math.max(1, 100 - copySuffix.length)
+    const baseSlug = `${sourceSlug.slice(0, maxBaseLength)}${copySuffix}`
+    const attemptSuffix = attempt <= 1 ? '' : `-${attempt}`
+    const maxSlugLength = Math.max(1, 100 - attemptSuffix.length)
+    return `${baseSlug.slice(0, maxSlugLength)}${attemptSuffix}`
 }
 
 export function createApplicationsRoutes(
@@ -2967,6 +2976,7 @@ export function createApplicationsRoutes(
                     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
                     .optional(),
                 isPublic: z.boolean().optional(),
+                copyConnector: z.boolean().optional(),
                 copyAccess: z.boolean().optional().default(false)
             })
 
@@ -2976,6 +2986,10 @@ export function createApplicationsRoutes(
             }
 
             const manager = getRequestManager(req, ds)
+            const copyOptions = normalizeApplicationCopyOptions({
+                copyConnector: parsed.data.copyConnector,
+                copyAccess: parsed.data.copyAccess
+            })
             const sourceApplicationRepo = manager.getRepository(Application)
             const sourceApplicationUserRepo = manager.getRepository(ApplicationUser)
             const sourceConnectorRepo = manager.getRepository(Connector)
@@ -3012,11 +3026,36 @@ export function createApplicationsRoutes(
                 }
             }
 
-            const slugCandidate = parsed.data.slug ?? (sourceApplication.slug ? `${sourceApplication.slug}-copy` : undefined)
-            if (slugCandidate) {
+            const requestedSlug = parsed.data.slug
+            const sourceSlug = sourceApplication.slug
+            const maxSlugAttempts = 1000
+            let slugCandidate: string | undefined
+            let nextSlugAttempt = 1
+
+            const assignNextAvailableGeneratedSlug = async (): Promise<boolean> => {
+                if (!sourceSlug) return false
+                for (; nextSlugAttempt <= maxSlugAttempts; nextSlugAttempt++) {
+                    const candidate = buildCopiedApplicationSlugCandidate(sourceSlug, nextSlugAttempt)
+                    const existing = await sourceApplicationRepo.findOne({ where: { slug: candidate } })
+                    if (!existing) {
+                        slugCandidate = candidate
+                        nextSlugAttempt += 1
+                        return true
+                    }
+                }
+                return false
+            }
+
+            if (requestedSlug) {
+                slugCandidate = requestedSlug
                 const existing = await sourceApplicationRepo.findOne({ where: { slug: slugCandidate } })
                 if (existing) {
                     return res.status(409).json({ error: 'Application with this slug already exists' })
+                }
+            } else if (sourceSlug) {
+                const hasSlugCandidate = await assignNextAvailableGeneratedSlug()
+                if (!hasSlugCandidate) {
+                    return res.status(409).json({ error: 'Unable to generate unique slug for copied application' })
                 }
             }
 
@@ -3027,36 +3066,8 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid generated application schema name' })
             }
 
-            let schemaCloned = false
-            if (sourceApplication.schemaName) {
-                if (
-                    !sourceApplication.schemaName.startsWith('app_') ||
-                    !isValidSchemaName(sourceApplication.schemaName) ||
-                    !IDENTIFIER_REGEX.test(sourceApplication.schemaName)
-                ) {
-                    return res.status(400).json({ error: 'Invalid source application schema name' })
-                }
-
-                await cloneSchemaWithExecutor(
-                    {
-                        query: async <T>(sql: string, params: unknown[] = []) => {
-                            const rows = await manager.query(sql, params)
-                            return rows as T[]
-                        }
-                    },
-                    {
-                        sourceSchema: sourceApplication.schemaName,
-                        targetSchema: newSchemaName,
-                        dropTargetSchemaIfExists: true,
-                        createTargetSchema: true,
-                        copyData: true
-                    }
-                )
-                schemaCloned = true
-            }
-
-            try {
-                const copied = await ds.transaction(async (txManager) => {
+            const runCopyTransaction = () =>
+                ds.transaction(async (txManager) => {
                     const txApplicationRepo = txManager.getRepository(Application)
                     const txApplicationUserRepo = txManager.getRepository(ApplicationUser)
                     const txConnectorRepo = txManager.getRepository(Connector)
@@ -3070,16 +3081,11 @@ export function createApplicationsRoutes(
                             slug: slugCandidate,
                             isPublic: parsed.data.isPublic ?? sourceApplication.isPublic,
                             schemaName: newSchemaName,
-                            // Reset transient statuses so the copy starts in a safe state.
-                            // MAINTENANCE/ERROR/UPDATE_AVAILABLE must not be inherited.
-                            schemaStatus:
-                                sourceApplication.schemaStatus === ApplicationSchemaStatus.SYNCED
-                                    ? ApplicationSchemaStatus.SYNCED
-                                    : ApplicationSchemaStatus.OUTDATED,
-                            schemaSyncedAt: sourceApplication.schemaSyncedAt,
+                            schemaStatus: copyOptions.copyConnector ? ApplicationSchemaStatus.OUTDATED : ApplicationSchemaStatus.DRAFT,
+                            schemaSyncedAt: null,
                             schemaError: null,
-                            schemaSnapshot: sourceApplication.schemaSnapshot,
-                            appStructureVersion: sourceApplication.appStructureVersion,
+                            schemaSnapshot: null,
+                            appStructureVersion: null,
                             lastSyncedPublicationVersionId: null,
                             _uplCreatedBy: userId,
                             _uplUpdatedBy: userId
@@ -3096,7 +3102,7 @@ export function createApplicationsRoutes(
                         })
                     )
 
-                    if (parsed.data.copyAccess) {
+                    if (copyOptions.copyAccess) {
                         const sourceMembers = await sourceApplicationUserRepo.find({
                             where: {
                                 applicationId,
@@ -3119,73 +3125,96 @@ export function createApplicationsRoutes(
                         }
                     }
 
-                    const sourceConnectors = await sourceConnectorRepo.find({
-                        where: { applicationId },
-                        order: { sortOrder: 'ASC' }
-                    })
-
-                    const connectorIdMap = new Map<string, string>()
-                    for (const sourceConnector of sourceConnectors) {
-                        const savedConnector = await txConnectorRepo.save(
-                            txConnectorRepo.create({
-                                applicationId: copiedApplication.id,
-                                name: sourceConnector.name,
-                                description: sourceConnector.description,
-                                sortOrder: sourceConnector.sortOrder,
-                                isSingleMetahub: sourceConnector.isSingleMetahub,
-                                isRequiredMetahub: sourceConnector.isRequiredMetahub,
-                                _uplCreatedBy: userId,
-                                _uplUpdatedBy: userId
-                            })
-                        )
-                        connectorIdMap.set(sourceConnector.id, savedConnector.id)
-                    }
-
-                    const sourceConnectorIds = sourceConnectors.map((connector) => connector.id)
-                    if (sourceConnectorIds.length > 0) {
-                        const sourceLinks = await sourceConnectorPublicationRepo.find({
-                            where: { connectorId: In(sourceConnectorIds) }
+                    if (copyOptions.copyConnector) {
+                        const sourceConnectors = await sourceConnectorRepo.find({
+                            where: { applicationId },
+                            order: { sortOrder: 'ASC' }
                         })
-                        for (const sourceLink of sourceLinks) {
-                            const copiedConnectorId = connectorIdMap.get(sourceLink.connectorId)
-                            if (!copiedConnectorId) continue
-                            await txConnectorPublicationRepo.save(
-                                txConnectorPublicationRepo.create({
-                                    connectorId: copiedConnectorId,
-                                    publicationId: sourceLink.publicationId,
-                                    sortOrder: sourceLink.sortOrder,
+
+                        const connectorIdMap = new Map<string, string>()
+                        for (const sourceConnector of sourceConnectors) {
+                            const savedConnector = await txConnectorRepo.save(
+                                txConnectorRepo.create({
+                                    applicationId: copiedApplication.id,
+                                    name: sourceConnector.name,
+                                    description: sourceConnector.description,
+                                    sortOrder: sourceConnector.sortOrder,
+                                    isSingleMetahub: sourceConnector.isSingleMetahub,
+                                    isRequiredMetahub: sourceConnector.isRequiredMetahub,
                                     _uplCreatedBy: userId,
                                     _uplUpdatedBy: userId
                                 })
                             )
+                            connectorIdMap.set(sourceConnector.id, savedConnector.id)
+                        }
+
+                        const sourceConnectorIds = sourceConnectors.map((connector) => connector.id)
+                        if (sourceConnectorIds.length > 0) {
+                            const sourceLinks = await sourceConnectorPublicationRepo.find({
+                                where: { connectorId: In(sourceConnectorIds) }
+                            })
+                            for (const sourceLink of sourceLinks) {
+                                const copiedConnectorId = connectorIdMap.get(sourceLink.connectorId)
+                                if (!copiedConnectorId) continue
+                                await txConnectorPublicationRepo.save(
+                                    txConnectorPublicationRepo.create({
+                                        connectorId: copiedConnectorId,
+                                        publicationId: sourceLink.publicationId,
+                                        sortOrder: sourceLink.sortOrder,
+                                        _uplCreatedBy: userId,
+                                        _uplUpdatedBy: userId
+                                    })
+                                )
+                            }
                         }
                     }
 
                     return copiedApplication
                 })
 
-                return res.status(201).json({
-                    id: copied.id,
-                    name: copied.name,
-                    description: copied.description,
-                    slug: copied.slug,
-                    isPublic: copied.isPublic,
-                    version: copied._uplVersion || 1,
-                    createdAt: copied._uplCreatedAt,
-                    updatedAt: copied._uplUpdatedAt,
-                    connectorsCount: undefined,
-                    membersCount: undefined,
-                    role: 'owner',
-                    accessType: 'member',
-                    permissions: ROLE_PERMISSIONS.owner
-                })
-            } catch (error) {
-                if (schemaCloned) {
-                    const schemaIdent = quoteIdentifier(newSchemaName)
-                    await manager.query(`DROP SCHEMA IF EXISTS ${schemaIdent} CASCADE`).catch(() => undefined)
+            let copied: Application | null = null
+            const maxCopyAttempts = requestedSlug ? 1 : sourceSlug ? maxSlugAttempts : 1
+            for (let attempt = 0; attempt < maxCopyAttempts; attempt++) {
+                try {
+                    copied = await runCopyTransaction()
+                    break
+                } catch (error) {
+                    if (!database.isSlugUniqueViolation(error)) {
+                        throw error
+                    }
+                    if (requestedSlug) {
+                        return res.status(409).json({ error: 'Application with this slug already exists' })
+                    }
+                    if (sourceSlug) {
+                        const hasSlugCandidate = await assignNextAvailableGeneratedSlug()
+                        if (hasSlugCandidate) {
+                            continue
+                        }
+                        return res.status(409).json({ error: 'Unable to generate unique slug for copied application' })
+                    }
+                    throw error
                 }
-                throw error
             }
+
+            if (!copied) {
+                return res.status(409).json({ error: 'Unable to generate unique slug for copied application' })
+            }
+
+            return res.status(201).json({
+                id: copied.id,
+                name: copied.name,
+                description: copied.description,
+                slug: copied.slug,
+                isPublic: copied.isPublic,
+                version: copied._uplVersion || 1,
+                createdAt: copied._uplCreatedAt,
+                updatedAt: copied._uplUpdatedAt,
+                connectorsCount: undefined,
+                membersCount: undefined,
+                role: 'owner',
+                accessType: 'member',
+                permissions: ROLE_PERMISSIONS.owner
+            })
         })
     )
 
