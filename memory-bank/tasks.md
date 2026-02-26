@@ -2,6 +2,25 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## In Progress: PR #692 Bot Review Remediation — 2026-02-26 🚧
+
+> **Goal**: Validate bot review recommendations from PR #692 and apply only proven, safe fixes without functional regressions.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### PR692-R1. Branch frontend duplication cleanup
+- [x] Extract duplicated branch copy-option state helpers from `BranchList.tsx` and `BranchActions.tsx` into a shared domain utility
+- [x] Extract branch copy compatibility error-code resolver into the same shared utility and reuse it in both UI and hooks
+
+### PR692-R2. Backend DB error helper deduplication
+- [x] Extract common DB error helper functions (`getDbErrorCode`, `getDbErrorConstraint`, `getDbErrorDetail`, `isUniqueViolation`, `isSlugUniqueViolation`) into shared `@universo/utils`
+- [x] Replace duplicated local implementations in applications/branches routes with shared imports
+
+### PR692-R3. Verification and bookkeeping
+- [x] Run targeted tests for changed frontend/backend files
+- [x] Run package-level lint for touched packages (warnings acceptable, no new errors)
+- [x] Mark tasks done and append progress entry
+
 ## In Progress: QA Remediation Round 4 — Copy Flows Final Hardening — 2026-02-26 🚧
 
 > **Goal**: Fix residual correctness gaps from the latest QA review without introducing regressions in existing copy flows.

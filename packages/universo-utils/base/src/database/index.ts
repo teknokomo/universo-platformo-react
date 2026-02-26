@@ -4,7 +4,14 @@
 
 export { escapeLikeWildcards } from './escaping'
 export { getRequestManager, type RequestWithDbContext } from './manager'
-export { isDatabaseConnectTimeoutError } from './errors'
+export {
+    isDatabaseConnectTimeoutError,
+    getDbErrorCode,
+    getDbErrorConstraint,
+    getDbErrorDetail,
+    isUniqueViolation,
+    isSlugUniqueViolation
+} from './errors'
 
 // System fields constants and helpers
 export {

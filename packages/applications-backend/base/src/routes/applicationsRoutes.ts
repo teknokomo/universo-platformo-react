@@ -17,7 +17,7 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { getVLCString } from '@universo/utils/vlc'
-import { normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
+import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
 /**
@@ -165,34 +165,6 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
         result[locale] = `${content}${suffix}`
     }
     return result
-}
-
-const getDbErrorCode = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { code?: string; driverError?: { code?: string } }
-    return dbError.code ?? dbError.driverError?.code
-}
-
-const getDbErrorConstraint = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { constraint?: string; driverError?: { constraint?: string } }
-    return dbError.constraint ?? dbError.driverError?.constraint
-}
-
-const getDbErrorDetail = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { detail?: string; driverError?: { detail?: string } }
-    return dbError.detail ?? dbError.driverError?.detail
-}
-
-const isUniqueViolation = (error: unknown): boolean => getDbErrorCode(error) === '23505'
-
-const isSlugUniqueViolation = (error: unknown): boolean => {
-    if (!isUniqueViolation(error)) return false
-    const constraint = (getDbErrorConstraint(error) ?? '').toLowerCase()
-    const detail = (getDbErrorDetail(error) ?? '').toLowerCase()
-
-    return constraint.includes('slug') || detail.includes('(slug)')
 }
 
 const buildCopiedApplicationSlugCandidate = (sourceSlug: string, attempt: number): string => {
@@ -3207,7 +3179,7 @@ export function createApplicationsRoutes(
                     copied = await runCopyTransaction()
                     break
                 } catch (error) {
-                    if (!isSlugUniqueViolation(error)) {
+                    if (!database.isSlugUniqueViolation(error)) {
                         throw error
                     }
                     if (requestedSlug) {

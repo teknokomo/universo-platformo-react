@@ -43,6 +43,51 @@
 
 ---
 
+## PR #692 Bot Review Remediation (2026-02-26)
+
+Implemented the validated bot-review recommendations from PR #692 with focused deduplication and regression-safe verification.
+
+### Delivered
+1. **Branch copy helpers deduplicated in frontend domain**
+- Added shared utility: `packages/metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`.
+- Moved and reused:
+  - `getBranchCopyOptions`
+  - `setAllBranchCopyChildren`
+  - `toggleBranchCopyChild`
+  - `resolveBranchCopyCompatibilityCode`
+- Replaced duplicate local implementations in:
+  - `BranchList.tsx`
+  - `BranchActions.tsx`
+  - `hooks/mutations.ts`
+
+2. **DB error helper deduplication in shared utils**
+- Extended `@universo/utils` database errors module with:
+  - `getDbErrorCode`
+  - `getDbErrorConstraint`
+  - `getDbErrorDetail`
+  - `isUniqueViolation`
+  - `isSlugUniqueViolation`
+- Exported helpers via `packages/universo-utils/base/src/database/index.ts`.
+- Added focused tests in `src/database/__tests__/errors.test.ts`.
+
+3. **Backend routes switched to shared DB helpers**
+- Removed duplicate local DB-error helper implementations from:
+  - `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
+  - `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
+- Replaced with shared imports from `@universo/utils`.
+
+### Verification
+- Tests:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
+  - `pnpm --filter @universo/metahubs-backend test -- branchesOptions.test.ts` ✅
+  - `pnpm --filter @universo/utils exec vitest run src/database/__tests__/errors.test.ts --config vitest.config.ts --no-coverage` ✅
+  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
+- Lint:
+  - `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
+  - `pnpm --filter @universo/utils lint` ⚠️ failed due pre-existing unrelated Prettier errors outside this remediation scope.
+
 ## QA Remediation Round 4 — Copy Flows Final Hardening (2026-02-26)
 
 Implemented and verified the latest copy-flow hardening updates requested after QA.

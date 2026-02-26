@@ -4,7 +4,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
-import { localizedContent, validation, OptimisticLockError } from '@universo/utils'
+import { database, localizedContent, validation, OptimisticLockError } from '@universo/utils'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
 import type { BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
 import { ensureMetahubAccess } from '../../shared/guards'
@@ -72,20 +72,6 @@ const createBranchSchema = z
             })
         }
     })
-
-const getDbErrorCode = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { code?: string; driverError?: { code?: string } }
-    return dbError.code ?? dbError.driverError?.code
-}
-
-const getDbErrorConstraint = (error: unknown): string | undefined => {
-    if (!error || typeof error !== 'object') return undefined
-    const dbError = error as { constraint?: string; driverError?: { constraint?: string } }
-    return dbError.constraint ?? dbError.driverError?.constraint
-}
-
-const isUniqueViolation = (error: unknown): boolean => getDbErrorCode(error) === '23505'
 
 const getErrorMessage = (error: unknown): string => {
     return error instanceof Error ? error.message : ''
@@ -425,8 +411,8 @@ export function createBranchesRoutes(
                         error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
                     })
                 }
-                if (isUniqueViolation(error)) {
-                    const constraint = getDbErrorConstraint(error)
+                if (database.isUniqueViolation(error)) {
+                    const constraint = database.getDbErrorConstraint(error)
                     if (constraint === 'idx_branches_metahub_codename_active') {
                         return res.status(409).json({
                             code: 'BRANCH_CODENAME_EXISTS',

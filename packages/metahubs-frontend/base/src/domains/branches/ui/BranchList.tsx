@@ -52,7 +52,7 @@ import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as branchesApi from '../api'
 import { metahubsQueryKeys, invalidateBranchesQueries } from '../../shared'
-import type { BranchCopyOptionKey, BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload, getVLCString, toBranchDisplay } from '../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
@@ -60,6 +60,12 @@ import { normalizeBranchCopyOptions } from '@universo/utils'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, BranchDeleteDialog } from '../../../components'
+import {
+    getBranchCopyOptions,
+    resolveBranchCopyCompatibilityCode,
+    setAllBranchCopyChildren,
+    toggleBranchCopyChild
+} from '../utils/copyOptions'
 import branchActions from './BranchActions'
 
 type BranchFormValues = {
@@ -73,57 +79,6 @@ type BranchFormValues = {
     copyHubs?: boolean
     copyCatalogs?: boolean
     copyEnumerations?: boolean
-}
-
-const getBranchCopyOptions = (values: Record<string, any>): BranchCopyOptions => {
-    return normalizeBranchCopyOptions({
-        fullCopy: values.fullCopy,
-        copyLayouts: values.copyLayouts,
-        copyHubs: values.copyHubs,
-        copyCatalogs: values.copyCatalogs,
-        copyEnumerations: values.copyEnumerations
-    })
-}
-
-const setAllBranchCopyChildren = (setValue: (name: string, value: any) => void, checked: boolean) => {
-    for (const key of BRANCH_COPY_OPTION_KEYS) {
-        setValue(key, checked)
-    }
-    setValue('fullCopy', checked)
-}
-
-const toggleBranchCopyChild = (
-    setValue: (name: string, value: any) => void,
-    key: BranchCopyOptionKey,
-    checked: boolean,
-    values: Record<string, any>
-) => {
-    setValue(key, checked)
-    const nextOptions = getBranchCopyOptions({
-        ...values,
-        [key]: checked,
-        fullCopy: false
-    })
-    setValue('fullCopy', nextOptions.fullCopy)
-}
-
-const resolveBranchCopyCompatibilityCode = (
-    errorCode?: string,
-    backendMessage?: string
-): 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES' | null => {
-    if (errorCode === 'BRANCH_COPY_ENUM_REFERENCES' || errorCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
-        return errorCode
-    }
-
-    const normalizedMessage = (backendMessage ?? '').toUpperCase()
-    if (normalizedMessage.includes('BRANCH_COPY_ENUM_REFERENCES') || normalizedMessage.includes('ENUMERATIONS COPY')) {
-        return 'BRANCH_COPY_ENUM_REFERENCES'
-    }
-    if (normalizedMessage.includes('BRANCH_COPY_DANGLING_REFERENCES') || normalizedMessage.includes('DANGLING OBJECT REFERENCES')) {
-        return 'BRANCH_COPY_DANGLING_REFERENCES'
-    }
-
-    return null
 }
 
 type BranchFormFieldsProps = {

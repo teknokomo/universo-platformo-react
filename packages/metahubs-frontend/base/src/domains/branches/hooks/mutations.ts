@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { BranchLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as branchesApi from '../api'
+import { resolveBranchCopyCompatibilityCode } from '../utils/copyOptions'
 
 interface CreateBranchParams {
     metahubId: string
@@ -44,25 +45,6 @@ type BranchMutationError = Error & {
             error?: string
         }
     }
-}
-
-const resolveBranchCopyCompatibilityCode = (
-    errorCode?: string,
-    backendMessage?: string
-): 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES' | null => {
-    if (errorCode === 'BRANCH_COPY_ENUM_REFERENCES' || errorCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
-        return errorCode
-    }
-
-    const normalizedMessage = (backendMessage ?? '').toUpperCase()
-    if (normalizedMessage.includes('BRANCH_COPY_ENUM_REFERENCES') || normalizedMessage.includes('ENUMERATIONS COPY')) {
-        return 'BRANCH_COPY_ENUM_REFERENCES'
-    }
-    if (normalizedMessage.includes('BRANCH_COPY_DANGLING_REFERENCES') || normalizedMessage.includes('DANGLING OBJECT REFERENCES')) {
-        return 'BRANCH_COPY_DANGLING_REFERENCES'
-    }
-
-    return null
 }
 
 export function useCreateBranch() {

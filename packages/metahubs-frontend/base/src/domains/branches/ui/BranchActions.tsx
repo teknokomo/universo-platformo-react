@@ -9,7 +9,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
-import type { BranchCopyOptionKey, BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import { normalizeBranchCopyOptions } from '@universo/utils'
 import type { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload } from '../../../types'
@@ -20,6 +20,7 @@ import { CodenameField } from '../../../components'
 import { useQuery } from '@tanstack/react-query'
 import * as branchesApi from '../api'
 import { metahubsQueryKeys } from '../../shared'
+import { getBranchCopyOptions, setAllBranchCopyChildren, toggleBranchCopyChild } from '../utils/copyOptions'
 
 const buildInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>) => {
     const branchMap = ctx.branchMap as Map<string, MetahubBranch> | undefined
@@ -94,38 +95,6 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, BranchL
         codenameTouched: false,
         ...normalizeBranchCopyOptions()
     }
-}
-
-const getBranchCopyOptions = (values: Record<string, any>): BranchCopyOptions => {
-    return normalizeBranchCopyOptions({
-        fullCopy: values.fullCopy,
-        copyLayouts: values.copyLayouts,
-        copyHubs: values.copyHubs,
-        copyCatalogs: values.copyCatalogs,
-        copyEnumerations: values.copyEnumerations
-    })
-}
-
-const setAllBranchCopyChildren = (setValue: (name: string, value: any) => void, checked: boolean) => {
-    for (const key of BRANCH_COPY_OPTION_KEYS) {
-        setValue(key, checked)
-    }
-    setValue('fullCopy', checked)
-}
-
-const toggleBranchCopyChild = (
-    setValue: (name: string, value: any) => void,
-    key: BranchCopyOptionKey,
-    checked: boolean,
-    values: Record<string, any>
-) => {
-    setValue(key, checked)
-    const nextOptions = getBranchCopyOptions({
-        ...values,
-        [key]: checked,
-        fullCopy: false
-    })
-    setValue('fullCopy', nextOptions.fullCopy)
 }
 
 const BranchCopyOptionsTab = ({
