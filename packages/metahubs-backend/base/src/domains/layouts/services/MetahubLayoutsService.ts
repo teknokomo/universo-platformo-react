@@ -53,6 +53,8 @@ export interface LayoutListOptions {
 type KnexTransaction = Knex.Transaction
 type DbRow = Record<string, unknown>
 
+export const LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE = 'LAYOUT_ZONE_WIDGET_NOT_FOUND'
+
 type ZoneSortOrderRow = {
     id: string
     sort_order?: number
@@ -135,6 +137,13 @@ export class MetahubLayoutsService {
         return Object.assign(new Error(message), {
             statusCode: 409,
             code: 'LAYOUT_CONFLICT'
+        })
+    }
+
+    private createNotFoundError(message: string, code: string): Error & { statusCode: number; code: string } {
+        return Object.assign(new Error(message), {
+            statusCode: 404,
+            code
         })
     }
 
@@ -808,7 +817,7 @@ export class MetahubLayoutsService {
                 .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .first()
             if (!current) {
-                throw new Error('Zone widget not found')
+                throw this.createNotFoundError('Zone widget not found', LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE)
             }
 
             await trx
@@ -847,7 +856,7 @@ export class MetahubLayoutsService {
                 .where({ id: widgetId, layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
                 .first()
             if (!current) {
-                throw new Error('Zone widget not found')
+                throw this.createNotFoundError('Zone widget not found', LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE)
             }
 
             await trx

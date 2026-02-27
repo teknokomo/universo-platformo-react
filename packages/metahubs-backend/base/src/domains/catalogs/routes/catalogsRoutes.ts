@@ -1214,10 +1214,7 @@ export function createCatalogsRoutes(
                 updatedAt: copiedCatalog._upl_updated_at,
                 attributesCount: copiedResult.copiedAttributesCount,
                 elementsCount: copiedResult.copiedElementsCount,
-                hubs: hubs.map((h: Record<string, unknown>) => {
-                    const hub = h as { id: string; name: unknown; codename: string }
-                    return { id: hub.id, name: hub.name, codename: hub.codename }
-                })
+                hubs: mapHubSummaries(hubs as Record<string, unknown>[])
             })
         })
     )

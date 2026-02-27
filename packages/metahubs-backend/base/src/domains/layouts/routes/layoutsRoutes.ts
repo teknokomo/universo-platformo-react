@@ -10,6 +10,7 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import {
     MetahubLayoutsService,
     LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY,
+    LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE,
     createLayoutSchema,
     updateLayoutSchema,
     assignLayoutZoneWidgetSchema,
@@ -37,6 +38,7 @@ type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner 
 type StoredLocaleEntry = { content?: unknown } | unknown
 type StoredLocaleMap = Record<string, StoredLocaleEntry>
 type StoredPrimary = { _primary?: unknown }
+type ErrorWithCode = Error & { code?: string }
 type SourceWidgetRow = {
     zone?: string
     widget_key?: string
@@ -721,7 +723,7 @@ export function createLayoutsRoutes(
                 )
                 return res.json({ item: widget })
             } catch (err: unknown) {
-                if (err instanceof Error && err.message === 'Zone widget not found') {
+                if (err instanceof Error && (err as ErrorWithCode).code === LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE) {
                     return res.status(404).json({ error: 'Zone widget not found' })
                 }
                 throw err
@@ -770,7 +772,7 @@ export function createLayoutsRoutes(
                 )
                 return res.json({ item: widget })
             } catch (err: unknown) {
-                if (err instanceof Error && err.message === 'Zone widget not found') {
+                if (err instanceof Error && (err as ErrorWithCode).code === LAYOUT_ZONE_WIDGET_NOT_FOUND_CODE) {
                     return res.status(404).json({ error: 'Zone widget not found' })
                 }
                 throw err
