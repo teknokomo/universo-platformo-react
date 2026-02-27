@@ -415,7 +415,7 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     open: true,
                     mode: 'copy' as const,
                     key: `attribute-copy-${ctx.entity.id}-${sourceDataType}-${raw?.version ?? 'na'}`,
-                    title: ctx.t('attributes.copyTitle', 'Копирование атрибута'),
+                    title: ctx.t('attributes.copyTitle', 'Copy Attribute'),
                     saveButtonText: ctx.t('attributes.copy.action', 'Copy'),
                     savingButtonText: ctx.t('attributes.copy.actionLoading', 'Copying...'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
@@ -575,7 +575,10 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                             const payload: Record<string, unknown> = {
                                 codename: sanitizeCodename(String(values.codename ?? '')),
                                 name: nameInput ?? {},
-                                namePrimaryLocale
+                                namePrimaryLocale,
+                                validationRules: values.validationRules ?? {},
+                                uiConfig: values.uiConfig ?? {},
+                                isRequired: typeof values.isRequired === 'boolean' ? values.isRequired : false
                             }
                             if (sourceDataType === 'TABLE') {
                                 payload.copyChildAttributes = Boolean(values.copyChildAttributes ?? true)

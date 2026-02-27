@@ -756,7 +756,7 @@ const EnumerationValueList = () => {
                 key={`enum-value-copy-${copyState.value?.id ?? 'none'}-${copyState.value?.version ?? 0}`}
                 open={copyState.open}
                 mode='copy'
-                title={t('enumerationValues.copyTitle', 'Копирование значения')}
+                title={t('enumerationValues.copyTitle', 'Copy Value')}
                 saveButtonText={t('enumerationValues.copy.action', 'Copy')}
                 savingButtonText={t('enumerationValues.copy.actionLoading', 'Copying...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}

@@ -356,7 +356,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 )
             }
         ],
-        [t, tc]
+        [t, tc, childAttributeMap]
     )
 
     const images = useMemo(() => {
@@ -927,7 +927,10 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 data: {
                     codename,
                     name: nameInput,
-                    namePrimaryLocale
+                    namePrimaryLocale,
+                    validationRules: data.validationRules ?? copyState.attribute.validationRules ?? {},
+                    uiConfig: data.uiConfig ?? copyState.attribute.uiConfig ?? {},
+                    isRequired: typeof data.isRequired === 'boolean' ? data.isRequired : Boolean(copyState.attribute.isRequired)
                 }
             })
 
@@ -937,7 +940,6 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : t('attributes.copy.error', 'Failed to copy attribute')
             setCopyDialogError(message)
-            notifyError(t, enqueueSnackbar, error)
         } finally {
             setCopying(false)
         }
@@ -1112,7 +1114,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 key={`child-copy-${copyState.attribute?.id ?? 'none'}-${copyState.attribute?.version ?? 0}`}
                 open={copyState.open}
                 mode='copy'
-                title={t('attributes.copyTitle', 'Копирование атрибута')}
+                title={t('attributes.copyTitle', 'Copy Attribute')}
                 saveButtonText={t('attributes.copy.action', 'Copy')}
                 savingButtonText={t('attributes.copy.actionLoading', 'Copying...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}

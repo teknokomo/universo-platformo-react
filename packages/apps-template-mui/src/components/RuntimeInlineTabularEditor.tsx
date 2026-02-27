@@ -677,7 +677,10 @@ export function RuntimeInlineTabularEditor({
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('app.edit', 'Edit')}
                 </MenuItem>
-                <MenuItem onClick={() => void handleCopyRowFromMenu()}>
+                <MenuItem
+                    onClick={() => void handleCopyRowFromMenu()}
+                    disabled={typeof maxRows === 'number' && effectiveRows.length >= maxRows}
+                >
                     <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('app.copy', 'Copy')}
                 </MenuItem>

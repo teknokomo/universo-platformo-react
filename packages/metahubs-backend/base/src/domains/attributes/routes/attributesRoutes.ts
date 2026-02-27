@@ -161,7 +161,11 @@ const copyAttributeSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
     name: localizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
-    copyChildAttributes: z.boolean().optional()
+    copyChildAttributes: z.boolean().optional(),
+    // Optional overrides — when provided, the copy uses these instead of the source values
+    validationRules: validationRulesSchema,
+    uiConfig: uiConfigSchema,
+    isRequired: z.boolean().optional()
 })
 
 const ATTRIBUTE_LIMIT = 100
@@ -679,7 +683,17 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const copyUiConfig: Record<string, unknown> = { ...((source.uiConfig as Record<string, unknown> | undefined) ?? {}) }
+            // Apply overrides from request body if provided, otherwise use source values
+            const copyValidationRules: Record<string, unknown> =
+                parsed.data.validationRules !== undefined
+                    ? (parsed.data.validationRules as Record<string, unknown>)
+                    : ((source.validationRules as Record<string, unknown> | undefined) ?? {})
+            const copyUiConfig: Record<string, unknown> =
+                parsed.data.uiConfig !== undefined
+                    ? (parsed.data.uiConfig as Record<string, unknown>)
+                    : { ...((source.uiConfig as Record<string, unknown> | undefined) ?? {}) }
+            const copyIsRequired: boolean =
+                parsed.data.isRequired !== undefined ? parsed.data.isRequired : Boolean(source.isRequired)
 
             const knex = KnexClient.getInstance()
             let copyResult:
@@ -711,9 +725,9 @@ export function createAttributesRoutes(
                                 codename: codenameCandidate,
                                 dataType: source.dataType,
                                 name: copyName,
-                                validationRules: (source.validationRules as Record<string, unknown> | undefined) ?? {},
+                                validationRules: copyValidationRules,
                                 uiConfig: copyUiConfig,
-                                isRequired: Boolean(source.isRequired),
+                                isRequired: copyIsRequired,
                                 isDisplayAttribute: false,
                                 targetEntityId: source.targetEntityId ?? undefined,
                                 targetEntityKind: source.targetEntityKind ?? undefined,

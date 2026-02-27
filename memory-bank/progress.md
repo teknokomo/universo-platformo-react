@@ -43,6 +43,45 @@
 
 ---
 
+## QA Remediation Round 10 — Copy UX & Stability Fixes (2026-02-27)
+
+Implemented all confirmed fixes from comprehensive QA audit of PR #696 (56 files, +4112/−1815). Two originally flagged issues (C-1 ElementList copy via CREATE, M-4 useCrudDashboard runtime copy) were retracted after confirming the edit-before-copy UX pattern is intentional.
+
+### Fixes Applied
+1. **H-1 (Data Integrity)**: Extended backend `copyAttributeSchema` with optional `validationRules`, `uiConfig`, `isRequired` overrides. Copy handler now applies user edits from dialog instead of always using source values. Updated frontend `handleCopy` (ChildAttributeList) and `onSave` (AttributeActions) to send all edited fields.
+2. **H-2 (Stale Data)**: Added `childAttributeMap` to `childColumns` useMemo dependency array in ChildAttributeList.tsx — prevents stale column data when child attributes change.
+3. **H-3 (Double Error)**: Removed duplicate `notifyError` toast from `handleCopy` catch block — dialog error display is sufficient.
+4. **M-1 (i18n Fallbacks)**: Replaced 11 Russian hardcoded fallback strings with English across AttributeActions, ChildAttributeList, EnumerationValueList, BranchList (dialog titles, copy option labels, tab labels).
+5. **M-3 (UX Constraint)**: Added `disabled` prop to copy MenuItem in RuntimeInlineTabularEditor when `effectiveRows.length >= maxRows`.
+
+### Files Changed
+- `packages/metahubs-backend/base/src/routes/attributesRoutes.ts` (schema + handler)
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx` (payload, useMemo, error, i18n)
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeActions.tsx` (payload, i18n)
+- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationValueList.tsx` (i18n)
+- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchList.tsx` (8 i18n fallbacks)
+- `packages/apps-template-mui/src/runtime/RuntimeInlineTabularEditor.tsx` (disabled copy)
+
+### Build Verification
+All 3 affected packages build clean: metahubs-backend, metahubs-frontend, apps-template-mui.
+
+## PR #696 Bot Review Fixes (2026-02-27)
+
+Addressed valid bot review comments on PR #696 (copy-attributes-elements-values-runtime-rows). Triaged 5 bot comments from Copilot and Gemini, accepted 2, rejected 3.
+
+### Accepted Fixes
+1. **SchemaGenerator legacy migration removal** — Removed backward-compat ELSE branch that checked for and added `sort_order` / `parent_attribute_id` columns on existing tables. Removed legacy `DROP CONSTRAINT` for old `_app_attributes_object_id_codename_unique`. Moved partial unique indexes (`idx_app_attributes_object_codename_root_active`, `idx_app_attributes_object_parent_codename_child_active`) into the CREATE TABLE block. Test DB will be recreated fresh.
+2. **ROLLBACK error logging** — Replaced 15 silent `.catch(() => {})` on ROLLBACK queries in `applicationsRoutes.ts` with `console.error` logging for better observability.
+
+### Rejected Comments (with rationale)
+- `isDisplayAttribute: false` on attribute copy — Correct behavior. Display attribute is exclusive per object; copy should not steal display status from the original.
+- `useEffect` auto-setting `isRequired` when `isDisplayAttribute` is on — Intentional business logic. Display attribute must be required.
+- `STRING_DEFAULT_MAX_LENGTH = 10` — Pre-existing intentional default present in 3+ files, not introduced in this PR.
+
+### Files Changed
+- `packages/schema-ddl/base/src/SchemaGenerator.ts` (−46 lines legacy migration)
+- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` (15 ROLLBACK catch replacements)
+
 ## Implement Follow-up — Copy UX Simplification & Stability (2026-02-27)
 
 Implemented the follow-up simplification round for copy flows in applications and metahubs, removed legacy copy-options behavior where no longer required, and fixed the reported runtime/UI regressions.

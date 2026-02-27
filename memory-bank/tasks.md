@@ -2,11 +2,40 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: QA Remediation Round 10 — Copy UX & Stability Fixes — 2026-02-27 ✅
+
+> **Goal**: Fix confirmed QA findings from comprehensive PR #696 audit: child attribute copy sends incomplete data, stale useMemo, double error notification, Russian i18n fallbacks, copy menu not disabled at maxRows.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q10-R1. Backend: extend copyAttributeSchema to accept overrides
+- [x] Add `validationRules`, `uiConfig`, `isRequired` optional fields to `copyAttributeSchema`
+- [x] Apply overrides from request body in the copy route handler (fallback to source values)
+
+### Q10-R2. Frontend: child attribute copy sends all edited fields
+- [x] Update `handleCopy` in ChildAttributeList.tsx to include validationRules, uiConfig, isRequired in the copy payload
+
+### Q10-R3. Frontend: fix childColumns useMemo missing dependency
+- [x] Add `childAttributeMap` to the dependency array of `childColumns` useMemo in ChildAttributeList.tsx
+
+### Q10-R4. Frontend: remove double error notification on copy failure
+- [x] Remove `notifyError(t, enqueueSnackbar, error)` from handleCopy catch block in ChildAttributeList.tsx (keep only dialog error)
+
+### Q10-R5. Frontend: fix Russian i18n fallbacks to English
+- [x] Replace Russian default strings with English in copy dialog titles (AttributeActions, ChildAttributeList, EnumerationValueList, BranchList — 11 strings total)
+
+### Q10-R6. Frontend: disable copy menu when maxRows reached
+- [x] Add `disabled` prop to copy MenuItem in RuntimeInlineTabularEditor.tsx when `effectiveRows.length >= maxRows`
+
+### Q10-R7. Verification and bookkeeping
+- [x] Build all affected packages (metahubs-backend, metahubs-frontend, apps-template-mui)
+- [x] Update memory-bank progress
+
 ## In Progress: PR #696 Bot Review Fixes — 2026-02-27 🚧
 
 > **Goal**: Address valid bot review comments on PR #696 (copy-attributes-elements-values-runtime-rows). Remove legacy migration code, add ROLLBACK error logging.
 > **Complexity**: Level 1 (Small)
-> **Status**: In Progress
+> **Status**: ✅ Implemented
 
 ### PRF-R1. SchemaGenerator legacy migration removal
 - [x] Remove backward-compat ELSE branch (sort_order, parent_attribute_id column migration)
@@ -22,8 +51,8 @@
 - [x] STRING_DEFAULT_MAX_LENGTH=10: pre-existing intentional default in 3+ files
 
 ### PRF-R4. Verification and push
-- [ ] Build affected packages to verify no regressions
-- [ ] Commit and push to PR branch
+- [x] Build affected packages to verify no regressions
+- [x] Commit and push to PR branch
 
 ## In Progress: IMPLEMENT Follow-up — Copy UX Simplification & Stability — 2026-02-27 🚧
 
