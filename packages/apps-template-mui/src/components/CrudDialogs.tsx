@@ -30,6 +30,9 @@ export interface CrudDialogsLabels {
     deleteDescription: string
     deleteText: string
     deletingText: string
+    copyTitle: string
+    copyText: string
+    copyingText: string
 }
 
 /**
@@ -43,14 +46,14 @@ export function CrudDialogs({ state, locale, labels, apiBaseUrl, applicationId, 
         <>
             <FormDialog
                 open={state.formOpen && state.isFormReady}
-                title={state.editRowId ? labels.editTitle : labels.createTitle}
+                title={state.copyRowId ? labels.copyTitle : state.editRowId ? labels.editTitle : labels.createTitle}
                 fields={state.fieldConfigs}
                 locale={locale}
                 initialData={state.formInitialData}
                 isSubmitting={state.isSubmitting}
-                error={state.formError}
-                saveButtonText={state.editRowId ? labels.saveText : labels.createText}
-                savingButtonText={state.editRowId ? labels.savingText : labels.creatingText}
+                error={state.formError || state.copyError}
+                saveButtonText={state.copyRowId ? labels.copyText : state.editRowId ? labels.saveText : labels.createText}
+                savingButtonText={state.copyRowId ? labels.copyingText : state.editRowId ? labels.savingText : labels.creatingText}
                 cancelButtonText={labels.cancelText}
                 emptyStateText={labels.noFieldsText}
                 onClose={state.handleCloseForm}

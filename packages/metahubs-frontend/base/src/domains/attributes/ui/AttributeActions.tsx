@@ -1,10 +1,12 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import StarOutlineIcon from '@mui/icons-material/StarOutline'
+import { Checkbox, FormControlLabel, Stack } from '@mui/material'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
 import { notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
@@ -12,6 +14,8 @@ import type { Attribute, AttributeDisplay, AttributeLocalizedPayload, AttributeV
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+
+const ATTRIBUTE_DATA_TYPES = new Set<Attribute['dataType']>(['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'])
 
 const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
     const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
@@ -25,7 +29,7 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
         dataType: raw?.dataType ?? ctx.entity?.dataType ?? 'STRING',
-        isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false,
+        isRequired: isSingleAttribute ? true : raw?.isRequired ?? ctx.entity?.isRequired ?? false,
         isDisplayAttribute: isSingleAttribute ? true : raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false,
         validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
         targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
@@ -154,6 +158,28 @@ const resolveSortOrder = (attribute?: { sortOrder?: number }) => {
     if (!attribute) return null
     const value = attribute.sortOrder
     return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+const appendCopySuffix = (value: VersionedLocalizedContent<string> | null | undefined, uiLocale: string, fallback: string) => {
+    const normalizedLocale = normalizeLocale(uiLocale)
+    const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+    const source = ensureLocalizedContent(value, normalizedLocale, fallback)
+    const nextLocales = { ...(source.locales ?? {}) } as Record<string, { content?: string }>
+    for (const [locale, localeValue] of Object.entries(nextLocales)) {
+        const localeSuffix = normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${localeSuffix}` }
+        }
+    }
+    const hasAny = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAny) {
+        nextLocales[normalizedLocale] = { content: `${fallback || 'Copy'}${suffix}` }
+    }
+    return {
+        ...source,
+        locales: nextLocales
+    }
 }
 
 const getSortBounds = (attributeMap?: Map<string, Attribute>) => {
@@ -353,6 +379,222 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
         }
     },
     {
+        id: 'copy',
+        labelKey: 'common:actions.copy',
+        icon: <ContentCopyRoundedIcon />,
+        order: 15,
+        dialog: {
+            loader: async () => {
+                const module = await import('@universo/template-mui/components/dialogs')
+                return { default: module.EntityFormDialog }
+            },
+            buildProps: (ctx) => {
+                const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
+                const raw = attributeMap?.get(ctx.entity.id)
+                const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+                const sourceName = raw?.codename ?? ctx.entity?.codename ?? 'attribute'
+                const rawDataType = raw?.dataType ?? ctx.entity?.dataType
+                const sourceDataType = ATTRIBUTE_DATA_TYPES.has(rawDataType as Attribute['dataType'])
+                    ? (rawDataType as Attribute['dataType'])
+                    : 'STRING'
+                const initial = {
+                    nameVlc: appendCopySuffix(raw?.name ?? null, uiLocale, sourceName),
+                    codename: sanitizeCodename(`${raw?.codename ?? ctx.entity?.codename ?? 'attribute'}-copy`),
+                    codenameTouched: true,
+                    dataType: sourceDataType,
+                    isRequired: raw?.isRequired ?? ctx.entity?.isRequired ?? false,
+                    isDisplayAttribute: false,
+                    targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
+                    targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null,
+                    validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
+                    uiConfig: raw?.uiConfig ?? ctx.entity?.uiConfig ?? {},
+                    copyChildAttributes: true
+                }
+
+                return {
+                    open: true,
+                    mode: 'copy' as const,
+                    key: `attribute-copy-${ctx.entity.id}-${sourceDataType}-${raw?.version ?? 'na'}`,
+                    title: ctx.t('attributes.copyTitle', 'Copy Attribute'),
+                    saveButtonText: ctx.t('attributes.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('attributes.copy.actionLoading', 'Copying...'),
+                    cancelButtonText: ctx.t('common:actions.cancel'),
+                    hideDefaultFields: true,
+                    initialExtraValues: initial,
+                    tabs: ({
+                        values,
+                        setValue,
+                        isLoading,
+                        errors
+                    }: {
+                        values: Record<string, any>
+                        setValue: (name: string, value: any) => void
+                        isLoading: boolean
+                        errors: Record<string, string>
+                    }): TabConfig[] => {
+                        const tabs: TabConfig[] = [
+                            {
+                                id: 'general',
+                                label: ctx.t('attributes.copy.generalTab', 'General'),
+                                content: (
+                                    <AttributeFormFields
+                                        values={values}
+                                        setValue={setValue}
+                                        isLoading={isLoading}
+                                        errors={errors}
+                                        uiLocale={ctx.uiLocale as string}
+                                        nameLabel={ctx.t('common:fields.name')}
+                                        codenameLabel={ctx.t('attributes.codename', 'Codename')}
+                                        codenameHelper={ctx.t('attributes.codenameHelper', 'Unique identifier')}
+                                        dataTypeLabel={ctx.t('attributes.dataType', 'Data Type')}
+                                        requiredLabel={ctx.t('attributes.isRequiredLabel', 'Required')}
+                                        displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                        displayAttributeHelper={ctx.t(
+                                            'attributes.isDisplayAttributeHelper',
+                                            'Use as representation when referencing elements of this catalog'
+                                        )}
+                                        displayAttributeLocked={false}
+                                        dataTypeOptions={[
+                                            { value: 'STRING', label: ctx.t('attributes.dataTypeOptions.string', 'String') },
+                                            { value: 'NUMBER', label: ctx.t('attributes.dataTypeOptions.number', 'Number') },
+                                            { value: 'BOOLEAN', label: ctx.t('attributes.dataTypeOptions.boolean', 'Boolean') },
+                                            { value: 'DATE', label: ctx.t('attributes.dataTypeOptions.date', 'Date') },
+                                            { value: 'REF', label: ctx.t('attributes.dataTypeOptions.ref', 'Reference') },
+                                            { value: 'JSON', label: ctx.t('attributes.dataTypeOptions.json', 'JSON') },
+                                            { value: 'TABLE', label: ctx.t('attributes.dataTypeOptions.table', 'Table') }
+                                        ]}
+                                        typeSettingsLabel={ctx.t('attributes.typeSettings.title', 'Type Settings')}
+                                        stringMaxLengthLabel={ctx.t('attributes.typeSettings.string.maxLength', 'Max Length')}
+                                        stringMinLengthLabel={ctx.t('attributes.typeSettings.string.minLength', 'Min Length')}
+                                        stringVersionedLabel={ctx.t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
+                                        stringLocalizedLabel={ctx.t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
+                                        numberPrecisionLabel={ctx.t('attributes.typeSettings.number.precision', 'Precision')}
+                                        numberScaleLabel={ctx.t('attributes.typeSettings.number.scale', 'Scale')}
+                                        numberMinLabel={ctx.t('attributes.typeSettings.number.min', 'Min Value')}
+                                        numberMaxLabel={ctx.t('attributes.typeSettings.number.max', 'Max Value')}
+                                        numberNonNegativeLabel={ctx.t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
+                                        dateCompositionLabel={ctx.t('attributes.typeSettings.date.composition', 'Date Composition')}
+                                        dateCompositionOptions={[
+                                            {
+                                                value: 'date',
+                                                label: ctx.t('attributes.typeSettings.date.compositionOptions.date', 'Date only')
+                                            },
+                                            {
+                                                value: 'time',
+                                                label: ctx.t('attributes.typeSettings.date.compositionOptions.time', 'Time only')
+                                            },
+                                            {
+                                                value: 'datetime',
+                                                label: ctx.t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time')
+                                            }
+                                        ]}
+                                        physicalTypeLabel={ctx.t('attributes.physicalType.label', 'PostgreSQL type')}
+                                        metahubId={(ctx as any).metahubId as string}
+                                        currentCatalogId={(ctx as any).catalogId as string | undefined}
+                                        dataTypeDisabled
+                                        disableVlcToggles
+                                        hideDisplayAttribute
+                                    />
+                                )
+                            },
+                            {
+                                id: 'presentation',
+                                label: ctx.t('attributes.tabs.presentation', 'Presentation'),
+                                content: (
+                                    <PresentationTabFields
+                                        values={values}
+                                        setValue={setValue}
+                                        isLoading={isLoading}
+                                        metahubId={(ctx as any).metahubId as string | undefined}
+                                        displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                        displayAttributeHelper={ctx.t(
+                                            'attributes.isDisplayAttributeHelper',
+                                            'Use as representation when referencing elements of this catalog'
+                                        )}
+                                        displayAttributeLocked={false}
+                                        forceDisplayAttributeWhenLocked={false}
+                                        headerAsCheckboxLabel={ctx.t(
+                                            'attributes.presentation.headerAsCheckbox',
+                                            'Display header as checkbox'
+                                        )}
+                                        headerAsCheckboxHelper={ctx.t(
+                                            'attributes.presentation.headerAsCheckboxHelper',
+                                            'Show a checkbox in the column header instead of the text label'
+                                        )}
+                                        dataType={values.dataType ?? 'STRING'}
+                                        targetEntityKind={values.targetEntityKind ?? null}
+                                        targetEntityId={values.targetEntityId ?? null}
+                                        isRequired={Boolean(values.isRequired)}
+                                    />
+                                )
+                            }
+                        ]
+                        if (sourceDataType === 'TABLE') {
+                            tabs.push({
+                                id: 'options',
+                                label: ctx.t('attributes.copy.optionsTab', 'Options'),
+                                content: (
+                                    <Stack spacing={1}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={Boolean(values.copyChildAttributes ?? true)}
+                                                    onChange={(event) => setValue('copyChildAttributes', event.target.checked)}
+                                                    disabled={isLoading}
+                                                />
+                                            }
+                                            label={ctx.t('attributes.copy.copyChildAttributes', 'Copy child attributes')}
+                                        />
+                                    </Stack>
+                                )
+                            })
+                        }
+                        return tabs
+                    },
+                    validate: (values: Record<string, any>) => {
+                        const errors: Record<string, string> = {}
+                        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+                        if (!hasPrimaryContent(nameVlc)) {
+                            errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
+                        }
+                        const codename = sanitizeCodename(String(values.codename ?? ''))
+                        if (!codename) {
+                            errors.codename = ctx.t('attributes.validation.codenameRequired', 'Codename is required')
+                        } else if (!isValidCodename(codename)) {
+                            errors.codename = ctx.t('attributes.validation.codenameInvalid', 'Codename contains invalid characters')
+                        }
+                        return Object.keys(errors).length > 0 ? errors : null
+                    },
+                    canSave: (values: Record<string, any>) => {
+                        const codename = sanitizeCodename(String(values.codename ?? ''))
+                        return Boolean(codename) && isValidCodename(codename) && hasPrimaryContent(values.nameVlc)
+                    },
+                    onSave: async (values: Record<string, any>) => {
+                        try {
+                            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(values.nameVlc)
+                            const payload: Record<string, unknown> = {
+                                codename: sanitizeCodename(String(values.codename ?? '')),
+                                name: nameInput ?? {},
+                                namePrimaryLocale,
+                                validationRules: values.validationRules ?? {},
+                                uiConfig: values.uiConfig ?? {},
+                                isRequired: typeof values.isRequired === 'boolean' ? values.isRequired : false
+                            }
+                            if (sourceDataType === 'TABLE') {
+                                payload.copyChildAttributes = Boolean(values.copyChildAttributes ?? true)
+                            }
+                            await ctx.api?.copyEntity?.(ctx.entity.id, payload)
+                            await ctx.helpers?.refreshList?.()
+                        } catch (error: unknown) {
+                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                            throw error
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
         id: 'move-up',
         labelKey: 'attributes.actions.moveUp',
         icon: <ArrowUpwardRoundedIcon />,
@@ -432,7 +674,8 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
             const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
             const raw = attributeMap?.get(ctx.entity.id)
             const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false
-            return isRequired
+            const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+            return isRequired && !isDisplayAttribute
         },
         onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
             try {

@@ -218,6 +218,16 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                     tabs: buildFormTabs(ctx, metahubId ?? ''),
                     validate: (values: Record<string, any>) => validatePublicationForm(ctx, values),
                     canSave: canSavePublicationForm,
+                    showDeleteButton: true,
+                    deleteButtonDisabled: !(ctx as any).canDeletePublication,
+                    deleteButtonDisabledReason: ctx.t(
+                        'publications.deleteDisabledReason',
+                        'Publication deletion is temporarily unavailable in this mode.'
+                    ),
+                    deleteButtonText: ctx.t('common:actions.delete'),
+                    onDelete: () => {
+                        ctx.helpers?.openDeleteDialog?.(ctx.entity)
+                    },
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
@@ -250,6 +260,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
         tone: 'danger',
         order: 100,
         group: 'danger',
+        enabled: (ctx) => Boolean((ctx as any).canDeletePublication),
         // Use custom onSelect to open ConfirmDeleteDialog via helper (defined in PublicationList.tsx)
         onSelect: async (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>) => {
             // Open the ConfirmDeleteDialog via helper

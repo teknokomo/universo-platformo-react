@@ -518,7 +518,7 @@ export function createApplicationsRoutes(
 
             const attributes = (await manager.query(
                 `
-                    SELECT id, codename, column_name, data_type, is_required,
+                    SELECT id, codename, column_name, data_type, is_required, is_display_attribute,
                            presentation, validation_rules, sort_order, ui_config,
                            target_object_id, target_object_kind
                     FROM ${schemaIdent}._app_attributes
@@ -536,6 +536,7 @@ export function createApplicationsRoutes(
                 column_name: string
                 data_type: RuntimeDataType
                 is_required: boolean
+                is_display_attribute?: boolean
                 presentation?: unknown
                 validation_rules?: Record<string, unknown>
                 sort_order?: number
@@ -556,7 +557,7 @@ export function createApplicationsRoutes(
                 const tableAttrIds = tableAttrs.map((a) => a.id)
                 const childAttrs = (await manager.query(
                     `
-                        SELECT id, codename, column_name, data_type, is_required,
+                        SELECT id, codename, column_name, data_type, is_required, is_display_attribute,
                                presentation, validation_rules, sort_order, ui_config,
                                target_object_id, target_object_kind, parent_attribute_id
                         FROM ${schemaIdent}._app_attributes
@@ -1014,6 +1015,7 @@ export function createApplicationsRoutes(
                     field: attribute.column_name,
                     dataType: attribute.data_type,
                     isRequired: attribute.is_required ?? false,
+                    isDisplayAttribute: attribute.is_display_attribute === true,
                     headerName: resolvePresentationName(attribute.presentation, requestedLocale, attribute.codename),
                     validationRules: attribute.validation_rules ?? {},
                     uiConfig: attribute.ui_config ?? {},
@@ -1044,6 +1046,7 @@ export function createApplicationsRoutes(
                                   dataType: child.data_type,
                                   headerName: resolvePresentationName(child.presentation, requestedLocale, child.codename),
                                   isRequired: child.is_required ?? false,
+                                  isDisplayAttribute: child.is_display_attribute === true,
                                   validationRules: child.validation_rules ?? {},
                                   uiConfig: child.ui_config ?? {},
                                   refTargetEntityId: child.target_object_id ?? null,
@@ -1795,6 +1798,11 @@ export function createApplicationsRoutes(
         data: z.record(z.unknown())
     })
 
+    const runtimeCopyBodySchema = z.object({
+        catalogId: z.string().uuid().optional(),
+        copyChildTables: z.boolean().optional()
+    })
+
     router.post(
         '/:applicationId/runtime/rows',
         writeLimiter,
@@ -2078,6 +2086,161 @@ export function createApplicationsRoutes(
                 parentId = await performCreate(ctx.manager)
             }
             return res.status(201).json({ id: parentId, status: 'created' })
+        })
+    )
+
+    // ============ APPLICATION RUNTIME ROW COPY ============
+    router.post(
+        '/:applicationId/runtime/rows/:rowId/copy',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, rowId } = req.params
+            if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+
+            const parsedBody = runtimeCopyBodySchema.safeParse(req.body ?? {})
+            if (!parsedBody.success) {
+                return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+            }
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(
+                ctx.manager,
+                ctx.schemaIdent,
+                parsedBody.data.catalogId
+            )
+            if (!catalog) return res.status(404).json({ error: catalogError })
+
+            const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
+            const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')
+            const tableAttrs = safeAttrs.filter((a) => a.data_type === 'TABLE')
+
+            const hasRequiredChildTables = tableAttrs.some((attr) => {
+                const { minRows } = getTableRowLimits(attr.validation_rules)
+                return Boolean(attr.is_required) || (minRows !== null && minRows > 0)
+            })
+            const copyChildTables = hasRequiredChildTables ? true : parsedBody.data.copyChildTables !== false
+
+            const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+            const sourceRows = (await ctx.manager.query(
+                `
+                    SELECT *
+                    FROM ${dataTableIdent}
+                    WHERE id = $1
+                      AND COALESCE(_upl_deleted, false) = false
+                      AND COALESCE(_app_deleted, false) = false
+                `,
+                [rowId]
+            )) as Array<Record<string, unknown>>
+
+            if (sourceRows.length === 0) return res.status(404).json({ error: 'Row not found' })
+            if (Boolean(sourceRows[0]._upl_locked)) return res.status(423).json({ error: 'Record is locked' })
+            const sourceRow = sourceRows[0]
+
+            const insertColumns = nonTableAttrs.map((attr) => quoteIdentifier(attr.column_name))
+            const insertValues = nonTableAttrs.map((attr) => sourceRow[attr.column_name] ?? null)
+            const placeholders = insertValues.map((_, index) => `$${index + 1}`)
+            if (ctx.userId) {
+                insertColumns.push('_upl_created_by')
+                insertValues.push(ctx.userId)
+                placeholders.push(`$${insertValues.length}`)
+            }
+
+            const performCopy = async (mgr: ReturnType<typeof getRequestManager>) => {
+                const [insertedParent] = (await mgr.query(
+                    `INSERT INTO ${dataTableIdent} (${insertColumns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`,
+                    insertValues
+                )) as Array<{ id: string }>
+
+                if (copyChildTables) {
+                    for (const tableAttr of tableAttrs) {
+                        const { minRows } = getTableRowLimits(tableAttr.validation_rules)
+                        const fallbackTabTableName = generateChildTableName(tableAttr.id)
+                        const tabTableName =
+                            typeof tableAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tableAttr.column_name)
+                                ? tableAttr.column_name
+                                : fallbackTabTableName
+                        if (!IDENTIFIER_REGEX.test(tabTableName)) continue
+                        const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+
+                        const childAttrs = (await mgr.query(
+                            `
+                                SELECT codename, column_name
+                                FROM ${ctx.schemaIdent}._app_attributes
+                                WHERE parent_attribute_id = $1
+                                  AND COALESCE(_upl_deleted, false) = false
+                                  AND COALESCE(_app_deleted, false) = false
+                                ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST
+                            `,
+                            [tableAttr.id]
+                        )) as Array<{ codename: string; column_name: string }>
+
+                        const validChildColumns = childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                        const sourceChildRows = (await mgr.query(
+                            `
+                                SELECT ${validChildColumns.length > 0 ? validChildColumns.map((column) => quoteIdentifier(column)).join(', ') + ',' : ''}
+                                       _tp_sort_order
+                                FROM ${tabTableIdent}
+                                WHERE _tp_parent_id = $1
+                                  AND COALESCE(_upl_deleted, false) = false
+                                  AND COALESCE(_app_deleted, false) = false
+                                ORDER BY _tp_sort_order ASC, _upl_created_at ASC NULLS LAST
+                            `,
+                            [rowId]
+                        )) as Array<Record<string, unknown>>
+
+                        if (minRows !== null && sourceChildRows.length < minRows) {
+                            throw new UpdateFailure(400, {
+                                error: `TABLE ${tableAttr.codename} requires at least ${minRows} row(s)`
+                            })
+                        }
+
+                        if (sourceChildRows.length === 0) continue
+
+                        const headerColumns = ['_tp_parent_id', '_tp_sort_order', ...(ctx.userId ? ['_upl_created_by'] : [])]
+                        const allColumns = [...headerColumns, ...validChildColumns.map((column) => quoteIdentifier(column))]
+                        const values: unknown[] = []
+                        const valueTuples: string[] = []
+                        let paramIndex = 1
+                        for (let index = 0; index < sourceChildRows.length; index++) {
+                            const sourceChild = sourceChildRows[index]
+                            const tuple: string[] = []
+                            tuple.push(`$${paramIndex++}`)
+                            values.push(insertedParent.id)
+                            tuple.push(`$${paramIndex++}`)
+                            values.push(index)
+                            if (ctx.userId) {
+                                tuple.push(`$${paramIndex++}`)
+                                values.push(ctx.userId)
+                            }
+                            for (const column of validChildColumns) {
+                                tuple.push(`$${paramIndex++}`)
+                                values.push(sourceChild[column] ?? null)
+                            }
+                            valueTuples.push(`(${tuple.join(', ')})`)
+                        }
+                        await mgr.query(`INSERT INTO ${tabTableIdent} (${allColumns.join(', ')}) VALUES ${valueTuples.join(', ')}`, values)
+                    }
+                }
+
+                return insertedParent.id
+            }
+
+            try {
+                const copiedId = tableAttrs.length > 0 ? await ctx.manager.transaction((tx) => performCopy(tx)) : await performCopy(ctx.manager)
+                return res.status(201).json({
+                    id: copiedId,
+                    status: 'created',
+                    copyOptions: { copyChildTables },
+                    hasRequiredChildTables
+                })
+            } catch (error) {
+                if (error instanceof UpdateFailure) {
+                    return res.status(error.statusCode).json(error.body)
+                }
+                throw error
+            }
         })
     )
 
@@ -2493,11 +2656,11 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string; _upl_locked?: boolean }>
 
                 if (parentRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Parent record not found' })
                 }
                 if (parentRows[0]._upl_locked) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(423).json({ error: 'Parent record is locked' })
                 }
 
@@ -2515,7 +2678,7 @@ export function createApplicationsRoutes(
                 const activeCount = Number(activeCountRows[0]?.cnt ?? 0)
                 const maxRowsError = getTableRowCountError(activeCount + 1, tc.tableAttr.codename, { minRows, maxRows })
                 if (maxRowsError && maxRows !== null) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(400).json({ error: maxRowsError })
                 }
 
@@ -2527,7 +2690,7 @@ export function createApplicationsRoutes(
                 await ctx.manager.query('COMMIT')
                 return res.status(201).json({ id: inserted.id, status: 'created' })
             } catch (error) {
-                await ctx.manager.query('ROLLBACK').catch(() => {})
+                await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                 throw error
             }
         })
@@ -2726,6 +2889,129 @@ export function createApplicationsRoutes(
         })
     )
 
+    // ============ APPLICATION RUNTIME TABULAR — COPY CHILD ROW ============
+    router.post(
+        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId/copy',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { applicationId, recordId, attributeId, childRowId } = req.params
+            if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
+                return res.status(400).json({ error: 'Invalid ID format' })
+            }
+            const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
+            if (!catalogId || !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'catalogId query parameter is required' })
+
+            const ctx = await resolveRuntimeSchema(req, res, applicationId)
+            if (!ctx) return
+
+            const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, catalogId, attributeId)
+            if (tc.error) return res.status(400).json({ error: tc.error })
+
+            await ctx.manager.query('BEGIN')
+            try {
+                const parentRows = (await ctx.manager.query(
+                    `
+                        SELECT id, _upl_locked
+                        FROM ${tc.parentTableIdent}
+                        WHERE id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        FOR UPDATE
+                    `,
+                    [recordId]
+                )) as Array<{ id: string; _upl_locked?: boolean }>
+
+                if (parentRows.length === 0) {
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
+                    return res.status(404).json({ error: 'Parent record not found' })
+                }
+                if (parentRows[0]._upl_locked) {
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
+                    return res.status(423).json({ error: 'Parent record is locked' })
+                }
+
+                const sourceRows = (await ctx.manager.query(
+                    `
+                        SELECT *
+                        FROM ${tc.tabTableIdent}
+                        WHERE id = $1
+                          AND _tp_parent_id = $2
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                        LIMIT 1
+                    `,
+                    [childRowId, recordId]
+                )) as Array<Record<string, unknown>>
+
+                if (sourceRows.length === 0) {
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
+                    return res.status(404).json({ error: 'Child row not found' })
+                }
+                const sourceRow = sourceRows[0]
+                const sourceSortOrder = typeof sourceRow._tp_sort_order === 'number' ? sourceRow._tp_sort_order : 0
+
+                const { minRows, maxRows } = getTableRowLimits(tc.tableAttr.validation_rules)
+                const countRows = (await ctx.manager.query(
+                    `
+                        SELECT COUNT(*)::int AS cnt
+                        FROM ${tc.tabTableIdent}
+                        WHERE _tp_parent_id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                    `,
+                    [recordId]
+                )) as Array<{ cnt: number }>
+                const activeCount = Number(countRows[0]?.cnt ?? 0)
+                const maxRowsError = getTableRowCountError(activeCount + 1, tc.tableAttr.codename, { minRows, maxRows })
+                if (maxRowsError && maxRows !== null) {
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
+                    return res.status(400).json({ error: maxRowsError })
+                }
+
+                await ctx.manager.query(
+                    `
+                        UPDATE ${tc.tabTableIdent}
+                        SET _tp_sort_order = _tp_sort_order + 1,
+                            _upl_updated_at = NOW(),
+                            _upl_version = COALESCE(_upl_version, 1) + 1
+                        WHERE _tp_parent_id = $1
+                          AND COALESCE(_upl_deleted, false) = false
+                          AND COALESCE(_app_deleted, false) = false
+                          AND _tp_sort_order > $2
+                    `,
+                    [recordId, sourceSortOrder]
+                )
+
+                const copyColumns = tc.childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                const headerColumns = ['_tp_parent_id', '_tp_sort_order', ...(ctx.userId ? ['_upl_created_by'] : [])]
+                const allColumns = [...headerColumns, ...copyColumns.map((column) => quoteIdentifier(column))]
+                const values: unknown[] = [recordId, sourceSortOrder + 1]
+                const placeholders: string[] = ['$1', '$2']
+
+                let paramIndex = 3
+                if (ctx.userId) {
+                    placeholders.push(`$${paramIndex++}`)
+                    values.push(ctx.userId)
+                }
+                for (const column of copyColumns) {
+                    placeholders.push(`$${paramIndex++}`)
+                    values.push(sourceRow[column] ?? null)
+                }
+
+                const [inserted] = (await ctx.manager.query(
+                    `INSERT INTO ${tc.tabTableIdent} (${allColumns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`,
+                    values
+                )) as Array<{ id: string }>
+
+                await ctx.manager.query('COMMIT')
+                return res.status(201).json({ id: inserted.id, status: 'created' })
+            } catch (error) {
+                await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
+                throw error
+            }
+        })
+    )
+
     // ============ APPLICATION RUNTIME TABULAR — DELETE CHILD ROW (soft) ============
     router.delete(
         '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId',
@@ -2759,11 +3045,11 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string; _upl_locked?: boolean }>
 
                 if (parentRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Parent record not found' })
                 }
                 if (parentRows[0]._upl_locked) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(423).json({ error: 'Parent record is locked' })
                 }
 
@@ -2781,7 +3067,7 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string }>
 
                 if (childRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Child row not found' })
                 }
 
@@ -2800,7 +3086,7 @@ export function createApplicationsRoutes(
                     const activeCount = Number(activeCountRows[0]?.cnt ?? 0)
                     const minRowsError = getTableRowCountError(activeCount - 1, tc.tableAttr.codename, { minRows, maxRows: null })
                     if (minRowsError) {
-                        await ctx.manager.query('ROLLBACK').catch(() => {})
+                        await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                         return res.status(400).json({ error: minRowsError })
                     }
                 }
@@ -2823,14 +3109,14 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string }>
 
                 if (deleted.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Child row not found' })
                 }
 
                 await ctx.manager.query('COMMIT')
                 return res.json({ status: 'deleted' })
             } catch (error) {
-                await ctx.manager.query('ROLLBACK').catch(() => {})
+                await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                 throw error
             }
         })

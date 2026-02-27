@@ -1,5 +1,6 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import type { ActionDescriptor } from '@universo/template-mui'
 import type { HubElement, HubElementDisplay } from '../../../types'
 
@@ -21,6 +22,21 @@ const elementActions: readonly ActionDescriptor<HubElementDisplay, ElementData>[
                 | undefined
             const rawElement = (ctx as { rawElement?: HubElement }).rawElement
             await helpers?.openEditDialog?.(rawElement ?? ctx.entity)
+        }
+    },
+    {
+        id: 'copy',
+        labelKey: 'common:actions.copy',
+        icon: <ContentCopyRoundedIcon />,
+        order: 15,
+        onSelect: async (ctx) => {
+            const helpers = ctx.helpers as
+                | {
+                      openCopyDialog?: (entity: HubElement | HubElementDisplay) => void | Promise<void>
+                  }
+                | undefined
+            const rawElement = (ctx as { rawElement?: HubElement }).rawElement
+            await helpers?.openCopyDialog?.(rawElement ?? ctx.entity)
         }
     },
     {

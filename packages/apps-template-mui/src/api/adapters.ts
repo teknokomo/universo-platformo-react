@@ -1,4 +1,4 @@
-import { fetchAppData, fetchAppRow, createAppRow, updateAppRow, deleteAppRow } from './api'
+import { fetchAppData, fetchAppRow, createAppRow, updateAppRow, deleteAppRow, copyAppRow, fetchTabularRows } from './api'
 import { appQueryKeys } from './mutations'
 import type { CrudDataAdapter } from './types'
 
@@ -18,10 +18,31 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
 
         fetchRow: (rowId, catalogId) => fetchAppRow({ apiBaseUrl, applicationId, rowId, catalogId }),
 
+        fetchTabularRows: async ({ parentRowId, attributeId, catalogId }) => {
+            if (!catalogId) return []
+            const response = await fetchTabularRows({
+                apiBaseUrl,
+                applicationId,
+                parentRecordId: parentRowId,
+                attributeId,
+                catalogId
+            })
+            return response.items
+        },
+
         createRow: (data, catalogId) => createAppRow({ apiBaseUrl, applicationId, data, catalogId }),
 
         updateRow: (rowId, data, catalogId) => updateAppRow({ apiBaseUrl, applicationId, rowId, data, catalogId }),
 
-        deleteRow: (rowId, catalogId) => deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId })
+        deleteRow: (rowId, catalogId) => deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId }),
+
+        copyRow: (rowId, data) =>
+            copyAppRow({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                catalogId: data?.catalogId,
+                copyChildTables: data?.copyChildTables
+            })
     }
 }

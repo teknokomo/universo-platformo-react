@@ -1,7 +1,9 @@
 import type {
     ApplicationCopyOptions,
+    AttributeCopyOptions,
     BranchCopyOptionKey,
     BranchCopyOptions,
+    ElementCopyOptions,
     HubCopyOptionKey,
     HubCopyOptions,
     CatalogCopyOptions,
@@ -11,12 +13,14 @@ import type {
 import {
     BRANCH_COPY_OPTION_KEYS,
     DEFAULT_APPLICATION_COPY_OPTIONS,
+    DEFAULT_ATTRIBUTE_COPY_OPTIONS,
     DEFAULT_BRANCH_COPY_OPTIONS,
     HUB_COPY_OPTION_KEYS,
     DEFAULT_HUB_COPY_OPTIONS,
     DEFAULT_CATALOG_COPY_OPTIONS,
     DEFAULT_ENUMERATION_COPY_OPTIONS,
-    DEFAULT_LAYOUT_COPY_OPTIONS
+    DEFAULT_LAYOUT_COPY_OPTIONS,
+    DEFAULT_ELEMENT_COPY_OPTIONS
 } from '@universo/types'
 
 const toBoolean = (value: unknown): boolean => value === true
@@ -135,4 +139,16 @@ export const normalizeLayoutCopyOptions = (input?: Partial<LayoutCopyOptions> | 
     }
 
     return normalized
+}
+
+export const normalizeAttributeCopyOptions = (input?: Partial<AttributeCopyOptions> | null): AttributeCopyOptions => {
+    return {
+        copyChildAttributes: toBoolean(input?.copyChildAttributes ?? DEFAULT_ATTRIBUTE_COPY_OPTIONS.copyChildAttributes)
+    }
+}
+
+export const normalizeElementCopyOptions = (input?: Partial<ElementCopyOptions> | null): ElementCopyOptions => {
+    return {
+        copyChildTables: toBoolean(input?.copyChildTables ?? DEFAULT_ELEMENT_COPY_OPTIONS.copyChildTables)
+    }
 }

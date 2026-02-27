@@ -43,6 +43,151 @@
 
 ---
 
+## QA Remediation Round 10 — Copy UX & Stability Fixes (2026-02-27)
+
+Implemented all confirmed fixes from comprehensive QA audit of PR #696 (56 files, +4112/−1815). Two originally flagged issues (C-1 ElementList copy via CREATE, M-4 useCrudDashboard runtime copy) were retracted after confirming the edit-before-copy UX pattern is intentional.
+
+### Fixes Applied
+1. **H-1 (Data Integrity)**: Extended backend `copyAttributeSchema` with optional `validationRules`, `uiConfig`, `isRequired` overrides. Copy handler now applies user edits from dialog instead of always using source values. Updated frontend `handleCopy` (ChildAttributeList) and `onSave` (AttributeActions) to send all edited fields.
+2. **H-2 (Stale Data)**: Added `childAttributeMap` to `childColumns` useMemo dependency array in ChildAttributeList.tsx — prevents stale column data when child attributes change.
+3. **H-3 (Double Error)**: Removed duplicate `notifyError` toast from `handleCopy` catch block — dialog error display is sufficient.
+4. **M-1 (i18n Fallbacks)**: Replaced 11 Russian hardcoded fallback strings with English across AttributeActions, ChildAttributeList, EnumerationValueList, BranchList (dialog titles, copy option labels, tab labels).
+5. **M-3 (UX Constraint)**: Added `disabled` prop to copy MenuItem in RuntimeInlineTabularEditor when `effectiveRows.length >= maxRows`.
+
+### Files Changed
+- `packages/metahubs-backend/base/src/routes/attributesRoutes.ts` (schema + handler)
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx` (payload, useMemo, error, i18n)
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeActions.tsx` (payload, i18n)
+- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationValueList.tsx` (i18n)
+- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchList.tsx` (8 i18n fallbacks)
+- `packages/apps-template-mui/src/runtime/RuntimeInlineTabularEditor.tsx` (disabled copy)
+
+### Build Verification
+All 3 affected packages build clean: metahubs-backend, metahubs-frontend, apps-template-mui.
+
+## PR #696 Bot Review Fixes (2026-02-27)
+
+Addressed valid bot review comments on PR #696 (copy-attributes-elements-values-runtime-rows). Triaged 5 bot comments from Copilot and Gemini, accepted 2, rejected 3.
+
+### Accepted Fixes
+1. **SchemaGenerator legacy migration removal** — Removed backward-compat ELSE branch that checked for and added `sort_order` / `parent_attribute_id` columns on existing tables. Removed legacy `DROP CONSTRAINT` for old `_app_attributes_object_id_codename_unique`. Moved partial unique indexes (`idx_app_attributes_object_codename_root_active`, `idx_app_attributes_object_parent_codename_child_active`) into the CREATE TABLE block. Test DB will be recreated fresh.
+2. **ROLLBACK error logging** — Replaced 15 silent `.catch(() => {})` on ROLLBACK queries in `applicationsRoutes.ts` with `console.error` logging for better observability.
+
+### Rejected Comments (with rationale)
+- `isDisplayAttribute: false` on attribute copy — Correct behavior. Display attribute is exclusive per object; copy should not steal display status from the original.
+- `useEffect` auto-setting `isRequired` when `isDisplayAttribute` is on — Intentional business logic. Display attribute must be required.
+- `STRING_DEFAULT_MAX_LENGTH = 10` — Pre-existing intentional default present in 3+ files, not introduced in this PR.
+
+### Files Changed
+- `packages/schema-ddl/base/src/SchemaGenerator.ts` (−46 lines legacy migration)
+- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` (15 ROLLBACK catch replacements)
+
+## Implement Follow-up — Copy UX Simplification & Stability (2026-02-27)
+
+Implemented the follow-up simplification round for copy flows in applications and metahubs, removed legacy copy-options behavior where no longer required, and fixed the reported runtime/UI regressions.
+
+### Delivered
+1. **Application runtime element copy UX simplified**
+- Removed copy-options dialog path and switched to create/edit-style form copy flow.
+- Copy now opens the standard form prefilled from source row and appends suffix to the first STRING field (`(copy)` / `(копия)`).
+- Updated runtime copy dialog title to **Copy record / Копирование записи** in app i18n namespaces.
+
+2. **Metahub catalog predefined element copy UX simplified**
+- Removed options-tab copy flow for catalog elements.
+- Copy now uses the same dynamic form pattern as create/edit with source-prefill and first STRING suffix behavior.
+
+3. **Attribute copy simplification and stability fixes**
+- Kept `Presentation` tab in copy dialog for root + child attribute copy.
+- Forced `isDisplayAttribute` to disabled `false` for copied attributes while preserving other presentation settings.
+- Reduced copy `Options` tab to TABLE-only `copyChildAttributes` toggle.
+- Fixed hook-order runtime crash in `ElementList` (conditional hook position issue) and cleaned related formatting/lint errors.
+
+4. **Enumeration value copy + i18n consistency**
+- Simplified enumeration value copy dialog to match edit form (no options tab) with copied-name suffix.
+- Added localized delete confirmation message key for enumeration values and wired dialog to i18n key.
+
+5. **Default STRING max length = 10**
+- Applied default `maxLength: 10` for STRING attribute creation in both root catalog attributes and TABLE child attributes.
+
+6. **Display-attribute marker propagation verification/completion**
+- Verified marker presence in publication snapshot serialization (`isDisplayAttribute` in snapshot fields).
+- Extended application runtime API response to explicitly return `isDisplayAttribute` for root/child columns, ensuring frontend contract visibility.
+
+### Verification
+- Builds:
+  - `pnpm --filter @universo/metahubs-frontend build` ✅
+  - `pnpm --filter @universo/apps-template-mui build` ✅
+  - `pnpm --filter @universo/applications-frontend build` ✅
+  - `pnpm --filter @universo/applications-backend build` ✅
+  - `pnpm --filter @universo/metahubs-backend build` ✅
+- Lint (targeted):
+  - `pnpm --filter @universo/metahubs-frontend exec eslint --ext .ts,.tsx,.jsx src/ --quiet` ✅
+  - `pnpm --filter @universo/apps-template-mui exec eslint <touched files> --max-warnings=0` ✅
+  - `pnpm --filter @universo/applications-frontend exec eslint <touched files> --max-warnings=0` ✅
+- Note:
+  - Full-file strict lint for `applications-backend/src/routes/applicationsRoutes.ts` still reports pre-existing warnings/errors outside the implementation scope; TypeScript build passes.
+
+## Implement Round — Metahub/Application Entity Copy Expansion (2026-02-27)
+
+Implemented the approved copy-expansion scope for metahub and application runtime flows, including missing copy dialogs/options, scoped codename behavior, delete-button consistency, and terminology alignment.
+
+### Delivered
+1. **Shared contracts and scoped codename foundation**
+- Added shared copy option contracts in `@universo/types` and normalization helpers in `@universo/utils` for:
+  - attribute copy,
+  - element copy,
+  - enumeration value copy.
+- Implemented scoped attribute codename uniqueness (`root` vs `child-per-table`) in metahub backend checks and system table definitions.
+
+2. **Metahub copy flows**
+- Implemented catalog attribute copy endpoint + frontend copy actions/dialogs with options:
+  - `copyTypeSettings`,
+  - `copyPresentationSettings` (excluding display-attribute transfer),
+  - `copyChildAttributes` for TABLE attributes.
+- Implemented catalog element copy endpoint + frontend copy dialog with:
+  - `copyChildTables`,
+  - required-child-table forced/locked behavior.
+- Implemented child-table row copy in metahub inline editor (clone inserted directly below source row).
+- Implemented enumeration value copy endpoint + frontend copy dialog with `copyPresentationSettings` option (current no-op contract for forward compatibility).
+
+3. **Application runtime copy flows and terminology**
+- Added runtime endpoints:
+  - element copy with optional child-table cloning,
+  - child tabular-row copy.
+- Added runtime row action `Copy` with dedicated **Copy element** dialog (Options tab + `copyChildTables`, lock when required by schema).
+- Added child-row copy action in runtime inline tabular editor.
+- Completed runtime UX wording migration from **record** to **element** in user-facing dialogs and i18n keys.
+
+4. **Edit dialog delete-button standardization and enumeration first-open fix**
+- Standardized edit-dialog delete button presence for:
+  - layout,
+  - publication,
+  - child attributes,
+  - enumeration values.
+- Applied disable rules where deletion is forbidden.
+- Fixed enumeration value edit first-open empty-field issue via stable dialog remount key/state reset pattern.
+
+5. **i18n and shared UI consistency**
+- Added/updated RU+EN copy-related keys in:
+  - `metahubs`,
+  - `applications`,
+  - `apps` namespaces.
+- Reused existing shared UI primitives (`CrudDialogs`, `RowActionsMenu`, existing dialog patterns) without introducing redundant UI frameworks.
+
+### Verification
+- Builds:
+  - `pnpm --filter @universo/metahubs-backend build` ✅
+  - `pnpm --filter @universo/metahubs-frontend build` ✅
+  - `pnpm --filter @universo/applications-backend build` ✅
+  - `pnpm --filter @universo/applications-frontend build` ✅
+  - `pnpm --filter @universo/apps-template-mui build` ✅
+- Targeted tests:
+  - `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx` ✅
+  - `pnpm --filter @universo/applications-frontend test -- src/pages/__tests__/actionsFactories.test.ts src/pages/__tests__/actionDescriptors.coverage.test.tsx` ⚠️ Failed due existing unrelated suite issues (DataGrid CSS handling and historical timeouts in connector-focused tests).
+- Lint:
+  - `pnpm --filter @universo/applications-frontend lint` ✅ (warnings only, no errors)
+  - `pnpm --filter @universo/apps-template-mui lint` ⚠️ Fails on pre-existing repo-wide issues in unrelated files; no new hard lint errors introduced by copy-dialog additions.
+
 ## QA Remediation Round 9 — Copy Type-Safety & Evidence (2026-02-27)
 
 Implemented the next remediation pass for metahub entity copy flows with focus on actionable backend type-safety defects and stronger deterministic test evidence.

@@ -5,6 +5,7 @@ import type { EnumerationLocalizedPayload, EnumerationValueLocalizedPayload } fr
 import { invalidateEnumerationValuesQueries, metahubsQueryKeys } from '../../shared'
 import * as enumerationsApi from '../api'
 import type { EnumerationCopyInput } from '../api'
+import type { EnumerationValueCopyInput } from '../api'
 
 interface CreateEnumerationParams {
     metahubId: string
@@ -67,6 +68,13 @@ interface MoveEnumerationValueParams {
     enumerationId: string
     valueId: string
     direction: 'up' | 'down'
+}
+
+interface CopyEnumerationValueParams {
+    metahubId: string
+    enumerationId: string
+    valueId: string
+    data?: EnumerationValueCopyInput
 }
 
 export function useCreateEnumerationAtMetahub() {
@@ -294,6 +302,28 @@ export function useMoveEnumerationValue() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('enumerationValues.moveError', 'Failed to move value'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyEnumerationValue() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, enumerationId, valueId, data }: CopyEnumerationValueParams) => {
+            const response = await enumerationsApi.copyEnumerationValue(metahubId, enumerationId, valueId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+            enqueueSnackbar(t('enumerationValues.copySuccess', 'Enumeration value copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('enumerationValues.copyError', 'Failed to copy enumeration value'), {
+                variant: 'error'
+            })
         }
     })
 }

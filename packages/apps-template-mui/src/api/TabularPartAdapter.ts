@@ -204,6 +204,17 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
                 credentials: 'include'
             })
             if (!res.ok) throw new Error(await extractError(res, 'Delete tabular row failed'))
+        },
+
+        async copyRow(rowId: string, data?: { catalogId?: string }): Promise<Record<string, unknown>> {
+            const resolvedCatalogId = data?.catalogId ?? catalogId
+            const copyUrl = `${url(resolvedCatalogId, rowId)}/copy`
+            const res = await fetch(copyUrl, {
+                method: 'POST',
+                credentials: 'include'
+            })
+            if (!res.ok) throw new Error(await extractError(res, 'Copy tabular row failed'))
+            return res.json()
         }
     }
 }

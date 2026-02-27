@@ -3,6 +3,7 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { metahubsQueryKeys } from '../../shared'
 import * as elementsApi from '../api'
+import type { ElementCopyOptions } from '@universo/types'
 
 interface CreateElementParams {
     metahubId: string
@@ -30,6 +31,14 @@ interface DeleteElementParams {
     hubId?: string
     catalogId: string
     elementId: string
+}
+
+interface CopyElementParams {
+    metahubId: string
+    hubId?: string
+    catalogId: string
+    elementId: string
+    data?: Partial<ElementCopyOptions>
 }
 
 export function useCreateElement() {
@@ -123,6 +132,38 @@ export function useDeleteElement() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('elements.deleteError', 'Failed to delete element'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyElement() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, elementId, data }: CopyElementParams) => {
+            if (hubId) {
+                const response = await elementsApi.copyElement(metahubId, hubId, catalogId, elementId, data)
+                return response.data
+            }
+            const response = await elementsApi.copyElementDirect(metahubId, catalogId, elementId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.elements(variables.metahubId, variables.hubId, variables.catalogId)
+                })
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.elementsDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            enqueueSnackbar(t('elements.copySuccess', 'Element copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('elements.copyError', 'Failed to copy element'), { variant: 'error' })
         }
     })
 }

@@ -29,6 +29,7 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 
 import {
     useCreateAttribute,
+    useCopyAttribute,
     useUpdateAttribute,
     useDeleteAttribute,
     useMoveAttribute,
@@ -47,6 +48,7 @@ import {
     AttributeLocalizedPayload,
     toAttributeDisplay,
     AttributeValidationRules,
+    getDefaultValidationRules,
     getPhysicalDataType,
     formatPhysicalType
 } from '../../../types'
@@ -254,6 +256,7 @@ const AttributeList = () => {
     const { confirm } = useConfirm()
 
     const createAttributeMutation = useCreateAttribute()
+    const copyAttributeMutation = useCopyAttribute()
     const updateAttributeMutation = useUpdateAttribute()
     const deleteAttributeMutation = useDeleteAttribute()
     const moveAttributeMutation = useMoveAttribute()
@@ -286,10 +289,14 @@ const AttributeList = () => {
             codename: '',
             codenameTouched: false,
             dataType: 'STRING',
-            isRequired: false,
+            isRequired: hasNoAttributes,
             isDisplayAttribute: hasNoAttributes,
             targetEntityId: null,
             targetEntityKind: null,
+            validationRules: {
+                ...getDefaultValidationRules('STRING'),
+                maxLength: 10
+            },
             uiConfig: {}
         }
     }, [attributes?.length])
@@ -602,6 +609,16 @@ const AttributeList = () => {
                         catalogId,
                         attributeId: id
                     })
+                },
+                copyEntity: async (id: string, payload: AttributeLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId || !catalogId) return
+                    await copyAttributeMutation.mutateAsync({
+                        metahubId,
+                        hubId: effectiveHubId,
+                        catalogId,
+                        attributeId: id,
+                        data: payload
+                    })
                 }
             },
             moveAttribute: async (id: string, direction: 'up' | 'down') => {
@@ -711,6 +728,7 @@ const AttributeList = () => {
             attributeMap,
             catalogId,
             clearDisplayAttributeMutation,
+            copyAttributeMutation,
             confirm,
             deleteAttributeMutation,
             enqueueSnackbar,

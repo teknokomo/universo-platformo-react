@@ -3,6 +3,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Divider from '@mui/material/Divider'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 
 export interface RowActionsMenuProps {
@@ -14,6 +15,7 @@ export interface RowActionsMenuProps {
 
 export interface RowActionsMenuLabels {
     editText: string
+    copyText: string
     deleteText: string
 }
 
@@ -40,6 +42,15 @@ export function RowActionsMenu({ state, labels }: RowActionsMenuProps) {
             >
                 <EditIcon fontSize='small' sx={{ mr: 1 }} />
                 {labels.editText}
+            </MenuItem>
+            <MenuItem
+                onClick={() => {
+                    if (state.menuRowId) state.handleOpenCopy(state.menuRowId)
+                    state.handleCloseMenu()
+                }}
+            >
+                <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                {labels.copyText}
             </MenuItem>
             <Divider />
             <MenuItem

@@ -29,6 +29,20 @@ import { CodenameField, TargetEntitySelector } from '../../../components'
 import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys } from '../../shared'
 
+const STRING_DEFAULT_MAX_LENGTH = 10
+
+const getCatalogAttributeDefaultValidationRules = (dataType: AttributeDataType): Partial<AttributeValidationRules> => {
+    const defaults = getDefaultValidationRules(dataType)
+    if (dataType !== 'STRING') return defaults
+    return {
+        ...defaults,
+        maxLength:
+            typeof (defaults as AttributeValidationRules).maxLength === 'number' && (defaults as AttributeValidationRules).maxLength > 0
+                ? (defaults as AttributeValidationRules).maxLength
+                : STRING_DEFAULT_MAX_LENGTH
+    }
+}
+
 export type AttributeFormFieldsProps = {
     values: Record<string, any>
     setValue: (name: string, value: any) => void
@@ -113,7 +127,8 @@ const AttributeFormFields = ({
     const dataType = (values.dataType as AttributeDataType | undefined) ?? 'STRING'
     const isRequired = Boolean(values.isRequired)
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
-    const validationRules = (values.validationRules as AttributeValidationRules | undefined) ?? getDefaultValidationRules(dataType)
+    const validationRules =
+        (values.validationRules as AttributeValidationRules | undefined) ?? getCatalogAttributeDefaultValidationRules(dataType)
     const uiConfig = (values.uiConfig ?? {}) as Record<string, unknown>
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
@@ -148,6 +163,11 @@ const AttributeFormFields = ({
             setValue('isDisplayAttribute', true)
         }
     }, [displayAttributeLocked, isDisplayAttribute, setValue])
+
+    useEffect(() => {
+        if (!isDisplayAttribute || isRequired) return
+        setValue('isRequired', true)
+    }, [isDisplayAttribute, isRequired, setValue])
 
     // Render type-specific settings
     const renderTypeSettings = () => {
@@ -358,7 +378,7 @@ const AttributeFormFields = ({
                         const newType = event.target.value as AttributeDataType
                         setValue('dataType', newType)
                         // Reset validationRules to defaults for new type
-                        setValue('validationRules', getDefaultValidationRules(newType))
+                        setValue('validationRules', getCatalogAttributeDefaultValidationRules(newType))
                     }}
                 >
                     {dataTypeOptions.map((option) => (
@@ -405,7 +425,7 @@ const AttributeFormFields = ({
             <FormControlLabel
                 control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
                 label={requiredLabel}
-                disabled={isLoading}
+                disabled={isLoading || isDisplayAttribute}
             />
             {/* Display attribute toggle (hidden when Presentation tab handles it) */}
             {!hideDisplayAttribute && (
@@ -457,6 +477,7 @@ export type PresentationTabFieldsProps = {
     targetEntityKind?: MetaEntityKind | null
     targetEntityId?: string | null
     isRequired?: boolean
+    forceDisplayAttributeWhenLocked?: boolean
 }
 
 export const PresentationTabFields = ({
@@ -472,7 +493,8 @@ export const PresentationTabFields = ({
     dataType,
     targetEntityKind,
     targetEntityId,
-    isRequired
+    isRequired,
+    forceDisplayAttributeWhenLocked = true
 }: PresentationTabFieldsProps) => {
     const { t, i18n } = useTranslation('metahubs')
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
@@ -513,6 +535,16 @@ export const PresentationTabFields = ({
         },
         [setValue, uiConfig]
     )
+
+    useEffect(() => {
+        if (!displayAttributeLocked || !forceDisplayAttributeWhenLocked || isDisplayAttribute) return
+        setValue('isDisplayAttribute', true)
+    }, [displayAttributeLocked, forceDisplayAttributeWhenLocked, isDisplayAttribute, setValue])
+
+    useEffect(() => {
+        if (!isDisplayAttribute || isRequired) return
+        setValue('isRequired', true)
+    }, [isDisplayAttribute, isRequired, setValue])
 
     useEffect(() => {
         if (!isEnumRef || !isRequired) return

@@ -13,6 +13,7 @@ import { MetahubAttributesService } from '../../metahubs/services/MetahubAttribu
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
+import { KnexClient } from '../../ddl'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -156,7 +157,63 @@ const moveAttributeSchema = z.object({
     direction: z.enum(['up', 'down'])
 })
 
+const copyAttributeSchema = z.object({
+    codename: z.string().min(1).max(100).optional(),
+    name: localizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
+    copyChildAttributes: z.boolean().optional(),
+    // Optional overrides — when provided, the copy uses these instead of the source values
+    validationRules: validationRulesSchema,
+    uiConfig: uiConfigSchema,
+    isRequired: z.boolean().optional()
+})
+
 const ATTRIBUTE_LIMIT = 100
+
+const buildCodenameAttempt = (base: string, attempt: number): string => {
+    if (attempt === 0) return base
+    return `${base}-${attempt + 1}`
+}
+
+const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
+    if (!name || typeof name !== 'object') {
+        return { en: 'Copy (copy)' }
+    }
+
+    const asRecord = name as Record<string, unknown>
+    const locales =
+        asRecord.locales && typeof asRecord.locales === 'object'
+            ? (asRecord.locales as Record<string, { content?: unknown }>)
+            : (asRecord as Record<string, unknown>)
+
+    const result: Record<string, string> = {}
+    for (const [locale, entry] of Object.entries(locales)) {
+        const content =
+            entry && typeof entry === 'object' && 'content' in entry
+                ? typeof (entry as { content?: unknown }).content === 'string'
+                    ? (entry as { content: string }).content.trim()
+                    : ''
+                : typeof entry === 'string'
+                ? entry.trim()
+                : ''
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        result[locale] = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+    }
+
+    if (Object.keys(result).length === 0) {
+        return { en: 'Copy (copy)' }
+    }
+
+    return result
+}
+
+const isUniqueViolation = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') return false
+    const code = (error as { code?: unknown }).code
+    if (code === '23505') return true
+    const message = (error as { message?: unknown }).message
+    return typeof message === 'string' && message.toLowerCase().includes('duplicate key value')
+}
 
 export function createAttributesRoutes(
     ensureAuth: RequestHandler,
@@ -410,7 +467,8 @@ export function createAttributesRoutes(
                 sortOrder,
                 parentAttributeId
             } = parsed.data
-            const effectiveIsRequired = Boolean(isRequired)
+            const shouldBeDisplayAttribute = Boolean(isDisplayAttribute)
+            const effectiveIsRequired = shouldBeDisplayAttribute || Boolean(isRequired)
 
             // TABLE-specific validation
             if (dataType === AttributeDataType.TABLE) {
@@ -418,6 +476,11 @@ export function createAttributesRoutes(
                     return res.status(400).json({
                         error: 'Nested TABLE attributes are not allowed',
                         code: 'NESTED_TABLE_FORBIDDEN'
+                    })
+                }
+                if (shouldBeDisplayAttribute) {
+                    return res.status(400).json({
+                        error: 'TABLE attributes cannot be set as display attribute'
                     })
                 }
             }
@@ -443,7 +506,13 @@ export function createAttributesRoutes(
             }
 
             // Check for duplicate codename
-            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, userId)
+            const existing = await attributesService.findByCodename(
+                metahubId,
+                catalogId,
+                normalizedCodename,
+                parentAttributeId ?? null,
+                userId
+            )
             if (existing) {
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
@@ -541,8 +610,8 @@ export function createAttributesRoutes(
                     targetEntityKind: dataType === AttributeDataType.REF ? resolvedTargetEntityKind : undefined,
                     validationRules: validationRules ?? {},
                     uiConfig: normalizedUiConfig,
-                    isRequired: isRequired ?? false,
-                    isDisplayAttribute: isDisplayAttribute ?? false,
+                    isRequired: effectiveIsRequired,
+                    isDisplayAttribute: false,
                     sortOrder: sortOrder,
                     parentAttributeId: parentAttributeId ?? null,
                     createdBy: userId
@@ -554,7 +623,7 @@ export function createAttributesRoutes(
             await attributesService.ensureSequentialSortOrder(metahubId, catalogId, userId, parentAttributeId ?? null)
 
             // If isDisplayAttribute was set, ensure exclusivity (clear from others)
-            if (isDisplayAttribute) {
+            if (shouldBeDisplayAttribute) {
                 await attributesService.setDisplayAttribute(metahubId, catalogId, attribute.id, userId)
             }
 
@@ -563,6 +632,169 @@ export function createAttributesRoutes(
             })
 
             res.status(201).json(attribute)
+        })
+    )
+
+    /**
+     * POST /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/copy
+     * Copy attribute with optional TABLE children copy.
+     */
+    router.post(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attribute/:attributeId/copy',
+            '/metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/copy'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, attributeId } = req.params
+            const { attributesService, ds, manager } = services(req)
+            const userId = resolveUserId(req)
+
+            const source = await attributesService.findById(metahubId, attributeId, userId)
+            if (!source || source.catalogId !== catalogId) {
+                return res.status(404).json({ error: 'Attribute not found' })
+            }
+
+            const parsed = copyAttributeSchema.safeParse(req.body ?? {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const copyOptions = {
+                copyChildAttributes: parsed.data.copyChildAttributes !== false
+            }
+
+            const normalizedBaseCodename = normalizeCodename(parsed.data.codename ?? `${source.codename}-copy`)
+            if (!normalizedBaseCodename || !isValidCodename(normalizedBaseCodename)) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
+
+            const requestedNameInput =
+                parsed.data.name !== undefined ? sanitizeLocalizedInput(parsed.data.name) : buildDefaultCopyNameInput(source.name)
+            const copyName = buildLocalizedContent(
+                requestedNameInput,
+                parsed.data.namePrimaryLocale ?? source.name?._primary ?? 'en',
+                source.name?._primary ?? 'en'
+            )
+            if (!copyName) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            // Apply overrides from request body if provided, otherwise use source values
+            const copyValidationRules: Record<string, unknown> =
+                parsed.data.validationRules !== undefined
+                    ? (parsed.data.validationRules as Record<string, unknown>)
+                    : ((source.validationRules as Record<string, unknown> | undefined) ?? {})
+            const copyUiConfig: Record<string, unknown> =
+                parsed.data.uiConfig !== undefined
+                    ? (parsed.data.uiConfig as Record<string, unknown>)
+                    : { ...((source.uiConfig as Record<string, unknown> | undefined) ?? {}) }
+            const copyIsRequired: boolean =
+                parsed.data.isRequired !== undefined ? parsed.data.isRequired : Boolean(source.isRequired)
+
+            const knex = KnexClient.getInstance()
+            let copyResult:
+                | {
+                      copiedAttribute: Awaited<ReturnType<MetahubAttributesService['create']>>
+                      copiedChildAttributes: number
+                  }
+                | undefined
+            for (let attempt = 0; attempt < 20 && !copyResult; attempt++) {
+                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt)
+                try {
+                    copyResult = await knex.transaction(async (trx) => {
+                        const existing = await attributesService.findByCodename(
+                            metahubId,
+                            catalogId,
+                            codenameCandidate,
+                            source.parentAttributeId ?? null,
+                            userId,
+                            trx
+                        )
+                        if (existing) {
+                            throw Object.assign(new Error('Attribute codename already exists'), { retryableConflict: true })
+                        }
+
+                        const copiedAttribute = await attributesService.create(
+                            metahubId,
+                            {
+                                catalogId,
+                                codename: codenameCandidate,
+                                dataType: source.dataType,
+                                name: copyName,
+                                validationRules: copyValidationRules,
+                                uiConfig: copyUiConfig,
+                                isRequired: copyIsRequired,
+                                isDisplayAttribute: false,
+                                targetEntityId: source.targetEntityId ?? undefined,
+                                targetEntityKind: source.targetEntityKind ?? undefined,
+                                sortOrder: undefined,
+                                parentAttributeId: source.parentAttributeId ?? null,
+                                createdBy: userId
+                            },
+                            userId,
+                            trx
+                        )
+
+                        let copiedChildAttributes = 0
+                        if (source.dataType === AttributeDataType.TABLE && copyOptions.copyChildAttributes) {
+                            const children = await attributesService.findChildAttributes(metahubId, source.id, userId, trx)
+                            for (const child of children) {
+                                await attributesService.create(
+                                    metahubId,
+                                    {
+                                        catalogId,
+                                        codename: child.codename,
+                                        dataType: child.dataType,
+                                        name: child.name,
+                                        validationRules: (child.validationRules as Record<string, unknown> | undefined) ?? {},
+                                        uiConfig: { ...((child.uiConfig as Record<string, unknown> | undefined) ?? {}) },
+                                        isRequired: child.isDisplayAttribute ? true : Boolean(child.isRequired),
+                                        isDisplayAttribute: Boolean(child.isDisplayAttribute),
+                                        targetEntityId: child.targetEntityId ?? undefined,
+                                        targetEntityKind: child.targetEntityKind ?? undefined,
+                                        sortOrder: child.sortOrder,
+                                        parentAttributeId: copiedAttribute.id,
+                                        createdBy: userId
+                                    },
+                                    userId,
+                                    trx
+                                )
+                                copiedChildAttributes += 1
+                            }
+                        }
+
+                        return { copiedAttribute, copiedChildAttributes }
+                    })
+                } catch (error: unknown) {
+                    const retryableConflict =
+                        (error &&
+                            typeof error === 'object' &&
+                            'retryableConflict' in error &&
+                            (error as { retryableConflict?: boolean }).retryableConflict === true) ||
+                        isUniqueViolation(error)
+                    if (!retryableConflict) {
+                        throw error
+                    }
+                }
+            }
+
+            if (!copyResult) {
+                return res.status(409).json({ error: 'Unable to generate unique codename for attribute copy' })
+            }
+
+            await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
+                console.error('[Attributes] Copy schema sync failed:', err)
+            })
+
+            return res.status(201).json({
+                ...copyResult!.copiedAttribute,
+                copyOptions,
+                copiedChildAttributes: copyResult!.copiedChildAttributes
+            })
         })
     )
 
@@ -647,6 +879,12 @@ export function createAttributesRoutes(
 
             const updateData: any = {}
             const effectiveDataType = dataType ?? attribute.dataType
+            const requestedDisplayState = isDisplayAttribute !== undefined ? isDisplayAttribute : Boolean(attribute.isDisplayAttribute)
+            if (requestedDisplayState && effectiveDataType === AttributeDataType.TABLE) {
+                return res.status(400).json({
+                    error: 'TABLE attributes cannot be set as display attribute'
+                })
+            }
             const isRefType = effectiveDataType === AttributeDataType.REF
 
             let effectiveTargetEntityId = attribute.targetEntityId ?? null
@@ -661,7 +899,13 @@ export function createAttributesRoutes(
                     })
                 }
                 if (normalizedCodename !== attribute.codename) {
-                    const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, userId)
+                    const existing = await attributesService.findByCodename(
+                        metahubId,
+                        catalogId,
+                        normalizedCodename,
+                        attribute.parentAttributeId ?? null,
+                        userId
+                    )
                     if (existing) {
                         return res.status(409).json({ error: 'Attribute with this codename already exists' })
                     }
@@ -722,7 +966,7 @@ export function createAttributesRoutes(
             }
 
             if (validationRules) updateData.validationRules = validationRules
-            const effectiveIsRequired = isRequired ?? attribute.isRequired
+            const effectiveIsRequired = Boolean(isRequired ?? attribute.isRequired) || requestedDisplayState
             if (uiConfig || targetChanged || (isRefType && effectiveTargetEntityKind === ENUMERATION_KIND && isRequired !== undefined)) {
                 const currentUiConfig = (attribute.uiConfig as Record<string, unknown>) ?? {}
                 const mergedUiConfig: Record<string, unknown> = { ...currentUiConfig, ...(uiConfig ?? {}) }
@@ -773,7 +1017,9 @@ export function createAttributesRoutes(
                 updateData.uiConfig = mergedUiConfig
             }
             if (isRequired !== undefined) {
-                updateData.isRequired = effectiveDataType === AttributeDataType.TABLE ? false : isRequired
+                updateData.isRequired = effectiveDataType === AttributeDataType.TABLE ? false : effectiveIsRequired
+            } else if (isDisplayAttribute === true) {
+                updateData.isRequired = true
             }
             // isDisplayAttribute is handled separately via setDisplayAttribute for atomicity
             if (sortOrder !== undefined) updateData.sortOrder = sortOrder
@@ -786,7 +1032,16 @@ export function createAttributesRoutes(
             if (isDisplayAttribute === true) {
                 await attributesService.setDisplayAttribute(metahubId, catalogId, attributeId, userId)
             } else if (isDisplayAttribute === false) {
-                await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+                try {
+                    await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+                } catch (error) {
+                    if (error instanceof Error && error.message === 'At least one display attribute is required in each scope') {
+                        return res.status(409).json({
+                            error: 'Cannot clear display attribute. Set another attribute as display first.'
+                        })
+                    }
+                    throw error
+                }
             }
 
             if (sortOrder !== undefined) {
@@ -861,6 +1116,11 @@ export function createAttributesRoutes(
             }
 
             const newValue = !attribute.isRequired
+            if (attribute.isDisplayAttribute && !newValue) {
+                return res.status(400).json({
+                    error: 'Display attribute must be required'
+                })
+            }
 
             const isEnumerationRef =
                 attribute.dataType === AttributeDataType.REF &&
@@ -972,7 +1232,16 @@ export function createAttributesRoutes(
                 return res.status(404).json({ error: 'Attribute not found' })
             }
 
-            await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+            try {
+                await attributesService.clearDisplayAttribute(metahubId, attributeId, userId)
+            } catch (error) {
+                if (error instanceof Error && error.message === 'At least one display attribute is required in each scope') {
+                    return res.status(409).json({
+                        error: 'Cannot clear display attribute. Set another attribute as display first.'
+                    })
+                }
+                throw error
+            }
 
             await syncMetahubSchema(metahubId, ds, userId, manager).catch((err) => {
                 console.error('[Attributes] Schema sync failed:', err)
@@ -1098,6 +1367,8 @@ export function createAttributesRoutes(
                 isRequired,
                 sortOrder
             } = parsed.data
+            const shouldBeDisplayAttribute = Boolean(req.body.isDisplayAttribute)
+            const effectiveIsRequired = shouldBeDisplayAttribute || Boolean(isRequired)
 
             // Validate child data type
             if (!TABLE_CHILD_DATA_TYPES.includes(dataType as any)) {
@@ -1165,7 +1436,6 @@ export function createAttributesRoutes(
                     })
                 }
 
-                const effectiveIsRequired = isRequired ?? false
                 const hasDefaultEnumValueId = typeof normalizedUiConfig.defaultEnumValueId === 'string'
                 if (hasDefaultEnumValueId || effectiveIsRequired) {
                     normalizedUiConfig.enumAllowEmpty = false
@@ -1180,7 +1450,7 @@ export function createAttributesRoutes(
             }
 
             // Check for duplicate codename among active attributes in the same catalog
-            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, userId)
+            const existing = await attributesService.findByCodename(metahubId, catalogId, normalizedCodename, attributeId, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Attribute with this codename already exists' })
             }
@@ -1194,8 +1464,6 @@ export function createAttributesRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
             }
 
-            const shouldBeDisplayAttribute = Boolean(req.body.isDisplayAttribute)
-
             const attribute = await attributesService.create(
                 metahubId,
                 {
@@ -1205,7 +1473,7 @@ export function createAttributesRoutes(
                     name: nameVlc,
                     validationRules: validationRules ?? {},
                     uiConfig: normalizedUiConfig,
-                    isRequired: isRequired ?? false,
+                    isRequired: effectiveIsRequired,
                     isDisplayAttribute: false,
                     targetEntityId: resolvedTargetEntityId,
                     targetEntityKind: resolvedTargetEntityKind,

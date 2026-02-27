@@ -447,6 +447,7 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
             },
             buildProps: (ctx) => {
                 const initial = buildCopyInitialValues(ctx)
+                const hubs = (ctx as CatalogActionContext).hubs ?? []
 
                 return {
                     open: true,
@@ -459,25 +460,22 @@ const catalogActions: readonly ActionDescriptor<CatalogDisplayWithHub, CatalogLo
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: ({ values, setValue, isLoading, errors }: CatalogDialogTabArgs) => [
-                        {
-                            id: 'general',
-                            label: ctx.t('catalogs.tabs.general', 'General'),
-                            content: (
-                                <GeneralTabFields
-                                    values={values}
-                                    setValue={setValue}
-                                    isLoading={isLoading}
-                                    errors={errors}
-                                    t={ctx.t}
-                                    uiLocale={ctx.uiLocale as string}
-                                />
-                            )
-                        },
+                    tabs: (args: CatalogDialogTabArgs) => [
+                        ...buildFormTabs(
+                            ctx,
+                            hubs
+                        )({
+                            values: args.values,
+                            setValue: args.setValue,
+                            isLoading: args.isLoading,
+                            errors: args.errors ?? {}
+                        }),
                         {
                             id: 'options',
                             label: ctx.t('catalogs.tabs.options', 'Options'),
-                            content: <CatalogCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={ctx.t} />
+                            content: (
+                                <CatalogCopyOptionsTab values={args.values} setValue={args.setValue} isLoading={args.isLoading} t={ctx.t} />
+                            )
                         }
                     ],
                     validate: (values: CatalogFormValues) => validateCatalogForm(ctx, values),

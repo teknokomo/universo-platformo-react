@@ -506,6 +506,7 @@ const PublicationList = () => {
             metahubId,
             metahub, // Pass metahub for MetahubInfoPanel in edit dialog
             isMetahubLoading, // Pass loading state for metahub
+            canDeletePublication: true,
             api: {
                 updateEntity: async (id: string, data: any) => {
                     if (!metahubId) return

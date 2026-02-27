@@ -414,6 +414,68 @@ const EnumerationFieldAutocomplete = ({
     )
 }
 
+const normalizeUiLocale = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+
+const getCopySuffixByLocale = (locale: string) => (normalizeUiLocale(locale) === 'ru' ? ' (копия)' : ' (copy)')
+const getCopyLabelByLocale = (locale: string) => (normalizeUiLocale(locale) === 'ru' ? 'Копия' : 'Copy')
+
+const isLocalizedContentValue = (value: unknown): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
+    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
+
+const applyCopySuffixToFirstStringAttribute = (params: {
+    sourceData: Record<string, unknown>
+    attributes: Attribute[]
+    locale: string
+}): Record<string, unknown> => {
+    const { sourceData, attributes, locale } = params
+    const firstStringAttribute = attributes.find((attribute) => attribute.dataType === 'STRING')
+    if (!firstStringAttribute) return { ...sourceData }
+
+    const fieldKey = firstStringAttribute.codename
+    const rawValue = sourceData[fieldKey]
+    const defaultSuffix = getCopySuffixByLocale(locale)
+
+    if (typeof rawValue === 'string') {
+        const content = rawValue.trim()
+        return {
+            ...sourceData,
+            [fieldKey]: content.length > 0 ? `${content}${defaultSuffix}` : `${getCopyLabelByLocale(locale)}${defaultSuffix}`
+        }
+    }
+
+    if (isLocalizedContentValue(rawValue)) {
+        const nextLocales = { ...(rawValue.locales ?? {}) }
+        let hasAnyContent = false
+        for (const [localeKey, localeValue] of Object.entries(nextLocales)) {
+            const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+            if (!content) continue
+            hasAnyContent = true
+            nextLocales[localeKey] = {
+                ...(localeValue ?? {}),
+                content: `${content}${getCopySuffixByLocale(localeKey)}`
+            }
+        }
+
+        if (!hasAnyContent) {
+            const primaryLocale = normalizeUiLocale(rawValue._primary || locale)
+            nextLocales[primaryLocale] = { content: `${getCopyLabelByLocale(primaryLocale)}${getCopySuffixByLocale(primaryLocale)}` }
+        }
+
+        return {
+            ...sourceData,
+            [fieldKey]: {
+                ...rawValue,
+                locales: nextLocales
+            }
+        }
+    }
+
+    return {
+        ...sourceData,
+        [fieldKey]: `${getCopyLabelByLocale(locale)}${defaultSuffix}`
+    }
+}
+
 const ElementList = () => {
     const navigate = useNavigate()
     const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
@@ -424,6 +486,7 @@ const ElementList = () => {
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [editingElement, setEditingElement] = useState<HubElement | null>(null)
+    const [copyingElement, setCopyingElement] = useState<HubElement | null>(null)
 
     // When accessed via catalog-centric routes (/metahub/:id/catalogs/:catalogId/*), hubId is not in the URL.
     // Resolve a stable hubId from the catalog's hub associations.
@@ -450,6 +513,7 @@ const ElementList = () => {
     // State management for dialog
     const [isSubmitting, setSubmitting] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
 
     // Can load data when we have metahubId and catalogId
     // hubId is optional - elements/attributes belong to catalog directly
@@ -1154,6 +1218,16 @@ const ElementList = () => {
                     } else {
                         enqueueSnackbar(t('elements.updateError', 'Failed to update element'), { variant: 'error' })
                     }
+                },
+                openCopyDialog: async (element: HubElement | HubElementDisplay) => {
+                    const fullRecord =
+                        typeof (element as HubElement).data === 'object' ? (element as HubElement) : elementMap.get(element.id) || null
+                    if (!fullRecord) {
+                        enqueueSnackbar(t('elements.copyError', 'Failed to copy element'), { variant: 'error' })
+                        return
+                    }
+                    setCopyDialogError(null)
+                    setCopyingElement(fullRecord)
                 }
             }
         }),
@@ -1170,6 +1244,15 @@ const ElementList = () => {
             updateElementMutation
         ]
     )
+
+    const copyInitialData = useMemo(() => {
+        if (!copyingElement?.data || typeof copyingElement.data !== 'object') return undefined
+        return applyCopySuffixToFirstStringAttribute({
+            sourceData: copyingElement.data as Record<string, unknown>,
+            attributes: orderedAttributes,
+            locale: i18n.language
+        })
+    }, [copyingElement?.data, i18n.language, orderedAttributes])
 
     // Validate metahubId and catalogId from URL AFTER all hooks
     if (!metahubId || !catalogId) {
@@ -1220,6 +1303,11 @@ const ElementList = () => {
     const handleEditClose = () => {
         setEditingElement(null)
         setDialogError(null)
+    }
+
+    const handleCopyClose = () => {
+        setCopyingElement(null)
+        setCopyDialogError(null)
     }
 
     const handleCatalogTabChange = (_event: unknown, nextTab: 'attributes' | 'elements') => {
@@ -1289,6 +1377,32 @@ const ElementList = () => {
                     : t('elements.updateError')
             setDialogError(message)
             console.error('Failed to update element', e)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const handleCopyElement = async (values: Record<string, unknown>) => {
+        if (!copyingElement) return
+        setCopyDialogError(null)
+        setSubmitting(true)
+        try {
+            await createElementMutation.mutateAsync({
+                metahubId,
+                hubId: effectiveHubId,
+                catalogId,
+                data: { data: values }
+            })
+            handleCopyClose()
+        } catch (e: unknown) {
+            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            setCopyDialogError(
+                typeof responseMessage === 'string'
+                    ? responseMessage
+                    : e instanceof Error
+                    ? e.message
+                    : t('elements.copyError', 'Failed to copy element')
+            )
         } finally {
             setSubmitting(false)
         }
@@ -1454,6 +1568,25 @@ const ElementList = () => {
                         setDeleteDialogState({ open: true, element: editingElement })
                     }
                 }}
+                renderField={renderElementField}
+            />
+
+            <DynamicEntityFormDialog
+                open={Boolean(copyingElement)}
+                onClose={handleCopyClose}
+                onSubmit={handleCopyElement}
+                initialData={copyInitialData}
+                i18nNamespace='metahubs'
+                isSubmitting={isSubmitting}
+                error={copyDialogError}
+                title={t('elements.copyTitle', 'Копирование элемента')}
+                locale={i18n.language}
+                fields={elementFields}
+                requireAnyValue
+                emptyStateText={t('elements.noAttributes')}
+                saveButtonText={t('elements.copy.action', 'Copy')}
+                savingButtonText={t('elements.copy.actionLoading', 'Copying...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
                 renderField={renderElementField}
             />
 

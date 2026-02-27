@@ -73,3 +73,19 @@ export const DEFAULT_LAYOUT_COPY_OPTIONS: LayoutCopyOptions = {
     copyWidgets: true,
     deactivateAllWidgets: false
 }
+
+export interface AttributeCopyOptions {
+    copyChildAttributes: boolean
+}
+
+export const DEFAULT_ATTRIBUTE_COPY_OPTIONS: AttributeCopyOptions = {
+    copyChildAttributes: true
+}
+
+export interface ElementCopyOptions {
+    copyChildTables: boolean
+}
+
+export const DEFAULT_ELEMENT_COPY_OPTIONS: ElementCopyOptions = {
+    copyChildTables: true
+}

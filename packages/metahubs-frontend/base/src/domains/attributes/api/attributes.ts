@@ -1,5 +1,6 @@
 import { apiClient } from '../../shared'
 import { Attribute, AttributeLocalizedPayload, PaginationParams, PaginatedResponse } from '../../../types'
+import type { AttributeCopyOptions } from '@universo/types'
 
 type AttributesListParams = PaginationParams & { locale?: string }
 type AttributesListMeta = { totalAll?: number; limit?: number; limitReached?: boolean }
@@ -101,6 +102,14 @@ export const deleteAttribute = (metahubId: string, hubId: string, catalogId: str
 export const moveAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string, direction: 'up' | 'down') =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/move`, { direction })
 
+export type AttributeCopyInput = Partial<AttributeLocalizedPayload> &
+    Partial<AttributeCopyOptions> & {
+        codename?: string
+    }
+
+export const copyAttribute = (metahubId: string, hubId: string, catalogId: string, attributeId: string, data: AttributeCopyInput) =>
+    apiClient.post<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}/copy`, data)
+
 // ============ Hub-less API functions (for catalogs without hub association) ============
 
 /**
@@ -188,6 +197,9 @@ export const deleteAttributeDirect = (metahubId: string, catalogId: string, attr
  */
 export const moveAttributeDirect = (metahubId: string, catalogId: string, attributeId: string, direction: 'up' | 'down') =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/move`, { direction })
+
+export const copyAttributeDirect = (metahubId: string, catalogId: string, attributeId: string, data: AttributeCopyInput) =>
+    apiClient.post<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/copy`, data)
 
 // ============ Toggle Required API functions ============
 

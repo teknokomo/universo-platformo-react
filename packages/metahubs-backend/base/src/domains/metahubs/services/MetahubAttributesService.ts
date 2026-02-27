@@ -2,7 +2,8 @@ import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { AttributeDataType } from '@universo/types'
-import { randomUUID } from 'crypto'
+import { generateUuidV7 } from '@universo/utils'
+import type { Knex } from 'knex'
 
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
@@ -15,8 +16,13 @@ export class MetahubAttributesService {
         return KnexClient.getInstance()
     }
 
-    private async generateUniqueTableAttributeId(schemaName: string, catalogId: string): Promise<string> {
-        const existingTableAttrs = (await this.knex
+    private getRunner(trx?: Knex.Transaction) {
+        return trx ?? this.knex
+    }
+
+    private async generateUniqueTableAttributeId(schemaName: string, catalogId: string, trx?: Knex.Transaction): Promise<string> {
+        const runner = this.getRunner(trx)
+        const existingTableAttrs = (await runner
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .select('id')
@@ -26,7 +32,7 @@ export class MetahubAttributesService {
         const usedPrefixes = new Set(existingTableAttrs.map((row) => row.id.replace(/-/g, '').substring(0, 12)))
 
         for (let attempt = 0; attempt < 64; attempt++) {
-            const candidate = randomUUID()
+            const candidate = generateUuidV7()
             const prefix = candidate.replace(/-/g, '').substring(0, 12)
             if (!usedPrefixes.has(prefix)) {
                 return candidate
@@ -55,9 +61,10 @@ export class MetahubAttributesService {
     /**
      * Count TABLE-type attributes for a specific object.
      */
-    async countTableAttributes(metahubId: string, objectId: string, userId?: string): Promise<number> {
+    async countTableAttributes(metahubId: string, objectId: string, userId?: string, trx?: Knex.Transaction): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const result = await this.knex
+        const runner = this.getRunner(trx)
+        const result = await runner
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .where({ object_id: objectId, data_type: AttributeDataType.TABLE })
@@ -70,9 +77,10 @@ export class MetahubAttributesService {
     /**
      * Count child attributes of a TABLE attribute.
      */
-    async countChildAttributes(metahubId: string, parentAttributeId: string, userId?: string): Promise<number> {
+    async countChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, trx?: Knex.Transaction): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const result = await this.knex
+        const runner = this.getRunner(trx)
+        const result = await runner
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .where({ parent_attribute_id: parentAttributeId })
@@ -138,9 +146,10 @@ export class MetahubAttributesService {
     /**
      * Returns child attributes of a TABLE attribute.
      */
-    async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string) {
+    async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, trx?: Knex.Transaction) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const rows = await this.knex
+        const runner = this.getRunner(trx)
+        const rows = await runner
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .where({ parent_attribute_id: parentAttributeId })
@@ -190,22 +199,38 @@ export class MetahubAttributesService {
         return rows.map(this.mapRowToAttribute)
     }
 
-    async findById(metahubId: string, id: string, userId?: string) {
+    async findById(metahubId: string, id: string, userId?: string, trx?: Knex.Transaction) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
+        const runner = this.getRunner(trx)
+        const row = await runner.withSchema(schemaName).from('_mhb_attributes').where({ id }).first()
 
         return row ? this.mapRowToAttribute(row) : null
     }
 
-    async findByCodename(metahubId: string, objectId: string, codename: string, userId?: string) {
+    async findByCodename(
+        metahubId: string,
+        objectId: string,
+        codename: string,
+        parentAttributeId?: string | null,
+        userId?: string,
+        trx?: Knex.Transaction
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.knex
+        const runner = this.getRunner(trx)
+        let query = runner
             .withSchema(schemaName)
             .from('_mhb_attributes')
             .where({ object_id: objectId, codename })
             .andWhere('_upl_deleted', false)
             .andWhere('_mhb_deleted', false)
-            .first()
+
+        if (parentAttributeId) {
+            query = query.andWhere({ parent_attribute_id: parentAttributeId })
+        } else {
+            query = query.whereNull('parent_attribute_id')
+        }
+
+        const row = await query.first()
 
         return row ? this.mapRowToAttribute(row) : null
     }
@@ -380,13 +405,14 @@ export class MetahubAttributesService {
         }))
     }
 
-    async create(metahubId: string, data: any, userId?: string) {
+    async create(metahubId: string, data: any, userId?: string, trx?: Knex.Transaction) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const runner = this.getRunner(trx)
         let explicitAttributeId: string | undefined
 
         // TABLE attribute limits validation
         if (data.parentAttributeId) {
-            const parent = await this.findById(metahubId, data.parentAttributeId, userId)
+            const parent = await this.findById(metahubId, data.parentAttributeId, userId, trx)
             if (!parent) {
                 throw new Error(`Parent attribute ${data.parentAttributeId} not found`)
             }
@@ -396,28 +422,28 @@ export class MetahubAttributesService {
             if (data.dataType === AttributeDataType.TABLE) {
                 throw new Error('Nested TABLE attributes are not allowed')
             }
-            const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId)
+            const childCount = await this.countChildAttributes(metahubId, data.parentAttributeId, userId, trx)
             if (childCount >= 20) {
                 throw new Error('Maximum 20 child attributes per TABLE')
             }
         }
 
         if (data.dataType === AttributeDataType.TABLE) {
-            const tableCount = await this.countTableAttributes(metahubId, data.catalogId, userId)
+            const tableCount = await this.countTableAttributes(metahubId, data.catalogId, userId, trx)
             if (tableCount >= 10) {
                 throw new Error('Maximum 10 TABLE attributes per catalog')
             }
 
-            explicitAttributeId = await this.generateUniqueTableAttributeId(schemaName, data.catalogId)
+            explicitAttributeId = await this.generateUniqueTableAttributeId(schemaName, data.catalogId, trx)
         }
 
-        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId, data.parentAttributeId))
+        const sortOrder = data.sortOrder ?? (await this.getNextSortOrder(schemaName, data.catalogId, data.parentAttributeId, trx))
         const dbData: Record<string, unknown> = {
             ...(explicitAttributeId ? { id: explicitAttributeId } : {}),
             object_id: data.catalogId, // Map catalogId to object_id
             codename: data.codename,
             data_type: data.dataType,
-            is_required: data.isRequired ?? false,
+            is_required: data.isDisplayAttribute ? true : data.isRequired ?? false,
             is_display_attribute: data.isDisplayAttribute ?? false,
             target_object_id: data.targetEntityId ?? data.targetCatalogId ?? null,
             target_object_kind: data.targetEntityKind ?? null,
@@ -434,7 +460,7 @@ export class MetahubAttributesService {
             _upl_updated_by: data.createdBy ?? null
         }
 
-        const [created] = await this.knex.withSchema(schemaName).into('_mhb_attributes').insert(dbData).returning('*')
+        const [created] = await runner.withSchema(schemaName).into('_mhb_attributes').insert(dbData).returning('*')
 
         return this.mapRowToAttribute(created)
     }
@@ -451,6 +477,7 @@ export class MetahubAttributesService {
         if (data.dataType !== undefined) updateData.data_type = data.dataType
         if (data.isRequired !== undefined) updateData.is_required = data.isRequired
         if (data.isDisplayAttribute !== undefined) updateData.is_display_attribute = data.isDisplayAttribute
+        if (data.isDisplayAttribute === true) updateData.is_required = true
         // Compatibility: support both targetEntityId/Kind and targetCatalogId payloads
         if (data.targetEntityId !== undefined) updateData.target_object_id = data.targetEntityId
         else if (data.targetCatalogId !== undefined) updateData.target_object_id = data.targetCatalogId
@@ -653,6 +680,7 @@ export class MetahubAttributesService {
                 .where({ id: attributeId })
                 .update({
                     is_display_attribute: true,
+                    is_required: true,
                     _upl_updated_at: new Date(),
                     _upl_updated_by: userId ?? null
                 })
@@ -665,6 +693,33 @@ export class MetahubAttributesService {
     async clearDisplayAttribute(metahubId: string, attributeId: string, userId?: string): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
+        const attribute = await this.knex.withSchema(schemaName).from('_mhb_attributes').where({ id: attributeId }).first()
+        if (!attribute) {
+            throw new Error('Attribute not found')
+        }
+
+        if (attribute.is_display_attribute) {
+            let siblingsQuery = this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: attribute.object_id })
+
+            if (attribute.parent_attribute_id) {
+                siblingsQuery = siblingsQuery.where({ parent_attribute_id: attribute.parent_attribute_id })
+            } else {
+                siblingsQuery = siblingsQuery.whereNull('parent_attribute_id')
+            }
+
+            const displayCountResult = await siblingsQuery
+                .where({ is_display_attribute: true })
+                .count<{ count?: string | number }>('id as count')
+                .first()
+            const displayCountRaw = displayCountResult?.count
+            const displayCount =
+                typeof displayCountRaw === 'number' ? displayCountRaw : displayCountRaw ? Number.parseInt(displayCountRaw, 10) : 0
+
+            if (displayCount <= 1) {
+                throw new Error('At least one display attribute is required in each scope')
+            }
+        }
+
         await this.knex
             .withSchema(schemaName)
             .from('_mhb_attributes')
@@ -676,8 +731,14 @@ export class MetahubAttributesService {
             })
     }
 
-    private async getNextSortOrder(schemaName: string, objectId: string, parentAttributeId?: string | null): Promise<number> {
-        let query = this.knex.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
+    private async getNextSortOrder(
+        schemaName: string,
+        objectId: string,
+        parentAttributeId?: string | null,
+        trx?: Knex.Transaction
+    ): Promise<number> {
+        const runner = this.getRunner(trx)
+        let query = runner.withSchema(schemaName).from('_mhb_attributes').where({ object_id: objectId })
 
         if (parentAttributeId) {
             query = query.where({ parent_attribute_id: parentAttributeId })

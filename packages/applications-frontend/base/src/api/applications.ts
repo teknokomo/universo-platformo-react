@@ -113,6 +113,23 @@ export const getApplicationRuntimeRow = async (params: {
     return response.data
 }
 
+/** Fetch TABLE child rows for a runtime row. */
+export const listApplicationRuntimeTabularRows = async (params: {
+    applicationId: string
+    rowId: string
+    attributeId: string
+    catalogId: string
+}): Promise<Array<Record<string, unknown>>> => {
+    const { applicationId, rowId, attributeId, catalogId } = params
+    const response = await apiClient.get<{ items?: Array<Record<string, unknown>> }>(
+        `/applications/${applicationId}/runtime/rows/${rowId}/tabular/${attributeId}`,
+        {
+            params: { catalogId }
+        }
+    )
+    return Array.isArray(response.data?.items) ? response.data.items : []
+}
+
 /** Create a new runtime row. Backend expects { data: {...}, catalogId? }. */
 export const createApplicationRuntimeRow = async (params: {
     applicationId: string
@@ -146,6 +163,20 @@ export const deleteApplicationRuntimeRow = async (params: { applicationId: strin
     await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
         params: catalogId ? { catalogId } : undefined
     })
+}
+
+/** Copy a runtime row. */
+export const copyApplicationRuntimeRow = async (params: {
+    applicationId: string
+    rowId: string
+    catalogId?: string
+    copyChildTables?: boolean
+}): Promise<Record<string, unknown>> => {
+    const { applicationId, rowId, catalogId, copyChildTables = true } = params
+    const body: Record<string, unknown> = { copyChildTables }
+    if (catalogId) body.catalogId = catalogId
+    const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body)
+    return response.data
 }
 
 // ============ APPLICATION MEMBERS ============

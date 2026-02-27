@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { AttributeLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as attributesApi from '../api'
+import type { AttributeCopyInput } from '../api'
 
 interface CreateAttributeParams {
     metahubId: string
@@ -45,6 +46,14 @@ interface MoveAttributeParams {
     catalogId: string
     attributeId: string
     direction: 'up' | 'down'
+}
+
+interface CopyAttributeParams {
+    metahubId: string
+    hubId?: string
+    catalogId: string
+    attributeId: string
+    data: AttributeCopyInput
 }
 
 export function useCreateAttribute() {
@@ -194,6 +203,39 @@ export function useMoveAttribute() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('attributes.moveError', 'Failed to update attribute order'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyAttribute() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, catalogId, attributeId, data }: CopyAttributeParams) => {
+            if (hubId) {
+                const response = await attributesApi.copyAttribute(metahubId, hubId, catalogId, attributeId, data)
+                return response.data
+            }
+            const response = await attributesApi.copyAttributeDirect(metahubId, catalogId, attributeId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            if (variables.hubId) {
+                queryClient.invalidateQueries({
+                    queryKey: metahubsQueryKeys.attributes(variables.metahubId, variables.hubId, variables.catalogId)
+                })
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId) })
+            } else {
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(variables.metahubId, variables.catalogId) })
+            }
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogDetail(variables.metahubId, variables.catalogId) })
+            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) })
+            enqueueSnackbar(t('attributes.copySuccess', 'Attribute copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('attributes.copyError', 'Failed to copy attribute'), { variant: 'error' })
         }
     })
 }

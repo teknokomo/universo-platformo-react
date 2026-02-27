@@ -264,6 +264,15 @@ const moveEnumerationValueSchema = z.object({
     direction: z.enum(['up', 'down'])
 })
 
+const copyEnumerationValueSchema = z.object({
+    codename: z.string().min(1).max(100).optional(),
+    name: localizedInputSchema.optional(),
+    description: optionalLocalizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional(),
+    isDefault: z.boolean().optional()
+})
+
 const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
     id: String(hub.id),
     name: hub.name,
@@ -1595,6 +1604,38 @@ export function createEnumerationsRoutes(
         })
     )
 
+    router.get(
+        '/metahub/:metahubId/enumeration/:enumerationId/value/:valueId/blocking-references',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const { metahubId, enumerationId, valueId } = req.params
+            const { objectsService, valuesService, attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
+            if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+                return res.status(404).json({ error: 'Enumeration not found' })
+            }
+
+            const value = await valuesService.findById(metahubId, valueId, userId)
+            if (!value || value.objectId !== enumerationId) {
+                return res.status(404).json({ error: 'Enumeration value not found' })
+            }
+
+            const [blockingDefaults, blockingElements] = await Promise.all([
+                findBlockingDefaultValueReferences(metahubId, valueId, attributesService, userId),
+                findBlockingElementValueReferences(metahubId, enumerationId, valueId, attributesService, userId)
+            ])
+
+            return res.json({
+                valueId,
+                canDelete: blockingDefaults.length === 0 && blockingElements.length === 0,
+                blockingDefaults,
+                blockingElements
+            })
+        })
+    )
+
     router.post(
         '/metahub/:metahubId/enumeration/:enumerationId/values',
         writeLimiter,
@@ -1782,6 +1823,114 @@ export function createEnumerationsRoutes(
                 }
                 throw error
             }
+        })
+    )
+
+    router.post(
+        '/metahub/:metahubId/enumeration/:enumerationId/value/:valueId/copy',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { metahubId, enumerationId, valueId } = req.params
+            const { objectsService, valuesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
+            if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+                return res.status(404).json({ error: 'Enumeration not found' })
+            }
+
+            const sourceValue = await valuesService.findById(metahubId, valueId, userId)
+            if (!sourceValue || sourceValue.objectId !== enumerationId) {
+                return res.status(404).json({ error: 'Enumeration value not found' })
+            }
+
+            const parsed = copyEnumerationValueSchema.safeParse(req.body ?? {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const sanitizedCustomName = parsed.data.name !== undefined ? sanitizeLocalizedInput(parsed.data.name) : null
+            if (sanitizedCustomName && Object.keys(sanitizedCustomName).length === 0) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const copyNameInput = sanitizedCustomName ?? buildDefaultCopyNameInput(sourceValue.name)
+            const copyNamePrimaryLocale = parsed.data.namePrimaryLocale ?? resolvePrimaryLocale(sourceValue.name) ?? 'en'
+            const copyName = buildLocalizedContent(copyNameInput, copyNamePrimaryLocale, 'en')
+            if (!copyName) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            let copyDescription = sourceValue.description ?? null
+            if (parsed.data.description !== undefined) {
+                const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    const descriptionPrimaryLocale =
+                        parsed.data.descriptionPrimaryLocale ??
+                        resolvePrimaryLocale(sourceValue.description) ??
+                        resolvePrimaryLocale(copyName) ??
+                        copyNamePrimaryLocale
+                    copyDescription =
+                        buildLocalizedContent(sanitizedDescription, descriptionPrimaryLocale, descriptionPrimaryLocale) ?? null
+                } else {
+                    copyDescription = null
+                }
+            }
+
+            const requestedCodename =
+                parsed.data.codename !== undefined && parsed.data.codename !== null ? normalizeCodename(parsed.data.codename) : null
+            if (requestedCodename !== null) {
+                if (!requestedCodename || !isValidCodename(requestedCodename)) {
+                    return res.status(400).json({
+                        error: 'Validation failed',
+                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    })
+                }
+                const existingRequested = await valuesService.findByCodename(metahubId, enumerationId, requestedCodename, userId)
+                if (existingRequested) {
+                    return res.status(409).json({ error: 'Enumeration value with this codename already exists' })
+                }
+            }
+
+            const baseCodename = requestedCodename ?? normalizeCodename(`${sourceValue.codename}-copy`)
+            if (!baseCodename || !isValidCodename(baseCodename)) {
+                return res.status(400).json({ error: 'Failed to generate codename for enumeration value copy' })
+            }
+
+            let copiedValue: Awaited<ReturnType<typeof valuesService.create>> | null = null
+            const maxAttempts = requestedCodename ? 1 : 20
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const codenameAttempt = requestedCodename ? baseCodename : buildCodenameAttempt(baseCodename, attempt)
+                const existing = await valuesService.findByCodename(metahubId, enumerationId, codenameAttempt, userId)
+                if (existing) continue
+
+                try {
+                    copiedValue = await valuesService.create(
+                        metahubId,
+                        {
+                            enumerationId,
+                            codename: codenameAttempt,
+                            name: copyName,
+                            description: copyDescription,
+                            sortOrder: (sourceValue.sortOrder ?? 0) + 1,
+                            isDefault: parsed.data.isDefault === true,
+                            createdBy: userId
+                        },
+                        userId
+                    )
+                    break
+                } catch (error) {
+                    const unique = extractUniqueViolationError(error)
+                    if (unique) continue
+                    throw error
+                }
+            }
+
+            if (!copiedValue) {
+                return res.status(409).json({ error: 'Unable to generate unique codename for enumeration value copy' })
+            }
+
+            return res.status(201).json(copiedValue)
         })
     )
 

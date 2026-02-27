@@ -127,7 +127,9 @@ export { generateUuidV7, isValidUuid } from './uuid'
 // Number validation utilities for precision/scale constraints
 export {
     normalizeApplicationCopyOptions,
+    normalizeAttributeCopyOptions,
     normalizeBranchCopyOptions,
+    normalizeElementCopyOptions,
     normalizeHubCopyOptions,
     normalizeCatalogCopyOptions,
     normalizeEnumerationCopyOptions,

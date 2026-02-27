@@ -10,6 +10,7 @@ import Skeleton from '@mui/material/Skeleton'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { DataGrid, type GridRowsProp, useGridApiRef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,7 +18,7 @@ import { validateNumber, toNumberRules } from '@universo/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
-import { fetchTabularRows, createTabularRow, updateTabularRow, deleteTabularRow, type TabularRowsResponse } from '../api/api'
+import { fetchTabularRows, createTabularRow, updateTabularRow, deleteTabularRow, copyTabularRow, type TabularRowsResponse } from '../api/api'
 import { buildTabularColumns } from '../utils/tabularColumns'
 
 export interface RuntimeInlineTabularEditorProps {
@@ -333,6 +334,66 @@ export function RuntimeInlineTabularEditor({
         handleCloseRowMenu()
     }, [menuRowId, handleRequestDelete, handleCloseRowMenu])
 
+    const handleCopyRowFromMenu = useCallback(async () => {
+        if (!menuRowId) {
+            handleCloseRowMenu()
+            return
+        }
+
+        if (typeof maxRows === 'number' && effectiveRows.length >= maxRows) {
+            handleCloseRowMenu()
+            return
+        }
+
+        if (deferPersistence) {
+            const sourceIndex = effectiveRows.findIndex((row) => String(row.id ?? '') === menuRowId)
+            if (sourceIndex >= 0) {
+                const source = effectiveRows[sourceIndex]
+                const copied = { ...source, id: `__local_copy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` }
+                const nextRows = [...effectiveRows]
+                nextRows.splice(sourceIndex + 1, 0, copied)
+                setDraftRows(nextRows)
+                setHasLocalChanges(true)
+                emitRowsChange(nextRows)
+            }
+            handleCloseRowMenu()
+            return
+        }
+
+        try {
+            await copyTabularRow({
+                apiBaseUrl,
+                applicationId,
+                parentRecordId,
+                attributeId,
+                catalogId,
+                childRowId: menuRowId
+            })
+            await queryClient.invalidateQueries({ queryKey })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to copy row'
+            setMutationError(message)
+            onError?.(message)
+        } finally {
+            handleCloseRowMenu()
+        }
+    }, [
+        menuRowId,
+        maxRows,
+        effectiveRows,
+        deferPersistence,
+        emitRowsChange,
+        apiBaseUrl,
+        applicationId,
+        parentRecordId,
+        attributeId,
+        catalogId,
+        queryClient,
+        queryKey,
+        onError,
+        handleCloseRowMenu
+    ])
+
     // UPDATE a row via API (processRowUpdate handler for DataGrid).
     // Throws on failure so DataGrid reverts the cell and calls onProcessRowUpdateError.
     const processRowUpdate = useCallback(
@@ -615,6 +676,13 @@ export function RuntimeInlineTabularEditor({
                 <MenuItem onClick={handleEditRowFromMenu} disabled={!firstEditableFieldId}>
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('app.edit', 'Edit')}
+                </MenuItem>
+                <MenuItem
+                    onClick={() => void handleCopyRowFromMenu()}
+                    disabled={typeof maxRows === 'number' && effectiveRows.length >= maxRows}
+                >
+                    <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                    {t('app.copy', 'Copy')}
                 </MenuItem>
                 <Divider />
                 <MenuItem

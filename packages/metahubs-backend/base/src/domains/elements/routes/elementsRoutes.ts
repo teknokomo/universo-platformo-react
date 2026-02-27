@@ -9,6 +9,10 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
+import { validation } from '@universo/utils'
+import { AttributeDataType } from '@universo/types'
+
+const { normalizeElementCopyOptions } = validation
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -26,6 +30,10 @@ const updateElementSchema = z.object({
     data: z.record(z.unknown()).optional(),
     sortOrder: z.number().int().optional(),
     expectedVersion: z.number().int().positive().optional() // For optimistic locking
+})
+
+const copyElementSchema = z.object({
+    copyChildTables: z.boolean().optional()
 })
 
 export function createElementsRoutes(
@@ -52,7 +60,8 @@ export function createElementsRoutes(
         const elementsService = new MetahubElementsService(schemaService, objectsService, attributesService)
 
         return {
-            elementsService
+            elementsService,
+            attributesService
         }
     }
 
@@ -252,6 +261,76 @@ export function createElementsRoutes(
                 }
                 throw error
             }
+        })
+    )
+
+    /**
+     * POST /metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId/copy
+     * POST /metahub/:metahubId/catalog/:catalogId/element/:elementId/copy (direct, without hub)
+     * Copy an element with optional child TABLE rows.
+     */
+    router.post(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/element/:elementId/copy',
+            '/metahub/:metahubId/catalog/:catalogId/element/:elementId/copy'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId, elementId } = req.params
+            const { elementsService, attributesService } = services(req)
+            const userId = resolveUserId(req)
+
+            const source = await elementsService.findById(metahubId, catalogId, elementId, userId)
+            if (!source) {
+                return res.status(404).json({ error: 'Element not found' })
+            }
+
+            const parsed = copyElementSchema.safeParse(req.body ?? {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const attrs = await attributesService.findAllFlat(metahubId, catalogId, userId)
+            const rootTableAttrs = attrs.filter((attr) => !attr.parentAttributeId && attr.dataType === AttributeDataType.TABLE)
+            const hasRequiredChildTables = rootTableAttrs.some((attr) => {
+                const minRows = typeof attr.validationRules?.minRows === 'number' ? attr.validationRules.minRows : 0
+                return Boolean(attr.isRequired) || minRows > 0
+            })
+
+            const requestedOptions = normalizeElementCopyOptions({
+                copyChildTables: parsed.data.copyChildTables
+            })
+            const copyOptions = hasRequiredChildTables
+                ? {
+                      ...requestedOptions,
+                      copyChildTables: true
+                  }
+                : requestedOptions
+
+            const sourceData = source.data && typeof source.data === 'object' ? source.data : {}
+            const copiedData: Record<string, unknown> = { ...(sourceData as Record<string, unknown>) }
+            if (!copyOptions.copyChildTables) {
+                for (const attr of rootTableAttrs) {
+                    delete copiedData[attr.codename]
+                }
+            }
+
+            const copied = await elementsService.create(
+                metahubId,
+                catalogId,
+                {
+                    data: copiedData,
+                    sortOrder: typeof source.sortOrder === 'number' ? source.sortOrder + 1 : source.sortOrder,
+                    createdBy: userId
+                },
+                userId
+            )
+
+            return res.status(201).json({
+                ...copied,
+                copyOptions,
+                hasRequiredChildTables
+            })
         })
     )
 

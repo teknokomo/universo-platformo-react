@@ -282,7 +282,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.fullCopy', 'Полное копирование')}
+                label={t('metahubs:branches.copy.options.fullCopy', 'Full copy')}
             />
             <FormControlLabel
                 control={
@@ -292,7 +292,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyLayouts', 'Макеты')}
+                label={t('metahubs:branches.copy.options.copyLayouts', 'Layouts')}
             />
             <FormControlLabel
                 control={
@@ -302,7 +302,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyHubs', 'Хабы')}
+                label={t('metahubs:branches.copy.options.copyHubs', 'Hubs')}
             />
             <FormControlLabel
                 control={
@@ -312,7 +312,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyCatalogs', 'Каталоги')}
+                label={t('metahubs:branches.copy.options.copyCatalogs', 'Catalogs')}
             />
             <FormControlLabel
                 control={
@@ -322,7 +322,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyEnumerations', 'Перечисления')}
+                label={t('metahubs:branches.copy.options.copyEnumerations', 'Enumerations')}
             />
         </Stack>
     )
@@ -444,7 +444,7 @@ const BranchList = () => {
         }): TabConfig[] => [
             {
                 id: 'general',
-                label: t('metahubs:branches.tabs.general', 'Основное'),
+                label: t('metahubs:branches.tabs.general', 'General'),
                 content: (
                     <BranchFormFields
                         values={values}
@@ -468,7 +468,7 @@ const BranchList = () => {
             },
             {
                 id: 'source',
-                label: t('metahubs:branches.tabs.source', 'Источник'),
+                label: t('metahubs:branches.tabs.source', 'Source'),
                 content: (
                     <BranchSourceFields
                         values={values}
@@ -484,7 +484,7 @@ const BranchList = () => {
             },
             {
                 id: 'options',
-                label: t('metahubs:branches.tabs.options', 'Опции'),
+                label: t('metahubs:branches.tabs.options', 'Options'),
                 content: <BranchCopyOptionsFields values={values} setValue={setValue} isLoading={isFormLoading} t={t} />
             }
         ],
