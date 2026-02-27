@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { CatalogLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as catalogsApi from '../api'
+import type { CatalogCopyInput } from '../api'
 
 interface CreateCatalogParams {
     metahubId: string
@@ -34,6 +35,12 @@ interface DeleteCatalogParams {
     hubId?: string
     catalogId: string
     force?: boolean
+}
+
+interface CopyCatalogParams {
+    metahubId: string
+    catalogId: string
+    data: CatalogCopyInput
 }
 
 export function useCreateCatalogAtMetahub() {
@@ -152,6 +159,36 @@ export function useDeleteCatalog() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('catalogs.deleteError', 'Failed to delete catalog'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyCatalog() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, catalogId, data }: CopyCatalogParams) => {
+            const response = await catalogsApi.copyCatalog(metahubId, catalogId, data)
+            return response.data
+        },
+        onSuccess: async (copiedCatalog, variables) => {
+            const hubIds = Array.isArray(copiedCatalog.hubs) ? copiedCatalog.hubs.map((hub: { id: string }) => hub.id) : []
+
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) }),
+                ...hubIds.map((hubId: string) =>
+                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.catalogs(variables.metahubId, hubId) })
+                )
+            ])
+
+            enqueueSnackbar(t('catalogs.copySuccess', 'Catalog copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('catalogs.copyError', 'Failed to copy catalog'), { variant: 'error' })
         }
     })
 }

@@ -6,6 +6,7 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Box,
+    Checkbox,
     Chip,
     Divider,
     FormControlLabel,
@@ -23,6 +24,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import ToggleOnRoundedIcon from '@mui/icons-material/ToggleOnRounded'
 import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded'
@@ -41,21 +43,21 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
-    useConfirm,
     LocalizedInlineField,
     notifyError
 } from '@universo/template-mui'
-import { EntityFormDialog } from '@universo/template-mui/components/dialogs'
+import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
 import { STORAGE_KEYS } from '../../../constants/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
 import * as layoutsApi from '../api'
-import { useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
+import { useCopyLayout, useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
 import type { MetahubLayout, MetahubLayoutDisplay, MetahubLayoutLocalizedPayload } from '../../../types'
 import { getVLCString, toMetahubLayoutDisplay } from '../../../types'
+import type { VersionedLocalizedContent } from '@universo/types'
+import { normalizeLayoutCopyOptions } from '@universo/utils'
 
 type DashboardLayoutConfig = {
     showSideMenu: boolean
@@ -101,15 +103,80 @@ const DEFAULT_DASHBOARD_CONFIG: DashboardLayoutConfig = {
 
 type LayoutFormValues = {
     templateKey: 'dashboard'
-    nameVlc: any | null
-    descriptionVlc: any | null
+    nameVlc: VersionedLocalizedContent<string> | null
+    descriptionVlc: VersionedLocalizedContent<string> | null
     isActive: boolean
     isDefault: boolean
+    copyWidgets?: boolean
+    deactivateAllWidgets?: boolean
 }
+
+type LayoutDialogValues = Partial<LayoutFormValues> & Record<string, unknown>
+type LayoutFormSetValue = (name: string, value: unknown) => void
+type LayoutDialogArgs = {
+    values: LayoutDialogValues
+    setValue: LayoutFormSetValue
+    isLoading: boolean
+    errors?: Record<string, string>
+}
+type LayoutRowLike = { id?: string }
 
 type LayoutMenuState = {
     anchorEl: HTMLElement | null
     layout: MetahubLayout | null
+}
+
+const appendLocalizedCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback?: string
+): VersionedLocalizedContent<string> => {
+    if (!value) {
+        const normalizedLocale = normalizeLocale(uiLocale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const baseText = (fallback || '').trim()
+        const content = baseText ? `${baseText}${suffix}` : normalizedLocale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        return {
+            _schema: 'v1',
+            _primary: normalizedLocale,
+            locales: {
+                [normalizedLocale]: { content }
+            }
+        }
+    }
+
+    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
+    for (const [locale, localeValue] of Object.entries(nextLocales)) {
+        const normalizedLocale = normalizeLocale(locale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
+        }
+    }
+
+    const hasContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasContent) {
+        const normalizedLocale = normalizeLocale(uiLocale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const baseText = (fallback || '').trim()
+        nextLocales[normalizedLocale] = {
+            content: baseText ? `${baseText}${suffix}` : normalizedLocale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        }
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+const hasHttpResponseStatus = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object' || !('response' in error)) {
+        return false
+    }
+    const response = (error as { response?: unknown }).response
+    return Boolean(response && typeof response === 'object' && 'status' in (response as Record<string, unknown>))
 }
 
 const LayoutList = () => {
@@ -119,20 +186,27 @@ const LayoutList = () => {
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
-    const { confirm } = useConfirm()
 
     const [view, setView] = useViewPreference(STORAGE_KEYS.LAYOUT_DISPLAY_STYLE)
 
     const [isCreateDialogOpen, setCreateDialogOpen] = useState(false)
     const [isEditDialogOpen, setEditDialogOpen] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
+    const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
     const [editingLayout, setEditingLayout] = useState<MetahubLayout | null>(null)
+    const [copyingLayout, setCopyingLayout] = useState<MetahubLayout | null>(null)
+    const [isCopyDialogOpen, setCopyDialogOpen] = useState(false)
+    const [deleteDialogState, setDeleteDialogState] = useState<{ open: boolean; layout: MetahubLayout | null }>({
+        open: false,
+        layout: null
+    })
 
     const [menuState, setMenuState] = useState<LayoutMenuState>({ anchorEl: null, layout: null })
 
     const createLayoutMutation = useCreateLayout()
     const updateLayoutMutation = useUpdateLayout()
     const deleteLayoutMutation = useDeleteLayout()
+    const copyLayoutMutation = useCopyLayout()
 
     const paginationResult = usePaginated<MetahubLayout, 'name' | 'created' | 'updated'>({
         queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, params) : () => ['empty'],
@@ -157,7 +231,7 @@ const LayoutList = () => {
     const activeCount = useMemo(() => layouts.filter((l) => l.isActive).length, [layouts])
 
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         layouts.forEach((layout) => {
             imagesMap[layout.id] = []
         })
@@ -187,6 +261,12 @@ const LayoutList = () => {
         setEditDialogOpen(true)
     }
 
+    const handleCopy = (layout: MetahubLayout) => {
+        setCopyDialogError(null)
+        setCopyingLayout(layout)
+        setCopyDialogOpen(true)
+    }
+
     const getCardData = (layout: MetahubLayout): MetahubLayoutDisplay => toMetahubLayoutDisplay(layout, i18n.language)
 
     const localizedDefaults: LayoutFormValues = useMemo(() => {
@@ -200,8 +280,32 @@ const LayoutList = () => {
         }
     }, [i18n.language])
 
+    const copyInitialValues: LayoutFormValues = useMemo(() => {
+        if (!copyingLayout) {
+            return {
+                ...localizedDefaults,
+                copyWidgets: true,
+                deactivateAllWidgets: false
+            }
+        }
+
+        const uiLocale = normalizeLocale(i18n.language)
+        const sourceName = getVLCString(copyingLayout.name, uiLocale) || getVLCString(copyingLayout.name, 'en') || ''
+        const sourceDescription = getVLCString(copyingLayout.description, uiLocale) || getVLCString(copyingLayout.description, 'en') || ''
+
+        return {
+            templateKey: 'dashboard',
+            nameVlc: appendLocalizedCopySuffix(ensureLocalizedContent(copyingLayout.name, uiLocale, sourceName), uiLocale, sourceName),
+            descriptionVlc: ensureLocalizedContent(copyingLayout.description ?? null, uiLocale, sourceDescription),
+            isActive: Boolean(copyingLayout.isActive),
+            isDefault: false,
+            copyWidgets: true,
+            deactivateAllWidgets: false
+        }
+    }, [copyingLayout, i18n.language, localizedDefaults])
+
     const validateLayoutForm = useCallback(
-        (_values: Record<string, any>) => {
+        (_values: LayoutDialogValues) => {
             const errors: Record<string, string> = {}
             const nameVlc = _values.nameVlc
             if (!hasPrimaryContent(nameVlc)) {
@@ -217,13 +321,13 @@ const LayoutList = () => {
         [t]
     )
 
-    const canSaveLayoutForm = useCallback((_values: Record<string, any>) => {
+    const canSaveLayoutForm = useCallback((_values: LayoutDialogValues) => {
         return hasPrimaryContent(_values.nameVlc) && (!_values.isDefault || Boolean(_values.isActive))
     }, [])
 
     const toPayload = useCallback(
         (
-            values: Record<string, any>,
+            values: LayoutDialogValues,
             options?: { expectedVersion?: number; includeConfig?: boolean; existingLayout?: MetahubLayout | null }
         ): MetahubLayoutLocalizedPayload => {
             const uiLocale = normalizeLocale(i18n.language)
@@ -261,7 +365,32 @@ const LayoutList = () => {
         [i18n.language]
     )
 
-    const handleCreate = async (values: Record<string, any>) => {
+    const toCopyPayload = useCallback(
+        (values: LayoutDialogValues) => {
+            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(values.nameVlc)
+            if (!nameInput || !namePrimaryLocale) {
+                throw new Error(t('common:crud.nameRequired', 'Name is required'))
+            }
+
+            const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(values.descriptionVlc)
+            const copyOptions = normalizeLayoutCopyOptions({
+                copyWidgets: Boolean(values.copyWidgets ?? true),
+                deactivateAllWidgets: Boolean(values.deactivateAllWidgets ?? false)
+            })
+
+            return {
+                name: nameInput,
+                description: descriptionInput,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                copyWidgets: copyOptions.copyWidgets,
+                deactivateAllWidgets: copyOptions.deactivateAllWidgets
+            }
+        },
+        [t]
+    )
+
+    const handleCreate = async (values: LayoutDialogValues) => {
         if (!metahubId) return
         try {
             setDialogError(null)
@@ -275,7 +404,7 @@ const LayoutList = () => {
         }
     }
 
-    const handleUpdate = async (values: Record<string, any>) => {
+    const handleUpdate = async (values: LayoutDialogValues) => {
         if (!metahubId || !editingLayout) return
         try {
             setDialogError(null)
@@ -290,6 +419,25 @@ const LayoutList = () => {
             setEditingLayout(null)
         } catch (e: unknown) {
             setDialogError(e instanceof Error ? e.message : String(e))
+            notifyError(t, enqueueSnackbar, e)
+        }
+    }
+
+    const handleCopyLayout = async (values: LayoutDialogValues) => {
+        if (!metahubId || !copyingLayout) return
+        try {
+            setCopyDialogError(null)
+            const payload = toCopyPayload(values)
+            await copyLayoutMutation.mutateAsync({
+                metahubId,
+                layoutId: copyingLayout.id,
+                data: payload
+            })
+            await invalidateLayoutsQueries.all(queryClient, metahubId)
+            setCopyDialogOpen(false)
+            setCopyingLayout(null)
+        } catch (e: unknown) {
+            setCopyDialogError(e instanceof Error ? e.message : String(e))
             notifyError(t, enqueueSnackbar, e)
         }
     }
@@ -320,34 +468,23 @@ const LayoutList = () => {
         }
     }
 
-    const handleDelete = async (layout: MetahubLayout) => {
-        if (!metahubId) return
-        const ok = await confirm({
-            title: t('layouts.deleteDialog.title', 'Delete layout?'),
-            description: t('layouts.deleteDialog.description', 'This action cannot be undone.'),
-            confirmText: tc('actions.delete', 'Delete'),
-            cancelText: tc('actions.cancel', 'Cancel')
-        })
-        if (!ok) return
+    const handleDelete = (layout: MetahubLayout) => {
+        setDeleteDialogState({ open: true, layout })
+    }
+
+    const handleDeleteConfirm = async () => {
+        if (!metahubId || !deleteDialogState.layout) return
         try {
-            await deleteLayoutMutation.mutateAsync({ metahubId, layoutId: layout.id })
+            await deleteLayoutMutation.mutateAsync({ metahubId, layoutId: deleteDialogState.layout.id })
+            setDeleteDialogState({ open: false, layout: null })
         } catch (e: unknown) {
             notifyError(t, enqueueSnackbar, e)
+            setDeleteDialogState({ open: false, layout: null })
         }
     }
 
     const renderFormFields = useCallback(
-        ({
-            values,
-            setValue,
-            isLoading,
-            errors
-        }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
-            isLoading: boolean
-            errors?: Record<string, string>
-        }) => {
+        ({ values, setValue, isLoading, errors }: LayoutDialogArgs) => {
             const fieldErrors = errors ?? {}
             return (
                 <>
@@ -410,6 +547,38 @@ const LayoutList = () => {
             )
         },
         [i18n.language, t, tc]
+    )
+
+    const renderCopyGeneralFields = useCallback(
+        ({ values, setValue, isLoading, errors }: LayoutDialogArgs) => {
+            const fieldErrors = errors ?? {}
+            return (
+                <Stack spacing={2}>
+                    <LocalizedInlineField
+                        mode='localized'
+                        label={tc('fields.name', 'Name')}
+                        required
+                        disabled={isLoading}
+                        value={values.nameVlc ?? null}
+                        onChange={(next) => setValue('nameVlc', next)}
+                        error={fieldErrors.nameVlc || null}
+                        helperText={fieldErrors.nameVlc}
+                        uiLocale={i18n.language}
+                    />
+                    <LocalizedInlineField
+                        mode='localized'
+                        label={tc('fields.description', 'Description')}
+                        disabled={isLoading}
+                        value={values.descriptionVlc ?? null}
+                        onChange={(next) => setValue('descriptionVlc', next)}
+                        uiLocale={i18n.language}
+                        multiline
+                        rows={2}
+                    />
+                </Stack>
+            )
+        },
+        [i18n.language, tc]
     )
 
     const layoutColumns = useMemo(
@@ -525,7 +694,7 @@ const LayoutList = () => {
                     image={APIEmptySVG}
                     imageAlt={t('errors.connectionFailed', 'Connection error')}
                     title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    description={!hasHttpResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
                     action={{ label: t('actions.retry'), onClick: () => paginationResult.actions.goToPage(1) }}
                 />
             ) : (
@@ -539,7 +708,7 @@ const LayoutList = () => {
                         <ToolbarControls
                             viewToggleEnabled
                             viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => setView(mode as any)}
+                            onViewModeChange={(mode: string) => setView(mode === 'list' ? 'list' : 'card')}
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
                             primaryAction={{
@@ -626,10 +795,12 @@ const LayoutList = () => {
                                         data={layouts.map(getCardData)}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: any) => (row?.id ? `/metahub/${metahubId}/layouts/${row.id}` : undefined)}
+                                        getRowLink={(row: LayoutRowLike) =>
+                                            row?.id ? `/metahub/${metahubId}/layouts/${row.id}` : undefined
+                                        }
                                         customColumns={layoutColumns}
                                         i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
+                                        renderActions={(row: LayoutRowLike) => {
                                             const original = layoutsById.get(row.id)
                                             if (!original) return null
                                             return (
@@ -682,6 +853,15 @@ const LayoutList = () => {
                 >
                     <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                     {tc('actions.edit', 'Edit')}
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuLayout) handleCopy(menuLayout)
+                        closeMenu()
+                    }}
+                >
+                    <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                    {tc('actions.copy', 'Copy')}
                 </MenuItem>
                 <Divider />
                 <MenuItem
@@ -763,7 +943,79 @@ const LayoutList = () => {
                 canSave={canSaveLayoutForm}
             />
 
-            <ConfirmDialog />
+            <EntityFormDialog
+                open={isCopyDialogOpen}
+                title={t('layouts.copyTitle', 'Copying layout')}
+                nameLabel={tc('fields.name', 'Name')}
+                descriptionLabel={tc('fields.description', 'Description')}
+                saveButtonText={t('layouts.copy.action', 'Copy')}
+                savingButtonText={t('layouts.copy.actionLoading', 'Copying...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                loading={copyLayoutMutation.isPending}
+                error={copyDialogError || undefined}
+                onClose={() => {
+                    setCopyDialogOpen(false)
+                    setCopyingLayout(null)
+                }}
+                onSave={handleCopyLayout}
+                hideDefaultFields
+                initialExtraValues={copyInitialValues}
+                tabs={({ values, setValue, isLoading, errors }: LayoutDialogArgs) => [
+                    {
+                        id: 'general',
+                        label: t('layouts.tabs.general', 'General'),
+                        content: renderCopyGeneralFields({ values, setValue, isLoading, errors })
+                    },
+                    {
+                        id: 'options',
+                        label: t('layouts.tabs.options', 'Options'),
+                        content: (
+                            <Stack spacing={1}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={Boolean(values.copyWidgets ?? true)}
+                                            onChange={(event) => {
+                                                const checked = event.target.checked
+                                                setValue('copyWidgets', checked)
+                                                if (!checked) {
+                                                    setValue('deactivateAllWidgets', false)
+                                                }
+                                            }}
+                                            disabled={isLoading}
+                                        />
+                                    }
+                                    label={t('layouts.copy.options.copyWidgets', 'Copy widgets')}
+                                />
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={Boolean(values.deactivateAllWidgets ?? false)}
+                                            onChange={(event) => setValue('deactivateAllWidgets', event.target.checked)}
+                                            disabled={isLoading || !(values.copyWidgets ?? true)}
+                                        />
+                                    }
+                                    label={t('layouts.copy.options.deactivateAllWidgets', 'Deactivate all widgets')}
+                                />
+                            </Stack>
+                        )
+                    }
+                ]}
+                validate={validateLayoutForm}
+                canSave={canSaveLayoutForm}
+            />
+
+            <ConfirmDeleteDialog
+                open={deleteDialogState.open}
+                title={t('layouts.deleteDialog.title', 'Delete layout?')}
+                description={t('layouts.deleteDialog.description', 'This action cannot be undone.')}
+                confirmButtonText={tc('actions.delete', 'Delete')}
+                deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                loading={deleteLayoutMutation.isPending}
+                onCancel={() => setDeleteDialogState({ open: false, layout: null })}
+                onConfirm={handleDeleteConfirm}
+            />
         </MainCard>
     )
 }

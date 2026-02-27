@@ -1,7 +1,7 @@
 jest.mock(
     'typeorm',
     () => {
-        const decorator = () => () => {}
+        const decorator = () => () => undefined
         return {
             __esModule: true,
             Entity: decorator,
@@ -37,8 +37,28 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource } from '../utils/typeormMocks'
+import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createCatalogsRoutes } from '../../domains/catalogs/routes/catalogsRoutes'
+
+const mockEnsureMetahubAccess = jest.fn()
+const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
+const mockGenerateTableName = jest.fn((id: string, kind: string) => `${kind}_${id}`)
+const mockKnex = {
+    transaction: jest.fn()
+}
+
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+}))
+
+jest.mock('../../domains/ddl', () => ({
+    __esModule: true,
+    KnexClient: {
+        getInstance: () => mockKnex
+    },
+    generateTableName: (...args: unknown[]) => mockGenerateTableName(...(args as [string, string]))
+}))
 
 const mockObjectsService = {
     findAll: jest.fn(),
@@ -66,9 +86,13 @@ const mockElementsService = {
     countByObjectIds: jest.fn()
 }
 
+const mockMetahubRepo = createMockRepository<Record<string, unknown>>()
+
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
-    MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
+    MetahubSchemaService: jest.fn().mockImplementation(() => ({
+        ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args)
+    }))
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
@@ -92,8 +116,116 @@ jest.mock('../../domains/metahubs/services/MetahubElementsService', () => ({
 }))
 
 describe('Catalogs Routes', () => {
+    const createCatalogCopyTransactionStub = (params?: {
+        copiedCatalog?: Record<string, unknown>
+        sourceAttributes?: Array<Record<string, unknown>>
+        sourceElements?: Array<Record<string, unknown>>
+    }) => {
+        const created =
+            params?.copiedCatalog ??
+            ({
+                id: 'catalog-copy-id',
+                codename: 'products-copy',
+                presentation: {
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
+                    description: null
+                },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 },
+                _upl_version: 1,
+                _upl_created_at: '2026-02-26T00:00:00.000Z',
+                _upl_updated_at: '2026-02-26T00:00:00.000Z'
+            } as Record<string, unknown>)
+
+        const sourceAttributes = params?.sourceAttributes ?? []
+        const sourceElements = params?.sourceElements ?? []
+
+        const insertReturning = jest.fn().mockResolvedValue([{ id: created.id }])
+        const updateReturning = jest.fn().mockResolvedValue([created])
+        const attributeSelect = jest.fn().mockResolvedValue(sourceAttributes)
+        const elementSelect = jest.fn().mockResolvedValue(sourceElements)
+        const attributeInsertReturning = jest.fn().mockResolvedValue([{ id: 'copied-attr-id' }])
+        const elementInsert = jest.fn().mockResolvedValue(undefined)
+
+        const trx = {
+            withSchema: jest.fn(() => ({
+                into: jest.fn((tableName: string) => {
+                    if (tableName === '_mhb_objects') {
+                        return {
+                            insert: jest.fn(() => ({
+                                returning: (...args: unknown[]) => insertReturning(...args)
+                            }))
+                        }
+                    }
+
+                    if (tableName === '_mhb_attributes') {
+                        return {
+                            insert: jest.fn(() => ({
+                                returning: (...args: unknown[]) => attributeInsertReturning(...args)
+                            }))
+                        }
+                    }
+
+                    if (tableName === '_mhb_elements') {
+                        return {
+                            insert: (...args: unknown[]) => elementInsert(...args)
+                        }
+                    }
+
+                    return {
+                        insert: jest.fn()
+                    }
+                }),
+                from: jest.fn((tableName: string) => {
+                    if (tableName === '_mhb_objects') {
+                        return {
+                            where: jest.fn(() => ({
+                                update: jest.fn(() => ({
+                                    returning: (...args: unknown[]) => updateReturning(...args)
+                                }))
+                            }))
+                        }
+                    }
+
+                    if (tableName === '_mhb_attributes') {
+                        return {
+                            where: jest.fn(() => ({
+                                andWhere: jest.fn(() => ({
+                                    andWhere: jest.fn(() => ({
+                                        orderBy: jest.fn(() => ({
+                                            orderBy: (..._args: unknown[]) => attributeSelect()
+                                        }))
+                                    }))
+                                }))
+                            }))
+                        }
+                    }
+
+                    if (tableName === '_mhb_elements') {
+                        return {
+                            where: jest.fn(() => ({
+                                andWhere: jest.fn(() => ({
+                                    andWhere: jest.fn(() => ({
+                                        orderBy: jest.fn(() => ({
+                                            orderBy: (..._args: unknown[]) => elementSelect()
+                                        }))
+                                    }))
+                                }))
+                            }))
+                        }
+                    }
+
+                    return {
+                        where: jest.fn()
+                    }
+                })
+            }))
+        }
+
+        return { trx, attributeSelect, attributeInsertReturning, elementSelect, elementInsert }
+    }
+
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
-        ;(req as any).user = { id: 'test-user-id' }
+        ;(req as unknown as { user?: { id: string } }).user = { id: 'test-user-id' }
         next()
     }
 
@@ -101,9 +233,9 @@ describe('Catalogs Routes', () => {
         next()
     }) as RateLimitRequestHandler
 
-    const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const errorHandler = (err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
         if (res.headersSent) {
-            return _next(err)
+            return next(err)
         }
         const statusCode = err.statusCode || err.status || 500
         const message = err.message || 'Internal Server Error'
@@ -111,7 +243,9 @@ describe('Catalogs Routes', () => {
     }
 
     const buildApp = () => {
-        const dataSource = createMockDataSource({})
+        const dataSource = createMockDataSource({
+            Metahub: mockMetahubRepo
+        })
         const app = express()
         app.use(express.json())
         app.use(createCatalogsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
@@ -139,6 +273,10 @@ describe('Catalogs Routes', () => {
         mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([])
 
         mockElementsService.countByObjectIds.mockResolvedValue(new Map<string, number>())
+        mockMetahubRepo.findOne.mockResolvedValue({ id: 'test-metahub-id' })
+        mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'test-metahub-id' })
+        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+        mockGenerateTableName.mockImplementation((id: string, kind: string) => `${kind}_${id}`)
     })
 
     describe('GET /metahub/:metahubId/catalogs', () => {
@@ -351,6 +489,194 @@ describe('Catalogs Routes', () => {
             expect(response.body.error).toContain('Cannot delete catalog')
             expect(response.body.blockingReferences).toHaveLength(1)
             expect(mockObjectsService.delete).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('POST /metahub/:metahubId/catalog/:catalogId/copy', () => {
+        it('returns 404 when metahub does not exist', async () => {
+            mockMetahubRepo.findOne.mockResolvedValueOnce(null)
+
+            const app = buildApp()
+            const response = await request(app).post('/metahub/missing/catalog/catalog-1/copy').send({ codename: 'copy-1' }).expect(404)
+
+            expect(response.body.error).toBe('Metahub not found')
+            expect(mockEnsureMetahubAccess).not.toHaveBeenCalled()
+        })
+
+        it('returns 403 when metahub access check fails', async () => {
+            const forbidden = Object.assign(new Error('Access denied to this metahub'), { status: 403 })
+            mockEnsureMetahubAccess.mockRejectedValueOnce(forbidden)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
+                .send({ codename: 'copy-1' })
+                .expect(403)
+
+            expect(response.body.error).toBe('Access denied to this metahub')
+            expect(mockObjectsService.findById).not.toHaveBeenCalled()
+        })
+
+        it('returns 404 when source catalog is not found', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce(null)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
+                .send({ codename: 'copy-1' })
+                .expect(404)
+
+            expect(response.body.error).toBe('Catalog not found')
+        })
+
+        it('returns 400 when copyElements=true but copyAttributes=false', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'catalog-1',
+                kind: 'catalog',
+                codename: 'products',
+                presentation: { name: { en: 'Products' }, description: null },
+                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 }
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
+                .send({
+                    codename: 'products-copy',
+                    copyAttributes: false,
+                    copyElements: true
+                })
+                .expect(400)
+
+            expect(response.body.error).toBe('Validation failed')
+            expect(Array.isArray(response.body.details)).toBe(true)
+        })
+
+        it('copies catalog successfully when attributes and elements copy are disabled', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'catalog-1',
+                kind: 'catalog',
+                codename: 'products',
+                presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products' } } }, description: null },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
+            })
+
+            const tx = createCatalogCopyTransactionStub()
+            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
+                .send({
+                    codename: 'products-copy',
+                    copyAttributes: false,
+                    copyElements: false
+                })
+                .expect(201)
+
+            expect(mockEnsureSchema).toHaveBeenCalledWith('test-metahub-id', 'test-user-id')
+            expect(mockGenerateTableName).toHaveBeenCalledWith('catalog-copy-id', 'catalog')
+            expect(response.body.id).toBe('catalog-copy-id')
+            expect(response.body.codename).toBe('products-copy')
+            expect(response.body.attributesCount).toBe(0)
+            expect(response.body.elementsCount).toBe(0)
+        })
+
+        it('copies attributes and elements by default when options are omitted', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'catalog-1',
+                kind: 'catalog',
+                codename: 'products',
+                presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products' } } }, description: null },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
+            })
+
+            const tx = createCatalogCopyTransactionStub({
+                sourceAttributes: [
+                    {
+                        id: 'attr-1',
+                        codename: 'title',
+                        data_type: 'string',
+                        presentation: {},
+                        validation_rules: {},
+                        ui_config: {},
+                        sort_order: 1,
+                        is_required: false,
+                        is_display_attribute: true,
+                        target_object_id: null,
+                        target_object_kind: null,
+                        parent_attribute_id: null
+                    }
+                ],
+                sourceElements: [
+                    {
+                        data: { title: 'Sample' },
+                        sort_order: 1,
+                        owner_id: null
+                    }
+                ]
+            })
+            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
+                .send({ codename: 'products-copy' })
+                .expect(201)
+
+            expect(response.body.attributesCount).toBe(1)
+            expect(response.body.elementsCount).toBe(1)
+            expect(tx.attributeSelect).toHaveBeenCalledTimes(1)
+            expect(tx.attributeInsertReturning).toHaveBeenCalledTimes(1)
+            expect(tx.elementSelect).toHaveBeenCalledTimes(1)
+            expect(tx.elementInsert).toHaveBeenCalledTimes(1)
+        })
+
+        it('retries catalog copy after codename unique violation and succeeds', async () => {
+            mockObjectsService.findById.mockResolvedValue({
+                id: 'catalog-1',
+                kind: 'catalog',
+                codename: 'products',
+                presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products' } } }, description: null },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
+            })
+
+            const uniqueViolation = Object.assign(new Error('duplicate key value violates unique constraint'), {
+                code: '23505',
+                constraint: 'idx_mhb_objects_kind_codename_active'
+            })
+            const tx = createCatalogCopyTransactionStub({
+                copiedCatalog: {
+                    id: 'catalog-copy-id-2',
+                    codename: 'products-copy-2',
+                    presentation: {
+                        name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
+                        description: null
+                    },
+                    config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 },
+                    _upl_version: 1,
+                    _upl_created_at: '2026-02-26T00:00:00.000Z',
+                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
+                }
+            })
+
+            mockKnex.transaction
+                .mockRejectedValueOnce(uniqueViolation)
+                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-1/copy')
+                .send({
+                    codename: 'products-copy',
+                    copyAttributes: false,
+                    copyElements: false
+                })
+                .expect(201)
+
+            expect(response.body.id).toBe('catalog-copy-id-2')
+            expect(response.body.codename).toBe('products-copy-2')
+            expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
         })
     })
 })

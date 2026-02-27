@@ -1,23 +1,191 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, type QueryRunner } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 // Hub entity removed - hubs are now in isolated schemas (_mhb_hubs)
+import { Metahub } from '../../../database/entities/Metahub'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
-import { localizedContent, validation } from '@universo/utils'
+import { ensureMetahubAccess } from '../../shared/guards'
+import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCodename, isValidCodename } = validation
+const { normalizeCodename, isValidCodename, normalizeCatalogCopyOptions } = validation
+import { type CatalogCopyOptions, MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
+import { KnexClient, generateTableName } from '../../ddl'
+
+type RequestUser = {
+    id?: string
+    sub?: string
+    user_id?: string
+    userId?: string
+}
+
+type RequestWithUser = Request & { user?: RequestUser }
+type RequestWithDbContext = Request & { dbContext?: { queryRunner?: QueryRunner } }
+
+type HubSummaryRow = {
+    id: string
+    name: unknown
+    codename: string
+}
+
+type CatalogObjectRow = {
+    id: string
+    codename: string
+    presentation?: {
+        name?: unknown
+        description?: unknown
+    }
+    config?: {
+        hubs?: unknown
+        isSingleHub?: boolean
+        isRequiredHub?: boolean
+        sortOrder?: number
+    }
+    _upl_version?: number
+    created_at?: unknown
+    updated_at?: unknown
+    deleted_at?: unknown
+    deleted_by?: unknown
+}
+
+type CatalogListItemRow = {
+    id: string
+    metahubId: string
+    codename: string
+    name: unknown
+    description: unknown
+    isSingleHub: boolean
+    isRequiredHub: boolean
+    sortOrder: number
+    version: number
+    createdAt: unknown
+    updatedAt: unknown
+    attributesCount: number
+    elementsCount: number
+    hubs: HubSummaryRow[]
+}
+
+type CatalogAttributeRow = {
+    id: string
+    codename?: string
+    data_type?: string
+    presentation?: unknown
+    validation_rules?: unknown
+    ui_config?: unknown
+    sort_order?: number
+    is_required?: boolean
+    is_display_attribute?: boolean
+    target_object_id?: string | null
+    target_object_kind?: string | null
+    parent_attribute_id?: string | null
+}
+
+type CatalogElementRow = {
+    data?: unknown
+    sort_order?: number
+    owner_id?: string | null
+}
+
+type CopiedCatalogRow = {
+    id: string
+    codename: string
+    presentation?: {
+        name?: unknown
+        description?: unknown
+    }
+    config?: {
+        hubs?: unknown
+        isSingleHub?: boolean
+        isRequiredHub?: boolean
+        sortOrder?: number
+    }
+    _upl_version?: number
+    _upl_created_at?: unknown
+    _upl_updated_at?: unknown
+}
 
 const resolveUserId = (req: Request): string | undefined => {
-    const user = (req as any).user
+    const user = (req as RequestWithUser).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
+const getRequestQueryRunner = (req: Request): QueryRunner | undefined => {
+    return (req as RequestWithDbContext).dbContext?.queryRunner
+}
+
+const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
+    id: String(hub.id),
+    name: hub.name,
+    codename: String(hub.codename)
+})
+
+const mapHubSummaries = (hubs: Record<string, unknown>[]): HubSummaryRow[] => hubs.map(mapHubSummary)
+
+const getCatalogHubIds = (row: CatalogObjectRow): string[] => {
+    const rawHubs = row.config?.hubs
+    if (!Array.isArray(rawHubs)) return []
+    return rawHubs.filter((hubId): hubId is string => typeof hubId === 'string')
+}
+
+const mapCatalogListItem = (
+    row: CatalogObjectRow,
+    metahubId: string,
+    attributesCount: number,
+    elementsCount: number
+): CatalogListItemRow => ({
+    id: row.id,
+    metahubId,
+    codename: row.codename,
+    name: row.presentation?.name || {},
+    description: row.presentation?.description || {},
+    isSingleHub: row.config?.isSingleHub || false,
+    isRequiredHub: row.config?.isRequiredHub || false,
+    sortOrder: row.config?.sortOrder || 0,
+    version: row._upl_version || 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    attributesCount,
+    elementsCount,
+    hubs: []
+})
+
+const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
+
+const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
+    const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
+    const entries = Object.entries(locales)
+        .map(([locale, value]) => [normalizeLocaleCode(locale), typeof value?.content === 'string' ? value.content.trim() : ''] as const)
+        .filter(([, content]) => content.length > 0)
+
+    if (entries.length === 0) {
+        return {
+            en: 'Copy (copy)'
+        }
+    }
+
+    const result: Record<string, string> = {}
+    for (const [locale, content] of entries) {
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        result[locale] = `${content}${suffix}`
+    }
+    return result
+}
+
+const buildCodenameAttempt = (baseCodename: string, attempt: number): string => {
+    if (attempt <= 1) {
+        return baseCodename
+    }
+
+    const attemptSuffix = `-${attempt}`
+    const maxLength = Math.max(1, 100 - attemptSuffix.length)
+    return `${baseCodename.slice(0, maxLength)}${attemptSuffix}`
 }
 
 const findBlockingCatalogReferences = async (
@@ -73,6 +241,15 @@ const getLocalizedSortValue = (value: unknown, fallback: string): string => {
     return firstSimple ?? fallback
 }
 
+const toTimestamp = (value: unknown): number => {
+    if (value instanceof Date) return value.getTime()
+    if (typeof value === 'string' || typeof value === 'number') {
+        const timestamp = new Date(value).getTime()
+        return Number.isNaN(timestamp) ? 0 : timestamp
+    }
+    return 0
+}
+
 const matchesCatalogSearch = (codename: string, name: unknown, searchLower: string): boolean =>
     codename.toLowerCase().includes(searchLower) ||
     getLocalizedCandidates(name).some((candidate) => candidate.toLowerCase().includes(searchLower))
@@ -108,6 +285,26 @@ const updateCatalogSchema = z.object({
     expectedVersion: z.number().int().positive().optional() // For optimistic locking
 })
 
+const copyCatalogSchema = z
+    .object({
+        codename: z.string().min(1).max(100).optional(),
+        name: localizedInputSchema.optional(),
+        description: optionalLocalizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        copyAttributes: z.boolean().optional(),
+        copyElements: z.boolean().optional()
+    })
+    .superRefine((value, ctx) => {
+        if (value.copyAttributes === false && value.copyElements === true) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['copyElements'],
+                message: 'copyElements requires copyAttributes=true'
+            })
+        }
+    })
+
 export function createCatalogsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -134,6 +331,8 @@ export function createCatalogsRoutes(
         return {
             ds,
             manager,
+            metahubRepo: manager.getRepository(Metahub),
+            schemaService,
             hubsService,
             objectsService,
             attributesService,
@@ -166,10 +365,10 @@ export function createCatalogsRoutes(
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
             // Fetch catalogs from _mhb_objects
-            const rawCatalogs = await objectsService.findAll(metahubId, userId)
+            const rawCatalogs = (await objectsService.findAll(metahubId, userId)) as CatalogObjectRow[]
 
             // Get all catalog IDs for batch count queries
-            const catalogIds = rawCatalogs.map((row: any) => row.id)
+            const catalogIds = rawCatalogs.map((row) => row.id)
 
             // Batch fetch counts for attributes and elements
             const [attributesCounts, elementsCounts] = await Promise.all([
@@ -177,30 +376,17 @@ export function createCatalogsRoutes(
                 elementsService.countByObjectIds(metahubId, catalogIds, userId)
             ])
 
-            let items = rawCatalogs.map((row: any) => ({
-                id: row.id,
-                metahubId,
-                codename: row.codename,
-                name: row.presentation?.name || {},
-                description: row.presentation?.description || {},
-                isSingleHub: row.config?.isSingleHub || false,
-                isRequiredHub: row.config?.isRequiredHub || false,
-                sortOrder: row.config?.sortOrder || 0,
-                version: row._upl_version || 1,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
-                attributesCount: attributesCounts.get(row.id) || 0,
-                elementsCount: elementsCounts.get(row.id) || 0,
-                hubs: [] as any[]
-            }))
+            let items = rawCatalogs.map((row) =>
+                mapCatalogListItem(row, metahubId, attributesCounts.get(row.id) || 0, elementsCounts.get(row.id) || 0)
+            )
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter((item: any) => matchesCatalogSearch(item.codename, item.name, searchLower))
+                items = items.filter((item) => matchesCatalogSearch(item.codename, item.name, searchLower))
             }
 
             // Sort
-            items.sort((a: any, b: any) => {
+            items.sort((a, b) => {
                 const sortField = sortBy as string
                 let valA, valB
                 if (sortField === 'name') {
@@ -213,11 +399,11 @@ export function createCatalogsRoutes(
                     valA = a.sortOrder ?? 0
                     valB = b.sortOrder ?? 0
                 } else if (sortField === 'updated') {
-                    valA = new Date(a.updatedAt).getTime()
-                    valB = new Date(b.updatedAt).getTime()
+                    valA = toTimestamp(a.updatedAt)
+                    valB = toTimestamp(b.updatedAt)
                 } else {
-                    valA = new Date(a.createdAt).getTime()
-                    valB = new Date(b.createdAt).getTime()
+                    valA = toTimestamp(a.createdAt)
+                    valB = toTimestamp(b.createdAt)
                 }
 
                 if (valA < valB) return sortOrder === 'asc' ? -1 : 1
@@ -232,30 +418,26 @@ export function createCatalogsRoutes(
             const allHubIds = new Set<string>()
             const hubIdsByCatalog = new Map<string, string[]>()
 
-            rawCatalogs.forEach((row: any) => {
-                const ids = row.config?.hubs || []
-                if (Array.isArray(ids)) {
-                    ids.forEach((id: string) => allHubIds.add(id))
+            rawCatalogs.forEach((row) => {
+                const ids = getCatalogHubIds(row)
+                if (ids.length > 0) {
+                    ids.forEach((id) => allHubIds.add(id))
                     hubIdsByCatalog.set(row.id, ids)
                 }
             })
 
-            const hubMap = new Map<string, any>()
+            const hubMap = new Map<string, HubSummaryRow>()
             if (allHubIds.size > 0) {
                 const hubs = await hubsService.findByIds(metahubId, Array.from(allHubIds), userId)
-                hubs.forEach((h: any) => hubMap.set(h.id, h))
+                hubs.forEach((hub) => {
+                    const summary = mapHubSummary(hub)
+                    hubMap.set(summary.id, summary)
+                })
             }
 
-            const resultItems = paginatedItems.map((item: any) => {
+            const resultItems = paginatedItems.map((item) => {
                 const ids = hubIdsByCatalog.get(item.id) || []
-                const matchedHubs = ids
-                    .map((id) => hubMap.get(id))
-                    .filter(Boolean)
-                    .map((h) => ({
-                        id: h.id,
-                        name: h.name,
-                        codename: h.codename
-                    }))
+                const matchedHubs = ids.map((id) => hubMap.get(id)).filter((hub): hub is HubSummaryRow => Boolean(hub))
                 return { ...item, hubs: matchedHubs }
             })
 
@@ -373,7 +555,7 @@ export function createCatalogsRoutes(
                 version: created._upl_version || 1,
                 createdAt: created.created_at,
                 updatedAt: created.updated_at,
-                hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
+                hubs: mapHubSummaries(hubs)
             })
         })
     )
@@ -515,7 +697,7 @@ export function createCatalogsRoutes(
                 }
             }
 
-            const updated: Record<string, any> = await objectsService.updateCatalog(
+            const updated = (await objectsService.updateCatalog(
                 metahubId,
                 catalogId,
                 {
@@ -532,7 +714,7 @@ export function createCatalogsRoutes(
                     expectedVersion
                 },
                 userId
-            )
+            )) as CatalogObjectRow
 
             // Get updated hub associations for response
             const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
@@ -541,15 +723,15 @@ export function createCatalogsRoutes(
                 id: updated.id,
                 metahubId,
                 codename: updated.codename,
-                name: updated.presentation.name,
-                description: updated.presentation.description,
-                isSingleHub: updated.config.isSingleHub,
-                isRequiredHub: updated.config.isRequiredHub,
-                sortOrder: updated.config.sortOrder,
+                name: updated.presentation?.name ?? {},
+                description: updated.presentation?.description,
+                isSingleHub: updated.config?.isSingleHub ?? false,
+                isRequiredHub: updated.config?.isRequiredHub ?? false,
+                sortOrder: updated.config?.sortOrder ?? 0,
                 version: updated._upl_version || 1,
                 createdAt: updated.created_at,
                 updatedAt: updated.updated_at,
-                hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
+                hubs: mapHubSummaries(hubs)
             })
         })
     )
@@ -579,19 +761,16 @@ export function createCatalogsRoutes(
             const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
             // Fetch all catalogs and filter by hubId in config
-            const allCatalogs = await objectsService.findAll(metahubId, userId)
+            const allCatalogs = (await objectsService.findAll(metahubId, userId)) as CatalogObjectRow[]
 
-            let hubCatalogs = allCatalogs.filter((cat: any) => {
-                const hubs = cat.config?.hubs || []
-                return Array.isArray(hubs) && hubs.includes(hubId)
-            })
+            const hubCatalogs = allCatalogs.filter((cat) => getCatalogHubIds(cat).includes(hubId))
 
             if (hubCatalogs.length === 0) {
                 return res.json({ items: [], pagination: { total: 0, limit, offset } })
             }
 
             // Get catalog IDs for batch count queries
-            const catalogIds = hubCatalogs.map((row: any) => row.id)
+            const catalogIds = hubCatalogs.map((row) => row.id)
 
             // Batch fetch counts for attributes and elements
             const [attributesCounts, elementsCounts] = await Promise.all([
@@ -600,30 +779,17 @@ export function createCatalogsRoutes(
             ])
 
             // Map to items
-            let items = hubCatalogs.map((row: any) => ({
-                id: row.id,
-                metahubId,
-                codename: row.codename,
-                name: row.presentation?.name || {},
-                description: row.presentation?.description || {},
-                isSingleHub: row.config?.isSingleHub || false,
-                isRequiredHub: row.config?.isRequiredHub || false,
-                sortOrder: row.config?.sortOrder || 0,
-                version: row._upl_version || 1,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
-                attributesCount: attributesCounts.get(row.id) || 0,
-                elementsCount: elementsCounts.get(row.id) || 0,
-                hubs: [] as any[]
-            }))
+            let items = hubCatalogs.map((row) =>
+                mapCatalogListItem(row, metahubId, attributesCounts.get(row.id) || 0, elementsCounts.get(row.id) || 0)
+            )
 
             if (search) {
                 const searchLower = search.toLowerCase()
-                items = items.filter((item: any) => matchesCatalogSearch(item.codename, item.name, searchLower))
+                items = items.filter((item) => matchesCatalogSearch(item.codename, item.name, searchLower))
             }
 
             // Sort
-            items.sort((a: any, b: any) => {
+            items.sort((a, b) => {
                 const sortField = sortBy as string
                 let valA, valB
                 if (sortField === 'name') {
@@ -636,11 +802,11 @@ export function createCatalogsRoutes(
                     valA = a.sortOrder ?? 0
                     valB = b.sortOrder ?? 0
                 } else if (sortField === 'updated') {
-                    valA = new Date(a.updatedAt).getTime()
-                    valB = new Date(b.updatedAt).getTime()
+                    valA = toTimestamp(a.updatedAt)
+                    valB = toTimestamp(b.updatedAt)
                 } else {
-                    valA = new Date(a.createdAt).getTime()
-                    valB = new Date(b.createdAt).getTime()
+                    valA = toTimestamp(a.createdAt)
+                    valB = toTimestamp(b.createdAt)
                 }
 
                 if (valA < valB) return sortOrder === 'asc' ? -1 : 1
@@ -655,32 +821,28 @@ export function createCatalogsRoutes(
             const allHubIds = new Set<string>()
             const hubIdsByCatalog = new Map<string, string[]>()
 
-            hubCatalogs.forEach((row: any) => {
-                if (paginatedItems.find((p: any) => p.id === row.id)) {
-                    const ids = row.config?.hubs || []
-                    if (Array.isArray(ids)) {
-                        ids.forEach((id: string) => allHubIds.add(id))
+            hubCatalogs.forEach((row) => {
+                if (paginatedItems.find((item) => item.id === row.id)) {
+                    const ids = getCatalogHubIds(row)
+                    if (ids.length > 0) {
+                        ids.forEach((id) => allHubIds.add(id))
                         hubIdsByCatalog.set(row.id, ids)
                     }
                 }
             })
 
-            const hubMap = new Map<string, any>()
+            const hubMap = new Map<string, HubSummaryRow>()
             if (allHubIds.size > 0) {
                 const hubs = await hubsService.findByIds(metahubId, Array.from(allHubIds), userId)
-                hubs.forEach((h: any) => hubMap.set(h.id, h))
+                hubs.forEach((hub) => {
+                    const summary = mapHubSummary(hub)
+                    hubMap.set(summary.id, summary)
+                })
             }
 
-            const resultItems = paginatedItems.map((item: any) => {
+            const resultItems = paginatedItems.map((item) => {
                 const ids = hubIdsByCatalog.get(item.id) || []
-                const matchedHubs = ids
-                    .map((id) => hubMap.get(id))
-                    .filter(Boolean)
-                    .map((h) => ({
-                        id: h.id,
-                        name: h.name,
-                        codename: h.codename
-                    }))
+                const matchedHubs = ids.map((id) => hubMap.get(id)).filter((hub): hub is HubSummaryRow => Boolean(hub))
                 return { ...item, hubs: matchedHubs }
             })
 
@@ -733,7 +895,7 @@ export function createCatalogsRoutes(
                 version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
-                hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename })),
+                hubs: mapHubSummaries(hubs),
                 attributesCount,
                 elementsCount
             })
@@ -780,9 +942,279 @@ export function createCatalogsRoutes(
                 version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
-                hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename })),
+                hubs: mapHubSummaries(hubs),
                 attributesCount,
                 elementsCount
+            })
+        })
+    )
+
+    /**
+     * POST /metahub/:metahubId/catalog/:catalogId/copy
+     * Copy catalog with optional attributes/elements cloning.
+     */
+    router.post(
+        '/metahub/:metahubId/catalog/:catalogId/copy',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { ds, metahubRepo, objectsService, hubsService, schemaService } = services(req)
+            const userId = resolveUserId(req)
+            const rlsRunner = getRequestQueryRunner(req)
+
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' })
+            }
+            const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
+            if (!metahub) {
+                return res.status(404).json({ error: 'Metahub not found' })
+            }
+            await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            const sourceCatalog = await objectsService.findById(metahubId, catalogId, userId)
+            if (!sourceCatalog || sourceCatalog.kind !== MetaEntityKind.CATALOG) {
+                return res.status(404).json({ error: 'Catalog not found' })
+            }
+
+            const parsed = copyCatalogSchema.safeParse(req.body ?? {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const sourcePresentation = sourceCatalog.presentation ?? {}
+            const sourceConfig = sourceCatalog.config ?? {}
+
+            const requestedName = parsed.data.name
+                ? sanitizeLocalizedInput(parsed.data.name)
+                : buildDefaultCopyNameInput(sourcePresentation.name)
+            if (Object.keys(requestedName).length === 0) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            const sourceNamePrimary = sourcePresentation.name?._primary ?? 'en'
+            const nameVlc = buildLocalizedContent(requestedName, parsed.data.namePrimaryLocale, sourceNamePrimary)
+            if (!nameVlc) {
+                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
+            }
+
+            let descriptionVlc: unknown = sourcePresentation.description ?? null
+            if (parsed.data.description !== undefined) {
+                const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    descriptionVlc = buildLocalizedContent(
+                        sanitizedDescription,
+                        parsed.data.descriptionPrimaryLocale,
+                        parsed.data.namePrimaryLocale ?? sourceNamePrimary
+                    )
+                } else {
+                    descriptionVlc = null
+                }
+            }
+
+            const normalizedBaseCodename = normalizeCodename(parsed.data.codename ?? `${sourceCatalog.codename}-copy`)
+            if (!normalizedBaseCodename || !isValidCodename(normalizedBaseCodename)) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                })
+            }
+
+            const copyOptions: CatalogCopyOptions = normalizeCatalogCopyOptions({
+                copyAttributes: parsed.data.copyAttributes,
+                copyElements: parsed.data.copyElements
+            })
+
+            const schemaName = await schemaService.ensureSchema(metahubId, userId)
+            const knex = KnexClient.getInstance()
+
+            const createCatalogCopy = async (codename: string) => {
+                return knex.transaction(async (trx) => {
+                    const now = new Date()
+                    const sourceHubIds = Array.isArray(sourceConfig.hubs)
+                        ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
+                        : []
+
+                    const [createdCatalog] = await trx
+                        .withSchema(schemaName)
+                        .into('_mhb_objects')
+                        .insert({
+                            kind: MetaEntityKind.CATALOG,
+                            codename,
+                            table_name: null,
+                            presentation: {
+                                name: nameVlc,
+                                description: descriptionVlc ?? null
+                            },
+                            config: {
+                                ...sourceConfig,
+                                hubs: sourceHubIds
+                            },
+                            _upl_created_at: now,
+                            _upl_created_by: userId ?? null,
+                            _upl_updated_at: now,
+                            _upl_updated_by: userId ?? null
+                        })
+                        .returning('*')
+
+                    const tableName = generateTableName(createdCatalog.id, 'catalog')
+                    const [updatedCatalog] = await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_objects')
+                        .where({ id: createdCatalog.id })
+                        .update({
+                            table_name: tableName
+                        })
+                        .returning('*')
+
+                    let copiedAttributesCount = 0
+                    if (copyOptions.copyAttributes) {
+                        const sourceAttributes = (await trx
+                            .withSchema(schemaName)
+                            .from('_mhb_attributes')
+                            .where({ object_id: catalogId })
+                            .andWhere('_upl_deleted', false)
+                            .andWhere('_mhb_deleted', false)
+                            .orderBy('sort_order', 'asc')
+                            .orderBy('_upl_created_at', 'asc')) as CatalogAttributeRow[]
+
+                        const attributeIdMap = new Map<string, string>()
+                        const pendingAttributes = [...sourceAttributes]
+
+                        while (pendingAttributes.length > 0) {
+                            let progressed = false
+
+                            for (let index = 0; index < pendingAttributes.length; index += 1) {
+                                const sourceAttr = pendingAttributes[index]
+                                const sourceParentId = sourceAttr.parent_attribute_id as string | null
+
+                                if (sourceParentId && !attributeIdMap.has(sourceParentId)) {
+                                    continue
+                                }
+
+                                const targetObjectId =
+                                    sourceAttr.target_object_id && sourceAttr.target_object_id === catalogId
+                                        ? updatedCatalog.id
+                                        : sourceAttr.target_object_id
+
+                                const [createdAttr] = await trx
+                                    .withSchema(schemaName)
+                                    .into('_mhb_attributes')
+                                    .insert({
+                                        object_id: updatedCatalog.id,
+                                        codename: sourceAttr.codename,
+                                        data_type: sourceAttr.data_type,
+                                        presentation: sourceAttr.presentation ?? {},
+                                        validation_rules: sourceAttr.validation_rules ?? {},
+                                        ui_config: sourceAttr.ui_config ?? {},
+                                        sort_order: sourceAttr.sort_order ?? 0,
+                                        is_required: sourceAttr.is_required ?? false,
+                                        is_display_attribute: sourceAttr.is_display_attribute ?? false,
+                                        target_object_id: targetObjectId ?? null,
+                                        target_object_kind: sourceAttr.target_object_kind ?? null,
+                                        parent_attribute_id: sourceParentId ? attributeIdMap.get(sourceParentId) ?? null : null,
+                                        _upl_created_at: now,
+                                        _upl_created_by: userId ?? null,
+                                        _upl_updated_at: now,
+                                        _upl_updated_by: userId ?? null
+                                    })
+                                    .returning(['id'])
+
+                                attributeIdMap.set(sourceAttr.id, createdAttr.id)
+                                pendingAttributes.splice(index, 1)
+                                index -= 1
+                                copiedAttributesCount += 1
+                                progressed = true
+                            }
+
+                            if (!progressed) {
+                                throw new Error('Failed to copy catalog attributes hierarchy')
+                            }
+                        }
+                    }
+
+                    let copiedElementsCount = 0
+                    if (copyOptions.copyElements) {
+                        const sourceElements = (await trx
+                            .withSchema(schemaName)
+                            .from('_mhb_elements')
+                            .where({ object_id: catalogId })
+                            .andWhere('_upl_deleted', false)
+                            .andWhere('_mhb_deleted', false)
+                            .orderBy('sort_order', 'asc')
+                            .orderBy('_upl_created_at', 'asc')) as CatalogElementRow[]
+
+                        if (sourceElements.length > 0) {
+                            await trx
+                                .withSchema(schemaName)
+                                .into('_mhb_elements')
+                                .insert(
+                                    sourceElements.map((element) => ({
+                                        object_id: updatedCatalog.id,
+                                        data: element.data ?? {},
+                                        sort_order: element.sort_order ?? 0,
+                                        owner_id: element.owner_id ?? null,
+                                        _upl_created_at: now,
+                                        _upl_created_by: userId ?? null,
+                                        _upl_updated_at: now,
+                                        _upl_updated_by: userId ?? null
+                                    }))
+                                )
+                            copiedElementsCount = sourceElements.length
+                        }
+                    }
+
+                    return {
+                        catalog: updatedCatalog,
+                        copiedAttributesCount,
+                        copiedElementsCount
+                    }
+                })
+            }
+
+            let copiedResult: { catalog: CopiedCatalogRow; copiedAttributesCount: number; copiedElementsCount: number } | null = null
+
+            for (let attempt = 1; attempt <= 1000; attempt += 1) {
+                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt)
+                try {
+                    copiedResult = await createCatalogCopy(codenameCandidate)
+                    break
+                } catch (error) {
+                    if (database.isUniqueViolation(error)) {
+                        const constraint = database.getDbErrorConstraint(error) ?? ''
+                        if (constraint === 'idx_mhb_objects_kind_codename_active') {
+                            continue
+                        }
+                    }
+                    throw error
+                }
+            }
+
+            if (!copiedResult) {
+                return res.status(409).json({ error: 'Unable to generate unique codename for catalog copy' })
+            }
+
+            const copiedCatalog = copiedResult.catalog
+            const copiedConfig = copiedCatalog.config ?? {}
+            const copiedHubIds = Array.isArray(copiedConfig.hubs)
+                ? copiedConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
+                : []
+            const hubs = copiedHubIds.length > 0 ? await hubsService.findByIds(metahubId, copiedHubIds, userId) : []
+
+            return res.status(201).json({
+                id: copiedCatalog.id,
+                metahubId,
+                codename: copiedCatalog.codename,
+                name: copiedCatalog.presentation?.name ?? {},
+                description: copiedCatalog.presentation?.description ?? null,
+                isSingleHub: copiedConfig.isSingleHub ?? false,
+                isRequiredHub: copiedConfig.isRequiredHub ?? false,
+                sortOrder: copiedConfig.sortOrder ?? 0,
+                version: copiedCatalog._upl_version || 1,
+                createdAt: copiedCatalog._upl_created_at,
+                updatedAt: copiedCatalog._upl_updated_at,
+                attributesCount: copiedResult.copiedAttributesCount,
+                elementsCount: copiedResult.copiedElementsCount,
+                hubs: mapHubSummaries(hubs as Record<string, unknown>[])
             })
         })
     )
@@ -901,7 +1333,7 @@ export function createCatalogsRoutes(
                 version: catalog._upl_version || 1,
                 createdAt: catalog.created_at,
                 updatedAt: catalog.updated_at,
-                hubs: hubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
+                hubs: mapHubSummaries(hubs)
             })
         })
     )
@@ -1013,7 +1445,7 @@ export function createCatalogsRoutes(
                         : undefined
             }
 
-            const updated: Record<string, any> = await objectsService.updateCatalog(
+            const updated = (await objectsService.updateCatalog(
                 metahubId,
                 catalogId,
                 {
@@ -1030,7 +1462,7 @@ export function createCatalogsRoutes(
                     expectedVersion
                 },
                 userId
-            )
+            )) as CatalogObjectRow
 
             const outputHubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
@@ -1038,15 +1470,15 @@ export function createCatalogsRoutes(
                 id: updated.id,
                 metahubId,
                 codename: updated.codename,
-                name: updated.presentation.name,
-                description: updated.presentation.description,
-                isSingleHub: updated.config.isSingleHub,
-                isRequiredHub: updated.config.isRequiredHub,
-                sortOrder: updated.config.sortOrder,
+                name: updated.presentation?.name ?? {},
+                description: updated.presentation?.description,
+                isSingleHub: updated.config?.isSingleHub ?? false,
+                isRequiredHub: updated.config?.isRequiredHub ?? false,
+                sortOrder: updated.config?.sortOrder ?? 0,
                 version: updated._upl_version || 1,
                 createdAt: updated.created_at,
                 updatedAt: updated.updated_at,
-                hubs: outputHubs.map((h: any) => ({ id: h.id, name: h.name, codename: h.codename }))
+                hubs: mapHubSummaries(outputHubs)
             })
         })
     )
@@ -1190,7 +1622,7 @@ export function createCatalogsRoutes(
 
             const deletedCatalogs = await objectsService.findDeleted(metahubId, userId)
 
-            const items = deletedCatalogs.map((row: any) => ({
+            const items = (deletedCatalogs as CatalogObjectRow[]).map((row) => ({
                 id: row.id,
                 metahubId,
                 codename: row.codename,

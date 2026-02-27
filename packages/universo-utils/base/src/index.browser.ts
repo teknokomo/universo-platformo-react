@@ -44,7 +44,14 @@ export {
 } from './vlc'
 
 // Number validation utilities for precision/scale constraints
-export { normalizeApplicationCopyOptions, normalizeBranchCopyOptions } from './validation/copyOptions'
+export {
+    normalizeApplicationCopyOptions,
+    normalizeBranchCopyOptions,
+    normalizeHubCopyOptions,
+    normalizeCatalogCopyOptions,
+    normalizeEnumerationCopyOptions,
+    normalizeLayoutCopyOptions
+} from './validation/copyOptions'
 
 export {
     validateNumber,

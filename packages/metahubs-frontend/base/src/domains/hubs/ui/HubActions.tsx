@@ -1,14 +1,25 @@
-import { Divider } from '@mui/material'
+import { Alert, Checkbox, Divider, FormControlLabel, Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
-import type { VersionedLocalizedContent } from '@universo/types'
+import { HUB_COPY_OPTION_KEYS, type HubCopyOptionKey, type VersionedLocalizedContent } from '@universo/types'
+import { normalizeHubCopyOptions } from '@universo/utils'
 import type { Hub, HubDisplay, HubLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
+
+type HubFormValues = Record<string, unknown>
+type HubFormSetValue = (name: string, value: unknown) => void
+type HubDialogTabArgs = {
+    values: HubFormValues
+    setValue: HubFormSetValue
+    isLoading: boolean
+    errors?: Record<string, string>
+}
 
 const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
     const hubMap = ctx.hubMap as Map<string, Hub> | undefined
@@ -25,7 +36,97 @@ const buildInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>)
     }
 }
 
-const validateHubForm = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>, values: Record<string, any>) => {
+const appendLocalizedCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback?: string
+): VersionedLocalizedContent<string> | null => {
+    if (!value) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        const nextContent = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        return {
+            _schema: 'v1',
+            _primary: locale,
+            locales: {
+                [locale]: { content: nextContent }
+            }
+        }
+    }
+
+    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
+    const localeEntries = Object.entries(nextLocales)
+    for (const [locale, localeValue] of localeEntries) {
+        const normalizedLocale = normalizeLocale(locale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
+        }
+    }
+
+    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAnyContent) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        nextLocales[locale] = { content: content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}` }
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+const buildCopyInitialValues = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>) => {
+    const initial = buildInitialValues(ctx)
+    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+
+    return {
+        ...initial,
+        nameVlc: appendLocalizedCopySuffix(
+            initial.nameVlc as VersionedLocalizedContent<string> | null | undefined,
+            uiLocale,
+            ctx.entity?.name || ctx.entity?.codename || ''
+        ),
+        codenameTouched: false,
+        ...normalizeHubCopyOptions()
+    }
+}
+
+const getHubCopyOptions = (values: Record<string, unknown>) => {
+    return normalizeHubCopyOptions({
+        copyAllRelations: values.copyAllRelations as boolean | undefined,
+        copyCatalogRelations: values.copyCatalogRelations as boolean | undefined,
+        copyEnumerationRelations: values.copyEnumerationRelations as boolean | undefined
+    })
+}
+
+const setAllHubCopyChildren = (setValue: (name: string, value: unknown) => void, checked: boolean): void => {
+    for (const key of HUB_COPY_OPTION_KEYS) {
+        setValue(key, checked)
+    }
+    setValue('copyAllRelations', checked)
+}
+
+const toggleHubCopyChild = (
+    setValue: (name: string, value: unknown) => void,
+    key: HubCopyOptionKey,
+    checked: boolean,
+    values: Record<string, unknown>
+): void => {
+    setValue(key, checked)
+    const nextOptions = getHubCopyOptions({
+        ...values,
+        [key]: checked,
+        copyAllRelations: false
+    })
+    setValue('copyAllRelations', nextOptions.copyAllRelations)
+}
+
+const validateHubForm = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>, values: HubFormValues) => {
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
@@ -41,14 +142,14 @@ const validateHubForm = (ctx: ActionContext<HubDisplay, HubLocalizedPayload>, va
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveHubForm = (values: Record<string, any>) => {
+const canSaveHubForm = (values: HubFormValues) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
     const normalizedCodename = sanitizeCodename(rawCodename)
     return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
 }
 
-const toPayload = (values: Record<string, any>): HubLocalizedPayload => {
+const toPayload = (values: HubFormValues): HubLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
@@ -72,8 +173,8 @@ const HubEditFields = ({
     t,
     uiLocale
 }: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: HubFormValues
+    setValue: HubFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
     t: ActionContext<HubDisplay, HubLocalizedPayload>['t']
@@ -97,7 +198,7 @@ const HubEditFields = ({
     })
 
     return (
-        <>
+        <Stack spacing={2}>
             <LocalizedInlineField
                 mode='localized'
                 label={t('common:fields.name')}
@@ -131,7 +232,62 @@ const HubEditFields = ({
                 disabled={isLoading}
                 required
             />
-        </>
+        </Stack>
+    )
+}
+
+const HubCopyOptionsTab = ({
+    values,
+    setValue,
+    isLoading,
+    t
+}: {
+    values: HubFormValues
+    setValue: HubFormSetValue
+    isLoading: boolean
+    t: ActionContext<HubDisplay, HubLocalizedPayload>['t']
+}) => {
+    const options = getHubCopyOptions(values)
+    const allChildrenChecked = HUB_COPY_OPTION_KEYS.every((key) => options[key])
+    const hasCheckedChildren = HUB_COPY_OPTION_KEYS.some((key) => options[key])
+
+    return (
+        <Stack spacing={1}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={allChildrenChecked}
+                        indeterminate={!allChildrenChecked && hasCheckedChildren}
+                        onChange={(event) => setAllHubCopyChildren(setValue, event.target.checked)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('hubs.copy.options.copyAllRelations', 'Copy all relations')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyCatalogRelations}
+                        onChange={(event) => toggleHubCopyChild(setValue, 'copyCatalogRelations', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('hubs.copy.options.copyCatalogRelations', 'Catalog relations')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyEnumerationRelations}
+                        onChange={(event) => toggleHubCopyChild(setValue, 'copyEnumerationRelations', event.target.checked, values)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('hubs.copy.options.copyEnumerationRelations', 'Enumeration relations')}
+            />
+            <Alert severity='info' sx={{ py: 0.5 }}>
+                {t('hubs.copy.options.singleHubNotice', 'Relations to entities with the "Single hub" restriction will not be copied.')}
+            </Alert>
+        </Stack>
     )
 }
 
@@ -159,7 +315,7 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    extraFields: ({ values, setValue, isLoading, errors }: any) => (
+                    extraFields: ({ values, setValue, isLoading, errors }: HubDialogTabArgs) => (
                         <HubEditFields
                             values={values}
                             setValue={setValue}
@@ -169,7 +325,7 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                             uiLocale={ctx.uiLocale as string}
                         />
                     ),
-                    validate: (values: Record<string, any>) => validateHubForm(ctx, values),
+                    validate: (values: HubFormValues) => validateHubForm(ctx, values),
                     canSave: canSaveHubForm,
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
@@ -187,10 +343,85 @@ const hubActions: readonly ActionDescriptor<HubDisplay, HubLocalizedPayload>[] =
                             console.error('Failed to refresh hubs list after edit', e)
                         }
                     },
-                    onSave: async (data: Record<string, any>) => {
+                    onSave: async (data: HubFormValues) => {
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
+                            await ctx.helpers?.refreshList?.()
+                        } catch (error: unknown) {
+                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                            throw error
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        id: 'copy',
+        labelKey: 'common:actions.copy',
+        icon: <ContentCopyIcon />,
+        order: 11,
+        dialog: {
+            loader: async () => {
+                const module = await import('@universo/template-mui/components/dialogs')
+                return { default: module.EntityFormDialog }
+            },
+            buildProps: (ctx) => {
+                const initial = buildCopyInitialValues(ctx)
+                return {
+                    open: true,
+                    mode: 'create' as const,
+                    title: ctx.t('hubs.copyTitle', 'Copying Hub'),
+                    nameLabel: ctx.t('common:fields.name'),
+                    descriptionLabel: ctx.t('common:fields.description'),
+                    saveButtonText: ctx.t('hubs.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('hubs.copy.actionLoading', 'Copying...'),
+                    cancelButtonText: ctx.t('common:actions.cancel'),
+                    hideDefaultFields: true,
+                    initialExtraValues: initial,
+                    tabs: ({ values, setValue, isLoading, errors }: HubDialogTabArgs) => [
+                        {
+                            id: 'general',
+                            label: ctx.t('hubs.tabs.general', 'General'),
+                            content: (
+                                <HubEditFields
+                                    values={values}
+                                    setValue={setValue}
+                                    isLoading={isLoading}
+                                    errors={errors}
+                                    t={ctx.t}
+                                    uiLocale={ctx.uiLocale as string}
+                                />
+                            )
+                        },
+                        {
+                            id: 'options',
+                            label: ctx.t('hubs.tabs.options', 'Options'),
+                            content: <HubCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={ctx.t} />
+                        }
+                    ],
+                    validate: (values: HubFormValues) => validateHubForm(ctx, values),
+                    canSave: canSaveHubForm,
+                    onClose: () => {
+                        // BaseEntityMenu handles dialog closing
+                    },
+                    onSuccess: async () => {
+                        try {
+                            await ctx.helpers?.refreshList?.()
+                        } catch (e) {
+                            // eslint-disable-next-line no-console
+                            console.error('Failed to refresh hubs list after copy', e)
+                        }
+                    },
+                    onSave: async (data: HubFormValues) => {
+                        try {
+                            const payload = toPayload(data)
+                            const copyOptions = getHubCopyOptions(data)
+                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                                ...payload,
+                                ...copyOptions
+                            })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)

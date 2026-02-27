@@ -1,7 +1,7 @@
 jest.mock(
     'typeorm',
     () => {
-        const decorator = () => () => {}
+        const decorator = () => () => undefined
         return {
             __esModule: true,
             Entity: decorator,
@@ -37,8 +37,26 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
-import { createMockDataSource } from '../utils/typeormMocks'
+import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createEnumerationsRoutes } from '../../domains/enumerations/routes/enumerationsRoutes'
+
+const mockEnsureMetahubAccess = jest.fn()
+const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
+const mockKnex = {
+    transaction: jest.fn()
+}
+
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+}))
+
+jest.mock('../../domains/ddl', () => ({
+    __esModule: true,
+    KnexClient: {
+        getInstance: () => mockKnex
+    }
+}))
 
 const baseNameVlc = {
     _schema: '1',
@@ -76,10 +94,13 @@ const mockValuesService = {}
 const mockHubsService = {
     findByIds: jest.fn()
 }
+const mockMetahubRepo = createMockRepository<Record<string, unknown>>()
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
-    MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
+    MetahubSchemaService: jest.fn().mockImplementation(() => ({
+        ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args)
+    }))
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
@@ -103,6 +124,84 @@ jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
 }))
 
 describe('Enumerations Routes', () => {
+    const createEnumerationCopyTransactionStub = (params?: {
+        copiedEnumeration?: Record<string, unknown>
+        sourceValues?: Array<Record<string, unknown>>
+    }) => {
+        const createdEnumeration =
+            params?.copiedEnumeration ??
+            ({
+                id: 'enum-copy-id',
+                codename: 'status-copy',
+                presentation: { name: baseNameVlc, description: baseDescriptionVlc },
+                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
+                _upl_version: 1,
+                _upl_created_at: '2026-02-26T00:00:00.000Z',
+                _upl_updated_at: '2026-02-26T00:00:00.000Z'
+            } as Record<string, unknown>)
+
+        const sourceValues = params?.sourceValues ?? [
+            {
+                codename: 'open',
+                presentation: baseNameVlc,
+                sort_order: 1,
+                is_default: true
+            }
+        ]
+
+        const objectsInsertReturning = jest.fn().mockResolvedValue([createdEnumeration])
+        const valuesSelect = jest.fn().mockResolvedValue(sourceValues)
+        const valuesInsert = jest.fn().mockResolvedValue(undefined)
+
+        const trx = {
+            withSchema: jest.fn(() => ({
+                into: jest.fn((tableName: string) => {
+                    if (tableName === '_mhb_objects') {
+                        return {
+                            insert: jest.fn(() => ({
+                                returning: (...args: unknown[]) => objectsInsertReturning(...args)
+                            }))
+                        }
+                    }
+                    if (tableName === '_mhb_values') {
+                        return {
+                            insert: (...args: unknown[]) => valuesInsert(...args)
+                        }
+                    }
+                    return {
+                        insert: jest.fn()
+                    }
+                }),
+                from: jest.fn((tableName: string) => {
+                    if (tableName === '_mhb_values') {
+                        return {
+                            where: jest.fn(() => ({
+                                andWhere: jest.fn(() => ({
+                                    andWhere: jest.fn(() => ({
+                                        orderBy: jest.fn(() => ({
+                                            orderBy: jest.fn(() => ({
+                                                select: (...args: unknown[]) => valuesSelect(...args)
+                                            }))
+                                        }))
+                                    }))
+                                }))
+                            }))
+                        }
+                    }
+                    return {
+                        where: jest.fn()
+                    }
+                })
+            }))
+        }
+
+        return {
+            trx,
+            valuesInsert,
+            valuesSelect
+        }
+    }
+
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as unknown as { user?: { id: string } }).user = { id: 'test-user-id' }
         next()
@@ -112,15 +211,18 @@ describe('Enumerations Routes', () => {
         next()
     }) as RateLimitRequestHandler
 
-    const errorHandler = (err: Error, _req: Request, res: Response, next: NextFunction) => {
+    const errorHandler = (err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
         if (res.headersSent) {
             return next(err)
         }
-        res.status(500).json({ error: err.message || 'Internal Server Error' })
+        const statusCode = err.statusCode || err.status || 500
+        res.status(statusCode).json({ error: err.message || 'Internal Server Error' })
     }
 
     const buildApp = () => {
-        const dataSource = createMockDataSource({})
+        const dataSource = createMockDataSource({
+            Metahub: mockMetahubRepo
+        })
         const app = express()
         app.use(express.json())
         app.use(createEnumerationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter))
@@ -148,23 +250,25 @@ describe('Enumerations Routes', () => {
             _upl_created_at: new Date('2026-02-18T00:00:00.000Z').toISOString(),
             _upl_updated_at: new Date('2026-02-18T00:00:00.000Z').toISOString()
         })
-        mockObjectsService.updateEnumeration.mockImplementation(async (_metahubId: string, enumerationId: string, payload: any) => ({
-            id: enumerationId,
-            codename: payload.codename ?? 'status',
-            presentation: {
-                name: payload.name ?? baseNameVlc,
-                description: payload.description ?? baseDescriptionVlc
-            },
-            config: {
-                hubs: payload.config?.hubs ?? ['hub-1'],
-                isSingleHub: payload.config?.isSingleHub ?? false,
-                isRequiredHub: payload.config?.isRequiredHub ?? false,
-                sortOrder: payload.config?.sortOrder ?? 0
-            },
-            _upl_version: 2,
-            _upl_created_at: new Date('2026-02-18T00:00:00.000Z').toISOString(),
-            _upl_updated_at: new Date('2026-02-18T01:00:00.000Z').toISOString()
-        }))
+        mockObjectsService.updateEnumeration.mockImplementation(
+            async (_metahubId: string, enumerationId: string, payload: Record<string, unknown>) => ({
+                id: enumerationId,
+                codename: payload.codename ?? 'status',
+                presentation: {
+                    name: payload.name ?? baseNameVlc,
+                    description: payload.description ?? baseDescriptionVlc
+                },
+                config: {
+                    hubs: payload.config?.hubs ?? ['hub-1'],
+                    isSingleHub: payload.config?.isSingleHub ?? false,
+                    isRequiredHub: payload.config?.isRequiredHub ?? false,
+                    sortOrder: payload.config?.sortOrder ?? 0
+                },
+                _upl_version: 2,
+                _upl_created_at: new Date('2026-02-18T00:00:00.000Z').toISOString(),
+                _upl_updated_at: new Date('2026-02-18T01:00:00.000Z').toISOString()
+            })
+        )
         mockObjectsService.restore.mockResolvedValue(undefined)
         mockObjectsService.permanentDelete.mockResolvedValue(undefined)
         mockAttributesService.findReferenceBlockersByTarget.mockResolvedValue([])
@@ -175,6 +279,9 @@ describe('Enumerations Routes', () => {
                 codename: 'main-hub'
             }
         ])
+        mockMetahubRepo.findOne.mockResolvedValue({ id: 'metahub-1' })
+        mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
+        mockEnsureSchema.mockResolvedValue('mhb_test_schema')
     })
 
     describe('DELETE /metahub/:metahubId/enumeration/:enumerationId/permanent', () => {
@@ -227,6 +334,134 @@ describe('Enumerations Routes', () => {
             expect(mockObjectsService.updateEnumeration).toHaveBeenCalled()
             const payload = mockObjectsService.updateEnumeration.mock.calls[0][2]
             expect(payload.description?._primary).toBe('ru')
+        })
+    })
+
+    describe('POST /metahub/:metahubId/enumeration/:enumerationId/copy', () => {
+        it('returns 404 when metahub does not exist', async () => {
+            mockMetahubRepo.findOne.mockResolvedValueOnce(null)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/missing/enumeration/enum-1/copy')
+                .send({ codename: 'status-copy' })
+                .expect(404)
+
+            expect(response.body.error).toBe('Metahub not found')
+            expect(mockEnsureMetahubAccess).not.toHaveBeenCalled()
+        })
+
+        it('returns 403 when metahub access check fails', async () => {
+            const forbidden = Object.assign(new Error('Access denied to this metahub'), { status: 403 })
+            mockEnsureMetahubAccess.mockRejectedValueOnce(forbidden)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/enumeration/enum-1/copy')
+                .send({ codename: 'status-copy' })
+                .expect(403)
+
+            expect(response.body.error).toBe('Access denied to this metahub')
+            expect(mockObjectsService.findById).not.toHaveBeenCalled()
+        })
+
+        it('returns 404 when source enumeration is not found', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce(null)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/enumeration/enum-1/copy')
+                .send({ codename: 'status-copy' })
+                .expect(404)
+
+            expect(response.body.error).toBe('Enumeration not found')
+        })
+
+        it('returns 400 when codename is invalid', async () => {
+            const app = buildApp()
+            const response = await request(app).post('/metahub/metahub-1/enumeration/enum-1/copy').send({ codename: '!!!' }).expect(400)
+
+            expect(response.body.error).toBe('Validation failed')
+            expect(response.body.details?.codename).toBeDefined()
+        })
+
+        it('copies enumeration with values successfully', async () => {
+            const tx = createEnumerationCopyTransactionStub()
+            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/enumeration/enum-1/copy')
+                .send({
+                    codename: 'status-copy',
+                    copyValues: true
+                })
+                .expect(201)
+
+            expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
+            expect(response.body.id).toBe('enum-copy-id')
+            expect(response.body.codename).toBe('status-copy')
+            expect(response.body.valuesCount).toBe(1)
+            expect(tx.valuesInsert).toHaveBeenCalledTimes(1)
+        })
+
+        it('does not copy values when copyValues is disabled', async () => {
+            const tx = createEnumerationCopyTransactionStub({
+                sourceValues: [
+                    {
+                        codename: 'open',
+                        presentation: baseNameVlc,
+                        sort_order: 1,
+                        is_default: true
+                    }
+                ]
+            })
+            mockKnex.transaction.mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/enumeration/enum-1/copy')
+                .send({
+                    codename: 'status-copy',
+                    copyValues: false
+                })
+                .expect(201)
+
+            expect(response.body.valuesCount).toBe(0)
+            expect(tx.valuesSelect).not.toHaveBeenCalled()
+            expect(tx.valuesInsert).not.toHaveBeenCalled()
+        })
+
+        it('retries copy after codename unique violation and succeeds', async () => {
+            const uniqueViolation = Object.assign(new Error('duplicate key value violates unique constraint'), {
+                code: '23505',
+                constraint: 'idx_mhb_objects_kind_codename_active'
+            })
+            const tx = createEnumerationCopyTransactionStub({
+                copiedEnumeration: {
+                    id: 'enum-copy-id-2',
+                    codename: 'status-copy-2',
+                    presentation: { name: baseNameVlc, description: baseDescriptionVlc },
+                    config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
+                    _upl_version: 1,
+                    _upl_created_at: '2026-02-26T00:00:00.000Z',
+                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
+                }
+            })
+
+            mockKnex.transaction
+                .mockRejectedValueOnce(uniqueViolation)
+                .mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) => callback(tx.trx))
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/enumeration/enum-1/copy')
+                .send({ codename: 'status-copy' })
+                .expect(201)
+
+            expect(response.body.id).toBe('enum-copy-id-2')
+            expect(response.body.codename).toBe('status-copy-2')
+            expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
         })
     })
 })

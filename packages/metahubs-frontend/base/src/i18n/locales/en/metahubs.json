@@ -154,6 +154,9 @@
     "updateError": "Failed to update layout",
     "deleteSuccess": "Layout deleted",
     "deleteError": "Failed to delete layout",
+    "copyTitle": "Copying Layout",
+    "copySuccess": "Layout copied",
+    "copyError": "Failed to copy layout",
     "loadError": "Failed to load layout",
     "validation": {
       "defaultMustBeActive": "Default layout must be active"
@@ -180,6 +183,18 @@
       "deactivate": "Deactivate",
       "toggleActive": "Toggle active",
       "backToList": "Back to layouts"
+    },
+    "tabs": {
+      "general": "General",
+      "options": "Options"
+    },
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying...",
+      "options": {
+        "copyWidgets": "Copy widgets",
+        "deactivateAllWidgets": "Deactivate all widgets"
+      }
     },
     "createDialog": {
       "title": "Create layout"
@@ -385,6 +400,7 @@
     "emptyDescription": "Create your first hub to start defining data structures",
     "create": "Create Hub",
     "editTitle": "Edit Hub",
+    "copyTitle": "Copying Hub",
     "createDialog": {
       "title": "Create Hub"
     },
@@ -419,6 +435,22 @@
     "createError": "Failed to create hub",
     "updateError": "Failed to update hub",
     "deleteError": "Failed to delete hub",
+    "copySuccess": "Hub copied",
+    "copyError": "Failed to copy hub",
+    "tabs": {
+      "general": "General",
+      "options": "Options"
+    },
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying...",
+      "options": {
+        "copyAllRelations": "Copy all relations",
+        "copyCatalogRelations": "Catalog relations",
+        "copyEnumerationRelations": "Enumeration relations",
+        "singleHubNotice": "Relations to entities with the \"Single hub\" restriction will not be copied."
+      }
+    },
     "validation": {
       "codenameRequired": "Codename is required",
       "codenameInvalid": "Use lowercase letters, numbers, and hyphens only"
@@ -437,6 +469,7 @@
     "noSearchResultsHint": "Try different search terms",
     "create": "Create Catalog",
     "editTitle": "Edit Catalog",
+    "copyTitle": "Copying Catalog",
     "createDialog": {
       "title": "Create Catalog"
     },
@@ -473,6 +506,8 @@
     "createError": "Failed to create catalog",
     "updateError": "Failed to update catalog",
     "deleteError": "Failed to delete catalog",
+    "copySuccess": "Catalog copied",
+    "copyError": "Failed to copy catalog",
     "validation": {
       "codenameRequired": "Codename is required",
       "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
@@ -480,7 +515,16 @@
     },
     "tabs": {
       "general": "General",
-      "hubs": "Hubs"
+      "hubs": "Hubs",
+      "options": "Options"
+    },
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying...",
+      "options": {
+        "copyAttributes": "Copy attributes",
+        "copyElements": "Copy elements"
+      }
     },
     "addHub": "Add",
     "removeHub": "Remove",
@@ -513,6 +557,9 @@
     "deleteSuccess": "Enumeration deleted",
     "deleteError": "Failed to delete enumeration",
     "editTitle": "Edit Enumeration",
+    "copyTitle": "Copying Enumeration",
+    "copySuccess": "Enumeration copied",
+    "copyError": "Failed to copy enumeration",
     "createDialog": {
       "title": "Create Enumeration"
     },
@@ -535,7 +582,15 @@
     "valuesCount_other": "{{count}} values",
     "tabs": {
       "general": "General",
-      "hubs": "Hubs"
+      "hubs": "Hubs",
+      "options": "Options"
+    },
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying...",
+      "options": {
+        "copyValues": "Copy values"
+      }
     },
     "validation": {
       "codenameRequired": "Codename is required",

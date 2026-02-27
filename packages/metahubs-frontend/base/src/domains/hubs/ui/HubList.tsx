@@ -28,7 +28,7 @@ import {
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useCreateHub, useUpdateHub, useDeleteHub } from '../hooks/mutations'
+import { useCreateHub, useUpdateHub, useDeleteHub, useCopyHub } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
 import * as hubsApi from '../api'
@@ -157,7 +157,7 @@ const HubList = () => {
     // usePaginated already extracts items array, so data IS the array
 
     // Instant search for better UX
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
@@ -179,6 +179,7 @@ const HubList = () => {
     const createHubMutation = useCreateHub()
     const updateHubMutation = useUpdateHub()
     const deleteHubMutation = useDeleteHub()
+    const copyHubMutation = useCopyHub()
 
     // Memoize images object
     const images = useMemo(() => {
@@ -389,6 +390,14 @@ const HubList = () => {
                 deleteEntity: async (id: string) => {
                     if (!metahubId) return
                     await deleteHubMutation.mutateAsync({ metahubId, hubId: id })
+                },
+                copyEntity: async (id: string, payload: HubLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId) return
+                    await copyHubMutation.mutateAsync({
+                        metahubId,
+                        hubId: id,
+                        data: payload
+                    })
                 }
             },
             helpers: {
@@ -427,7 +436,7 @@ const HubList = () => {
                 }
             }
         }),
-        [confirm, deleteHubMutation, enqueueSnackbar, hubMap, i18n.language, metahubId, queryClient, t, updateHubMutation]
+        [confirm, copyHubMutation, deleteHubMutation, enqueueSnackbar, hubMap, i18n.language, metahubId, queryClient, t, updateHubMutation]
     )
 
     // Validate metahubId from URL AFTER all hooks

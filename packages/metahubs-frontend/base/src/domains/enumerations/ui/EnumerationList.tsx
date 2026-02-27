@@ -34,7 +34,8 @@ import {
     useCreateEnumerationAtMetahub,
     useUpdateEnumeration,
     useUpdateEnumerationAtMetahub,
-    useDeleteEnumeration
+    useDeleteEnumeration,
+    useCopyEnumeration
 } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
@@ -299,6 +300,7 @@ const EnumerationList = () => {
     const updateEnumerationMutation = useUpdateEnumeration()
     const deleteEnumerationMutation = useDeleteEnumeration()
     const updateEnumerationAtMetahubMutation = useUpdateEnumerationAtMetahub()
+    const copyEnumerationMutation = useCopyEnumeration()
 
     // Memoize images object
     const images = useMemo(() => {
@@ -673,6 +675,14 @@ const EnumerationList = () => {
                             force: Boolean(targetHubId) // force=true if has multiple hubs
                         })
                     }
+                },
+                copyEntity: async (id: string, payload: EnumerationLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId) return
+                    await copyEnumerationMutation.mutateAsync({
+                        metahubId,
+                        enumerationId: id,
+                        data: payload
+                    })
                 }
             },
             helpers: {
@@ -724,6 +734,7 @@ const EnumerationList = () => {
         }),
         [
             confirm,
+            copyEnumerationMutation,
             deleteEnumerationMutation,
             enqueueSnackbar,
             enumerationMap,

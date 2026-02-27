@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { EnumerationLocalizedPayload, EnumerationValueLocalizedPayload } from '../../../types'
 import { invalidateEnumerationValuesQueries, metahubsQueryKeys } from '../../shared'
 import * as enumerationsApi from '../api'
+import type { EnumerationCopyInput } from '../api'
 
 interface CreateEnumerationParams {
     metahubId: string
@@ -34,6 +35,12 @@ interface DeleteEnumerationParams {
     hubId?: string
     enumerationId: string
     force?: boolean
+}
+
+interface CopyEnumerationParams {
+    metahubId: string
+    enumerationId: string
+    data: EnumerationCopyInput
 }
 
 interface CreateEnumerationValueParams {
@@ -178,6 +185,36 @@ export function useDeleteEnumeration() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('enumerations.deleteError', 'Failed to delete enumeration'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyEnumeration() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, enumerationId, data }: CopyEnumerationParams) => {
+            const response = await enumerationsApi.copyEnumeration(metahubId, enumerationId, data)
+            return response.data
+        },
+        onSuccess: async (copiedEnumeration, variables) => {
+            const hubIds = Array.isArray(copiedEnumeration.hubs) ? copiedEnumeration.hubs.map((hub: { id: string }) => hub.id) : []
+
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) }),
+                ...hubIds.map((hubId: string) =>
+                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerations(variables.metahubId, hubId) })
+                )
+            ])
+
+            enqueueSnackbar(t('enumerations.copySuccess', 'Enumeration copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('enumerations.copyError', 'Failed to copy enumeration'), { variant: 'error' })
         }
     })
 }
