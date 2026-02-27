@@ -1,5 +1,6 @@
 import { apiClient } from '../../shared'
 import { HubElement, PaginationParams, PaginatedResponse } from '../../../types'
+import type { ElementCopyOptions } from '@universo/types'
 
 /**
  * List elements for a specific catalog
@@ -78,6 +79,9 @@ export const updateElement = (
 export const deleteElement = (metahubId: string, hubId: string, catalogId: string, elementId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}`)
 
+export const copyElement = (metahubId: string, hubId: string, catalogId: string, elementId: string, data?: Partial<ElementCopyOptions>) =>
+    apiClient.post<HubElement>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/element/${elementId}/copy`, data ?? {})
+
 // ============================================================================
 // Direct API (without hub) - for catalogs without hub association
 // ============================================================================
@@ -154,3 +158,6 @@ export const updateElementDirect = (
  */
 export const deleteElementDirect = (metahubId: string, catalogId: string, elementId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}`)
+
+export const copyElementDirect = (metahubId: string, catalogId: string, elementId: string, data?: Partial<ElementCopyOptions>) =>
+    apiClient.post<HubElement>(`/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}/copy`, data ?? {})

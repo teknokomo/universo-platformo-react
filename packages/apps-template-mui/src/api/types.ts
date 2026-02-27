@@ -17,6 +17,9 @@ export interface CrudDataAdapter {
     /** Fetch a single row (raw data, for edit forms). */
     fetchRow(rowId: string, catalogId?: string): Promise<Record<string, unknown>>
 
+    /** Fetch TABLE child rows for a source row (used to prefill copy form). */
+    fetchTabularRows?(params: { parentRowId: string; attributeId: string; catalogId?: string }): Promise<Array<Record<string, unknown>>>
+
     /** Create a new row. Returns the created row. */
     createRow(data: Record<string, unknown>, catalogId?: string): Promise<Record<string, unknown>>
 
@@ -25,6 +28,9 @@ export interface CrudDataAdapter {
 
     /** Soft-delete a row. */
     deleteRow(rowId: string, catalogId?: string): Promise<void>
+
+    /** Copy a row. */
+    copyRow(rowId: string, data?: { copyChildTables?: boolean; catalogId?: string }): Promise<Record<string, unknown>>
 }
 
 /**

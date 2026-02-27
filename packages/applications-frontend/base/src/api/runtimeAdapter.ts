@@ -2,9 +2,11 @@ import type { CrudDataAdapter, AppDataResponse } from '@universo/apps-template-m
 import {
     getApplicationRuntime,
     getApplicationRuntimeRow,
+    listApplicationRuntimeTabularRows,
     createApplicationRuntimeRow,
     updateApplicationRuntimeRow,
-    deleteApplicationRuntimeRow
+    deleteApplicationRuntimeRow,
+    copyApplicationRuntimeRow
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
 
@@ -28,10 +30,28 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
 
         fetchRow: (rowId, catalogId) => getApplicationRuntimeRow({ applicationId, rowId, catalogId }),
 
+        fetchTabularRows: async ({ parentRowId, attributeId, catalogId }) => {
+            if (!catalogId) return []
+            return listApplicationRuntimeTabularRows({
+                applicationId,
+                rowId: parentRowId,
+                attributeId,
+                catalogId
+            })
+        },
+
         createRow: (data, catalogId) => createApplicationRuntimeRow({ applicationId, data, catalogId }),
 
         updateRow: (rowId, data, catalogId) => updateApplicationRuntimeRow({ applicationId, rowId, data, catalogId }),
 
-        deleteRow: (rowId, catalogId) => deleteApplicationRuntimeRow({ applicationId, rowId, catalogId })
+        deleteRow: (rowId, catalogId) => deleteApplicationRuntimeRow({ applicationId, rowId, catalogId }),
+
+        copyRow: (rowId, data) =>
+            copyApplicationRuntimeRow({
+                applicationId,
+                rowId,
+                catalogId: data?.catalogId,
+                copyChildTables: data?.copyChildTables
+            })
     }
 }

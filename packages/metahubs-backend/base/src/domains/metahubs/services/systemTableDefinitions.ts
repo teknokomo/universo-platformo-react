@@ -158,10 +158,16 @@ const mhbAttributes: SystemTableDef = {
         { name: 'idx_mhb_attributes_target_object_id', columns: ['target_object_id'] },
         { name: 'idx_mhb_attributes_parent_attribute_id', columns: ['parent_attribute_id'] },
         {
-            name: 'idx_mhb_attributes_object_codename_active',
+            name: 'idx_mhb_attributes_object_codename_root_active',
             columns: ['object_id', 'codename'],
             unique: true,
-            where: '_upl_deleted = false AND _mhb_deleted = false'
+            where: 'parent_attribute_id IS NULL AND _upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_attributes_object_parent_codename_child_active',
+            columns: ['object_id', 'parent_attribute_id', 'codename'],
+            unique: true,
+            where: 'parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
         }
     ]
 }

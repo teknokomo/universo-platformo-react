@@ -431,6 +431,7 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
             },
             buildProps: (ctx) => {
                 const initial = buildCopyInitialValues(ctx)
+                const hubs = (ctx as EnumerationActionContext).hubs ?? []
 
                 return {
                     open: true,
@@ -443,25 +444,27 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: ({ values, setValue, isLoading, errors }: EnumerationDialogTabArgs) => [
-                        {
-                            id: 'general',
-                            label: ctx.t('enumerations.tabs.general', 'General'),
-                            content: (
-                                <GeneralTabFields
-                                    values={values}
-                                    setValue={setValue}
-                                    isLoading={isLoading}
-                                    errors={errors}
-                                    t={ctx.t}
-                                    uiLocale={ctx.uiLocale as string}
-                                />
-                            )
-                        },
+                    tabs: (args: EnumerationDialogTabArgs) => [
+                        ...buildFormTabs(
+                            ctx,
+                            hubs
+                        )({
+                            values: args.values,
+                            setValue: args.setValue,
+                            isLoading: args.isLoading,
+                            errors: args.errors ?? {}
+                        }),
                         {
                             id: 'options',
                             label: ctx.t('enumerations.tabs.options', 'Options'),
-                            content: <EnumerationCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={ctx.t} />
+                            content: (
+                                <EnumerationCopyOptionsTab
+                                    values={args.values}
+                                    setValue={args.setValue}
+                                    isLoading={args.isLoading}
+                                    t={ctx.t}
+                                />
+                            )
                         }
                     ],
                     validate: (values: EnumerationFormValues) => validateCatalogForm(ctx, values),

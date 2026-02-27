@@ -602,7 +602,6 @@ export class SchemaGenerator {
                 table.foreign('object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
                 table.foreign('target_object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('SET NULL')
                 table.foreign('parent_attribute_id').references('id').inTable(`${schemaName}._app_attributes`).onDelete('CASCADE')
-                table.unique(['object_id', 'codename'])
                 table.unique(['object_id', 'column_name'])
                 table.index(['parent_attribute_id'], 'idx_app_attributes_parent')
             })
@@ -650,6 +649,23 @@ export class SchemaGenerator {
                 })
             }
         }
+
+        await knex.raw(`
+            ALTER TABLE "${schemaName}"."_app_attributes"
+            DROP CONSTRAINT IF EXISTS "_app_attributes_object_id_codename_unique"
+        `)
+
+        await knex.raw(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_codename_root_active
+            ON "${schemaName}"._app_attributes (object_id, codename)
+            WHERE parent_attribute_id IS NULL AND _upl_deleted = false AND _app_deleted = false
+        `)
+
+        await knex.raw(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_parent_codename_child_active
+            ON "${schemaName}"._app_attributes (object_id, parent_attribute_id, codename)
+            WHERE parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false
+        `)
 
         const hasMigrations = await knex.schema.withSchema(schemaName).hasTable('_app_migrations')
         console.log(`[SchemaGenerator] _app_migrations exists: ${hasMigrations}`)

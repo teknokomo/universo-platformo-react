@@ -2,6 +2,62 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## In Progress: IMPLEMENT Follow-up — Copy UX Simplification & Stability — 2026-02-27 🚧
+
+> **Goal**: Finalize the requested simplifications for copy dialogs/flows in applications and metahubs, ensure display-attribute propagation integrity, and close UX/localization defects without keeping legacy copy-option logic.
+> **Complexity**: Level 3 (Significant)
+> **Status**: ✅ Implemented
+
+### IFU-R1. App runtime + metahub elements copy dialog simplification
+- [x] Keep copy via standard entity form dialog (create/edit-style) without copy-options tab for app runtime elements
+- [x] Keep copy via standard entity form dialog (create/edit-style) without copy-options tab for metahub catalog elements
+- [x] Preserve auto-suffix behavior for first STRING field only (` (copy)` / ` (копия)`)
+
+### IFU-R2. Attribute copy UX simplification
+- [x] Ensure copy dialog always shows correct data type and matching type-settings block for source attribute
+- [x] Keep `Presentation` tab in copy and force `isDisplayAttribute = false` (disabled), preserving other presentation settings
+- [x] Keep `Options` tab only for `TABLE` attributes with single `copyChildAttributes` toggle; remove legacy options logic
+
+### IFU-R3. Enumeration values + defaults + i18n
+- [x] Keep enumeration-value copy dialog aligned to edit form (no options tab), with copied name suffix
+- [x] Set default STRING `maxLength` to `10` for both root and child attribute create flows
+- [x] Localize enumeration-value delete confirmation body in RU/EN and remove hardcoded EN fallback usage
+
+### IFU-R4. Publication snapshot / application sync integrity and verification
+- [x] Verify that display-attribute marker is propagated through publication snapshot/version to application runtime metadata
+- [x] Run targeted lint/tests for touched packages and close residual compile/runtime regressions
+- [x] Update checklist and progress notes after validation
+
+## In Progress: Implement Round — Metahub/Application Entity Copy Expansion — 2026-02-27 🚧
+
+> **Goal**: Implement full copy expansion scope from `memory-bank/plan/metahub-entity-copy-plan-2026-02-26.md` safely and with existing architecture patterns.
+> **Complexity**: Level 4 (Complex)
+> **Status**: ✅ Implemented
+
+### IMPL-R1. Shared contracts and codename scope foundation
+- [x] Extend shared copy options in `@universo/types` and normalizers in `@universo/utils` for attribute/element/enumeration-value copy
+- [x] Implement scoped attribute codename uniqueness (root vs child scope) in metahub system table definitions and attribute checks/routes
+
+### IMPL-R2. Metahub copy flows
+- [x] Implement attribute copy endpoint + frontend action/dialog (root + child attributes, table-children option)
+- [x] Implement metahub element copy endpoint + frontend action/dialog with `copyChildTables` and required-table lock behavior
+- [x] Implement metahub child-table row copy in `InlineTableEditor` menu (UI-local clone below source row)
+- [x] Implement enumeration value copy endpoint + frontend action/dialog with presentation-settings option
+
+### IMPL-R3. Applications runtime copy flows and terminology
+- [x] Implement runtime row copy endpoint + frontend row action/dialog with `copyChildTables` option and required-table lock behavior
+- [x] Implement runtime tabular child-row copy endpoint + UI action in `RuntimeInlineTabularEditor`
+- [x] Replace runtime user-facing terminology `record` -> `element` in dialogs/labels/i18n
+
+### IMPL-R4. Edit dialog delete-button standardization and enum first-open fix
+- [x] Add standard delete button in edit dialogs for layout, publication, child attributes, enumeration values (disabled where delete is forbidden)
+- [x] Fix enumeration value first-open empty edit form issue (stable key/state reset pattern)
+
+### IMPL-R5. Verification and bookkeeping
+- [x] Add/update targeted backend/frontend tests for new copy flows and regressions
+- [x] Run targeted lint and tests for touched packages
+- [x] Update `memory-bank/progress.md` and mark all implementation tasks as done
+
 ## In Progress: QA Remediation Round 9 — Copy Type-Safety & Evidence — 2026-02-27 🚧
 
 > **Goal**: Resolve remaining confirmed QA issues in metahub entity copy implementation: actionable backend typing defects and insufficient evidence depth in copy-route tests.

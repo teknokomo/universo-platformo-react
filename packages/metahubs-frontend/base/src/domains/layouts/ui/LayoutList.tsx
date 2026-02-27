@@ -923,6 +923,7 @@ const LayoutList = () => {
 
             <EntityFormDialog
                 open={isEditDialogOpen}
+                mode='edit'
                 title={t('layouts.editDialog.title', 'Edit layout')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
@@ -941,6 +942,15 @@ const LayoutList = () => {
                 extraFields={renderFormFields}
                 validate={validateLayoutForm}
                 canSave={canSaveLayoutForm}
+                showDeleteButton
+                deleteButtonText={tc('actions.delete', 'Delete')}
+                deleteButtonDisabled={Boolean(editingLayout?.isDefault)}
+                onDelete={() => {
+                    if (editingLayout) {
+                        setDeleteDialogState({ open: true, layout: editingLayout })
+                        setEditDialogOpen(false)
+                    }
+                }}
             />
 
             <EntityFormDialog

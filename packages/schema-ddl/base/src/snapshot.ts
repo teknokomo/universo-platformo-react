@@ -39,6 +39,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
                                   columnName: generateColumnName(child.id),
                                   dataType: child.dataType,
                                   isRequired: child.isRequired,
+                                  isDisplayAttribute: child.isDisplayAttribute ?? false,
                                   targetEntityId: child.targetEntityId ?? null,
                                   targetEntityKind: child.targetEntityKind ?? null
                               }
@@ -51,6 +52,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
                 columnName,
                 dataType: field.dataType,
                 isRequired: field.isRequired,
+                isDisplayAttribute: field.isDisplayAttribute ?? false,
                 targetEntityId: field.targetEntityId ?? null,
                 targetEntityKind: field.targetEntityKind ?? null,
                 ...(childFields && Object.keys(childFields).length > 0 ? { childFields } : {})

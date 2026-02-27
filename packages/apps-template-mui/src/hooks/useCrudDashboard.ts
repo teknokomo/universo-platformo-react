@@ -47,6 +47,121 @@ function withDashboardDefaults(
 
 const EMPTY_KEY_PREFIX: readonly unknown[] = []
 
+const normalizeLocale = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+
+const getCopySuffix = (locale: string) => (normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)')
+const getCopyLabel = (locale: string) => (normalizeLocale(locale) === 'ru' ? 'Копия' : 'Copy')
+
+const isLocalizedContent = (value: unknown): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
+    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
+
+const appendCopySuffixToFirstStringField = (params: {
+    sourceData: Record<string, unknown>
+    fieldConfigs: FieldConfig[]
+    locale: string
+}): Record<string, unknown> => {
+    const { sourceData, fieldConfigs, locale } = params
+    const firstStringField = fieldConfigs.find((field) => field.type === 'STRING')
+    if (!firstStringField) return sourceData
+
+    const fieldId = firstStringField.id
+    const rawValue = sourceData[fieldId]
+    const fallbackSuffix = getCopySuffix(locale)
+
+    if (typeof rawValue === 'string') {
+        const content = rawValue.trim()
+        return {
+            ...sourceData,
+            [fieldId]: content.length > 0 ? `${content}${fallbackSuffix}` : fallbackSuffix.trim()
+        }
+    }
+
+    if (isLocalizedContent(rawValue)) {
+        const nextLocales = { ...(rawValue.locales ?? {}) }
+        let hasAnyContent = false
+        for (const [localeKey, localeValue] of Object.entries(nextLocales)) {
+            const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+            if (!content) continue
+            hasAnyContent = true
+            nextLocales[localeKey] = {
+                ...(localeValue ?? {}),
+                content: `${content}${getCopySuffix(localeKey)}`
+            }
+        }
+        if (!hasAnyContent) {
+            const primaryLocale = normalizeLocale(rawValue._primary || locale)
+            nextLocales[primaryLocale] = {
+                content: `${getCopyLabel(primaryLocale)}${getCopySuffix(primaryLocale)}`
+            }
+        }
+
+        return {
+            ...sourceData,
+            [fieldId]: {
+                ...rawValue,
+                locales: nextLocales
+            }
+        }
+    }
+
+    return {
+        ...sourceData,
+        [fieldId]: `${getCopyLabel(locale)}${fallbackSuffix}`
+    }
+}
+
+const stripReadOnlyEnumerationLabelFields = (params: {
+    payload: Record<string, unknown>
+    fieldConfigs: FieldConfig[]
+}): Record<string, unknown> => {
+    const { payload, fieldConfigs } = params
+    const result: Record<string, unknown> = {}
+
+    for (const field of fieldConfigs) {
+        if (!Object.prototype.hasOwnProperty.call(payload, field.id)) continue
+
+        if (field.type === 'REF' && field.refTargetEntityKind === 'enumeration' && field.enumPresentationMode === 'label') {
+            continue
+        }
+
+        if (field.type === 'TABLE') {
+            const rawRows = payload[field.id]
+            if (!Array.isArray(rawRows)) {
+                result[field.id] = rawRows
+                continue
+            }
+
+            const childFields = field.childFields ?? []
+            const sanitizedRows = rawRows.map((row) => {
+                if (!row || typeof row !== 'object') return row
+                const rowRecord = row as Record<string, unknown>
+                const sanitizedRow: Record<string, unknown> = {}
+
+                for (const childField of childFields) {
+                    if (!Object.prototype.hasOwnProperty.call(rowRecord, childField.id)) continue
+                    if (
+                        childField.type === 'REF' &&
+                        childField.refTargetEntityKind === 'enumeration' &&
+                        childField.enumPresentationMode === 'label'
+                    ) {
+                        continue
+                    }
+                    sanitizedRow[childField.id] = rowRecord[childField.id]
+                }
+
+                return sanitizedRow
+            })
+
+            result[field.id] = sanitizedRows
+            continue
+        }
+
+        result[field.id] = payload[field.id]
+    }
+
+    return result
+}
+
 // ---------------------------------------------------------------------------
 //  Helper: convert menu items to DashboardMenuItem[]
 // ---------------------------------------------------------------------------
@@ -180,6 +295,13 @@ export interface CrudDashboardState {
     handleCloseDelete: () => void
     handleConfirmDelete: () => Promise<void>
 
+    // Copy dialog
+    copyRowId: string | null
+    copyError: string | null
+    isCopying: boolean
+    handleOpenCopy: (rowId: string) => void
+    handleCloseCopy: () => void
+
     // Row actions menu
     menuAnchorEl: HTMLElement | null
     menuRowId: string | null
@@ -216,8 +338,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const [formOpen, setFormOpen] = useState(false)
     const [editRowId, setEditRowId] = useState<string | null>(null)
     const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
+    const [copyRowId, setCopyRowId] = useState<string | null>(null)
     const [formError, setFormError] = useState<string | null>(null)
     const [deleteError, setDeleteError] = useState<string | null>(null)
+    const [copyError, setCopyError] = useState<string | null>(null)
 
     // ----- Row actions menu state -----
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
@@ -236,7 +360,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         () => [...queryKeyPrefix, 'list', selectedCatalogId, { limit, offset, locale }] as const,
         [queryKeyPrefix, selectedCatalogId, limit, offset, locale]
     )
-    const rowKey = useMemo(() => [...queryKeyPrefix, 'row', editRowId] as const, [queryKeyPrefix, editRowId])
+    const sourceRowId = copyRowId ?? editRowId
+    const rowKey = useMemo(() => [...queryKeyPrefix, 'row', sourceRowId] as const, [queryKeyPrefix, sourceRowId])
 
     // ----- List query -----
     const listQuery = useQuery({
@@ -249,6 +374,27 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const appData = listQuery.data
     const activeCatalogId = appData?.activeCatalogId ?? appData?.catalog.id
+    const tableColumnRefs = useMemo(
+        () =>
+            (appData?.columns ?? [])
+                .filter((column) => column.dataType === 'TABLE')
+                .map((column) => ({
+                    fieldId: column.field,
+                    attributeId: column.id
+                })),
+        [appData?.columns]
+    )
+    const copyTablesKey = useMemo(
+        () =>
+            [
+                ...queryKeyPrefix,
+                'copy-table-data',
+                sourceRowId,
+                selectedCatalogId,
+                tableColumnRefs.map((column) => column.fieldId).join(',')
+            ] as const,
+        [queryKeyPrefix, sourceRowId, selectedCatalogId, tableColumnRefs]
+    )
 
     // Schema fingerprint (M4)
     const currentSchemaFingerprint = useMemo(() => {
@@ -258,6 +404,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             .sort()
             .join(',')
     }, [appData?.columns])
+    const fieldConfigs = useMemo(() => (appData ? toFieldConfigs(appData) : []), [appData])
 
     // Initialize catalog from backend response
     useEffect(() => {
@@ -268,8 +415,34 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     // ----- Row query (for edit) -----
     const rowQuery = useQuery({
         queryKey: rowKey,
-        queryFn: () => adapter!.fetchRow(editRowId!, selectedCatalogId),
-        enabled: Boolean(adapter && editRowId),
+        queryFn: () => adapter!.fetchRow(sourceRowId!, selectedCatalogId),
+        enabled: Boolean(adapter && sourceRowId),
+        staleTime: 0,
+        gcTime: 0
+    })
+
+    const copyTablesQuery = useQuery({
+        queryKey: copyTablesKey,
+        queryFn: async () => {
+            const fetchTabularRows = adapter?.fetchTabularRows
+            if (!fetchTabularRows || !sourceRowId || tableColumnRefs.length === 0) {
+                return {} as Record<string, Array<Record<string, unknown>>>
+            }
+
+            const entries = await Promise.all(
+                tableColumnRefs.map(async (column) => {
+                    const rows = await fetchTabularRows({
+                        parentRowId: sourceRowId,
+                        attributeId: column.attributeId,
+                        catalogId: selectedCatalogId ?? activeCatalogId
+                    })
+                    return [column.fieldId, rows] as const
+                })
+            )
+
+            return Object.fromEntries(entries)
+        },
+        enabled: Boolean(copyRowId && adapter?.fetchTabularRows && sourceRowId && tableColumnRefs.length > 0),
         staleTime: 0,
         gcTime: 0
     })
@@ -316,6 +489,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- CRUD handlers -----
     const handleOpenCreate = useCallback(() => {
+        setCopyRowId(null)
+        setCopyError(null)
         setEditRowId(null)
         setFormError(null)
         formColumnsRef.current = currentSchemaFingerprint
@@ -324,6 +499,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const handleOpenEdit = useCallback(
         (rowId: string) => {
+            setCopyRowId(null)
+            setCopyError(null)
             setEditRowId(rowId)
             setFormError(null)
             formColumnsRef.current = currentSchemaFingerprint
@@ -335,7 +512,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const handleCloseForm = useCallback(() => {
         setFormOpen(false)
         setEditRowId(null)
+        setCopyRowId(null)
         setFormError(null)
+        setCopyError(null)
         formColumnsRef.current = null
     }, [])
 
@@ -351,28 +530,42 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 return
             }
             try {
-                if (editRowId) {
-                    await updateMutation.mutateAsync({ rowId: editRowId, data })
+                const sanitizedData = stripReadOnlyEnumerationLabelFields({
+                    payload: data,
+                    fieldConfigs
+                })
+                if (copyRowId) {
+                    setCopyError(null)
+                    await createMutation.mutateAsync(sanitizedData)
+                } else if (editRowId) {
+                    await updateMutation.mutateAsync({ rowId: editRowId, data: sanitizedData })
                 } else {
-                    await createMutation.mutateAsync(data)
+                    await createMutation.mutateAsync(sanitizedData)
                 }
                 handleCloseForm()
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err)
-                setFormError(
-                    editRowId
-                        ? t('app.errorUpdate', {
-                              defaultValue: 'Update failed: {{message}}',
-                              message: msg
-                          })
-                        : t('app.errorCreate', {
-                              defaultValue: 'Create failed: {{message}}',
-                              message: msg
-                          })
-                )
+                const resolvedError = copyRowId
+                    ? t('app.errorCopy', {
+                          defaultValue: 'Copy failed: {{message}}',
+                          message: msg
+                      })
+                    : editRowId
+                    ? t('app.errorUpdate', {
+                          defaultValue: 'Update failed: {{message}}',
+                          message: msg
+                      })
+                    : t('app.errorCreate', {
+                          defaultValue: 'Create failed: {{message}}',
+                          message: msg
+                      })
+                setFormError(resolvedError)
+                if (copyRowId) {
+                    setCopyError(resolvedError)
+                }
             }
         },
-        [editRowId, updateMutation, createMutation, handleCloseForm, t, currentSchemaFingerprint]
+        [copyRowId, editRowId, fieldConfigs, updateMutation, createMutation, handleCloseForm, t, currentSchemaFingerprint]
     )
 
     const handleOpenDelete = useCallback((rowId: string) => {
@@ -400,6 +593,22 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             )
         }
     }, [deleteRowId, deleteMutation, handleCloseDelete, t])
+
+    const handleOpenCopy = useCallback(
+        (rowId: string) => {
+            setFormOpen(true)
+            setCopyError(null)
+            setFormError(null)
+            setCopyRowId(rowId)
+            setEditRowId(null)
+            formColumnsRef.current = currentSchemaFingerprint
+        },
+        [currentSchemaFingerprint]
+    )
+
+    const handleCloseCopy = useCallback(() => {
+        handleCloseForm()
+    }, [handleCloseForm])
 
     // ----- Row actions menu -----
     const handleOpenMenu = useCallback((event: React.MouseEvent<HTMLElement>, rowId: string) => {
@@ -435,8 +644,6 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 : [],
         [appData, t, handleOpenMenu, cellRenderers]
     )
-
-    const fieldConfigs = useMemo(() => (appData ? toFieldConfigs(appData) : []), [appData])
 
     const rows = useMemo(() => (appData ? appData.rows : []), [appData])
 
@@ -488,15 +695,29 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // Form initial data
     const formInitialData = useMemo(() => {
-        if (!editRowId) return undefined
+        if (!sourceRowId) return undefined
         if (rowQuery.data) {
             const raw = rowQuery.data as Record<string, unknown>
-            return (raw.data as Record<string, unknown>) ?? raw
+            const sourceData = ((raw.data as Record<string, unknown>) ?? raw) as Record<string, unknown>
+            if (copyRowId) {
+                const withCopySuffix = appendCopySuffixToFirstStringField({
+                    sourceData,
+                    fieldConfigs,
+                    locale
+                })
+                const tableData = copyTablesQuery.data ?? {}
+                return {
+                    ...withCopySuffix,
+                    ...tableData
+                }
+            }
+            return sourceData
         }
         return undefined
-    }, [editRowId, rowQuery.data])
+    }, [sourceRowId, copyRowId, fieldConfigs, rowQuery.data, copyTablesQuery.data, locale])
 
-    const isFormReady = !editRowId || Boolean(rowQuery.data)
+    const isCopyTablesReady = !copyRowId || tableColumnRefs.length === 0 || !adapter?.fetchTabularRows || Boolean(copyTablesQuery.data)
+    const isFormReady = !sourceRowId || (Boolean(rowQuery.data) && isCopyTablesReady)
 
     return {
         // Data
@@ -548,6 +769,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         handleOpenDelete,
         handleCloseDelete,
         handleConfirmDelete,
+        copyRowId,
+        copyError,
+        isCopying: Boolean(copyRowId) && createMutation.isPending,
+        handleOpenCopy,
+        handleCloseCopy,
 
         // Row menu
         menuAnchorEl,

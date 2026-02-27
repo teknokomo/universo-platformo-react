@@ -208,7 +208,7 @@ export class SnapshotSerializer {
                             codename: child.codename,
                             dataType: child.dataType,
                             isRequired: child.isRequired,
-                            isDisplayAttribute: false,
+                            isDisplayAttribute: child.isDisplayAttribute ?? false,
                             targetEntityId: child.targetEntityId ?? undefined,
                             targetEntityKind: child.targetEntityKind ?? undefined,
                             presentation: {
@@ -414,6 +414,7 @@ export class SnapshotSerializer {
                                           codename: child.codename,
                                           dataType: child.dataType,
                                           isRequired: child.isRequired,
+                                          isDisplayAttribute: child.isDisplayAttribute ?? false,
                                           targetEntityId: child.targetEntityId ?? null,
                                           targetEntityKind: child.targetEntityKind ?? null,
                                           presentation: child.presentation ?? {},

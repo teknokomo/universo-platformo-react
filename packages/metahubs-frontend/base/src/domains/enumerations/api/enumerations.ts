@@ -210,6 +210,13 @@ export interface EnumerationValuesResponse {
     total: number
 }
 
+export interface EnumerationValueBlockingReferencesResponse {
+    valueId: string
+    canDelete: boolean
+    blockingDefaults: unknown[]
+    blockingElements: unknown[]
+}
+
 export const listEnumerationValues = async (metahubId: string, enumerationId: string): Promise<EnumerationValuesResponse> => {
     const response = await apiClient.get<EnumerationValuesResponse>(`/metahub/${metahubId}/enumeration/${enumerationId}/values`)
     return response.data
@@ -217,6 +224,17 @@ export const listEnumerationValues = async (metahubId: string, enumerationId: st
 
 export const getEnumerationValue = async (metahubId: string, enumerationId: string, valueId: string): Promise<EnumerationValue> => {
     const response = await apiClient.get<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`)
+    return response.data
+}
+
+export const getEnumerationValueBlockingReferences = async (
+    metahubId: string,
+    enumerationId: string,
+    valueId: string
+): Promise<EnumerationValueBlockingReferencesResponse> => {
+    const response = await apiClient.get<EnumerationValueBlockingReferencesResponse>(
+        `/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/blocking-references`
+    )
     return response.data
 }
 
@@ -235,3 +253,13 @@ export const moveEnumerationValue = (metahubId: string, enumerationId: string, v
 
 export const deleteEnumerationValue = (metahubId: string, enumerationId: string, valueId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`)
+
+export const copyEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, data?: EnumerationValueCopyInput) =>
+    apiClient.post<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/copy`, data ?? {})
+
+export type EnumerationValueCopyInput = Partial<
+    Pick<
+        EnumerationValueLocalizedPayload,
+        'codename' | 'name' | 'description' | 'namePrimaryLocale' | 'descriptionPrimaryLocale' | 'isDefault'
+    >
+>

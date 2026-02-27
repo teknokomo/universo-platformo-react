@@ -74,6 +74,7 @@ export const appDataResponseSchema = z.object({
             dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE']),
             headerName: z.string(),
             isRequired: z.boolean().optional().default(false),
+            isDisplayAttribute: z.boolean().optional(),
             validationRules: z.record(z.unknown()).optional().default({}),
             uiConfig: z.record(z.unknown()).optional().default({}),
             refTargetEntityId: z.string().nullable().optional(),
@@ -110,6 +111,7 @@ export const appDataResponseSchema = z.object({
                         dataType: z.string(),
                         headerName: z.string(),
                         isRequired: z.boolean().optional().default(false),
+                        isDisplayAttribute: z.boolean().optional(),
                         validationRules: z.record(z.unknown()).optional().default({}),
                         uiConfig: z.record(z.unknown()).optional().default({}),
                         refTargetEntityId: z.string().nullable().optional(),
@@ -353,6 +355,31 @@ export async function deleteAppRow(options: {
     }
 }
 
+/** Copy an existing row. */
+export async function copyAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    rowId: string
+    catalogId?: string
+    copyChildTables?: boolean
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, rowId, catalogId, copyChildTables = true } = options
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
+    const body: Record<string, unknown> = { copyChildTables }
+    if (catalogId) body.catalogId = catalogId
+
+    const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Copy row failed'))
+    }
+    return res.json()
+}
+
 // ---------------------------------------------------------------------------
 // Tabular (TABLE attribute child rows) API helpers
 // ---------------------------------------------------------------------------
@@ -460,4 +487,31 @@ export async function deleteTabularRow(options: {
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Delete tabular row failed'))
     }
+}
+
+/** Copy a child row in a TABLE attribute. */
+export async function copyTabularRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    parentRecordId: string
+    attributeId: string
+    catalogId: string
+    childRowId: string
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, childRowId } = options
+    let url = buildAppApiUrl(
+        apiBaseUrl,
+        applicationId,
+        `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}/copy`
+    )
+    url += `?catalogId=${encodeURIComponent(catalogId)}`
+
+    const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'include'
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Copy tabular row failed'))
+    }
+    return res.json()
 }

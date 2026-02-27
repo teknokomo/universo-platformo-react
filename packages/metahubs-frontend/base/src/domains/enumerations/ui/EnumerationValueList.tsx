@@ -4,6 +4,7 @@ import { Box, Divider, Stack, Switch, FormControlLabel, Tooltip, Typography } fr
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import StarOutlineRoundedIcon from '@mui/icons-material/StarOutlineRounded'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
@@ -29,11 +30,17 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import type { ActionDescriptor } from '@universo/template-mui'
 import type { EnumerationValue, EnumerationValueDisplay } from '../../../types'
 import { getVLCString, toEnumerationValueDisplay } from '../../../types'
-import { normalizeLocale, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
+import { normalizeLocale, extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
 import { CodenameField } from '../../../components'
-import { listEnumerationValues } from '../api'
-import { useCreateEnumerationValue, useDeleteEnumerationValue, useMoveEnumerationValue, useUpdateEnumerationValue } from '../hooks'
+import { getEnumerationValueBlockingReferences, listEnumerationValues } from '../api'
+import {
+    useCopyEnumerationValue,
+    useCreateEnumerationValue,
+    useDeleteEnumerationValue,
+    useMoveEnumerationValue,
+    useUpdateEnumerationValue
+} from '../hooks'
 import { metahubsQueryKeys } from '../../shared'
 
 type ValueFormValues = {
@@ -44,13 +51,48 @@ type ValueFormValues = {
     isDefault?: boolean
 }
 
+type CopyValueFormValues = {
+    nameVlc: VersionedLocalizedContent<string> | null
+    descriptionVlc: VersionedLocalizedContent<string> | null
+    codename: string
+    codenameTouched?: boolean
+    isDefault?: boolean
+}
+
+const appendCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback: string
+): VersionedLocalizedContent<string> => {
+    const normalizedLocale = normalizeLocale(uiLocale)
+    const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+    const source = ensureLocalizedContent(value, normalizedLocale, fallback)
+    const nextLocales = { ...(source.locales ?? {}) } as Record<string, { content?: string }>
+    for (const [locale, localeValue] of Object.entries(nextLocales)) {
+        const localeSuffix = normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${localeSuffix}` }
+        }
+    }
+    const hasAny = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAny) {
+        nextLocales[normalizedLocale] = { content: `${fallback || 'Copy'}${suffix}` }
+    }
+    return {
+        ...source,
+        locales: nextLocales
+    }
+}
+
 const ValueFormFields = ({
     values,
     setValue,
     isLoading,
     errors,
     uiLocale,
-    translate
+    translate,
+    showDefaultToggle = true
 }: {
     values: Record<string, any>
     setValue: (name: string, value: any) => void
@@ -58,6 +100,7 @@ const ValueFormFields = ({
     errors: Record<string, string>
     uiLocale: string
     translate: (key: string, defaultValue?: string) => string
+    showDefaultToggle?: boolean
 }) => {
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
@@ -102,13 +145,17 @@ const ValueFormFields = ({
 
             <Divider />
 
-            <FormControlLabel
-                control={<Switch checked={Boolean(values.isDefault)} onChange={(_, checked) => setValue('isDefault', checked)} />}
-                label={translate('enumerationValues.isDefault', 'Default value')}
-                disabled={isLoading}
-            />
+            {showDefaultToggle ? (
+                <>
+                    <FormControlLabel
+                        control={<Switch checked={Boolean(values.isDefault)} onChange={(_, checked) => setValue('isDefault', checked)} />}
+                        label={translate('enumerationValues.isDefault', 'Default value')}
+                        disabled={isLoading}
+                    />
 
-            <Divider />
+                    <Divider />
+                </>
+            ) : null}
 
             <CodenameField
                 value={codename}
@@ -141,6 +188,7 @@ const EnumerationValueList = () => {
     const updateMutation = useUpdateEnumerationValue()
     const deleteMutation = useDeleteEnumerationValue()
     const moveMutation = useMoveEnumerationValue()
+    const copyMutation = useCopyEnumerationValue()
 
     const {
         data: valuesResponse,
@@ -153,6 +201,18 @@ const EnumerationValueList = () => {
     })
 
     const values = useMemo(() => valuesResponse?.items ?? [], [valuesResponse?.items])
+
+    const [copyState, setCopyState] = useState<{ open: boolean; value: EnumerationValue | null }>({ open: false, value: null })
+    const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
+
+    const { data: blockingInfo } = useQuery({
+        queryKey:
+            metahubId && enumerationId && editingValue?.id
+                ? ['metahubs', 'enumerationValueBlockingRefs', metahubId, enumerationId, editingValue.id]
+                : ['metahubs', 'enumerationValueBlockingRefs', 'empty'],
+        queryFn: () => getEnumerationValueBlockingReferences(metahubId!, enumerationId!, editingValue!.id),
+        enabled: Boolean(metahubId && enumerationId && editingValue?.id)
+    })
 
     const filteredValues = useMemo(() => {
         const searchValue = search.trim().toLowerCase()
@@ -243,6 +303,19 @@ const EnumerationValueList = () => {
                     const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
                     if (source) {
                         ;(ctx.openEditDialog as ((value: EnumerationValue) => void) | undefined)?.(source)
+                    }
+                }
+            },
+            {
+                id: 'copy',
+                labelKey: 'common:actions.copy',
+                order: 11,
+                icon: <ContentCopyRoundedIcon fontSize='small' />,
+                onSelect: (ctx) => {
+                    const source = (ctx.valueMap as Map<string, EnumerationValue> | undefined)?.get(ctx.entity.id)
+                    if (source) {
+                        setCopyDialogError(null)
+                        setCopyState({ open: true, value: source })
                     }
                 }
             },
@@ -369,6 +442,27 @@ const EnumerationValueList = () => {
             isDefault: editingValue.isDefault ?? false
         }
     }, [editingValue, formDefaults])
+
+    const copyInitialValues = useMemo<CopyValueFormValues>(() => {
+        if (!copyState.value) {
+            return {
+                nameVlc: null,
+                descriptionVlc: null,
+                codename: '',
+                codenameTouched: false,
+                isDefault: false
+            }
+        }
+        const source = copyState.value
+        const sourceName = source.codename || 'value'
+        return {
+            nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
+            descriptionVlc: source.description ?? null,
+            codename: sanitizeCodename(`${source.codename}-copy`),
+            codenameTouched: true,
+            isDefault: false
+        }
+    }, [copyState.value, i18n.language])
 
     const validateForm = (valuesToValidate: Record<string, any>) => {
         const errors: Record<string, string> = {}
@@ -604,7 +698,9 @@ const EnumerationValueList = () => {
             )}
 
             <EntityFormDialog
+                key={`enum-value-edit-${editingValue?.id ?? 'none'}-${editingValue?.version ?? 0}`}
                 open={isDialogOpen}
+                mode='edit'
                 title={
                     editingValue
                         ? t('enumerationValues.editDialog.title', 'Edit enumeration value')
@@ -625,6 +721,102 @@ const EnumerationValueList = () => {
                 onSave={handleSave}
                 hideDefaultFields
                 initialExtraValues={initialFormValues}
+                extraFields={({ values, setValue, isLoading, errors }) => (
+                    <ValueFormFields
+                        values={values}
+                        setValue={setValue}
+                        isLoading={isLoading}
+                        errors={errors ?? {}}
+                        uiLocale={i18n.language}
+                        translate={(key, defaultValue) => t(key, defaultValue)}
+                    />
+                )}
+                validate={validateForm}
+                canSave={canSaveForm}
+                showDeleteButton={Boolean(editingValue)}
+                deleteButtonText={tc('actions.delete', 'Delete')}
+                deleteButtonDisabled={Boolean(editingValue && blockingInfo && !blockingInfo.canDelete)}
+                deleteButtonDisabledReason={
+                    editingValue && blockingInfo && !blockingInfo.canDelete
+                        ? t(
+                              'enumerationValues.deleteBlockedReason',
+                              'Deletion is blocked because this value is used in defaults or predefined elements.'
+                          )
+                        : undefined
+                }
+                onDelete={() => {
+                    if (editingValue) {
+                        setDeleteState({ open: true, value: editingValue })
+                        setDialogOpen(false)
+                    }
+                }}
+            />
+
+            <EntityFormDialog
+                key={`enum-value-copy-${copyState.value?.id ?? 'none'}-${copyState.value?.version ?? 0}`}
+                open={copyState.open}
+                mode='copy'
+                title={t('enumerationValues.copyTitle', 'Копирование значения')}
+                saveButtonText={t('enumerationValues.copy.action', 'Copy')}
+                savingButtonText={t('enumerationValues.copy.actionLoading', 'Copying...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                loading={copyMutation.isPending}
+                error={copyDialogError || undefined}
+                onClose={() => {
+                    setCopyState({ open: false, value: null })
+                    setCopyDialogError(null)
+                }}
+                onSave={async (formValues: Record<string, any>) => {
+                    if (!metahubId || !enumerationId || !copyState.value) return
+                    setCopyDialogError(null)
+
+                    const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
+                    const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+                    const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+                    const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+                    const codename = sanitizeCodename(String(formValues.codename || ''))
+                    const isDefault = Boolean(formValues.isDefault)
+
+                    if (!nameInput || !namePrimaryLocale) {
+                        setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
+                        return
+                    }
+                    if (!codename) {
+                        setCopyDialogError(t('enumerationValues.validation.codenameRequired', 'Codename is required'))
+                        return
+                    }
+
+                    try {
+                        await copyMutation.mutateAsync({
+                            metahubId,
+                            enumerationId,
+                            valueId: copyState.value.id,
+                            data: {
+                                codename,
+                                name: nameInput,
+                                description: descriptionInput,
+                                namePrimaryLocale,
+                                descriptionPrimaryLocale,
+                                isDefault
+                            }
+                        })
+                        setCopyState({ open: false, value: null })
+                    } catch (e: unknown) {
+                        const responseMessage =
+                            e && typeof e === 'object' && 'response' in e
+                                ? (e as any)?.response?.data?.error ?? (e as any)?.response?.data?.message
+                                : undefined
+                        setCopyDialogError(
+                            typeof responseMessage === 'string'
+                                ? responseMessage
+                                : e instanceof Error
+                                ? e.message
+                                : t('enumerationValues.copyError', 'Failed to copy enumeration value')
+                        )
+                    }
+                }}
+                hideDefaultFields
+                initialExtraValues={copyInitialValues}
                 extraFields={({ values, setValue, isLoading, errors }) => (
                     <ValueFormFields
                         values={values}

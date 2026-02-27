@@ -3,6 +3,7 @@ import { Box, Stack, Typography, Chip, Skeleton, Alert, Tooltip, Button } from '
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
@@ -25,14 +26,21 @@ import {
     AttributeLocalizedPayload,
     AttributeValidationRules,
     toAttributeDisplay,
+    getDefaultValidationRules,
     getPhysicalDataType,
     formatPhysicalType
 } from '../../../types'
 import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
-import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
+import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
 import * as attributesApi from '../api'
 import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
-import { useMoveAttribute, useToggleAttributeRequired, useSetDisplayAttribute, useClearDisplayAttribute } from '../hooks/mutations'
+import {
+    useCopyAttribute,
+    useMoveAttribute,
+    useToggleAttributeRequired,
+    useSetDisplayAttribute,
+    useClearDisplayAttribute
+} from '../hooks/mutations'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 
 /**
@@ -104,6 +112,32 @@ const sanitizeChildAttributeUiConfig = (
     return nextUiConfig
 }
 
+const appendCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback: string
+): VersionedLocalizedContent<string> => {
+    const normalizedLocale = normalizeLocale(uiLocale)
+    const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+    const source = ensureLocalizedContent(value, normalizedLocale, fallback)
+    const nextLocales = { ...(source.locales ?? {}) } as Record<string, { content?: string }>
+    for (const [locale, localeValue] of Object.entries(nextLocales)) {
+        const localeSuffix = normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${localeSuffix}` }
+        }
+    }
+    const hasAny = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAny) {
+        nextLocales[normalizedLocale] = { content: `${fallback || 'Copy'}${suffix}` }
+    }
+    return {
+        ...source,
+        locales: nextLocales
+    }
+}
+
 /** Map data type to MUI Chip color */
 const getDataTypeColor = (
     dataType: AttributeDataType | string
@@ -152,6 +186,12 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
     })
     const [isUpdating, setUpdating] = useState(false)
     const [editDialogError, setEditDialogError] = useState<string | null>(null)
+    const [copyState, setCopyState] = useState<{ open: boolean; attribute: Attribute | null }>({
+        open: false,
+        attribute: null
+    })
+    const [isCopying, setCopying] = useState(false)
+    const [copyDialogError, setCopyDialogError] = useState<string | null>(null)
     const [deleteState, setDeleteState] = useState<{ open: boolean; attribute: Attribute | null }>({
         open: false,
         attribute: null
@@ -159,6 +199,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
 
     // Mutation hooks for child attribute actions
     const moveAttributeMutation = useMoveAttribute()
+    const copyAttributeMutation = useCopyAttribute()
     const toggleRequiredMutation = useToggleAttributeRequired()
     const setDisplayAttributeMutation = useSetDisplayAttribute()
     const clearDisplayAttributeMutation = useClearDisplayAttribute()
@@ -340,6 +381,18 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 }
             },
             {
+                id: 'copy',
+                labelKey: 'common:actions.copy',
+                icon: <ContentCopyRoundedIcon />,
+                order: 11,
+                onSelect: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
+                    const attr = childAttributeMap.get(ctx.entity.id)
+                    if (attr) {
+                        setCopyState({ open: true, attribute: attr })
+                    }
+                }
+            },
+            {
                 id: 'move-up',
                 labelKey: 'attributes.actions.moveUp',
                 icon: <ArrowUpwardRoundedIcon />,
@@ -417,7 +470,8 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const raw = childAttributeMap.get(ctx.entity.id)
                     const isRequired = raw?.isRequired ?? ctx.entity?.isRequired ?? false
-                    return isRequired
+                    const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
+                    return isRequired && !isDisplayAttribute
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
@@ -459,7 +513,11 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 visible: (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     const raw = childAttributeMap.get(ctx.entity.id)
                     const isDisplayAttribute = raw?.isDisplayAttribute ?? (ctx.entity as any)?.isDisplayAttribute ?? false
-                    return isDisplayAttribute
+                    const displayAttributesCount = childAttributes.reduce(
+                        (count, attribute) => count + (attribute.isDisplayAttribute ? 1 : 0),
+                        0
+                    )
+                    return isDisplayAttribute && displayAttributesCount > 1
                 },
                 onSelect: async (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
                     try {
@@ -570,11 +628,14 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             codename: '',
             codenameTouched: false,
             dataType: 'STRING' as AttributeDataType,
-            isRequired: false,
+            isRequired: childAttributes.length === 0,
             isDisplayAttribute: childAttributes.length === 0,
             targetEntityId: null,
             targetEntityKind: null,
-            validationRules: {},
+            validationRules: {
+                ...getDefaultValidationRules('STRING'),
+                maxLength: 10
+            },
             uiConfig: {}
         }),
         [childAttributes.length]
@@ -629,83 +690,96 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 isLoading: boolean
                 errors?: Record<string, string>
             },
-            isEditMode: boolean
-        ): TabConfig[] => [
-            {
-                id: 'general',
-                label: t('attributes.tabs.general', 'General'),
-                content: (
-                    <AttributeFormFields
-                        values={values}
-                        setValue={setValue}
-                        isLoading={formLoading}
-                        errors={errors}
-                        uiLocale={i18n.language}
-                        nameLabel={tc('fields.name', 'Name')}
-                        codenameLabel={t('attributes.codename', 'Codename')}
-                        codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
-                        dataTypeLabel={t('attributes.dataType', 'Data Type')}
-                        requiredLabel={t('attributes.isRequiredLabel', 'Required')}
-                        hideDisplayAttribute
-                        dataTypeOptions={childDataTypeOptions}
-                        typeSettingsLabel={t('attributes.typeSettings.title', 'Type Settings')}
-                        stringMaxLengthLabel={t('attributes.typeSettings.string.maxLength', 'Max Length')}
-                        stringMinLengthLabel={t('attributes.typeSettings.string.minLength', 'Min Length')}
-                        stringVersionedLabel={t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
-                        stringLocalizedLabel={t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
-                        numberPrecisionLabel={t('attributes.typeSettings.number.precision', 'Precision')}
-                        numberScaleLabel={t('attributes.typeSettings.number.scale', 'Scale')}
-                        numberMinLabel={t('attributes.typeSettings.number.min', 'Min Value')}
-                        numberMaxLabel={t('attributes.typeSettings.number.max', 'Max Value')}
-                        numberNonNegativeLabel={t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
-                        dateCompositionLabel={t('attributes.typeSettings.date.composition', 'Date Composition')}
-                        dateCompositionOptions={[
-                            { value: 'date', label: t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
-                            { value: 'time', label: t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
-                            {
-                                value: 'datetime',
-                                label: t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time')
+            isEditMode: boolean,
+            includePresentationTab = true,
+            forceDisplayAttributeWhenLocked = true,
+            displayAttributeLockedOverride?: boolean
+        ): TabConfig[] => {
+            const tabs: TabConfig[] = [
+                {
+                    id: 'general',
+                    label: t('attributes.tabs.general', 'General'),
+                    content: (
+                        <AttributeFormFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={formLoading}
+                            errors={errors}
+                            uiLocale={i18n.language}
+                            nameLabel={tc('fields.name', 'Name')}
+                            codenameLabel={t('attributes.codename', 'Codename')}
+                            codenameHelper={t('attributes.codenameHelper', 'Unique identifier')}
+                            dataTypeLabel={t('attributes.dataType', 'Data Type')}
+                            requiredLabel={t('attributes.isRequiredLabel', 'Required')}
+                            hideDisplayAttribute
+                            dataTypeOptions={childDataTypeOptions}
+                            typeSettingsLabel={t('attributes.typeSettings.title', 'Type Settings')}
+                            stringMaxLengthLabel={t('attributes.typeSettings.string.maxLength', 'Max Length')}
+                            stringMinLengthLabel={t('attributes.typeSettings.string.minLength', 'Min Length')}
+                            stringVersionedLabel={t('attributes.typeSettings.string.versioned', 'Versioned (VLC)')}
+                            stringLocalizedLabel={t('attributes.typeSettings.string.localized', 'Localized (VLC)')}
+                            numberPrecisionLabel={t('attributes.typeSettings.number.precision', 'Precision')}
+                            numberScaleLabel={t('attributes.typeSettings.number.scale', 'Scale')}
+                            numberMinLabel={t('attributes.typeSettings.number.min', 'Min Value')}
+                            numberMaxLabel={t('attributes.typeSettings.number.max', 'Max Value')}
+                            numberNonNegativeLabel={t('attributes.typeSettings.number.nonNegative', 'Non-negative only')}
+                            dateCompositionLabel={t('attributes.typeSettings.date.composition', 'Date Composition')}
+                            dateCompositionOptions={[
+                                { value: 'date', label: t('attributes.typeSettings.date.compositionOptions.date', 'Date only') },
+                                { value: 'time', label: t('attributes.typeSettings.date.compositionOptions.time', 'Time only') },
+                                {
+                                    value: 'datetime',
+                                    label: t('attributes.typeSettings.date.compositionOptions.datetime', 'Date and Time')
+                                }
+                            ]}
+                            physicalTypeLabel={t('attributes.physicalType.label', 'PostgreSQL type')}
+                            metahubId={metahubId}
+                            currentCatalogId={catalogId}
+                            dataTypeDisabled={isEditMode}
+                            dataTypeHelperText={
+                                isEditMode
+                                    ? t('attributes.edit.typeChangeDisabled', 'Data type cannot be changed after creation')
+                                    : undefined
                             }
-                        ]}
-                        physicalTypeLabel={t('attributes.physicalType.label', 'PostgreSQL type')}
-                        metahubId={metahubId}
-                        currentCatalogId={catalogId}
-                        dataTypeDisabled={isEditMode}
-                        dataTypeHelperText={
-                            isEditMode ? t('attributes.edit.typeChangeDisabled', 'Data type cannot be changed after creation') : undefined
-                        }
-                        disableVlcToggles={isEditMode}
-                    />
-                )
-            },
-            {
-                id: 'presentation',
-                label: t('attributes.tabs.presentation', 'Presentation'),
-                content: (
-                    <PresentationTabFields
-                        values={values}
-                        setValue={setValue}
-                        isLoading={formLoading}
-                        metahubId={metahubId}
-                        displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                        displayAttributeHelper={t(
-                            'attributes.isDisplayAttributeHelper',
-                            'Use as representation when referencing elements of this catalog'
-                        )}
-                        displayAttributeLocked={childAttributes.length === 0}
-                        headerAsCheckboxLabel={t('attributes.presentation.headerAsCheckbox', 'Display header as checkbox')}
-                        headerAsCheckboxHelper={t(
-                            'attributes.presentation.headerAsCheckboxHelper',
-                            'Show a checkbox in the column header instead of the text label'
-                        )}
-                        dataType={values.dataType ?? 'STRING'}
-                        targetEntityKind={values.targetEntityKind ?? null}
-                        targetEntityId={values.targetEntityId ?? null}
-                        isRequired={Boolean(values.isRequired)}
-                    />
-                )
+                            disableVlcToggles={isEditMode}
+                        />
+                    )
+                }
+            ]
+
+            if (includePresentationTab) {
+                tabs.push({
+                    id: 'presentation',
+                    label: t('attributes.tabs.presentation', 'Presentation'),
+                    content: (
+                        <PresentationTabFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={formLoading}
+                            metahubId={metahubId}
+                            displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                            displayAttributeHelper={t(
+                                'attributes.isDisplayAttributeHelper',
+                                'Use as representation when referencing elements of this catalog'
+                            )}
+                            displayAttributeLocked={displayAttributeLockedOverride ?? childAttributes.length === 0}
+                            forceDisplayAttributeWhenLocked={forceDisplayAttributeWhenLocked}
+                            headerAsCheckboxLabel={t('attributes.presentation.headerAsCheckbox', 'Display header as checkbox')}
+                            headerAsCheckboxHelper={t(
+                                'attributes.presentation.headerAsCheckboxHelper',
+                                'Show a checkbox in the column header instead of the text label'
+                            )}
+                            dataType={values.dataType ?? 'STRING'}
+                            targetEntityKind={values.targetEntityKind ?? null}
+                            targetEntityId={values.targetEntityId ?? null}
+                            isRequired={Boolean(values.isRequired)}
+                        />
+                    )
+                })
             }
-        ],
+
+            return tabs
+        },
         [i18n.language, t, tc, metahubId, catalogId, childDataTypeOptions, childAttributes.length]
     )
 
@@ -827,6 +901,48 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         }
     }
 
+    const handleCopy = async (data: Record<string, any>) => {
+        if (!copyState.attribute) return
+        setCopyDialogError(null)
+        setCopying(true)
+        try {
+            const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            if (!nameInput || !namePrimaryLocale) {
+                setCopyDialogError(tc('crud.nameRequired', 'Name is required'))
+                return
+            }
+
+            const codename = sanitizeCodename(data.codename ?? '')
+            if (!codename) {
+                setCopyDialogError(t('attributes.validation.codenameRequired', 'Codename is required'))
+                return
+            }
+
+            await copyAttributeMutation.mutateAsync({
+                metahubId,
+                hubId,
+                catalogId,
+                attributeId: copyState.attribute.id,
+                data: {
+                    codename,
+                    name: nameInput,
+                    namePrimaryLocale
+                }
+            })
+
+            await invalidateChildQueries()
+            setCopyState({ open: false, attribute: null })
+            enqueueSnackbar(t('attributes.copy.success', 'Attribute copied'), { variant: 'success' })
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : t('attributes.copy.error', 'Failed to copy attribute')
+            setCopyDialogError(message)
+            notifyError(t, enqueueSnackbar, error)
+        } finally {
+            setCopying(false)
+        }
+    }
+
     /** Build initial values for edit dialog from the existing attribute. */
     const editInitialValues = useMemo(() => {
         if (!editState.attribute) return localizedDefaults
@@ -844,6 +960,24 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             uiConfig: attr.uiConfig ?? {}
         }
     }, [editState.attribute, localizedDefaults])
+
+    const copyInitialValues = useMemo(() => {
+        if (!copyState.attribute) return null
+        const source = copyState.attribute
+        const sourceName = source.codename || 'attribute'
+        return {
+            nameVlc: appendCopySuffix(source.name ?? null, i18n.language, sourceName),
+            codename: sanitizeCodename(`${source.codename}-copy`),
+            codenameTouched: true,
+            dataType: source.dataType as AttributeDataType,
+            isRequired: source.isRequired ?? false,
+            targetEntityId: source.targetEntityId ?? null,
+            targetEntityKind: source.targetEntityKind ?? null,
+            isDisplayAttribute: false,
+            validationRules: source.validationRules ?? {},
+            uiConfig: source.uiConfig ?? {}
+        }
+    }, [copyState.attribute, i18n.language])
 
     const tableData = useMemo(() => {
         let filtered = childAttributes
@@ -947,6 +1081,7 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
             <EntityFormDialog
                 key={`child-edit-${editState.attribute?.id ?? 'none'}-${editState.attribute?.version ?? 0}`}
                 open={editState.open}
+                mode='edit'
                 title={t('attributes.editChildDialog.title', 'Edit Child Attribute')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
@@ -962,6 +1097,34 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                 tabs={(args) => buildTabs(args, true)}
                 validate={validate}
                 canSave={canSave}
+                showDeleteButton
+                deleteButtonText={tc('actions.delete', 'Delete')}
+                deleteButtonDisabled={Boolean(editState.attribute?.isDisplayAttribute)}
+                onDelete={() => {
+                    if (editState.attribute) {
+                        setDeleteState({ open: true, attribute: editState.attribute })
+                        setEditState({ open: false, attribute: null })
+                    }
+                }}
+            />
+
+            <EntityFormDialog
+                key={`child-copy-${copyState.attribute?.id ?? 'none'}-${copyState.attribute?.version ?? 0}`}
+                open={copyState.open}
+                mode='copy'
+                title={t('attributes.copyTitle', 'Копирование атрибута')}
+                saveButtonText={t('attributes.copy.action', 'Copy')}
+                savingButtonText={t('attributes.copy.actionLoading', 'Copying...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                loading={isCopying}
+                error={copyDialogError || undefined}
+                onClose={() => setCopyState({ open: false, attribute: null })}
+                onSave={handleCopy}
+                hideDefaultFields
+                initialExtraValues={copyInitialValues ?? localizedDefaults}
+                tabs={(args) => buildTabs(args, true, true, false, false)}
+                validate={validate}
+                canSave={(values) => canSave(values)}
             />
 
             <ConfirmDeleteDialog

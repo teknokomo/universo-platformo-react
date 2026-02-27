@@ -144,21 +144,24 @@ const ApplicationRuntime = () => {
                 applicationId={applicationId}
                 catalogId={state.selectedCatalogId ?? state.activeCatalogId}
                 labels={{
-                    editTitle: t('app.editRow', 'Edit record'),
-                    createTitle: t('app.createRecordTitle', 'Create record'),
+                    editTitle: t('app.editRow', 'Edit element'),
+                    createTitle: t('app.createRecordTitle', 'Create element'),
                     saveText: t('app.save', 'Save'),
                     createText: t('app.create', 'Create'),
                     savingText: t('app.saving', 'Saving...'),
                     creatingText: t('app.creating', 'Creating...'),
                     cancelText: t('app.cancel', 'Cancel'),
                     noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
-                    deleteTitle: t('app.deleteConfirmTitle', 'Delete record?'),
+                    deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
                     deleteDescription: t(
                         'app.deleteConfirmDescription',
-                        'This record will be permanently deleted. This action cannot be undone.'
+                        'This element will be permanently deleted. This action cannot be undone.'
                     ),
                     deleteText: t('app.delete', 'Delete'),
-                    deletingText: t('app.deleting', 'Deleting...')
+                    deletingText: t('app.deleting', 'Deleting...'),
+                    copyTitle: t('app.copyTitle', 'Copy element'),
+                    copyText: t('app.copy', 'Copy'),
+                    copyingText: t('app.copying', 'Copying...')
                 }}
             />
 
@@ -166,6 +169,7 @@ const ApplicationRuntime = () => {
                 state={state}
                 labels={{
                     editText: t('app.edit', 'Edit'),
+                    copyText: t('app.copy', 'Copy'),
                     deleteText: t('app.delete', 'Delete')
                 }}
             />

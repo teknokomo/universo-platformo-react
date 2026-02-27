@@ -23,6 +23,7 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import Divider from '@mui/material/Divider'
 import Menu from '@mui/material/Menu'
@@ -512,6 +513,28 @@ export function InlineTableEditor({
         handleCloseRowMenu()
     }, [menuRowId, handleCloseRowMenu])
 
+    const handleCopyRowFromMenu = useCallback(() => {
+        if (!menuRowId) {
+            handleCloseRowMenu()
+            return
+        }
+        if (typeof maxRows === 'number' && rows.length >= maxRows) {
+            handleCloseRowMenu()
+            return
+        }
+        const sourceIndex = rows.findIndex((row, index) => getRowId(row, index) === menuRowId)
+        if (sourceIndex < 0) {
+            handleCloseRowMenu()
+            return
+        }
+        const sourceRow = rows[sourceIndex]
+        const copiedRow = { ...sourceRow, _localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }
+        const nextRows = [...rows]
+        nextRows.splice(sourceIndex + 1, 0, copiedRow)
+        onChange(nextRows)
+        handleCloseRowMenu()
+    }, [menuRowId, maxRows, rows, onChange, handleCloseRowMenu])
+
     const handleConfirmDelete = useCallback(() => {
         if (deleteRowId) {
             handleDeleteRow(deleteRowId)
@@ -996,6 +1019,10 @@ export function InlineTableEditor({
                 <MenuItem onClick={handleEditRowFromMenu} disabled={!firstEditableFieldId}>
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('elements.table.edit', 'Edit')}
+                </MenuItem>
+                <MenuItem onClick={handleCopyRowFromMenu}>
+                    <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                    {t('elements.table.copy', 'Copy')}
                 </MenuItem>
                 <Divider />
                 <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>

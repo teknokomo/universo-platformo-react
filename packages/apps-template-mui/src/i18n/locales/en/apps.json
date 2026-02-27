@@ -1,11 +1,11 @@
 {
     "app": {
         "createRow": "Create",
-        "createRecordTitle": "Create record",
-        "editRow": "Edit record",
-        "deleteRow": "Delete record",
-        "deleteConfirmTitle": "Delete record?",
-        "deleteConfirmDescription": "This record will be permanently deleted. This action cannot be undone.",
+        "createRecordTitle": "Create element",
+        "editRow": "Edit element",
+        "deleteRow": "Delete element",
+        "deleteConfirmTitle": "Delete element?",
+        "deleteConfirmDescription": "This element will be permanently deleted. This action cannot be undone.",
         "save": "Save",
         "saving": "Saving...",
         "create": "Create",
@@ -16,11 +16,15 @@
         "noFields": "No fields configured for this catalog.",
         "actions": "Actions",
         "edit": "Edit",
+        "copy": "Copy",
+        "copying": "Copying...",
+        "copyTitle": "Copy element",
         "emptyOption": "Empty",
         "errorCreate": "Create failed: {{message}}",
         "errorUpdate": "Update failed: {{message}}",
         "errorDelete": "Delete failed: {{message}}",
-        "errorLoadRow": "Failed to load record data",
+        "errorLoadRow": "Failed to load element data",
+        "errorCopy": "Copy failed: {{message}}",
         "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again."
     },
     "tabular": {
@@ -38,10 +42,16 @@
         "deleteTitle": "Delete Row",
         "deleteDescription": "Are you sure you want to delete this row?",
         "deleting": "Deleting…",
-        "edit": "Edit"
+        "edit": "Edit",
+        "copy": "Copy",
+        "copying": "Copying...",
+        "copyTitle": "Copy row",
+        "copyOptionsTab": "Options",
+        "copyChildTables": "Copy child tables",
+        "copyChildTablesRequiredHint": "This option is required because at least one child table is mandatory."
     },
     "table": {
-        "editAfterSave": "Table data can be edited after saving the record."
+        "editAfterSave": "Table data can be edited after saving the element."
     },
     "validation": {
         "vlcMinLength": "Language \"{{locale}}\": minimum length {{min}}",

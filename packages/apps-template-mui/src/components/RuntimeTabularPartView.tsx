@@ -95,7 +95,10 @@ export function RuntimeTabularPartView({
             deleteDescription: t('tabular.deleteDescription', 'Are you sure you want to delete this row?'),
             deleteText: t('tabular.delete', 'Delete'),
             deletingText: t('tabular.deleting', 'Deleting…'),
+            copyTitle: t('tabular.copyTitle', 'Copy row'),
+            copyingText: t('tabular.copying', 'Copying...'),
             editText: t('tabular.edit', 'Edit'),
+            copyText: t('tabular.copy', 'Copy'),
             addText: t('tabular.addRow', 'Add Row')
         }),
         [t]
@@ -189,7 +192,10 @@ export function RuntimeTabularPartView({
 
             <CrudDialogs state={state} locale={locale} labels={labels} />
 
-            <RowActionsMenu state={state} labels={{ editText: labels.editText, deleteText: labels.deleteText }} />
+            <RowActionsMenu
+                state={state}
+                labels={{ editText: labels.editText, copyText: labels.copyText, deleteText: labels.deleteText }}
+            />
         </Box>
     )
 }
