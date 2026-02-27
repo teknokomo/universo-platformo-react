@@ -8,7 +8,7 @@ import {
     PaginatedResponse,
     HubRef
 } from '../../../types'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { EnumerationCopyOptions, VersionedLocalizedContent } from '@universo/types'
 
 /**
  * Enumeration with parent hubs info (for "all enumerations" view)
@@ -130,6 +130,13 @@ export const createEnumerationAtMetahub = (metahubId: string, data: EnumerationL
  */
 export const createEnumeration = (metahubId: string, hubId: string, data: EnumerationLocalizedPayload & { sortOrder?: number }) =>
     apiClient.post<Enumeration>(`/metahub/${metahubId}/hub/${hubId}/enumerations`, data)
+
+export type EnumerationCopyInput = EnumerationLocalizedPayload & {
+    copyValues?: EnumerationCopyOptions['copyValues']
+}
+
+export const copyEnumeration = (metahubId: string, enumerationId: string, data: EnumerationCopyInput) =>
+    apiClient.post<Enumeration>(`/metahub/${metahubId}/enumeration/${enumerationId}/copy`, data)
 
 /**
  * Update a enumeration (including hub associations via hubIds array)

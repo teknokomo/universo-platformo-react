@@ -154,6 +154,9 @@
         "updateError": "Не удалось обновить макет",
         "deleteSuccess": "Макет удалён",
         "deleteError": "Не удалось удалить макет",
+        "copyTitle": "Копирование макета",
+        "copySuccess": "Макет скопирован",
+        "copyError": "Не удалось скопировать макет",
         "loadError": "Не удалось загрузить макет",
         "validation": {
             "defaultMustBeActive": "Макет по умолчанию должен быть активным"
@@ -180,6 +183,18 @@
             "deactivate": "Деактивировать",
             "toggleActive": "Активность",
             "backToList": "Назад к макетам"
+        },
+        "tabs": {
+            "general": "Основное",
+            "options": "Опции"
+        },
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "options": {
+                "copyWidgets": "Копировать виджеты",
+                "deactivateAllWidgets": "Деактивировать все виджеты"
+            }
         },
         "createDialog": {
             "title": "Создать макет"
@@ -385,6 +400,7 @@
         "emptyDescription": "Создайте первый хаб, чтобы начать определять структуры данных",
         "create": "Создать хаб",
         "editTitle": "Редактировать хаб",
+        "copyTitle": "Копирование хаба",
         "createDialog": {
             "title": "Создать хаб"
         },
@@ -423,6 +439,22 @@
         "createError": "Не удалось создать хаб",
         "updateError": "Не удалось обновить хаб",
         "deleteError": "Не удалось удалить хаб",
+        "copySuccess": "Хаб скопирован",
+        "copyError": "Не удалось скопировать хаб",
+        "tabs": {
+            "general": "Основное",
+            "options": "Опции"
+        },
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "options": {
+                "copyAllRelations": "Копировать все связи",
+                "copyCatalogRelations": "Связи с каталогами",
+                "copyEnumerationRelations": "Связи с перечислениями",
+                "singleHubNotice": "Не будут скопированы связи с сущностями у которых стоит ограничение \"Только один хаб\"."
+            }
+        },
         "validation": {
             "codenameRequired": "Кодовое имя обязательно",
             "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы"
@@ -441,6 +473,7 @@
         "noSearchResultsHint": "Попробуйте другие поисковые запросы",
         "create": "Создать каталог",
         "editTitle": "Редактировать каталог",
+        "copyTitle": "Копирование каталога",
         "createDialog": {
             "title": "Создать каталог"
         },
@@ -481,6 +514,8 @@
         "createError": "Не удалось создать каталог",
         "updateError": "Не удалось обновить каталог",
         "deleteError": "Не удалось удалить каталог",
+        "copySuccess": "Каталог скопирован",
+        "copyError": "Не удалось скопировать каталог",
         "validation": {
             "codenameRequired": "Кодовое имя обязательно",
             "codenameInvalid": "Разрешены только строчные латинские буквы, цифры и дефисы",
@@ -488,7 +523,16 @@
         },
         "tabs": {
             "general": "Основное",
-            "hubs": "Хабы"
+            "hubs": "Хабы",
+            "options": "Опции"
+        },
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "options": {
+                "copyAttributes": "Копировать атрибуты",
+                "copyElements": "Копировать элементы"
+            }
         },
         "addHub": "Добавить",
         "removeHub": "Удалить",
@@ -521,6 +565,9 @@
         "deleteSuccess": "Перечисление удалено",
         "deleteError": "Не удалось удалить перечисление",
         "editTitle": "Редактировать перечисление",
+        "copyTitle": "Копирование перечисления",
+        "copySuccess": "Перечисление скопировано",
+        "copyError": "Не удалось скопировать перечисление",
         "createDialog": {
             "title": "Создать перечисление"
         },
@@ -545,7 +592,15 @@
         "valuesCount_other": "{{count}} значений",
         "tabs": {
             "general": "Основное",
-            "hubs": "Хабы"
+            "hubs": "Хабы",
+            "options": "Опции"
+        },
+        "copy": {
+            "action": "Копировать",
+            "actionLoading": "Копирование...",
+            "options": {
+                "copyValues": "Копировать значения"
+            }
         },
         "validation": {
             "codenameRequired": "Кодовое имя обязательно",

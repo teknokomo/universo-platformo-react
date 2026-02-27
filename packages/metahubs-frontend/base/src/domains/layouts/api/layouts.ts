@@ -7,7 +7,7 @@ import type {
     PaginationParams,
     PaginatedResponse
 } from '../../../types'
-import type { DashboardLayoutWidgetKey, DashboardLayoutZone } from '@universo/types'
+import type { DashboardLayoutWidgetKey, DashboardLayoutZone, LayoutCopyOptions } from '@universo/types'
 
 /**
  * List layouts for a specific metahub
@@ -50,6 +50,18 @@ export const getLayout = (metahubId: string, layoutId: string) => apiClient.get<
  */
 export const createLayout = (metahubId: string, data: MetahubLayoutLocalizedPayload) =>
     apiClient.post<MetahubLayout>(`/metahub/${metahubId}/layouts`, data)
+
+export type LayoutCopyInput = {
+    name: MetahubLayoutLocalizedPayload['name']
+    description?: MetahubLayoutLocalizedPayload['description']
+    namePrimaryLocale?: MetahubLayoutLocalizedPayload['namePrimaryLocale']
+    descriptionPrimaryLocale?: MetahubLayoutLocalizedPayload['descriptionPrimaryLocale']
+    copyWidgets?: LayoutCopyOptions['copyWidgets']
+    deactivateAllWidgets?: LayoutCopyOptions['deactivateAllWidgets']
+}
+
+export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopyInput) =>
+    apiClient.post<MetahubLayout>(`/metahub/${metahubId}/layout/${layoutId}/copy`, data)
 
 /**
  * Update a layout

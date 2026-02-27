@@ -1,6 +1,6 @@
 import { apiClient } from '../../shared'
 import { Catalog, CatalogLocalizedPayload, PaginationParams, PaginatedResponse, HubRef } from '../../../types'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { CatalogCopyOptions, VersionedLocalizedContent } from '@universo/types'
 
 /**
  * Catalog with parent hubs info (for "all catalogs" view)
@@ -115,6 +115,14 @@ export const createCatalogAtMetahub = (metahubId: string, data: CatalogLocalized
  */
 export const createCatalog = (metahubId: string, hubId: string, data: CatalogLocalizedPayload & { sortOrder?: number }) =>
     apiClient.post<Catalog>(`/metahub/${metahubId}/hub/${hubId}/catalogs`, data)
+
+export type CatalogCopyInput = CatalogLocalizedPayload & {
+    copyAttributes?: CatalogCopyOptions['copyAttributes']
+    copyElements?: CatalogCopyOptions['copyElements']
+}
+
+export const copyCatalog = (metahubId: string, catalogId: string, data: CatalogCopyInput) =>
+    apiClient.post<Catalog>(`/metahub/${metahubId}/catalog/${catalogId}/copy`, data)
 
 /**
  * Update a catalog (including hub associations via hubIds array)

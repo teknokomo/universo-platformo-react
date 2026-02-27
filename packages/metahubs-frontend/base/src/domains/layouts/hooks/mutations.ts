@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { MetahubLayoutLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as layoutsApi from '../api'
+import type { LayoutCopyInput } from '../api'
 
 interface CreateLayoutParams {
     metahubId: string
@@ -19,6 +20,12 @@ interface UpdateLayoutParams {
 interface DeleteLayoutParams {
     metahubId: string
     layoutId: string
+}
+
+interface CopyLayoutParams {
+    metahubId: string
+    layoutId: string
+    data: LayoutCopyInput
 }
 
 export function useCreateLayout() {
@@ -80,6 +87,29 @@ export function useDeleteLayout() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('layouts.deleteError', 'Failed to delete layout'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyLayout() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, layoutId, data }: CopyLayoutParams) => {
+            const response = await layoutsApi.copyLayout(metahubId, layoutId, data)
+            return response.data
+        },
+        onSuccess: async (_data, variables) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layouts(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
+            ])
+            enqueueSnackbar(t('layouts.copySuccess', 'Layout copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('layouts.copyError', 'Failed to copy layout'), { variant: 'error' })
         }
     })
 }

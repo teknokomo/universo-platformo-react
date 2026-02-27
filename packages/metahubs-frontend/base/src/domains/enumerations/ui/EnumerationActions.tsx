@@ -1,10 +1,12 @@
-import { Divider, Stack } from '@mui/material'
+import { Checkbox, Divider, FormControlLabel, Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { normalizeEnumerationCopyOptions } from '@universo/utils'
 import type { Enumeration, EnumerationDisplay, EnumerationLocalizedPayload, Hub } from '../../../types'
 import { getVLCString } from '../../../types'
 import { EnumerationWithHubs } from '../api'
@@ -17,6 +19,16 @@ import { CodenameField, HubSelectionPanel } from '../../../components'
  */
 export interface EnumerationDisplayWithHub extends EnumerationDisplay {
     hubId?: string
+}
+
+type EnumerationFormValues = Record<string, unknown>
+type EnumerationFormSetValue = (name: string, value: unknown) => void
+type EnumerationActionContext = ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload> & { hubs?: Hub[] }
+type EnumerationDialogTabArgs = {
+    values: EnumerationFormValues
+    setValue: EnumerationFormSetValue
+    isLoading: boolean
+    errors?: Record<string, string>
 }
 
 const buildInitialValues = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>) => {
@@ -51,7 +63,73 @@ const buildInitialValues = (ctx: ActionContext<EnumerationDisplayWithHub, Enumer
     }
 }
 
-const validateCatalogForm = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>, values: Record<string, any>) => {
+const appendLocalizedCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback?: string
+): VersionedLocalizedContent<string> | null => {
+    if (!value) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        const nextContent = content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}`
+        return {
+            _schema: 'v1',
+            _primary: locale,
+            locales: {
+                [locale]: { content: nextContent }
+            }
+        }
+    }
+
+    const nextLocales = { ...(value.locales || {}) } as Record<string, { content?: string }>
+    const localeEntries = Object.entries(nextLocales)
+    for (const [locale, localeValue] of localeEntries) {
+        const normalizedLocale = normalizeLocale(locale)
+        const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${suffix}` }
+        }
+    }
+
+    const hasAnyContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasAnyContent) {
+        const locale = normalizeLocale(uiLocale)
+        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
+        const content = (fallback || '').trim()
+        nextLocales[locale] = { content: content ? `${content}${suffix}` : locale === 'ru' ? `Копия${suffix}` : `Copy${suffix}` }
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+const buildCopyInitialValues = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>) => {
+    const initial = buildInitialValues(ctx)
+    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+
+    return {
+        ...initial,
+        nameVlc: appendLocalizedCopySuffix(
+            initial.nameVlc as VersionedLocalizedContent<string> | null | undefined,
+            uiLocale,
+            ctx.entity?.name || ctx.entity?.codename || ''
+        ),
+        codenameTouched: false,
+        ...normalizeEnumerationCopyOptions()
+    }
+}
+
+const getEnumerationCopyOptions = (values: Record<string, unknown>) => {
+    return normalizeEnumerationCopyOptions({
+        copyValues: values.copyValues as boolean | undefined
+    })
+}
+
+const validateCatalogForm = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>, values: EnumerationFormValues) => {
     const errors: Record<string, string> = {}
 
     // Hub validation based on isRequiredHub flag
@@ -77,7 +155,7 @@ const validateCatalogForm = (ctx: ActionContext<EnumerationDisplayWithHub, Enume
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveCatalogForm = (values: Record<string, any>) => {
+const canSaveCatalogForm = (values: EnumerationFormValues) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
     const normalizedCodename = sanitizeCodename(rawCodename)
@@ -92,7 +170,7 @@ const canSaveCatalogForm = (values: Record<string, any>) => {
 }
 
 const toPayload = (
-    values: Record<string, any>
+    values: EnumerationFormValues
 ): EnumerationLocalizedPayload & { hubIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -126,8 +204,8 @@ const GeneralTabFields = ({
     t,
     uiLocale
 }: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: EnumerationFormValues
+    setValue: EnumerationFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
     t: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>['t']
@@ -189,6 +267,35 @@ const GeneralTabFields = ({
     )
 }
 
+const EnumerationCopyOptionsTab = ({
+    values,
+    setValue,
+    isLoading,
+    t
+}: {
+    values: EnumerationFormValues
+    setValue: EnumerationFormSetValue
+    isLoading: boolean
+    t: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>['t']
+}) => {
+    const options = getEnumerationCopyOptions(values)
+
+    return (
+        <Stack spacing={1}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyValues}
+                        onChange={(event) => setValue('copyValues', event.target.checked)}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('enumerations.copy.options.copyValues', 'Copy values')}
+            />
+        </Stack>
+    )
+}
+
 /**
  * Build tabs configuration for edit dialog (N:M relationship)
  * Tab 1: General (name, description, codename)
@@ -201,8 +308,8 @@ const buildFormTabs = (ctx: ActionContext<EnumerationDisplayWithHub, Enumeration
         isLoading: isFormLoading,
         errors
     }: {
-        values: Record<string, any>
-        setValue: (name: string, value: any) => void
+        values: EnumerationFormValues
+        setValue: EnumerationFormSetValue
         isLoading: boolean
         errors: Record<string, string>
     }): TabConfig[] => {
@@ -266,7 +373,7 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
             },
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
-                const hubs = ((ctx as any).hubs as Hub[] | undefined) ?? []
+                const hubs = (ctx as EnumerationActionContext).hubs ?? []
 
                 return {
                     open: true,
@@ -280,8 +387,8 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                     hideDefaultFields: true,
                     initialExtraValues: initial,
                     tabs: buildFormTabs(ctx, hubs),
-                    validate: (values: Record<string, any>) => validateCatalogForm(ctx, values),
-                    canSave: (values: Record<string, any>) => canSaveCatalogForm(values),
+                    validate: (values: EnumerationFormValues) => validateCatalogForm(ctx, values),
+                    canSave: (values: EnumerationFormValues) => canSaveCatalogForm(values),
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
                     onDelete: () => {
@@ -298,10 +405,86 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                             console.error('Failed to refresh enumerations list after edit', e)
                         }
                     },
-                    onSave: async (data: Record<string, any>) => {
+                    onSave: async (data: EnumerationFormValues) => {
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
+                            await ctx.helpers?.refreshList?.()
+                        } catch (error: unknown) {
+                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                            throw error
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        id: 'copy',
+        labelKey: 'common:actions.copy',
+        icon: <ContentCopyIcon />,
+        order: 11,
+        dialog: {
+            loader: async () => {
+                const module = await import('@universo/template-mui/components/dialogs')
+                return { default: module.EntityFormDialog }
+            },
+            buildProps: (ctx) => {
+                const initial = buildCopyInitialValues(ctx)
+
+                return {
+                    open: true,
+                    mode: 'create' as const,
+                    title: ctx.t('enumerations.copyTitle', 'Copying Enumeration'),
+                    nameLabel: ctx.t('common:fields.name'),
+                    descriptionLabel: ctx.t('common:fields.description'),
+                    saveButtonText: ctx.t('enumerations.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('enumerations.copy.actionLoading', 'Copying...'),
+                    cancelButtonText: ctx.t('common:actions.cancel'),
+                    hideDefaultFields: true,
+                    initialExtraValues: initial,
+                    tabs: ({ values, setValue, isLoading, errors }: EnumerationDialogTabArgs) => [
+                        {
+                            id: 'general',
+                            label: ctx.t('enumerations.tabs.general', 'General'),
+                            content: (
+                                <GeneralTabFields
+                                    values={values}
+                                    setValue={setValue}
+                                    isLoading={isLoading}
+                                    errors={errors}
+                                    t={ctx.t}
+                                    uiLocale={ctx.uiLocale as string}
+                                />
+                            )
+                        },
+                        {
+                            id: 'options',
+                            label: ctx.t('enumerations.tabs.options', 'Options'),
+                            content: <EnumerationCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={ctx.t} />
+                        }
+                    ],
+                    validate: (values: EnumerationFormValues) => validateCatalogForm(ctx, values),
+                    canSave: (values: EnumerationFormValues) => canSaveCatalogForm(values),
+                    onClose: () => {
+                        // BaseEntityMenu handles dialog closing
+                    },
+                    onSuccess: async () => {
+                        try {
+                            await ctx.helpers?.refreshList?.()
+                        } catch (e) {
+                            // eslint-disable-next-line no-console
+                            console.error('Failed to refresh enumerations list after copy', e)
+                        }
+                    },
+                    onSave: async (data: EnumerationFormValues) => {
+                        try {
+                            const payload = toPayload(data)
+                            const copyOptions = getEnumerationCopyOptions(data)
+                            await ctx.api?.copyEntity?.(ctx.entity.id, {
+                                ...payload,
+                                ...copyOptions
+                            })
                             await ctx.helpers?.refreshList?.()
                         } catch (error: unknown) {
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)

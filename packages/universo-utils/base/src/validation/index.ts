@@ -1,6 +1,13 @@
 export { schemas } from './schemas'
 export { CODENAME_PATTERN, normalizeCodename, isValidCodename, sanitizeCodename } from './codename'
-export { normalizeApplicationCopyOptions, normalizeBranchCopyOptions } from './copyOptions'
+export {
+    normalizeApplicationCopyOptions,
+    normalizeBranchCopyOptions,
+    normalizeHubCopyOptions,
+    normalizeCatalogCopyOptions,
+    normalizeEnumerationCopyOptions,
+    normalizeLayoutCopyOptions
+} from './copyOptions'
 export {
     validateNumber,
     validateNumberOrThrow,

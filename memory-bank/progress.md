@@ -43,6 +43,161 @@
 
 ---
 
+## QA Remediation Round 9 — Copy Type-Safety & Evidence (2026-02-27)
+
+Implemented the next remediation pass for metahub entity copy flows with focus on actionable backend type-safety defects and stronger deterministic test evidence.
+
+### Delivered
+1. **Backend route typing hardening in copy-related files**
+- Removed remaining explicit-`any` usage in:
+  - `catalogsRoutes.ts`
+  - `enumerationsRoutes.ts`
+- Introduced explicit local row/summary types and typed mappers for:
+  - list item construction,
+  - hub relation projection,
+  - copy/update response mapping.
+- Replaced unsafe date parsing on `unknown` values with guarded `toTimestamp` helpers used in list sorting.
+- Added explicit `QueryRunner | undefined` return typing for `getRequestQueryRunner` in:
+  - `catalogsRoutes.ts`
+  - `enumerationsRoutes.ts`
+  - `hubsRoutes.ts`
+  - `layoutsRoutes.ts`
+
+2. **Copy-route test evidence hardening**
+- Extended `catalogsRoutes.test.ts` copy transaction stub to support deterministic attribute/element copy branches.
+- Added test coverage for catalog copy default behavior (options omitted -> attributes/elements are copied).
+- Added test coverage for enumeration copy with `copyValues=false` (values are not selected/inserted and `valuesCount=0`).
+- Kept the existing transaction-mock strategy and route-level architecture unchanged.
+
+### Verification
+- Backend route tests:
+  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅
+- Backend build:
+  - `pnpm --filter @universo/metahubs-backend build` ✅
+- Backend lint:
+  - `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only, no errors)
+  - `pnpm --filter @universo/metahubs-backend exec eslint src/domains/catalogs/routes/catalogsRoutes.ts src/domains/enumerations/routes/enumerationsRoutes.ts src/domains/hubs/routes/hubsRoutes.ts src/domains/layouts/routes/layoutsRoutes.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅ (warnings only in test bootstrap stubs, no errors)
+
+## QA Remediation Round 8 — Metahub Entity Copy Completion (2026-02-26)
+
+Closed the remaining QA gaps for metahub entity copy implementation by finalizing backend copy-route evidence and removing explicit-`any` usage in copy-focused changed files.
+
+### Delivered
+1. **Backend copy-route test completeness**
+- Added focused backend route tests for missing copy scenarios:
+  - catalog copy: deterministic codename-conflict retry success path,
+  - enumeration copy: happy-path with values cloning + codename-conflict retry success path,
+  - layout copy: happy-path (`copyWidgets=false`) with transactional insert assertions,
+  - hub copy: explicit single-hub relation conflict path (`HUB_COPY_SINGLE_HUB_RELATION_CONFLICT`).
+
+2. **Copy-focused `no-explicit-any` cleanup**
+- Removed explicit `any` usage in changed copy-related backend/frontend files without changing behavior.
+- Applied safe replacements based on current TypeScript-ESLint guidance (`unknown`, narrow typed aliases, explicit helper types, guarded casts).
+- Kept legacy unrelated `any` usage in untouched code paths out of scope.
+
+3. **Stability verification**
+- Preserved copy behavior while tightening route/test typing and form dialog typing across copy actions.
+- Fixed formatting regressions introduced during remediation via targeted lint autofix.
+
+### Verification
+- Backend copy-route tests:
+  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/hubsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅
+- Frontend tests (executed in package test run, including updated copy tests):
+  - `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx` ✅
+- Targeted lint for changed copy files:
+  - `pnpm exec eslint <touched copy files>` ✅ (no new errors; remaining warnings are expected test mock `no-empty-function` stubs)
+
+## QA Remediation Round 7 — Metahub Entity Copy Cleanup (2026-02-26)
+
+Implemented the final confirmed cleanup item from the latest QA follow-up for metahub entity copy work.
+
+### Delivered
+1. **Removed actionable lint defect in hub copy UI flow**
+- Updated `HubList.tsx` to remove unused `searchValue` binding from `useDebouncedSearch`.
+- Kept behavior unchanged (`handleSearchChange` remains connected to server-side search state).
+
+### Verification
+- Frontend targeted tests:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx` ✅
+- Targeted lint:
+  - `cd packages/metahubs-frontend/base && pnpm exec eslint src/domains/hubs/ui/HubList.tsx` ✅ (warnings only, no new errors)
+
+## QA Remediation Round 6 — Metahub Entity Copy Reliability (2026-02-26)
+
+Implemented and verified the latest remediation round for metahub entity copy stability and evidence quality.
+
+### Delivered
+1. **Bounded hub copy retry behavior**
+- Reworked hub-copy retry loop in `hubsRoutes` to remove potential unbounded retries on relation-update concurrency conflicts.
+- Added deterministic caps:
+  - codename attempt cap (`MAX_CODENAME_ATTEMPTS`),
+  - per-codename concurrent relation retry cap (`MAX_CONCURRENT_RETRIES_PER_CODENAME`).
+- Preserved existing behavior for:
+  - single-hub relation conflict fast-fail (`400` with structured code),
+  - codename unique conflict fallback to next codename candidate.
+
+2. **Hub copy route regression coverage**
+- Extended `hubsRoutes.test.ts` with:
+  - successful copy path (`copyAllRelations=false`) using mocked transaction pipeline,
+  - retry-on-concurrency path (first transaction conflict, second success).
+
+3. **Copy route hardening tests for remaining entities**
+- `catalogsRoutes.test.ts`:
+  - source-catalog-not-found (`404`) copy case,
+  - copy option dependency violation (`copyElements=true` + `copyAttributes=false`) (`400`).
+- `enumerationsRoutes.test.ts`:
+  - source-enumeration-not-found (`404`) copy case,
+  - invalid codename copy validation (`400`).
+- `layoutsRoutes.test.ts`:
+  - invalid copy payload validation (`400`).
+
+### Verification
+- Backend route tests:
+  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅
+- Frontend targeted regression tests:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx` ✅
+- Targeted lint check:
+  - `pnpm --filter @universo/metahubs-backend exec eslint src/domains/hubs/routes/hubsRoutes.ts src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅ (warnings only, no new errors)
+
+## QA Remediation Round 5 — Metahub Entity Copy Hardening (2026-02-26)
+
+Implemented the remaining hardening tasks for metahub entity copy flows with focused backend safety and coverage closure.
+
+### Delivered
+1. **Backend access/existence consistency**
+- Applied explicit metahub access checks for entity copy routes where gaps remained.
+- Added deterministic metahub existence checks for catalog/enumeration copy endpoints (`404 Metahub not found` before copy pipeline).
+
+2. **Hub relation propagation concurrency safety**
+- Hardened hub copy relation propagation with row-level locking and optimistic version checks in relation-update path.
+- Added retry-on-concurrent-update behavior to avoid stale write conflicts during copy.
+
+3. **Backend copy-route tests**
+- Extended route tests for catalog/enumeration copy endpoints with metahub existence + access-denied edge cases.
+- Added dedicated route test files for hub and layout copy endpoints:
+  - `hubsRoutes.test.ts`
+  - `layoutsRoutes.test.ts`
+
+4. **Frontend copy-flow tests**
+- Added option payload normalization tests for:
+  - hub copy (`copyAllRelations` + child normalization),
+  - catalog copy (`copyElements` dependency on `copyAttributes`),
+  - enumeration copy (`copyValues` default behavior).
+- Added layout copy flow entry test that verifies menu action opens the copy dialog.
+
+5. **Utility formatting fix**
+- Fixed formatting in `@universo/utils` copy option normalizer (`normalizeEnumerationCopyOptions`) to keep lint/prettier consistency in touched utility code.
+
+### Verification
+- Backend tests:
+  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅
+- Frontend targeted tests:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx` ✅
+- Targeted lint checks:
+  - `pnpm --filter @universo/metahubs-backend exec eslint src/tests/routes/hubsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅ (warnings only)
+  - `pnpm --filter @universo/metahubs-frontend exec eslint src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx` ✅ (warnings only)
+  - `pnpm --filter @universo/utils exec eslint src/validation/copyOptions.ts` ✅
+
 ## PR #692 Bot Review Remediation (2026-02-26)
 
 Implemented the validated bot-review recommendations from PR #692 with focused deduplication and regression-safe verification.

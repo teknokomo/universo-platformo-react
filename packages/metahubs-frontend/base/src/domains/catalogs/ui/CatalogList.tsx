@@ -34,7 +34,8 @@ import {
     useCreateCatalogAtMetahub,
     useUpdateCatalog,
     useUpdateCatalogAtMetahub,
-    useDeleteCatalog
+    useDeleteCatalog,
+    useCopyCatalog
 } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
@@ -295,6 +296,7 @@ const CatalogList = () => {
     const updateCatalogMutation = useUpdateCatalog()
     const deleteCatalogMutation = useDeleteCatalog()
     const updateCatalogAtMetahubMutation = useUpdateCatalogAtMetahub()
+    const copyCatalogMutation = useCopyCatalog()
 
     // Memoize images object
     const images = useMemo(() => {
@@ -676,6 +678,14 @@ const CatalogList = () => {
                             force: Boolean(targetHubId) // force=true if has multiple hubs
                         })
                     }
+                },
+                copyEntity: async (id: string, payload: CatalogLocalizedPayload & Record<string, unknown>) => {
+                    if (!metahubId) return
+                    await copyCatalogMutation.mutateAsync({
+                        metahubId,
+                        catalogId: id,
+                        data: payload
+                    })
                 }
             },
             helpers: {
@@ -727,6 +737,7 @@ const CatalogList = () => {
         }),
         [
             confirm,
+            copyCatalogMutation,
             deleteCatalogMutation,
             enqueueSnackbar,
             catalogMap,

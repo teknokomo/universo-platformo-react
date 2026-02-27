@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { Knex } from 'knex'
 import {
     DASHBOARD_LAYOUT_WIDGETS,
     DASHBOARD_LAYOUT_ZONES,
@@ -48,6 +49,22 @@ export interface LayoutListOptions {
     search?: string
     includeDeleted?: boolean
 }
+
+type KnexTransaction = Knex.Transaction
+type DbRow = Record<string, unknown>
+
+type ZoneSortOrderRow = {
+    id: string
+    sort_order?: number
+}
+
+type ZoneWidgetConfigRow = {
+    widget_key: unknown
+    zone: unknown
+    is_active?: boolean
+}
+
+export const LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY = '__skipDefaultZoneWidgetSeed'
 
 const layoutTemplateKeySchema = z.literal('dashboard')
 const layoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
@@ -114,7 +131,22 @@ export class MetahubLayoutsService {
         return KnexClient.getInstance()
     }
 
-    private mapRow(row: any): MetahubLayoutRow {
+    private createConflictError(message: string): Error & { statusCode: number; code: string } {
+        return Object.assign(new Error(message), {
+            statusCode: 409,
+            code: 'LAYOUT_CONFLICT'
+        })
+    }
+
+    private shouldSkipDefaultZoneWidgetSeed(layoutConfig: unknown): boolean {
+        if (!layoutConfig || typeof layoutConfig !== 'object') {
+            return false
+        }
+
+        return (layoutConfig as Record<string, unknown>)[LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY] === true
+    }
+
+    private mapRow(row: DbRow): MetahubLayoutRow {
         return {
             id: String(row.id),
             templateKey: (row.template_key ?? 'dashboard') as LayoutTemplateKey,
@@ -130,7 +162,7 @@ export class MetahubLayoutsService {
         }
     }
 
-    private mapZoneWidgetRow(row: any): DashboardLayoutZoneWidgetRow {
+    private mapZoneWidgetRow(row: DbRow): DashboardLayoutZoneWidgetRow {
         return {
             id: String(row.id),
             layoutId: String(row.layout_id),
@@ -152,13 +184,13 @@ export class MetahubLayoutsService {
     }
 
     private async normalizeZoneSortOrders(
-        trx: any,
+        trx: KnexTransaction,
         schemaName: string,
         layoutId: string,
         zone: DashboardLayoutZone,
         userId?: string | null
     ): Promise<void> {
-        const rows = await trx
+        const rows = (await trx
             .withSchema(schemaName)
             .from('_mhb_widgets')
             .where({ layout_id: layoutId, zone, _upl_deleted: false, _mhb_deleted: false })
@@ -166,7 +198,7 @@ export class MetahubLayoutsService {
                 { column: 'sort_order', order: 'asc' },
                 { column: '_upl_created_at', order: 'asc' }
             ])
-            .select(['id', 'sort_order'])
+            .select(['id', 'sort_order'])) as ZoneSortOrderRow[]
 
         for (let i = 0; i < rows.length; i += 1) {
             const nextOrder = i + 1
@@ -184,18 +216,23 @@ export class MetahubLayoutsService {
         }
     }
 
-    private async syncLayoutConfigFromZoneWidgets(trx: any, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
-        const widgets = await trx
+    private async syncLayoutConfigFromZoneWidgets(
+        trx: KnexTransaction,
+        schemaName: string,
+        layoutId: string,
+        userId?: string | null
+    ): Promise<void> {
+        const widgets = (await trx
             .withSchema(schemaName)
             .from('_mhb_widgets')
             .where({ layout_id: layoutId, _upl_deleted: false, _mhb_deleted: false })
-            .select(['widget_key', 'zone', 'is_active'])
+            .select(['widget_key', 'zone', 'is_active'])) as ZoneWidgetConfigRow[]
 
-        const activeWidgets = widgets.filter((row: any) => row.is_active !== false)
+        const activeWidgets = widgets.filter((row) => row.is_active !== false)
         const nextConfig = buildDashboardLayoutConfig(
-            activeWidgets.map((row: any) => ({
-                widgetKey: row.widget_key as DashboardLayoutWidgetKey,
-                zone: row.zone as DashboardLayoutZone
+            activeWidgets.map((row) => ({
+                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+                zone: String(row.zone) as DashboardLayoutZone
             }))
         )
 
@@ -211,7 +248,26 @@ export class MetahubLayoutsService {
             })
     }
 
-    private async ensureDefaultZoneWidgets(trx: any, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
+    private async ensureDefaultZoneWidgets(
+        trx: KnexTransaction,
+        schemaName: string,
+        layoutId: string,
+        userId?: string | null
+    ): Promise<void> {
+        const layoutRow = (await trx
+            .withSchema(schemaName)
+            .from('_mhb_layouts')
+            .where({ id: layoutId, _upl_deleted: false, _mhb_deleted: false })
+            .first(['config'])) as { config?: unknown } | undefined
+
+        if (!layoutRow) {
+            return
+        }
+
+        if (this.shouldSkipDefaultZoneWidgetSeed(layoutRow.config)) {
+            return
+        }
+
         const countRow = (await trx
             .withSchema(schemaName)
             .from('_mhb_widgets')
@@ -291,7 +347,7 @@ export class MetahubLayoutsService {
             .offset(offset)
 
         return {
-            items: rows.map((r: any) => this.mapRow(r)),
+            items: (rows as DbRow[]).map((r) => this.mapRow(r)),
             pagination: { total, limit, offset }
         }
     }
@@ -313,7 +369,7 @@ export class MetahubLayoutsService {
         const isActive = input.isActive ?? true
         const isDefault = input.isDefault ?? false
         if (isDefault && !isActive) {
-            throw new Error('Default layout must be active')
+            throw this.createConflictError('Default layout must be active')
         }
 
         return this.knex.transaction(async (trx) => {
@@ -386,7 +442,7 @@ export class MetahubLayoutsService {
             const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
 
             if (nextIsDefault && !nextIsActive) {
-                throw new Error('Default layout must be active')
+                throw this.createConflictError('Default layout must be active')
             }
 
             // Prevent unsetting the last default layout.
@@ -399,7 +455,7 @@ export class MetahubLayoutsService {
                     .first()
                 const defaultCount = defaultCountRow ? Number(defaultCountRow.count) : 0
                 if (Number.isFinite(defaultCount) && defaultCount <= 1) {
-                    throw new Error('At least one default layout is required')
+                    throw this.createConflictError('At least one default layout is required')
                 }
             }
 
@@ -413,7 +469,7 @@ export class MetahubLayoutsService {
                     .first()
                 const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
                 if (Number.isFinite(activeCount) && activeCount <= 1) {
-                    throw new Error('At least one active layout is required')
+                    throw this.createConflictError('At least one active layout is required')
                 }
             }
 
@@ -445,7 +501,7 @@ export class MetahubLayoutsService {
 
             const updated = input.expectedVersion
                 ? await updateWithVersionCheck({
-                      knex: trx as any,
+                      knex: trx,
                       schemaName,
                       tableName: '_mhb_layouts',
                       entityId: layoutId,
@@ -453,7 +509,7 @@ export class MetahubLayoutsService {
                       expectedVersion: input.expectedVersion,
                       updateData
                   })
-                : await incrementVersion(trx as any, schemaName, '_mhb_layouts', layoutId, updateData)
+                : await incrementVersion(trx, schemaName, '_mhb_layouts', layoutId, updateData)
 
             return this.mapRow(updated)
         })
@@ -475,18 +531,20 @@ export class MetahubLayoutsService {
                 throw new Error('Layout not found')
             }
             if (existing.is_default) {
-                throw new Error('Cannot delete default layout')
+                throw this.createConflictError('Cannot delete default layout')
             }
 
-            const activeCountRow = await trx
-                .withSchema(schemaName)
-                .from('_mhb_layouts')
-                .where({ _upl_deleted: false, _mhb_deleted: false, is_active: true })
-                .count<{ count: string }[]>('* as count')
-                .first()
-            const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
-            if (Number.isFinite(activeCount) && activeCount <= 1) {
-                throw new Error('At least one active layout is required')
+            if (existing.is_active) {
+                const activeCountRow = await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_layouts')
+                    .where({ _upl_deleted: false, _mhb_deleted: false, is_active: true })
+                    .count<{ count: string }[]>('* as count')
+                    .first()
+                const activeCount = activeCountRow ? Number(activeCountRow.count) : 0
+                if (Number.isFinite(activeCount) && activeCount <= 1) {
+                    throw this.createConflictError('At least one active layout is required')
+                }
             }
 
             // Cascade: soft-delete all zone widgets belonging to this layout
@@ -542,7 +600,7 @@ export class MetahubLayoutsService {
                     { column: 'sort_order', order: 'asc' },
                     { column: '_upl_created_at', order: 'asc' }
                 ])
-            return rows.map((row: any) => this.mapZoneWidgetRow(row))
+            return (rows as DbRow[]).map((row) => this.mapZoneWidgetRow(row))
         })
     }
 
@@ -699,7 +757,7 @@ export class MetahubLayoutsService {
                     { column: 'sort_order', order: 'asc' },
                     { column: '_upl_created_at', order: 'asc' }
                 ])
-            return rows.map((row: any) => this.mapZoneWidgetRow(row))
+            return (rows as DbRow[]).map((row) => this.mapZoneWidgetRow(row))
         })
     }
 

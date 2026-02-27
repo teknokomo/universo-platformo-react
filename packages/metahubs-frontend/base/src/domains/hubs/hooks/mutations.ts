@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { HubLocalizedPayload } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import * as hubsApi from '../api'
+import type { HubCopyInput } from '../api'
 
 interface CreateHubParams {
     metahubId: string
@@ -19,6 +20,12 @@ interface UpdateHubParams {
 interface DeleteHubParams {
     metahubId: string
     hubId: string
+}
+
+interface CopyHubParams {
+    metahubId: string
+    hubId: string
+    data: HubCopyInput
 }
 
 export function useCreateHub() {
@@ -79,6 +86,31 @@ export function useDeleteHub() {
         },
         onError: (error: Error) => {
             enqueueSnackbar(error.message || t('hubs.deleteError', 'Failed to delete hub'), { variant: 'error' })
+        }
+    })
+}
+
+export function useCopyHub() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationFn: async ({ metahubId, hubId, data }: CopyHubParams) => {
+            const response = await hubsApi.copyHub(metahubId, hubId, data)
+            return response.data
+        },
+        onSuccess: async (_data, variables) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(variables.metahubId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId) })
+            ])
+            enqueueSnackbar(t('hubs.copySuccess', 'Hub copied'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('hubs.copyError', 'Failed to copy hub'), { variant: 'error' })
         }
     })
 }

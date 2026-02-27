@@ -2,6 +2,130 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## In Progress: QA Remediation Round 9 — Copy Type-Safety & Evidence — 2026-02-27 🚧
+
+> **Goal**: Resolve remaining confirmed QA issues in metahub entity copy implementation: actionable backend typing defects and insufficient evidence depth in copy-route tests.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q9-R1. Backend typing hardening in changed copy files
+- [x] Remove remaining `no-explicit-any` usages in changed copy-related backend route files without behavior changes
+- [x] Replace unsafe `unknown`/generic row plumbing in copy response mapping with explicit local row/value types
+
+### Q9-R2. Copy-flow route evidence hardening
+- [x] Extend backend route tests with focused deterministic assertions for copy option forwarding and response payload shape
+- [x] Keep tests aligned with existing transaction mock strategy (no architecture rewrite)
+
+### Q9-R3. Verification and bookkeeping
+- [x] Run targeted backend tests, build, and lint for touched files/packages
+- [x] Mark this checklist done and append implementation note to `memory-bank/progress.md`
+
+## In Progress: QA Remediation Round 5 — Metahub Entity Copy Hardening — 2026-02-26 🚧
+
+> **Goal**: Fix QA findings for metahub entity copy implementation (security consistency, deterministic API behavior, concurrency safety, and test coverage).
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q5-R1. Backend copy-route access and existence checks
+- [x] Add explicit metahub access checks for hub/catalog/enumeration copy routes
+- [x] Add explicit metahub existence checks in catalog/enumeration copy routes to keep deterministic 404 behavior
+
+### Q5-R2. Hub copy relation propagation concurrency safety
+- [x] Harden relation propagation update path against stale read/write conflicts during hub copy
+
+### Q5-R3. Test coverage gap closure (copy flows)
+- [x] Add backend route tests for copy-route validation/access edge cases (hubs/catalogs/enumerations/layouts)
+- [x] Add frontend tests for copy option payload normalization (hubs/catalogs/enumerations)
+- [x] Add frontend test coverage for layout copy flow entry (menu/dialog invocation)
+
+### Q5-R4. Verification and bookkeeping
+- [x] Run targeted tests/lint for touched packages
+- [x] Mark checklist done and append progress entry
+
+## In Progress: QA Remediation Round 6 — Metahub Entity Copy Reliability — 2026-02-26 🚧
+
+> **Goal**: Fix all confirmed QA issues from the latest audit for metahub entity copy flows with safe, bounded behavior and stronger route-level evidence.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q6-R1. Hub copy bounded retry behavior
+- [x] Remove unbounded retry behavior on hub relation concurrent-update conflicts and keep deterministic bounded outcome
+- [x] Add focused regression test coverage for successful hub copy route execution path
+
+### Q6-R2. Copy route test hardening for remaining entities
+- [x] Extend copy-route tests beyond access-only checks for catalogs/enumerations/layouts with deterministic validation or success-path assertions
+
+### Q6-R3. Verification and bookkeeping
+- [x] Run targeted backend/frontend tests for touched copy-flow files
+- [x] Run targeted lint checks for touched files and ensure no new lint errors
+- [x] Mark checklist done and append progress entry
+
+## In Progress: QA Remediation Round 7 — Metahub Entity Copy Cleanup — 2026-02-26 🚧
+
+> **Goal**: Apply the remaining confirmed implementation fix from QA follow-up and keep copy-flow codebase lint-clean regarding real actionable issues.
+> **Complexity**: Level 1 (Small)
+> **Status**: ✅ Implemented
+
+### Q7-R1. Frontend actionable lint defect cleanup
+- [x] Remove unused `searchValue` state binding in `HubList` search hook wiring to eliminate stale variable and keep intent explicit
+
+### Q7-R2. Verification and bookkeeping
+- [x] Run targeted frontend tests for metahub copy action payloads and action descriptors
+- [x] Run targeted eslint for touched file and confirm no new errors
+- [x] Record completion in `memory-bank/progress.md`
+
+## In Progress: QA Remediation Round 8 — Metahub Entity Copy Completion — 2026-02-26 🚧
+
+> **Goal**: Close remaining QA gaps for metahub entity copy implementation: test-completeness and actionable lint cleanup in changed copy files.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### Q8-R1. Backend copy test completeness
+- [x] Add missing copy happy-path tests for catalogs/enumerations/layouts routes
+- [x] Add missing copy codename-conflict retry/409 tests where applicable
+- [x] Add focused constraint-path test for hub relation copy (`isSingleHub` conflict code)
+
+### Q8-R2. Copy-file lint cleanup (no-explicit-any)
+- [x] Remove `no-explicit-any` usages in changed copy-focused frontend files without behavior changes
+- [x] Remove `no-explicit-any` usages in changed copy-focused backend files/tests without behavior changes
+
+### Q8-R3. Completion bookkeeping
+- [x] Run targeted backend/frontend copy tests
+- [x] Run targeted eslint for changed copy files and confirm no new errors
+- [x] Update `memory-bank/progress.md` with final remediation summary
+
+## In Progress: Metahub Entity Copy — Hubs/Catalogs/Enumerations/Layouts — 2026-02-26 🚧
+
+> **Goal**: Implement copy flows for metahub entities per `memory-bank/plan/metahub-entity-copy-plan-2026-02-26.md` using existing architecture patterns and safe transactional backend behavior.
+> **Complexity**: Level 3 (Significant)
+> **Status**: 🚧 In implementation
+
+### MHEC-R1. Shared copy contracts and normalizers
+- [x] Extend `@universo/types` copy options with hub/catalog/enumeration/layout options + defaults and keys
+- [x] Extend `@universo/utils` copy-options normalization and exports for new option groups
+
+### MHEC-R2. Backend copy endpoints and core algorithms
+- [ ] Add `POST /metahub/:metahubId/hub/:hubId/copy` with options validation and relation-copy safety checks
+- [ ] Add canonical `POST /metahub/:metahubId/catalog/:catalogId/copy` with attribute/element cloning and FK-safe remapping
+- [ ] Add canonical `POST /metahub/:metahubId/enumeration/:enumerationId/copy` with optional values cloning
+- [ ] Add `POST /metahub/:metahubId/layout/:layoutId/copy` with optional widgets cloning and default-safe layout creation
+
+### MHEC-R3. Frontend APIs, mutations, actions, and dialogs
+- [ ] Add copy API wrappers and mutation hooks for hubs/catalogs/enumerations/layouts with proper query invalidation
+- [ ] Add copy actions below edit for hubs/catalogs/enumerations via existing `BaseEntityMenu` descriptor pattern
+- [ ] Add copy action in layouts custom menu and implement copy dialog with `General`/`Options` tabs
+- [ ] Implement option-state behavior (master/child sync and dependencies) without introducing new generic UI frameworks
+- [ ] Keep copy dialog spacing and field layout consistent with existing edit/copy dialogs
+
+### MHEC-R4. i18n and validation/error texts
+- [ ] Add RU/EN i18n keys for all new copy dialogs/options/actions/validation messages under existing namespaces
+
+### MHEC-R5. Tests, lint, and bookkeeping
+- [ ] Update/add frontend tests for action descriptors and copy options payload behavior
+- [ ] Update/add backend route tests for new copy endpoints and validation edge cases
+- [ ] Run targeted tests and lint for touched packages
+- [ ] Mark all checklist items complete and append implementation summary to `memory-bank/progress.md`
+
 ## In Progress: PR #692 Bot Review Remediation — 2026-02-26 🚧
 
 > **Goal**: Validate bot review recommendations from PR #692 and apply only proven, safe fixes without functional regressions.

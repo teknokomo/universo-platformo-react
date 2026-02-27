@@ -1,6 +1,6 @@
 import { apiClient } from '../../shared'
 import { Hub, HubLocalizedPayload, PaginationParams, PaginatedResponse } from '../../../types'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { HubCopyOptions, VersionedLocalizedContent } from '@universo/types'
 
 /**
  * Blocking hub object info returned by blocking-catalogs endpoint
@@ -64,6 +64,15 @@ export const getHub = (metahubId: string, hubId: string) => apiClient.get<Hub>(`
  */
 export const createHub = (metahubId: string, data: HubLocalizedPayload & { sortOrder?: number }) =>
     apiClient.post<Hub>(`/metahub/${metahubId}/hubs`, data)
+
+export type HubCopyInput = HubLocalizedPayload & {
+    copyAllRelations?: HubCopyOptions['copyAllRelations']
+    copyCatalogRelations?: HubCopyOptions['copyCatalogRelations']
+    copyEnumerationRelations?: HubCopyOptions['copyEnumerationRelations']
+}
+
+export const copyHub = (metahubId: string, hubId: string, data: HubCopyInput) =>
+    apiClient.post<Hub>(`/metahub/${metahubId}/hub/${hubId}/copy`, data)
 
 /**
  * Update a hub
