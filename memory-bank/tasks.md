@@ -2,6 +2,29 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## In Progress: PR #696 Bot Review Fixes — 2026-02-27 🚧
+
+> **Goal**: Address valid bot review comments on PR #696 (copy-attributes-elements-values-runtime-rows). Remove legacy migration code, add ROLLBACK error logging.
+> **Complexity**: Level 1 (Small)
+> **Status**: In Progress
+
+### PRF-R1. SchemaGenerator legacy migration removal
+- [x] Remove backward-compat ELSE branch (sort_order, parent_attribute_id column migration)
+- [x] Remove DROP CONSTRAINT for legacy `_app_attributes_object_id_codename_unique`
+- [x] Move partial unique indexes into CREATE TABLE block (IF NOT EXISTS)
+
+### PRF-R2. Application ROLLBACK error logging
+- [x] Replace all `.catch(() => {})` on ROLLBACK queries with error logging (15 instances)
+
+### PRF-R3. Rejected bot comments (no action needed)
+- [x] isDisplayAttribute=false on copy: correct behavior (display attr is exclusive per object)
+- [x] useEffect auto-isRequired: intentional business logic (display attr must be required)
+- [x] STRING_DEFAULT_MAX_LENGTH=10: pre-existing intentional default in 3+ files
+
+### PRF-R4. Verification and push
+- [ ] Build affected packages to verify no regressions
+- [ ] Commit and push to PR branch
+
 ## In Progress: IMPLEMENT Follow-up — Copy UX Simplification & Stability — 2026-02-27 🚧
 
 > **Goal**: Finalize the requested simplifications for copy dialogs/flows in applications and metahubs, ensure display-attribute propagation integrity, and close UX/localization defects without keeping legacy copy-option logic.

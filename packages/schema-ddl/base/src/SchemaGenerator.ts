@@ -605,67 +605,22 @@ export class SchemaGenerator {
                 table.unique(['object_id', 'column_name'])
                 table.index(['parent_attribute_id'], 'idx_app_attributes_parent')
             })
+
+            // Partial unique indexes for codename uniqueness (scoped by parent/root and soft-delete status)
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_codename_root_active
+                ON "${schemaName}"._app_attributes (object_id, codename)
+                WHERE parent_attribute_id IS NULL AND _upl_deleted = false AND _app_deleted = false
+            `)
+
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_parent_codename_child_active
+                ON "${schemaName}"._app_attributes (object_id, parent_attribute_id, codename)
+                WHERE parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false
+            `)
+
             console.log(`[SchemaGenerator] _app_attributes created`)
-        } else {
-            // Backward compatibility: older schemas may have _app_attributes without sort_order.
-            const result = await knex.raw<{ rows: { exists: boolean }[] }>(
-                `
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_schema = ? AND table_name = '_app_attributes' AND column_name = 'sort_order'
-                    ) AS exists
-                `,
-                [schemaName]
-            )
-            const hasSortOrder = result.rows?.[0]?.exists === true
-
-            if (!hasSortOrder) {
-                console.log(`[SchemaGenerator] Adding sort_order column to _app_attributes...`)
-                await knex.schema.withSchema(schemaName).table('_app_attributes', (t) => {
-                    t.integer('sort_order').notNullable().defaultTo(0)
-                })
-            }
-
-            // Backward compatibility: older schemas may lack parent_attribute_id column
-            const parentAttrResult = await knex.raw<{ rows: { exists: boolean }[] }>(
-                `
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_schema = ? AND table_name = '_app_attributes' AND column_name = 'parent_attribute_id'
-                    ) AS exists
-                `,
-                [schemaName]
-            )
-            const hasParentAttributeId = parentAttrResult.rows?.[0]?.exists === true
-
-            if (!hasParentAttributeId) {
-                console.log(`[SchemaGenerator] Adding parent_attribute_id column to _app_attributes...`)
-                await knex.schema.withSchema(schemaName).table('_app_attributes', (t) => {
-                    t.uuid('parent_attribute_id').nullable()
-                    t.foreign('parent_attribute_id').references('id').inTable(`${schemaName}._app_attributes`).onDelete('CASCADE')
-                    t.index(['parent_attribute_id'], 'idx_app_attributes_parent')
-                })
-            }
         }
-
-        await knex.raw(`
-            ALTER TABLE "${schemaName}"."_app_attributes"
-            DROP CONSTRAINT IF EXISTS "_app_attributes_object_id_codename_unique"
-        `)
-
-        await knex.raw(`
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_codename_root_active
-            ON "${schemaName}"._app_attributes (object_id, codename)
-            WHERE parent_attribute_id IS NULL AND _upl_deleted = false AND _app_deleted = false
-        `)
-
-        await knex.raw(`
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_parent_codename_child_active
-            ON "${schemaName}"._app_attributes (object_id, parent_attribute_id, codename)
-            WHERE parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false
-        `)
 
         const hasMigrations = await knex.schema.withSchema(schemaName).hasTable('_app_migrations')
         console.log(`[SchemaGenerator] _app_migrations exists: ${hasMigrations}`)

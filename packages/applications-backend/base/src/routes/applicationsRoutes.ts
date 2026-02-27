@@ -2656,11 +2656,11 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string; _upl_locked?: boolean }>
 
                 if (parentRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Parent record not found' })
                 }
                 if (parentRows[0]._upl_locked) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(423).json({ error: 'Parent record is locked' })
                 }
 
@@ -2678,7 +2678,7 @@ export function createApplicationsRoutes(
                 const activeCount = Number(activeCountRows[0]?.cnt ?? 0)
                 const maxRowsError = getTableRowCountError(activeCount + 1, tc.tableAttr.codename, { minRows, maxRows })
                 if (maxRowsError && maxRows !== null) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(400).json({ error: maxRowsError })
                 }
 
@@ -2690,7 +2690,7 @@ export function createApplicationsRoutes(
                 await ctx.manager.query('COMMIT')
                 return res.status(201).json({ id: inserted.id, status: 'created' })
             } catch (error) {
-                await ctx.manager.query('ROLLBACK').catch(() => {})
+                await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                 throw error
             }
         })
@@ -2922,11 +2922,11 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string; _upl_locked?: boolean }>
 
                 if (parentRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Parent record not found' })
                 }
                 if (parentRows[0]._upl_locked) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(423).json({ error: 'Parent record is locked' })
                 }
 
@@ -2944,7 +2944,7 @@ export function createApplicationsRoutes(
                 )) as Array<Record<string, unknown>>
 
                 if (sourceRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Child row not found' })
                 }
                 const sourceRow = sourceRows[0]
@@ -2964,7 +2964,7 @@ export function createApplicationsRoutes(
                 const activeCount = Number(countRows[0]?.cnt ?? 0)
                 const maxRowsError = getTableRowCountError(activeCount + 1, tc.tableAttr.codename, { minRows, maxRows })
                 if (maxRowsError && maxRows !== null) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(400).json({ error: maxRowsError })
                 }
 
@@ -3006,7 +3006,7 @@ export function createApplicationsRoutes(
                 await ctx.manager.query('COMMIT')
                 return res.status(201).json({ id: inserted.id, status: 'created' })
             } catch (error) {
-                await ctx.manager.query('ROLLBACK').catch(() => {})
+                await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                 throw error
             }
         })
@@ -3045,11 +3045,11 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string; _upl_locked?: boolean }>
 
                 if (parentRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Parent record not found' })
                 }
                 if (parentRows[0]._upl_locked) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(423).json({ error: 'Parent record is locked' })
                 }
 
@@ -3067,7 +3067,7 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string }>
 
                 if (childRows.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Child row not found' })
                 }
 
@@ -3086,7 +3086,7 @@ export function createApplicationsRoutes(
                     const activeCount = Number(activeCountRows[0]?.cnt ?? 0)
                     const minRowsError = getTableRowCountError(activeCount - 1, tc.tableAttr.codename, { minRows, maxRows: null })
                     if (minRowsError) {
-                        await ctx.manager.query('ROLLBACK').catch(() => {})
+                        await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                         return res.status(400).json({ error: minRowsError })
                     }
                 }
@@ -3109,14 +3109,14 @@ export function createApplicationsRoutes(
                 )) as Array<{ id: string }>
 
                 if (deleted.length === 0) {
-                    await ctx.manager.query('ROLLBACK').catch(() => {})
+                    await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                     return res.status(404).json({ error: 'Child row not found' })
                 }
 
                 await ctx.manager.query('COMMIT')
                 return res.json({ status: 'deleted' })
             } catch (error) {
-                await ctx.manager.query('ROLLBACK').catch(() => {})
+                await ctx.manager.query('ROLLBACK').catch((e: unknown) => console.error('[applicationsRoutes] ROLLBACK failed:', e))
                 throw error
             }
         })
