@@ -1,7 +1,10 @@
 import type { EntityManager } from 'typeorm'
 import { Application, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
-import { generateSchemaName } from '../../ddl'
+import { localizedContent } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { generateSchemaName } from '../../ddl'
+
+const { buildLocalizedContent } = localizedContent
 
 /**
  * Options for creating a linked Application with Connector for a Publication
@@ -44,7 +47,7 @@ export async function createLinkedApplication(opts: CreateLinkedApplicationOpts)
 
     // 1. Create Application (slug set via raw update below to guarantee uniqueness per application)
     const application = applicationRepo.create({
-        name: publicationName ?? ({} as VersionedLocalizedContent<string>),
+        name: publicationName ?? buildLocalizedContent({ en: 'Application' }, 'en')!,
         description: publicationDescription ?? undefined,
         _uplCreatedBy: userId,
         _uplUpdatedBy: userId
@@ -78,7 +81,7 @@ export async function createLinkedApplication(opts: CreateLinkedApplicationOpts)
     // 4. Create Connector
     const connector = connectorRepo.create({
         applicationId: application.id,
-        name: metahubName ?? ({} as VersionedLocalizedContent<string>),
+        name: metahubName ?? buildLocalizedContent({ en: 'Connector' }, 'en')!,
         description: metahubDescription ?? undefined,
         sortOrder: 0,
         _uplCreatedBy: userId,

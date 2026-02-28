@@ -43,7 +43,6 @@ import {
 import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
-import { usePublicationDetails } from '../hooks/usePublicationDetails'
 import { usePublicationApplications } from '../hooks/usePublicationApplications'
 import { useCreatePublicationApplication } from '../hooks/applicationMutations'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -72,10 +71,6 @@ export const PublicationApplicationList: React.FC = () => {
     const { metahubId, publicationId } = useParams<{ metahubId: string; publicationId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { t: tc } = useCommonTranslations()
-
-    // ── Publication header context ──────────────────────────────────────
-    const { data: publication } = usePublicationDetails(metahubId!, publicationId!)
-    const publicationName = publication ? getVLCString(publication.name, i18n.language) || '' : ''
 
     // ── Tab navigation ─────────────────────────────────────────────────
     const handlePublicationTabChange = useCallback(
@@ -408,7 +403,7 @@ export const PublicationApplicationList: React.FC = () => {
             >
                 <MenuItem
                     onClick={() => {
-                        if (menuApp) window.open(`/a/${menuApp.id}`, '_blank')
+                        if (menuApp) window.open(`/a/${menuApp.id}`, '_blank', 'noopener,noreferrer')
                         handleMenuClose()
                     }}
                 >
@@ -417,7 +412,7 @@ export const PublicationApplicationList: React.FC = () => {
                 </MenuItem>
                 <MenuItem
                     onClick={() => {
-                        if (menuApp) window.open(`/a/${menuApp.id}/admin`, '_blank')
+                        if (menuApp) window.open(`/a/${menuApp.id}/admin`, '_blank', 'noopener,noreferrer')
                         handleMenuClose()
                     }}
                 >

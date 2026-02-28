@@ -998,8 +998,25 @@ export function createPublicationsRoutes(
                     const versionRepo = ds.getRepository(PublicationVersion)
                     const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
                     if (activeVersion?.snapshotJson) {
+                        const branchId = activeVersion.branchId ?? metahub.defaultBranchId
+                        if (!branchId) {
+                            console.error('[Publications] Cannot generate schema for new application: missing branchId on active publication version and metahub.defaultBranchId')
+                            return res.status(201).json({
+                                application: {
+                                    id: result.application.id,
+                                    name: result.application.name,
+                                    description: result.application.description,
+                                    slug: result.application.slug,
+                                    schemaName: result.appSchemaName
+                                },
+                                connector: {
+                                    id: result.connector.id
+                                },
+                                warning: 'Application created but schema generation skipped: no valid branchId'
+                            })
+                        }
                         const snapshotData = activeVersion.snapshotJson as unknown as MetahubSnapshot
-                        const schemaService = new MetahubSchemaService(ds, activeVersion.branchId ?? '', manager)
+                        const schemaService = new MetahubSchemaService(ds, branchId, manager)
                         const objectsService = new MetahubObjectsService(schemaService)
                         const attributesService = new MetahubAttributesService(schemaService)
                         const snapshotSerializer = new SnapshotSerializer(objectsService, attributesService)

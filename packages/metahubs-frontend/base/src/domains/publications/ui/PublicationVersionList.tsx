@@ -51,7 +51,6 @@ import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { usePublicationVersions } from '../hooks/usePublicationVersions'
-import { usePublicationDetails } from '../hooks/usePublicationDetails'
 import { useCreatePublicationVersion, useUpdatePublicationVersion, useActivatePublicationVersion, useDeletePublicationVersion } from '../hooks/versionMutations'
 import { listBranchOptions } from '../../branches/api/branches'
 import type { VersionedLocalizedContent } from '@universo/types'
@@ -82,10 +81,6 @@ export const PublicationVersionList: React.FC = () => {
     const { metahubId, publicationId } = useParams<{ metahubId: string; publicationId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const { t: tc } = useCommonTranslations()
-
-    // ── Publication header context ──────────────────────────────────────
-    const { data: publication } = usePublicationDetails(metahubId!, publicationId!)
-    const publicationName = publication ? getVLCString(publication.name, i18n.language) || '' : ''
 
     // ── Tab navigation ─────────────────────────────────────────────────
     const handlePublicationTabChange = useCallback(
