@@ -4,7 +4,22 @@
 
 ---
 
-## Active: PR #698 Review Fixes — 2026-02-28 ✅
+## Active: PR #698 QA Fixes — 2026-02-28 ✅
+
+> **Goal**: Fix issues found during comprehensive QA analysis of Publication Drill-In.
+> **Status**: ✅ Complete — build 66/66, lint 0 errors
+
+- [x] M1: Wrap ACTIVATE VERSION in `ds.transaction()` for atomicity (deactivate + activate + update activeVersionId)
+- [x] M2: Add Zod validation schemas `createVersionSchema` / `updateVersionSchema` for CREATE/UPDATE VERSION endpoints
+- [x] L1: Fix prettier errors in `publicationsRoutes.ts` (line-length in ternaries and `console.error`)
+- [x] L1: Fix prettier errors in `applicationSyncRoutes.ts` (inline interface → multi-line)
+- [x] L1: Fix prettier errors in `PublicationVersionList.tsx`, `PublicationApplicationList.tsx`, `PublicationList.tsx`
+- [x] Build: 66/66
+- [ ] Push fixes commit
+
+---
+
+## Completed: PR #698 Review Fixes — 2026-02-28 ✅
 
 > **Goal**: Address Copilot bot review comments on PR #698 (Publication Drill-In).
 > **Status**: ✅ Complete — pushed commit 2d7e07a4

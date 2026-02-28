@@ -1013,7 +1013,11 @@ function mapStructuredChange(change: SchemaChange): DiffStructuredChange {
     }
 }
 
-export async function persistPublishedLayouts(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
+export async function persistPublishedLayouts(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+    userId?: string | null
+}): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
 
@@ -1109,7 +1113,11 @@ export async function persistPublishedLayouts(options: { schemaName: string; sna
     })
 }
 
-export async function persistPublishedWidgets(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
+export async function persistPublishedWidgets(options: {
+    schemaName: string
+    snapshot: MetahubSnapshot
+    userId?: string | null
+}): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
     const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')

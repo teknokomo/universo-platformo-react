@@ -87,6 +87,21 @@ const updatePublicationSchema = z.object({
     expectedVersion: z.number().int().positive().optional()
 })
 
+const createVersionSchema = z.object({
+    name: localizedInputSchema,
+    description: localizedInputSchema.optional(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional(),
+    branchId: z.string().uuid().optional()
+})
+
+const updateVersionSchema = z.object({
+    name: localizedInputSchema.optional(),
+    description: localizedInputSchema.optional().nullable(),
+    namePrimaryLocale: z.string().optional(),
+    descriptionPrimaryLocale: z.string().optional()
+})
+
 const syncSchema = z.object({
     confirmDestructive: z.boolean().optional().default(false)
 })
@@ -506,12 +521,17 @@ export function createPublicationsRoutes(
                 let applicationData: { application: Application; appSchemaName: string } | null = null
                 if (autoCreateApplication && metahub) {
                     // Use custom application name/description if provided, else fall back to publication name
-                    const appName = applicationName && Object.keys(applicationName).length > 0
-                        ? (buildLocalizedContent(sanitizeLocalizedInput(applicationName), applicationNamePrimaryLocale || 'en') ?? null)
-                        : publication.name
-                    const appDescription = applicationDescription && Object.keys(applicationDescription).length > 0
-                        ? (buildLocalizedContent(sanitizeLocalizedInput(applicationDescription), applicationDescriptionPrimaryLocale || 'en') ?? null)
-                        : publication.description
+                    const appName =
+                        applicationName && Object.keys(applicationName).length > 0
+                            ? buildLocalizedContent(sanitizeLocalizedInput(applicationName), applicationNamePrimaryLocale || 'en') ?? null
+                            : publication.name
+                    const appDescription =
+                        applicationDescription && Object.keys(applicationDescription).length > 0
+                            ? buildLocalizedContent(
+                                  sanitizeLocalizedInput(applicationDescription),
+                                  applicationDescriptionPrimaryLocale || 'en'
+                              ) ?? null
+                            : publication.description
                     const linked = await createLinkedApplication({
                         manager,
                         publicationId: publication.id,
@@ -1000,7 +1020,9 @@ export function createPublicationsRoutes(
                     if (activeVersion?.snapshotJson) {
                         const branchId = activeVersion.branchId ?? metahub.defaultBranchId
                         if (!branchId) {
-                            console.error('[Publications] Cannot generate schema for new application: missing branchId on active publication version and metahub.defaultBranchId')
+                            console.error(
+                                '[Publications] Cannot generate schema for new application: missing branchId on active publication version and metahub.defaultBranchId'
+                            )
                             return res.status(201).json({
                                 application: {
                                     id: result.application.id,
@@ -1371,10 +1393,11 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Publication not found in this Metahub' })
             }
 
-            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, branchId } = req.body
-            if (!name || typeof name !== 'object' || Object.keys(name).length === 0) {
-                return res.status(400).json({ error: 'Name is required' })
+            const parsed = createVersionSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
             }
+            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, branchId } = parsed.data
 
             const metahub = await metahubRepo.findOneBy({ id: metahubId })
             if (!metahub) {
@@ -1483,13 +1506,19 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Version not found' })
             }
 
-            // Deactivate all other versions
-            await versionRepo.update({ publicationId }, { isActive: false })
+            // Wrap in transaction to ensure atomicity of deactivate + activate + update activeVersionId
+            await getDataSource().transaction(async (txManager) => {
+                const versionRepoTx = txManager.getRepository(PublicationVersion)
+                const publicationRepoTx = txManager.getRepository(Publication)
 
-            // Activate this version
-            version.isActive = true
-            await versionRepo.save(version)
-            await publicationRepo.update({ id: publicationId }, { activeVersionId: version.id })
+                // Deactivate all other versions
+                await versionRepoTx.update({ publicationId }, { isActive: false })
+
+                // Activate this version
+                version.isActive = true
+                await versionRepoTx.save(version)
+                await publicationRepoTx.update({ id: publicationId }, { activeVersionId: version.id })
+            })
 
             // Notify linked applications about new active version
             await notifyLinkedApplicationsUpdateAvailable(getDataSource(), publicationId, version.id)
@@ -1521,15 +1550,19 @@ export function createPublicationsRoutes(
                 return res.status(404).json({ error: 'Version not found' })
             }
 
-            const { name, description, namePrimaryLocale, descriptionPrimaryLocale } = req.body
+            const parsed = updateVersionSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
+            }
+            const { name, description, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
 
-            if (name && typeof name === 'object' && Object.keys(name).length > 0) {
+            if (name) {
                 version.name = buildLocalizedContent(sanitizeLocalizedInput(name), namePrimaryLocale || 'en')!
             }
 
             if (description !== undefined) {
                 version.description =
-                    description && Object.keys(description).length > 0
+                    description && typeof description === 'object' && Object.keys(description).length > 0
                         ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')!
                         : null
             }

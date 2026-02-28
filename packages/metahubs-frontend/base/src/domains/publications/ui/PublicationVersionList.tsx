@@ -19,7 +19,6 @@ import {
     MenuItem,
     FormHelperText,
     TextField,
-    Tooltip,
     IconButton,
     Menu,
     Divider,
@@ -51,7 +50,12 @@ import type { FlowListTableData } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { usePublicationVersions } from '../hooks/usePublicationVersions'
-import { useCreatePublicationVersion, useUpdatePublicationVersion, useActivatePublicationVersion, useDeletePublicationVersion } from '../hooks/versionMutations'
+import {
+    useCreatePublicationVersion,
+    useUpdatePublicationVersion,
+    useActivatePublicationVersion,
+    useDeletePublicationVersion
+} from '../hooks/versionMutations'
 import { listBranchOptions } from '../../branches/api/branches'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString } from '../../../types'
@@ -255,23 +259,34 @@ export const PublicationVersionList: React.FC = () => {
         return filteredVersions.slice(start, start + pageSize)
     }, [filteredVersions, page, pageSize])
 
-    const paginationState = useMemo(() => ({
-        currentPage: page + 1,
-        pageSize,
-        totalItems: filteredVersions.length,
-        totalPages: Math.ceil(filteredVersions.length / pageSize),
-        hasNextPage: (page + 1) * pageSize < filteredVersions.length,
-        hasPreviousPage: page > 0
-    }), [page, pageSize, filteredVersions.length])
+    const paginationState = useMemo(
+        () => ({
+            currentPage: page + 1,
+            pageSize,
+            totalItems: filteredVersions.length,
+            totalPages: Math.ceil(filteredVersions.length / pageSize),
+            hasNextPage: (page + 1) * pageSize < filteredVersions.length,
+            hasPreviousPage: page > 0
+        }),
+        [page, pageSize, filteredVersions.length]
+    )
 
-    const paginationActions = useMemo(() => ({
-        goToPage: (p: number) => setPage(p - 1),
-        nextPage: () => setPage((prev) => prev + 1),
-        previousPage: () => setPage((prev) => Math.max(0, prev - 1)),
-        setSearch: () => {},
-        setSort: () => {},
-        setPageSize: (size: number) => { setPageSize(size); setPage(0) }
-    }), [])
+    const paginationActions = useMemo(
+        () => ({
+            goToPage: (p: number) => setPage(p - 1),
+            nextPage: () => setPage((prev) => prev + 1),
+            previousPage: () => setPage((prev) => Math.max(0, prev - 1)),
+            // eslint-disable-next-line @typescript-eslint/no-empty-function
+            setSearch: () => {},
+            // eslint-disable-next-line @typescript-eslint/no-empty-function
+            setSort: () => {},
+            setPageSize: (size: number) => {
+                setPageSize(size)
+                setPage(0)
+            }
+        }),
+        []
+    )
 
     const handleCreate = useCallback(() => {
         if (!metahubId || !publicationId) return
@@ -333,7 +348,9 @@ export const PublicationVersionList: React.FC = () => {
         if (!deleteDialogOpen || !metahubId || !publicationId) return
         deleteMutation.mutate(
             { metahubId, publicationId, versionId: deleteDialogOpen },
-            { onSuccess: () => setDeleteDialogOpen(null) }
+            {
+                onSuccess: () => setDeleteDialogOpen(null)
+            }
         )
     }, [deleteDialogOpen, metahubId, publicationId, deleteMutation])
 
@@ -562,7 +579,9 @@ export const PublicationVersionList: React.FC = () => {
                         handleMenuClose()
                     }}
                 >
-                    <ListItemIcon><EditIcon fontSize='small' /></ListItemIcon>
+                    <ListItemIcon>
+                        <EditIcon fontSize='small' />
+                    </ListItemIcon>
                     <ListItemText>{tc('actions.edit')}</ListItemText>
                 </MenuItem>
                 {menuRow && !menuRow.isActive && (
@@ -572,7 +591,9 @@ export const PublicationVersionList: React.FC = () => {
                             handleMenuClose()
                         }}
                     >
-                        <ListItemIcon><PlayArrowIcon fontSize='small' /></ListItemIcon>
+                        <ListItemIcon>
+                            <PlayArrowIcon fontSize='small' />
+                        </ListItemIcon>
                         <ListItemText>{t('metahubs:publications.versions.activate', 'Activate')}</ListItemText>
                     </MenuItem>
                 )}
@@ -587,7 +608,9 @@ export const PublicationVersionList: React.FC = () => {
                     }}
                     sx={{ color: menuRow?.isActive ? undefined : 'error.main' }}
                 >
-                    <ListItemIcon><DeleteIcon fontSize='small' sx={{ color: menuRow?.isActive ? undefined : 'error.main' }} /></ListItemIcon>
+                    <ListItemIcon>
+                        <DeleteIcon fontSize='small' sx={{ color: menuRow?.isActive ? undefined : 'error.main' }} />
+                    </ListItemIcon>
                     <ListItemText>{tc('actions.delete')}</ListItemText>
                 </MenuItem>
             </Menu>
@@ -597,7 +620,10 @@ export const PublicationVersionList: React.FC = () => {
                 <DialogTitle>{t('metahubs:publications.versions.delete', 'Delete version')}</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        {t('metahubs:publications.versions.deleteConfirm', 'Are you sure you want to delete this version? This action cannot be undone.')}
+                        {t(
+                            'metahubs:publications.versions.deleteConfirm',
+                            'Are you sure you want to delete this version? This action cannot be undone.'
+                        )}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>

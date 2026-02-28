@@ -523,10 +523,7 @@ const PublicationList = () => {
                 width: '35%',
                 align: 'left' as const,
                 render: (row: PublicationDisplay) => (
-                    <Link
-                        to={`/metahub/${metahubId}/publication/${row.id}/versions`}
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
+                    <Link to={`/metahub/${metahubId}/publication/${row.id}/versions`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,

@@ -17,7 +17,6 @@ import {
     IconButton,
     Menu,
     MenuItem,
-    Divider,
     ListItemIcon,
     ListItemText,
     Typography
@@ -197,23 +196,32 @@ export const PublicationApplicationList: React.FC = () => {
         return filteredApplications.slice(start, start + pageSize)
     }, [filteredApplications, page, pageSize])
 
-    const paginationState = useMemo(() => ({
-        currentPage: page + 1,
-        pageSize,
-        totalItems: filteredApplications.length,
-        totalPages: Math.ceil(filteredApplications.length / pageSize),
-        hasNextPage: (page + 1) * pageSize < filteredApplications.length,
-        hasPreviousPage: page > 0
-    }), [page, pageSize, filteredApplications.length])
+    const paginationState = useMemo(
+        () => ({
+            currentPage: page + 1,
+            pageSize,
+            totalItems: filteredApplications.length,
+            totalPages: Math.ceil(filteredApplications.length / pageSize),
+            hasNextPage: (page + 1) * pageSize < filteredApplications.length,
+            hasPreviousPage: page > 0
+        }),
+        [page, pageSize, filteredApplications.length]
+    )
 
-    const paginationActions = useMemo(() => ({
-        goToPage: (p: number) => setPage(p - 1),
-        nextPage: () => setPage((prev) => prev + 1),
-        previousPage: () => setPage((prev) => Math.max(0, prev - 1)),
-        setSearch: () => {},
-        setSort: () => {},
-        setPageSize: (size: number) => { setPageSize(size); setPage(0) }
-    }), [])
+    const paginationActions = useMemo(
+        () => ({
+            goToPage: (p: number) => setPage(p - 1),
+            nextPage: () => setPage((prev) => prev + 1),
+            previousPage: () => setPage((prev) => Math.max(0, prev - 1)),
+            setSearch: () => {},
+            setSort: () => {},
+            setPageSize: (size: number) => {
+                setPageSize(size)
+                setPage(0)
+            }
+        }),
+        []
+    )
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleCloseCreateDialog = useCallback(() => {
@@ -407,7 +415,9 @@ export const PublicationApplicationList: React.FC = () => {
                         handleMenuClose()
                     }}
                 >
-                    <ListItemIcon><OpenInNewIcon fontSize='small' /></ListItemIcon>
+                    <ListItemIcon>
+                        <OpenInNewIcon fontSize='small' />
+                    </ListItemIcon>
                     <ListItemText>{t('metahubs:publications.applications.openApp', 'Open application')}</ListItemText>
                 </MenuItem>
                 <MenuItem
@@ -416,7 +426,9 @@ export const PublicationApplicationList: React.FC = () => {
                         handleMenuClose()
                     }}
                 >
-                    <ListItemIcon><DashboardIcon fontSize='small' /></ListItemIcon>
+                    <ListItemIcon>
+                        <DashboardIcon fontSize='small' />
+                    </ListItemIcon>
                     <ListItemText>{t('metahubs:publications.applications.appDashboard', 'Application dashboard')}</ListItemText>
                 </MenuItem>
             </Menu>
