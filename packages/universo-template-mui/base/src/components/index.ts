@@ -42,3 +42,7 @@ export { CodenameField } from './forms/CodenameField'
 export type { CodenameFieldProps } from './forms/CodenameField'
 export { LocalizedInlineField } from './forms/LocalizedInlineField'
 export { LocalizedFieldEditor } from './forms/LocalizedFieldEditor'
+
+// Layout components
+export { CollapsibleSection } from './layout'
+export type { CollapsibleSectionProps } from './layout'

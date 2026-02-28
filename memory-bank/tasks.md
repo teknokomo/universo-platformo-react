@@ -2,6 +2,157 @@
 
 > **Note**: Active and planned tasks. Completed work -> progress.md, architectural patterns -> systemPatterns.md.
 
+## Completed: Publication Drill-In UX Polish Round 2 — 2026-02-28 ✅
+
+> **Goal**: Fix 5 UI/UX issues found during QA of Publication drill-in pages.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Complete — moved to progress.md
+
+### PDUX2-1. Link colors (Publications + Applications tables)
+- [x] Match catalog link style: `color: 'inherit'`, underline + primary.main on hover
+- [x] Fix in PublicationList.tsx publicationColumns
+- [x] Fix in PublicationApplicationList.tsx appColumns
+
+### PDUX2-2. Actions column styling (Versions + Applications)
+- [x] Remove custom "actions" column from customColumns in both components
+- [x] Use FlowListTable `renderActions` prop instead (auto-creates standardized 10% width, centered column)
+- [x] MoreVert button matching catalog BaseEntityMenu size
+
+### PDUX2-3. Pagination (Versions + Applications tabs)
+- [x] Add client-side pagination state (useState for page/pageSize)
+- [x] Slice data for current page
+- [x] Add PaginationControls below FlowListTable in both components
+
+### PDUX2-4. Application name link URL
+- [x] Fix from `/application/${slug}` to `/a/${id}` (correct route)
+- [x] Open in new tab (target="_blank")
+
+### PDUX2-5. Application menu action URLs + new tab
+- [x] Fix "Open application" to `/a/${id}` in new tab via window.open()
+- [x] Fix "Application dashboard" to `/a/${id}/admin` in new tab via window.open()
+- [x] Removed incorrect navigate() usage
+
+### PDUX2-6. Verification
+- [x] `pnpm build`: 66/66
+- [x] Update memory-bank
+
+## Completed: Publication Drill-In UX Polish — 2026-02-28 ✅
+
+> **Goal**: Fix 7 UI/UX issues in Publication drill-in pages (list table links, breadcrumbs, titles, table columns, search, action menus, applications tab).
+> **Complexity**: Level 3 (Significant)
+> **Status**: ✅ Complete — moved to progress.md
+
+### PDUX-1. Table name as drill-in link
+- [x] In PublicationList table view, make publication name a clickable link navigating into /publication/:id/versions
+
+### PDUX-2. Breadcrumbs: show name instantly + add tab suffix
+- [x] Remove UUID fallback in NavbarBreadcrumbs.tsx — show "..." while name loads
+- [x] Add "Версии"/"Приложения" as final breadcrumb segment based on segments[4]
+- [x] Publication name breadcrumb link should point to default versions page
+
+### PDUX-3. Title: show only tab name, not publication name
+- [x] In PublicationVersionList/PublicationApplicationList ViewHeader, show only "Версии"/"Приложения"
+
+### PDUX-4. Versions table: remove empty Name column + fix Branch
+- [x] Add render function to name column (was showing null due to FlowListTable custom columns)
+- [x] Remove "Branch" column entirely
+- [x] Adjust column widths and add translated actions column header
+
+### PDUX-5. Add search field for versions and applications tabs
+- [x] Add search field next to Create button in PublicationVersionList
+- [x] Add search field in PublicationApplicationList
+
+### PDUX-6. Version row actions: three-dot menu
+- [x] Replace icon buttons with MoreVert three-dot menu
+- [x] Menu items: Edit, Activate (for non-active), divider, Delete (red, disabled for active)
+- [x] Add version DELETE backend endpoint with active version guard
+- [x] Add version delete frontend API + useDeletePublicationVersion hook + confirm dialog
+
+### PDUX-7. Applications tab fixes
+- [x] Fix missing app name display (added render with Link + Typography)
+- [x] Translate "Slug" column header to Russian
+- [x] Fix "table.createdAt" translation key (used metahubs namespace key)
+- [x] Add "Действия" column with three-dot menu: "Перейти в приложение" + "Панель управления приложения"
+- [x] Make app name clickable (opens app in new tab)
+
+### PDUX-8. i18n translations
+- [x] Add missing translations in EN/RU metahubs.json (version delete, app actions, search placeholders)
+- [x] Add "versions" key to menu namespace (EN/RU)
+
+### PDUX-9. Verification
+- [x] `pnpm build`: 66/66
+- [x] Update memory-bank
+
+## Completed: Publication Create Dialog & Schema Fixes — 2026-02-28 ✅
+
+> **Goal**: Fix 3 issues found during manual testing: (1) Rework Create Publication dialog layout — move toggles above CollapsibleSection, add app name/description fields inside; (2) Fix broken schema creation during publication create (missing post-DDL operations); (3) Fix TypeError crash on publication drill-in pages.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### PCF-1. Fix TypeError on drill-in pages
+- [x] Fix `useCommonTranslations()` destructuring in `PublicationVersionList.tsx` (line 76)
+- [x] Fix `useCommonTranslations()` destructuring in `PublicationApplicationList.tsx` (line 62)
+
+### PCF-2. Rework Create Publication dialog UI
+- [x] Move "Create Application" and "Create Application Schema" toggles above CollapsibleSection
+- [x] Add simplified info Alert between toggles and spoiler
+- [x] Add `applicationNameVlc` and `applicationDescriptionVlc` fields inside CollapsibleSection
+- [x] Update `handleCreatePublication` to extract and send custom app name/description
+- [x] Update i18n EN/RU translations for `applicationWillBeCreated`
+
+### PCF-3. Fix missing post-DDL operations in publication CREATE
+- [x] Export 5 helper functions from `applicationSyncRoutes.ts`
+- [x] Extend Zod schema with `applicationName`, `applicationDescription`, `applicationNamePrimaryLocale`, `applicationDescriptionPrimaryLocale`
+- [x] Add post-DDL operations (syncSystemMetadata, persistPublishedLayouts, persistPublishedWidgets, syncEnumerationValues, seedPredefinedElements, persistSeedWarnings) to CREATE publication handler
+- [x] Add same post-DDL operations to POST applications handler
+- [x] Fix TS2322 type error (`undefined` → `null` coercion via `?? null`)
+
+### PCF-4. Verification
+- [x] `pnpm build`: **66/66**
+- [x] Update memory-bank
+
+## Completed: CollapsibleSection Export Fix — 2026-02-28 ✅
+
+> **Goal**: Fix @flowise/core-frontend build failure (CollapsibleSection not exported from @universo/template-mui dist) and move component to proper subfolder.
+> **Complexity**: Level 1 (Small)
+> **Status**: ✅ Implemented
+
+### CS-1. Move CollapsibleSection to layout subfolder
+- [x] Create `components/layout/` directory
+- [x] Move `CollapsibleSection.tsx` into `components/layout/`
+- [x] Create `components/layout/index.ts` barrel export
+- [x] Update `components/index.ts` import path (`./CollapsibleSection` → `./layout`)
+
+### CS-2. Fix root export chain
+- [x] Add `CollapsibleSection` to named exports in `src/index.ts`
+- [x] Add `CollapsibleSectionProps` to type exports in `src/index.ts`
+
+### CS-3. Verification
+- [x] No consumer code changes needed (all import via `@universo/template-mui`)
+- [x] `pnpm build`: **66/66** (was 64/65)
+- [x] Update memory-bank
+
+## Completed: QA Fixes Round 2 — Publication Drill-In — 2026-02-28 ✅
+
+> **Goal**: Fix 2 issues found in second QA analysis of Publication Drill-In feature.
+> **Complexity**: Level 1 (Small)
+> **Status**: ✅ Implemented
+
+### QA2-R1. Backend: appStructureVersion in DDL blocks
+- [x] Import `TARGET_APP_STRUCTURE_VERSION` from `../../applications/constants`
+- [x] Add `appStructureVersion: TARGET_APP_STRUCTURE_VERSION` to CREATE publication DDL success block
+- [x] Add `appStructureVersion: TARGET_APP_STRUCTURE_VERSION` to POST applications DDL success block
+
+### QA2-R2. Frontend: extract usePublicationApplications hook
+- [x] Create `usePublicationApplications.ts` hook
+- [x] Refactor `PublicationApplicationList.tsx` to use new hook (remove inline useQuery, useQuery import, metahubsQueryKeys import, listPublicationApplications import)
+- [x] Add re-export in hooks/index.ts
+
+### QA2-R3. Verification
+- [x] Lint: 0 errors (metahubs-backend, metahubs-frontend)
+- [x] Build: 66/66 (after CollapsibleSection export fix)
+- [x] Update memory-bank
+
 ## Completed: QA Remediation Round 10 — Copy UX & Stability Fixes — 2026-02-27 ✅
 
 > **Goal**: Fix confirmed QA findings from comprehensive PR #696 audit: child attribute copy sends incomplete data, stale useMemo, double error notification, Russian i18n fallbacks, copy menu not disabled at maxRows.
@@ -2513,6 +2664,104 @@
 - v0.36.0: dayjs migration, publish-frontend architecture.
 - v0.35.0: i18n TypeScript migration, rate limiting.
 - v0.34.0: Global monorepo refactoring, tsdown build system.
+
+---
+
+## Completed: Publications Drill-In Navigation & Create Dialog Rework — 2026-02-28 ✅
+
+> **Goal**: Transform Publications from flat list + modal-edit into drill-in navigation (mirroring Catalogs). 2 inner tabs: Versions, Applications. Create dialog reworked to 2 tabs with collapsible sections. New "Create application schema" option.
+> **Complexity**: Level 4 (Major)
+> **Plan**: `memory-bank/plan/publication-drill-in-plan-2026-02-28.md`
+> **Status**: ✅ Implemented
+
+### PDI-R1. Backend: Extract helper + new endpoint + createApplicationSchema
+- [x] R1.0: Extract `createLinkedApplication()` helper
+- [x] R1.1: Add `createApplicationSchema` to Zod schema
+- [x] R1.2: Refactor CREATE handler — DDL after transaction, use helper
+- [x] R1.3: New POST .../publication/:publicationId/applications endpoint
+- [x] R1.4: Build metahubs-backend — passes clean
+
+### PDI-R2. Frontend: Routes + lazy imports
+- [x] R2.1: Add `/publication/:publicationId/versions` and `/applications` routes in MainRoutesMUI.tsx
+- [x] R2.2: Export PublicationVersionList, PublicationApplicationList from metahubs-frontend/index.ts
+
+### PDI-R3. Frontend: PublicationVersionList + API + hooks
+- [x] R3.1: PublicationVersionList component with tabs, ViewHeader, FlowListTable, Create/Edit/Activate dialogs
+- [x] R3.2: usePublicationVersions hook + usePublicationDetails hook
+- [x] R3.3: Version mutations (create, activate, update) with legacy key dual-invalidation
+- [x] R3.4: Version API functions (list, create, update, activate)
+- [x] R3.5: Query keys for versions/applications lists
+
+### PDI-R4. Frontend: PublicationApplicationList + API + hooks
+- [x] R4.1: PublicationApplicationList component with tabs, ViewHeader, FlowListTable, Create dialog
+- [x] R4.2: Application API + hooks + mutations (create via publication)
+
+### PDI-R5. Frontend: PublicationList + Create Dialog rework
+- [x] R5.1: Add drill-in navigation (onClick on ItemCard, getRowLink on FlowListTable)
+- [x] R5.2: Rework create dialog — 2 tabs (General + Access) with CollapsibleSection spoilers for version/application settings
+- [x] R5.3: Extract CollapsibleSection to universo-template-mui
+- [x] R5.4: Update handleCreatePublication payload with createApplicationSchema
+- [x] R5.5: Refactor AttributeFormFields to use CollapsibleSection (removed inline Collapse + useState)
+
+### PDI-R6. Frontend: PublicationActions simplification
+- [x] R6.1: Simplified edit dialog to 2 tabs (General, Access)
+- [x] R6.2: Removed VersionsPanel/ApplicationsPanel imports
+
+### PDI-R7. Frontend: i18n keys EN + RU
+- [x] R7.1: Added ~13 EN keys and ~13 RU keys (create.*, applications.*)
+
+### PDI-R8. Cleanup legacy panels
+- [x] R8.1: Deleted VersionsPanel.tsx, ApplicationsPanel.tsx, ApplicationsCreatePanel.tsx
+- [x] R8.2: Removed all imports + cleaned legacy query key dual-invalidation from versionMutations
+
+### PDI-R9. Full build + verify
+- [x] R9.1: Full `pnpm build` — 64/65 packages pass (only pre-existing core-frontend rollup error)
+- [x] R9.2: Verified no stale imports or dead code in source files
+
+## Completed: QA Fixes — Publication Drill-In QA Remediation — 2026-02-28 ✅
+
+> **Goal**: Fix all QA findings from comprehensive review of Publications Drill-In Navigation implementation.
+> **Complexity**: Level 2 (Moderate)
+> **Status**: ✅ Implemented
+
+### QAFIX-1. H-1: Application slug collision
+- [x] Fix `createLinkedApplication.ts` — generate unique slug per application (not per publication)
+
+### QAFIX-2. M-2: Remove unused imports (4 files)
+- [x] Remove `Typography` from PublicationVersionList.tsx
+- [x] Remove `metahubsQueryKeys` from PublicationVersionList.tsx (imported but unused)
+- [x] Remove `Typography` from AttributeFormFields.tsx
+- [x] Remove `ApplicationUser` from publicationsRoutes.ts
+
+### QAFIX-3. M-3: Fix Russian i18n fallback
+- [x] Replace `'Удалённая ветка'` with `'Deleted branch'` in PublicationList.tsx
+
+### QAFIX-4. M-4: Fix react-hooks/exhaustive-deps
+- [x] Fix `rawVersions`/`branches` deps in PublicationVersionList.tsx (wrapped in useMemo)
+- [x] Fix `rawApps` deps in PublicationApplicationList.tsx (wrapped in useMemo)
+- [x] Move `handleOpenEditDialog` before `versionColumns` and add to deps in PublicationVersionList.tsx
+
+### QAFIX-5. M-5: Add name validation in create application dialog
+- [x] Add `required` prop and disable Create button when name is empty in PublicationApplicationList.tsx
+
+### QAFIX-6. L-2: Fix non-null assertion
+- [x] Replace `publicationName!` with safe fallback in createLinkedApplication.ts
+
+### QAFIX-7. L-3: Fix hardcoded applicationsQueryKeys
+- [x] Add documentation comment for cross-domain invalidation pattern in applicationMutations.ts
+
+### QAFIX-8. L-4: Add aria attributes to CollapsibleSection
+- [x] Add `role="button"`, `aria-expanded`, `aria-label`, `tabIndex`, keyboard handler to CollapsibleSection.tsx
+- [x] Suppress `react/prop-types` false positive for TypeScript-typed component
+
+### QAFIX-9. M-1: Run lint --fix and verify
+- [x] Run prettier auto-fix for metahubs-frontend (17→0 errors)
+- [x] Run prettier auto-fix for metahubs-backend (0 errors)
+- [x] Fix prop-types errors in template-mui CollapsibleSection (3→0 errors)
+- [x] Verify 0 errors in all modified files
+
+### QAFIX-10. Build verification
+- [x] Full `pnpm build` passes — 64/65 (pre-existing core-frontend error only)
 
 ---
 

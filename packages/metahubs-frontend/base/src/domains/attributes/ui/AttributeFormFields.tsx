@@ -1,9 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useMemo, useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
     Box,
     Stack,
-    Typography,
     Alert,
     Divider,
     FormControl,
@@ -13,13 +12,10 @@ import {
     FormControlLabel,
     Switch,
     TextField,
-    Collapse,
     FormHelperText
 } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { useTranslation } from 'react-i18next'
-import { LocalizedInlineField, useCodenameAutoFill } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, CollapsibleSection } from '@universo/template-mui'
 import type { VersionedLocalizedContent, AttributeDataType, MetaEntityKind, EnumPresentationMode } from '@universo/types'
 import type { AttributeValidationRules } from '../../../types'
 import { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType, getVLCString } from '../../../types'
@@ -120,7 +116,6 @@ const AttributeFormFields = ({
     hideDisplayAttribute = false
 }: AttributeFormFieldsProps) => {
     const { t } = useTranslation('metahubs')
-    const [showTypeSettings, setShowTypeSettings] = useState(false)
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
@@ -390,26 +385,9 @@ const AttributeFormFields = ({
                 {dataTypeHelperText && <FormHelperText>{dataTypeHelperText}</FormHelperText>}
             </FormControl>
             {hasTypeSettings && (
-                <Box>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            py: 1,
-                            '&:hover': { color: 'primary.main' }
-                        }}
-                        onClick={() => setShowTypeSettings(!showTypeSettings)}
-                    >
-                        {showTypeSettings ? <ExpandLessIcon fontSize='small' /> : <ExpandMoreIcon fontSize='small' />}
-                        <Typography variant='body2' sx={{ ml: 0.5 }}>
-                            {typeSettingsLabel}
-                        </Typography>
-                    </Box>
-                    <Collapse in={showTypeSettings}>
-                        <Box sx={{ pl: 2, pt: 1 }}>{renderTypeSettings()}</Box>
-                    </Collapse>
-                </Box>
+                <CollapsibleSection label={typeSettingsLabel} defaultOpen={false}>
+                    <Box sx={{ pl: 2 }}>{renderTypeSettings()}</Box>
+                </CollapsibleSection>
             )}
             {/* Physical PostgreSQL type info */}
             <Alert severity='info' sx={{ py: 0.5 }}>

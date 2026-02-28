@@ -335,7 +335,7 @@ function validateNumericValue(options: {
     }
 }
 
-async function seedPredefinedElements(
+export async function seedPredefinedElements(
     schemaName: string,
     snapshot: MetahubSnapshot,
     entities: EntityDefinition[],
@@ -574,7 +574,7 @@ async function remapStaleEnumerationReferences(options: {
     }
 }
 
-async function syncEnumerationValues(schemaName: string, snapshot: MetahubSnapshot, userId?: string | null): Promise<void> {
+export async function syncEnumerationValues(schemaName: string, snapshot: MetahubSnapshot, userId?: string | null): Promise<void> {
     const knex = KnexClient.getInstance()
     const now = new Date()
 
@@ -1013,7 +1013,7 @@ function mapStructuredChange(change: SchemaChange): DiffStructuredChange {
     }
 }
 
-async function persistPublishedLayouts(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
+export async function persistPublishedLayouts(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
 
@@ -1109,7 +1109,7 @@ async function persistPublishedLayouts(options: { schemaName: string; snapshot: 
     })
 }
 
-async function persistPublishedWidgets(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
+export async function persistPublishedWidgets(options: { schemaName: string; snapshot: MetahubSnapshot; userId?: string | null }): Promise<void> {
     const { schemaName, snapshot, userId } = options
     const knex = KnexClient.getInstance()
     const hasTable = await knex.schema.withSchema(schemaName).hasTable('_app_widgets')
@@ -1318,7 +1318,7 @@ async function hasPublishedWidgetsChanges(options: { schemaName: string; snapsho
     return stableStringify(current) !== stableStringify(next)
 }
 
-async function persistSeedWarnings(
+export async function persistSeedWarnings(
     schemaName: string,
     migrationManager: ReturnType<typeof getDDLServices>['migrationManager'],
     warnings: string[]

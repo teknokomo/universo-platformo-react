@@ -1,37 +1,95 @@
 # Active Context
 
-> **Last Updated**: 2026-02-26
+> **Last Updated**: 2026-02-28
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: NUMBER field parity — catalog inline table NumberTableCell — Complete
+## Current Focus: Publication Drill-In UX Polish Round 2 — Complete
 
-**Status**: ✅ Fully implemented — 2026-02-26
-**Date**: 2026-02-26
+**Status**: ✅ Fully implemented — 2026-02-28
+**Date**: 2026-02-28
 
 ### Summary
-Replicated correct standalone NUMBER field behavior into catalog inline table (DynamicEntityFormDialog TABLE case). FormDialog and apps inline table (NumberEditCell) were already correct from previous session.
+Fixed 5 UI/UX issues found during QA of Publication drill-in pages:
 
-### What Was Done
-1. **Analysis**: Compared reference implementation (DynamicEntityFormDialog standalone NUMBER) with all 3 other contexts. Found FormDialog standalone and NumberEditCell (apps inline table) already match. Only gap was catalog inline table using basic TextField.
-2. **NumberTableCell component**: Created ~200-line component in DynamicEntityFormDialog.tsx with full NUMBER field behavior: locale-aware formatted display (`0,000` template), zone-based selection, zone-aware stepping, stepper buttons (▲▼), full keyDown handling, digit replacement in decimal zone.
-3. **Integration**: Replaced simple TextField in TABLE case with conditional rendering — `NumberTableCell` for NUMBER children, TextField for others.
+1. **Link colors** — Matched catalog pattern: `color: 'inherit'`, underline + `primary.main` on hover. Fixed in PublicationList and PublicationApplicationList.
+2. **Actions column** — Removed custom "actions" column from customColumns. Used FlowListTable `renderActions` prop for standardized 10%-width centered column with properly-sized MoreVert button.
+3. **Pagination** — Added client-side pagination (page/pageSize state + PaginationControls) to both Versions and Applications tabs.
+4. **App name URLs** — Fixed from `/application/${slug}` to `/a/${id}`, opens in new tab.
+5. **App menu URLs** — "Open application" → `/a/${id}` (new tab), "Application dashboard" → `/a/${id}/admin` (new tab). Replaced `navigate()` with `window.open()`.
 
-### Files Modified
-- **`universo-template-mui`**: DynamicEntityFormDialog.tsx (NumberTableCell component + TABLE cell rendering)
+### Files Changed (3)
+- `PublicationList.tsx` — Link color pattern (inherit → underline on hover)
+- `PublicationVersionList.tsx` — Removed actions column, added renderActions, added pagination
+- `PublicationApplicationList.tsx` — Fixed link colors/URLs, removed actions column, added renderActions, added pagination, fixed menu URLs, opens in new tab
 
-### Verification
-- Full build: 66/66 SUCCESS
+### Build
+- `pnpm build`: **66/66**
 
 ### What's Next
-- Runtime QA verification across all 4 NUMBER field contexts
-- Test that comma separator shows consistently in catalog table, app standalone, and app table
+- Runtime testing of all 5 fixes
+- Proceed to QA or REFLECT mode
 
 ---
 
-## Previous Focus: Zone-aware NUMBER stepper + inline table parity — Complete
+## Previous Focus: CollapsibleSection Export Fix — Complete
+
+**Status**: ✅ Fully implemented — 2026-02-28
+**Date**: 2026-02-28
+
+### Summary
+Fixed `@flowise/core-frontend` build failure caused by missing `CollapsibleSection` export from `@universo/template-mui` root `src/index.ts`. Also moved component into `components/layout/` subfolder for consistency.
+
+### Root Cause
+`CollapsibleSection` was exported from `components/index.ts` but NOT from the package's root `src/index.ts` (which uses selective named exports). Rollup in `@flowise/core-frontend` failed because the symbol wasn't in the compiled `dist/index.mjs`.
+
+### Changes
+- Moved `components/CollapsibleSection.tsx` → `components/layout/CollapsibleSection.tsx`
+- Created `components/layout/index.ts` barrel
+- Updated `components/index.ts` path
+- Added `CollapsibleSection` + `CollapsibleSectionProps` to `src/index.ts` exports
+
+### Build
+- `pnpm build`: **66/66** (was 64/65 — @flowise/core-frontend now succeeds)
+
+### What's Next
+- Runtime testing of publication drill-in feature
+- Proceed to REFLECT mode
+
+---
+
+## Previous Focus: Publications Drill-In Navigation — Complete
+
+**Status**: ✅ Fully implemented — 2026-02-28
+**Date**: 2026-02-28
+
+### Summary
+Full implementation of the Publications drill-in plan (R1-R9). Transformed Publications from flat list + modal-edit into drill-in navigation with inner tabs (Versions, Applications). Create dialog reworked to 2 tabs with collapsible sections. Backend helper extracted, new endpoint, and createApplicationSchema option added.
+
+### Key Decisions
+- **Circular build dependency**: template-mui builds before metahubs-frontend; solved with `(m: any)` cast in lazy imports in MainRoutesMUI.tsx
+- **CollapsibleSection**: Extracted as reusable component to universo-template-mui (used in create dialog and AttributeFormFields)
+- **DDL after transaction**: Knex DDL runs after TypeORM transaction commit to avoid deadlocks
+- **Legacy cleanup**: Deleted VersionsPanel, ApplicationsPanel, ApplicationsCreatePanel; removed legacy query key dual-invalidation
+
+### Files Summary
+- 11 new files created (backend helper, frontend API/hooks/UI, CollapsibleSection)
+- 11 files modified (PublicationList, PublicationActions, AttributeFormFields, routes, i18n, etc.)
+- 3 files deleted (legacy panels)
+
+### Build
+- `pnpm build`: 66/66 (after CollapsibleSection export fix)
+
+### What's Next
+- QA mode verification of drill-in navigation
+- Runtime testing of create dialog with collapsible sections
+- Verify version/application CRUD operations end-to-end
+
+---
+
+## Previous Focus: NUMBER field parity — catalog inline table NumberTableCell — Complete
 
 **Status**: ✅ Fully implemented — 2026-02-26
 **Date**: 2026-02-26

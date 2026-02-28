@@ -280,7 +280,13 @@ export const metahubsQueryKeys = {
         [...metahubsQueryKeys.publications(metahubId), 'detail', publicationId] as const,
 
     publicationDiff: (metahubId: string, publicationId: string) =>
-        [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'diff'] as const
+        [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'diff'] as const,
+
+    publicationVersionsList: (metahubId: string, publicationId: string) =>
+        [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'versions', 'list'] as const,
+
+    publicationApplicationsList: (metahubId: string, publicationId: string) =>
+        [...metahubsQueryKeys.publicationDetail(metahubId, publicationId), 'applications', 'list'] as const
 }
 
 /**

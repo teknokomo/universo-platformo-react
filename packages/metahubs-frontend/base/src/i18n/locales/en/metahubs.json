@@ -934,7 +934,13 @@
             "isRequiredMetahubLocked": "This setting is currently locked to \"On\"",
             "isRequiredMetahubHelp": "Connector must have at least one Metahub linked",
             "isRequiredMetahubEnabled": "Connector must have at least one Metahub linked",
-            "isRequiredMetahubDisabled": "Connector can exist without linked Metahubs"
+            "isRequiredMetahubDisabled": "Connector can exist without linked Metahubs",
+            "createVersion": "Create version",
+            "versionSettings": "Version settings",
+            "applicationSettings": "Application settings",
+            "createApplication": "Create application",
+            "createApplicationSchema": "Create application schema",
+            "applicationWillBeCreated": "An application and a connector linked to this Metahub will be created."
         },
         "createDialog": {
             "title": "Create Publication",
@@ -956,10 +962,19 @@
             "configPlaceholder": "Restricted access configuration will be available in future versions."
         },
         "applications": {
+            "title": "Applications",
+            "createTitle": "Create Application",
+            "createDescription": "Create a new application linked to this publication",
             "empty": "No linked applications",
+            "emptyDescription": "Create an application to start using published data",
             "emptyHint": "Applications are linked to publications via connectors.",
             "count": "Linked applications",
-            "noDescription": "No description"
+            "noDescription": "No description",
+            "openApp": "Open application",
+            "appDashboard": "Application dashboard",
+            "searchPlaceholder": "Search applications...",
+            "slug": "Identifier",
+            "createdAt": "Created"
         },
         "sync": "Sync Schema",
         "syncDescription": "Update database schema to match current configuration",
@@ -1044,7 +1059,13 @@
                 "hash": "Hash",
                 "actions": "Actions"
             },
-            "empty": "No versions found. Create a snapshot to start versioning."
+            "empty": "No versions found. Create a snapshot to start versioning.",
+            "searchPlaceholder": "Search versions...",
+            "delete": "Delete version",
+            "deleteConfirm": "Are you sure you want to delete this version? This action cannot be undone.",
+            "deleteSuccess": "Version deleted successfully",
+            "deleteError": "Failed to delete version",
+            "deleteActiveError": "Cannot delete an active version"
         }
     },
     "migrations": {

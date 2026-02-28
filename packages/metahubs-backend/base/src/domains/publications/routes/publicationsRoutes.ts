@@ -15,7 +15,16 @@ import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSeriali
 import { getDDLServices, generateSchemaName, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 // Import applications entities for auto-create feature
-import { Application, ApplicationSchemaStatus, ApplicationUser, Connector, ConnectorPublication } from '@universo/applications-backend'
+import { Application, ApplicationSchemaStatus, Connector, ConnectorPublication } from '@universo/applications-backend'
+import { createLinkedApplication } from '../helpers/createLinkedApplication'
+import { TARGET_APP_STRUCTURE_VERSION } from '../../applications/constants'
+import {
+    seedPredefinedElements,
+    syncEnumerationValues,
+    persistPublishedLayouts,
+    persistPublishedWidgets,
+    persistSeedWarnings
+} from '../../applications/routes/applicationSyncRoutes'
 // Import services
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -56,12 +65,18 @@ const createPublicationSchema = z.object({
     namePrimaryLocale: z.string().optional(),
     descriptionPrimaryLocale: z.string().optional(),
     autoCreateApplication: z.boolean().optional().default(false),
+    createApplicationSchema: z.boolean().optional().default(false),
     // First version data
     versionName: localizedInputSchema.optional(),
     versionDescription: localizedInputSchema.optional(),
     versionNamePrimaryLocale: z.string().optional(),
     versionDescriptionPrimaryLocale: z.string().optional(),
-    versionBranchId: z.string().uuid().optional()
+    versionBranchId: z.string().uuid().optional(),
+    // Optional custom application name/description
+    applicationName: localizedInputSchema.optional(),
+    applicationDescription: localizedInputSchema.optional(),
+    applicationNamePrimaryLocale: z.string().optional(),
+    applicationDescriptionPrimaryLocale: z.string().optional()
 })
 
 const updatePublicationSchema = z.object({
@@ -400,11 +415,16 @@ export function createPublicationsRoutes(
                 namePrimaryLocale,
                 descriptionPrimaryLocale,
                 autoCreateApplication,
+                createApplicationSchema,
                 versionName,
                 versionDescription,
                 versionNamePrimaryLocale,
                 versionDescriptionPrimaryLocale,
-                versionBranchId
+                versionBranchId,
+                applicationName,
+                applicationDescription,
+                applicationNamePrimaryLocale,
+                applicationDescriptionPrimaryLocale
             } = parsed.data
 
             const metahubRepo = manager.getRepository(Metahub)
@@ -482,59 +502,26 @@ export function createPublicationsRoutes(
                     .where('id = :id', { id: publication.id })
                     .execute()
 
-                // 3. Auto-create Application
+                // 3. Auto-create Application via shared helper
+                let applicationData: { application: Application; appSchemaName: string } | null = null
                 if (autoCreateApplication && metahub) {
-                    const applicationRepo = manager.getRepository(Application)
-                    const appUserRepo = manager.getRepository(ApplicationUser)
-                    const connectorRepo = manager.getRepository(Connector)
-                    const connectorPublicationRepo = manager.getRepository(ConnectorPublication)
-
-                    const application = applicationRepo.create({
-                        name: publication.name!,
-                        description: publication.description ?? undefined,
-                        slug: `pub-${publication.id.slice(0, 8)}`,
-                        _uplCreatedBy: userId,
-                        _uplUpdatedBy: userId
-                    })
-                    await applicationRepo.save(application)
-
-                    // Set schemaName using raw update to avoid version increment
-                    const appSchemaName = generateSchemaName(application.id)
-                    application.schemaName = appSchemaName
-                    await applicationRepo
-                        .createQueryBuilder()
-                        .update(Application)
-                        .set({ schemaName: appSchemaName })
-                        .where('id = :id', { id: application.id })
-                        .execute()
-
-                    const appUser = appUserRepo.create({
-                        applicationId: application.id,
-                        userId,
-                        role: 'owner',
-                        _uplCreatedBy: userId,
-                        _uplUpdatedBy: userId
-                    })
-                    await appUserRepo.save(appUser)
-
-                    const connector = connectorRepo.create({
-                        applicationId: application.id,
-                        name: metahub.name,
-                        description: metahub.description ?? undefined,
-                        sortOrder: 0,
-                        _uplCreatedBy: userId,
-                        _uplUpdatedBy: userId
-                    })
-                    await connectorRepo.save(connector)
-
-                    const connectorPublication = connectorPublicationRepo.create({
-                        connectorId: connector.id,
+                    // Use custom application name/description if provided, else fall back to publication name
+                    const appName = applicationName && Object.keys(applicationName).length > 0
+                        ? (buildLocalizedContent(sanitizeLocalizedInput(applicationName), applicationNamePrimaryLocale || 'en') ?? null)
+                        : publication.name
+                    const appDescription = applicationDescription && Object.keys(applicationDescription).length > 0
+                        ? (buildLocalizedContent(sanitizeLocalizedInput(applicationDescription), applicationDescriptionPrimaryLocale || 'en') ?? null)
+                        : publication.description
+                    const linked = await createLinkedApplication({
+                        manager,
                         publicationId: publication.id,
-                        sortOrder: 0,
-                        _uplCreatedBy: userId,
-                        _uplUpdatedBy: userId
+                        publicationName: appName,
+                        publicationDescription: appDescription,
+                        metahubName: metahub.name,
+                        metahubDescription: metahub.description,
+                        userId
                     })
-                    await connectorPublicationRepo.save(connectorPublication)
+                    applicationData = { application: linked.application, appSchemaName: linked.appSchemaName }
                 }
 
                 // 4. Auto-create first version (v1)
@@ -574,24 +561,85 @@ export function createPublicationsRoutes(
                     .where('id = :id', { id: publication.id })
                     .execute()
 
-                return publication
+                return { publication, firstVersion, applicationData }
             })
 
+            // DDL generation OUTSIDE transaction (avoids Knex/TypeORM deadlock)
+            if (createApplicationSchema && result.applicationData) {
+                try {
+                    const { generator, migrationManager } = getDDLServices()
+                    const catalogDefs = serializer.deserializeSnapshot(snapshot)
+
+                    const genResult = await generator.generateFullSchema(result.applicationData.appSchemaName, catalogDefs, {
+                        recordMigration: true,
+                        migrationDescription: 'initial_schema_from_publication',
+                        migrationManager,
+                        migrationMeta: {
+                            publicationSnapshotHash: snapshotHash,
+                            publicationId: result.publication.id,
+                            publicationVersionId: result.firstVersion.id
+                        }
+                    })
+
+                    if (genResult.success) {
+                        const appSchemaName = result.applicationData.appSchemaName
+                        const applicationRepo = ds.getRepository(Application)
+                        await applicationRepo
+                            .createQueryBuilder()
+                            .update(Application)
+                            .set({
+                                schemaStatus: ApplicationSchemaStatus.SYNCED,
+                                schemaSyncedAt: new Date(),
+                                schemaSnapshot: generator.generateSnapshot(catalogDefs) as unknown as Record<string, unknown> as any,
+                                appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                                lastSyncedPublicationVersionId: result.firstVersion.id,
+                                _uplUpdatedBy: userId
+                            })
+                            .where('id = :id', { id: result.applicationData.application.id })
+                            .execute()
+
+                        // Post-DDL operations: sync system metadata, layouts, widgets, enumerations, seed elements
+                        // Same as applicationSyncRoutes initial creation path
+                        await generator.syncSystemMetadata(appSchemaName, catalogDefs, {
+                            userId,
+                            removeMissing: true
+                        })
+                        await persistPublishedLayouts({ schemaName: appSchemaName, snapshot, userId })
+                        await persistPublishedWidgets({ schemaName: appSchemaName, snapshot, userId })
+                        await syncEnumerationValues(appSchemaName, snapshot, userId)
+
+                        try {
+                            const seedWarnings = await seedPredefinedElements(appSchemaName, snapshot, catalogDefs, userId)
+                            await persistSeedWarnings(appSchemaName, migrationManager, seedWarnings)
+                        } catch (seedErr: unknown) {
+                            const msg = seedErr instanceof Error ? seedErr.message : String(seedErr)
+                            console.warn(`[Publications] Seed predefined elements failed (non-fatal): ${msg}`)
+                        }
+                    }
+                    // If genResult is not successful, application exists with schemaStatus=DRAFT
+                    // User can trigger sync manually later
+                } catch (ddlError) {
+                    // Non-fatal: publication + application created successfully,
+                    // but schema not generated. Log and continue.
+                    console.error('DDL schema generation failed (non-fatal):', ddlError)
+                }
+            }
+
             return res.status(201).json({
-                id: result.id,
+                id: result.publication.id,
                 metahubId,
-                name: result.name,
-                description: result.description,
-                schemaName: result.schemaName,
-                schemaStatus: result.schemaStatus,
-                schemaError: result.schemaError,
-                schemaSyncedAt: result.schemaSyncedAt,
-                accessMode: result.accessMode,
-                autoCreateApplication: result.autoCreateApplication,
-                activeVersionId: result.activeVersionId,
-                version: result._uplVersion || 1,
-                createdAt: result._uplCreatedAt,
-                updatedAt: result._uplUpdatedAt
+                name: result.publication.name,
+                description: result.publication.description,
+                schemaName: result.publication.schemaName,
+                schemaStatus: result.publication.schemaStatus,
+                schemaError: result.publication.schemaError,
+                schemaSyncedAt: result.publication.schemaSyncedAt,
+                accessMode: result.publication.accessMode,
+                autoCreateApplication: result.publication.autoCreateApplication,
+                activeVersionId: result.publication.activeVersionId,
+                version: result.publication._uplVersion || 1,
+                createdAt: result.publication._uplCreatedAt,
+                updatedAt: result.publication._uplUpdatedAt
             })
         })
     )
@@ -876,6 +924,150 @@ export function createPublicationsRoutes(
             )
 
             return res.json({ items: linkedApps, total: linkedApps.length })
+        })
+    )
+
+    // CREATE LINKED APPLICATION for a publication
+    const createApplicationForPublicationSchema = z.object({
+        name: localizedInputSchema.optional(),
+        description: localizedInputSchema.optional(),
+        namePrimaryLocale: z.string().optional(),
+        descriptionPrimaryLocale: z.string().optional(),
+        createApplicationSchema: z.boolean().optional().default(false)
+    })
+
+    router.post(
+        '/metahub/:metahubId/publication/:publicationId/applications',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, publicationId } = req.params
+            const ds = getDataSource()
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
+
+            const parsed = createApplicationForPublicationSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
+            }
+
+            const manager = getRequestManager(req, ds)
+            const metahubRepo = manager.getRepository(Metahub)
+            const metahub = await metahubRepo.findOneBy({ id: metahubId })
+            if (!metahub) {
+                return res.status(404).json({ error: 'Metahub not found' })
+            }
+
+            const publicationRepo = manager.getRepository(Publication)
+            const publication = await publicationRepo.findOneBy({ id: publicationId })
+            if (!publication) {
+                return res.status(404).json({ error: 'Publication not found' })
+            }
+            if (publication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
+            }
+
+            const { name, description, namePrimaryLocale, descriptionPrimaryLocale, createApplicationSchema } = parsed.data
+
+            // Build localized name — use provided or fall back to publication name
+            const appName =
+                name && Object.keys(name).length > 0
+                    ? buildLocalizedContent(sanitizeLocalizedInput(name), namePrimaryLocale || 'en')
+                    : publication.name
+            const appDescription =
+                description && Object.keys(description).length > 0
+                    ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')
+                    : publication.description
+
+            // Create application inside transaction
+            const result = await ds.transaction(async (txManager) => {
+                const linked = await createLinkedApplication({
+                    manager: txManager,
+                    publicationId: publication.id,
+                    publicationName: appName ?? null,
+                    publicationDescription: appDescription ?? null,
+                    metahubName: metahub.name,
+                    metahubDescription: metahub.description ?? null,
+                    userId
+                })
+                return linked
+            })
+
+            // DDL generation OUTSIDE transaction (same pattern as CREATE publication)
+            if (createApplicationSchema && publication.activeVersionId) {
+                try {
+                    const versionRepo = ds.getRepository(PublicationVersion)
+                    const activeVersion = await versionRepo.findOneBy({ id: publication.activeVersionId })
+                    if (activeVersion?.snapshotJson) {
+                        const snapshotData = activeVersion.snapshotJson as unknown as MetahubSnapshot
+                        const schemaService = new MetahubSchemaService(ds, activeVersion.branchId ?? '', manager)
+                        const objectsService = new MetahubObjectsService(schemaService)
+                        const attributesService = new MetahubAttributesService(schemaService)
+                        const snapshotSerializer = new SnapshotSerializer(objectsService, attributesService)
+                        const catalogDefs = snapshotSerializer.deserializeSnapshot(snapshotData)
+
+                        const { generator, migrationManager } = getDDLServices()
+                        const genResult = await generator.generateFullSchema(result.appSchemaName, catalogDefs, {
+                            recordMigration: true,
+                            migrationDescription: 'initial_schema_from_publication',
+                            migrationManager,
+                            migrationMeta: {
+                                publicationSnapshotHash: activeVersion.snapshotHash,
+                                publicationId: publication.id,
+                                publicationVersionId: activeVersion.id
+                            }
+                        })
+
+                        if (genResult.success) {
+                            const applicationRepo = ds.getRepository(Application)
+                            await applicationRepo
+                                .createQueryBuilder()
+                                .update(Application)
+                                .set({
+                                    schemaStatus: ApplicationSchemaStatus.SYNCED,
+                                    schemaSyncedAt: new Date(),
+                                    schemaSnapshot: generator.generateSnapshot(catalogDefs) as unknown as Record<string, unknown> as any,
+                                    appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
+                                    lastSyncedPublicationVersionId: activeVersion.id,
+                                    _uplUpdatedBy: userId
+                                })
+                                .where('id = :id', { id: result.application.id })
+                                .execute()
+
+                            // Post-DDL operations: sync system metadata, layouts, widgets, enumerations, seed elements
+                            await generator.syncSystemMetadata(result.appSchemaName, catalogDefs, {
+                                userId,
+                                removeMissing: true
+                            })
+                            await persistPublishedLayouts({ schemaName: result.appSchemaName, snapshot: snapshotData, userId })
+                            await persistPublishedWidgets({ schemaName: result.appSchemaName, snapshot: snapshotData, userId })
+                            await syncEnumerationValues(result.appSchemaName, snapshotData, userId)
+
+                            try {
+                                const seedWarnings = await seedPredefinedElements(result.appSchemaName, snapshotData, catalogDefs, userId)
+                                await persistSeedWarnings(result.appSchemaName, migrationManager, seedWarnings)
+                            } catch (seedErr: unknown) {
+                                const msg = seedErr instanceof Error ? seedErr.message : String(seedErr)
+                                console.warn(`[Publications] Seed predefined elements for new application failed (non-fatal): ${msg}`)
+                            }
+                        }
+                    }
+                } catch (ddlError) {
+                    console.error('DDL schema generation for new application failed (non-fatal):', ddlError)
+                }
+            }
+
+            return res.status(201).json({
+                application: {
+                    id: result.application.id,
+                    name: result.application.name,
+                    description: result.application.description,
+                    slug: result.application.slug,
+                    schemaName: result.appSchemaName
+                },
+                connector: {
+                    id: result.connector.id
+                }
+            })
         })
     )
 
@@ -1328,6 +1520,39 @@ export function createPublicationsRoutes(
             await versionRepo.save(version)
 
             return res.json(version)
+        })
+    )
+
+    // DELETE VERSION
+    router.delete(
+        '/metahub/:metahubId/publication/:publicationId/versions/:versionId',
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, publicationId, versionId } = req.params
+            const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
+            if (!userId) return
+            const { versionRepo, publicationRepo } = repos(req)
+
+            const publication = await publicationRepo.findOneBy({ id: publicationId })
+            if (!publication) {
+                return res.status(404).json({ error: 'Publication not found' })
+            }
+            if (publication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
+            }
+
+            const version = await versionRepo.findOneBy({ id: versionId, publicationId })
+            if (!version) {
+                return res.status(404).json({ error: 'Version not found' })
+            }
+
+            if (version.isActive) {
+                return res.status(400).json({ error: 'Cannot delete an active version' })
+            }
+
+            await versionRepo.remove(version)
+
+            return res.json({ success: true })
         })
     )
 

@@ -1,6 +1,20 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, Chip, Alert, FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import {
+    Box,
+    Skeleton,
+    Stack,
+    Typography,
+    Chip,
+    Alert,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormHelperText,
+    FormControlLabel,
+    Switch
+} from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
 import { useTranslation } from 'react-i18next'
@@ -22,7 +36,8 @@ import {
     gridSpacing,
     ConfirmDialog,
     useConfirm,
-    LocalizedInlineField
+    LocalizedInlineField,
+    CollapsibleSection
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
@@ -43,7 +58,6 @@ import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, norma
 import { isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import publicationActions from './PublicationActions'
 import { AccessPanel } from './AccessPanel'
-import { ApplicationsCreatePanel } from './ApplicationsCreatePanel'
 
 type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -143,7 +157,7 @@ const PublicationList = () => {
         (branchId?: string | null) => {
             if (!branchId) return ''
             const branch = branches.find((item) => item.id === branchId)
-            if (!branch) return `${t('publications.versions.branchMissing', 'Удалённая ветка')} (${branchId})`
+            if (!branch) return `${t('publications.versions.branchMissing', 'Deleted branch')} (${branchId})`
             const name = getVLCString(branch.name, i18n.language) || getVLCString(branch.name, 'en') || branch.codename
             return `${name} (${branch.codename})`
         },
@@ -322,12 +336,10 @@ const PublicationList = () => {
 
     /**
      * Build tabs configuration for create dialog.
-     * Tab 1: General (name, description)
-     * Tab 2: Versions (first version name, description)
-     * Tab 3: Access (access mode configuration)
-     * Tab 4: Applications (auto-create application option)
+     * Tab 1: General (name, description, version settings spoiler, application settings spoiler)
+     * Tab 2: Access (access mode configuration)
      *
-     * Note: Metahubs tab is not shown because Publication is created within a Metahub context.
+     * Note: Version and Application settings are collapsed by default under spoiler sections.
      */
     const buildCreateTabs = useCallback(
         ({
@@ -348,88 +360,145 @@ const PublicationList = () => {
                     id: 'general',
                     label: t('publications.tabs.general', 'Основное'),
                     content: (
-                        <PublicationFormFields
-                            values={values}
-                            setValue={setValue}
-                            isLoading={isFormLoading}
-                            errors={fieldErrors}
-                            uiLocale={i18n.language}
-                            nameLabel={tc('fields.name', 'Name')}
-                            descriptionLabel={tc('fields.description', 'Description')}
-                        />
-                    )
-                },
-                {
-                    id: 'versions',
-                    label: t('publications.tabs.versions', 'Версии'),
-                    content: (
                         <Stack spacing={2}>
-                            <Typography variant='body2' color='text.secondary'>
-                                {t(
-                                    'publications.versions.createFirstDescription',
-                                    'При создании публикации будет создана первая версия. Укажите её название и описание.'
-                                )}
-                            </Typography>
-                            <LocalizedInlineField
-                                mode='localized'
-                                label={t('publications.versions.versionName', 'Название версии')}
-                                disabled={isFormLoading}
-                                value={values.versionNameVlc ?? null}
-                                onChange={(next) => setValue('versionNameVlc', next)}
+                            <PublicationFormFields
+                                values={values}
+                                setValue={setValue}
+                                isLoading={isFormLoading}
+                                errors={fieldErrors}
                                 uiLocale={i18n.language}
+                                nameLabel={tc('fields.name', 'Name')}
+                                descriptionLabel={tc('fields.description', 'Description')}
                             />
-                            <LocalizedInlineField
-                                mode='localized'
-                                label={t('publications.versions.versionDescription', 'Описание версии')}
-                                disabled={isFormLoading}
-                                value={values.versionDescriptionVlc ?? null}
-                                onChange={(next) => setValue('versionDescriptionVlc', next)}
-                                uiLocale={i18n.language}
-                                multiline
-                                rows={2}
+
+                            {/* "Create version" — always ON and disabled */}
+                            <FormControlLabel
+                                control={<Switch checked disabled />}
+                                label={t('publications.create.createVersion', 'Create version')}
                             />
-                            <FormControl fullWidth disabled={isFormLoading}>
-                                <InputLabel id='publication-version-branch-label'>
-                                    {t('publications.versions.branchLabel', 'Ветка для версии')}
-                                </InputLabel>
-                                <Select
-                                    labelId='publication-version-branch-label'
-                                    value={values.versionBranchId ?? defaultBranchId ?? ''}
-                                    label={t('publications.versions.branchLabel', 'Ветка для версии')}
-                                    onChange={(event) => setValue('versionBranchId', event.target.value)}
+
+                            {/* Version Settings spoiler */}
+                            <CollapsibleSection label={t('publications.create.versionSettings', 'Version settings')} defaultOpen={false}>
+                                <Stack spacing={2} sx={{ pl: 2 }}>
+                                    <LocalizedInlineField
+                                        mode='localized'
+                                        label={t('publications.versions.versionName', 'Version name')}
+                                        disabled={isFormLoading}
+                                        value={values.versionNameVlc ?? null}
+                                        onChange={(next) => setValue('versionNameVlc', next)}
+                                        uiLocale={i18n.language}
+                                    />
+                                    <LocalizedInlineField
+                                        mode='localized'
+                                        label={t('publications.versions.versionDescription', 'Version description')}
+                                        disabled={isFormLoading}
+                                        value={values.versionDescriptionVlc ?? null}
+                                        onChange={(next) => setValue('versionDescriptionVlc', next)}
+                                        uiLocale={i18n.language}
+                                        multiline
+                                        rows={2}
+                                    />
+                                    <FormControl fullWidth disabled={isFormLoading}>
+                                        <InputLabel id='publication-version-branch-label'>
+                                            {t('publications.versions.branchLabel', 'Branch for version')}
+                                        </InputLabel>
+                                        <Select
+                                            labelId='publication-version-branch-label'
+                                            value={values.versionBranchId ?? defaultBranchId ?? ''}
+                                            label={t('publications.versions.branchLabel', 'Branch for version')}
+                                            onChange={(event) => setValue('versionBranchId', event.target.value)}
+                                        >
+                                            {branches.map((branch) => (
+                                                <MenuItem key={branch.id} value={branch.id}>
+                                                    {getBranchLabel(branch.id)}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                        <FormHelperText>
+                                            {t(
+                                                'publications.versions.branchHelper',
+                                                'The version snapshot will be created from the selected branch.'
+                                            )}
+                                        </FormHelperText>
+                                    </FormControl>
+                                </Stack>
+                            </CollapsibleSection>
+
+                            {/* Application toggles — above the spoiler */}
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={Boolean(values.autoCreateApplication)}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked
+                                            setValue('autoCreateApplication', checked)
+                                            if (!checked) {
+                                                setValue('createApplicationSchema', false)
+                                            }
+                                        }}
+                                        disabled={isFormLoading}
+                                    />
+                                }
+                                label={t('publications.create.createApplication', 'Create application')}
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={Boolean(values.createApplicationSchema)}
+                                        onChange={(e) => setValue('createApplicationSchema', e.target.checked)}
+                                        disabled={isFormLoading || !values.autoCreateApplication}
+                                    />
+                                }
+                                label={t('publications.create.createApplicationSchema', 'Create application schema')}
+                            />
+
+                            {values.autoCreateApplication && (
+                                <Alert severity='info' sx={{ mt: 1 }}>
+                                    {t(
+                                        'publications.create.applicationWillBeCreated',
+                                        'An application and a connector linked to this Metahub will be created.'
+                                    )}
+                                </Alert>
+                            )}
+
+                            {/* Application Settings spoiler — name/description override */}
+                            {values.autoCreateApplication && (
+                                <CollapsibleSection
+                                    label={t('publications.create.applicationSettings', 'Application settings')}
+                                    defaultOpen={false}
                                 >
-                                    {branches.map((branch) => (
-                                        <MenuItem key={branch.id} value={branch.id}>
-                                            {getBranchLabel(branch.id)}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                <FormHelperText>
-                                    {t('publications.versions.branchHelper', 'Снапшот версии будет создан на основе выбранной ветки.')}
-                                </FormHelperText>
-                            </FormControl>
+                                    <Stack spacing={2} sx={{ pl: 2 }}>
+                                        <LocalizedInlineField
+                                            mode='localized'
+                                            label={tc('fields.name', 'Name')}
+                                            disabled={isFormLoading}
+                                            value={values.applicationNameVlc ?? null}
+                                            onChange={(next) => setValue('applicationNameVlc', next)}
+                                            uiLocale={i18n.language}
+                                        />
+                                        <LocalizedInlineField
+                                            mode='localized'
+                                            label={tc('fields.description', 'Description')}
+                                            disabled={isFormLoading}
+                                            value={values.applicationDescriptionVlc ?? null}
+                                            onChange={(next) => setValue('applicationDescriptionVlc', next)}
+                                            uiLocale={i18n.language}
+                                            multiline
+                                            rows={2}
+                                        />
+                                    </Stack>
+                                </CollapsibleSection>
+                            )}
                         </Stack>
                     )
                 },
                 {
                     id: 'access',
-                    label: t('publications.tabs.access', 'Доступ'),
+                    label: t('publications.tabs.access', 'Access'),
                     content: (
                         <AccessPanel
                             accessMode={(values.accessMode as PublicationAccessMode) ?? 'full'}
                             onChange={(mode) => setValue('accessMode', mode)}
-                            isLoading={isFormLoading}
-                            disabled={isFormLoading}
-                        />
-                    )
-                },
-                {
-                    id: 'applications',
-                    label: t('publications.tabs.applications', 'Приложения'),
-                    content: (
-                        <ApplicationsCreatePanel
-                            autoCreateApplication={Boolean(values.autoCreateApplication)}
-                            onChange={(autoCreate) => setValue('autoCreateApplication', autoCreate)}
                             isLoading={isFormLoading}
                             disabled={isFormLoading}
                         />
@@ -454,15 +523,24 @@ const PublicationList = () => {
                 width: '35%',
                 align: 'left' as const,
                 render: (row: PublicationDisplay) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word'
-                        }}
+                    <Link
+                        to={`/metahub/${metahubId}/publication/${row.id}/versions`}
+                        style={{ textDecoration: 'none', color: 'inherit' }}
                     >
-                        {row.name || '—'}
-                    </Typography>
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                    color: 'primary.main'
+                                }
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
+                    </Link>
                 )
             },
             {
@@ -495,7 +573,7 @@ const PublicationList = () => {
                 )
             }
         ],
-        [t, tc]
+        [t, tc, metahubId]
     )
 
     const createPublicationContext = useCallback(
@@ -633,6 +711,13 @@ const PublicationList = () => {
                 extractLocalizedInput(versionDescriptionVlc)
             const versionBranchId = (data.versionBranchId as string | null | undefined) ?? defaultBranchId ?? undefined
 
+            // Extract optional application name/description override
+            const appNameVlc = data.applicationNameVlc as VersionedLocalizedContent<string> | null | undefined
+            const appDescriptionVlc = data.applicationDescriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const { input: applicationNameInput, primaryLocale: applicationNamePrimaryLocale } = extractLocalizedInput(appNameVlc)
+            const { input: applicationDescriptionInput, primaryLocale: applicationDescriptionPrimaryLocale } =
+                extractLocalizedInput(appDescriptionVlc)
+
             await createPublicationMutation.mutateAsync({
                 metahubId: metahubId!,
                 data: {
@@ -641,12 +726,18 @@ const PublicationList = () => {
                     namePrimaryLocale,
                     descriptionPrimaryLocale,
                     autoCreateApplication: Boolean(data.autoCreateApplication),
+                    createApplicationSchema: Boolean(data.createApplicationSchema),
                     // First version data
                     versionName: versionNameInput,
                     versionDescription: versionDescriptionInput,
                     versionNamePrimaryLocale,
                     versionDescriptionPrimaryLocale,
-                    versionBranchId
+                    versionBranchId,
+                    // Optional application name/description override
+                    applicationName: applicationNameInput,
+                    applicationDescription: applicationDescriptionInput,
+                    applicationNamePrimaryLocale,
+                    applicationDescriptionPrimaryLocale
                 }
             })
 
@@ -782,6 +873,7 @@ const PublicationList = () => {
                                                 key={publication.id}
                                                 data={cardData}
                                                 images={images[publication.id] || []}
+                                                onClick={() => navigate(`/metahub/${metahubId}/publication/${publication.id}/versions`)}
                                                 footerEndContent={
                                                     <Chip
                                                         label={t(
@@ -817,6 +909,9 @@ const PublicationList = () => {
                                         images={images}
                                         isLoading={isLoading}
                                         customColumns={publicationColumns}
+                                        getRowLink={(row: any) =>
+                                            row?.id ? `/metahub/${metahubId}/publication/${row.id}/versions` : undefined
+                                        }
                                         i18nNamespace='flowList'
                                         renderActions={(row: any) => {
                                             const originalPublication = publications.find((a) => a.id === row.id)

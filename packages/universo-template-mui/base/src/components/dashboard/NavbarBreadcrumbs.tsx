@@ -397,10 +397,26 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
 
                     if (segments[3] && metahubPublicationName) {
-                        items.push({ label: truncatePublicationName(metahubPublicationName), to: location.pathname })
+                        items.push({
+                            label: truncatePublicationName(metahubPublicationName),
+                            to: `/metahub/${segments[1]}/publication/${segments[3]}/versions`
+                        })
                     } else if (segments[3]) {
-                        // Fallback to UUID while loading
-                        items.push({ label: segments[3], to: location.pathname })
+                        // Show loading indicator while name is fetched (avoid UUID flash)
+                        items.push({ label: '...', to: `/metahub/${segments[1]}/publication/${segments[3]}/versions` })
+                    }
+
+                    // Add tab suffix: "Версии" or "Приложения"
+                    if (segments[4] === 'versions' && segments[3]) {
+                        items.push({
+                            label: t('versions'),
+                            to: `/metahub/${segments[1]}/publication/${segments[3]}/versions`
+                        })
+                    } else if (segments[4] === 'applications' && segments[3]) {
+                        items.push({
+                            label: t('applications'),
+                            to: `/metahub/${segments[1]}/publication/${segments[3]}/applications`
+                        })
                     }
                 } else if (segments[2] === 'hub') {
                     // Specific hub selected - use singular 'hub' in URL
