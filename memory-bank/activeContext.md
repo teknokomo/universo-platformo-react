@@ -6,42 +6,38 @@
 
 ---
 
-## Current Focus: PR #698 Review Fixes
+## Current Focus: PR #698 Review Complete
 
-**Status**: 🔄 In Progress
+**Status**: ✅ Complete — pushed to upstream
 **Date**: 2026-02-28
 
 ### Summary
 
-Addressing Copilot bot review comments on PR #698.
+All Copilot bot review comments on PR #698 have been addressed and pushed.
 
-### Key Issues to Fix
+### Fixes Applied
 
-1. **branchId fallback** — Add safe fallback for nullable `branchId` in publication queries
-2. **Unused vars** — Remove unused imports/variables flagged by reviewer across modified files
-3. **noopener** — Add `rel="noopener noreferrer"` to `window.open()` calls in PublicationApplicationList
-4. **Nullable names** — Safe-access pattern for potentially nullable publication/version names in UI
-
-### Context
-
-- PR #698 builds on the Publication Drill-In feature (completed 2026-02-28)
-- Review comments are from automated Copilot bot analysis
-- All fixes are minor/cosmetic — no architectural changes needed
+1. **branchId fallback (C2)** — `activeVersion.branchId ?? metahub.defaultBranchId` with early return warning
+2. **Unused vars (C3, C7)** — Removed `usePublicationDetails` + `publicationName` from VersionList & AppList
+3. **noopener (C8)** — Added `'noopener,noreferrer'` to both `window.open()` calls in AppList
+4. **VLC fallback (C6)** — Replaced manual VLC construction with `buildLocalizedContent({ en: 'Application' }, 'en')!` from `@universo/utils`
+5. **Memory-bank (C1, C4, C5)** — Compressed tasks.md, activeContext.md, progress.md (~81% reduction)
 
 ### What's Next
 
-- Fix all 4 review items
-- Push updated commit
-- Re-request review
+- Await PR #698 merge
+- Consider next feature work (see tasks.md for planned items)
+- Runtime testing of publications drill-in end-to-end
 
 ---
 
 ## Recent Completions (2026-02-28)
 
-### Publication Drill-In Feature — Full Implementation
+### Publication Drill-In Feature — Full Implementation + Review Fixes
 
 Completed full Publications drill-in navigation with inner tabs (Versions, Applications):
 
+- **PR #698 Review Fixes**: branchId fallback, unused vars, noopener, VLC fallback via buildLocalizedContent, memory-bank compression
 - **UX Polish Round 2**: Link colors, actions columns, pagination, app URLs — 3 files changed
 - **UX Polish Round 1**: Table links, breadcrumbs, titles, search, action menus — 7 issues fixed
 - **Create Dialog & Schema Fixes**: Reworked dialog layout, fixed broken DDL, fixed TypeError — 4 issues fixed
@@ -118,7 +114,6 @@ Completed full Publications drill-in navigation with inner tabs (Versions, Appli
 
 ## Immediate Next Steps
 
-1. Complete PR #698 review fixes (branchId, unused vars, noopener, nullable names)
-2. Merge PR #698
-3. Consider next feature work (see tasks.md for planned items)
-4. Runtime testing of publications drill-in end-to-end
+1. Await PR #698 merge
+2. Consider next feature work (see tasks.md for planned items)
+3. Runtime testing of publications drill-in end-to-end

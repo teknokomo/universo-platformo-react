@@ -44,6 +44,20 @@
 
 ---
 
+## PR #698 Review Fixes (2026-02-28)
+
+Addressed 9 Copilot bot review comments on PR #698. Analysis found 5 valid code fixes + 3 memory-bank cleanups:
+
+- **C2**: branchId fallback — `activeVersion.branchId ?? metahub.defaultBranchId` with early-return warning (publicationsRoutes.ts)
+- **C3/C7**: Removed unused `publicationName` + `usePublicationDetails` from PublicationVersionList & PublicationApplicationList
+- **C6**: VLC fallback — replaced manual `{ _schema, _primary, locales }` construction with `buildLocalizedContent({ en: 'Application' }, 'en')!` from `@universo/utils` (createLinkedApplication.ts)
+- **C8**: Added `'noopener,noreferrer'` third arg to both `window.open()` calls (PublicationApplicationList.tsx)
+- **C1/C4/C5**: Compressed memory-bank: tasks.md (-82.9%), activeContext.md (-80.2%), progress.md (-80.8%)
+- **C9**: Docs-only route mismatch — skipped (no code impact)
+- Build: **66/66** | Commit: `2d7e07a4` | PR: #698
+
+---
+
 ## Publication Drill-In Feature — Consolidated (2026-02-28)
 
 Full implementation of Publications drill-in navigation with inner tabs (Versions, Applications), replacing the previous flat list + modal-edit approach.

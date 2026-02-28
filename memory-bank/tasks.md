@@ -4,16 +4,18 @@
 
 ---
 
-## Active: PR #698 Review Fixes — 2026-02-28 🔄
+## Active: PR #698 Review Fixes — 2026-02-28 ✅
 
 > **Goal**: Address Copilot bot review comments on PR #698 (Publication Drill-In).
-> **Status**: 🔄 In Progress
+> **Status**: ✅ Complete — pushed commit 2d7e07a4
 
-- [ ] Fix branchId fallback — safe access for nullable branchId in publication queries
-- [ ] Remove unused vars — clean up imports/variables flagged by reviewer
-- [ ] Add noopener — `rel="noopener noreferrer"` to `window.open()` calls
-- [ ] Fix nullable names — safe-access pattern for potentially nullable names in UI
-- [ ] Push updated commit and re-request review
+- [x] Fix branchId fallback — use `metahub.defaultBranchId` instead of empty string (C2)
+- [x] Remove unused vars — `publicationName` + `usePublicationDetails` in VersionList & AppList (C3, C7)
+- [x] Add noopener — `noopener,noreferrer` to `window.open()` calls (C8)
+- [x] Fix nullable names — use `buildLocalizedContent` from `@universo/utils` for VLC fallback (C6)
+- [x] Compress memory-bank — tasks.md, activeContext.md, progress.md (C1, C4, C5)
+- [x] Build: 66/66
+- [x] Push updated commit and re-request review
 
 ---
 
