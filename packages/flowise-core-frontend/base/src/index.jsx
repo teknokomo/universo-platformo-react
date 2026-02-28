@@ -25,8 +25,6 @@ import '@universo/uniks-frontend/i18n'
 import '@universo/metaverses-frontend/i18n'
 import '@universo/applications-frontend/i18n'
 import '@universo/metahubs-frontend/i18n'
-import '@universo/organizations-frontend/i18n'
-import '@universo/storages-frontend/i18n'
 import '@universo/template-mmoomm/i18n'
 import '@universo/template-quiz/i18n'
 

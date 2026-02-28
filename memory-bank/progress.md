@@ -44,6 +44,101 @@
 
 ---
 
+## PostgreSQL NUMERIC → JS Number Coercion Fix (2026-03-02)
+
+Fixed "Invalid value for kolichestvo: Expected number value" error when saving application runtime rows with NUMBER fields. Root cause: PostgreSQL `NUMERIC(10,0)` columns return string values via `node-postgres`, but `coerceRuntimeValue` required strict `typeof value === 'number'`. Metahubs was unaffected because it stores data in JSONB (preserves JS number types). Fix: added `pgNumericToNumber` helper, updated `resolveRuntimeValue`, `coerceRuntimeValue`, GET single row, and GET tabular rows endpoints in `applicationsRoutes.ts`. Build: 56/56.
+
+---
+
+## API Error Message Propagation Fix (2026-03-02)
+
+Fixed hidden error messages in runtime row CRUD operations. Previously, server validation errors (e.g., "Invalid value for X: Expected number value") were replaced by generic "Request failed with status code 400" in the UI. Added `extractApiErrorMessage()` helper to `useCrudDashboard.ts` and `RuntimeInlineTabularEditor.tsx` that extracts `error`/`message` from Axios response body. Build: 56/56.
+
+---
+
+## VLC Comment Consolidation — Metahubs + Applications (2026-03-02)
+
+Merged second metahubs migration into first (comment TEXT→JSONB in `metahubs_users`), aligned applications-backend & frontend with the same VLC comment pattern used in metahubs. Build: 56/56.
+
+### Changes
+- **Metahubs migration**: merged `AlterMetahubUsersCommentToJsonb` into `CreateMetahubsSchema`, deleted second migration file
+- **Applications migration**: changed `comment TEXT` → `comment JSONB DEFAULT '{}'` in `application_users`
+- **ApplicationUser entity**: changed to `type: 'jsonb'` with `VersionedLocalizedContent<string>` type
+- **applicationsRoutes.ts**: added VLC helpers, updated `mapMember`, invite/update member endpoints for VLC comment
+- **Applications frontend**: updated types, API, mutations, MemberActions, Members page for VLC comment display/editing
+
+---
+
+## Documentation Overhaul — GitBook Stubs (2026-03-01)
+
+Deleted all outdated documentation (2023 files from Flowise era, 175 directories, hundreds of images) and created fresh GitBook-standard stub pages indicating documentation is under development.
+
+### What Was Deleted
+- docs/en: all files including .gitbook/assets (hundreds of images)
+- docs/ru: all files including .gitbook/assets
+- Total: ~2023 files and 175 directories removed
+
+### What Was Created
+- **41 EN files** + **41 RU files** with identical structure (82 total)
+- Root docs/README.md updated (removed Spanish reference, added new links)
+
+### Documentation Structure (both EN and RU)
+- `README.md` — Landing page with project overview and GitBook cards
+- `SUMMARY.md` — Table of contents with 6 page groups
+- `getting-started/` — README, installation, quick-start, configuration (4 files)
+- `platform/` — README, workspaces, spaces, metaverses, applications, metahubs, publications, space-builder, analytics (9 files)
+- `platform/updl/` — README, space-nodes, entity-nodes, component-nodes, action-nodes, event-nodes, data-nodes (7 files)
+- `architecture/` — README, monorepo-structure, backend, frontend, database, auth (6 files)
+- `api-reference/` — README, rest-api, authentication, webhooks (4 files)
+- `guides/` — README, creating-application, publishing-content, working-with-updl, multi-platform-export (5 files)
+- `contributing/` — README, development-setup, coding-guidelines, creating-packages (4 files)
+
+### Verification
+- File count: 41 EN = 41 RU ✅
+- Line counts: all 41 pairs match ✅
+- GitBook format: SUMMARY.md, YAML front matter, hint blocks ✅
+
+---
+
+## Legacy Packages Removal — 10 Packages (2026-02-28)
+
+Removed 10 legacy packages and all cross-references across the monorepo per 9-phase plan (see `memory-bank/plan/legacy-packages-removal-plan-2026-03-01.md`).
+
+### Packages Removed
+- campaigns-backend, campaigns-frontend
+- clusters-backend, clusters-frontend
+- organizations-backend, organizations-frontend
+- projects-backend, projects-frontend
+- storages-backend, storages-frontend
+
+### Changes by Phase
+1. **@universo/types**: removed 4 validation files, 4 re-exports, 5 PermissionSubject + PERMISSION_SUBJECTS entries
+2. **flowise-core-backend**: routes (5 lazy routers), index.ts (5 rate limiters), entities (5 imports+spreads), migrations (5 imports+spreads), package.json (3 deps)
+3. **Admin permissions**: admin-backend schemas (5 PermissionSubjects), admin-frontend EN/RU i18n (5+5 translations)
+4. **universo-template-mui**: MainRoutesMUI (~30 Loadable components, ~180 route lines), menuConfigs (5 context menus, 5 root items), MenuContent (5 URL matchers), NavbarBreadcrumbs (10 hooks, 5 menuMap entries, 10 breadcrumb builders), useBreadcrumbName (5 hooks+5 truncate fns), hooks/index (10 re-exports), test file
+5. **flowise-core-frontend**: index.jsx (2 i18n imports), package.json (2 deps), vite.config.js (1 optimizeDeps entry)
+6. **Package directories**: 10 directories deleted via `rm -rf`
+7. **Documentation**: 6 doc directories deleted (EN/RU for clusters, projects, organizations), EN+RU READMEs updated
+8. **Build verification**: `pnpm install` + `pnpm build` = 56/56 success
+   - Unplanned fix: `start-backend/onboardingRoutes.ts` replaced with stub (was 357 lines using removed entities)
+   - Removed 3 legacy deps from `start-backend/package.json`
+
+### Build Impact
+- Package count: 66 → 56 (10 removed)
+- Build: 56/56 successful, all tests passing
+- Pre-existing peer dependency warnings unchanged
+
+### QA Fixes (2026-02-28)
+Post-QA audit found and fixed remaining issues:
+- **P1**: flowise-template-mui `MenuList/index.jsx` — removed clusters/campaigns imports, URL matchers, permission state, useEffects, menu rendering branches
+- **P1**: flowise-template-mui `dashboard.js` — removed clusters/campaigns menu items + unused icons
+- **P1**: Prettier lint errors auto-fixed in start-backend and universo-template-mui (0 errors now)
+- **P2**: docs/ru/applications — deleted 3 legacy directories (clusters/, organizations/, projects/), updated EN+RU README diagrams and tables
+- **P3**: onboardingRoutes.ts `POST /join` — return 404 when profile not found instead of silent success
+- Grep verification: 0 references to deleted packages remain across all source files
+
+---
+
 ## PR #698 Review Fixes (2026-02-28)
 
 Addressed 9 Copilot bot review comments on PR #698. Analysis found 5 valid code fixes + 3 memory-bank cleanups:

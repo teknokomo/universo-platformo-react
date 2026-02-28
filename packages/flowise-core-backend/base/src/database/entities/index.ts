@@ -14,11 +14,6 @@ import { Profile } from '@universo/profile-backend'
 import { metaversesEntities } from '@universo/metaverses-backend'
 import { metahubsEntities } from '@universo/metahubs-backend'
 import { applicationsEntities } from '@universo/applications-backend'
-import { clustersEntities } from '@universo/clusters-backend'
-import { projectsEntities } from '@universo/projects-backend'
-import { campaignsEntities } from '@universo/campaigns-backend'
-import { organizationsEntities } from '@universo/organizations-backend'
-import { storagesEntities } from '@universo/storages-backend'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-backend'
 import { PublishCanvas } from '@universo/publish-backend'
 import { adminEntities } from '@universo/admin-backend'
@@ -29,16 +24,6 @@ const metaversesEntitiesObject = Object.fromEntries(metaversesEntities.map((enti
 const metahubsEntitiesObject = Object.fromEntries(metahubsEntities.map((entity) => [entity.name, entity]))
 
 const applicationsEntitiesObject = Object.fromEntries(applicationsEntities.map((entity) => [entity.name, entity]))
-
-const clustersEntitiesObject = Object.fromEntries(clustersEntities.map((entity) => [entity.name, entity]))
-
-const projectsEntitiesObject = Object.fromEntries(projectsEntities.map((entity) => [entity.name, entity]))
-
-const campaignsEntitiesObject = Object.fromEntries(campaignsEntities.map((entity) => [entity.name, entity]))
-
-const organizationsEntitiesObject = Object.fromEntries(organizationsEntities.map((entity) => [entity.name, entity]))
-
-const storagesEntitiesObject = Object.fromEntries(storagesEntities.map((entity) => [entity.name, entity]))
 
 const adminEntitiesObject = Object.fromEntries(adminEntities.map((entity) => [entity.name, entity]))
 
@@ -62,16 +47,6 @@ export const entities = {
     ...metahubsEntitiesObject,
     // Applications service entities
     ...applicationsEntitiesObject,
-    // Clusters service entities
-    ...clustersEntitiesObject,
-    // Projects service entities
-    ...projectsEntitiesObject,
-    // Campaigns service entities
-    ...campaignsEntitiesObject,
-    // Organizations service entities
-    ...organizationsEntitiesObject,
-    // Storages service entities
-    ...storagesEntitiesObject,
     // Uniks entities
     Unik,
     UnikUser,

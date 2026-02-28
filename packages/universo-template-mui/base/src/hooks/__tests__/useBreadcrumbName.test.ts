@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
-import { createEntityNameHook, createTruncateFunction, useMetaverseName, useClusterName, truncateMetaverseName } from '../useBreadcrumbName'
+import { createEntityNameHook, createTruncateFunction, useMetaverseName, truncateMetaverseName } from '../useBreadcrumbName'
 
 // Mock fetch globally
 const mockFetch = jest.fn()
@@ -169,21 +169,6 @@ describe('useBreadcrumbName', () => {
             })
 
             expect(mockFetch).toHaveBeenCalledWith('/api/v1/metaverses/mv-123', expect.anything())
-        })
-
-        it('useClusterName should call correct API endpoint', async () => {
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                json: () => Promise.resolve({ name: 'Production Cluster' })
-            })
-
-            const { result } = renderHook(() => useClusterName('cluster-456'), { wrapper })
-
-            await waitFor(() => {
-                expect(result.current).toBe('Production Cluster')
-            })
-
-            expect(mockFetch).toHaveBeenCalledWith('/api/v1/clusters/cluster-456', expect.anything())
         })
     })
 

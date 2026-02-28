@@ -67,12 +67,7 @@ export function validateListQuery(query: unknown): ListQueryInput {
  */
 const PermissionSubjects = [
     'metaverses',
-    'clusters',
-    'projects',
     'spaces',
-    'storages',
-    'organizations',
-    'campaigns',
     'uniks',
     'sections',
     'entities',

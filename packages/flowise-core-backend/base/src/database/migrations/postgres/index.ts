@@ -37,11 +37,6 @@ import { profileMigrations } from '@universo/profile-backend'
 import { metaversesMigrations } from '@universo/metaverses-backend'
 import { metahubsMigrations } from '@universo/metahubs-backend'
 import { applicationsMigrations } from '@universo/applications-backend'
-import { clustersMigrations } from '@universo/clusters-backend'
-import { projectsMigrations } from '@universo/projects-backend'
-import { campaignsMigrations } from '@universo/campaigns-backend'
-import { organizationsMigrations } from '@universo/organizations-backend'
-import { storagesMigrations } from '@universo/storages-backend'
 import { spacesMigrations } from '@universo/spaces-backend'
 import { publishMigrations } from '@universo/publish-backend'
 
@@ -83,11 +78,6 @@ export const postgresMigrations = [
     ...metaversesMigrations,
     ...metahubsMigrations,
     ...applicationsMigrations,
-    ...clustersMigrations,
-    ...projectsMigrations,
-    ...campaignsMigrations,
-    ...organizationsMigrations,
-    ...storagesMigrations,
 
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 4: Spaces & Canvases (core visual builder)

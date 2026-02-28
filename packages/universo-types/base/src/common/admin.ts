@@ -247,12 +247,7 @@ export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | '*'
  */
 export type PermissionSubject =
     | 'metaverses'
-    | 'clusters'
-    | 'projects'
     | 'spaces'
-    | 'storages'
-    | 'organizations'
-    | 'campaigns'
     | 'uniks'
     | 'sections'
     | 'entities'
@@ -268,12 +263,7 @@ export type PermissionSubject =
  */
 export const PERMISSION_SUBJECTS: PermissionSubject[] = [
     'metaverses',
-    'clusters',
-    'projects',
     'spaces',
-    'storages',
-    'organizations',
-    'campaigns',
     'uniks',
     'sections',
     'entities',

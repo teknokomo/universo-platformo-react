@@ -2,7 +2,6 @@ import type { ElementType } from 'react'
 import {
     IconFiles,
     IconWorld,
-    IconFolder,
     IconUser,
     IconFileText,
     IconUsers,
@@ -256,146 +255,6 @@ export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] =
     }
 ]
 
-// Function to generate cluster menu items for a specific cluster
-export const getClusterMenuItems = (clusterId: string): TemplateMenuItem[] => [
-    {
-        id: 'cluster-board',
-        titleKey: 'clusterboard',
-        url: `/cluster/${clusterId}`,
-        icon: IconBuildingStore
-    },
-    {
-        id: 'cluster-resources',
-        titleKey: 'resources',
-        url: `/clusters/${clusterId}/resources`,
-        icon: IconBoxMultiple
-    },
-    {
-        id: 'cluster-domains',
-        titleKey: 'domains',
-        url: `/clusters/${clusterId}/domains`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'cluster-access',
-        titleKey: 'access',
-        url: `/cluster/${clusterId}/access`,
-        icon: IconUsers
-    }
-]
-
-// Function to generate project menu items for a specific project
-export const getProjectMenuItems = (projectId: string): TemplateMenuItem[] => [
-    {
-        id: 'project-board',
-        titleKey: 'projectboard',
-        url: `/project/${projectId}`,
-        icon: IconBuildingStore
-    },
-    {
-        id: 'project-tasks',
-        titleKey: 'tasks',
-        url: `/projects/${projectId}/tasks`,
-        icon: IconBoxMultiple
-    },
-    {
-        id: 'project-milestones',
-        titleKey: 'milestones',
-        url: `/projects/${projectId}/milestones`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'project-access',
-        titleKey: 'access',
-        url: `/project/${projectId}/access`,
-        icon: IconUsers
-    }
-]
-
-// Function to generate organization menu items for a specific organization
-export const getOrganizationMenuItems = (organizationId: string): TemplateMenuItem[] => [
-    {
-        id: 'organization-board',
-        titleKey: 'organizationboard',
-        url: `/organization/${organizationId}`,
-        icon: IconBuildingStore
-    },
-    {
-        id: 'organization-departments',
-        titleKey: 'departments',
-        url: `/organizations/${organizationId}/departments`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'organization-positions',
-        titleKey: 'positions',
-        url: `/organizations/${organizationId}/positions`,
-        icon: IconBoxMultiple
-    },
-    {
-        id: 'organization-access',
-        titleKey: 'access',
-        url: `/organization/${organizationId}/access`,
-        icon: IconUsers
-    }
-]
-
-// Function to generate storage menu items for a specific storage
-export const getStorageMenuItems = (storageId: string): TemplateMenuItem[] => [
-    {
-        id: 'storage-board',
-        titleKey: 'storageboard',
-        url: `/storage/${storageId}/board`,
-        icon: IconDatabase
-    },
-    {
-        id: 'storage-containers',
-        titleKey: 'containers',
-        url: `/storages/${storageId}/containers`,
-        icon: IconBoxMultiple
-    },
-    {
-        id: 'storage-slots',
-        titleKey: 'slots',
-        url: `/storages/${storageId}/slots`,
-        icon: IconFolder
-    },
-    {
-        id: 'storage-members',
-        titleKey: 'members',
-        url: `/storage/${storageId}/members`,
-        icon: IconUsers
-    }
-]
-
-// Function to generate campaign menu items for a specific campaign
-export const getCampaignMenuItems = (campaignId: string): TemplateMenuItem[] => [
-    {
-        id: 'campaign-board',
-        titleKey: 'campaignboard',
-        url: `/campaign/${campaignId}`,
-        icon: IconFlag
-    },
-    {
-        id: 'campaign-events',
-        titleKey: 'events',
-        url: `/campaigns/${campaignId}/events`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'campaign-activities',
-        titleKey: 'activities',
-        url: `/campaigns/${campaignId}/activities`,
-        icon: IconBoxMultiple
-    },
-    {
-        id: 'campaign-access',
-        titleKey: 'access',
-        url: `/campaign/${campaignId}/access`,
-        icon: IconUsers
-    }
-]
-
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',
@@ -408,36 +267,6 @@ export const rootMenuItems: TemplateMenuItem[] = [
         titleKey: 'metaverses',
         url: '/metaverses',
         icon: IconWorld
-    },
-    {
-        id: 'clusters',
-        titleKey: 'clusters',
-        url: '/clusters',
-        icon: IconFolder
-    },
-    {
-        id: 'projects',
-        titleKey: 'projects',
-        url: '/projects',
-        icon: IconFolder
-    },
-    {
-        id: 'organizations',
-        titleKey: 'organizations',
-        url: '/organizations',
-        icon: IconBuildingStore
-    },
-    {
-        id: 'storages',
-        titleKey: 'storages',
-        url: '/storages',
-        icon: IconDatabase
-    },
-    {
-        id: 'campaigns',
-        titleKey: 'campaigns',
-        url: '/campaigns',
-        icon: IconFlag
     },
     {
         id: 'profile',

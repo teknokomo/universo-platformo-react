@@ -7,5 +7,12 @@ import type { ApplicationMember } from '../types'
  */
 export default createMemberActions<ApplicationMember>({
     i18nPrefix: 'applications',
-    entityType: 'application'
+    entityType: 'application',
+    localizedComment: true,
+    getInitialFormData: (member) => ({
+        initialEmail: member.email || '',
+        initialRole: member.role,
+        initialComment: member.comment || '',
+        initialCommentVlc: member.commentVlc ?? null
+    })
 })

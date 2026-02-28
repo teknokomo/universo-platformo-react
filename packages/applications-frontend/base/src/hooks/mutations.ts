@@ -49,7 +49,7 @@ class CopySyncStepError extends Error {
 interface UpdateMemberRoleParams {
     applicationId: string
     memberId: string
-    data: { role: AssignableRole; comment?: string }
+    data: { role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
 }
 
 interface RemoveMemberParams {
@@ -59,7 +59,7 @@ interface RemoveMemberParams {
 
 interface InviteMemberParams {
     applicationId: string
-    data: { email: string; role: AssignableRole; comment?: string }
+    data: { email: string; role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
 }
 
 interface CreateConnectorParams {
@@ -318,14 +318,14 @@ export function useMemberMutations(applicationId: string) {
 
     return {
         // Invite
-        inviteMember: async (data: { email: string; role: AssignableRole; comment?: string }) => {
+        inviteMember: async (data: { email: string; role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }) => {
             return inviteMutation.mutateAsync({ applicationId, data })
         },
         isInviting: inviteMutation.isPending,
         inviteError: inviteMutation.error,
 
         // Update role
-        updateMemberRole: async (memberId: string, data: { role: AssignableRole; comment?: string }) => {
+        updateMemberRole: async (memberId: string, data: { role: AssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }) => {
             return updateMutation.mutateAsync({ applicationId, memberId, data })
         },
         isUpdating: updateMutation.isPending,
