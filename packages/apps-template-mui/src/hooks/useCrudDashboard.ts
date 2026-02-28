@@ -110,6 +110,28 @@ const appendCopySuffixToFirstStringField = (params: {
     }
 }
 
+// ---------------------------------------------------------------------------
+//  Helper: extract human-readable error message from API failures
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the most useful error message from an API failure.
+ *
+ * For Axios errors the server response body is available under
+ * `err.response.data`.  We prefer the server-provided `error` or
+ * `message` field over the generic Axios status line.
+ */
+const extractApiErrorMessage = (err: unknown): string => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseData = (err as any)?.response?.data
+    if (responseData) {
+        if (typeof responseData.error === 'string' && responseData.error.trim()) return responseData.error
+        if (typeof responseData.message === 'string' && responseData.message.trim()) return responseData.message
+    }
+    if (err instanceof Error) return err.message
+    return String(err)
+}
+
 const stripReadOnlyEnumerationLabelFields = (params: {
     payload: Record<string, unknown>
     fieldConfigs: FieldConfig[]
@@ -544,7 +566,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 }
                 handleCloseForm()
             } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err)
+                const msg = extractApiErrorMessage(err)
                 const resolvedError = copyRowId
                     ? t('app.errorCopy', {
                           defaultValue: 'Copy failed: {{message}}',
@@ -584,7 +606,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             await deleteMutation.mutateAsync(deleteRowId)
             handleCloseDelete()
         } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
+            const msg = extractApiErrorMessage(err)
             setDeleteError(
                 t('app.errorDelete', {
                     defaultValue: 'Delete failed: {{message}}',

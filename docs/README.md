@@ -1,35 +1,29 @@
 # Universo Platformo Documentation
 
-Welcome to the comprehensive documentation for **Universo Platformo React** - an advanced platform for building AI Agents, LLM workflows, and immersive 3D/AR/VR experiences.
+Welcome to the documentation for **Universo Platformo** — an open platform for building AI-powered workflows and immersive 3D/AR experiences.
 
-## About Universo Platformo
+{% hint style="info" %}
+**Documentation is under active development.** Content is being added regularly. Check back soon for updates.
+{% endhint %}
 
-Universo Platformo React is built upon the foundation of Flowise, extending it with powerful capabilities for creating universal digital spaces and implementing the **Universo Kiberplano** - a global planning and implementation system.
+## Documentation Languages
 
-### Core Features
+-   **[English Documentation](en/)** — Complete documentation in English
+-   **[Документация на русском](ru/)** — Полная документация на русском языке
 
--   **Visual AI Agent Builder** - Create sophisticated AI agents with visual flow-based interface
--   **UPDL Node System** - Universal Platform Description Language for 3D/AR/VR content creation
--   **MMOOMM Templates** - Massive Multiplayer Online Open Metaverse templates
--   **Multi-Platform Export** - Support for AR.js, PlayCanvas, A-Frame, and more
--   **Enhanced Resource Systems** - Advanced resource management and trading mechanics
--   **Multilingual Support** - Full documentation in English, Spanish, and Russian
+## Quick Links
 
-## Documentation Structure
+| Resource | Link |
+| --- | --- |
+| GitHub Repository | [github.com/teknokomo/universo-platformo-react](https://github.com/teknokomo/universo-platformo-react) |
+| GitBook (published) | [teknokomo.gitbook.io/up](https://teknokomo.gitbook.io/up) |
+| Community Chat | [Discord / Telegram](https://github.com/teknokomo/universo-platformo-react) |
 
-This documentation is organized into language-specific sections:
+## Contributing
 
--   **[English Documentation](en/)** - Complete documentation in English
--   **[Spanish Documentation](esp/)** - Documentación completa en español
--   **[Russian Documentation](ru/)** - Полная документация на русском языке
+We welcome contributions! Please submit Pull Requests and we will review them. See the [Contributing Guide](en/contributing/) for details.
 
-## 🙌 Contributing
+## License
 
-We welcome contributions! Please submit Pull Requests and we will review them. For questions or issues, reach out to us through our [GitHub repository](https://github.com/VladimirLevadnij/universo-platformo-react).
-
-## 📄 License
-
-This project uses a dual licensing structure:
-
--   **Original Flowise Code** (`packages/` directory): [Apache License 2.0](https://github.com/FlowiseAI/Flowise/blob/main/LICENSE.md)
--   **Universo Platformo Extensions** (`packages/` directory): Omsk Open License
+-   **Original Flowise Code**: [Apache License 2.0](https://github.com/FlowiseAI/Flowise/blob/main/LICENSE.md)
+-   **Universo Platformo Extensions**: Omsk Open License

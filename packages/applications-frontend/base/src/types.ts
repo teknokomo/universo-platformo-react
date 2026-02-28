@@ -35,6 +35,7 @@ export interface ApplicationMember {
     nickname: string | null
     role: ApplicationRole
     comment?: string
+    commentVlc?: VersionedLocalizedContent<string> | null
     createdAt: string
 }
 

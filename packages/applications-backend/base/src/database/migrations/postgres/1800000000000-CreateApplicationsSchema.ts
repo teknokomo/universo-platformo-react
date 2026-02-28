@@ -251,7 +251,7 @@ export class CreateApplicationsSchema1800000000000 implements MigrationInterface
                 application_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
-                comment TEXT,
+                comment JSONB,
 
                 -- Platform-level system fields (_upl_*)
                 _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

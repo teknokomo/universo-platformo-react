@@ -9,6 +9,7 @@ import {
     ApplicationLocalizedPayload,
     ApplicationRuntimeResponse
 } from '../types'
+import type { SimpleLocalizedInput } from '../types'
 
 // Input type for creating/updating applications with localized content
 export interface ApplicationInput extends ApplicationLocalizedPayload {
@@ -219,13 +220,13 @@ export const listApplicationMembers = async (
 
 export const inviteApplicationMember = (
     applicationId: string,
-    data: { email: string; role: ApplicationAssignableRole; comment?: string }
+    data: { email: string; role: ApplicationAssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
 ) => apiClient.post<ApplicationMember>(`/applications/${applicationId}/members`, data)
 
 export const updateApplicationMemberRole = (
     applicationId: string,
     memberId: string,
-    data: { role: ApplicationAssignableRole; comment?: string }
+    data: { role: ApplicationAssignableRole; comment?: SimpleLocalizedInput | null; commentPrimaryLocale?: string }
 ) => apiClient.patch<ApplicationMember>(`/applications/${applicationId}/members/${memberId}`, data)
 
 export const removeApplicationMember = (applicationId: string, memberId: string) =>

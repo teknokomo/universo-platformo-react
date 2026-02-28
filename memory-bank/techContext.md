@@ -285,16 +285,7 @@ const newId = uuidv7()
 
 ### Data Isolation Architecture
 
-**Cluster-Based Isolation** - Complete data separation between organizational units
-
-**Key Implementation Details:**
-
--   Three-tier hierarchy: Clusters → Domains → Resources
--   Junction tables with CASCADE delete and UNIQUE constraints
--   Mandatory associations prevent orphaned entities
--   Cluster-scoped API endpoints maintain context
--   Frontend validation prevents invalid data entry
--   Idempotent operations for safe relationship management
+**Note**: The original cluster-based isolation (Clusters → Domains → Resources) was removed in the legacy packages cleanup (2026-02-28). Current data isolation is handled via RLS policies and tenant-scoped queries (see `rls-integration-pattern.md`).
 
 ### Material-UI Validation Pattern
 

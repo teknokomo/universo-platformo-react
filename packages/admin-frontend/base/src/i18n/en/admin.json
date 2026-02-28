@@ -215,12 +215,7 @@
             "hint": "Check individual cells or use row/column headers for bulk selection. \"*\" means all actions.",
             "subjects": {
                 "metaverses": "Metaverses",
-                "clusters": "Clusters",
-                "projects": "Projects",
                 "spaces": "Spaces",
-                "storages": "Storages",
-                "organizations": "Organizations",
-                "campaigns": "Campaigns",
                 "uniks": "Uniks",
                 "sections": "Sections",
                 "entities": "Entities",

@@ -4,6 +4,118 @@
 
 ---
 
+## Completed: VLC Comment Consolidation — Metahubs + Applications (2026-03-02) ✅
+
+> **Goal**: Merge second metahubs migration into first (comment TEXT→JSONB), ensure applications-backend & frontend store/display comment the same VLC way as metahubs.
+> **Status**: ✅ Complete — build 56/56
+
+### Metahubs Backend (migration consolidation)
+- [x] Change `comment TEXT` → `comment JSONB` in `1766351182000-CreateMetahubsSchema.ts` (line 358)
+- [x] Delete `1766351182001-AlterMetahubUsersCommentToJsonb.ts`
+- [x] Update `migrations/postgres/index.ts` — remove second migration import
+
+### Applications Backend (align with metahubs VLC pattern)
+- [x] Change `comment TEXT` → `comment JSONB` in `1800000000000-CreateApplicationsSchema.ts` (line 259)
+- [x] Update `ApplicationUser` entity: `type: 'text'` → `type: 'jsonb'`, add VLC type
+- [x] Update `applicationsRoutes.ts`:
+  - `mapMember`: add `commentVlc` field (like metahubs)
+  - Invite member: accept localized `comment` input + `commentPrimaryLocale`
+  - Update member: same VLC input handling
+  - Copy member: preserve JSONB comment
+
+### Applications Frontend (align with metahubs VLC pattern)
+- [x] Update `ApplicationMember` type in `types.ts`: add `commentVlc` field
+- [x] Update `applications.ts` API: `inviteApplicationMember` and `updateApplicationMemberRole` to pass VLC data
+- [x] Update `ApplicationMemberActions.tsx`: add `localizedComment: true` + `getInitialFormData`
+- [x] Update `ApplicationMembers.tsx`:
+  - Add VLC imports (`getVLCString`, `extractLocalizedInput`)
+  - `isMemberFormData`: validate `commentVlc` field
+  - `handleInviteMember`: accept VLC data, call `extractLocalizedInput`
+  - `createMemberContext.updateEntity`: use `extractLocalizedInput`
+  - Table comment column: resolve VLC string
+  - Card description: resolve VLC string
+  - `MemberFormDialog`: add `commentMode='localized'`, `uiLocale`, `commentTooLongMessage`
+- [x] Update `mutations.ts`: change `InviteMemberParams` and `UpdateMemberRoleParams` to use VLC types
+
+### Verification
+- [x] Build entire project (`pnpm build`) — 56/56
+- [x] Update memory-bank
+
+---
+
+## Completed: PostgreSQL NUMERIC → JS Number Coercion Fix (2026-03-02) ✅
+
+> **Goal**: Fix "Invalid value for kolichestvo: Expected number value" — pg returns NUMERIC columns as strings, causing write validation to fail.
+> **Status**: ✅ Complete — build 56/56
+
+### Root Cause
+- PostgreSQL `NUMERIC(10,0)` columns return string values via `node-postgres`
+- Application runtime endpoints passed strings through without conversion
+- `coerceRuntimeValue` required strict `typeof value === 'number'`
+- Metahubs unaffected because it stores data in JSONB (preserves JS number types)
+
+### Changes (all in `applicationsRoutes.ts`)
+- [x] Add `pgNumericToNumber` helper — safe NUMERIC string → JS number conversion
+- [x] Fix `resolveRuntimeValue` — add NUMBER case for LIST endpoint
+- [x] Fix `coerceRuntimeValue` — accept numeric strings for NUMBER type (all write endpoints)
+- [x] Fix GET single row endpoint — convert NUMBER attributes to JS numbers
+- [x] Fix GET tabular rows endpoint — convert NUMBER child attributes to JS numbers
+- [x] Build verification — 56/56
+
+---
+
+## Completed: API Error Message Propagation Fix (2026-03-02) ✅
+
+> **Goal**: Fix hidden 400 error messages — show actual server validation error text to users instead of generic "Request failed with status code 400".
+> **Status**: ✅ Complete — build 56/56
+
+### Changes
+- [x] Add `extractApiErrorMessage` helper to `useCrudDashboard.ts` — extracts `error`/`message` from Axios response body
+- [x] Update all catch blocks (create, update, delete) in `useCrudDashboard.ts` to use helper
+- [x] Add `extractApiErrorMessage` helper to `RuntimeInlineTabularEditor.tsx`
+- [x] Update all catch blocks (create, update, delete, copy, processRowUpdate) in `RuntimeInlineTabularEditor.tsx`
+- [x] Build verification — 56/56
+
+---
+
+## Completed: Documentation Overhaul — GitBook Stubs (2026-03-01) ✅
+
+> **Goal**: Delete all outdated docs (2023 files from Flowise era), create GitBook-standard stub pages in EN/RU.
+> **Status**: ✅ Complete — 41 files EN + 41 files RU, line counts matched, root README updated
+
+- [x] Analyze existing docs structure (2023 files, 175 directories)
+- [x] Research GitBook format (SUMMARY.md, front matter, hints, cards)
+- [x] Delete all old files in docs/en and docs/ru (including .gitbook/assets)
+- [x] Create EN GitBook stubs (41 files across 7 sections)
+- [x] Create RU GitBook stubs (41 files mirroring EN structure)
+- [x] Align EN/RU line counts (25 pairs fixed)
+- [x] Update docs/README.md root (removed Spanish, updated links)
+- [x] Verify structure parity (41/41 files, all line counts OK)
+- [x] Update memory-bank
+
+---
+
+## Completed: Legacy Packages Removal (10 packages) — 2026-02-28 ✅
+
+> **Goal**: Remove 10 legacy packages and all cross-references (9-phase plan).
+> **Status**: ✅ Complete — build 56/56 (was 66/66 before removal)
+> **Plan**: memory-bank/plan/legacy-packages-removal-plan-2026-03-01.md
+
+- [x] Phase 1: @universo/types cleanup — removed 4 validation files, 4 re-exports, 5 PermissionSubject/PERMISSION_SUBJECTS entries
+- [x] Phase 2: Backend core cleanup — routes/index.ts, index.ts, entities, migrations, package.json
+- [x] Phase 3: Admin permissions — admin-backend schemas, admin-frontend i18n EN/RU
+- [x] Phase 4: universo-template-mui — routes, menus, breadcrumbs, hooks, tests (~8 files)
+- [x] Phase 5: flowise-core-frontend — i18n imports, deps, vite config
+- [x] Phase 6: Delete 10 package directories
+- [x] Phase 7: Update documentation — EN/RU READMEs, deleted 6 doc directories
+- [x] Phase 8: Build verification — pnpm install + pnpm build (56/56)
+  - Note: Unplanned fix in start-backend/onboardingRoutes.ts — replaced 357-line file with stub (entities removed)
+  - Note: Removed 3 deps from start-backend/package.json
+- [x] Phase 9: Memory bank updates
+- [x] Phase 10 (QA fixes): flowise-template-mui MenuList cleanup, dashboard.js cleanup, lint fixes, docs/ru cleanup, onboarding 404 fix
+
+---
+
 ## Active: PR #698 QA Fixes — 2026-02-28 ✅
 
 > **Goal**: Fix issues found during comprehensive QA analysis of Publication Drill-In.

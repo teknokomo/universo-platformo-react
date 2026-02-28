@@ -29,11 +29,6 @@ import { passport, createAuthRouter } from '@universo/auth-backend'
 import { initializeRateLimiters } from '@universo/metaverses-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates as seedMetahubTemplates } from '@universo/metahubs-backend'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
-import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-backend'
-import { initializeRateLimiters as initializeProjectsRateLimiters } from '@universo/projects-backend'
-import { initializeRateLimiters as initializeCampaignsRateLimiters } from '@universo/campaigns-backend'
-import { initializeRateLimiters as initializeOrganizationsRateLimiters } from '@universo/organizations-backend'
-import { initializeRateLimiters as initializeStoragesRateLimiters } from '@universo/storages-backend'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
@@ -337,21 +332,6 @@ export class App {
 
         // Initialize rate limiters for applications service
         await initializeApplicationsRateLimiters()
-
-        // Initialize rate limiters for clusters service
-        await initializeClustersRateLimiters()
-
-        // Initialize rate limiters for projects service
-        await initializeProjectsRateLimiters()
-
-        // Initialize rate limiters for campaigns service
-        await initializeCampaignsRateLimiters()
-
-        // Initialize rate limiters for organizations service
-        await initializeOrganizationsRateLimiters()
-
-        // Initialize rate limiters for storages service
-        await initializeStoragesRateLimiters()
 
         // Initialize rate limiters for start (onboarding) service
         await initializeStartRateLimiters()

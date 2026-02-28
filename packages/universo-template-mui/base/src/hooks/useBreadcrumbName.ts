@@ -200,51 +200,11 @@ export const useMetahubName = createEntityNameHook({
 })
 
 /**
- * Hook to fetch and cache organization name by ID for breadcrumb display.
- */
-export const useOrganizationName = createEntityNameHook({
-    entityType: 'organization',
-    apiPath: 'organizations'
-})
-
-/**
- * Hook to fetch and cache cluster name by ID for breadcrumb display.
- */
-export const useClusterName = createEntityNameHook({
-    entityType: 'cluster',
-    apiPath: 'clusters'
-})
-
-/**
- * Hook to fetch and cache project name by ID for breadcrumb display.
- */
-export const useProjectName = createEntityNameHook({
-    entityType: 'project',
-    apiPath: 'projects'
-})
-
-/**
- * Hook to fetch and cache campaign name by ID for breadcrumb display.
- */
-export const useCampaignName = createEntityNameHook({
-    entityType: 'campaign',
-    apiPath: 'campaigns'
-})
-
-/**
  * Hook to fetch and cache unik name by ID for breadcrumb display.
  */
 export const useUnikName = createEntityNameHook({
     entityType: 'unik',
     apiPath: 'uniks'
-})
-
-/**
- * Hook to fetch and cache storage name by ID for breadcrumb display.
- */
-export const useStorageName = createEntityNameHook({
-    entityType: 'storage',
-    apiPath: 'storages'
 })
 
 /**
@@ -506,23 +466,8 @@ export const truncateMetaverseName = createTruncateFunction(30)
 /** Truncate metahub name with ellipsis (default: 30 chars) */
 export const truncateMetahubName = createTruncateFunction(30)
 
-/** Truncate organization name with ellipsis (default: 30 chars) */
-export const truncateOrganizationName = createTruncateFunction(30)
-
-/** Truncate cluster name with ellipsis (default: 30 chars) */
-export const truncateClusterName = createTruncateFunction(30)
-
-/** Truncate project name with ellipsis (default: 30 chars) */
-export const truncateProjectName = createTruncateFunction(30)
-
-/** Truncate campaign name with ellipsis (default: 30 chars) */
-export const truncateCampaignName = createTruncateFunction(30)
-
 /** Truncate unik name with ellipsis (default: 30 chars) */
 export const truncateUnikName = createTruncateFunction(30)
-
-/** Truncate storage name with ellipsis (default: 30 chars) */
-export const truncateStorageName = createTruncateFunction(30)
 
 /** Truncate application name with ellipsis (default: 30 chars) */
 export const truncateApplicationName = createTruncateFunction(30)

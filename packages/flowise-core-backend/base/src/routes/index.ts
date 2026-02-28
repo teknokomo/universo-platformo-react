@@ -39,11 +39,6 @@ import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRou
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from '@universo/metahubs-backend'
 import { initializeRateLimiters as initializeApplicationsRateLimiters, createApplicationsServiceRoutes } from '@universo/applications-backend'
-import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-backend'
-import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-backend'
-import { createCampaignsServiceRoutes } from '@universo/campaigns-backend'
-import { createOrganizationsServiceRoutes } from '@universo/organizations-backend'
-import { createStoragesServiceRoutes } from '@universo/storages-backend'
 import { createStartServiceRoutes } from '@universo/start-backend'
 import { createToolsService, createToolsRouter, toolsErrorHandler } from '@flowise/tools-backend'
 import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@flowise/credentials-backend'
@@ -379,10 +374,9 @@ router.use(
     createUnikIndividualRouter(ensureAuthWithRls, () => getDataSource())
 )
 
-// Legacy resources-backend routes removed (package obsolete) - 2025-01-18:
-// - /resources (createResourcesRouter)
-// - /clusters (createClustersRoutes)
-// - /domains (createDomainsRoutes)
+// Legacy packages removed:
+// - resources-backend (obsolete, 2025-01-18)
+// - clusters-backend, projects-backend, campaigns-backend, organizations-backend, storages-backend (removed, 2026-02-28)
 
 // Universo Platformo | Metaverses, Sections, Entities
 // Note: Rate limiters initialized via initializeRateLimiters() in server startup
@@ -395,22 +389,6 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (metaversesRouter) {
         metaversesRouter(req, res, next)
-    } else {
-        next()
-    }
-})
-
-// Universo Platformo | Clusters, Domains, Resources
-// Note: Rate limiters initialized via initializeClustersRateLimiters() in server startup
-// This mounts: /clusters, /domains, /resources
-// Lazy initialization: router created on first request (after initializeClustersRateLimiters called)
-let clustersRouter: ExpressRouter | null = null
-router.use((req: Request, res: Response, next: NextFunction) => {
-    if (!clustersRouter) {
-        clustersRouter = createClustersServiceRoutes(ensureAuthWithRls, () => getDataSource())
-    }
-    if (clustersRouter) {
-        clustersRouter(req, res, next)
     } else {
         next()
     }
@@ -443,70 +421,6 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (applicationsRouter) {
         applicationsRouter(req, res, next)
-    } else {
-        next()
-    }
-})
-
-// Universo Platformo | Projects, Milestones, Tasks
-// Note: Rate limiters initialized via initializeProjectsRateLimiters() in server startup
-// This mounts: /projects, /milestones, /tasks
-// Lazy initialization: router created on first request (after initializeProjectsRateLimiters called)
-let projectsRouter: ExpressRouter | null = null
-router.use((req: Request, res: Response, next: NextFunction) => {
-    if (!projectsRouter) {
-        projectsRouter = createProjectsServiceRoutes(ensureAuthWithRls, () => getDataSource())
-    }
-    if (projectsRouter) {
-        projectsRouter(req, res, next)
-    } else {
-        next()
-    }
-})
-
-// Universo Platformo | Campaigns, Events, Activities
-// Note: Rate limiters initialized via initializeCampaignsRateLimiters() in server startup
-// This mounts: /campaigns, /events, /activities
-// Lazy initialization: router created on first request (after initializeCampaignsRateLimiters called)
-let campaignsRouter: ExpressRouter | null = null
-router.use((req: Request, res: Response, next: NextFunction) => {
-    if (!campaignsRouter) {
-        campaignsRouter = createCampaignsServiceRoutes(ensureAuthWithRls, () => getDataSource())
-    }
-    if (campaignsRouter) {
-        campaignsRouter(req, res, next)
-    } else {
-        next()
-    }
-})
-
-// Universo Platformo | Organizations, Departments, Positions
-// Note: Rate limiters initialized via initializeOrganizationsRateLimiters() in server startup
-// This mounts: /organizations, /departments, /positions
-// Lazy initialization: router created on first request (after initializeOrganizationsRateLimiters called)
-let organizationsRouter: ExpressRouter | null = null
-router.use((req: Request, res: Response, next: NextFunction) => {
-    if (!organizationsRouter) {
-        organizationsRouter = createOrganizationsServiceRoutes(ensureAuthWithRls, () => getDataSource())
-    }
-    if (organizationsRouter) {
-        organizationsRouter(req, res, next)
-    } else {
-        next()
-    }
-})
-
-// Universo Platformo | Storages, Containers, Slots
-// Note: Rate limiters initialized via initializeStoragesRateLimiters() in server startup
-// This mounts: /storages, /containers, /slots
-// Lazy initialization: router created on first request (after initializeStoragesRateLimiters called)
-let storagesRouter: ExpressRouter | null = null
-router.use((req: Request, res: Response, next: NextFunction) => {
-    if (!storagesRouter) {
-        storagesRouter = createStoragesServiceRoutes(ensureAuthWithRls, () => getDataSource())
-    }
-    if (storagesRouter) {
-        storagesRouter(req, res, next)
     } else {
         next()
     }

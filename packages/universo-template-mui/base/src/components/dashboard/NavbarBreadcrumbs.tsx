@@ -13,18 +13,8 @@ import {
     truncateMetaverseName,
     useMetahubName,
     truncateMetahubName,
-    useClusterName,
-    truncateClusterName,
-    useProjectName,
-    truncateProjectName,
-    useCampaignName,
-    truncateCampaignName,
     useUnikName,
     truncateUnikName,
-    useOrganizationName,
-    truncateOrganizationName,
-    useStorageName,
-    truncateStorageName,
     useApplicationName,
     truncateApplicationName,
     useMetahubPublicationName,
@@ -76,31 +66,6 @@ export default function NavbarBreadcrumbs() {
     const layoutParentMetahubId = layoutIdMatch ? layoutIdMatch[1] : null
     const layoutId = layoutIdMatch ? layoutIdMatch[2] : null
     const layoutName = useLayoutName(layoutParentMetahubId, layoutId)
-
-    // Extract clusterId from URL for dynamic name loading (both singular and plural routes)
-    const clusterIdMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
-    const clusterId = clusterIdMatch ? clusterIdMatch[1] : null
-    const clusterName = useClusterName(clusterId)
-
-    // Extract projectId from URL for dynamic name loading (both singular and plural routes)
-    const projectIdMatch = location.pathname.match(/^\/projects?\/([^/]+)/)
-    const projectId = projectIdMatch ? projectIdMatch[1] : null
-    const projectName = useProjectName(projectId)
-
-    // Extract campaignId from URL for dynamic name loading (both singular and plural routes)
-    const campaignIdMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
-    const campaignId = campaignIdMatch ? campaignIdMatch[1] : null
-    const campaignName = useCampaignName(campaignId)
-
-    // Extract organizationId from URL for dynamic name loading (both singular and plural routes)
-    const organizationIdMatch = location.pathname.match(/^\/organizations?\/([^/]+)/)
-    const organizationId = organizationIdMatch ? organizationIdMatch[1] : null
-    const organizationName = useOrganizationName(organizationId)
-
-    // Extract storageId from URL for dynamic name loading (both singular and plural routes)
-    const storageIdMatch = location.pathname.match(/^\/storages?\/([^/]+)/)
-    const storageId = storageIdMatch ? storageIdMatch[1] : null
-    const storageName = useStorageName(storageId)
 
     // Extract applicationId from URL for dynamic name loading (application admin context)
     // Pattern: /a/:applicationId/admin/...
@@ -193,11 +158,6 @@ export default function NavbarBreadcrumbs() {
         uniks: 'uniks',
         metaverses: 'metaverses',
         metahubs: 'metahubs',
-        clusters: 'clusters',
-        projects: 'projects',
-        campaigns: 'campaigns',
-        organizations: 'organizations',
-        storages: 'storages',
         profile: 'profile',
         docs: 'docs',
         spaces: 'spaces',
@@ -545,211 +505,6 @@ export default function NavbarBreadcrumbs() {
             return items
         }
 
-        if (primary === 'clusters') {
-            const items = [{ label: t(menuMap.clusters), to: '/clusters' }]
-
-            // Handle nested routes like /clusters/:id/domains or /clusters/:id/resources
-            if (segments[1] && clusterName) {
-                items.push({
-                    label: truncateClusterName(clusterName),
-                    to: `/cluster/${segments[1]}`
-                })
-
-                // Sub-pages (domains, resources) - use keys from menu namespace
-                if (segments[2] === 'domains') {
-                    items.push({ label: t('domains'), to: location.pathname })
-                } else if (segments[2] === 'resources') {
-                    items.push({ label: t('resources'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'cluster') {
-            const items = [{ label: t(menuMap.clusters), to: '/clusters' }]
-
-            if (segments[1] && clusterName) {
-                // Use actual cluster name with truncation for long names
-                items.push({
-                    label: truncateClusterName(clusterName),
-                    to: `/cluster/${segments[1]}`
-                })
-
-                // Sub-pages (access, resources, domains) - use keys from menu namespace
-                if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'resources') {
-                    items.push({ label: t('resources'), to: location.pathname })
-                } else if (segments[2] === 'domains') {
-                    items.push({ label: t('domains'), to: location.pathname })
-                } else if (segments[2] === 'members') {
-                    items.push({ label: t('access'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'projects') {
-            const items = [{ label: t(menuMap.projects), to: '/projects' }]
-
-            // Handle nested routes like /projects/:id/milestones or /projects/:id/tasks
-            if (segments[1] && projectName) {
-                items.push({
-                    label: truncateProjectName(projectName),
-                    to: `/project/${segments[1]}`
-                })
-
-                // Sub-pages (milestones, tasks) - use keys from menu namespace
-                if (segments[2] === 'milestones') {
-                    items.push({ label: t('milestones'), to: location.pathname })
-                } else if (segments[2] === 'tasks') {
-                    items.push({ label: t('tasks'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'project') {
-            const items = [{ label: t(menuMap.projects), to: '/projects' }]
-
-            if (segments[1] && projectName) {
-                // Use actual project name with truncation for long names
-                items.push({
-                    label: truncateProjectName(projectName),
-                    to: `/project/${segments[1]}`
-                })
-
-                // Sub-pages (access, milestones, tasks) - use keys from menu namespace
-                if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'milestones') {
-                    items.push({ label: t('milestones'), to: location.pathname })
-                } else if (segments[2] === 'tasks') {
-                    items.push({ label: t('tasks'), to: location.pathname })
-                } else if (segments[2] === 'members') {
-                    items.push({ label: t('access'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'campaigns') {
-            const items = [{ label: t(menuMap.campaigns), to: '/campaigns' }]
-
-            // Handle nested routes like /campaigns/:id/events or /campaigns/:id/activities
-            if (segments[1] && campaignName) {
-                items.push({
-                    label: truncateCampaignName(campaignName),
-                    to: `/campaign/${segments[1]}`
-                })
-
-                // Sub-pages (events, activities) - use keys from menu namespace
-                if (segments[2] === 'events') {
-                    items.push({ label: t('events'), to: location.pathname })
-                } else if (segments[2] === 'activities') {
-                    items.push({ label: t('activities'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'campaign') {
-            const items = [{ label: t(menuMap.campaigns), to: '/campaigns' }]
-
-            if (segments[1] && campaignName) {
-                // Use actual campaign name with truncation for long names
-                items.push({
-                    label: truncateCampaignName(campaignName),
-                    to: `/campaign/${segments[1]}`
-                })
-
-                // Sub-pages (access, events, activities) - use keys from menu namespace
-                if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'events') {
-                    items.push({ label: t('events'), to: location.pathname })
-                } else if (segments[2] === 'activities') {
-                    items.push({ label: t('activities'), to: location.pathname })
-                } else if (segments[2] === 'members') {
-                    items.push({ label: t('access'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'organizations') {
-            const items = [{ label: t(menuMap.organizations), to: '/organizations' }]
-
-            // Handle nested routes like /organizations/:id/departments or /organizations/:id/positions
-            if (segments[1] && organizationName) {
-                items.push({
-                    label: truncateOrganizationName(organizationName),
-                    to: `/organization/${segments[1]}`
-                })
-
-                // Sub-pages (departments, positions) - use keys from menu namespace
-                if (segments[2] === 'departments') {
-                    items.push({ label: t('departments'), to: location.pathname })
-                } else if (segments[2] === 'positions') {
-                    items.push({ label: t('positions'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'organization') {
-            const items = [{ label: t(menuMap.organizations), to: '/organizations' }]
-
-            if (segments[1] && organizationName) {
-                // Use actual organization name with truncation for long names
-                items.push({
-                    label: truncateOrganizationName(organizationName),
-                    to: `/organization/${segments[1]}`
-                })
-
-                // Sub-pages (access, departments, positions) - use keys from menu namespace
-                if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'departments') {
-                    items.push({ label: t('departments'), to: location.pathname })
-                } else if (segments[2] === 'positions') {
-                    items.push({ label: t('positions'), to: location.pathname })
-                } else if (segments[2] === 'members') {
-                    items.push({ label: t('access'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
-        if (primary === 'storages') {
-            const items = [{ label: t(menuMap.storages), to: '/storages' }]
-
-            // Handle nested routes like /storages/:id/containers or /storages/:id/slots
-            if (segments[1] && storageName) {
-                items.push({
-                    label: truncateStorageName(storageName),
-                    to: `/storage/${segments[1]}/board`
-                })
-
-                // Sub-pages (containers, slots) - use keys from menu namespace
-                if (segments[2] === 'containers') {
-                    items.push({ label: t('containers'), to: location.pathname })
-                } else if (segments[2] === 'slots') {
-                    items.push({ label: t('slots'), to: location.pathname })
-                }
-            }
-
-            return items
-        }
-
         // Standalone Applications module (not metahub applications)
         if (primary === 'applications') {
             return [{ label: t('applications'), to: '/applications' }]
@@ -792,27 +547,6 @@ export default function NavbarBreadcrumbs() {
                     label: '...',
                     to: `/a/${currentApplicationId}/admin`
                 })
-            }
-
-            return items
-        }
-
-        if (primary === 'storage') {
-            const items = [{ label: t(menuMap.storages), to: '/storages' }]
-
-            if (segments[1] && storageName) {
-                // Use actual storage name with truncation for long names
-                items.push({
-                    label: truncateStorageName(storageName),
-                    to: `/storage/${segments[1]}/board`
-                })
-
-                // Sub-pages (board, members) - use keys from menu namespace
-                if (segments[2] === 'board') {
-                    items.push({ label: t('storageboard'), to: location.pathname })
-                } else if (segments[2] === 'members') {
-                    items.push({ label: t('members'), to: location.pathname })
-                }
             }
 
             return items

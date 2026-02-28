@@ -38,7 +38,8 @@ import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
 import * as applicationsApi from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
-import { ApplicationMember } from '../types'
+import { ApplicationMember, getVLCString } from '../types'
+import { extractLocalizedInput } from '../utils/localizedInput'
 import applicationMemberActions from './ApplicationMemberActions'
 
 // Re-export MemberFormData as MemberData for backward compatibility
@@ -47,11 +48,15 @@ type MemberData = MemberFormData
 function isMemberFormData(data: unknown): data is MemberData {
     if (!data || typeof data !== 'object') return false
     const d = data as Record<string, unknown>
+    const hasValidCommentVlc =
+        d.commentVlc === undefined ||
+        (typeof d.commentVlc === 'object' && d.commentVlc !== null && 'locales' in (d.commentVlc as Record<string, unknown>))
     return (
         typeof d.email === 'string' &&
         typeof d.role === 'string' &&
         ['admin', 'editor', 'member'].includes(d.role) &&
-        (d.comment === undefined || typeof d.comment === 'string')
+        (d.comment === undefined || typeof d.comment === 'string') &&
+        hasValidCommentVlc
     )
 }
 
@@ -127,17 +132,19 @@ export const ApplicationMembers = () => {
         setInviteDialogOpen(false)
     }
 
-    const handleInviteMember = async (data: { email: string; role: AssignableRole; comment?: string }) => {
+    const handleInviteMember = async (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
         if (!applicationId) return
 
         setInviteDialogError(null)
         try {
+            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
             await inviteMember.mutateAsync({
                 applicationId,
                 data: {
                     email: data.email,
                     role: data.role,
-                    comment: data.comment
+                    comment: commentInput ?? null,
+                    commentPrimaryLocale
                 }
             })
             handleInviteDialogSave()
@@ -158,6 +165,11 @@ export const ApplicationMembers = () => {
             console.error('Failed to invite member', error)
         }
     }
+
+    const resolveMemberComment = useCallback(
+        (member: ApplicationMember) => getVLCString(member.commentVlc ?? undefined, i18n.language) || member.comment || '',
+        [i18n.language]
+    )
 
     const handleChange = (_event: React.MouseEvent<HTMLElement> | null, nextView: string | null) => {
         if (nextView === null) return
@@ -195,10 +207,11 @@ export const ApplicationMembers = () => {
             width: '25%',
             align: 'left',
             render: (row: ApplicationMember) => {
-                if (!row.comment) return null
+                const comment = resolveMemberComment(row)
+                if (!comment) return null
                 return (
                     <Typography variant='body2' noWrap sx={{ maxWidth: 200 }}>
-                        {row.comment}
+                        {comment}
                     </Typography>
                 )
             }
@@ -242,10 +255,14 @@ export const ApplicationMembers = () => {
                     await updateMemberRoleMutation.mutateAsync({
                         applicationId,
                         memberId: id,
-                        data: {
-                            role: data.role as AssignableRole,
-                            comment: data.comment
-                        }
+                        data: (() => {
+                            const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+                            return {
+                                role: data.role as AssignableRole,
+                                comment: commentInput ?? null,
+                                commentPrimaryLocale
+                            }
+                        })()
                     })
                 },
                 deleteEntity: async (id: string) => {
@@ -394,7 +411,9 @@ export const ApplicationMembers = () => {
                                                 data={{
                                                     ...member,
                                                     name: member.email || tc('noEmail'),
-                                                    description: [member.nickname, member.comment].filter(Boolean).join('\n') || undefined
+                                                    description:
+                                                        [member.nickname, resolveMemberComment(member)].filter(Boolean).join('\n') ||
+                                                        undefined
                                                 }}
                                                 images={images[member.id] || []}
                                                 onClick={undefined}
@@ -481,6 +500,9 @@ export const ApplicationMembers = () => {
                 commentLabel={tc('members.commentLabel')}
                 commentPlaceholder={tc('members.commentPlaceholder')}
                 commentCharacterCountFormatter={(count, max) => tc('members.validation.commentCharacterCount', { count, max })}
+                commentTooLongMessage={tc('members.validation.commentTooLong')}
+                commentMode='localized'
+                uiLocale={i18n.language}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}

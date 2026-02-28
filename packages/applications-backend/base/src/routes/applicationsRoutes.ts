@@ -17,6 +17,7 @@ import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { getVLCString } from '@universo/utils/vlc'
+import type { VersionedLocalizedContent } from '@universo/types'
 import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
 import { escapeLikeWildcards, getRequestManager } from '../utils'
 
@@ -123,6 +124,19 @@ type RuntimeRefOption = {
     sortOrder?: number
 }
 
+/**
+ * pg returns NUMERIC columns as strings to avoid JS floating-point precision loss.
+ * This helper coerces such values back to JS numbers for API responses.
+ */
+const pgNumericToNumber = (value: unknown): unknown => {
+    if (typeof value === 'number') return value
+    if (typeof value === 'string') {
+        const num = Number(value)
+        return Number.isFinite(num) ? num : value
+    }
+    return value
+}
+
 const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: string): unknown => {
     if (value === null || value === undefined) {
         // BOOLEAN null → false for correct checkbox rendering (no indeterminate state)
@@ -143,7 +157,10 @@ const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, locale: 
         return String(value)
     }
 
-    // NUMBER, BOOLEAN, DATE, REF, JSON — return as-is
+    // NUMBER: pg returns NUMERIC as string — coerce to JS number
+    if (dataType === 'NUMBER') return pgNumericToNumber(value)
+
+    // BOOLEAN, DATE, REF, JSON — return as-is
     return value
 }
 
@@ -203,13 +220,65 @@ export function createApplicationsRoutes(
         }
     }
 
+    const isCommentVlc = (value: unknown): value is VersionedLocalizedContent<string> =>
+        Boolean(value && typeof value === 'object' && 'locales' in value && '_primary' in value)
+
+    const resolveLocalizedCommentText = (commentValue: unknown): string | undefined => {
+        if (typeof commentValue === 'string') {
+            const trimmed = commentValue.trim()
+            return trimmed.length > 0 ? trimmed : undefined
+        }
+        if (!isCommentVlc(commentValue)) return undefined
+
+        const primary = commentValue._primary
+        const primaryContent = commentValue.locales[primary]?.content
+        if (typeof primaryContent === 'string' && primaryContent.trim().length > 0) {
+            return primaryContent.trim()
+        }
+
+        for (const entry of Object.values(commentValue.locales)) {
+            if (typeof entry?.content === 'string' && entry.content.trim().length > 0) {
+                return entry.content.trim()
+            }
+        }
+
+        return undefined
+    }
+
+    const normalizeCommentVlcOutput = (commentValue: unknown): VersionedLocalizedContent<string> | null =>
+        isCommentVlc(commentValue) ? commentValue : null
+
+    const normalizeMemberCommentInput = (
+        comment: Record<string, string | undefined> | null | undefined,
+        primaryLocale?: string
+    ): { commentVlc: VersionedLocalizedContent<string> | null; error?: string } => {
+        if (comment === null) {
+            return { commentVlc: null }
+        }
+
+        const sanitized = sanitizeLocalizedInput(comment ?? {})
+        for (const value of Object.values(sanitized)) {
+            if (value.length > 500) {
+                return { commentVlc: null, error: 'Comment must be 500 characters or less' }
+            }
+        }
+
+        const commentVlc = buildLocalizedContent(sanitized, primaryLocale, 'en')
+        return { commentVlc: commentVlc ?? null }
+    }
+
+    const memberCommentInputSchema = z
+        .union([z.string(), z.record(z.string(), z.string().optional())])
+        .transform((value) => (typeof value === 'string' ? { en: value } : value))
+
     const mapMember = (member: ApplicationUser, email: string | null, nickname: string | null) => ({
         id: member.id,
         userId: member.userId,
         email,
         nickname,
         role: (member.role || 'member') as ApplicationRole,
-        comment: member.comment,
+        comment: resolveLocalizedCommentText(member.comment),
+        commentVlc: normalizeCommentVlcOutput(member.comment),
         createdAt: member._uplCreatedAt
     })
 
@@ -1106,19 +1175,28 @@ export function createApplicationsRoutes(
                 if (typeof value !== 'boolean') throw new Error('Expected boolean value')
                 return value
             case 'NUMBER': {
-                if (typeof value !== 'number') throw new Error('Expected number value')
+                // Accept both JS numbers and numeric strings (pg returns NUMERIC as string)
+                let num: number
+                if (typeof value === 'number') {
+                    num = value
+                } else if (typeof value === 'string') {
+                    num = Number(value)
+                    if (!Number.isFinite(num)) throw new Error('Expected number value')
+                } else {
+                    throw new Error('Expected number value')
+                }
                 if (validationRules) {
-                    if (validationRules.nonNegative === true && value < 0) {
+                    if (validationRules.nonNegative === true && num < 0) {
                         throw new Error('Value must be non-negative')
                     }
-                    if (typeof validationRules.min === 'number' && value < validationRules.min) {
+                    if (typeof validationRules.min === 'number' && num < validationRules.min) {
                         throw new Error(`Value must be >= ${validationRules.min}`)
                     }
-                    if (typeof validationRules.max === 'number' && value > validationRules.max) {
+                    if (typeof validationRules.max === 'number' && num > validationRules.max) {
                         throw new Error(`Value must be <= ${validationRules.max}`)
                     }
                 }
-                return value
+                return num
             }
             case 'STRING': {
                 const isVLC = Boolean(validationRules?.versioned) || Boolean(validationRules?.localized)
@@ -2280,7 +2358,9 @@ export function createApplicationsRoutes(
             const row = rows[0]
             const rawData: Record<string, unknown> = {}
             for (const attr of safeAttrs) {
-                rawData[attr.column_name] = row[attr.column_name] ?? null
+                const raw = row[attr.column_name] ?? null
+                // pg returns NUMERIC as string — coerce NUMBER attrs to JS number
+                rawData[attr.column_name] = attr.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw
             }
 
             return res.json({ id: String(row.id), data: rawData })
@@ -2528,7 +2608,9 @@ export function createApplicationsRoutes(
                 const mapped: Record<string, unknown> & { id: string } = { id: String(row.id) }
                 mapped._tp_sort_order = row._tp_sort_order ?? 0
                 for (const attr of safeChildAttrs) {
-                    mapped[attr.column_name] = row[attr.column_name] ?? null
+                    const raw = row[attr.column_name] ?? null
+                    // pg returns NUMERIC as string — coerce NUMBER attrs to JS number
+                    mapped[attr.column_name] = attr.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw
                 }
                 return mapped
             })
@@ -3726,7 +3808,8 @@ export function createApplicationsRoutes(
             const schema = z.object({
                 email: z.string().email(),
                 role: z.enum(['member', 'editor', 'admin', 'owner']).default('member'),
-                comment: z.string().max(500).optional()
+                comment: memberCommentInputSchema.nullable().optional(),
+                commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -3734,7 +3817,15 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { email, role, comment } = result.data
+            const normalizedComment = normalizeMemberCommentInput(result.data.comment, result.data.commentPrimaryLocale)
+            if (normalizedComment.error) {
+                return res.status(400).json({
+                    error: 'Invalid input',
+                    details: { formErrors: [normalizedComment.error], fieldErrors: { comment: [normalizedComment.error] } }
+                })
+            }
+
+            const { email, role } = result.data
             const { applicationUserRepo, authUserRepo } = repos(req)
 
             const user = await authUserRepo.findOne({ where: { email: email.toLowerCase() } })
@@ -3746,14 +3837,14 @@ export function createApplicationsRoutes(
                 where: { applicationId, userId: user.id }
             })
             if (existing) {
-                return res.status(409).json({ error: 'User is already a member' })
+                return res.status(409).json({ error: 'User is already a member', code: 'APPLICATION_MEMBER_EXISTS' })
             }
 
             const member = applicationUserRepo.create({
                 applicationId,
                 userId: user.id,
                 role,
-                comment,
+                comment: normalizedComment.commentVlc,
                 _uplCreatedBy: userId,
                 _uplUpdatedBy: userId
             })
@@ -3793,7 +3884,8 @@ export function createApplicationsRoutes(
 
             const schema = z.object({
                 role: z.enum(['member', 'editor', 'admin', 'owner']).optional(),
-                comment: z.string().max(500).nullable().optional()
+                comment: memberCommentInputSchema.nullable().optional(),
+                commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
             })
 
             const result = schema.safeParse(req.body)
@@ -3801,7 +3893,19 @@ export function createApplicationsRoutes(
                 return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
             }
 
-            const { role, comment } = result.data
+            const normalizedComment: { commentVlc: VersionedLocalizedContent<string> | null | undefined; error?: string } =
+                result.data.comment !== undefined
+                    ? normalizeMemberCommentInput(result.data.comment, result.data.commentPrimaryLocale)
+                    : { commentVlc: undefined }
+
+            if (normalizedComment.error) {
+                return res.status(400).json({
+                    error: 'Invalid input',
+                    details: { formErrors: [normalizedComment.error], fieldErrors: { comment: [normalizedComment.error] } }
+                })
+            }
+
+            const { role } = result.data
 
             if (role !== undefined) {
                 if (role === 'owner' && ctx.membership.role !== 'owner') {
@@ -3810,8 +3914,8 @@ export function createApplicationsRoutes(
                 member.role = role
             }
 
-            if (comment !== undefined) {
-                member.comment = comment ?? undefined
+            if (result.data.comment !== undefined) {
+                member.comment = normalizedComment.commentVlc ?? null
             }
 
             member._uplUpdatedBy = userId

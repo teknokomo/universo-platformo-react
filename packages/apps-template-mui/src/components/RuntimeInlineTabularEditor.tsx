@@ -21,6 +21,22 @@ import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 import { fetchTabularRows, createTabularRow, updateTabularRow, deleteTabularRow, copyTabularRow, type TabularRowsResponse } from '../api/api'
 import { buildTabularColumns } from '../utils/tabularColumns'
 
+/**
+ * Extract the most useful error message from an API failure.
+ * Prefers server-provided error/message over generic fetch/axios status text.
+ */
+const extractApiErrorMessage = (err: unknown, fallback: string): string => {
+    // Axios-style errors
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseData = (err as any)?.response?.data
+    if (responseData) {
+        if (typeof responseData.error === 'string' && responseData.error.trim()) return responseData.error
+        if (typeof responseData.message === 'string' && responseData.message.trim()) return responseData.message
+    }
+    if (err instanceof Error && err.message) return err.message
+    return fallback
+}
+
 export interface RuntimeInlineTabularEditorProps {
     /** Base API URL (e.g. `/api/v1`). */
     apiBaseUrl: string
@@ -227,7 +243,7 @@ export function RuntimeInlineTabularEditor({
             await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, data })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to create row'
+            const message = extractApiErrorMessage(err, 'Failed to create row')
             setMutationError(message)
             onError?.(message)
         }
@@ -284,7 +300,7 @@ export function RuntimeInlineTabularEditor({
             setDeleteRowId(null)
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to delete row'
+            const message = extractApiErrorMessage(err, 'Failed to delete row')
             setDeleteError(message)
             onError?.(message)
         }
@@ -371,7 +387,7 @@ export function RuntimeInlineTabularEditor({
             })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to copy row'
+            const message = extractApiErrorMessage(err, 'Failed to copy row')
             setMutationError(message)
             onError?.(message)
         } finally {
@@ -477,7 +493,7 @@ export function RuntimeInlineTabularEditor({
 
     const handleProcessRowUpdateError = useCallback(
         (err: Error) => {
-            const message = err.message || 'Failed to update row'
+            const message = extractApiErrorMessage(err, 'Failed to update row')
             setMutationError(message)
             onError?.(message)
         },
@@ -520,7 +536,7 @@ export function RuntimeInlineTabularEditor({
             } catch (err) {
                 // Revert optimistic update by refetching from server
                 await queryClient.invalidateQueries({ queryKey })
-                const message = err instanceof Error ? err.message : 'Failed to update row'
+                const message = extractApiErrorMessage(err, 'Failed to update row')
                 setMutationError(message)
                 onError?.(message)
             }

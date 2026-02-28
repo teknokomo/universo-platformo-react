@@ -1,39 +1,53 @@
 # Active Context
 
-> **Last Updated**: 2026-02-28
+> **Last Updated**: 2026-03-02
 >
 > **Purpose**: Current development focus only. Completed work -> progress.md, planned work -> tasks.md.
 
 ---
 
-## Current Focus: PR #698 Review Complete
+## Current Focus: PostgreSQL NUMERIC → JS Number Coercion Fix
 
-**Status**: ✅ Complete — pushed to upstream
-**Date**: 2026-02-28
+**Status**: ✅ Fix Applied — build 56/56
+**Date**: 2026-03-02
 
-### Summary
+### Issue Reported
 
-All Copilot bot review comments on PR #698 have been addressed and pushed.
+After the error message propagation fix, user could see the actual error:
+`"Invalid value for kolichestvo: Expected number value"` — PATCH runtime rows returns 400 when saving an application element with NUMBER fields.
 
-### Fixes Applied
+Same operation works fine in metahub catalog editor.
 
-1. **branchId fallback (C2)** — `activeVersion.branchId ?? metahub.defaultBranchId` with early return warning
-2. **Unused vars (C3, C7)** — Removed `usePublicationDetails` + `publicationName` from VersionList & AppList
-3. **noopener (C8)** — Added `'noopener,noreferrer'` to both `window.open()` calls in AppList
-4. **VLC fallback (C6)** — Replaced manual VLC construction with `buildLocalizedContent({ en: 'Application' }, 'en')!` from `@universo/utils`
-5. **Memory-bank (C1, C4, C5)** — Compressed tasks.md, activeContext.md, progress.md (~81% reduction)
+### Root Cause
 
-### What's Next
+PostgreSQL `NUMERIC(10,0)` columns return values as **strings** via `node-postgres` (well-known behavior for precision preservation). The application runtime endpoints passed these strings through without conversion:
 
-- Await PR #698 merge
-- Consider next feature work (see tasks.md for planned items)
-- Runtime testing of publications drill-in end-to-end
+1. GET row returns `{ kolichestvo: "2" }` (string from pg)
+2. Frontend stores `"2"` in formData (user doesn't change the field)
+3. PATCH sends `kolichestvo: "2"` (string) back to server
+4. `coerceRuntimeValue` checks `typeof "2" !== 'number'` → throws
+
+Metahubs doesn't have this problem because it stores data in a JSONB column (`_mhb_elements.data`), which preserves JS number types.
+
+### Fix Applied
+
+All changes in `applications-backend/base/src/routes/applicationsRoutes.ts`:
+
+1. **Added `pgNumericToNumber` helper** — safely converts NUMERIC string values to JS numbers
+2. **Fixed `resolveRuntimeValue`** — added NUMBER case to coerce NUMERIC strings (used by LIST endpoint)
+3. **Fixed `coerceRuntimeValue`** — accepts both `number` and numeric `string` for NUMBER type (defensive fix for all write endpoints: PATCH, POST, cell update, tabular CRUD)
+4. **Fixed GET single row endpoint** — converts NUMBER attributes from NUMERIC strings to JS numbers
+5. **Fixed GET tabular rows endpoint** — converts NUMBER child attributes from NUMERIC strings to JS numbers
+
+### Previous Fix (same session): Error Message Propagation
+
+Added `extractApiErrorMessage()` helper to `useCrudDashboard.ts` and `RuntimeInlineTabularEditor.tsx` — extracts server error text from Axios response body instead of showing generic "Request failed with status code 400".
 
 ---
 
-## Recent Completions (2026-02-28)
+## Previous Focus: Legacy Packages Removal + QA Fixes (2026-02-28)
 
-### Publication Drill-In Feature — Full Implementation + Review Fixes
+### PR #698 Review Fixes (Complete)
 
 Completed full Publications drill-in navigation with inner tabs (Versions, Applications):
 
