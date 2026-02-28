@@ -43,9 +43,11 @@ export {
     AdminGuard,
     ResourceGuard,
     TooltipWithParser,
-    BaseEntityMenu
+    BaseEntityMenu,
+    CollapsibleSection
 } from './components'
 export type {
+    CollapsibleSectionProps,
     BaseEntityMenuProps,
     ActionDescriptor,
     ActionContext,
@@ -65,6 +67,7 @@ export type {
     FilterValues,
     FilterToolbarProps
 } from './components'
+
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'
 

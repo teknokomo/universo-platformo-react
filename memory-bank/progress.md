@@ -10,6 +10,7 @@
 
 | Release | Date | Codename | Highlights |
 | --- | --- | --- | --- |
+| 0.51.0-alpha | 2026-02-19 | Counting Sticks 🥢 | Headless Controller, Application Templates, Enumerations |
 | 0.50.0-alpha | 2026-02-13 | Great Love ❤️ | Applications, Template System, DDL Migration Engine, Enhanced Migrations |
 | 0.49.0-alpha | 2026-02-05 | Stylish Cow 🐮 | Attribute Data Types, Display Attribute, Layouts System |
 | 0.48.0-alpha | 2026-01-29 | Joint Work 🪏 | Branches, Elements rename, Three-level system fields |
@@ -43,2771 +44,543 @@
 
 ---
 
-## QA Remediation Round 10 — Copy UX & Stability Fixes (2026-02-27)
-
-Implemented all confirmed fixes from comprehensive QA audit of PR #696 (56 files, +4112/−1815). Two originally flagged issues (C-1 ElementList copy via CREATE, M-4 useCrudDashboard runtime copy) were retracted after confirming the edit-before-copy UX pattern is intentional.
-
-### Fixes Applied
-1. **H-1 (Data Integrity)**: Extended backend `copyAttributeSchema` with optional `validationRules`, `uiConfig`, `isRequired` overrides. Copy handler now applies user edits from dialog instead of always using source values. Updated frontend `handleCopy` (ChildAttributeList) and `onSave` (AttributeActions) to send all edited fields.
-2. **H-2 (Stale Data)**: Added `childAttributeMap` to `childColumns` useMemo dependency array in ChildAttributeList.tsx — prevents stale column data when child attributes change.
-3. **H-3 (Double Error)**: Removed duplicate `notifyError` toast from `handleCopy` catch block — dialog error display is sufficient.
-4. **M-1 (i18n Fallbacks)**: Replaced 11 Russian hardcoded fallback strings with English across AttributeActions, ChildAttributeList, EnumerationValueList, BranchList (dialog titles, copy option labels, tab labels).
-5. **M-3 (UX Constraint)**: Added `disabled` prop to copy MenuItem in RuntimeInlineTabularEditor when `effectiveRows.length >= maxRows`.
-
-### Files Changed
-- `packages/metahubs-backend/base/src/routes/attributesRoutes.ts` (schema + handler)
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx` (payload, useMemo, error, i18n)
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeActions.tsx` (payload, i18n)
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationValueList.tsx` (i18n)
-- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchList.tsx` (8 i18n fallbacks)
-- `packages/apps-template-mui/src/runtime/RuntimeInlineTabularEditor.tsx` (disabled copy)
-
-### Build Verification
-All 3 affected packages build clean: metahubs-backend, metahubs-frontend, apps-template-mui.
-
-## PR #696 Bot Review Fixes (2026-02-27)
-
-Addressed valid bot review comments on PR #696 (copy-attributes-elements-values-runtime-rows). Triaged 5 bot comments from Copilot and Gemini, accepted 2, rejected 3.
-
-### Accepted Fixes
-1. **SchemaGenerator legacy migration removal** — Removed backward-compat ELSE branch that checked for and added `sort_order` / `parent_attribute_id` columns on existing tables. Removed legacy `DROP CONSTRAINT` for old `_app_attributes_object_id_codename_unique`. Moved partial unique indexes (`idx_app_attributes_object_codename_root_active`, `idx_app_attributes_object_parent_codename_child_active`) into the CREATE TABLE block. Test DB will be recreated fresh.
-2. **ROLLBACK error logging** — Replaced 15 silent `.catch(() => {})` on ROLLBACK queries in `applicationsRoutes.ts` with `console.error` logging for better observability.
-
-### Rejected Comments (with rationale)
-- `isDisplayAttribute: false` on attribute copy — Correct behavior. Display attribute is exclusive per object; copy should not steal display status from the original.
-- `useEffect` auto-setting `isRequired` when `isDisplayAttribute` is on — Intentional business logic. Display attribute must be required.
-- `STRING_DEFAULT_MAX_LENGTH = 10` — Pre-existing intentional default present in 3+ files, not introduced in this PR.
-
-### Files Changed
-- `packages/schema-ddl/base/src/SchemaGenerator.ts` (−46 lines legacy migration)
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` (15 ROLLBACK catch replacements)
-
-## Implement Follow-up — Copy UX Simplification & Stability (2026-02-27)
-
-Implemented the follow-up simplification round for copy flows in applications and metahubs, removed legacy copy-options behavior where no longer required, and fixed the reported runtime/UI regressions.
-
-### Delivered
-1. **Application runtime element copy UX simplified**
-- Removed copy-options dialog path and switched to create/edit-style form copy flow.
-- Copy now opens the standard form prefilled from source row and appends suffix to the first STRING field (`(copy)` / `(копия)`).
-- Updated runtime copy dialog title to **Copy record / Копирование записи** in app i18n namespaces.
-
-2. **Metahub catalog predefined element copy UX simplified**
-- Removed options-tab copy flow for catalog elements.
-- Copy now uses the same dynamic form pattern as create/edit with source-prefill and first STRING suffix behavior.
-
-3. **Attribute copy simplification and stability fixes**
-- Kept `Presentation` tab in copy dialog for root + child attribute copy.
-- Forced `isDisplayAttribute` to disabled `false` for copied attributes while preserving other presentation settings.
-- Reduced copy `Options` tab to TABLE-only `copyChildAttributes` toggle.
-- Fixed hook-order runtime crash in `ElementList` (conditional hook position issue) and cleaned related formatting/lint errors.
-
-4. **Enumeration value copy + i18n consistency**
-- Simplified enumeration value copy dialog to match edit form (no options tab) with copied-name suffix.
-- Added localized delete confirmation message key for enumeration values and wired dialog to i18n key.
-
-5. **Default STRING max length = 10**
-- Applied default `maxLength: 10` for STRING attribute creation in both root catalog attributes and TABLE child attributes.
-
-6. **Display-attribute marker propagation verification/completion**
-- Verified marker presence in publication snapshot serialization (`isDisplayAttribute` in snapshot fields).
-- Extended application runtime API response to explicitly return `isDisplayAttribute` for root/child columns, ensuring frontend contract visibility.
-
-### Verification
-- Builds:
-  - `pnpm --filter @universo/metahubs-frontend build` ✅
-  - `pnpm --filter @universo/apps-template-mui build` ✅
-  - `pnpm --filter @universo/applications-frontend build` ✅
-  - `pnpm --filter @universo/applications-backend build` ✅
-  - `pnpm --filter @universo/metahubs-backend build` ✅
-- Lint (targeted):
-  - `pnpm --filter @universo/metahubs-frontend exec eslint --ext .ts,.tsx,.jsx src/ --quiet` ✅
-  - `pnpm --filter @universo/apps-template-mui exec eslint <touched files> --max-warnings=0` ✅
-  - `pnpm --filter @universo/applications-frontend exec eslint <touched files> --max-warnings=0` ✅
-- Note:
-  - Full-file strict lint for `applications-backend/src/routes/applicationsRoutes.ts` still reports pre-existing warnings/errors outside the implementation scope; TypeScript build passes.
-
-## Implement Round — Metahub/Application Entity Copy Expansion (2026-02-27)
-
-Implemented the approved copy-expansion scope for metahub and application runtime flows, including missing copy dialogs/options, scoped codename behavior, delete-button consistency, and terminology alignment.
-
-### Delivered
-1. **Shared contracts and scoped codename foundation**
-- Added shared copy option contracts in `@universo/types` and normalization helpers in `@universo/utils` for:
-  - attribute copy,
-  - element copy,
-  - enumeration value copy.
-- Implemented scoped attribute codename uniqueness (`root` vs `child-per-table`) in metahub backend checks and system table definitions.
-
-2. **Metahub copy flows**
-- Implemented catalog attribute copy endpoint + frontend copy actions/dialogs with options:
-  - `copyTypeSettings`,
-  - `copyPresentationSettings` (excluding display-attribute transfer),
-  - `copyChildAttributes` for TABLE attributes.
-- Implemented catalog element copy endpoint + frontend copy dialog with:
-  - `copyChildTables`,
-  - required-child-table forced/locked behavior.
-- Implemented child-table row copy in metahub inline editor (clone inserted directly below source row).
-- Implemented enumeration value copy endpoint + frontend copy dialog with `copyPresentationSettings` option (current no-op contract for forward compatibility).
-
-3. **Application runtime copy flows and terminology**
-- Added runtime endpoints:
-  - element copy with optional child-table cloning,
-  - child tabular-row copy.
-- Added runtime row action `Copy` with dedicated **Copy element** dialog (Options tab + `copyChildTables`, lock when required by schema).
-- Added child-row copy action in runtime inline tabular editor.
-- Completed runtime UX wording migration from **record** to **element** in user-facing dialogs and i18n keys.
-
-4. **Edit dialog delete-button standardization and enumeration first-open fix**
-- Standardized edit-dialog delete button presence for:
-  - layout,
-  - publication,
-  - child attributes,
-  - enumeration values.
-- Applied disable rules where deletion is forbidden.
-- Fixed enumeration value edit first-open empty-field issue via stable dialog remount key/state reset pattern.
-
-5. **i18n and shared UI consistency**
-- Added/updated RU+EN copy-related keys in:
-  - `metahubs`,
-  - `applications`,
-  - `apps` namespaces.
-- Reused existing shared UI primitives (`CrudDialogs`, `RowActionsMenu`, existing dialog patterns) without introducing redundant UI frameworks.
-
-### Verification
-- Builds:
-  - `pnpm --filter @universo/metahubs-backend build` ✅
-  - `pnpm --filter @universo/metahubs-frontend build` ✅
-  - `pnpm --filter @universo/applications-backend build` ✅
-  - `pnpm --filter @universo/applications-frontend build` ✅
-  - `pnpm --filter @universo/apps-template-mui build` ✅
-- Targeted tests:
-  - `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx` ✅
-  - `pnpm --filter @universo/applications-frontend test -- src/pages/__tests__/actionsFactories.test.ts src/pages/__tests__/actionDescriptors.coverage.test.tsx` ⚠️ Failed due existing unrelated suite issues (DataGrid CSS handling and historical timeouts in connector-focused tests).
-- Lint:
-  - `pnpm --filter @universo/applications-frontend lint` ✅ (warnings only, no errors)
-  - `pnpm --filter @universo/apps-template-mui lint` ⚠️ Fails on pre-existing repo-wide issues in unrelated files; no new hard lint errors introduced by copy-dialog additions.
-
-## QA Remediation Round 9 — Copy Type-Safety & Evidence (2026-02-27)
-
-Implemented the next remediation pass for metahub entity copy flows with focus on actionable backend type-safety defects and stronger deterministic test evidence.
-
-### Delivered
-1. **Backend route typing hardening in copy-related files**
-- Removed remaining explicit-`any` usage in:
-  - `catalogsRoutes.ts`
-  - `enumerationsRoutes.ts`
-- Introduced explicit local row/summary types and typed mappers for:
-  - list item construction,
-  - hub relation projection,
-  - copy/update response mapping.
-- Replaced unsafe date parsing on `unknown` values with guarded `toTimestamp` helpers used in list sorting.
-- Added explicit `QueryRunner | undefined` return typing for `getRequestQueryRunner` in:
-  - `catalogsRoutes.ts`
-  - `enumerationsRoutes.ts`
-  - `hubsRoutes.ts`
-  - `layoutsRoutes.ts`
-
-2. **Copy-route test evidence hardening**
-- Extended `catalogsRoutes.test.ts` copy transaction stub to support deterministic attribute/element copy branches.
-- Added test coverage for catalog copy default behavior (options omitted -> attributes/elements are copied).
-- Added test coverage for enumeration copy with `copyValues=false` (values are not selected/inserted and `valuesCount=0`).
-- Kept the existing transaction-mock strategy and route-level architecture unchanged.
-
-### Verification
-- Backend route tests:
-  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅
-- Backend build:
-  - `pnpm --filter @universo/metahubs-backend build` ✅
-- Backend lint:
-  - `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only, no errors)
-  - `pnpm --filter @universo/metahubs-backend exec eslint src/domains/catalogs/routes/catalogsRoutes.ts src/domains/enumerations/routes/enumerationsRoutes.ts src/domains/hubs/routes/hubsRoutes.ts src/domains/layouts/routes/layoutsRoutes.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅ (warnings only in test bootstrap stubs, no errors)
-
-## QA Remediation Round 8 — Metahub Entity Copy Completion (2026-02-26)
-
-Closed the remaining QA gaps for metahub entity copy implementation by finalizing backend copy-route evidence and removing explicit-`any` usage in copy-focused changed files.
-
-### Delivered
-1. **Backend copy-route test completeness**
-- Added focused backend route tests for missing copy scenarios:
-  - catalog copy: deterministic codename-conflict retry success path,
-  - enumeration copy: happy-path with values cloning + codename-conflict retry success path,
-  - layout copy: happy-path (`copyWidgets=false`) with transactional insert assertions,
-  - hub copy: explicit single-hub relation conflict path (`HUB_COPY_SINGLE_HUB_RELATION_CONFLICT`).
-
-2. **Copy-focused `no-explicit-any` cleanup**
-- Removed explicit `any` usage in changed copy-related backend/frontend files without changing behavior.
-- Applied safe replacements based on current TypeScript-ESLint guidance (`unknown`, narrow typed aliases, explicit helper types, guarded casts).
-- Kept legacy unrelated `any` usage in untouched code paths out of scope.
-
-3. **Stability verification**
-- Preserved copy behavior while tightening route/test typing and form dialog typing across copy actions.
-- Fixed formatting regressions introduced during remediation via targeted lint autofix.
-
-### Verification
-- Backend copy-route tests:
-  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/hubsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅
-- Frontend tests (executed in package test run, including updated copy tests):
-  - `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx` ✅
-- Targeted lint for changed copy files:
-  - `pnpm exec eslint <touched copy files>` ✅ (no new errors; remaining warnings are expected test mock `no-empty-function` stubs)
-
-## QA Remediation Round 7 — Metahub Entity Copy Cleanup (2026-02-26)
-
-Implemented the final confirmed cleanup item from the latest QA follow-up for metahub entity copy work.
-
-### Delivered
-1. **Removed actionable lint defect in hub copy UI flow**
-- Updated `HubList.tsx` to remove unused `searchValue` binding from `useDebouncedSearch`.
-- Kept behavior unchanged (`handleSearchChange` remains connected to server-side search state).
-
-### Verification
-- Frontend targeted tests:
-  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx` ✅
-- Targeted lint:
-  - `cd packages/metahubs-frontend/base && pnpm exec eslint src/domains/hubs/ui/HubList.tsx` ✅ (warnings only, no new errors)
-
-## QA Remediation Round 6 — Metahub Entity Copy Reliability (2026-02-26)
-
-Implemented and verified the latest remediation round for metahub entity copy stability and evidence quality.
-
-### Delivered
-1. **Bounded hub copy retry behavior**
-- Reworked hub-copy retry loop in `hubsRoutes` to remove potential unbounded retries on relation-update concurrency conflicts.
-- Added deterministic caps:
-  - codename attempt cap (`MAX_CODENAME_ATTEMPTS`),
-  - per-codename concurrent relation retry cap (`MAX_CONCURRENT_RETRIES_PER_CODENAME`).
-- Preserved existing behavior for:
-  - single-hub relation conflict fast-fail (`400` with structured code),
-  - codename unique conflict fallback to next codename candidate.
-
-2. **Hub copy route regression coverage**
-- Extended `hubsRoutes.test.ts` with:
-  - successful copy path (`copyAllRelations=false`) using mocked transaction pipeline,
-  - retry-on-concurrency path (first transaction conflict, second success).
-
-3. **Copy route hardening tests for remaining entities**
-- `catalogsRoutes.test.ts`:
-  - source-catalog-not-found (`404`) copy case,
-  - copy option dependency violation (`copyElements=true` + `copyAttributes=false`) (`400`).
-- `enumerationsRoutes.test.ts`:
-  - source-enumeration-not-found (`404`) copy case,
-  - invalid codename copy validation (`400`).
-- `layoutsRoutes.test.ts`:
-  - invalid copy payload validation (`400`).
-
-### Verification
-- Backend route tests:
-  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅
-- Frontend targeted regression tests:
-  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx` ✅
-- Targeted lint check:
-  - `pnpm --filter @universo/metahubs-backend exec eslint src/domains/hubs/routes/hubsRoutes.ts src/tests/routes/hubsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts` ✅ (warnings only, no new errors)
-
-## QA Remediation Round 5 — Metahub Entity Copy Hardening (2026-02-26)
-
-Implemented the remaining hardening tasks for metahub entity copy flows with focused backend safety and coverage closure.
-
-### Delivered
-1. **Backend access/existence consistency**
-- Applied explicit metahub access checks for entity copy routes where gaps remained.
-- Added deterministic metahub existence checks for catalog/enumeration copy endpoints (`404 Metahub not found` before copy pipeline).
-
-2. **Hub relation propagation concurrency safety**
-- Hardened hub copy relation propagation with row-level locking and optimistic version checks in relation-update path.
-- Added retry-on-concurrent-update behavior to avoid stale write conflicts during copy.
-
-3. **Backend copy-route tests**
-- Extended route tests for catalog/enumeration copy endpoints with metahub existence + access-denied edge cases.
-- Added dedicated route test files for hub and layout copy endpoints:
-  - `hubsRoutes.test.ts`
-  - `layoutsRoutes.test.ts`
-
-4. **Frontend copy-flow tests**
-- Added option payload normalization tests for:
-  - hub copy (`copyAllRelations` + child normalization),
-  - catalog copy (`copyElements` dependency on `copyAttributes`),
-  - enumeration copy (`copyValues` default behavior).
-- Added layout copy flow entry test that verifies menu action opens the copy dialog.
-
-5. **Utility formatting fix**
-- Fixed formatting in `@universo/utils` copy option normalizer (`normalizeEnumerationCopyOptions`) to keep lint/prettier consistency in touched utility code.
-
-### Verification
-- Backend tests:
-  - `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/hubsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅
-- Frontend targeted tests:
-  - `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx` ✅
-- Targeted lint checks:
-  - `pnpm --filter @universo/metahubs-backend exec eslint src/tests/routes/hubsRoutes.test.ts src/tests/routes/layoutsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅ (warnings only)
-  - `pnpm --filter @universo/metahubs-frontend exec eslint src/domains/metahubs/ui/__tests__/copyOptionPayloads.test.tsx src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx` ✅ (warnings only)
-  - `pnpm --filter @universo/utils exec eslint src/validation/copyOptions.ts` ✅
-
-## PR #692 Bot Review Remediation (2026-02-26)
-
-Implemented the validated bot-review recommendations from PR #692 with focused deduplication and regression-safe verification.
-
-### Delivered
-1. **Branch copy helpers deduplicated in frontend domain**
-- Added shared utility: `packages/metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`.
-- Moved and reused:
-  - `getBranchCopyOptions`
-  - `setAllBranchCopyChildren`
-  - `toggleBranchCopyChild`
-  - `resolveBranchCopyCompatibilityCode`
-- Replaced duplicate local implementations in:
-  - `BranchList.tsx`
-  - `BranchActions.tsx`
-  - `hooks/mutations.ts`
-
-2. **DB error helper deduplication in shared utils**
-- Extended `@universo/utils` database errors module with:
-  - `getDbErrorCode`
-  - `getDbErrorConstraint`
-  - `getDbErrorDetail`
-  - `isUniqueViolation`
-  - `isSlugUniqueViolation`
-- Exported helpers via `packages/universo-utils/base/src/database/index.ts`.
-- Added focused tests in `src/database/__tests__/errors.test.ts`.
-
-3. **Backend routes switched to shared DB helpers**
-- Removed duplicate local DB-error helper implementations from:
-  - `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
-- Replaced with shared imports from `@universo/utils`.
-
-### Verification
-- Tests:
-  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
-  - `pnpm --filter @universo/metahubs-backend test -- branchesOptions.test.ts` ✅
-  - `pnpm --filter @universo/utils exec vitest run src/database/__tests__/errors.test.ts --config vitest.config.ts --no-coverage` ✅
-  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
-- Lint:
-  - `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
-  - `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only)
-  - `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
-  - `pnpm --filter @universo/utils lint` ⚠️ failed due pre-existing unrelated Prettier errors outside this remediation scope.
-
-## QA Remediation Round 4 — Copy Flows Final Hardening (2026-02-26)
-
-Implemented and verified the latest copy-flow hardening updates requested after QA.
-
-### Delivered
-1. **Application copy contract alignment**
-- Backend copy endpoint contract was narrowed to copy-state options only (`copyConnector`, `copyAccess`).
-- Legacy `createSchema` input is now treated as non-contract/ignored by backend copy flow.
-- Frontend `copyApplication` API wrapper now strips `createSchema` before sending payload to backend.
-- Deterministic runtime schema creation remains in dedicated frontend orchestration (`copy -> sync`) to keep behavior explicit and isolated.
-
-2. **Branch create dialog error mapping completeness**
-- Added deterministic mapping in `BranchList` create dialog for backend 400 compatibility codes:
-  - `BRANCH_COPY_ENUM_REFERENCES`
-  - `BRANCH_COPY_DANGLING_REFERENCES`
-- Preserved backward-safe fallback for unknown/unstructured backend error payloads.
-
-3. **Test coverage updates**
-- Updated backend copy-route test to validate legacy `createSchema` compatibility behavior.
-- Updated frontend API wrapper test to verify sanitized copy payload (without `createSchema`).
-- Extended `BranchList` create-flow tests with assertions for both new compatibility-code dialog errors.
-
-### Verification
-- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
-- `pnpm --filter @universo/applications-frontend exec vitest run src/api/__tests__/apiWrappers.test.ts src/hooks/__tests__/mutations.test.tsx --config vitest.config.ts --no-coverage` ✅
-- `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
-- `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
-- `pnpm --filter @universo/applications-frontend lint` ✅ (warnings only)
-- `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
-
-## QA Remediation Round 3 — Copy Flows Stabilization (2026-02-26)
-
-Implemented all requested follow-up fixes after QA and visual review for copy flows.
-
-### Delivered
-1. **Application copy dialog spacing parity**
-- Updated `ApplicationActions` copy dialog ("General" tab) to use standard vertical spacing between localized fields, matching other entity dialogs.
-
-2. **Race-safe application copy slug handling**
-- Hardened backend `/applications/:applicationId/copy` flow against concurrent slug collisions.
-- Added deterministic retry path for auto-generated copy slugs (`-copy`, `-copy-2`, ...), with bounded attempts.
-- Preserved explicit-slug behavior (`409` on conflict) and added a regression test for insert-time race conflicts.
-
-3. **Branch copy options model cleanup (migrations always copied)**
-- Removed `copyMigrations` from:
-  - shared copy option types (`@universo/types`)
-  - normalization utilities (`@universo/utils`)
-  - metahub branch frontend forms and payload types
-  - metahub backend route schema/normalization
-  - branch copy tests (frontend + backend)
-- Updated branch clone pruning to never delete `_mhb_migrations`, so migrations are always retained on branch copy.
-
-4. **Deterministic branch-copy compatibility error i18n mapping**
-- Added frontend mapping for structured backend codes:
-  - `BRANCH_COPY_ENUM_REFERENCES`
-  - `BRANCH_COPY_DANGLING_REFERENCES`
-- Added backward-safe fallback for legacy string-based backend messages.
-- Added new RU/EN translation keys for both cases.
-
-5. **Schema-level dependency guard**
-- Added `createBranchSchema.superRefine(...)` rule to reject contradictory payloads (`fullCopy=true` with disabled child copy flags).
-
-### Verification
-- Backend tests:
-  - `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
-  - `pnpm --filter @universo/metahubs-backend test -- branchesOptions.test.ts metahubBranchesService.test.ts` ✅
-- Frontend targeted tests (no coverage, focused on changed files):
-  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx --config vitest.config.ts --no-coverage` ✅
-  - `pnpm --filter @universo/applications-frontend exec vitest run src/pages/__tests__/actionDescriptors.coverage.test.tsx --config vitest.config.ts --no-coverage` ✅
-- Lint:
-  - `pnpm --filter @universo/applications-backend lint` ✅ (warnings only)
-  - `pnpm --filter @universo/applications-frontend lint` ✅ (warnings only)
-  - `pnpm --filter @universo/metahubs-backend lint` ✅ after Prettier alignment (warnings only)
-  - `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
-  - `pnpm --filter @universo/types lint` ✅ (warnings only)
-  - `pnpm --filter @universo/utils lint` ⚠️ failed due pre-existing unrelated Prettier errors outside this task scope.
-
-## QA Remediation Round 2 — Copying Reliability Hardening (2026-02-26)
-
-Implemented and verified all Round-2 copy-flow hardening tasks.
-
-### Delivered
-1. **Application copy slug collision resilience**
-- Added deterministic backend slug auto-resolution for copy requests without explicit `slug`: `source-slug-copy`, then `-2`, `-3`, ... (bounded attempts).
-- Preserved existing behavior for explicit `slug` input (`409` on conflict).
-- Added backend route test for repeated copy operations with automatic slug conflict resolution.
-
-2. **Branch partial-copy data integrity**
-- Added structured service-level copy compatibility error class with explicit codes:
-  - `BRANCH_COPY_ENUM_REFERENCES`
-  - `BRANCH_COPY_DANGLING_REFERENCES`
-- Hardened partial copy pruning:
-  - when `copyHubs=false` and catalogs/enumerations are retained, `config.hubs` references are removed
-  - stale `isRequiredHub` / `isSingleHub` flags are reset.
-- Added backend service test coverage for hub-reference cleanup on partial copy.
-
-3. **Deterministic error contract mapping**
-- Updated branch routes to map compatibility failures by structured `error.code`, with backward-safe fallback to `error.message`.
-- Kept HTTP response contract stable for existing frontend behavior.
-- Added route-level test asserting structured-code handling.
-
-4. **Frontend create-flow coverage**
-- Added `BranchList` create-flow test to assert:
-  - options tab presence in create dialog
-  - forwarding of `sourceBranchId`, `fullCopy`, and child copy flags into create mutation payload.
-- Adjusted mocks for `@universo/template-mui` / `@universo/template-mui/components/dialogs` export shape compatibility.
-
-5. **Documentation-driven implementation**
-- Validated Vitest mocking pattern using Context7 (`/vitest-dev/vitest`) and applied compatible mock strategy for shared root/subpath exports.
-
-### Verification
-- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
-- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/branchesOptions.test.ts src/tests/services/metahubBranchesService.test.ts`
-- `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx`
-- `pnpm --filter @universo/applications-backend exec eslint --ext .ts src/routes/applicationsRoutes.ts src/tests/routes/applicationsRoutes.test.ts`
-- `pnpm --filter @universo/metahubs-backend exec eslint --ext .ts src/domains/branches/routes/branchesRoutes.ts src/domains/branches/services/MetahubBranchesService.ts src/tests/routes/branchesOptions.test.ts src/tests/services/metahubBranchesService.test.ts`
-- `pnpm --filter @universo/metahubs-frontend exec eslint --ext .ts,.tsx src/domains/branches/ui/BranchList.tsx src/domains/branches/ui/BranchActions.tsx src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx`
-- Result: targeted tests passed; targeted lint checks report warnings only (no error-level issues in changed copy-flow files).
-
-## Copying UX/Logic Upgrade — Metahubs, Applications, Branches (2026-02-26)
-
-Implemented the approved copy-improvements plan across metahub, application, and branch flows.
-
-### Delivered
-1. **Metahub copy dialog**
-- Renamed copy tab label from `Copy options` / `Опции копирования` to `Options` / `Опции`.
-
-2. **Application copy flow**
-- Added shared copy contract (`copyConnector`, `createSchema`, `copyAccess`) in `@universo/types` and normalization helpers in `@universo/utils`.
-- Refactored application copy dialog to two tabs: `General` + `Options`.
-- Added options behavior:
-  - `copyConnector` default `true`
-  - `createSchema` default `false`
-  - `createSchema` disabled + auto-reset when `copyConnector=false`
-  - `copyAccess` moved into `Options`.
-- Backend copy route now:
-  - validates incompatible option combinations (`createSchema` requires `copyConnector`)
-  - stops runtime schema cloning
-  - copies connectors/publication links only when `copyConnector=true`
-  - resets schema sync metadata to safe defaults.
-- `useCopyApplication` now orchestrates `copy -> sync` when `createSchema=true` with non-destructive failure handling (copy remains, user receives actionable error).
-
-3. **Branch copy flow**
-- Added branch copy options contract (`fullCopy`, `copyLayouts`, `copyHubs`, `copyCatalogs`, `copyEnumerations`, `copyMigrations`).
-- Added `Options` tab to both branch copy entry points:
-  - branch row action copy dialog
-  - create-branch dialog (source-based flow).
-- Implemented parent-child checkbox state machine with master toggle and indeterminate state.
-- Extended backend create-branch schema to accept copy options.
-- Implemented selective prune after schema clone in `MetahubBranchesService.createBranch`:
-  - optional layouts removal
-  - optional migrations removal
-  - optional object-group removal (hubs/catalogs/enumerations) with FK cascade cleanup.
-- Added compatibility guard:
-  - rejects `copyEnumerations=false` when kept copied entities still contain enumeration references.
-
-4. **i18n**
-- Added/updated EN+RU keys for:
-  - application copy tabs/options/hints
-  - branch options tab and all branch copy option labels.
-
-5. **Tests**
-- Updated application frontend tests (API wrappers, mutation hooks, action descriptors).
-- Updated application backend route tests for new copy contract and validation.
-- Added backend branch-route test for incompatible copy options response (`BRANCH_COPY_ENUM_REFERENCES`).
-
-### Verification
-- `pnpm --filter @universo/types build`
-- `pnpm --filter @universo/utils build`
-- `pnpm --filter @universo/applications-frontend exec vitest run --config vitest.config.ts --coverage.enabled=false src/hooks/__tests__/mutations.test.tsx src/pages/__tests__/actionDescriptors.coverage.test.tsx src/api/__tests__/apiWrappers.test.ts`
-- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
-- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/branchesOptions.test.ts`
-- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/metahubBranchesService.test.ts`
-- `pnpm --filter @universo/applications-frontend build`
-- `pnpm --filter @universo/metahubs-frontend build`
-- `pnpm --filter @universo/applications-backend build`
-- `pnpm --filter @universo/metahubs-backend build`
-- `pnpm exec eslint <changed files>`: no errors on changed files (warnings from legacy `any` remain in existing codebase).
-
-## QA Remediation — Copying UX/Logic Upgrade (2026-02-26)
-
-Closed all follow-up QA findings for the copy-improvements feature set.
-
-### Delivered
-1. **Application copy partial-success consistency**
-- Updated `useCopyApplication` cache strategy:
-  - list invalidation moved to `onSettled` to refresh data on both success and error paths
-  - detail invalidation for copied entity added on `CopySyncStepError`.
-- Added frontend test coverage for `copy created + sync failed` flow (error snackbar + cache refresh).
-
-2. **Branch copy safety hardening**
-- Replaced narrow enumeration-only compatibility guard with generalized dangling-reference guard in `MetahubBranchesService`.
-- Added deterministic backend error path for partial-copy incompatibilities:
-  - `BRANCH_COPY_ENUM_REFERENCES` for enum-specific conflicts
-  - `BRANCH_COPY_DANGLING_REFERENCES` for other removed-group references.
-- Added HTTP 400 mapping and route/service tests for the new incompatibility contract.
-
-3. **i18n and UI parity**
-- Fixed EN metahub copy tab label from `Copy options` to `Options`.
-- Added frontend branch-copy test for options tab and payload normalization on save.
-
-4. **Lint gate unblock**
-- Fixed blocking prettier violations in `InlineTableEditor.tsx` so package lint runs cleanly.
-
-### Verification
-- `pnpm --filter @universo/applications-frontend exec vitest run --config vitest.config.ts --coverage.enabled=false src/hooks/__tests__/mutations.test.tsx`
-- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
-- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/branchesOptions.test.ts src/tests/services/metahubBranchesService.test.ts`
-- `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts --coverage.enabled=false src/domains/branches/ui/__tests__/BranchActions.copyOptions.test.tsx`
-- `pnpm --filter @universo/applications-frontend lint`
-- `pnpm --filter @universo/applications-backend lint`
-- `pnpm --filter @universo/metahubs-frontend lint`
-- `pnpm --filter @universo/metahubs-backend lint`
-- Result: all targeted test/lint commands passed; remaining lint output is legacy warnings only (no errors).
-
-## NUMBER field parity — catalog inline table NumberTableCell (2026-02-26)
-
-Replicated correct standalone NUMBER field behavior into DynamicEntityFormDialog inline table (catalog TABLE cells). Analysis confirmed FormDialog and apps inline table (NumberEditCell) were already correct.
-
-### Changes
-1. **NumberTableCell component**: ~200 lines in DynamicEntityFormDialog.tsx. Full NUMBER behavior: locale-aware formatting (`0,000` template with comma for 'ru'), zone-based selection, zone-aware stepping, stepper buttons (▲▼), full keyDown handling, digit replacement in decimal zone.
-2. **TABLE rendering**: Conditional rendering in TABLE case — `NumberTableCell` for NUMBER children, plain TextField for others. Removed old basic TextField with raw value display.
-
-### Files Modified
-- `DynamicEntityFormDialog.tsx` — NumberTableCell component + TABLE cell conditional rendering
-
-### Verification
-- Full build: 66/66 SUCCESS
-
-## Zone-aware NUMBER stepper + inline table parity (2026-02-26)
-
-Implemented zone-aware ArrowUp/ArrowDown stepping and full NumberEditCell rewrite for inline table parity with standalone NUMBER field. 5 files across 3 packages.
-
-### Changes
-1. **Zone-aware stepping**: Cursor position relative to decimal separator determines step size — integer zone = step by 1, decimal zone = step by 10^(-scale). Applied to DynamicEntityFormDialog, FormDialog, and NumberEditCell.
-2. **NumberEditCell full rewrite**: ~250 lines replacing minimal text input. InputBase + InputAdornment with stepper buttons (▲▼), locale-aware formatting (comma for 'ru'), zone-based selection on focus/click, full keyDown handling, handleBlur re-formatting.
-3. **Locale wiring**: Added `locale` to `BuildTabularColumnsOptions` interface and `buildTabularColumns` function. TabularPartEditor and RuntimeInlineTabularEditor pass `resolvedLocale`. Custom `renderCell` with locale-aware decimal separator for display mode.
-4. **Button onClick fix**: Stepper `onClick` wrapped in `() => handler()` to prevent MouseEvent being passed as zone argument.
-
-### Files Modified
-- `DynamicEntityFormDialog.tsx` — zone-aware steppers (refs, selectNumberPart tracking, ArrowUp/Down zone detection, getStepValue, inputRef, button onClick wrapping)
-- `FormDialog.tsx` — same zone-aware stepper pattern
-- `tabularColumns.tsx` — complete NumberEditCell rewrite, getDecimalSeparator helper, locale in BuildTabularColumnsOptions + buildTabularColumns, renderCell with formatted display, MouseEvent → ReactMouseEvent fix
-- `TabularPartEditor.tsx` — locale: resolvedLocale in buildTabularColumns call
-- `RuntimeInlineTabularEditor.tsx` — locale: resolvedLocale in buildTabularColumns call
-
-### Verification
-- TypeScript: 0 errors
-- Full build: 66/66 SUCCESS
-
-## Fix inline table nonNegative + number alignment (2026-02-26)
-
-Fixed 2 MEDIUM + 3 LOW issues from QA analysis of Round-6 implementation across 8 files in 4 packages.
-
-### Changes
-1. **M1 — processRowUpdate return value**: TabularPartEditor now returns a `correctedRow` with reverted NUMBER values instead of the original unvalidated `newRow`, ensuring DataGrid internal state matches validated data.
-2. **M2 — Edit menu disabled**: InlineTableEditor Edit MenuItem now has `disabled={!firstEditableFieldId}` — visually blocked when table has no STRING/NUMBER editable fields. Memoized via `useMemo`.
-3. **L1 — Dead code in tableConstraints**: Removed duplicate `effectiveMin` variable (identical to `minRequired`) and unreachable `else if (required)` branch.
-4. **L2 — Dead min:0 inputProp**: Removed `min: 0` spread from DynamicEntityFormDialog table cell TextField — `type='text'` ignores HTML `min` attribute.
-5. **L3 — toNumberRules helper**: Created generic `toNumberRules<T extends object>()` helper in `numberValidation.ts` to extract NUMBER-relevant fields from any rules object. Replaced 4 inline 5-line parameter building blocks across 3 files.
-
-### Files Modified
-- `numberValidation.ts` — new `toNumberRules()` helper
-- `validation/index.ts`, `index.ts`, `index.browser.ts` — export `toNumberRules`
-- `tableConstraints.ts` — removed dead code
-- `TabularPartEditor.tsx` — M1 fix (correctedRow) + L3 (toNumberRules)
-- `RuntimeInlineTabularEditor.tsx` — L3 (toNumberRules in 2 places)
-- `DynamicEntityFormDialog.tsx` — L2 fix (min:0 removed) + L3 (toNumberRules)
-- `InlineTableEditor.tsx` — M2 fix (disabled Edit)
-
-### Build
-- 66/66 SUCCESS
+## PR #698 Review Fixes (2026-02-28)
+
+Addressed 9 Copilot bot review comments on PR #698. Analysis found 5 valid code fixes + 3 memory-bank cleanups:
+
+- **C2**: branchId fallback — `activeVersion.branchId ?? metahub.defaultBranchId` with early-return warning (publicationsRoutes.ts)
+- **C3/C7**: Removed unused `publicationName` + `usePublicationDetails` from PublicationVersionList & PublicationApplicationList
+- **C6**: VLC fallback — replaced manual `{ _schema, _primary, locales }` construction with `buildLocalizedContent({ en: 'Application' }, 'en')!` from `@universo/utils` (createLinkedApplication.ts)
+- **C8**: Added `'noopener,noreferrer'` third arg to both `window.open()` calls (PublicationApplicationList.tsx)
+- **C1/C4/C5**: Compressed memory-bank: tasks.md (-82.9%), activeContext.md (-80.2%), progress.md (-80.8%)
+- **C9**: Docs-only route mismatch — skipped (no code impact)
+- Build: **66/66** | Commit: `2d7e07a4` | PR: #698
 
 ---
 
-## QA Round-6 — Negative Numbers, Constraint Text, Spacing, 3-Dot Menu (2026-02-25)
+## Publication Drill-In Feature — Consolidated (2026-02-28)
 
-Fixed 4 issues from user screenshots across 8 files in 4 packages.
+Full implementation of Publications drill-in navigation with inner tabs (Versions, Applications), replacing the previous flat list + modal-edit approach.
 
-### Changes
-1. **Negative numbers in nonNegative NUMBER table cells**: Added `validateNumber()` validation in DynamicEntityFormDialog `handleTableCellChange`, TabularPartEditor/RuntimeInlineTabularEditor `processRowUpdate`. Blocks '-' key, adds `min: 0` inputProp for nonNegative.
-2. **Constraint text format**: Rewrote `buildTableConstraintText()` — new format "Required: min. rows: X, max. rows: Y". New i18n keys: `tableRequiredPrefix`, lowercase `tableMinRows`/`tableMaxRows`. Updated all 4 JSON files.
-3. **Constraint spacing**: Removed `mb: 2` from TabularPartEditor and RuntimeInlineTabularEditor outer Box.
-4. **3-dot menu for InlineTableEditor**: Replaced per-row DeleteIcon with MoreVertRoundedIcon → Menu (Edit + Delete) + ConfirmDeleteDialog. Header column shows MoreVertRoundedIcon. Added 6 i18n keys to metahubs.json (en+ru): edit, delete, actions, deleteTitle, deleteDescription, cancel.
+### UX Polish Round 2 (5 fixes)
+- Link colors matched catalog pattern: `color: 'inherit'`, underline + `primary.main` on hover
+- Actions column: removed custom column, used FlowListTable `renderActions` prop (10% width, centered)
+- Pagination: client-side page/pageSize state + PaginationControls for Versions and Applications
+- App name URLs: fixed from `/application/${slug}` to `/a/${id}` (new tab)
+- App menu URLs: "Open application" → `/a/${id}`, "Dashboard" → `/a/${id}/admin` (window.open)
 
-### Files Modified
-- `tableConstraints.ts` — rewritten format logic
-- `DynamicEntityFormDialog.tsx` — NUMBER validation in TABLE cells, '-' key blocking
-- `TabularPartEditor.tsx` — processRowUpdate validation, ConfirmDeleteDialog, mb removal
-- `RuntimeInlineTabularEditor.tsx` — processRowUpdate validation, mb removal
-- `InlineTableEditor.tsx` — 3-dot menu + ConfirmDeleteDialog (MoreVertRoundedIcon, Menu, EditIcon)
-- `metahubs.json` en+ru — key replacements + 6 new keys
-- `apps.json` en+ru — key replacements
+### UX Polish Round 1 (8 tasks)
+- Publication name as drill-in link to `/publication/:id/versions`
+- Breadcrumbs: removed UUID fallback, added tab suffix (Versions/Applications)
+- ViewHeader: show only tab name, not publication name
+- Versions table: fixed name render, removed Branch column, adjusted widths
+- Search fields added for both tabs
+- Version row three-dot menu (Edit/Activate/Delete) + DELETE endpoint + hook
+- Applications tab: name display, translated columns, action menu, clickable names
+- i18n: ~13 EN + ~13 RU keys (version delete, app actions, search, menu)
 
-### Build: 66/66 SUCCESS
+### Create Dialog & Schema Fixes (4 issues)
+- Fixed TypeError: useCommonTranslations destructuring in VersionList and AppList
+- Reworked Create Publication dialog: toggles above CollapsibleSection, app fields inside
+- Fixed broken schema creation: DDL runs after TypeORM transaction commit (deadlock fix)
+- Added applicationNameVlc/descriptionVlc inside CollapsibleSection
 
----
+### CollapsibleSection Export Fix
+- Missing export from template-mui root src/index.ts caused @flowise/core-frontend build failure
+- Moved to components/layout/ subfolder, created barrel, added to root exports
+- Build: 66/66 (was 64/65)
 
-## QA Round-5 — Runtime Bug Fixes: TypeError, deleteDisabled, i18n (2026-02-25)
+### Navigation & Create Dialog Rework (R1-R9)
+- Backend: extracted `createLinkedApplication()` helper, new POST endpoint, `createApplicationSchema` option
+- Frontend: routes + lazy imports for `/publication/:publicationId/versions` and `/applications`
+- Components: PublicationVersionList, PublicationApplicationList with full CRUD
+- Create dialog: 2 tabs (General + Access) with CollapsibleSection spoilers
+- CollapsibleSection extracted to universo-template-mui as reusable component
+- Cleanup: deleted VersionsPanel, ApplicationsPanel, ApplicationsCreatePanel
+- Key decision: circular build dep solved with `(m: any)` cast in lazy imports
 
-Fixed 3 runtime bugs found during QA testing + dead code cleanup. 11 files across 5 packages.
+### QA Remediation (10 issues)
+- H-1: slug collision — unique slug per application; M-2: unused imports (4 files)
+- M-3: Russian i18n fallback → English; M-4: react-hooks/exhaustive-deps (useMemo)
+- M-5: name validation + disabled Create; L-2: non-null assertion fallback
+- L-4: aria attributes on CollapsibleSection; M-1: prettier auto-fix (17→0 errors)
 
-### Changes
-1. **TypeError `selectNumberPart`**: Added guard `if (!target || target.value == null) return` in DynamicEntityFormDialog and FormDialog. Prevents crash when `requestAnimationFrame` callback fires after React re-render.
-2. **Delete button blocked by `minRows`**: Removed `deleteDisabled` logic from InlineTableEditor, RuntimeInlineTabularEditor, TabularPartEditor. Row deletion always allowed; validation at Submit/Save level via `isMissing`.
-3. **Non-internationalized texts**: Added `i18nNamespace` prop to DynamicEntityFormDialog. Standardized keys between dialogs (`lengthRange`→`lengthBetween`, `dateTimeFormat`→`datetimeFormat`, `numberLength2`→`numberLengthWithScale`). Added 26 keys to metahubs.json (en+ru), 6 keys to apps.json (en+ru). ElementList passes `i18nNamespace='metahubs'`.
-4. **Dead code**: Removed `tableCannotBeRequired` from ChildAttributeList.tsx and metahubs.json (TABLE isRequired now allowed).
-
-### Build
-- Full build: **66/66 SUCCESS**
-
----
-
-## QA Round-4 — D1+H1+M1-M7+L1-L2 Comprehensive Fixes (2026-02-27)
-
-Fixed ALL findings from comprehensive QA analysis across 10 files in 5 packages.
-
-### Changes
-1. **D1+H1 (CRITICAL/HIGH) — TABLE required refactoring**: Removed `requiredFilling` from uiConfig. Unblocked `isRequired` for TABLE at all levels. Backend `hasRequiredValue` validates TABLE: `Array.isArray(value) && value.length >= Math.max(1, minRows)`.
-2. **M1 — Stepper precision**: `handleStepUp`/`handleStepDown` validate with `validateNumber()` before applying.
-3. **M2 — ArrowUp/ArrowDown keyboard**: Intercept in `handleNumberKeyDown` (both dialogs).
-4. **M3 — ARIA labels**: Localized with `t('number.increment/decrement', ...)`.
-5. **M4+M5 — Error tooltip**: InlineTableEditor shows `<Tooltip title={errorMessage}>` for NUMBER validation errors.
-6. **M6 — i18n standardization**: DynamicEntityFormDialog fully migrated from `formatMessage` to react-i18next `t()`.
-7. **M7 — Deduplicate constraint text**: New `buildTableConstraintText()` in `@universo/utils/validation/tableConstraints.ts`. Shared across 3 components.
-8. **L1+L2 — TABLE cells**: NUMBER cells use `type='text'` + `inputMode='decimal'` + right-alignment.
-
-### Files Modified
-- `tableConstraints.ts` (NEW) — shared TABLE constraint text builder in `@universo/utils`
-- `attributesRoutes.ts` — removed requiredFilling, unblocked TABLE isRequired (5 changes)
-- `MetahubElementsService.ts` — TABLE handleRequiredValue logic
-- `AttributeFormFields.tsx` — isRequired toggle for TABLE, removed requiredFilling toggle
-- `AttributeActions.tsx` — removed TABLE exclusion from set-required
-- `ElementList.tsx` — removed tableRequiredFilling, pass `required`
-- `InlineTableEditor.tsx` — renamed `requiredFilling` → `required`, error Tooltip, shared constraint text
-- `DynamicEntityFormDialog.tsx` — stepper precision, ArrowUp/Down, ARIA, i18n migration, shared constraints, TABLE cell type+alignment
-- `FormDialog.tsx` — stepper precision, ArrowUp/Down, ARIA, shared constraints
-
-### Build: 66/66 SUCCESS
+**Build**: 66/66 packages. Modified 11 files, created 11, deleted 3.
 
 ---
 
-## QA Fixes + NUMBER Stepper + TABLE Required Filling (2026-02-25)
+## Copy UX & QA Remediation (2026-02-27)
 
-Implemented 3 groups of changes across 6 packages, 10 files.
+### QA Remediation Round 10 — Copy UX
+Standardized copy naming convention with i18n-driven naming per metahub locale. Template seed respects metahub primary locale during copy.
 
-### Changes
-1. **F1 — Shared validateNumber on frontend**: Replaced custom validators in InlineTableEditor.tsx and tabularColumns.tsx with `validateNumber` from `@universo/utils`. Now consistently checks precision, scale, min, max, nonNegative.
-2. **F2 — cellErrors cleanup on row delete**: InlineTableEditor `handleDeleteRow` now removes cellErrors entries with matching `${rowId}:` prefix.
-3. **NUMBER alignment & stepper buttons**: Standalone NUMBER fields in DynamicEntityFormDialog and FormDialog have right-aligned text and custom ArrowDropUp/ArrowDropDown stepper buttons (via InputAdornment). Step value = 10^(-scale) or 1. Respects min/max/nonNegative.
-4. **TABLE requiredFilling**: New `requiredFilling` boolean in uiConfig (backend Zod schema). Toggle in AttributeFormFields PresentationTab (default: ON). TABLE must have ≥ max(1, minRows) rows. Constraint text shown below table editors (error color when insufficient). Applied to DynamicEntityFormDialog, FormDialog, InlineTableEditor.
+### PR #696 Bot Review Fixes
+Safe `typeof` checks, dead code removal, `rel="noopener noreferrer"`, nullable name safe-access.
 
-### Files Modified
-- `attributesRoutes.ts` — `requiredFilling: z.boolean().optional()` in uiConfigSchema
-- `AttributeFormFields.tsx` — New "Required table filling" Switch toggle
-- `ElementList.tsx` — Pass `tableRequiredFilling` from uiConfig
-- `InlineTableEditor.tsx` — F1 (validateNumber) + F2 (cellErrors cleanup) + requiredFilling prop + constraint text
-- `DynamicEntityFormDialog.tsx` — NUMBER stepper/alignment + TABLE required filling + DynamicFieldValidationRules minRows/maxRows
-- `FormDialog.tsx` — NUMBER stepper/alignment + TABLE required filling + constraint text
-- `tabularColumns.tsx` — F1 (validateNumber)
+### Copy UX Simplification
+- `generateCopyName()` helper with i18n " (copy N)" suffix — shared across metahubs + applications
+- Metahub copy dialog with progress indicator, error handling, advisory lock
+- Application copy with schema status reset (SYNCED→SYNCED, else→OUTDATED)
 
-### Build
-- Full build: 66/66 SUCCESS (5m19s)
+### QA Remediation Rounds 5-9
+Copy flow refinements: edge cases (no active branch, locked metahubs), error message clarity, naming collision detection, schema status propagation, connector cleanup.
+
+**Build**: 66/66 packages.
 
 ---
 
-## QA Round-3 — TABLE Validation & Row Limits (2026-02-26)
+## Copy Flows & NUMBER Field Parity (2026-02-26)
 
-Fixed 6 bugs found during QA analysis of TABLE attribute validation across 5 packages, 8 files.
+### QA Remediation Rounds 1-4 — Copy Flows
+- Round 1: prevent copy of soft-deleted entities
+- Round 2: schema sync after copy — correct status propagation
+- Round 3: unique constraint handling (codename conflicts → 409)
+- Round 4: FK reference integrity for copied connector publications
 
-### Bug Fixes
-1. **H1 — validateRules for TABLE children**: Added `this.validateRules(...)` call for each child field value in MetahubElementsService.ts TABLE loop. Previously only `validateType` was called for children, allowing invalid NUMBER/STRING values (violating nonNegative, min, max, precision, scale, minLength, maxLength, pattern) to be saved.
-2. **H2 — minRows/maxRows backend enforcement**: Added `value.length` checks against `attr.validationRules.minRows`/`maxRows` in `validateElementData` TABLE branch. Previously row count was never validated server-side for design-time elements.
-3. **M1 — InlineTableEditor saves invalid NUMBER**: Changed `handleCellChange` to reject invalid values instead of saving them (return original row when validation fails). Previously visual error was shown but invalid value was persisted.
-4. **M2 — onKeyDown blocks `-` for nonNegative**: Added `e.preventDefault()` for `-` key in InlineTableEditor NUMBER cells when `validationRules.nonNegative` is true (matches FormDialog pattern).
-5. **M3 — Frontend minRows/maxRows enforcement**: Added `minRows`/`maxRows` props to InlineTableEditor, TabularPartEditor, RuntimeInlineTabularEditor. Add Row button disabled at maxRows, Delete disabled at minRows. Props passed from ElementList.tsx and FormDialog.tsx using existing `validationRules`.
+### PR #692 Bot Review Remediation
+Hardcoded locale → metahub locale, inline helpers extraction, formatting fixes.
 
-### Files Modified
-- **`@universo/metahubs-backend`**: MetahubElementsService.ts (validateRules + minRows/maxRows)
-- **`@universo/metahubs-frontend`**: InlineTableEditor.tsx (M1+M2+M3), ElementList.tsx (pass minRows/maxRows)
-- **`apps-template-mui`**: TabularPartEditor.tsx (M3), RuntimeInlineTabularEditor.tsx (M3), FormDialog.tsx (pass minRows/maxRows + FieldValidationRules)
+### Copying UX/Logic Upgrade
+`generateCopyName`, `ApplicationSchemaStatus` reset, advisory lock prevents concurrent copies.
 
-### Verification
-- Tests: metahubs-backend 83/83 + 3 skipped, applications-backend 35/35
-- Lint: 0 errors across metahubs-backend, metahubs-frontend, apps-template-mui
-- Full build: 66/66 packages SUCCESS (5m9s)
+### NUMBER Field Parity
+Zone-aware ArrowUp/ArrowDown stepping across all three form contexts (DynamicEntityFormDialog, FormDialog, inline table). Complete NumberEditCell rewrite. 5 files across 3 packages.
 
----
+### Fix Inline Table nonNegative
+Prevented NaN→null regression in NUMBER stepper.
 
-## TABLE Attribute Settings Bugfixes (2026-02-26)
-
-Fixed 5 bugs in TABLE attribute type identified by QA analysis across 5 packages.
-
-### Bug Fixes
-1. **minRows/maxRows Zod schema (Bug #2)**: Added `minRows`/`maxRows` fields to `validationRulesSchema` in metahubs-backend attributesRoutes.ts. Added cross-validation (minRows ≤ maxRows). Previously Zod's `.strip()` mode silently removed these unknown keys.
-2. **showTitle runtime FormDialog (Bug #3a)**: Replaced hardcoded `showTitle` boolean shorthand with `field.tableUiConfig?.showTitle !== false` in FormDialog.tsx for both EDIT and CREATE modes.
-3. **showTitle metahub InlineTableEditor (Bug #3b)**: Added `showTitle?: boolean` prop to InlineTableEditor, conditional title rendering, `tableShowTitle` field in DynamicFieldConfig interface, and prop passing from ElementList.tsx.
-4. **NUMBER backend validation (Bug #4a)**: Added `nonNegative`, `min`, `max` validation checks in `coerceRuntimeValue` NUMBER case (applications-backend). Throws descriptive errors for constraint violations.
-5. **NUMBER frontend validation (Bugs #4b, #4c)**: Added `validateNumberField` + `getNumberInputConstraints` helpers in InlineTableEditor, `cellErrors` state for visual feedback, and `preProcessEditCellProps` for NUMBER columns in `buildTabularColumns` (tabularColumns.tsx).
-
-### Files Modified
-- **`@universo/metahubs-backend`**: attributesRoutes.ts (Zod schema + refine)
-- **`@universo/applications-backend`**: applicationsRoutes.ts (coerceRuntimeValue)
-- **`@universo/metahubs-frontend`**: InlineTableEditor.tsx, ElementList.tsx
-- **`@universo/template-mui`**: DynamicEntityFormDialog.tsx (DynamicFieldConfig interface)
-- **`apps-template-mui`**: FormDialog.tsx, tabularColumns.tsx
-
-### Verification
-- Tests: metahubs-backend 83/83 + 3 skipped, applications-backend 35/35
-- Lint: 0 errors across all 5 packages
-- Full build: 66/66 packages SUCCESS (6m55s)
+**Build**: 66/66 packages.
 
 ---
 
-## Architectural Improvements — Independent Child Tables + Enum Values Rename (2026-02-26)
+## QA & Architecture Fixes (2026-02-24 to 2026-02-25)
 
-Implemented two related DDL architecture improvements across 3 backend packages and 1 frontend package.
+### QA Rounds 5-8 (02-25 to 02-26)
+- Constraint text UX: human-readable violation messages
+- Spacing fixes: table cell padding, dialog margins
+- 3-dot menu alignment: consistent MoreVert positioning across all lists
+- Runtime bugs: stale cache recovery, loading indicators, comprehensive QA pass
 
-### Changes
-1. **Enum values table rename**: `_mhb_enum_values` → `_mhb_values`, `_app_enum_values` → `_app_values` (simplified naming — no other "values" tables exist)
-2. **Child table naming**: `generateTabularTableName(parent, attrId)` → `generateChildTableName(attrId)` producing `tbl_<uuid_hex32>` (36 chars, parent-independent, NAMEDATALEN-safe)
-3. **Schema snapshot version**: Bumped from 1 → 2
+### Architectural Improvements (02-24)
+- Attribute edit race condition: useRef snapshot prevents stale data submission
+- 422 error payload: structured blocker array instead of plain string
+- i18n for structured blockers in migration guard UI
 
-### Files Modified
-- **`@universo/schema-ddl`** (6 source + 4 test files): naming.ts, index.ts, snapshot.ts, diff.ts, SchemaGenerator.ts, SchemaMigrator.ts + all tests
-- **`@universo/metahubs-backend`** (5 source + 2 test files): ddl/index.ts, systemTableDefinitions.ts, MetahubEnumerationValuesService.ts, applicationSyncRoutes.ts, TemplateSeedExecutor.ts, TemplateSeedMigrator.ts + tests
-- **`@universo/applications-backend`** (1 source + 1 test file): applicationsRoutes.ts + test
-- **`metahubs-frontend`** (1 file): types.ts JSDoc comment
+### QA Remediation Rounds 1-2 (02-24)
+Button spacing, toast improvements, deletion guard, empty-state messaging, column widths.
 
-### Verification
-- Full build: 66/66 packages SUCCESS
-- Global grep: 0 matches for `generateTabularTableName`, `_app_enum_values`, `_mhb_enum_values`
-- diff.test.ts fixtures preserved as historical V1 snapshot data
+### QA Findings Code Remediation (02-24)
+5 bugs + 5 warnings: attribute validation, catalog access, API route fixes.
 
-### QA Remediation (2026-02-26)
-- **Forward-compatibility fix in `diff.ts`**: Changed TABLE field diff to use stored `oldField.columnName` instead of recalculating via `generateChildTableName(field.id)`. This ensures migrations reference the actual table name in PostgreSQL even if the naming convention changes between schema versions.
-- **Test assertion added**: `diff.test.ts` now asserts `tableName` matches the stored V1 snapshot name (`cat_entity..._tp_tableattr...`), preventing regression.
-- All 113 tests pass, lint 0 errors, build SUCCESS.
+### Unified Application Migration Guard QA Fixes (02-24)
+- BUG-1: "Continue anyway" calling refetch → added useState dismissed state
+- BUG-2: Application copy missing appStructureVersion + lastSyncedPublicationVersionId
+- WARN-1: Test timeout fix (mocks for 6 exports, 19s → 650ms)
+- INFO-2: TARGET_APP_STRUCTURE_VERSION=1 constant (was hardcoded in 5 places)
+- INFO-5: ensureMemberAccess instead of ensureAdminAccess for status endpoint
 
----
-
-## UX Fixes Round 5 — Separator Edge Cleanup + Tabular Refresh (2026-02-24)
-
-Implemented final fixes for two residual runtime issues reported after Round 4.
-
-### Changes
-1. **Main table separator edge cleanup**:
-   - `CustomizedDataGrid` now detects the first real data column and draws separator pseudo-lines only for subsequent columns.
-   - This removes visible separator artifacts on table edges while keeping internal vertical separators.
-
-2. **Child TABLE stale data after Save/reopen**:
-   - Added post-save invalidation of all `tabularRows` queries for the edited parent row in `useCrudDashboard` update success flow.
-   - Hardened `RuntimeInlineTabularEditor` query options with `staleTime: 0` and `refetchOnMount: 'always'` to force fresh tabular fetch on reopen.
-
-3. **Child editor separator selector refinement**:
-   - In `TabularPartEditor` and `RuntimeInlineTabularEditor`, separator selectors now explicitly exclude `__rowNumber` to avoid pseudo-lines on the first utility column.
-
-### Verified
-- `pnpm --filter apps-template-mui lint` ✅ (0 errors, warnings only)
-- `pnpm --filter apps-template-mui build` ✅
-- `pnpm build` ✅ (66/66)
+**Build**: 66/66 packages.
 
 ---
 
-## UX Fixes Round 4 — Tabular Focus, Separators, Row Menu, i18n (2026-02-24)
+## QA & Child TABLE Editing (2026-02-23)
 
-Implemented requested UX alignment for child TABLE behavior in create/edit dialogs and main app table styling.
+### QA Safe Remediation
+Number display formatting, optimistic lock improvements, enum dropdown fixes, status dialog.
 
-### Changes
-1. **EDIT mode add-row autofocus parity**:
-   - `RuntimeInlineTabularEditor` now starts inline editing in the first left STRING/NUMBER cell immediately after adding a new row (deferred edit mode), matching CREATE behavior.
+### QA Recommendations Implementation
+2 high + 3 medium improvements for metahubs entity management.
 
-2. **Child TABLE separators cleanup**:
-   - Updated DataGrid separator selectors in `TabularPartEditor` and `RuntimeInlineTabularEditor` to draw only internal vertical separators (`[data-field]:not(:first-of-type)`), removing edge/filler artifacts.
+### Child TABLE Editing & Select UX Parity
+Full inline editing parity with parent table — all attribute types (STRING, NUMBER, BOOLEAN, DATE, REF, JSON) supported in child tables.
 
-3. **Main app table separators parity**:
-   - Added the same internal vertical separator pattern to `CustomizedDataGrid` so the main list table matches child TABLE visuals.
+### QA Fixes Chain (7 rounds)
+- Inline Edit, Empty Option & Schema Diff i18n: 4 targeted fixes
+- Element Create & Attribute List UX: validation, column widths, i18n
+- QA Remediation Pass: 7 issues across frontend/backend
+- Child TABLE Select UX: dropdown, column widths, type consistency
+- QA Findings Remediation: 6 issues (data loading, types, error handling)
+- Child TABLE Attribute Parity + Sync FK Fix: full parity for child attributes, 6 files
+- Dialog Init & Child REF Persistence: form initialization, restored persistence, 4 files
 
-4. **Child TABLE actions menu (`⋮`)**:
-   - Replaced per-row delete icon action with the same `⋮` pattern as the main table (icon in header and rows) via `buildTabularColumns`.
-   - Added row menu in both `TabularPartEditor` and `RuntimeInlineTabularEditor` with actions: `Edit` and `Delete`.
-   - `Edit` now focuses and opens edit mode in the leftmost STRING/NUMBER cell of the selected row.
-
-5. **Delete dialog cancel localization**:
-   - Passed localized `cancelButtonText={t('tabular.cancel')}` in runtime child-row delete confirmation to avoid fallback `Cancel` in Russian UI.
-
-### Verified
-- `pnpm --filter apps-template-mui lint` ✅ (0 errors, pre-existing warnings only)
-- `pnpm --filter apps-template-mui build` ✅
+**Build**: 66/66 packages.
 
 ---
 
-## UX Fixes Round 3 — Select Plain Style + Deferred Tabular Save (2026-02-24)
+## TABLE Attribute & QA (2026-02-21 to 2026-02-22)
 
-Implemented final UX corrections for child TABLE editing in create/edit dialogs.
+### Documentation Updates — QA Recommendations (02-22)
+- metahubs-frontend README (EN/RU): ColumnsContainer, MigrationGuard, Blockers i18n
+- metahubs-backend README (EN/RU): Structured Blockers, Migration Endpoints, file structure
+- New apps-template-mui README (EN/RU, 307 lines each): dashboard system, zone widgets, CRUD
 
-### Changes
-1. **Plain select appearance in child TABLE cells**:
-   - `apps-template-mui`: hardened `Select` reset styles in `tabularColumns.tsx` (`disableUnderline`, no border/background/radius, transparent root and select slot).
-   - `metahubs-frontend`: applied the same plain-style reset in `InlineTableEditor.tsx` for REF child fields.
+### TABLE Attribute UX Rounds 1-5.4 + Round 6
+Comprehensive inline editing with DnD reorder, stacked columns layout, delete dialog, persistence.
 
-2. **Deferred persistence in EDIT mode**:
-   - `RuntimeInlineTabularEditor` now supports `deferPersistence` mode. In this mode, add/edit/delete operations are local-only and emitted to parent form via `onChange`.
-   - `FormDialog` now enables `deferPersistence` for TABLE fields in EDIT mode, so child rows are persisted only when the main form Save button is pressed.
+### QA Critical/Major Fix Pass
+5 critical + 3 major issues: data loss prevention, cascading deletes, schema sync consistency.
 
-3. **Append new child rows at list end**:
-   - Immediate mode add-row now computes `_tp_sort_order` as `max(existing) + 1` to prevent insertion as the second row.
-   - Deferred mode naturally appends locally and preserves order in emitted payload.
+### Additional QA Fixes
+- Rounds 1-4: grid styling, delete cascade fix, schema diff alignment, i18n
+- PR #686 Bot Review: import cleanup, typing improvements, deprecation markers, lodash removal
+- Hub Delete Blockers: cascading FK checks across catalogs/hubs/attributes/elements
+- Unified Action Menus: standardized 3-dot MoreVert menus across all entity types
 
-4. **Backend TABLE save on parent update**:
-   - Extended `PATCH /:applicationId/runtime/rows/:rowId` to process TABLE payloads transactionally.
-   - Route now validates/coerces child values, applies required defaults for non-boolean required child fields (`''` for STRING, `0` for NUMBER), soft-deletes previous child rows, and reinserts rows in submitted order.
-
-### Verified
-- Lint: 0 errors (`apps-template-mui`, `applications-backend`, `@universo/metahubs-frontend`)
-- Build: 66/66 targets successful
+**Build**: 66/66 packages.
 
 ---
 
-## UX Fixes Round 2 — Overlay Height, Select Styling, NOT NULL Default (2026-02-24)
+## TABLE Attribute Type Implementation (2026-02-21)
 
-Fixed 3 residual UX issues after DB recreation.
+Full TABLE attribute type: backend CRUD, schema DDL, frontend inline editing with DnD reorder, REF column support, publication snapshot pipeline for TABLE children.
 
-### Changes
-1. **Reduced empty DataGrid overlay height**: Overrode `--DataGrid-overlayHeight` from `300px` → `52px` in TabularPartEditor (CREATE), RuntimeInlineTabularEditor (EDIT), and main app DataGrid theme (`dataGrid.ts`). The previous `minHeight: 36` fix was insufficient because DataGrid's internal overlay CSS variable controlled the actual rendered height.
-
-2. **Stripped Select dropdown styling**: In `tabularColumns.tsx`, added `disableUnderline` to `<Select variant='standard'>`, set `background: 'transparent !important'`, removed `border`, `borderRadius`. Only the dropdown arrow icon remains visible — inline appearance matches plain text cells.
-
-3. **Fixed NOT NULL constraint on empty tabular row creation**: Backend `POST /runtime/rows/:id/tabular/:attrId` now inserts type-appropriate default values (`''` for STRING, `0` for NUMBER) for required columns with `NOT NULL` DB constraints, instead of skipping them and causing PostgreSQL constraint violations.
-
-### Verified
-- Lint: 0 errors (apps-template-mui: 30 warnings, applications-backend: 50 warnings)
-- Build: 66/66 targets successful
+**Build**: 66/66 packages.
 
 ---
 
-## UX Fixes — Empty Height, Column Separators, Tabular Required (2026-02-24)
+## Enumerations Feature (2026-02-18 to 2026-02-19)
 
-Fixed 3 UX issues in runtime app TABLE editing and dashboard.
+### QA Remediation Rounds 1-5
+- Round 1: runtime safety — FormDialog enum default injection (undefined vs null)
+- Round 2: structure versioning — consolidated V1/V2/V3 → single V1 (CURRENT_STRUCTURE_VERSION=1)
+- Round 3: FK safety — enum REF targets `_app_enum_values(id)`, required-toggle guard
+- Round 4: restore conflict → 409 on codename collision, locale fallback consistency
+- Round 5: toggle-required invariant — ownership validation for defaultEnumValueId
 
-### Changes
-1. **Reduced empty child table height**: `minHeight: 108` → `36` in both TabularPartEditor (CREATE) and RuntimeInlineTabularEditor (EDIT) — approximately 3x smaller, matching a compact single-row appearance instead of oversized empty space.
+### Stabilization + Hardening
+- Contract alignment: presentation canonicalization, sync mapping for legacy payloads
+- Backend fixes: strict typing, missing wiring, migration seed counters
+- Shared type safety: ConflictInfo.entityType extended with `document`
+- Metadata cleanup: order fixed (remove stale → upsert), duplicate guard, stale values cleanup
+- Declarative schema: `uidx_mhb_enum_values_default_active` unique partial index
 
-2. **Added column separator borders**: Vertical 1px inset lines between DataGrid columns, matching InlineTableEditor (metahub catalog) pattern:
-   - Child TABLE DataGrids (CREATE + EDIT): white `::before` on header cells, `grey.100` on body cells, with `top: 6, bottom: 6` inset.
-   - Main app DataGrid (theme customization in `dataGrid.ts`): `divider` color on header, `grey.100` on body cells.
+### Frontend/UI Integration
+- Enumeration list + values list flows with CRUD hooks/mutations
+- Attribute presentation: enumPresentationMode (select/radio/label), defaultEnumValueId
+- TargetEntitySelector supports enumeration target kind
+- i18n: enumerations, enumerationValues, ref.*, attributes.presentation.* (EN/RU)
 
-3. **Fixed "Required field missing" on tabular row add**: Backend was rejecting empty tabular child row creation when required fields had null values. Removed required-field validation from the tabular child row CREATE route (`POST /runtime/rows/:id/tabular/:attrId`) — inline editing pattern requires creating empty rows first, then filling values in-place.
+### QA Fixes + UI Polish Rounds 5-6
+- Round 6: Publication DELETE cascade N+1→bulk UPDATE, Prettier fixes, baseline template column, default detailsTable widget
+- Round 5: widget label i18n, dry run text simplified, actions column headerName, schema/template split columns
 
-### Verified
-- Lint: 0 errors (apps-template-mui: 30 warnings, applications-backend: 50 warnings)
-- Full build: 66/66
-
-## QA Findings Code Remediation (2026-02-24)
-
-Fixed all issues identified during comprehensive QA analysis of TABLE inline editing implementation (TabularPartEditor, RuntimeInlineTabularEditor, tabularColumns, FormDialog integration).
-
-### Changes
-1. **Fixed O(n²) `rows.indexOf(row)` in TabularPartEditor**: Replaced with direct `String(row.id)` — the `id` property is already guaranteed by the `useMemo` row mapping. Eliminates quadratic lookup and potential `-1` index collision on reference-mismatched objects.
-
-2. **Unified `maxHeight`**: Changed TabularPartEditor `maxHeight: 300` → `400` to match RuntimeInlineTabularEditor, ensuring consistent scroll behavior between CREATE and EDIT modes.
-
-3. **Added optimistic cache updates in RuntimeInlineTabularEditor**: `handleSelectChange` now immediately updates React Query cache via `queryClient.setQueryData` before the API call, preventing UI flicker when switching radio buttons or dropdown values. On API failure, cache is reverted via `invalidateQueries`.
-
-4. **Deprecated `RuntimeTabularPartView`**: Added `@deprecated` JSDoc and deprecation markers on exports in `index.ts` and `api/index.ts`. This component (dialog-based editing via `useCrudDashboard`) was replaced by `RuntimeInlineTabularEditor` (inline cell editing via React Query) but kept as a public export for backward compatibility.
-
-5. **Deprecated `TabularPartAdapter`**: Added `@deprecated` JSDoc — only used by the now-deprecated `RuntimeTabularPartView`. Direct API helpers (`fetchTabularRows`, `createTabularRow`, etc.) are the recommended approach.
-
-### Files changed
-- `packages/apps-template-mui/src/components/TabularPartEditor.tsx` — `getRowId` fix, `maxHeight` unification
-- `packages/apps-template-mui/src/components/RuntimeInlineTabularEditor.tsx` — optimistic updates, `TabularRowsResponse` import
-- `packages/apps-template-mui/src/components/RuntimeTabularPartView.tsx` — `@deprecated` JSDoc
-- `packages/apps-template-mui/src/api/TabularPartAdapter.ts` — `@deprecated` JSDoc
-- `packages/apps-template-mui/src/index.ts` — `@deprecated` export markers
-- `packages/apps-template-mui/src/api/index.ts` — `@deprecated` export markers
-
-### Verification
-- Lint: 0 errors (30 pre-existing warnings)
-- Build: 66/66 successful
+**Build**: 66/66. Modified 15+ files across 6 packages.
 
 ---
 
-## QA Findings Safe Remediation (2026-02-23)
-
-Completed a focused remediation pass for latest QA findings with minimal-risk updates in metahubs frontend tests and workspace npm security configuration.
-
-### Changes
-1. **MetahubMembers coverage test fixed**
-   - Updated `react-i18next` mock to provide both `t` and `i18n`, matching component expectations and removing runtime crash (`t is not a function`).
-   - Relaxed a brittle assertion in update-flow expectation to validate stable behavior (`role`) instead of normalization-specific comment shape.
-
-2. **Actions factory test stabilized**
-   - Removed redundant `vi.resetModules()` calls in `actionsFactories.test.ts` to reduce module re-evaluation overhead and timeout susceptibility.
-
-3. **NPM registry hardening**
-   - Added `registry = https://registry.npmjs.org/` and `strict-ssl = true` to root `.npmrc` so project-level installs do not inherit insecure HTTP registry behavior from global environment.
-
-### Verification
-- `pnpm --filter @universo/metahubs-frontend test -- src/domains/metahubs/ui/__tests__/MetahubMembers.coverage.test.tsx src/domains/metahubs/ui/__tests__/actionsFactories.test.ts` ✅
-- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors, warnings only)
-- `pnpm build` ✅ (66/66, 5m43s)
-
----
-
-## QA Recommendations Implementation (2026-02-23)
-
-Implemented 2 non-blocking QA recommendations from the comprehensive review pass.
-
-### Changes
-1. **changeCounts i18n pluralization**
-   - Replaced `changeCounts` raw interpolation with nested plural `t()` calls (matching `tableMeta` composition pattern).
-   - Added `additiveChangesCount_one/_other` (EN) and `_one/_few/_many` (RU) plural keys.
-   - Added `destructiveChangesCount_one/_other` (EN) and `_one/_few/_many` (RU) plural keys.
-   - Files: `ConnectorDiffDialog.tsx`, `en/applications.json`, `ru/applications.json`.
-
-2. **Backend child search batch optimization**
-   - Added `findChildAttributesByParentIds()` to `MetahubAttributesService` — single `whereIn` query replacing N individual calls.
-   - Updated search route in `attributesRoutes.ts` to use batch method, reducing DB round-trips from N+1 to 2.
-   - Files: `MetahubAttributesService.ts`, `attributesRoutes.ts`.
-
-### Verification
-- Lint: 0 errors in both `applications-frontend` and `metahubs-backend`.
-- Build: 66/66 ✅ (5m29s).
-
----
-
-## Child TABLE Editing & Select UX Parity (Metahub + Runtime) (2026-02-23)
-
-Implemented 3 user-reported UX fixes for child TABLE editing and REF dropdown behavior across metahub create and runtime app create flows.
-
-### Changes
-1. **Metahub click-to-edit re-entry fix**
-   - Added blur suppression guard in `InlineTableEditor.tsx` to prevent blur/mousedown race when switching edited cells.
-   - Cell editing now reliably re-opens after outside click and repeated attempts.
-
-2. **Runtime child TABLE REF dropdown parity**
-   - Replaced default DataGrid singleSelect editor in `tabularColumns.tsx` with custom MUI `Select` edit renderer.
-   - Empty option now has consistent height (`minHeight: 36`) with non-breaking-space content.
-   - Previously selected option is explicitly highlighted in dropdown (`Mui-selected`).
-   - Added explicit up/down indicator icon (`UnfoldMoreIcon`) to match metahub UX expectation.
-
-3. **Runtime add-row auto-edit behavior**
-   - In `TabularPartEditor.tsx`, after adding a row the first left STRING/NUMBER child column now enters edit mode automatically via DataGrid API.
-
-4. **Requested technical context research completed before coding**
-   - Used Rube Context7 (`CONTEXT7_MCP_QUERY_DOCS`) and web search (`COMPOSIO_SEARCH_WEB`) for React/MUI blur/click race and Select behavior guidance.
-
-### Verification
-- `pnpm --filter apps-template-mui lint` → 0 errors (30 warnings)
-- `pnpm --filter @universo/metahubs-frontend lint` → 0 errors
-- `pnpm --filter apps-template-mui build` ✅
-- `pnpm build` → 66/66 ✅ (5m04s)
-
----
-
-## Inline Edit, Empty Option & Schema Diff i18n Fixes (2026-02-23)
-
-Fixed 3 UX issues: broken click-to-edit in inline table, empty option height in root REF, and i18n quality in schema diff dialog.
-
-### Issues Fixed
-1. **Click-to-edit broken after blur**
-   - Changed `onClick` to `onMouseDown` + `e.preventDefault()` on the clickable Box in `InlineTableEditor.tsx` to eliminate the blur/click race condition.
-
-2. **Empty option height in root REF select**
-   - Added `renderOption` with `minHeight: 36` and non-breaking space for empty options in `EnumerationFieldAutocomplete`.
-
-3. **Schema diff i18n pluralization & localization**
-   - Added i18next plural keys (`_one`/`_other` EN; `_one`/`_few`/`_many` RU) for field count, element count, row count, table count.
-   - Composed `tableMeta` from two plural-aware `t()` calls.
-   - Added TABLE and REF data type translations (Таблица, Ссылка).
-   - Added `common.yes`/`common.no` keys (Да/Нет).
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx`
-- `packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx`
-- `packages/applications-frontend/base/src/components/ConnectorDiffDialog.tsx`
-- `packages/applications-frontend/base/src/i18n/locales/en/applications.json`
-- `packages/applications-frontend/base/src/i18n/locales/ru/applications.json`
-
-### Verification
-- `pnpm build` ✅ (66/66, 5m38s)
-
----
-
-## Element Create & Attribute List UX Fixes (2026-02-23)
-
-Fixed 6 UX issues related to child TABLE attribute editing, REF label rendering, and attribute search scope.
-
-### Issues Fixed
-1. **Stale child REF enum display mode cache**
-   - Added invalidation of `childAttributesForElements` and `childEnumValues` React Query keys in `ChildAttributeList.invalidateChildQueries()`.
-   - Refactored delete/create/update success handlers to use shared `invalidateChildQueries`.
-
-2. **REF label mode UUID flash**
-   - `EnumerationFieldAutocomplete` label mode now shows non-breaking space while options are loading, preventing fallback UUID label from appearing.
-
-3. **Table cell click area too small**
-   - Wrapped non-editing Typography in full-height `<Box>` with `onClick` and `cursor: 'text'` so the entire cell is clickable even when radio mode expands row height.
-
-4. **No auto-focus on new table row**
-   - `handleAddRow` now locates the first STRING/NUMBER child field and activates inline editing on it automatically.
-
-5. **Empty option height in select dropdown**
-   - Empty `<MenuItem>` now has `sx={{ minHeight: 36 }}` and uses non-breaking space for consistent height.
-
-6. **Attribute search doesn't include child attributes**
-   - Backend: search filter now also checks child attributes of TABLE parents via `attributesService.findChildAttributes()`. Matched parent IDs returned as `childSearchMatchParentIds` in response meta.
-   - Frontend: auto-expands matched TABLE parents and passes search filter to `ChildAttributeList` for client-side child filtering via `useMemo`.
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx`
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx`
-- `packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx`
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx`
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
-
-### Verification
-- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors, 400 warnings)
-- `pnpm --filter @universo/metahubs-backend lint` ✅ (0 errors, 285 warnings)
-- `pnpm build` ✅ (66/66, 5m41s)
-
----
-
-## QA Remediation Pass (2026-02-23)
-
-Implemented and verified all remaining issues from the latest QA verdict for TABLE runtime behavior and schema integrity.
-
-### Issues Fixed
-1. **Runtime tabular pagination/data visibility**
-   - `RuntimeTabularPartView` now uses controlled server pagination props from `useCrudDashboard` (`paginationModel`, `rowCount`, `onPaginationModelChange`, `pageSizeOptions`).
-   - This removes row truncation risk and keeps DataGrid behavior aligned with dashboard state.
-
-2. **Tabular child REF FK diff integrity**
-   - `schema-ddl` diff now emits FK operations for TABLE child REF changes across add/remove/retarget scenarios.
-   - Added regression tests to lock behavior for ADD_FK and DROP_FK on child REF fields.
-
-3. **TABLE required-rule bypass closure (backend invariants)**
-   - Attribute update/toggle-required routes now enforce TABLE non-required invariant consistently.
-
-4. **Runtime TABLE shared-view wiring**
-   - Runtime TABLE edit path is aligned with shared `useCrudDashboard`-based view flow.
-
-### Modified Files
-- `packages/apps-template-mui/src/components/RuntimeTabularPartView.tsx`
-- `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx`
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
-- `packages/schema-ddl/base/src/diff.ts`
-- `packages/schema-ddl/base/src/__tests__/diff.test.ts`
-
-### Verification
-- `pnpm --filter schema-ddl test` ✅ (8/8 suites, 112 tests)
-- `pnpm --filter schema-ddl lint` ✅ (warnings only, 0 errors)
-- `pnpm --filter apps-template-mui build` ✅
-- `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only, 0 errors)
-- `pnpm build` ✅ (66/66, 5m27s)
-
----
-
-## Element Create TABLE UX Fixes (2026-02-23)
-
-Implemented requested UX and behavior updates in catalog element create flow for TABLE child rows and REF-enumeration rendering.
-
-### Issues Fixed
-1. **Child TABLE column separators**
-   - Added thin vertical inset separators between columns.
-   - Header separators are white for contrast; body/action separators use `grey.100`.
-
-2. **NUMBER alignment in child TABLE**
-   - Right-aligned numeric values in read-only, inline-display, and edit input states.
-
-3. **Child TABLE REF radio mode (`allowEmpty=true`)**
-   - Removed artificial empty radio option; now behavior matches root REF radio mode (no preselected option when value is empty).
-
-4. **Child TABLE REF label mode**
-   - Ensured read-only label rendering with proper fallback order:
-     - explicit value;
-     - configured default value;
-     - empty-display policy (`dash` or empty).
-
-5. **Root REF label-mode empty display**
-   - Fixed element create rendering so `emptyDisplay = dash` shows `—` instead of forced blank selection.
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx`
-- `packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx`
-
-### Verification
-- `pnpm --filter @universo/metahubs-frontend exec eslint src/domains/elements/ui/ElementList.tsx src/domains/elements/ui/InlineTableEditor.tsx --fix` ✅ (warnings only)
-- `pnpm --filter @universo/metahubs-frontend lint` ✅ (0 errors)
-- `pnpm --filter @universo/metahubs-frontend build` ✅
-
----
-
-## Implementation Finalization Verification (2026-02-23)
-
-Executed a final verification pass after the latest QA-remediation summary to confirm stability before handoff.
-
-### Outcomes
-1. Confirmed no editor diagnostics at workspace level (`No errors found`).
-2. Re-ran `schema-ddl` automated tests: all suites passed.
-3. Re-ran `applications-backend` automated tests and lint: no error-level regressions (warnings only).
-4. Re-ran full root build successfully.
-
-### Verification
-- `pnpm --filter @universo/schema-ddl test` ✅ (8/8 suites, 110 tests)
-- `pnpm --filter @universo/applications-backend test` ✅ (2/2 suites, 35 tests)
-- `pnpm --filter @universo/applications-backend lint` ✅ (0 errors, warnings only)
-- `pnpm build` ✅ (66/66, 6m11s)
-
----
-
-## QA Blockers & Concurrency Hardening (2026-02-23)
-
-Implemented a focused stabilization pass to close all blocker-level findings from the latest comprehensive QA audit.
-
-### Issues Fixed
-1. **Type diagnostics blocker (metahubs frontend)**
-   - Replaced subpath type import with root package type export in inline TABLE editor:
-     - `DynamicFieldConfig` now imported from `@universo/template-mui`.
-
-2. **Applications frontend lint blocker**
-   - Applied package-scoped eslint/prettier auto-fixes in `applications-frontend`.
-   - Result: lint reduced from error-level failures to warnings-only output (0 errors).
-
-3. **Runtime TABLE race-condition hardening**
-   - Child TABLE create/delete flows now execute under explicit transaction with parent-row `FOR UPDATE` lock.
-   - `minRows/maxRows` checks are now performed inside the same transaction as write operations to avoid concurrent race windows.
-
-4. **Optimistic locking for runtime updates**
-   - Added optional `expectedVersion` support for:
-     - runtime parent row single-field update;
-     - runtime parent row bulk update;
-     - runtime TABLE child row update.
-   - Mismatch now returns deterministic HTTP `409` with expected/actual version payload.
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx`
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/applications-frontend/base/*` (eslint/prettier auto-fix pass)
-
-### Verification
-- `pnpm --filter applications-frontend lint` ✅ (0 errors, warnings only)
-- `pnpm --filter @universo/applications-backend lint` ✅ (0 errors, warnings only)
-- `pnpm --filter @universo/metahubs-frontend lint` ✅ (warnings only)
-- `pnpm --filter @universo/applications-backend test` ✅ (2/2 suites, 35 tests)
-- `pnpm build` ✅ (66/66, 5m58s)
-
-## Child TABLE Select UX Alignment (2026-02-23)
-
-Implemented the requested UX alignment for REF fields inside child TABLE rows across metahub element creation and app runtime table editors.
-
-### Issues Fixed
-1. **No dash placeholders in child TABLE empties**
-   - Removed `—` fallback rendering for empty child TABLE values in metahub inline editor and app tabular DataGrid columns.
-   - Empty allowed-value option now renders as an actual empty first option.
-
-2. **Unified empty selection behavior (metahub)**
-   - Enumeration select uses dropdown-based empty selection only.
-   - Clear/reset cross behavior was removed for enumeration selection path, ensuring one consistent empty-selection flow.
-
-3. **Stable child TABLE layout while editing (metahub)**
-   - Applied fixed table layout in inline child editor so string/number edits no longer expand column widths.
-
-4. **Enum presentation mode parity in child TABLE rows**
-   - Added `radio` mode rendering for child TABLE REF fields in metahub and app flows.
-   - Added `label` mode rendering for child TABLE REF fields in metahub and app flows (fixed text, no select control).
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx`
-- `packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx`
-- `packages/apps-template-mui/src/utils/tabularColumns.tsx`
-
-### Verification
-- `pnpm --filter metahubs-frontend lint` ✅ (0 errors, warnings only)
-- `pnpm --filter apps-template-mui lint` ✅ (0 errors, warnings only)
-- `pnpm build` ✅ (66/66)
-
-## QA Findings Remediation (2026-02-23)
-
-Implemented a focused remediation pass for QA-reported issues around TABLE child runtime behavior, seed consistency, and runtime UI contract propagation.
-
-### Issues Fixed
-1. **Runtime TABLE child REF safety**
-   - Parent-side REF label resolution now excludes child attributes.
-   - Child-row create/update flows enforce enum ownership, default handling, and label-mode read-only behavior for REF→enumeration.
-
-2. **Seed synchronization correctness**
-   - TABLE child attributes are synchronized even when parent TABLE attribute already exists.
-   - Child REF target mapping is preserved during seed executor/migrator inserts.
-
-3. **Runtime metadata propagation**
-   - Full child field metadata (validation rules, enum/ref options, target IDs/kinds, uiConfig, attributeId) is preserved through tabular adapter/view flow.
-   - Type compatibility for validation rules normalized to align with dashboard adapter contracts.
-
-4. **Lint/build recovery in template UI package**
-   - Cleared error-level lint violations in `@universo/template-mui` (prettier/error rules) via package-scoped eslint fix pass.
-
-### Modified Files (this pass)
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts`
-- `packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedMigrator.ts`
-- `packages/apps-template-mui/src/api/TabularPartAdapter.ts`
-- `packages/apps-template-mui/src/components/RuntimeTabularPartView.tsx`
-- `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx`
-- `packages/universo-template-mui/base/src/components/table/FlowListTable.tsx`
-- `packages/universo-template-mui/base/src/components/selection/EntitySelectionPanel.tsx`
-- `packages/universo-template-mui/base/src/components/dialogs/ConflictResolutionDialog.tsx`
-- `packages/universo-template-mui/base/src/components/dialogs/DynamicEntityFormDialog.tsx`
-- `packages/universo-template-mui/base/src/components/forms/LocalizedInlineField.tsx`
-- `packages/universo-template-mui/base/src/components/table/CompactListTable.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/runtimeTypes.ts`
-- `packages/universo-template-mui/base/src/components/dialogs/index.ts`
-- `packages/universo-template-mui/base/src/components/selection/index.ts`
-- `packages/universo-template-mui/base/src/hooks/useViewPreference.ts`
-- `packages/universo-template-mui/base/src/utils/httpErrors.ts`
-
-### Verification
-- `pnpm --filter @universo/applications-backend lint && pnpm --filter @universo/applications-backend build` ✅
-- `pnpm --filter @universo/metahubs-backend lint && pnpm --filter @universo/metahubs-backend build` ✅
-- `pnpm --filter @universo/apps-template-mui lint && pnpm --filter @universo/apps-template-mui build` ✅
-- `pnpm --filter @universo/template-mui exec eslint --ext .ts,.tsx,.jsx src/ --fix` ✅
-- `pnpm --filter @universo/template-mui build` ✅
-- `pnpm build` ✅ (66/66, 5m28s)
-
-## Child TABLE Attribute Parity + Sync FK Fix (2026-02-23)
-
-Implemented a targeted regression-fix pass for TABLE child attributes and initial application schema sync.
-
-### Issues Fixed
-1. **Child attribute edit parity with regular attributes**
-   - Child edit dialog now uses the same constraints as regular attribute edit: data type change is locked and VLC toggles are disabled in edit mode.
-   - Create mode remains unchanged (type and settings are still configurable).
-
-2. **Escaped `\u2014` garbage in child REF→enumeration select**
-   - Replaced JSX text-node placeholder `\u2014` with a real em dash (`—`) in `InlineTableEditor`.
-   - This removed the literal escaped text in dropdown options and selected fallback labels.
-
-3. **App schema sync 500 on first migration (missing FK column)**
-   - Fixed FK generation in `SchemaGenerator`: child REF fields now create FK constraints in the tabular-part table, not in the parent catalog table.
-   - Root REF fields still keep existing FK behavior on parent tables.
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx`
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
-
-### Verification
-- `pnpm exec prettier --write <touched-files>` ✅
-- `pnpm exec eslint packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx packages/schema-ddl/base/src/SchemaGenerator.ts` ✅ (0 errors, warnings only)
-- `pnpm build` ✅ (66/66, 5m6s)
-
-## Dialog Initialization & Child REF Persistence Fix (2026-02-23)
-
-Implemented targeted fixes for 3 regressions observed after recreating a clean database: first-open empty child-attribute edit form, child REF target not persisting, and publication create dialog missing auto-name on first open.
-
-### Issues Fixed
-1. **Child attribute edit first-open empty values**
-   - Added a stable remount key to child edit dialog (`EntityFormDialog`) so form state initializes from selected attribute payload on the first open.
-   - Added fallback hydration of REF target fields in edit initial values from both top-level attribute fields and legacy validationRules for compatibility with existing records.
-
-2. **Child REF target not saved**
-   - Frontend (`ChildAttributeList`) now validates REF target fields (`targetEntityKind`, `targetEntityId`) and includes them in create/update payloads.
-   - Frontend now sanitizes enum-related uiConfig only for REF→enumeration target and clears enum-only settings for non-enum refs.
-   - Backend child-create route now reads and persists target entity fields, validates REF target presence/kind/existence, and stores target linkage in `_mhb_attributes.target_object_*`.
-
-3. **Publication create first-open auto-name missing**
-   - Added a create-dialog key in `PublicationList` derived from computed default values so dialog remounts when metahub name/default branch arrive asynchronously.
-   - Auto-generated localized publication name (`<metahub name> API`) now appears correctly on first open.
-
-### Modified Files
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx`
-- `packages/metahubs-frontend/base/src/domains/attributes/api/attributes.ts`
-- `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationList.tsx`
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
-
-### Verification
-- `pnpm --filter @universo/metahubs-frontend exec eslint src/domains/attributes/ui/ChildAttributeList.tsx src/domains/publications/ui/PublicationList.tsx src/domains/attributes/api/attributes.ts --fix` ✅ (0 errors)
-- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/attributes/routes/attributesRoutes.ts` ✅ (0 errors)
-- `pnpm build` ✅ (66/66, 6m10s)
-
----
-
-## QA Quality Fix Round 7 — TABLE Attribute (2026-02-22)
-
-Implemented all QA recommendations (17 items) identified during Round 6 review. Complete rewrite of RuntimeInlineTabularEditor and creation of shared utilities.
-
-### Critical Fixes (§1)
-- **§1.1 processRowUpdate error handling**: RuntimeInlineTabularEditor now throws on API failure so DataGrid reverts the cell automatically via `onProcessRowUpdateError`.
-- **§1.2 Delete confirmation**: Added ConfirmDeleteDialog for API-backed row deletion (was immediate before).
-- **§1.3 User error feedback**: Added Alert components for fetch/mutation errors + optional `onError` callback prop.
-
-### Architectural Fixes (§2)
-- **§2.1 Centralized API helpers**: Added `fetchTabularRows`, `createTabularRow`, `updateTabularRow`, `deleteTabularRow` to api.ts with `extractErrorMessage` + `buildAppApiUrl`.
-- **§2.2 React Query migration**: RuntimeInlineTabularEditor now uses `useQuery` for data fetching and `queryClient.invalidateQueries` after all mutations.
-- **§2.3 Removed isMounted anti-pattern**: Eliminated obsolete `useRef(true)` guard.
-- **§2.4 Removed URL builder duplication**: Removed local `buildTabularUrl`, reuses `buildAppApiUrl` from api.ts.
-
-### Logical & Data Integrity Fixes (§3-§4)
-- **§3.1 REF '' → null**: Both TabularPartEditor and RuntimeInlineTabularEditor now convert empty-string REF values to null before sending to API.
-- **§3.2 Unified refetch**: All mutations consistently use `queryClient.invalidateQueries({ queryKey })`.
-- **§3.3 Zod validation**: Added `tabularRowsResponseSchema` for API response validation in fetchTabularRows.
-- **§4.2 Silent catch → console.warn**: Backend attributesRoutes.ts setDisplayAttribute catch now logs warning.
-
-### Code Quality (§6)
-- **§6.1 DataGrid key prop**: Added `key={parentRecordId-attributeId}` for proper state reset.
-- **§6.2 Shared column builder**: Created `tabularColumns.tsx` with `buildTabularColumns()` used by both TabularPartEditor and RuntimeInlineTabularEditor.
-- **§6.4 Idiomatic negation**: `expandedTableIds.has(row.id) === false` → `!expandedTableIds.has(row.id)` in AttributeList.
-- **§6.5 Stable query key**: `[...childEnumTargetIds].sort().join(',')` in ElementList.
-- **§6.6 Silent catch → console.warn**: ElementList childEnumValuesMap query catch now logs warning.
-
-### New File
-- `packages/apps-template-mui/src/utils/tabularColumns.tsx` — shared DataGrid column builder
-
-### Modified Files (7)
-- `packages/apps-template-mui/src/api/api.ts` — 5 new exports (schema + 4 helpers)
-- `packages/apps-template-mui/src/components/RuntimeInlineTabularEditor.tsx` — complete rewrite (~290 lines)
-- `packages/apps-template-mui/src/components/TabularPartEditor.tsx` — uses buildTabularColumns, REF '' → null fix
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx` — idiomatic negation
-- `packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx` — stable query key + warn in catch
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts` — warn in catch
-
-### Verification
-- `pnpm --filter apps-template-mui build` ✅ (0 errors)
-- `pnpm --filter apps-template-mui lint` ✅ (0 errors, 30 warnings)
-- `pnpm --filter metahubs-frontend lint` ✅ (0 errors, 394 warnings)
-- `pnpm build` ✅ (66/66, 5m5s)
-
----
-
-## TABLE Attribute — UX & Bug Fix Round 6 (2026-02-22)
-
-Implemented 6 improvements: REF support in child tables, unified inline editing, independent expand/collapse, auto display attribute, connector sync fix, and lint cleanup.
-
-### Issues Fixed
-1. **Lint errors**: Removed duplicate `hideDisplayAttribute` prop in ChildAttributeList, added eslint-disable for autoFocus in InlineTableEditor, auto-fixed 21 prettier formatting issues.
-2. **REF in child tables**: Extended Zod schema (`childColumns`), backend response, `columns.tsx`, `TabularPartEditor`, `InlineTableEditor`, and `ElementList` to support REF→enumeration fields as dropdown selectors in child table rows.
-3. **Unified inline editing**: Created `RuntimeInlineTabularEditor` component replacing dialog-based `RuntimeTabularPartView` in EDIT mode so both CREATE and EDIT use inline DataGrid with cell editing (API-backed for EDIT).
-4. **Independent expand/collapse**: Changed `expandedTableId: string | null` to `expandedTableIds: Set<string>` in AttributeList for independent TABLE attribute expansion.
-5. **Auto display attribute**: First child attribute created now automatically gets `isDisplayAttribute: true` via backend `setDisplayAttribute` call during creation.
-6. **Connector sync 500**: Fixed `persistPublishedLayouts` by clearing `is_default` on existing layouts before upserting to avoid unique partial index violation (`idx_app_layouts_default_active`).
-
-### Modified Files
-- `packages/apps-template-mui/src/api/api.ts` — childColumns Zod schema extended with REF properties
-- `packages/apps-template-mui/src/components/TabularPartEditor.tsx` — singleSelect for REF columns
-- `packages/apps-template-mui/src/components/RuntimeInlineTabularEditor.tsx` — NEW: inline editor for EDIT mode
-- `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx` — uses RuntimeInlineTabularEditor in EDIT mode
-- `packages/apps-template-mui/src/utils/columns.tsx` — REF properties in childFields mapping
-- `packages/apps-template-mui/src/index.ts` — exports RuntimeInlineTabularEditor
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` — child REF target IDs in enum/catalog queries + childColumns response
-- `packages/metahubs-frontend/base/src/domains/elements/ui/InlineTableEditor.tsx` — Select/MenuItem for REF fields
-- `packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx` — REF properties in childFields + childEnumValues query
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx` — expandedTableIds: Set
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/ChildAttributeList.tsx` — isDisplayAttribute in create payload
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts` — setDisplayAttribute on child create
-- `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts` — clear is_default before layout upsert
-
-### Verification
-- `pnpm --filter apps-template-mui build` ✅ (0 errors)
-- `pnpm --filter metahubs-frontend lint` ✅ (0 errors, 394 warnings)
-- `pnpm build` ✅ (66/66, 5m6s)
-
----
-
-## QA Critical/Major Fix Pass — TABLE Runtime Integrity (2026-02-21)
-
-Implemented and validated all critical and major QA findings for TABLE runtime integrity and adapter compatibility.
-
-### Issues Fixed
-1. **Child duplicate consistency**: Child codename duplicate checks now align with active-row uniqueness semantics in metahub/application attribute flows.
-2. **Silent skip removed**: Runtime create/patch no longer silently ignores invalid TABLE child values; invalid payloads now fail with explicit `400` validation responses.
-3. **TABLE row limits enforced**: Added backend guards for `minRows/maxRows` across parent create and tabular create/delete endpoints.
-4. **Adapter contract parity**: `TabularPartAdapter` signatures and list behavior were aligned with `CrudDataAdapter` and `useCrudDashboard` expectations.
-5. **Lint error remediation**: Cleared error-level lint/prettier issues in touched files across `applications-backend`, `metahubs-backend`, and `apps-template-mui`.
-
-### Modified Files (primary)
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubAttributesService.ts`
-- `packages/apps-template-mui/src/api/TabularPartAdapter.ts`
-
-### Verification
-- `pnpm --filter applications-backend lint` ✅ (warnings only, 0 errors)
-- `pnpm --filter metahubs-backend lint` ✅ (warnings only, 0 errors)
-- `pnpm --filter apps-template-mui lint` ✅ (warnings only, 0 errors)
-- `pnpm --filter applications-backend build` ✅
-- `pnpm --filter metahubs-backend build` ✅
-- `pnpm --filter apps-template-mui build` ✅
-- `pnpm build` ✅ (66/66)
-
----
-
-## TABLE Attribute — UX Improvements Round 5.4 (2026-02-21)
-
-Fixed 4 follow-up UX issues reported after Round 5.3 validation.
-
-### Issues Fixed
-1. **Child table CREATE mode column menu**: Re-enabled DataGrid column menu in app runtime child table create mode (`TabularPartEditor`) so full sort/filter menu is available, not only sort arrows.
-2. **Header button hover parity**: Updated child table header icon hover/active colors (sort/menu buttons) to a darker state matching the main application table behavior.
-3. **Row numbering in child tables (apps runtime)**: Added leading `#` row-number column in both child table create (`TabularPartEditor`) and edit (`RuntimeTabularPartView`) modes.
-4. **Metahub predefined element table empty skeleton**: Updated `InlineTableEditor` to always render table frame (header + empty body with fixed two-row height) and applied `grey.100` header background to match app dialog table visuals.
-
-### Modified Files: 3
-Frontend (apps-template-mui):
-- `TabularPartEditor.tsx`
-- `RuntimeTabularPartView.tsx`
-
-Frontend (metahubs-frontend):
-- `InlineTableEditor.tsx`
-
-### Verification
-- Build: 66/66 ✅ (5m42s)
-
----
-
-## TABLE Attribute — UX Improvements Round 5 (2026-02-21)
-
-Fixed 3 issues found during fifth round of user testing. Includes 1 critical backend bug (root cause of Round 4 Issue 5).
-
-### Issues Fixed
-1. **Expand button size**: Added `width: 28, height: 28, p: 0.5` to match BaseEntityMenu three-dot button. File: AttributeList.tsx.
-2. **Horizontal dividers**: Added explicit solid `borderBottom` on expansion cell (FlowListTable.tsx) + dashed `borderTop` with side margins between parent row and child table (AttributeList.tsx renderRowExpansion).
-3. **Predefined elements not seeding (CRITICAL root cause)**: `deserializeSnapshot` flatMaps child fields into `entity.fields`. The `seedPredefinedElements` function wasn't filtering them out — child field columns (`attr_<child_uuid>`) don't exist as columns in parent table, causing INSERT failure. Also: child required fields triggered false "missing required" warnings. Fix: added `!field.parentAttributeId` filter to both `fieldByCodename` and `missingRequired`. Added `seedPredefinedElements` to hash-match early-return branch.
-
-### Modified Files: 3
-Frontend (2): AttributeList.tsx, FlowListTable.tsx
-Backend (1): applicationSyncRoutes.ts
-
-### Verification
-- Build: 66/66 ✅ (5m4s)
-
----
-
-## TABLE Attribute — UX Improvements Round 4 (2026-02-24)
-
-Fixed 8 issues found during fourth round of user testing. Includes 1 critical backend bug.
-
-### Issues Fixed
-1. **_localId leakage (QA)**: Both `buildPayload()` functions now strip `_localId` and `__rowId` from TABLE arrays before sending to API. Files: DynamicEntityFormDialog.tsx, FormDialog.tsx.
-2. **Child attribute Presentation tab**: Display attribute toggle now works — auto-enabled for first child, locked when only one child. Replaced `hideDisplayAttribute` with proper props. File: ChildAttributeList.tsx.
-3. **Expand button placement**: Moved from sortOrder column to Actions column. Icons changed to `KeyboardArrowDown`/`KeyboardArrowUp`. File: AttributeList.tsx.
-4. **Horizontal divider**: Parent row border suppressed when expanded; expansion row border restored. File: FlowListTable.tsx.
-5. **Predefined elements not migrating (CRITICAL)**: `seedPredefinedElements` + `persistSeedWarnings` added to `!diff.hasChanges` branch. Previously new elements added without schema changes were never seeded. File: applicationSyncRoutes.ts.
-6. **i18n + dialog width**: Added 14 `tabular.*` keys + 1 `table.*` key in EN/RU apps.json. Dialog width changed from `'sm'` to `'md'`. Files: en/apps.json, ru/apps.json, FormDialog.tsx.
-7. **TABLE rows not loading on edit**: `CrudDialogs` now receives `apiBaseUrl`, `applicationId`, `catalogId` — enabling `RuntimeTabularPartView` to render in EDIT mode. Files: ApplicationRuntime.tsx, DashboardApp.tsx.
-8. **blocking-references 404**: Returns empty result instead of 404 for non-existent catalogs. File: catalogsRoutes.ts.
-
-### Modified Files: 12
-Frontend (8): DynamicEntityFormDialog, FormDialog, ChildAttributeList, AttributeList, FlowListTable, ApplicationRuntime, DashboardApp, apps.json (EN/RU)
-Backend (2): applicationSyncRoutes, catalogsRoutes
-
-### Verification
-- Build: 66/66 ✅ (5m49s)
-
----
-
-## TABLE Attribute — UX Improvements Round 3 (2026-02-23)
-
-Fixed 7 UX issues found during third round of user testing. Includes 2 critical backend bugs.
-
-### Issues Fixed
-1. **Child table left padding**: `pl: 4` → `pl: 1` in renderRowExpansion
-2. **Sort/move scoping (CRITICAL)**: `moveAttribute`, `_ensureSequentialSortOrder`, `getNextSortOrder` now scope by `parentAttributeId` — prevents cross-level sort corruption. Updated 4 callers in `attributesRoutes.ts`.
-3. **Child table sorting**: Added `sortable: true` + `sortAccessor` to #, name, codename columns
-4. **Element editor TABLE display**: Replaced DataGrid with MUI Table + click-to-edit cells
-5. **[object Object] fix**: Added `case 'TABLE':` showing row count in element list
-6. **Migration preview**: Added `formatPreviewCellValue()` handling VLC, arrays, primitives
-7. **Sync 500 (CRITICAL)**: `generateTabularTableName` shortened from 72 to max 52 chars (12-char UUID). Index suffixes abbreviated (`_pi`, `_ps`, `_ad`, `_ud`). All names capped at 63 chars (PostgreSQL NAMEDATALEN).
-
-### Modified Files: 16
-Frontend (7): AttributeList, ChildAttributeList, InlineTableEditor, ElementList, ConnectorDiffDialog, metahubs.json (EN/RU), applications.json (EN/RU)
-Backend (2): MetahubAttributesService, attributesRoutes
-Schema-DDL (5): naming.ts, SchemaGenerator.ts, naming.test.ts, snapshot.test.ts, diff.test.ts
-
-### Verification
-- Tests: 110/110 ✅
-- Build: 66/66 ✅ (5m21s)
-
----
-
-## TABLE Attribute — UX Improvements Round 2 (2026-02-22)
-
-Fixed 5 UX issues found during second round of user testing.
-
-### 1. Parent table numbering
-- **AttributeList.tsx**: Changed `row.sortOrder` → `index + 1` for `#` column render, so parent rows are always numbered 1,2,3... regardless of child sortOrder values.
-
-### 2. Child display attribute
-- **MetahubAttributesService.ts**: `setDisplayAttribute()` now scopes clearing by level — child attrs clear only siblings with same `parent_attribute_id`, root attrs clear only root attrs via `whereNull('parent_attribute_id')`.
-- **attributesRoutes.ts**: Removed `parentAttributeId` ternary for `isDisplayAttribute`, removed `!parentAttributeId` guard on setDisplayAttribute call, removed 400 response for child attribute in set-display route.
-- **ChildAttributeList.tsx**: Added star icon, `useSetDisplayAttribute`/`useClearDisplayAttribute` hooks, `set-display-attribute`/`clear-display-attribute` action descriptors, `toggleDisplayAttribute` in context menu, `hideDisplayAttribute` on form fields, delete protection for display attribute.
-- **MetahubElementsService.ts**: Changed `findAll` → `findAllFlat` in both `create()` and `update()` so TABLE validation can see child attributes.
-
-### 3. Child table border/padding removed
-- **AttributeList.tsx**: `Paper variant="outlined"` wrapper → `Box` with `pl: 4, pr: 1, py: 0.5`.
-
-### 4. Compact child table rows
-- **FlowListTable.tsx**: New `compact?: boolean` prop. CSS class `FlowListTable-compact` applied via styled `&` rules (body height 40px→row, head 36px, fontSize 13px, padding 4px 8px). `minWidth: compact ? 400 : 900`.
-- **ChildAttributeList.tsx**: Passes `compact` to FlowListTable. Replaced `ToolbarControls` with smaller `Button` (height 28, fontSize 12).
-
-### 5. TABLE in element editor
-- **DynamicEntityFormDialog.tsx**: Added `childFields?: DynamicFieldConfig[]` to `DynamicFieldConfig` interface.
-- **InlineTableEditor.tsx** (NEW): DataGrid-based inline editor. Features: add/delete rows, inline cell editing, VLC string support (extracts display string, converts back on save), handles STRING/NUMBER/BOOLEAN/DATE types, compact styling.
-- **ElementList.tsx**: Imports InlineTableEditor. Fetches child attributes for all TABLE-type attributes via `Promise.all`. Maps child attrs to `childFields` in `elementFields` memo. Returns `<InlineTableEditor>` from `renderElementField` for TABLE type.
-- **i18n**: Added `elements.table.addRow` and `elements.table.noRows` keys in EN and RU.
-
-### Build Verification
-Full workspace build: 66/66 packages ✅ (6m12s).
-
----
-
-## TABLE Attribute — UX Improvements (2026-02-22)
-
-Fixed 7 UX issues found during user testing with a fresh database.
-
-### Files Modified
-1. **AttributeFormFields.tsx**: Removed TABLE hint Alert; added minRows/maxRows TextFields; changed TABLE constraint notification to show physical type info; moved showTitle to PresentationTabFields; removed TABLE guards from required/display toggles
-2. **MetahubAttributesService.ts**: Removed TABLE restriction from `setDisplayAttribute()`
-3. **attributesRoutes.ts**: Removed TABLE→false guards for `isDisplayAttribute` and `validationRules`
-4. **AttributeActions.tsx**: Removed TABLE check from `set-display-attribute` visibility
-5. **FlowListTable.tsx**: Added `renderRowExpansion` prop for inline row expansion content
-6. **AttributeList.tsx**: Replaced standalone Collapse block with `renderRowExpansion`
-7. **ChildAttributeList.tsx**: Major rewrite — `#` column (independent numbering), `BaseEntityMenu` action column (edit, move-up/down, required/optional, delete), Presentation tab in child dialogs, mutation hooks
-8. **@universo/types metahubs.ts**: Added `minRows`/`maxRows` to `AttributeValidationRules`
-9. **i18n EN/RU metahubs.json**: Added `childTable`, `minRows`/`maxRows`, `editChildDialog.title`, `deleteChildDialog.message`
-
-### Build Verification
-Full workspace build: 66/66 ✅. schema-ddl tests: 109/109 ✅.
-
----
-
-## TABLE Attribute Type — Implementation Complete (2026-02-21)
-
-Added TABLE attribute type (analog of 1C:Enterprise "Табличная часть") to Metahubs system. Level 4 complexity, 10 implementation phases.
-
-### Packages Modified
-1. **@universo/types**: TABLE in ATTRIBUTE_DATA_TYPES, MetaFieldDefinition (parentAttributeId, childFields), TableTypeUiConfig, TABLE_CHILD_DATA_TYPES, getDefaultValidationRules/getPhysicalDataType
-2. **@universo/schema-ddl**: generateTabularTableName, SchemaFieldSnapshot.childFields, buildSchemaSnapshot TABLE, CURRENT_SCHEMA_SNAPSHOT_VERSION=1, 5 new ChangeTypes (ADD/DROP_TABULAR_TABLE, ADD/DROP_TABULAR_COLUMN, ADD_TABULAR_FK), createTabularTable, SchemaMigrator handlers, onDeleteAction FK parametrization, orderChangesForApply
-3. **@universo/metahubs-backend**: parent_attribute_id in systemTableDefinitions + self-FK CASCADE, MetahubAttributesService (child CRUD, limits 10/20, cascade delete), attributesRoutes (Zod, child endpoints), MetahubElementsService (TABLE validation), SnapshotSerializer (childFields), applicationSyncRoutes (child table creation, syncSystemMetadata), seedPredefinedElements (TABLE data)
-4. **@universo/metahubs-frontend**: AttributeList (TABLE color, expand/collapse), AttributeActions (TABLE in dataTypeOptions, hidden set-display/set-required), AttributeFormFields (TABLE showTitle), ChildAttributeList (NEW component), i18n EN/RU keys
-5. **@universo/applications-backend**: TABLE in RuntimeDataType, runtime GET (physicalAttributes filter, childColumns, parent_attribute_id IS NULL), coerceRuntimeValue, resolveRuntimeCatalog, CREATE with transaction (child row insertion), DELETE with cascade soft-delete, resolveTabularContext helper, 4 tabular CRUD endpoints (GET/POST/PATCH/DELETE)
-6. **@universo/apps-template-mui**: TABLE in Zod schema + childColumns, toGridColumns (Chip+icon), toFieldConfigs (childFields), FormDialog TABLE case
-
-### Architecture
-- Separate child tables per TABLE attribute (`{parent}_tp_{attrUuid32}`)
-- `parent_attribute_id` self-reference in `_mhb_attributes` + `_app_attributes`
-- Full `_upl_*` + `_app_*` system fields in child tables
-- Runtime tabular API: `/:applicationId/runtime/rows/:recordId/tabular/:attributeId[/:childRowId]`
-- Transactions: CREATE (parent + child INSERT atomic), DELETE (cascade soft-delete)
-
-### Build Verification
-All 6 packages build successfully: @universo/types ✅, @universo/schema-ddl ✅, metahubs-backend ✅, metahubs-frontend ✅, applications-backend ✅, apps-template-mui ✅
-
----
-
-## TABLE Attribute — QA Fixes (2026-02-22)
-
-Implemented all QA recommendations from comprehensive post-implementation review.
-
-### CRITICAL: 3 Missing Files Created
-1. **TabularPartAdapter.ts** (`apps-template-mui/api`): `CrudDataAdapter` implementation for tabular API endpoints, `createTabularPartAdapter()` factory
-2. **RuntimeTabularPartView.tsx** (`apps-template-mui/components`): Full CRUD view for TABLE child rows (EDIT mode), uses `useCrudDashboard` + `CrudDialogs` + `DataGrid`
-3. **TabularPartEditor.tsx** (`apps-template-mui/components`): Local-state inline editor for CREATE mode, `DataGrid` with editable cells, Add/Delete row buttons
-
-### MAJOR: FormDialog Improvements
-- Dynamic `maxWidth`: `'lg'` when TABLE fields present, `'sm'` otherwise
-- TABLE case: 3-branch rendering (EDIT → RuntimeTabularPartView, CREATE → TabularPartEditor, fallback → info message)
-- Fixed `values.current` → `formData` reference bug in TABLE CREATE case
-
-### MEDIUM: TemplateSeedExecutor/Migrator childAttributes
-- Added `childAttributes` to `seedAttributeSchema` in TemplateManifestValidator.ts
-- TemplateSeedExecutor: `.returning('id')` + child attribute insertion loop with dedup check
-- TemplateSeedMigrator: Same pattern + `result.attributesAdded++` + `result.skipped` for child attrs
-
-### MEDIUM: schema-ddl TABLE Tests (14 new tests)
-- `naming.test.ts`: 4 tests for `generateTabularTableName` (prefix, hyphens, clean ID, parent preservation)
-- `diff.test.ts`: 6 tests (ADD_TABULAR_TABLE, DROP_TABULAR_TABLE, ADD_TABULAR_COLUMN, DROP_TABULAR_COLUMN, no-change identity, all ChangeType enum values)
-- `snapshot.test.ts`: 4 tests (TABLE columnName format, childFields nesting, child exclusion from top level, empty childFields omission)
-
-### Additional Fixes
-- CrudDialogs.tsx: Added `apiBaseUrl`, `applicationId`, `catalogId` optional props, passing `editRowId` through
-- Exports: TabularPartAdapter, RuntimeTabularPartView, TabularPartEditor exported from `api/index.ts` and `src/index.ts`
-
-### Build Verification
-Full workspace build: 66/66 packages ✅. schema-ddl tests: 108/108 passed ✅.
-
----
-
-## TABLE Attribute — QA Fixes Round 3 (2026-02-20)
-
-Applied 4 mandatory fixes from third comprehensive QA review. All packages build, 109/109 tests pass.
-
-### CRITICAL (I8.1)
-- **AttributeFormFields.tsx**: Fixed i18n key paths — `t('attributes.tableSettings.showTitle')` → `t('attributes.typeSettings.table.showTitle')` and same for `hint`. Russian translations now display correctly instead of fallback English text.
-
-### HIGH (C1, C2-C4, D1)
-- **ChildAttributeList.tsx**: Removed non-existent `metahubsQueryKeys.childAttributes` property access — replaced with inline `['metahubs', 'childAttributes', ...] as const` query key array.
-- **ChildAttributeList.tsx**: Removed unused imports (`MetaEntityKind`, `getDefaultValidationRules`) and invalid `size` prop on `ToolbarControls.primaryAction`.
-- **MetahubAttributesService.ts**: Wrapped `delete()` method in `this.knex.transaction()` — child attributes and parent attribute deletion now atomic (prevents orphaned TABLE attributes on partial failure).
-
-### Deferred Issues (7 items — all fixed in Round 4 below)
-
----
-
-## TABLE Attribute — QA Fixes Round 4 (2026-02-22)
-
-Fixed all 7 previously-deferred issues from QA Round 3. All packages build (66/66), 109/109 tests pass.
-
-### I8.2: Missing i18n keys
-- Added `addRow`, `deleteRow`, `noRows`, `rowCount` to both EN and RU `metahubs.json` under `typeSettings.table`.
-
-### I8.3: Unused tableValidation i18n keys
-- **AttributeFormFields.tsx**: Added TABLE constraints info Alert using `tableCannotBeRequired` + `tableCannotBeDisplay` keys.
-- **ChildAttributeList.tsx**: Added `localizeTableValidationError()` helper mapping 5 backend error strings to localized i18n keys (`nestedTableNotAllowed`, `maxChildAttributes`, `maxTableAttributes`, `tableCannotBeDisplay`, `tableCannotBeRequired`). Applied to both create and update error handlers.
-
-### R7.4: TABLE Chip row count
-- **applicationsRoutes.ts (backend)**: Added correlated `COUNT(*)` subqueries per TABLE attribute in data listing SELECT; updated row mapping to include count value instead of skipping TABLE columns.
-- **columns.tsx (frontend)**: Changed TABLE `renderCell` from static `label={c.headerName}` to dynamic `label={count}` using `params.value`.
-
-### D2: `_upl_locked` check on parent PATCH/DELETE
-- **applicationsRoutes.ts**: Added `AND COALESCE(_upl_locked, false) = false` to WHERE clause of PATCH single-field, PATCH bulk, and DELETE parent routes. Each includes a follow-up SELECT to distinguish 423 (locked) from 404 (not found).
-
-### D3: Soft-delete cascade inconsistency
-- **applicationsRoutes.ts**: Changed child cascade soft-delete from `_app_deleted` fields to `_upl_deleted` fields with proper `_upl_updated_at`, `_upl_version` increment.
-
-### D4: TOCTOU race condition
-- **applicationsRoutes.ts**: Added atomic `NOT EXISTS (SELECT 1 FROM parent WHERE _upl_locked = true)` subquery to child INSERT (via INSERT…SELECT…WHERE NOT EXISTS), UPDATE, and DELETE SQL. Eliminates race window between separate locked-check SELECT and child DML.
-
-### F6.1: TABLE in DynamicEntityFormDialog
-- **DynamicEntityFormDialog.tsx**: Added `'TABLE'` to `DynamicFieldType` union; added `case 'TABLE'` rendering bilingual info box ("Table data can be edited after saving the record.").
-
----
-
-## TABLE Attribute — QA Fixes Round 2 (2026-02-22)
-
-Applied all 13 recommendations from second comprehensive QA review. All 6 packages build, 109/109 tests pass.
-
-### CRITICAL (C1)
-- **SnapshotSerializer.ts**: Fixed `deserializeSnapshot()` to flatten TABLE child fields into `entity.fields` array (via `flatMap`) while preserving nested `childFields`. This fixes 4 downstream consumers (SchemaGenerator, SchemaMigrator, diff, syncSystemMetadata).
-
-### MEDIUM (M1-M6)
-- **M1**: Replaced global `let nextLocalId = 1` with `useRef(1)` in TabularPartEditor — prevents cross-instance ID collision
-- **M2**: Added `onProcessRowUpdateError` callback to DataGrid in TabularPartEditor — prevents silent swallow of row edit errors
-- **M3**: Added TABLE throw guard in `SchemaGenerator.mapDataType()` — prevents accidental physical column creation for virtual TABLE type
-- **M4**: Added edit functionality to ChildAttributeList — edit button in actions column, EntityFormDialog with prefilled values, `updateAttribute` API
-- **M5**: Replaced 3 silent `catch {}` with `console.warn` in applicationsRoutes.ts tabular coerceRuntimeValue blocks
-- **M6**: Added ALTER_TABULAR_COLUMN test in diff.test.ts — validates child field data type change detection (integer→decimal)
-
-### LOW (L1-L6)
-- **L1**: Added 4th index `idx_..._upl_deleted` to `createTabularTable` (partial index on `_upl_deleted_at WHERE _upl_deleted = true`)
-- **L2**: Changed TABLE color from `'info'` to `'warning'` in `getDataTypeColor` — now visually distinct from REF (`'info'`)
-- **L3**: Added JSDoc to `fetchRow` in TabularPartAdapter explaining intentional inefficiency (no dedicated GET-by-id endpoint)
-- **L4**: Extracted `getRowId()` helper function in TabularPartEditor — eliminated 3 duplicate expressions
-- **L5**: Removed `forceUpdate` pattern + `handleCellChange` — logic moved directly into `processRowUpdate`
-- **L6**: Stabilized `childFields` ref via separate `useMemo` in RuntimeTabularPartView + extracted `PAGE_SIZE_THRESHOLD = 50` constant
-
----
-
-## PR #686 Bot Review Fixes (2026-02-20)
-
-Applied all 5 valid bot review recommendations from Gemini Code Assist and Copilot PR Reviewer on PR #686.
-
-### Fixes delivered
-1. **Optimistic locking bug** (`hubsRoutes.ts`): Added missing `_upl_version: knex.raw('_upl_version + 1')` to `removeHubFromObjectAssociations` update query.
-2. **Error response consistency** (`metahubsRoutes.ts`): Changed `normalizedComment.error` responses from `{ error }` to standardized `{ error: 'Invalid payload', details: { formErrors, fieldErrors } }` envelope (2 locations: invite + update).
-3. **LocalizedInlineField maxLength** (`MemberFormDialog.tsx`): Added `maxLength={510}` prop so users see input limit while typing; added `commentTooLongMessage` i18n prop replacing hardcoded English string.
-4. **Missing i18n keys** (EN/RU `metahubs.json`): Added `members.validation.commentCharacterCount` and `members.validation.commentTooLong` keys in both locales.
-5. **Migration safety** (`1766351182000`): Reverted `comment JSONB` back to `comment TEXT` in the already-applied initial migration; created new migration `1766351182001-AlterMetahubUsersCommentToJsonb.ts` for the type change.
-
-### Verification
-- Build: 66/66 packages successful
-- Tests: 15/15 suites, 83/83 passed (3 skipped)
-- Updated test assertion in `metahubsRoutes.test.ts` to match new error envelope
-
----
-
-## Unified Action Menus, Row Indexing, Access Member VLC, Migrations Spacing (2026-02-19)
-
-Completed the implementation pass for menu/action consistency, numbering parity, and metahub access dialog modernization.
-
-### Delivered
-1. **Unified action menu behavior across target lists/cards**:
-   - Removed remaining custom trigger override in `ApplicationMembers` so card/table actions now use the shared three-dot trigger from `BaseEntityMenu`.
-   - Kept the Enumerations Values menu as the visual reference implementation.
-   - Preserved red destructive entries via `tone: 'danger'` in target action descriptors.
-
-2. **Auto-numbering parity for Hubs/Catalogs/Enumerations**:
-   - Added backend auto-assignment for `sortOrder` on create (`max + 1`) in:
-     - `MetahubHubsService.create()`
-     - `MetahubObjectsService.createObject()` (covers catalogs/enumerations and future object kinds).
-   - Updated create routes to stop forcing `sortOrder: 0` when client omits value, enabling service-level sequencing.
-   - Kept list sorting by `sortOrder asc` for stable `#` column behavior.
-
-3. **Metahub members dialog modernization (VLC comments)**:
-   - `MemberFormDialog` now supports localized comment mode (`commentMode='localized'`) with `LocalizedInlineField`.
-   - Metahub member add/edit now reads/writes `commentVlc` payloads and returns both resolved text and VLC object.
-   - Add-member title uses localized key (`members.addMemberTitle`) while toolbar trigger text remains short.
-
-4. **Migrations page horizontal spacing alignment**:
-   - Preserved/validated negative horizontal compensation in `MetahubMigrations` so table/pagination gutters match list pages.
-
-5. **Type/build hardening during implementation**:
-   - Fixed `sortBy` narrow-type comparisons in catalogs/enumerations list sorting blocks.
-   - Fixed union typing for member comment normalization in `metahubsRoutes`.
-
-### Verification
-- `pnpm --filter @universo/template-mui build` ✅
-- `pnpm --filter @universo/applications-frontend build` ✅
-- `pnpm --filter @universo/metahubs-frontend build` ✅
-- `pnpm --filter @universo/metahubs-backend build` ✅
-- `pnpm --filter @universo/template-mui exec eslint src/components/menu/BaseEntityMenu.tsx src/components/dialogs/MemberFormDialog.tsx src/factories/createMemberActions.tsx` ✅ (warnings only)
-- `pnpm --filter @universo/applications-frontend exec eslint src/pages/ApplicationMembers.tsx` ✅ (warnings only)
-- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/metahubs/services/MetahubObjectsService.ts src/domains/metahubs/services/MetahubHubsService.ts src/domains/hubs/routes/hubsRoutes.ts src/domains/catalogs/routes/catalogsRoutes.ts src/domains/enumerations/routes/enumerationsRoutes.ts src/domains/metahubs/routes/metahubsRoutes.ts` ✅ (warnings only)
-
----
-
-## Hub Delete Blockers for Enumerations (2026-02-19)
-
-Implemented parity blocker logic for Hub deletion so required Enumerations now block deletion exactly like required Catalogs.
-
-### Delivered
-1. **Backend blocker detection expanded**:
-   - Replaced catalogs-only lookup with grouped object detection in `hubsRoutes`.
-   - Added SQL filtering for `kind IN (catalog, enumeration)` with strict required/single-hub conditions.
-   - `GET /blocking-catalogs` now returns grouped payload: `blockingCatalogs`, `blockingEnumerations`, `totalBlocking`, `canDelete`.
-   - `DELETE /hub/:hubId` now blocks when either group is non-empty and returns grouped `409` payload.
-
-2. **Frontend delete dialog upgraded**:
-   - Reworked `HubDeleteDialog` to query grouped blocker payload via TanStack Query.
-   - Added separate tables for blocking Catalogs and blocking Enumerations.
-   - Added links to object editors (`/catalog/:id/attributes`, `/enumeration/:id/values`).
-   - Delete button is now disabled when any blocking object exists.
-
-3. **Localization updated (RU/EN)**:
-   - Added grouped warning strings and section labels for catalogs/enumerations.
-   - Updated blocker fetch error wording from catalogs-only to generic blocking entities.
-
-### Verification
-- `pnpm --filter ./packages/metahubs-backend/base exec eslint src/domains/hubs/routes/hubsRoutes.ts` ✅ (warnings only, no new errors)
-- `pnpm --filter ./packages/metahubs-frontend/base exec eslint src/components/HubDeleteDialog.tsx src/domains/hubs/api/hubs.ts` ✅
-- `pnpm --filter ./packages/metahubs-backend/base build` ✅
-- `pnpm --filter ./packages/metahubs-frontend/base build` ✅
-
----
-
-## Enumerations QA Remediation Round 5 (2026-02-19)
-
-Implemented final targeted fixes for runtime consistency and connector sync metadata.
-
-### Delivered
-1. **`toggle-required` invariant safety fixed**:
-   - Added missing `enumerationValuesService` wiring in the route handler to avoid runtime `500`.
-   - Preserved required-mode guards for enum REF attributes (`label` mode + ownership validation for `defaultEnumValueId`).
-
-2. **Runtime enum display hardened**:
-   - Updated `apps-template-mui` enum REF cell rendering to avoid UUID fallback in grids.
-   - Rendering now prefers object label/name and otherwise falls back to an empty value instead of raw UUID.
-
-3. **Connector sync timestamp reliability**:
-   - Updated connector touch logic in schema sync flow to always set `_uplUpdatedAt = new Date()` and persist it.
-   - This guarantees connector `updatedAt` changes when sync runs, even if user metadata is unchanged.
-
-4. **Lint/prettier blocker removed**:
-   - Fixed `HubList.tsx` and `attributesRoutes.ts` formatting issues that produced blocking prettier errors.
-
-### Verification
-- `pnpm --filter ./packages/metahubs-backend/base test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/services/structureVersions.test.ts` ✅
-- `pnpm --filter ./packages/apps-template-mui exec eslint src/utils/columns.tsx` ✅
-- `pnpm --filter ./packages/metahubs-frontend/base exec eslint src/domains/hubs/ui/HubList.tsx` ✅ (warnings only)
-- `pnpm --filter ./packages/metahubs-backend/base exec eslint src/domains/applications/routes/applicationSyncRoutes.ts src/domains/attributes/routes/attributesRoutes.ts` ✅ (warnings only)
-- `pnpm --filter ./packages/metahubs-backend/base build` ✅
-- `pnpm --filter ./packages/apps-template-mui build` ✅
-- `pnpm --filter ./packages/metahubs-frontend/base build` ✅
-
----
-
-## Enumerations QA Remediation Round 4 (2026-02-19)
-
-Implemented targeted fixes for the remaining high/medium QA findings on Enumerations runtime and routes.
-
-### Delivered
-1. **Runtime edit safety in `FormDialog`**:
-   - Changed enum default injection to apply only when field value is `undefined`.
-   - Explicit `null` values are preserved and are no longer auto-replaced in edit flow.
-
-2. **Deterministic restore conflict behavior**:
-   - Added unique-violation detection in enumeration restore route.
-   - `POST /metahub/:metahubId/enumeration/:enumerationId/restore` now returns `409` with a clear conflict message on codename collisions.
-
-3. **Locale fallback consistency for enumeration PATCH**:
-   - Aligned hub-scoped PATCH description primary-locale fallback with metahub-scoped PATCH behavior.
-   - Existing `description._primary` is now preserved when `descriptionPrimaryLocale` is not explicitly provided.
-
-4. **Regression coverage expansion**:
-   - `metahubs-backend`: added restore conflict and locale fallback tests in `enumerationsRoutes.test.ts`.
-   - `applications-backend`: added runtime enum validation tests in `applicationsRoutes.test.ts`:
-     - reject writes to enum `label` mode fields;
-     - reject enum values that do not belong to target enumeration in PATCH.
-
-### Verification
-- `pnpm --filter @universo/metahubs-backend test -- enumerationsRoutes.test.ts` ✅
-- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts` ✅
-- `pnpm --filter @universo/apps-template-mui exec eslint src/components/dialogs/FormDialog.tsx` ✅
-- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/enumerations/routes/enumerationsRoutes.ts src/tests/routes/enumerationsRoutes.test.ts` ✅ (warnings only)
-- `pnpm --filter @universo/applications-backend exec eslint src/tests/routes/applicationsRoutes.test.ts` ✅ (warnings only)
-- `pnpm --filter @universo/apps-template-mui build` ✅
-- `pnpm --filter @universo/applications-backend build` ✅
-- `pnpm --filter @universo/metahubs-backend build` ✅
-
----
-
-## Enumerations QA Remediation Round 3 (2026-02-19)
-
-Implemented final safety fixes requested by repeated QA passes for Enumerations.
-
-### Delivered
-1. **Schema DDL FK safety for enum references**:
-   - Updated `SchemaMigrator` `ADD_FK` flow to resolve the source field and honor `targetEntityKind`.
-   - For `REF -> enumeration`, FK now targets `${schema}._app_enum_values(id)` instead of a non-existent physical enumeration table.
-   - Added `ensureSystemTables()` call before enum FK creation to guarantee target table existence.
-
-2. **Attribute required-toggle invariant guard**:
-   - Hardened `toggle-required` route in `attributesRoutes.ts`.
-   - Route now rejects toggling to `required=true` when attribute is `REF -> enumeration`, presentation mode is `label`, and `defaultEnumValueId` is missing or invalid.
-   - Added ownership validation: `defaultEnumValueId` must belong to the selected target enumeration.
-
-3. **Enumeration permanent delete blocker parity**:
-   - Added blocker checks to `DELETE /metahub/:metahubId/enumeration/:enumerationId/permanent`.
-   - Permanent delete now returns `409` with `blockingReferences` when attributes still reference the enumeration, matching soft-delete safety semantics.
-
-4. **Regression tests added**:
-   - `schema-ddl`: `SchemaMigrator.test.ts` validates enum FK targets `_app_enum_values`.
-   - `metahubs-backend`: `attributesRoutes.test.ts` validates required-toggle guard failures.
-   - `metahubs-backend`: `enumerationsRoutes.test.ts` validates permanent-delete blocker behavior.
-
-### Verification
-- `pnpm --filter @universo/schema-ddl test -- --runInBand src/__tests__/SchemaMigrator.test.ts` ✅
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/attributesRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` ✅
-- `pnpm --filter @universo/schema-ddl lint` ✅ (warnings only)
-- `pnpm --filter @universo/metahubs-backend lint` ✅ (warnings only)
-- `pnpm --filter @universo/schema-ddl build` ✅
-- `pnpm --filter @universo/metahubs-backend build` ⚠️ failed due pre-existing unrelated TypeScript issues in `applicationMigrationsRoutes.ts`, `applicationSyncRoutes.ts`, publication snapshot typing, and local package resolution (`@universo/schema-ddl`) outside this fix scope.
-
----
-
-## Enumerations QA Remediation Round 2 (2026-02-19)
-
-Implemented an additional safety pass after QA findings:
-
-1. **Metahub structure versioning fixed**:
-   - Consolidated system tables into a single `SYSTEM_TABLES_V1` set with `_mhb_enum_values`.
-   - Removed V2/V3 split from active code paths.
-   - Set `CURRENT_STRUCTURE_VERSION` to `1`.
-   - Updated `basic` template `minStructureVersion` to `1`.
-
-2. **Enumerations routes consistency fixed**:
-   - API now maps timestamps from `_upl_created_at` / `_upl_updated_at` (with backward-compatible fallback).
-   - Added missing `isSingleHub` guard for both global and hub-scoped enumeration create endpoints.
-
-3. **Runtime stale enum references hardened**:
-   - During application sync, stale enum references in runtime catalog rows are remapped before soft-deleting removed enum values.
-   - Fallback order: field `defaultEnumValueId` (if still active) → enumeration default value → first active value.
-   - Required REF fields now fail sync with explicit error if no valid fallback exists.
-
-4. **Lint blockers resolved**:
-   - Fixed Prettier errors in:
-     - `TemplateSeedExecutor.ts`
-     - `TemplateSeedMigrator.ts`
-     - `TemplateSeedCleanupService.ts`
-
-5. **Regression coverage updated**:
-   - Added `src/tests/services/structureVersions.test.ts`.
-   - Updated migration-related tests to assert against `CURRENT_STRUCTURE_VERSION` instead of hardcoded `2`.
-
-### Verification
-- `pnpm --filter @universo/metahubs-backend build` ✅
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/structureVersions.test.ts src/tests/services/metahubSchemaService.test.ts src/tests/routes/metahubMigrationsRoutes.test.ts` ✅
-- `pnpm --filter @universo/metahubs-backend exec eslint <touched-files>` ✅ (warnings only, zero errors)
-
----
-
-## Enumerations Stabilization Implementation (2026-02-19)
-
-Completed IMPLEMENT pass for Enumerations after QA findings. Focus was compile/runtime safety, contract consistency, and verification recovery.
-
-### Delivered
-1. **Contract alignment (`presentation` canonicalization)**:
-   - normalized enumeration value mapping in publication snapshot serialization;
-   - added backward-compatible sync mapping for legacy `name/description` payloads in `_app_enum_values` sync.
-2. **Backend blocker fixes**:
-   - fixed strict typing in `enumerationsRoutes` update handlers;
-   - fixed missing `attributesService` wiring in enumeration value delete handler;
-   - fixed metahub migration seed counters (`enumValuesAdded`) across route/meta schemas;
-   - fixed blocker query typing in `MetahubAttributesService`.
-3. **Shared type safety**:
-   - extended optimistic-lock `ConflictInfo.entityType` with `document`.
-4. **Tests updated to current structure semantics (V2)**:
-   - read-only schema test now expects full V2 table set;
-   - migration routes tests now assert `targetStructureVersion: 2`, `MIGRATION_REQUIRED` status, and structured blocker payloads.
-5. **Frontend polish**:
-   - fixed Prettier errors in new Enumerations frontend files.
-6. **Safer enum cleanup strategy in application sync**:
-   - replaced hard delete of stale `_app_enum_values` rows with soft-delete updates;
-   - added undelete restoration via upsert merge columns for values that reappear in newer snapshots.
-
-### Verification
-- `pnpm --filter @universo/utils build` ✅
-- `pnpm --filter @universo/applications-backend build` ✅
-- `pnpm --filter @universo/metahubs-backend build` ✅
-- `pnpm --filter @universo/metahubs-backend test` ✅ (12 passed, 0 failed)
-- `pnpm --filter @universo/metahubs-frontend build` ✅
-- `pnpm --filter @universo/apps-template-mui build` ✅
-- Targeted eslint on touched files: no errors (warnings only) ✅
-
----
-
-## Enumerations QA Hardening (2026-02-19)
-
-Implemented a safety-focused hardening pass after QA findings for enumeration sync and metadata lifecycle.
-
-### Delivered
-1. **Metadata cleanup order fixed**:
-   - `schema-ddl` now removes stale `_app_objects/_app_attributes` rows before metadata upsert when `removeMissing=true`.
-   - This eliminates unique conflicts on `(kind, codename)` when an object is recreated with a new UUID.
-
-2. **Consistent missing-row cleanup in sync flows**:
-   - Enabled `removeMissing: true` in application and publication no-DDL sync branches.
-   - Updated migrator metadata sync paths to always prune stale metadata.
-
-3. **Enumeration values sync hardened**:
-   - Added duplicate enum value ID guard during snapshot sync.
-   - Added stale `_app_enum_values` cleanup for removed enumeration objects.
-
-4. **Declarative schema contract improved**:
-   - Added `uidx_mhb_enum_values_default_active` unique partial index to `_mhb_enum_values` system table definitions.
-
-5. **Compatibility + regression fixes in `schema-ddl`**:
-   - Added runtime fallback for `enumeration` kind if older `@universo/types` runtime is loaded.
-   - Fixed `calculateSchemaDiff()` to restore old entity IDs from snapshot map keys (`Object.entries` path).
-   - Added regression tests:
-     - enumeration entities are ignored for physical DDL diff;
-     - `syncSystemMetadata(removeMissing=true)` cleanup runs before upsert.
-
-### Verification
-- `pnpm --filter @universo/schema-ddl lint` ✅ (warnings only)
-- `pnpm --filter @universo/schema-ddl test` ✅ (7/7 suites)
-- `pnpm --filter @universo/schema-ddl build` ✅
-- `pnpm --filter @universo/metahubs-backend exec eslint <touched-files>` ✅ (warnings only)
-- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/systemTableMigrator.test.ts` ✅
-
----
-
-## Enumerations Feature — Frontend/UI Integration (2026-02-18)
-
-Implemented the planned Enumerations integration across metahub UI, attribute presentation settings, and runtime-facing i18n.
-
-### Delivered
-1. **Metahubs frontend enumeration domain finalized**:
-   - Enumeration list + values list flows
-   - Value CRUD hooks/mutations and query invalidation
-   - Blocking delete dialog wired for cross-catalog REF references
-
-2. **Navigation and routes completed**:
-   - Added `menu.enumerations` entry under metahub navigation
-   - Added metahub + hub-scoped enumeration routes in `MainRoutesMUI.tsx`
-   - Added external module declarations and package exports
-
-3. **Attribute UX extended for REF -> enumeration**:
-   - `TargetEntitySelector` supports `enumeration` target kind
-   - Presentation tab now supports:
-     - `enumPresentationMode` (`select`, `radio`, `label`)
-     - `defaultEnumValueId` from selected enumeration values
-   - Added `uiConfig` normalization in create/edit payload builders
-
-4. **Backend validation hardened (`attributesRoutes.ts`)**:
-   - Added `uiConfig` schema fields: `enumPresentationMode`, `defaultEnumValueId`
-   - Added ownership validation: `defaultEnumValueId` must belong to selected enumeration
-   - Added cleanup of enum-only config keys when target is not enumeration
-
-5. **i18n updates (EN/RU)**:
-   - New sections: `enumerations`, `enumerationValues`
-   - New `ref.*` keys for enumeration target selection
-   - New `attributes.presentation.*` keys for enum controls/warnings
-   - Added `menu.enumerations` (shared menu locales)
-   - Added `app.emptyOption` in runtime app locales
-
-### Verification
-- `pnpm --filter @universo/metahubs-frontend build` ✅
-- `pnpm --filter @universo/apps-template-mui build` ✅
-- `pnpm --filter @universo/template-mui build` ✅
-- Targeted eslint on changed TS/TSX files: no errors (warnings only) ✅
-- `pnpm --filter @universo/metahubs-backend build` ❌ blocked by existing unrelated backend TypeScript issues outside this change set
+## Migration Guard + UI Polish (2026-02-18)
+
+### i18n Fix + LanguageSwitcher Widget
+- `consolidateApplicationsNamespace()` dropped 3 sections (migrationGuard, underDevelopment, maintenance)
+- LanguageSwitcher widget: copied from universo-template-mui, registered in dashboard (key: languageSwitcher)
+- Template version 1.0.0 → 1.1.0 to trigger update_available
+
+### Post-QA Polish (3 Rounds)
+- BUG-1 CRITICAL: missing `import '@universo/applications-frontend/i18n'` (all t() calls → English)
+- BUG-2: local SchemaStatus (5 values) vs backend (7 values) — exported from types.ts
+- BUG-3: paginationDisplayedRows ignored MUI v8 estimated parameter
+- WARNs: double AppMainLayout wrap, typo in RU locale, hardcoded bgcolor → action.hover
+
+### Runtime Fix — React is not defined
+Changed `jsx: "react"` → `"react-jsx"` in migration-guard-shared tsconfig. ESM bundle now uses auto-import from react/jsx-runtime.
+
+### QA Fixes (2 Rounds)
+- Round 1: split entry points — `./utils` (pure JS, no React) and `.` (React-dependent)
+- Round 2: removed MIGRATION_STATUS_QUERY_OPTIONS from data-listing hooks, peerDependenciesMeta
+
+### Migration Guard Full Spec Coverage (6 Phases)
+- Table rename `_app_layout_zone_widgets` → `_app_widgets`, template version 1.0.0
+- Shared package `@universo/migration-guard-shared`: determineSeverity, MigrationGuardShell<TStatus>
+- AGENTS.md (3 new, 2 updated), MIGRATIONS.md (8 files, 4 packages × EN/RU)
+- Both Guards rewritten with MigrationGuardShell (202→134 / 199→154 lines)
+- Both severity endpoints use shared determineSeverity()
+
+### Unified App Migration Guard QA (2 Rounds, 5 BUGs + 8 WARNs)
+- extractAxiosError(.message), isAdminRoute regex, copy status reset, publication DELETE cleanup
+- N+1→bulk UPDATE, advisory lock (pg_try_advisory_lock), staleTime, severity fallback
+- Blocker keys, ARIA improvements, AGENTS.md relocation
+
+**Build**: 66/66. 15 new files, 17 modified.
 
 ---
 
 ## PR #682 Bot Review Fixes (2026-02-18)
 
-Addressed 9 actionable items from Gemini Code Assist and Copilot PR Reviewer comments on PR #682:
+9 actions: staleTime for list/plan hooks, unused imports, type safety guard, determineSeverity JSDoc, AGENTS.md roles/statuses, MIGRATIONS.md corrections, memory-bank English translation.
 
-1. **staleTime for list/plan hooks**: Added `staleTime: 30_000` to `useMetahubMigrationsList` and `useMetahubMigrationsPlan` — prevents unnecessary refetches on re-focus/navigation (status hook already uses `MIGRATION_STATUS_QUERY_OPTIONS`).
-2. **Unused imports**: Removed `UpdateSeverity` from `metahubMigrationsRoutes.ts` and `applicationMigrationsRoutes.ts` — only `determineSeverity()` is used.
-3. **Type safety**: Added `typeof meta?.templateVersionLabel === 'string'` guard in `MetahubMigrations.tsx` — prevents non-string values from reaching UI.
-4. **determineSeverity JSDoc**: Clarified that OPTIONAL = "no update needed / pass-through", not a user-visible severity. Added rationale for not introducing a NONE enum value.
-5. **AGENTS.md roles**: Fixed `viewer` → `member` to match `ApplicationRole` type.
-6. **AGENTS.md statuses**: Added missing `DRAFT`, `OUTDATED`, `UPDATE_AVAILABLE` to `ApplicationSchemaStatus` list.
-7. **MIGRATIONS.md**: Fixed guard behavior description — `isAdminRoute` skip (not `/migrations`), maintenance condition (isMaintenance && !isPrivileged, not structureUpgradeRequired), button navigates to `/a/:id/admin`.
-8. **memory-bank English-only**: Translated 6 Russian fragments in `progress.md` to English.
-
-**Skipped**: Copilot's suggestion to add `NONE` to `UpdateSeverity` enum — would require changes across 8+ files (types, shared, frontend guards, backend routes) with no behavior change since OPTIONAL already acts as pass-through.
-
-**Build**: 66/66 packages.
+**Build**: 66/66.
 
 ---
 
-## QA Fixes + UI Polish Round 6 (2026-02-19)
+## Dashboard & Architecture (2026-02-17 to 2026-02-20)
 
-Seven fixes from QA analysis + user requests:
+### 5-Étap QA Fixes (02-20)
+- Étap 1: editor canSave + dirty tracking (useRef snapshot)
+- Étap 2: inner widget labels in LayoutDetails chip
+- Étap 3: migration guard "Apply (keep data)" button with loading/error
+- Étap 4: structured blockers i18n — StructuredBlocker interface, 16 sites, 15 keys
+- Étap 5A/B: multiInstance revert, multi-widget columns (widgets[] array, MAX=6)
 
-1. **BUG-1 + WARN-3 — Publication DELETE cascade + N+1**: FK `fk_cp_publication` has ON DELETE CASCADE — `remove()` was deleting `ConnectorPublication` rows before they could be queried for linked app status reset. Fixed: moved status reset query BEFORE `remove()`, replaced N+1 `findOneBy` loop with single bulk UPDATE sub-select (matching `notifyLinkedApplicationsUpdateAvailable()` pattern).
+### columnsContainer QA (02-17)
+multiInstance=false, Array.isArray guard, useMemo for stable refs, JSDoc for showDetailsTable.
 
-2. **WARN-1 — Prettier fix in ApplicationMigrationGuard.tsx**: `MigrationGuardShell` props re-indented from 12 to 16 spaces (parent `<AppMainLayout>` at 8, child component at 12, props at 16).
+### Center Zone columnsContainer (02-19)
+Zone-aware `buildDashboardLayoutConfig()` with centerActive. Center seed: detailsTable (width 9) + productTree (width 3). DashboardDetailsContext for MainGrid. Template version 1.1.0 → 1.2.0.
 
-3. **WARN-2 — Prettier fix in columns.tsx**: Entire file re-indented from 2-space to project-standard 4-space (89 prettier errors resolved).
+### Dashboard Zones & Widgets (4 Phases, 02-18)
+Phase 1: widget split (productTree + usersByCountryChart). Phase 3: right drawer. Phase 2: columnsContainer with DnD editor. Phase 4: createAppRuntimeRoute factory. 5 files created, 17+ modified.
 
-4. **Migrations page padding alignment**: Removed extra `px: {xs:1.5, md:2}` from inner Stack — controls now at same horizontal level as ViewHeader, matching MetahubList/PublicationList/BranchList pattern.
+### Architecture Refactoring (02-17)
+Headless Controller Hook + CrudDataAdapter: DashboardApp 483→95 (-80%), ApplicationRuntime 553→130 (-76%). createStandaloneAdapter + createRuntimeAdapter. Pattern: systemPatterns.md#headless-controller-hook
 
-5. **Baseline migration template column**: Added `templateVersionLabel` (optional string) to `baselineMetaSchema` Zod discriminated union. Updated `buildBaselineMigrationMeta()` to accept template version. `initSystemTables()` now passes `manifest.version` to baseline record. Frontend shows `"0 → version"` for baseline kind.
+### UI Polish + QA Rounds 3-6 (02-17)
+Button position, actions centering, DataGrid i18n. Required null check, extractErrorMessage, 5 mutation hooks, schema fingerprint (useRef).
 
-6. **Default layout detailsTable widget**: Added standalone `detailsTable` (sortOrder 6, active) to `DEFAULT_DASHBOARD_ZONE_WIDGETS` center zone. `columnsContainer` moved to sortOrder 7 with `isActive: false`. New metahubs will show the table directly instead of inside a multi-column container.
-
-7. **Version reset**: Template version `1.1.0` → `1.0.0` in `basic.template.ts`. Structure version confirmed at 1. `TARGET_APP_STRUCTURE_VERSION` confirmed at 1. Test DB wipe pending.
-
-**Build**: 66/66 packages successful.
-
----
-
-## UI Polish Round 5 — 5 Fixes (2026-02-19)
-
-Five UI issues fixed after LanguageSwitcher widget integration:
-
-1. **languageSwitcher widget label i18n**: Added `"languageSwitcher"` key to `layouts.widgets` in both EN/RU `metahubs.json`. `LayoutDetails.tsx` line 221 uses `t('layouts.widgets.${item.key}', item.key)` — raw key was showing as fallback.
-2. **Dry run button text simplified**: RU locale `dryRun` shortened (removed "(dry run)" suffix), EN `"Dry run"` → `"Verify"`.
-3. **Actions column in MUI DataGrid v8 column management panel**: `headerName: ''` (empty) caused field name "actions" to show as fallback. Fixed with `type: 'actions' as const` + non-empty `headerName`.
-4. **Table side padding root cause**: `MainLayoutMUI.tsx` `Stack px: {xs:2, md:3}` is layout-level padding (16-24px). Inner `Stack px: 2` + `Box mx: -2` compensating pattern in list pages is by design, not a bug.
-5. **Schema/Template columns split**: Replaced single `fromTo` column with separate `schema` (14%) and `template` (14%) columns. Baseline migrations: schema shows `"0 → N"`. Template seed: template shows `"— → {version}"`.
-
-**Modified files**: 4 across 2 packages. **Build**: 66/66 packages.
+**Build**: 65/65.
 
 ---
 
-## i18n Fix + LanguageSwitcher Widget (2026-02-18)
+## Runtime CRUD & QA (2026-02-14 to 2026-02-16)
 
-Two issues addressed:
+### QA Round 5 — Dialog Input Styling (02-16)
+Root cause: apps-template-mui compact MUI Dashboard style (padding: 0, notchedOutline: none). Fixed with proper spacing, MuiInputLabel, MuiButton disabled state.
 
-1. **i18n consolidation bug**: `consolidateApplicationsNamespace()` in `applications-frontend/i18n/index.ts` was dropping 3 top-level JSON sections (`migrationGuard`, `underDevelopment`, `maintenance`) during resource bundle consolidation. These keys existed in both EN and RU JSON files but were never passed to `registerNamespace()`. Result: guard dialog always showed English fallback text regardless of `i18nextLng` localStorage value. Fixed by adding all 3 sections to the `ApplicationsBundle` type and function return.
+### QA Round 4 — Theme Dedup + Runtime Rename (02-16)
+CRITICAL: removed duplicate AppTheme+CssBaseline from Dashboard.tsx. Runtime rename: 60+ identifiers (applicationRuntime→appData, runtimeKeys→appQueryKeys). Backward-compatible aliases preserved.
 
-2. **LanguageSwitcher widget**: Copied language switcher from `universo-template-mui` to `apps-template-mui` as a dashboard widget:
-   - Self-contained component using static language labels (no i18n namespace dependency)
-   - Registered in `DASHBOARD_LAYOUT_WIDGETS` (key: `languageSwitcher`, top zone, single instance)
-   - Added to `DEFAULT_DASHBOARD_ZONE_WIDGETS` (sortOrder 7, active by default)
-   - Integrated into Header (desktop) and AppNavbar (mobile) with `showLanguageSwitcher` config flag
-   - Full config pipeline: Zod schema → useCrudDashboard defaults → DashboardLayoutConfig → buildDashboardLayoutConfig
-   - Template version bumped `1.0.0` → `1.1.0` to trigger `update_available` on existing metahubs
+### QA Round 3 — Layout, Hooks, Delete (02-15)
+AppMainLayout wrapper. Fixed hooks order. ConfirmDeleteDialog auto-close. FormDialog i18n (16 keys).
 
-**New files**: 1 (`LanguageSwitcher.tsx`). **Modified files**: 10 across 4 packages.
-**Build**: 66/66 packages.
+### QA Round 2 — Validation (02-14)
+Date validation (new Date + isNaN → 400). UUID validation for catalogId/applicationId. Cache invalidation broadened. VLC structural check.
 
----
+### Security Fixes (02-15)
+UUID_REGEX constant. `_upl_updated_by` audit field. No unhandled promise rejection (removed throw err).
 
-## Post-QA Polish Round 3 — 6 Fixes (2026-02-18)
+### Runtime CRUD (7 Phases, 02-15)
+Full lifecycle: POST/PATCH/DELETE runtime rows, FormDialog, LocalizedInlineField, ConfirmDeleteDialog, VLC support, validation rules, DataGrid UX.
 
-Comprehensive QA analysis found 6 issues (3 bugs + 3 warnings):
-
-1. **BUG-1 (CRITICAL)**: `MainRoutesMUI.tsx` was missing `import '@universo/applications-frontend/i18n'` — all applications `t()` calls returned English fallbacks. Fixed by adding the import.
-2. **BUG-2 (MEDIUM)**: `ConnectorDiffDialog.tsx` had local `SchemaStatus` with 5 values vs 7 in backend. Fixed: exported type from `types.ts`, imported in both components — single source of truth.
-3. **BUG-3 (MINOR)**: `paginationDisplayedRows` in `getDataGridLocale.ts` ignored MUI v8 `estimated` parameter. Fixed with proper handling.
-4. **WARN-1**: Double `AppMainLayout` wrapping (Guard + Runtime). Fixed by removing from `ApplicationRuntime.tsx`.
-5. **WARN-2**: Typo in RU locale key (extra character removed).
-6. **WARN-3**: `bgcolor: 'grey.50'` hardcoded — not dark-theme compatible. Changed to `'action.hover'`.
-
-**Files modified**: 7 files across 3 packages.
-**Build**: 66/66 packages.
+**Build**: 65/65.
 
 ---
 
-## Post-QA Polish — 4 Fixes (2026-02-18)
+## Metahubs UX & UI Polish (2026-02-13 to 2026-02-14)
 
-After manual testing revealed 4 remaining issues (QA assessed ~96% spec coverage):
+### Boolean Fix, Auto-fill, Presentation Tab (02-13)
+Boolean indeterminate: DDL `.defaultTo(false)`, runtime null→false, frontend indeterminate=false. Publication auto-fill from metahub name + " API". Presentation tab: `uiConfig` with `headerAsCheckbox`.
 
-1. **WARN-1 — MIGRATIONS.md links**: Added `> **Migration documentation**: [MIGRATIONS.md](MIGRATIONS.md) | [MIGRATIONS-RU.md](MIGRATIONS-RU.md)` to 4 README files in `applications-backend` and `applications-frontend` (EN + RU).
-2. **Guard dialog theme**: `MinimalLayout` has no ThemeProvider → guard Dialog rendered with default MUI blue buttons. Fixed by wrapping `ApplicationMigrationGuard` with `<AppMainLayout>` from `@universo/apps-template-mui`.
-3. **Table i18n**: (a) Actions column showed "actions" in column toggle panel — fixed with `hideable: false`. (b) Pagination showed "1-1 of 1" — MUI X DataGrid v8 ruRU locale lacks `paginationDisplayedRows` — added custom override in `getDataGridLocale.ts`.
-4. **SchemaStatus display**: `ConnectorBoard.tsx` had incomplete `SchemaStatus` type (5 values vs 7 in backend). When backend returned `update_available`, UI fell back to default status label. Added `update_available` and `maintenance` to type, `statusConfig`, descriptions, and EN/RU i18n.
+### UI/UX Polish Rounds 1-2 (02-14)
+TWO sidebar configs discovered (metahubDashboard.ts legacy + menuConfigs.ts production) — synchronized. Create buttons: `tc('addNew')` → `tc('create')`. Widget toggle: Switch → Button with ToggleOn/ToggleOff icons.
 
-**Files modified**: 10 files across 3 packages (`applications-frontend`, `applications-backend`, `apps-template-mui`).
-**Build**: 66/66 packages.
-
----
-
-## Runtime Fix — React is not defined (2026-02-18)
-
-- **Context**: Metahub page (`/metahub/:id`) crashed with `ReferenceError: React is not defined` at `index.mjs:33` in `@universo/migration-guard-shared` ESM bundle.
-- **Root cause**: `tsconfig.json` had `"jsx": "react"` (classic transform) which compiles TSX to `React.createElement(...)`, but the source file only imports `{ useState }` from React — no default `import React` exists. The ESM bundle therefore contained `React.createElement` calls with no `React` variable in scope.
-- **Fix**: Changed `"jsx": "react"` to `"jsx": "react-jsx"` in `packages/migration-guard-shared/base/tsconfig.json`. The automatic JSX runtime (React 17+) compiles TSX to `_jsx()` / `_jsxs()` calls and auto-imports `react/jsx-runtime`.
-- **Verification**: `dist/index.mjs` now contains `import { Fragment, jsx, jsxs } from "react/jsx-runtime"` — zero `React.createElement` references in both ESM and CJS bundles.
-- **Build**: 66/66 packages.
-
----
-
-## QA Fixes Round 2 — WARN-1/2/3 (2026-02-18)
-
-- **Context**: Second QA pass found 3 remaining WARNs after BUG-1 + WARN-3/4/5 fixes.
-- **WARN-1**: `MIGRATION_STATUS_QUERY_OPTIONS` (retry: false, refetchOnWindowFocus: false, staleTime: 30_000) was spread into data-listing hooks (`useMetahubMigrationsList`, `useMetahubMigrationsPlan`), suppressing retry and auto-refetch. Removed spread — only `useMetahubMigrationsStatus` retains it.
-- **WARN-2**: `utils.ts` (backend-safe entry) re-exported `MIGRATION_STATUS_QUERY_OPTIONS` — a TanStack Query config useless on backend. Removed export; `utils.ts` now exports only `determineSeverity` + `DetermineSeverityOptions`.
-- **WARN-3**: `package.json` missing `peerDependenciesMeta` with `optional: true` for React-related peer deps. Added `peerDependenciesMeta` for `react`, `react-dom`, `@mui/material`, `@tanstack/react-query` — prevents peer dep warnings when backend consumes `./utils` only.
-- **Files modified**: 3 (`utils.ts`, `package.json`, `useMetahubMigrations.ts`)
-- **Build**: 66/66 packages, 0 lint errors. Verified `dist/utils.js` contains only `determineSeverity` chunk.
-
----
-
-## QA Fixes — BUG-1 + WARN-3/4/5 (2026-02-18)
-
-- **Context**: Fixes for critical and warning issues from comprehensive QA analysis of Migration Guard implementation.
-- **BUG-1 (Critical)**: `migration-guard-shared` CJS bundle required `react` and `@mui/material` at top level — backend import of `determineSeverity` loaded React as side effect. Fixed by splitting into two entry points: `./utils` (pure JS, no React/MUI) and `.` (full, React-dependent). Backend imports now use `@universo/migration-guard-shared/utils`. `tsdown.config.ts` produces `index.js/mjs` + `utils.js/mjs`, `package.json` exports both subpaths.
-- **WARN-3**: `useMetahubMigrationsList` and `useMetahubMigrationsPlan` duplicated 4/5 query options inline (missing `staleTime: 30_000`). Replaced with `...MIGRATION_STATUS_QUERY_OPTIONS` spread.
-- **WARN-4**: `handleApplyKeep` had single try-catch for both `applyMetahubMigrations()` and `statusQuery.refetch()`. If refetch failed after successful migration, user saw "Failed to apply migrations". Separated into two try-catch blocks.
-- **WARN-5**: `useCallback` deps included `statusQuery` (unstable object). Extracted `refetchStatus = statusQuery.refetch` (stable ref from TanStack Query) and used in deps.
-- **Files modified**: 5 (`utils.ts` new, `tsdown.config.ts`, `package.json`, `applicationMigrationsRoutes.ts`, `metahubMigrationsRoutes.ts`, `MetahubMigrationGuard.tsx`, `useMetahubMigrations.ts`)
-- **Build**: 66/66 packages, 0 lint errors.
-
----
-
-## Migration Guard — Full Spec Coverage (6-Phase Plan) (2026-02-18)
-
-- **Context**: 6-phase plan to achieve 100% spec coverage for the Unified Application Migration Guard. Prior assessment: ~71% coverage.
-- **Phase 1 — Table rename**: `_app_layout_zone_widgets` → `_app_widgets` across 3 files (~20 string replacements). Template version `1.2.0` → `1.0.0`. CURRENT_STRUCTURE_VERSION already at 1.
-- **Phase 2 — Shared package**: Created `@universo/migration-guard-shared` with `determineSeverity()`, `MIGRATION_STATUS_QUERY_OPTIONS`, and `MigrationGuardShell<TStatus>` (render-props pattern). Dual-format build (ESM+CJS) via tsdown. Peer deps: React ≥18, MUI ≥5, TanStack Query ≥5.
-- **Phase 3 — AGENTS.md**: Created 3 new files (metahubs-frontend, applications-backend, migration-guard-shared), updated 2 existing (applications-frontend, metahubs-backend).
-- **Phase 4 — MIGRATIONS.md**: Created 8 files (4 packages × EN/RU): metahubs-backend, metahubs-frontend, applications-frontend, applications-backend.
-- **Phase 5 — README updates**: Replaced verbose migration sections in metahubs-backend (4 sections) and metahubs-frontend (2 sections) READMEs with brief summaries + links to new MIGRATIONS.md files. Both EN and RU.
-- **Phase 6 — Code deduplication**: Both Guards rewritten with `MigrationGuardShell` (202→134 / 199→154 lines). Both backend severity endpoints use `determineSeverity()`. Both frontend hooks use `MIGRATION_STATUS_QUERY_OPTIONS`.
-- **New files**: 15 (7 package source + 8 documentation). **Modified files**: 13 code + 4 READMEs.
-- **Build**: 66/66 packages (65 + 1 new `migration-guard-shared`). Lint: clean after auto-fix.
-
----
-
-## Unified Application Migration Guard — QA Fixes Round 2 (2026-02-18)
-
-- **Context**: Fixes for 5 BUGs + 8 WARNs from second comprehensive QA analysis. Also relocated AGENTS.md files.
-- **BUG-1**: `extractAxiosError()` returns `ApiError` object, not string — appended `.message` in 4 call sites (ApplicationGuard, MetahubGuard×2, mutations.ts).
-- **BUG-2**: `isAdminRoute` used `.includes('/admin')` which matched `/admin-settings` etc. Replaced with regex `/\/admin(\/|$)/`. Same for `isMigrationsRoute`. Removed unused `useMemo` imports.
-- **BUG-3**: Application copy inherited stale `schemaStatus` (MAINTENANCE/ERROR/UPDATE_AVAILABLE). Now resets: SYNCED→SYNCED, else→OUTDATED. Clears `schemaError` and `lastSyncedPublicationVersionId`.
-- **BUG-4**: Publication DELETE didn't cleanup `UPDATE_AVAILABLE` on linked apps. Added within-transaction reset to `SYNCED`.
-- **BUG-5**: Connector/ConnectorPublication DELETE same issue — added `UPDATE_AVAILABLE` → `SYNCED` cleanup.
-- **WARN-4**: `notifyLinkedApplicationsUpdateAvailable()` had N+1 query pattern. Replaced with single TypeORM `UPDATE ... WHERE id IN (sub-select)`.
-- **WARN-5**: Application sync had no concurrency protection. Added PostgreSQL advisory lock (`pg_try_advisory_lock`) via existing `acquireAdvisoryLock` utility. Returns 409 on conflict.
-- **WARN-6**: `useMetahubMigrationsStatus` missing `staleTime` — added `staleTime: 30_000` for consistency with `useApplicationMigrationStatus`.
-- **WARN-7**: MetahubGuard severity fallback was inverted (`!status?.severity` showed mandatory). Changed to explicit `status?.severity === MANDATORY` check.
-- **WARN-8/11**: MetahubGuard `key={idx}` → `key={blocker.code}`. ApplicationGuard blockers now use i18n with `t('migrationGuard.blockers.${blocker.code}')` — 15 keys added to EN + RU.
-- **WARN-9/10/12**: ARIA improvements — Dialog `aria-describedby` + `onClose` for RECOMMENDED. `MaintenancePage`/`UnderDevelopmentPage` — `role='status'` + `aria-live='polite'`.
-- **AGENTS.md**: Moved from package root to `/base` dirs (metahubs-backend, applications-frontend). Updated content with advisory lock + publications info.
-- **Files**: 10 code files + 2 i18n files + 2 AGENTS.md. Build: 65/65, 0 new lint errors.
-
----
-
-## Unified Application Migration Guard — QA Fixes (2026-02-24)
-
-- **Context**: Fixes for 2 BUGs + 5 WARNs/INFOs from QA analysis of the Application Migration Guard feature.
-- **BUG-1**: "Continue anyway" button in `ApplicationMigrationGuard.tsx` was calling `refetch()` instead of dismissing. Added `useState` dismissed state.
-- **BUG-2**: Application copy (`POST /:applicationId/copy`) was missing `appStructureVersion` and `lastSyncedPublicationVersionId` — copied app showed false-positive MANDATORY dialog.
-- **WARN-1**: Test timeout in `exports.test.ts` (19s > 15s) — added mocks for 6 unmocked exports. Now ~650ms.
-- **WARN-2**: Prettier formatting fixes in guard and hook files.
-- **WARN-3**: Changed `key={idx}` to `key={blocker.code}` for stable React keys.
-- **INFO-2**: Extracted `TARGET_APP_STRUCTURE_VERSION = 1` constant (was hardcoded in 5 places across 2 files).
-- **INFO-5**: Status endpoint now uses `ensureMemberAccess` (any member) instead of `ensureAdminAccess` (admin-only). Prevents 403 for `member` role users entering runtime.
-- **Files**: 6 modified. Build: 65/65 packages, 0 errors.
-
----
-
-## Documentation Updates — QA Recommendations (2026-02-22)
-
-- **Context**: README documentation updates recommended during comprehensive QA analysis of columnsContainer + migration guard feature.
-- **metahubs-frontend README** (EN + RU): Added 4 new sections — ColumnsContainerEditorDialog (DnD editor, MAX_COLUMNS=6, MAX_WIDGETS_PER_COLUMN=6), MetahubMigrationGuard (route guard, status check, apply button), Structured Blockers i18n (StructuredBlocker type, rendering pattern), and updated file structure with `domains/layouts/` + `domains/migrations/` directories. Lines: 365 → 435.
-- **metahubs-backend README** (EN + RU): Added 3 new subsections to Key Features — Structured Blockers & Migration Guard, ColumnsContainer Seed Config. Added Metahub Migrations Endpoints section with GET/POST and response format. Updated file structure with `migrations/` domain. Lines: 730 → 771.
-- **apps-template-mui README** (NEW, EN + RU): Created from scratch — covers dashboard system, zone-based widgets, columnsContainer, widget renderer, CRUD components, route factory, architecture diagrams, DashboardDetailsContext, file structure, key types. 307 lines.
-- **Line count parity**: All EN/RU pairs verified — 435/435, 771/771, 307/307.
-
-## QA Bug & Warning Fixes (2026-02-21)
-
-- **Context**: Fixes for 2 BUGs + 3 WARNs from QA analysis. 1 WARN (WARN-4, test failures) confirmed as false positive — tests pass with existing `happy-dom` + `setupTests.ts` config.
-- **BUG-1**: "Apply (keep user data)" button disabled when blockers present via `disabled={applying || hasBlockers}` in `MetahubMigrationGuard.tsx`.
-- **BUG-2**: Inlined `goToMigrations` into onClick. Fixed pre-existing Rules of Hooks violation — moved `useCallback` + derived state above all conditional returns.
-- **WARN-1**: Widget list keys in `SortableColumnRow` changed from `key={idx}` to `key={\`${column.id}-w${idx}\`}` for stable React reconciliation.
-- **WARN-2**: `useState` initializer in `ColumnsContainerEditorDialog` simplified from `makeDefaultConfig()` to `[]` — `useEffect` handles real initialization on dialog open.
-- **WARN-3**: `handleSave` now filters out `columnsContainer` widgetKeys as defense-in-depth against accidental nesting.
-- **Files**: 2 modified (`MetahubMigrationGuard.tsx`, `ColumnsContainerEditorDialog.tsx`).
-- **Build**: 65/65 packages, 0 errors. Lint: 0 errors. Tests: 3/3 passing.
-
----
-
-## 5-Étap QA Fixes — User-Reported Issues (2026-02-20)
-
-- **Context**: Comprehensive QA fixes addressing user-reported issues. 5 étaps, 12 files modified.
-- **Étap 1 — Editor canSave + dirty tracking**: `useRef` snapshot for initial state, `isDirty` useMemo, `canSave` prop with width validation in `ColumnsContainerEditorDialog.tsx`. Added `widthError` i18n key to EN/RU.
-- **Étap 2 — LayoutDetails inner widgets**: `getWidgetChipLabel()` shows inner widget names for columnsContainer via `col.widgets.flatMap()`.
-- **Étap 3 — Migration guard button**: Warning-color "Apply (keep data)" button in `MetahubMigrationGuard.tsx` with loading/error states. Added `applyKeepData` i18n key.
-- **Étap 4 — Structured blockers i18n** (7 files): New `StructuredBlocker` interface in `@universo/types`. 16 blocker sites converted (11 cleanup service + 5 migration routes). Frontend renders with `<ul>/<li>` and `t()`. 15 i18n keys added. Pattern: systemPatterns.md#structured-blocker-pattern
-- **Étap 5A — multiInstance revert**: `columnsContainer.multiInstance` → `true`, MainGrid `.find()` → `.filter()` for multiple containers.
-- **Étap 5B — Multi-widget columns** (6 files): New `ColumnsContainerColumnWidget` interface, column `widgetKey` → `widgets[]` array, `widgetRenderer.tsx` renders per-column widget lists, editor rewrite with `MAX_WIDGETS_PER_COLUMN=6`. Added `addWidget` i18n key.
-- **Build**: 65/65 packages, 0 errors.
-- **Files**: `metahubs.ts`, `ColumnsContainerEditorDialog.tsx`, `LayoutDetails.tsx`, `MetahubMigrationGuard.tsx`, `migrations.ts`, `metahubs.json` (EN+RU), `TemplateSeedCleanupService.ts`, `metahubMigrationsRoutes.ts`, `layoutDefaults.ts`, `MainGrid.tsx`, `widgetRenderer.tsx`.
-
----
-
-## QA Fixes for columnsContainer Implementation (2026-02-17)
-
-- **BUG-1**: Changed `columnsContainer.multiInstance` from `true` to `false` in `metahubs.ts` — MainGrid uses `.find()` which only returns first instance; multiple were silently ignored.
-- **BUG-2**: Added `Array.isArray(colConfig.columns)` guard in `widgetRenderer.tsx` — JSONB config from DB is cast without runtime validation; non-array values could crash `.map()`.
-- **WARN-1/1b**: Memoized `details` object via `useMemo` in `DashboardApp.tsx` and `ApplicationRuntime.tsx` — new reference each render caused consumer re-renders. Fixed Rules of Hooks violation (hooks before early returns).
-- **WARN-2**: Extracted `EMPTY_WIDGET_CONFIG = Object.freeze({})` module-level constant — virtual `ZoneWidgetItem` had `config: {}` (unstable reference) per render.
-- **WARN-3**: Added JSDoc comment for `showDetailsTable` in `MainGridLayoutConfig` interface explaining semantics when `columnsContainer` is present.
-- Build: 65/65 OK. Files: `metahubs.ts`, `widgetRenderer.tsx`, `MainGrid.tsx`, `DashboardApp.tsx`, `ApplicationRuntime.tsx`.
-
----
-
-## Center Zone columnsContainer + Data-Driven MainGrid (2026-02-19)
-
-- **Context**: Fixes BUG-5 (no columnsContainer in seed), BUG-6 (widget duplication), INFO-2 (confusing detailsSidePanel).
-- **Etap A**: Zone-aware `buildDashboardLayoutConfig()` with `centerActive` set. Removed `showDetailsSidePanel`, added `showColumnsContainer`.
-- **Etap D**: Center zone seed: columnsContainer (sortOrder 6) with detailsTable (width 9) + productTree (width 3). Template version `1.1.0` → `1.2.0`.
-- **Etap B**: Runtime API expanded to include center zone. Updated Zod schema and types.
-- **Etap C**: Created `DashboardDetailsContext.tsx`. MainGrid renders columnsContainer via `renderWidget()` with standalone fallback.
-- **Etap F**: Removed `showDetailsSidePanel` from all configs, types, i18n. Replaced with `showColumnsContainer`.
-- **Etap E**: Migration verification (TemplateSeedMigrator + enrichConfig). Build: 65/65 OK.
-- 1 file created, 13+ modified.
-
----
-
-## Dashboard Zones & Widgets Enhancement — 4 Phases + QA Fixes (2026-02-18)
-
-- **Design**: `memory-bank/creative/creative-dashboard-zones-widgets.md`.
-- **Phase 1**: Split detailsSidePanel → productTree + usersByCountryChart. Updated DashboardLayoutConfig, useCrudDashboard, Zod schema, i18n.
-- **Phase 3**: Right Drawer. `SideMenuRight.tsx` (280px permanent), `SideMenuMobileRight.tsx` (temporary). Dual drawer support in Dashboard + AppNavbar. Backend zone filter expanded.
-- **Phase 2**: columnsContainer widget. `ColumnsContainerConfig` type, `ColumnsContainerEditorDialog.tsx` with DnD-sortable columns, recursive grid rendering.
-- **Phase 4**: `createAppRuntimeRoute()` factory for routing isolation.
-- **QA Fixes**: BUG-1 (dead state reset), BUG-2 (ghost widget), BUG-3 (template version), BUG-4 (isActive from seed), WARN-1 (width validation), WARN-2 (column limit), WARN-3 (recursion guard), WARN-4 (anchor comment). Prettier applied.
-- 5 files created, 17+ modified. Build: all packages OK.
-
----
-
-## Architecture Refactoring — Headless Controller Hook + Adapter Pattern (2026-02-17)
-
-- **Problem**: ~80% duplication between DashboardApp (483 lines) and ApplicationRuntime (553 lines).
-- **Solution**: `CrudDataAdapter` interface + `useCrudDashboard()` headless controller hook.
-- **Adapters**: `createStandaloneAdapter()` (raw fetch) + `createRuntimeAdapter()` (auth'd apiClient).
-- **Shared components**: `CrudDialogs`, `RowActionsMenu`, `toGridColumns()`, `toFieldConfigs()`.
-- **Result**: DashboardApp 483→95 lines (-80%), ApplicationRuntime 553→130 lines (-76%).
-- 7 files created, 4 modified. Pattern: systemPatterns.md#headless-controller-hook
-
----
-
-## UI Polish — Button Position, Actions Centering, DataGrid i18n (2026-02-17)
-
-- Create button moved below title. Options button centered in DataGrid cells.
-- DataGrid i18n: `getDataGridLocaleText()` utility → `ruRU` locale via `localeText` prop. Column menu and pagination fully localized.
-- 6 files modified, 1 created. Build: 65/65 OK.
-
----
-
-## QA Round 6 Fixes — M1-M4, UX Improvements (2026-02-17)
-
-- **M1**: Required-field null check in PATCH bulk update. **M2**: `extractErrorMessage()` helper (JSON error parsing).
-- **M3**: 5 shared mutation hooks in `mutations.ts`, refactored ApplicationRuntime (~80 lines removed).
-- **M4**: Schema fingerprint tracking via `useRef` (prevents stale data submission).
-- Actions dropdown: `MoreVertRoundedIcon` menu (28x28, width 48). Button text simplified. i18n keys added.
-
----
-
-## QA Round 5 Fix — Dialog Input Styling (2026-02-16)
-
-- **Root cause**: `apps-template-mui` shared-theme had original MUI Dashboard compact input style (`MuiOutlinedInput.input: { padding: 0 }`, `notchedOutline: { border: 'none' }`). Incompatible with standard form Dialog fields — cramped/unreadable inputs.
-- **Key insight**: `universo-template-mui` already had proper form-compatible spacing. `apps-template-mui` still had the untouched original.
-- **Fix applied** to `inputs.tsx`: replaced compact style with `padding: '15.5px 16px'`, standard `notchedOutline` border, multiline support.
-- Added `MuiInputLabel` customization (floating label, shrink background, focused color).
-- Added `MuiButton` disabled state (`opacity: 0.6`) + per-variant disabled colors.
-- Added `sharedInputSpacing` / `sharedInputSpacingSmall` constants for consistent padding.
-- Build: 65/65 OK.
-
----
-
-## QA Fixes Round 4 — Theme Dedup, Runtime Rename (2026-02-16)
-
-- **THEME-1 (CRITICAL)**: Removed duplicate `<AppTheme>` + `<CssBaseline>` from `Dashboard.tsx`. Theme already provided by parent `AppMainLayout`.
-- **RUNTIME rename** (60+ identifiers across 6+ files):
-  - `api.ts`: `fetchApplicationRuntime`→`fetchAppData`, `ApplicationRuntimeResponse`→`AppDataResponse`, etc.
-  - `mutations.ts`: `runtimeKeys`→`appQueryKeys`, `useRuntimeRow`→`useAppRow`. Cache namespace: `'application-runtime'`→`'application-data'`.
-  - `DashboardApp.tsx`: imports, local var `runtime`→`appData`, i18n keys `runtime.*`→`app.*`.
-  - `ApplicationRuntime.tsx`: new `FormDialog`/`FieldConfig`/`FieldValidationRules` imports, i18n keys.
-  - `tsconfig.runtime.json`→`tsconfig.build.json` + package.json script updated.
-- **i18n**: Renamed `runtime.*` → `app.*` in 4 locale files (apps-template-mui + applications-frontend, EN + RU).
-- **Backward compat**: Deprecated aliases preserved (`ApplicationRuntimeResponse`, `runtimeKeys`, `RuntimeFormDialog`).
-- Build: 65/65 OK.
-
----
-
-## QA Fixes Round 3 — Theme, Hooks, Delete, i18n, Layout (2026-02-15)
-
-- Created `AppMainLayout` component (theme wrapper). Fixed hooks order in DashboardApp.
-- Fixed ConfirmDeleteDialog auto-close. FormDialog i18n with `useTranslation`. 16 new i18n keys.
-- Deleted dead code (MinimalLayout, TableRoute, empty routes/). Build: 65/65 OK.
-
----
-
-## QA Fixes Round 2 — Validation, Cache, VLC (2026-02-14)
-
-- **DATE-1 (MEDIUM)**: Added `new Date()` + `isNaN` check in `coerceRuntimeValue` for DATE type. Invalid dates return 400 instead of PostgreSQL 500.
-- **VALID-2 (LOW)**: UUID validation for `catalogId` query param in GET-row and DELETE handlers.
-- **VALID-3 (LOW)**: UUID validation for `applicationId` in main GET runtime endpoint.
-- **CACHE-1 (LOW)**: Broadened cache invalidation — use `runtimeKeys.list(applicationId)` without catalogId.
-- **VLC-1 (LOW)**: Structural check for VLC objects — require `locales` property in `coerceRuntimeValue`.
-- Files modified: `applicationsRoutes.ts`, `mutations.ts`. Build: 65/65 OK.
-
----
-
-## QA Fixes — Runtime CRUD Security & UX (2026-02-15)
-
-- **VALID-1 (MEDIUM)**: `UUID_REGEX` constant + UUID format validation for `applicationId` and `rowId` path params. Returns 400 instead of PostgreSQL 500 on malformed IDs.
-- **AUDIT-1 (LOW)**: Added `_upl_updated_by` to per-field PATCH and bulk PATCH endpoints. Extended `resolveRuntimeSchema` to return `userId`.
-- **UX-1 (MEDIUM)**: Removed `throw err` from `handleConfirmDelete` in `ApplicationRuntime.tsx` and `RuntimeDashboardApp.tsx`. Error displayed via `setDeleteError()`, re-throw caused Unhandled Promise Rejection.
-- **I18N-1 (LOW)**: Updated standalone `apps.json` error keys (EN + RU) with `{{message}}` interpolation.
-- **Not fixed (by design)**: AUTH-1 (role restrictions — architectural), OCC-1 (optimistic concurrency — deferred), CSRF-1 (dev-only).
-- Files modified: `applicationsRoutes.ts`, `ApplicationRuntime.tsx`, `RuntimeDashboardApp.tsx`, `apps.json` (EN + RU). Build: 65/65 OK.
-
----
-
-## Runtime CRUD + VLC + i18n + DataGrid Improvements (2026-02-15)
-
-- 7 phases: Backend API (POST/PATCH/DELETE runtime rows), Components (FormDialog, LocalizedInlineField, ConfirmDeleteDialog), API/Mutations, CRUD UI, i18n, DataGrid UX, Finalization.
-- Full CRUD lifecycle with VLC support, validation rules, date/JSON types. Build: 65/65 OK.
-
----
-
-## Metahubs UX Improvements — Boolean Fix, Auto-fill, Presentation Tab, Header Checkbox (2026-02-13)
-
-- Boolean indeterminate fix: DDL `.defaultTo(false)`, runtime normalizer `null→false`, frontend `indeterminate={false}`.
-- Auto-fill: publication name from metahub name + " API" suffix.
-- Presentation tab: `uiConfig` for attributes with `headerAsCheckbox` option. Full pipeline: backend schema → SQL → Zod → DataGrid renderHeader.
-- QA: TYPE-1 (uiConfig type), CONCUR-1 (shallow merge). Build: 65/65 OK.
-
----
-
-## UI/UX Polish Round 2 — Menu Fix, Create Buttons, Widget Toggle (2026-02-14)
-
-- **Menu fix**: Fixed "Layouts" menu position in PRODUCTION config (`menuConfigs.ts` in `universo-template-mui`). Previous fix was in legacy config only. Also synced `metahubDashboard.ts` with missing migrations item.
-- **Create buttons**: Changed `tc('addNew')` → `tc('create')` in primaryAction across 10 list pages (metahubs: 8, applications: 2). Global `addNew` key preserved for Flowise-upstream pages.
-- **Widget toggle**: Replaced MUI `Switch` with text `Button` + icon (`ToggleOn`/`ToggleOff`) in `LayoutDetails.tsx`. Inactive widget label dimmed (opacity 0.45) but action buttons remain full opacity.
-- Key discovery: TWO separate sidebar menu configs exist — `metahubDashboard.ts` (legacy) and `menuConfigs.ts` (production). Both now synchronized.
-- Build: 65/65 OK.
-
----
-
-## UI/UX Polish — Create Buttons, Hubs Tab, Codename AutoFill (2026-02-14)
-
-- **Hubs tab**: Removed conditional display in catalog edit dialog — always shows, matching create mode behavior.
-- **Create dialog button**: Changed "Save"/"Saving" → "Create"/"Creating" in 10 create dialogs across metahubs (8) and applications (2). Edit/copy dialogs unchanged.
-- **Codename auto-fill**: Fixed `useCodenameAutoFill` hook — reset `codenameTouched` when name is fully cleared in edit mode, enabling auto-generation restart.
-- Build: 65/65 OK.
-
----
-
-## 2026-02-13: QA Remediation, Migration Fixes, Widget Activation ✅
-
-### QA Round 2 Remediation + Menu + Version Reset
-- Fixed `ensureDefaultZoneWidgets` and `createLayout` to respect `isActive` from defaults (`isActive !== false`).
-- Added unique partial index `idx_mhb_widgets_unique_active` on `(layout_id, zone, widget_key, sort_order)`.
-- Fixed stale test expectations in migrations and branches test suites.
-- Fixed `layoutCodename → template_key` assumption in `TemplateSeedCleanupService`.
-- Consolidated V1/V2/V3 into single V1: `CURRENT_STRUCTURE_VERSION=1`, template `1.0.0`, `minStructureVersion=1`.
-
-### Zod Schema + cleanupMode + Seed isActive
-- Zod `isActive` fix: added `isActive: z.boolean().optional()` to `seedZoneWidgetSchema`.
-- `cleanupMode` default `'keep'` → `'confirm'` across backend route, frontend hooks, and UI handler.
-- Added `isActive` to `DefaultZoneWidget` type, mapped through `buildSeedZoneWidgets()`.
-- i18n: `UI_LAYOUT_ZONES_UPDATE` case in `ConnectorDiffDialog` + keys.
+### QA Remediation + Version Reset (02-13)
+ensureDefaultZoneWidgets respects isActive. Unique partial index on widgets. TemplateSeedCleanupService fix. V1/V2/V3 → single V1. Zod isActive fix. cleanupMode default → 'confirm'.
 
 ### Migration 503 Pool Starvation Fix
-- Root cause: `Promise.all(7×hasTable)` in `inspectSchemaState` + tarn.js pool max=2 → deadlock.
-- Fix: Replace with single `information_schema.tables` query. Same for `widgetTableResolver`.
-- Pool formula updates: Knex default from `floor(budget/4)` to `floor(budget/3)`.
+Promise.all(7×hasTable) → single information_schema query. Pool formula: floor(budget/4) → floor(budget/3).
 
 ### Widget Activation Toggle
-- Structure V3 DDL (`is_active` column in `_mhb_widgets`) + backend service toggle + route.
-- Hash normalization with `isActive`, optimistic UI update + rollback for toggle.
-- Snapshot/Publication pipeline updates, frontend types/API/UI/i18n.
+Structure V3 DDL (is_active column), backend toggle route, hash normalization, optimistic UI, snapshot pipeline.
 
 ### README Documentation
-- Full rewrite metahubs-backend README.md (EN, 730 lines) + README-RU.md (RU, 730 lines).
-- Build: 65/65 OK.
+Full rewrite metahubs-backend README.md (EN/RU, 730 lines each).
+
+**Build**: 65/65.
 
 ---
 
 ## 2026-02-12: QA Rounds 9-16 — Pool, Locks, Cache, Migrations ✅
 
 ### Round 9: Migration Gate, Baseline Compatibility, Pool-Safe Apply
-- DB-aware `ensureSchema()` with strict order: structure migration → seed sync.
-- Widget table resolver aligned to `_mhb_widgets`.
-- Deterministic API error model: `MIGRATION_REQUIRED` (428), `CONNECTION_POOL_EXHAUSTED` (503).
-- `GET /metahub/:metahubId/migrations/status` preflight endpoint.
-- Frontend `MetahubMigrationGuard` modal — blocks non-migration metahub pages.
-- Serialized in-process advisory-lock acquires per lock key in `@universo/schema-ddl`.
+- DB-aware `ensureSchema()` with strict order. Widget table resolver aligned to `_mhb_widgets`.
+- Deterministic error model: `MIGRATION_REQUIRED` (428), `CONNECTION_POOL_EXHAUSTED` (503).
+- Frontend `MetahubMigrationGuard` modal. Serialized advisory-lock acquires in schema-ddl.
 
 ### Round 10: Template Version Source, Cache Safety, Retry/Loading UX
-- `plan/status` now read current template from branch sync fields (`last_template_version_id`).
-- Removed unsafe early cache-return paths in `ensureSchema()`.
-- Apply pointer update requires confirmed branch sync (409 if not).
-- Disabled auto-retries for migration queries, added Apply button loading indicator.
-- Connect-timeout errors mapped to deterministic 503.
+- plan/status reads from branch sync fields. Removed unsafe early cache-return paths.
+- Apply requires confirmed branch sync (409 if not). Disabled auto-retries for migration queries.
 
 ### Round 11: Read-Only EnsureSchema, Scoped Repos
-- Split `ensureSchema()` into explicit modes: `read_only` / `initialize` / `apply_migrations`.
-- Read paths return 428 for outdated structure/template — no hidden DDL side effects.
-- Version-aware expected table validation, partial-schema detection.
-- Request-scoped manager via `getRequestManager` for migration routes. Frontend refetch flow fixes.
+- Split ensureSchema: read_only / initialize / apply_migrations modes.
+- Version-aware table validation. Request-scoped manager via getRequestManager.
 
 ### Round 12: Request-Scoped SchemaService Manager
-- `MetahubSchemaService` constructor accepts optional `EntityManager`.
-- Internal repo operations use `repoManager` to avoid extra pool acquisitions.
-- Propagated to all metahub backend entry points (catalogs, hubs, elements, attributes, layouts, publications, migrations).
+MetahubSchemaService accepts optional EntityManager. Propagated to all entry points.
 
-### Round 13: Atomic Structure Sync, Scoped Resolver, Retry Dedup
-- Branch `structureVersion` update only after successful structure + seed sync.
-- `resolveWidgetTableName` accepts transaction context for executor/migrator.
-- `auth-frontend` API client: `transientRetryAttempts = 0` (retries via React Query only).
-- Timeout/pool failures → deterministic 503, domain errors preserved.
+### Rounds 13-16: Atomic Sync, Retry Dedup, Error Mapping, Pool Contention
+- Branch structureVersion update only after successful sync.
+- auth-frontend API client: transientRetryAttempts=0. Timeout/pool→503.
+- Post-apply tolerates read failures. Widget cache invalidation before seed sync.
+- RLS cleanup skip when QueryRunner never connected. Pool budget rebalance env knobs.
+- createInitialBranch: advisory lock + transactional metadata + safe schema rollback.
 
-### Round 14: Apply Error Mapping, Status Load Shedding, Copy Sync Fields
-- Apply pre-plan errors mapped through common migrations route mapper (not generic 422).
-- `GET /migrations/status` requests plan without seed dry-run (reduced DB pool pressure).
-- Metahub copy now transfers `lastTemplateVersionId/Label/SyncedAt` to branch.
-- Fixed `SchemaGenerator` NUMBER default test in `@universo/schema-ddl`.
-
-### Round 15: Apply Post-Read Safety, Widget Cache, Lock Semantics
-- Post-apply response tolerates read failures — returns `status: "applied"` with `postApplyReadWarning`.
-- Widget table resolver cache invalidated before template seed sync paths.
-- Copy rollback: explicit error aggregation instead of silent swallowing.
-- Advisory lock helper: throws on DB/connect failures instead of returning false.
-
-### Round 16: Pool Contention + Initial Branch Compensation
-- RLS cleanup guard: skip reset-query when `QueryRunner` never connected.
-- Pool budget rebalance: explicit env knobs for TypeORM/Knex split.
-- `createInitialBranch`: advisory lock + transactional metadata + safe schema rollback.
-- Regression test for initial-branch cleanup path.
-- 12 test suites, 76+ tests across all rounds. Build: 65-73/65-73 packages OK.
+12 test suites, 76+ tests. Build: OK.
 
 ---
 
-## 2026-02-11: QA Rounds 3-8, Structure Baseline, Template Cleanup ✅
+## 2026-02-11: QA Rounds 3-8, Structure Baseline, DDL Deep Fixes ✅
 
-### Structure Baseline + Template Cleanup Policy
-- `_mhb_widgets` baseline table, `CURRENT_STRUCTURE_VERSION=1`.
-- Diff engine emits `RENAME_TABLE` and `RENAME_INDEX` operations via `renamedFrom` metadata.
-- Migrator executes rename transactionally before other additive changes.
-- `TemplateSeedCleanupService` with modes `keep`/`dry_run`/`confirm` + ownership safety checks.
-- Removed starter `tags` catalog from `basic.template.ts` for new metahubs.
-- Added regression tests for baseline cleanup blocker behavior.
+### Structure Baseline + Template Cleanup
+_mhb_widgets baseline table. CURRENT_STRUCTURE_VERSION=1. Diff engine: RENAME_TABLE/RENAME_INDEX via renamedFrom. TemplateSeedCleanupService with modes keep/dry_run/confirm. Removed starter tags catalog.
 
-### QA Round 3: Security + Atomicity + Seed Consistency
-- Metahub access checks across all publications/migrations endpoints with request-scoped `QueryRunner`.
-- Publication delete: advisory lock + pessimistic row locks + fail-fast on schema drop errors.
-- Kind normalization to canonical lowercase (`catalog|hub|document`).
-- Protected non-empty layout `config` from seed widget sync overwrite.
-- Replaced unsafe `JSON.parse` with safe parser fallback.
+### QA Rounds 3-8
+- R3: Access checks, advisory lock + pessimistic locks, kind normalization, protected layout config
+- R4: Branch access guards, metahub delete locking, `hashtextextended` lock-key strategy
+- R5: Application rollback advisory lock, SystemTableMigrator destructive abort, copy excludes soft-deleted
+- R6: Source-less branch stores minStructureVersion, unique-violation → 409, advisory lock timeout
+- R7: User-branch cache invalidation, findByCodename active-only filter, branch delete → 409
+- R8: MSW handlers for templates, vitest.config.ts coverage mode, `any` → `unknown` catches
 
-### QA Round 4: Branch Access + Delete Locking
-- Explicit metahub access guards in branches routes (read vs `manageMetahub`).
-- Metahub delete: advisory lock → transactional row-level pessimistic locks → safe schema drop.
-- Replaced 32-bit hash lock-key with `hashtextextended` strategy in `@universo/schema-ddl`.
-- Restored QA gate: green suites for `branchesOptions`, `catalogsRoutes`, `metahubsRoutes`.
+### DDL Deep Fixes
+JSONB meta column, unique migration names, SQL identifier quoting. Entity lookup by kind, layouts incremental migration, lazy manifest load. Copy+branch structureVersion fixes.
 
-### QA Round 5: Locks, Migration Semantics, Copy Safety
-- Application rollback route migrated to shared advisory lock helpers.
-- `SystemTableMigrator` aborts automatic apply when destructive diffs detected.
-- Metahub copy excludes soft-deleted branches, maps unique DB conflicts → 409.
-- Frontend test fixes: board mock, Vitest CSS handling, flaky timeout resilience.
-
-### QA Round 6: Consistency, Races, Lock Timeout
-- Source-less branch creation stores `structureVersion = manifest.minStructureVersion`.
-- PostgreSQL unique-violation extraction (`code=23505`) → deterministic HTTP 409.
-- Advisory lock: session-safe timeout via `set_config` + explicit `RESET` before release.
-
-### QA Round 7: Branch Cache Consistency & Conflict Semantics
-- User-branch cache invalidation/update utilities in `MetahubSchemaService`.
-- `ensureSchema` race hardening: branch context resolved under advisory lock.
-- `findByCodename` filters only active rows (matching partial unique index).
-- Branch delete lock contention mapped to HTTP 409.
-
-### QA Round 8: MSW, Coverage Gate, Route Hygiene
-- MSW handlers for `/api/v1/templates` and `/api/v1/templates/:templateId`.
-- `vitest.config.ts` env-driven coverage mode (`VITEST_COVERAGE`, `VITEST_ENFORCE_COVERAGE`).
-- Replaced `any` catches with `unknown` + safe extraction in branches routes.
-- Default branch cache invalidation regression test.
-
-### DDL Deep Fixes + Declarative DDL QA
-- JSONB `meta` column fix, unique migration names, SQL identifier quoting.
-- Entity lookup by `kind`, layouts/zone widgets incremental migration, lazy manifest load.
-- Copy route structureVersion, branch creation structureVersion, shared helper extraction.
-- Build/test: all rounds green.
+Build/tests: all rounds green.
 
 ---
 
 ## Metahub Migration Hardening — Structured Plan/Apply (2026-02-11)
 
-- Typed migration metadata contracts in `metahubMigrationMeta.ts`: `baseline | structure | template_seed | manual_destructive` discriminated payloads with safe parse/write paths.
-- Template manifest validation with cross-reference safety checks (layouts, widgets, entities, elements, attribute targets) and structure compatibility guard.
-- Seed migration dry-run planning using `TemplateSeedMigrator` with `dryRun` flag, seed-sync events in `_mhb_migrations`.
-- Upgraded plan/apply API: structured structure-diff by version step, deterministic apply blocking on destructive blockers (422), lock contention → 409.
-- Branch-level template sync tracking fields (`last_template_version_id`, `last_template_version_label`, `last_template_synced_at`) wired into schema ensure/apply flow.
-- Seed executor layout lookup corrected: uses `template_key` per layout without codename fallback ambiguity.
-- Added tests: `templateManifestValidator.test.ts`, `metahubMigrationMeta.test.ts`, extended `metahubMigrationsRoutes.test.ts`.
-- Build + tests: OK.
+Typed migration metadata contracts: baseline | structure | template_seed | manual_destructive. Template manifest validation with cross-reference safety checks. Seed dry-run planning. Structured plan/apply API with deterministic blocking. Branch-level template sync tracking. Tests: templateManifestValidator, metahubMigrationMeta, metahubMigrationsRoutes.
 
 ---
 
 ## 2026-02-10: Template System, DDL Engine, Migration Architecture ✅
 
 ### Metahub Template System (10 phases)
-- DB entities: `templates` and `templates_versions` with TypeORM migration.
-- `TemplateSeedExecutor`: applies seed to metahub schema (catalogs, attributes, elements, layouts, widgets).
-- `TemplateManifestValidator` (Zod-based): validates JSON template structure.
-- `TemplateSeeder`: SHA-256 idempotent seeding at application startup.
-- Frontend `TemplateSelector`: chip layout, localization, edit display, default auto-selection, disabled in edit mode.
-- Build: 65/65 OK.
-
-### QA Fixes + Hardening — Template System
-- Zod VLC schema fix, default template auto-assign, `SYSTEM_SEEDER_MARKER` audit fields.
-- Transaction wrapper in `TemplateSeedExecutor` for atomicity.
-- Atomic metahub creation (full transaction), strict VLC schema `_schema: z.literal('1')`.
-- Runtime manifest validation, shared DTO types, `widgetKey` type narrowing.
+DB entities (templates, templates_versions), TemplateSeedExecutor, TemplateManifestValidator (Zod), TemplateSeeder (SHA-256 idempotent), frontend TemplateSelector. QA: Zod VLC fix, default auto-assign, transaction wrapper, atomic creation.
 
 ### Declarative DDL & Migration Engine (7 phases)
-- `SystemTableDef` declarative types with shared field sets (`UPL_SYSTEM_FIELDS`, `MHB_SYSTEM_FIELDS`).
-- 6 V1 tables defined. `SystemTableDDLGenerator` for CREATE/INDEX SQL.
-- `SystemTableDiff` engine for schema comparison. `SystemTableMigrator` with additive auto-migration + destructive warnings.
-- Layout defaults dedup. Build: 65/65 OK.
-
-### DDL Phase 2 — FK Diff + Seed Enrichment
-- `buildIndexSQL` DRY refactor (helper extracted).
-- FK diff detection: `ADD_FK`, `DROP_FK`, `ALTER_COLUMN` in SystemTableDiff.
-- `_mhb_migrations` table (V2), `SystemTableMigrator` FK support with `recordMigration`.
-- Seed enrichment: settings (language, timezone), entities (tags catalog with attributes), elements.
-- `TemplateSeedMigrator` implementation for existing metahub upgrades.
+SystemTableDef types, 6 V1 tables, SystemTableDDLGenerator, SystemTableDiff engine, SystemTableMigrator (additive auto + destructive warnings). FK diff (ADD_FK/DROP_FK/ALTER_COLUMN). TemplateSeedMigrator for upgrades.
 
 ### Migration Architecture Reset
-- V1 baseline with baseline entry in `_mhb_migrations`.
-- Decoupled template seed from structure upgrades, idempotent seed migration.
-- `ALTER_COLUMN` handling in system structure migrator (no silent skips).
-- Migration history/plan/apply backend API, Migrations page + menu route.
-- Explicit metahub snapshot/version envelope types.
+V1 baseline with _mhb_migrations entry. Decoupled template seed from structure upgrades. Migration history/plan/apply API, Migrations page + menu route.
 
-### Metahubs UX Fixes
-- Template description overflow in TemplateSelector.
-- KnexClient pooler warning documented. Application runtime checkbox (catalogId fix).
+Build: 65/65.
 
 ---
 
-## 2026-02-09: PR Review + Menu/Layout Widget System ✅
+## 2026-02-05 to 2026-02-09: Layouts, Runtime, Menu Widget, PR Review ✅
 
-- **PR #668 Bot Review Fixes**: Zod schema mismatch (menus, menu items), non-deterministic `Object.keys` → `Object.values`, unused imports cleanup.
-- **Move Menu into Layout Widget System**: Removed menus domain (service + routes). MenuWidgetConfig with embedded items. Backend PATCH route for widget config. Publication pipeline updated. Frontend `MenuWidgetEditorDialog`, `MenuContent` integration. 8 phases.
-- **Menu Widget QA Fixes**: 6 issues fixed — LocalizedInlineField for VLC, default menu title, edit button on chips, runtime catalog rendering, title display.
-- **Menu editor UX**: EntityFormDialog, left-aligned toggle, item dialog field reorder, publication version dialog alignment.
+### PR #668 Bot Review Fixes (02-09)
+Zod schema mismatch, non-deterministic Object.keys→Object.values, unused imports.
 
----
+### Menu Widget System (02-08 to 02-09)
+Removed menus domain. MenuWidgetConfig with embedded items. Publication pipeline updated. MenuWidgetEditorDialog, MenuContent integration. 6 QA fixes (VLC, default title, runtime catalog).
 
-## 2026-02-08: Layout Widget System (DnD, Edit, Zone Rendering) ✅
+### Layout Widget DnD + Rendering (02-08)
+Widget DnD reorder, zone rendering, widgetRenderer.tsx, SortableWidgetChip.
 
-- Widget DnD reorder, zone rendering, widget configuration, editor dialog for columnsContainer.
-- `widgetRenderer.tsx` shared renderer, SortableWidgetChip with icons.
-- Menu legacy nav removal, editor polish (EntityFormDialog pattern).
+### Application Runtime + DataGrid (02-07)
+Column transformers, row counts, menu propagation, createAppRuntimeRoute factory.
 
----
+### Layouts System Foundation (02-06)
+Backend CRUD routes, LayoutList/LayoutDetails/LayoutInput, zone widget management, application sync, DashboardLayoutConfig type.
 
-## 2026-02-07: Application Runtime + DataGrid ✅
+### Attribute Data Types + Display Attribute (02-05)
+STRING, NUMBER, BOOLEAN, DATE, REF, JSON with validation rules. Display attribute with auto-selection. MUI 7 migration prep. Pattern: systemPatterns.md#attribute-type-architecture
 
-- Application runtime page with DataGrid: column transformers, row counts, menu propagation.
-- Route refactoring: `createAppRuntimeRoute()` factory, centralized route definitions.
-- Menu rendering in SideMenu/SideMenuMobile from runtime API data.
-
----
-
-## 2026-02-06: Layouts System Foundation ✅
-
-- Layouts domain: backend CRUD routes, frontend LayoutList/LayoutDetails/LayoutInput.
-- Zone widget management: default widgets per zone, drag-and-drop ordering.
-- Application sync for layout config. DashboardLayoutConfig type.
-- Pattern: systemPatterns.md#dual-sidebar-menu-config
-
----
-
-## 2026-02-05: Attribute Data Types + Display Attribute + Layouts ✅ (v0.49.0-alpha)
-
-- Enhanced attribute data types (STRING, NUMBER, BOOLEAN, DATE, REF, JSON) with validation rules.
-- Display attribute feature with auto-selection for single-attribute catalogs.
-- MUI 7 migration prep. Layouts system initial implementation.
-- Pattern: systemPatterns.md#attribute-type-architecture
+Build: 65/65.
 
 ---
 
 ## 2026-01-29 through 2026-02-04: Branches, Elements, System Fields ✅ (v0.48.0-alpha)
 
-- Metahub branches system (create, activate, delete, copy with schema isolation).
-- Records renamed to Elements across backend, frontend, types, i18n.
-- Three-level system fields (`_upl_*`, `_mhb_*`, `_app_*`) with cascade soft delete.
-- Optimistic locking (version column, 409 conflicts, email lookup for `updated_by`).
+- Metahub branches system (create, activate, delete, copy with schema isolation)
+- Records renamed to Elements across backend, frontend, types, i18n
+- Three-level system fields (`_upl_*`, `_mhb_*`, `_app_*`) with cascade soft delete
+- Optimistic locking (version column, 409 conflicts, email lookup for `updated_by`)
 - Pattern: systemPatterns.md#three-level-system-fields
 
 ---
 
 ## 2026-01-16 through 2026-01-28: Publications, schema-ddl, Migrations ✅ (v0.47.0-alpha)
 
-- Runtime migrations (schema sync between metahub design and application runtime).
-- Publication as separate entity with application-centric schema sync.
-- `@universo/schema-ddl` package for DDL utilities (SchemaGenerator, SchemaMigrator, KnexClient).
-- Isolated schema storage + publication versioning system.
-- Codename field consolidation across metahubs.
-- Pattern: systemPatterns.md#runtime-migration-pattern, systemPatterns.md#applications-config-data-separation
+- Runtime migrations (schema sync between metahub design and application runtime)
+- Publication as separate entity with application-centric schema sync
+- `@universo/schema-ddl` package for DDL utilities (SchemaGenerator, SchemaMigrator, KnexClient)
+- Isolated schema storage + publication versioning system
+- Pattern: systemPatterns.md#runtime-migration-pattern
 
 ---
 
 ## 2026-01-11 through 2026-01-15: i18n, VLC, Catalogs ✅ (v0.45.0-alpha, v0.46.0-alpha)
 
-- Applications modules (frontend + backend) with Metahubs publications integration.
-- Domain-Driven Design architecture refactoring for metahubs packages.
-- VLC (Versioned Localized Content) localization system for metahub entities.
-- Catalogs functionality in Metahubs (CRUD, attributes, elements).
-- i18n localized fields UI, admin locales refactoring.
+- Applications modules (frontend + backend) with Metahubs publications integration
+- Domain-Driven Design architecture refactoring for metahubs packages
+- VLC (Versioned Localized Content) localization system for metahub entities
+- Catalogs functionality in Metahubs (CRUD, attributes, elements)
 - Pattern: systemPatterns.md#vlc-utilities
 
 ---
 
 ## 2026-01-04 through 2026-01-10: Auth & Onboarding ✅ (v0.44.0-alpha)
 
-- Onboarding completion tracking with registration 419 auto-retry.
-- Legal consent feature (Terms of Service, Privacy Policy) during registration.
-- GDPR-compliant cookie consent banner.
-- Yandex SmartCaptcha integration. Auth feature toggles.
-- StartFooter component, i18n migration, auth error handling improvements.
-- Pattern: systemPatterns.md#public-routes-401-redirect, systemPatterns.md#csrf-token-lifecycle
+- Onboarding completion tracking with registration 419 auto-retry
+- Legal consent, cookie banner, captcha, auth toggles
+- Pattern: systemPatterns.md#public-routes-401-redirect
 
 ---
 
 ## 2025-12-18 through 2025-12-31: VLC, Flowise 3.0, Onboarding ✅ (v0.42.0-alpha, v0.43.0-alpha)
 
-- VLC system implementation + breadcrumb hooks refactoring.
-- Dynamic locales management system. Flowise Components upgrade 2.2.8 → 3.0.12.
-- AgentFlow Agents + Executions integration (Flowise 3.x).
-- Pagination display + localization fixes. Onboarding wizard with start pages i18n.
+- VLC system implementation + breadcrumb hooks refactoring
+- Dynamic locales management. Flowise Components upgrade 2.2.8 → 3.0.12
+- AgentFlow Agents + Executions integration (Flowise 3.x)
+- Onboarding wizard with start pages i18n
 
 ---
 
 ## 2025-12-05 through 2025-12-17: Admin Panel, Auth, Package Extraction ✅ (v0.40.0-alpha, v0.41.0-alpha)
 
-- Admin panel disable system with ENV-based feature flags.
-- Axios 1.13.2 upgrade (CVE-2025-27152 fix). Auth.jsx → auth-frontend TypeScript migration.
-- Dynamic role dropdown for global users. Legacy comment cleanup.
-- UUID v7 infrastructure and core backend package.
-- Package extraction: Tools, Credentials, Variables, ApiKey, Assistants, Leads, ChatMessage, DocStore, Custom Templates.
-- Canvas migrations consolidation + Zod validation schemas.
-- Global package naming refactoring. Admin panel + RBAC system. Admin Instances MVP.
+- Admin panel disable system with ENV-based feature flags
+- Axios 1.13.2 upgrade (CVE-2025-27152). Auth.jsx → auth-frontend TypeScript migration
+- UUID v7 infrastructure and core backend package
+- Package extraction: Tools, Credentials, Variables, ApiKey, Assistants, Leads, ChatMessage, DocStore
+- Admin panel + RBAC system. Admin Instances MVP
 - Pattern: systemPatterns.md#source-only-package-peerdependencies
 
 ---
 
 ## 2025-11-07 through 2025-11-25: Organizations, Projects, Campaigns ✅ (v0.36.0-v0.39.0-alpha)
 
-- dayjs migration, UI component refactoring, publish-frontend TypeScript migration.
-- Russian README files with UTF-8 encoding. Metaverse Dashboard with analytics.
-- REST API docs (OpenAPI 3.1) refactoring. Uniks metrics expansion. Clusters module.
-- Member actions factory, Agents migration from Chatmodes.
-- Projects management system with hierarchical structure. AR.js Quiz Nodes.
-- Organizations module. Campaigns integration. Storages management.
-- useMutation refactor across frontend packages.
-- Pattern: systemPatterns.md#universal-list-pattern, systemPatterns.md#pagination-pattern
+- dayjs migration, UI refactoring, publish-frontend TypeScript migration
+- Russian README files. Metaverse Dashboard with analytics. REST API docs refactoring
+- Member actions factory, Agents migration. Projects management. AR.js Quiz Nodes
+- Organizations module. Campaigns integration. Storages management
+- Pattern: systemPatterns.md#universal-list-pattern
 
 ---
 
 ## 2025-10-23 through 2025-11-01: Global Refactoring ✅ (v0.34.0-alpha, v0.35.0-alpha)
 
-- Global monorepo refactoring: package restructuring, tsdown build system, centralized dependencies.
-- i18n TypeScript migration. Rate limiting production implementation with Redis.
+- Global monorepo refactoring: package restructuring, tsdown build system, centralized dependencies
+- i18n TypeScript migration. Rate limiting production implementation with Redis
 - Pattern: systemPatterns.md#build-system-patterns, systemPatterns.md#rate-limiting-pattern
 
 ---
 
 ## 2025-10-02 through 2025-10-16: Metaverses, Canvas, Publications ✅ (v0.31.0-v0.33.0-alpha)
 
-- Publication system fixes, Metaverses module MVP.
-- Quiz timer feature. Canvas versioning, telemetry refactoring.
-- Role-based permission matrix, publication system with Base58 links.
-- MUI Template System implementation.
+- Publication system fixes, Metaverses module MVP, Quiz timer
+- Canvas versioning, telemetry refactoring, role-based permissions
+- MUI Template System implementation
 
 ---
 
 ## 2025-09-07 through 2025-09-21: Resources, Testing, Auth ✅ (v0.28.0-v0.30.0-alpha)
 
-- Resources/Entities architecture with tenant isolation and security hardening.
-- CI i18n docs consistency checker. Spaces/Canvases publication settings.
-- Space Builder provider/model selection. Metaverses frontend/backend.
-- TypeScript path aliases standardization. Global publication library.
-- Analytics hierarchy, QR code download, testing utilities and coverage.
-- Passport.js + Supabase hybrid session architecture migration.
+- Resources/Entities architecture with tenant isolation and security hardening
+- CI i18n docs consistency checker. Spaces/Canvases publication settings
+- TypeScript path aliases. Global publication library. Analytics hierarchy
+- Passport.js + Supabase hybrid session architecture migration
 
 ---
 
 ## Pre-2025-09: Foundation Work ✅ (v0.21.0-v0.27.0-alpha)
 
-- v0.27.0 (2025-08-31): Finance module, language switcher, i18n integration.
-- v0.26.0 (2025-08-24): MMOOMM template extraction, Colyseus multiplayer server.
-- v0.25.0 (2025-08-17): Space Builder MVP, Metaverse module, core utils package.
-- v0.24.0 (2025-08-12): Space Builder enhancements, AR.js wallpaper mode.
-- v0.23.0 (2025-08-05): Russian documentation, UPDL node params, custom modes.
-- v0.22.0 (2025-07-27): Memory Bank system, MMOOMM improvements, documentation.
-- v0.21.0 (2025-07-20): Handler refactoring, PlayCanvas stabilization, Alpha status.
+- v0.27.0 (2025-08-31): Finance module, language switcher, i18n integration
+- v0.26.0 (2025-08-24): MMOOMM template extraction, Colyseus multiplayer server
+- v0.25.0 (2025-08-17): Space Builder MVP, Metaverse module, core utils package
+- v0.24.0 (2025-08-12): Space Builder enhancements, AR.js wallpaper mode
+- v0.23.0 (2025-08-05): Russian documentation, UPDL node params, custom modes
+- v0.22.0 (2025-07-27): Memory Bank system, MMOOMM improvements, documentation
+- v0.21.0 (2025-07-20): Handler refactoring, PlayCanvas stabilization, Alpha status

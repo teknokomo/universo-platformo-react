@@ -296,9 +296,7 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
         }
 
         const normalized = raw.replace(/,/g, '.')
-        const pattern = allowNegative
-            ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/)
-            : (scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/)
+        const pattern = allowNegative ? (scale > 0 ? /^-?\d*\.?\d*$/ : /^-?\d*$/) : scale > 0 ? /^\d*\.?\d*$/ : /^\d*$/
 
         if (!pattern.test(normalized)) return
 
@@ -361,7 +359,10 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
 
         // Minus
         if (key === '-') {
-            if (!allowNegative) { event.preventDefault(); return }
+            if (!allowNegative) {
+                event.preventDefault()
+                return
+            }
             if (selectionStart !== 0 || currentValue.includes('-')) event.preventDefault()
             return
         }
@@ -451,20 +452,10 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
                 endAdornment: !disabled ? (
                     <InputAdornment position='end' sx={{ ml: 0 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <IconButton
-                                size='small'
-                                tabIndex={-1}
-                                onClick={() => doStep(1)}
-                                sx={{ width: 16, height: 12, p: 0 }}
-                            >
+                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 16, height: 12, p: 0 }}>
                                 <ArrowDropUpIcon sx={{ fontSize: 14 }} />
                             </IconButton>
-                            <IconButton
-                                size='small'
-                                tabIndex={-1}
-                                onClick={() => doStep(-1)}
-                                sx={{ width: 16, height: 12, p: 0 }}
-                            >
+                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 16, height: 12, p: 0 }}>
                                 <ArrowDropDownIcon sx={{ fontSize: 14 }} />
                             </IconButton>
                         </Box>
@@ -671,14 +662,10 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     return isValidTimeString(value) ? null : t('validation.timeFormat', 'Expected time format: HH:MM')
                 }
                 if (composition === 'date') {
-                    return isValidDateString(value)
-                        ? null
-                        : t('validation.dateFormat', 'Expected date format: YYYY-MM-DD')
+                    return isValidDateString(value) ? null : t('validation.dateFormat', 'Expected date format: YYYY-MM-DD')
                 }
 
-                return isValidDateTimeString(value)
-                    ? null
-                    : t('validation.datetimeFormat', 'Expected date & time format: YYYY-MM-DD HH:MM')
+                return isValidDateTimeString(value) ? null : t('validation.datetimeFormat', 'Expected date & time format: YYYY-MM-DD HH:MM')
             }
 
             return null
@@ -985,19 +972,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     }
 
                     // Allow navigation and control keys
-                    if (
-                        [
-                            'Backspace',
-                            'Delete',
-                            'Tab',
-                            'Escape',
-                            'Enter',
-                            'ArrowLeft',
-                            'ArrowRight',
-                            'Home',
-                            'End'
-                        ].includes(key)
-                    ) {
+                    if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) {
                         return
                     }
 
@@ -1102,7 +1077,11 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 // Show precision format: "Length: 8,2" means 8 digits before decimal, 2 after
                 const formatInfo =
                     scale > 0
-                        ? t('validation.numberLengthWithScale', { defaultValue: 'Length: {{integer}},{{scale}}', integer: maxIntegerDigits, scale })
+                        ? t('validation.numberLengthWithScale', {
+                              defaultValue: 'Length: {{integer}},{{scale}}',
+                              integer: maxIntegerDigits,
+                              scale
+                          })
                         : t('validation.numberLength', { defaultValue: 'Length: {{integer}}', integer: maxIntegerDigits })
                 constraintParts.push(formatInfo)
 
@@ -1132,7 +1111,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     let next = Number((current + step).toFixed(scale))
                     if (typeof rules?.max === 'number' && next > rules.max) next = rules.max
                     // Validate precision limits before applying
-                    const result = validateNumber(next, { precision, scale, min: rules?.min, max: rules?.max, nonNegative: rules?.nonNegative })
+                    const result = validateNumber(next, {
+                        precision,
+                        scale,
+                        min: rules?.min,
+                        max: rules?.max,
+                        nonNegative: rules?.nonNegative
+                    })
                     if (!result.valid) return
                     handleFieldChange(field.id, next)
                 }
@@ -1144,7 +1129,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     if (rules?.nonNegative && next < 0) next = 0
                     if (typeof rules?.min === 'number' && next < rules.min) next = rules.min
                     // Validate precision limits before applying
-                    const result = validateNumber(next, { precision, scale, min: rules?.min, max: rules?.max, nonNegative: rules?.nonNegative })
+                    const result = validateNumber(next, {
+                        precision,
+                        scale,
+                        min: rules?.min,
+                        max: rules?.max,
+                        nonNegative: rules?.nonNegative
+                    })
                     if (!result.valid) return
                     handleFieldChange(field.id, next)
                 }
@@ -1301,7 +1292,10 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 const tableMaxRows = typeof field.validationRules?.maxRows === 'number' ? field.validationRules.maxRows : null
 
                 const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
-                    required: field.required, minRows: tableMinRows, maxRows: tableMaxRows, t
+                    required: field.required,
+                    minRows: tableMinRows,
+                    maxRows: tableMaxRows,
+                    t
                 })
                 const isMissing = checkMissing(tableRows.length)
 
@@ -1391,7 +1385,9 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                                             {child.type === 'NUMBER' ? (
                                                                 <NumberTableCell
                                                                     value={row[child.id]}
-                                                                    onChange={(cellValue) => handleTableCellChange(rowId, child.id, cellValue)}
+                                                                    onChange={(cellValue) =>
+                                                                        handleTableCellChange(rowId, child.id, cellValue)
+                                                                    }
                                                                     rules={child.validationRules}
                                                                     locale={normalizedLocale}
                                                                     disabled={disabled}
@@ -1402,9 +1398,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                                                     variant='standard'
                                                                     type='text'
                                                                     value={row[child.id] ?? ''}
-                                                                    onChange={(e) =>
-                                                                        handleTableCellChange(rowId, child.id, e.target.value)
-                                                                    }
+                                                                    onChange={(e) => handleTableCellChange(rowId, child.id, e.target.value)}
                                                                     disabled={disabled}
                                                                     fullWidth
                                                                     InputProps={{ sx: { fontSize: 13 }, disableUnderline: true }}
@@ -1442,11 +1436,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             </Table>
                         </TableContainer>
                         {tableHelperText && (
-                            <Typography
-                                variant='caption'
-                                color={isMissing ? 'error' : 'text.secondary'}
-                                sx={{ mt: 0.5, ml: 1.75 }}
-                            >
+                            <Typography variant='caption' color={isMissing ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.75 }}>
                                 {tableHelperText}
                             </Typography>
                         )}

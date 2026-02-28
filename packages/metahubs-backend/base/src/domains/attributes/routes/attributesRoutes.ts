@@ -687,13 +687,12 @@ export function createAttributesRoutes(
             const copyValidationRules: Record<string, unknown> =
                 parsed.data.validationRules !== undefined
                     ? (parsed.data.validationRules as Record<string, unknown>)
-                    : ((source.validationRules as Record<string, unknown> | undefined) ?? {})
+                    : (source.validationRules as Record<string, unknown> | undefined) ?? {}
             const copyUiConfig: Record<string, unknown> =
                 parsed.data.uiConfig !== undefined
                     ? (parsed.data.uiConfig as Record<string, unknown>)
                     : { ...((source.uiConfig as Record<string, unknown> | undefined) ?? {}) }
-            const copyIsRequired: boolean =
-                parsed.data.isRequired !== undefined ? parsed.data.isRequired : Boolean(source.isRequired)
+            const copyIsRequired: boolean = parsed.data.isRequired !== undefined ? parsed.data.isRequired : Boolean(source.isRequired)
 
             const knex = KnexClient.getInstance()
             let copyResult:

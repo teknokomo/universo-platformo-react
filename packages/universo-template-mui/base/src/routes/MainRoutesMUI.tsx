@@ -153,6 +153,12 @@ const MetahubMigrationGuard = Loadable(
     lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrationGuard })))
 )
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
+const PublicationVersionList = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationVersionList })))
+)
+const PublicationApplicationList = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationApplicationList })))
+)
 
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frontend (package deleted)
@@ -567,6 +573,14 @@ const MainRoutesMUI = {
                 {
                     path: 'publications',
                     element: <PublicationList />
+                },
+                {
+                    path: 'publication/:publicationId/versions',
+                    element: <PublicationVersionList />
+                },
+                {
+                    path: 'publication/:publicationId/applications',
+                    element: <PublicationApplicationList />
                 },
                 {
                     path: 'migrations',

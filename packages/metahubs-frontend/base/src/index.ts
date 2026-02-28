@@ -8,6 +8,8 @@ export { default as MetahubMembers } from './domains/metahubs/ui/MetahubMembers'
 
 // Publication (Information Base) pages
 export { default as PublicationList } from './domains/publications/ui/PublicationList'
+export { PublicationVersionList } from './domains/publications/ui/PublicationVersionList'
+export { PublicationApplicationList } from './domains/publications/ui/PublicationApplicationList'
 
 // Branches
 export { default as BranchList } from './domains/branches/ui/BranchList'

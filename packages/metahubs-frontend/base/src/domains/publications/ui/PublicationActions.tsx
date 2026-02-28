@@ -8,8 +8,6 @@ import type { Publication, PublicationAccessMode } from '../api'
 import type { PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { AccessPanel } from './AccessPanel'
-import { ApplicationsPanel } from './ApplicationsPanel'
-import { VersionsPanel } from './VersionsPanel'
 
 import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 
@@ -128,9 +126,8 @@ const PublicationEditFields = ({
  * Build tabs configuration for edit dialog
  * Tab 1: General (name, description)
  * Tab 2: Access (access mode configuration)
- * Tab 3: Applications (linked applications - read-only)
  *
- * Note: Metahubs tab is not shown because Publication belongs to a single Metahub (obvious from context).
+ * Note: Versions and Applications now have their own dedicated pages.
  */
 const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>, metahubId: string) => {
     return ({
@@ -147,7 +144,7 @@ const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocaliz
         const tabs: TabConfig[] = [
             {
                 id: 'general',
-                label: ctx.t('publications.tabs.general', 'Основное'),
+                label: ctx.t('publications.tabs.general', 'General'),
                 content: (
                     <PublicationEditFields
                         values={values}
@@ -160,13 +157,8 @@ const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocaliz
                 )
             },
             {
-                id: 'versions',
-                label: ctx.t('publications.versions.title', 'Versions'),
-                content: <VersionsPanel metahubId={metahubId} publicationId={ctx.entity.id} />
-            },
-            {
                 id: 'access',
-                label: ctx.t('publications.tabs.access', 'Доступ'),
+                label: ctx.t('publications.tabs.access', 'Access'),
                 content: (
                     <AccessPanel
                         accessMode={(values.accessMode as PublicationAccessMode) ?? 'full'}
@@ -175,11 +167,6 @@ const buildFormTabs = (ctx: ActionContext<PublicationDisplay, PublicationLocaliz
                         disabled={isFormLoading}
                     />
                 )
-            },
-            {
-                id: 'applications',
-                label: ctx.t('publications.tabs.applications', 'Приложения'),
-                content: <ApplicationsPanel metahubId={metahubId} publicationId={ctx.entity.id} uiLocale={ctx.uiLocale as string} />
             }
         ]
         return tabs
