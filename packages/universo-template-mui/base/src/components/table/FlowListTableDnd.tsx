@@ -60,13 +60,13 @@ export const SortableTableRow: React.FC<SortableTableRowProps> = ({
             ref={setNodeRef}
             style={style}
             sx={hasExpansion ? { '& td, & th': { borderBottom: 0 } } : undefined}
-            {...attributes}
         >
-            {/* Drag handle column */}
+            {/* Drag handle column — attributes + listeners must be on the same focusable element for keyboard DnD */}
             <StyledTableCell
                 align='center'
                 sx={{ width: 40, px: 0.5, cursor: disabled ? 'default' : 'grab', verticalAlign: 'middle' }}
                 aria-label={dragHandleAriaLabel}
+                {...attributes}
                 {...listeners}
             >
                 <DragIndicatorIcon

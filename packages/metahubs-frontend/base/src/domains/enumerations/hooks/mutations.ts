@@ -336,17 +336,17 @@ export function useReorderEnumerationValue() {
 
             // Optimistically reorder items
             queryClient.setQueriesData<Record<string, unknown>>({ queryKey: baseKey }, (old) => {
-                if (!old || !Array.isArray((old as any).items)) return old
-                const items = [...(old as any).items]
-                const fromIndex = items.findIndex((i: any) => i.id === variables.valueId)
+                if (!old || !Array.isArray((old as Record<string, unknown> & { items?: unknown[] }).items)) return old
+                const items = [...(old as Record<string, unknown> & { items: Record<string, unknown>[] }).items]
+                const fromIndex = items.findIndex((i) => (i as Record<string, unknown>).id === variables.valueId)
                 if (fromIndex === -1) return old
 
-                let toIndex = items.findIndex((i: any) => (i.sortOrder ?? 0) === variables.newSortOrder)
+                let toIndex = items.findIndex((i) => ((i as Record<string, unknown>).sortOrder ?? 0) === variables.newSortOrder)
                 if (toIndex === -1) toIndex = items.length - 1
 
                 const [moved] = items.splice(fromIndex, 1)
                 items.splice(toIndex, 0, moved)
-                const updated = items.map((item: any, idx: number) => ({ ...item, sortOrder: idx + 1 }))
+                const updated = items.map((item, idx) => ({ ...item, sortOrder: idx + 1 }))
                 return { ...old, items: updated }
             })
 

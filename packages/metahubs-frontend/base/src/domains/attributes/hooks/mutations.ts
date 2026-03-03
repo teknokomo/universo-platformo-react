@@ -319,7 +319,11 @@ export function useReorderAttribute() {
                         if (!old || !Array.isArray((old as Record<string, unknown> & { items?: unknown[] }).items)) return old
                         const items = [...(old as Record<string, unknown> & { items: Record<string, unknown>[] }).items]
                         const insertIdx = Math.min(Math.max(0, variables.newSortOrder - 1), items.length)
-                        items.splice(insertIdx, 0, { ...captured, sortOrder: variables.newSortOrder })
+                        items.splice(insertIdx, 0, {
+                            ...captured,
+                            sortOrder: variables.newSortOrder,
+                            parentAttributeId: variables.newParentAttributeId ?? null
+                        })
                         const reindexed = items.map((item, i) => ({ ...item, sortOrder: i + 1 }))
                         return { ...old, items: reindexed }
                     }
