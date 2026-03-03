@@ -214,12 +214,6 @@
             "allActionsHint": "All actions for subject",
             "hint": "Check individual cells or use row/column headers for bulk selection. \"*\" means all actions.",
             "subjects": {
-                "metaverses": "Metaverses",
-                "spaces": "Spaces",
-                "uniks": "Uniks",
-                "sections": "Sections",
-                "entities": "Entities",
-                "canvases": "Canvases",
                 "publications": "Publications",
                 "admin": "Administration",
                 "roles": "Roles",

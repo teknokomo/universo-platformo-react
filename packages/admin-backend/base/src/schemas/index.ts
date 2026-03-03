@@ -66,12 +66,6 @@ export function validateListQuery(query: unknown): ListQueryInput {
  * Available permission subjects (CASL standard terminology)
  */
 const PermissionSubjects = [
-    'metaverses',
-    'spaces',
-    'uniks',
-    'sections',
-    'entities',
-    'canvases',
     'publications',
     'roles',
     'instances',

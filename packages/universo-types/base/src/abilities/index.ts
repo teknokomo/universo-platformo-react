@@ -11,7 +11,7 @@
  * const permissions = await getUserPermissions(ds, userId)
  * const ability = defineAbilitiesFor(userId, permissions)
  *
- * ability.can('update', 'Metaverse') // true/false
+ * ability.can('update', 'Publication') // true/false
  * ```
  */
 
@@ -30,17 +30,6 @@ export type Actions = 'create' | 'read' | 'update' | 'delete' | 'manage'
 
 /** All resource types in the platform */
 export type Subjects =
-    | 'Metaverse'
-    | 'Cluster'
-    | 'Project'
-    | 'Space'
-    | 'Storage'
-    | 'Organization'
-    | 'Campaign'
-    | 'Unik'
-    | 'Section'
-    | 'Entity'
-    | 'Canvas'
     | 'Publication'
     | 'Admin'
     | 'Role'
@@ -73,17 +62,6 @@ export interface DbPermission {
 
 /** Maps database module names to CASL subject types */
 const MODULE_TO_SUBJECT: Record<string, Subjects> = {
-    metaverses: 'Metaverse',
-    clusters: 'Cluster',
-    projects: 'Project',
-    spaces: 'Space',
-    storages: 'Storage',
-    organizations: 'Organization',
-    campaigns: 'Campaign',
-    uniks: 'Unik',
-    sections: 'Section',
-    entities: 'Entity',
-    canvases: 'Canvas',
     publications: 'Publication',
     admin: 'Admin',
     '*': 'all'
@@ -112,7 +90,7 @@ const ACTION_MAP: Record<string, Actions> = {
  * @example
  * ```typescript
  * const ability = defineAbilitiesFor(userId, permissions)
- * ability.can('update', 'Metaverse') // Check permission
+ * ability.can('update', 'Publication') // Check permission
  * ```
  */
 export function defineAbilitiesFor(userId: string, permissions: DbPermission[]): AppAbility {
