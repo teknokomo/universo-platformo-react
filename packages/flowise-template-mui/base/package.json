@@ -1,122 +1,118 @@
 {
-  "name": "@flowise/template-mui",
-  "version": "0.1.0",
-  "description": "Material-UI component library extracted from Flowise UI (unbundled source pattern)",
-  "license": "SEE LICENSE IN LICENSE-Flowise.md",
-  "homepage": "https://universo.pro",
-  "author": {
-    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
-    "email": "info@universo.pro"
-  },
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+    "name": "@flowise/template-mui",
+    "version": "0.1.0",
+    "description": "Material-UI component library extracted from Flowise UI (unbundled source pattern)",
+    "license": "SEE LICENSE IN LICENSE-Flowise.md",
+    "homepage": "https://universo.pro",
+    "author": {
+        "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+        "email": "info@universo.pro"
     },
-    "./hooks": {
-      "types": "./src/hooks/index.ts",
-      "default": "./src/hooks/index.ts"
+    "main": "./src/index.ts",
+    "module": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./src/index.ts"
+        },
+        "./hooks": {
+            "types": "./src/hooks/index.ts",
+            "default": "./src/hooks/index.ts"
+        },
+        "./i18n": {
+            "types": "./src/i18n/index.ts",
+            "default": "./src/i18n/index.ts"
+        },
+        "./hooks/useApi": "./src/hooks/hooks/useApi.jsx",
+        "./hooks/useConfirm": "./src/hooks/hooks/useConfirm.jsx",
+        "./hooks/useNotifier": "./src/hooks/useNotifier.js",
+        "./hooks/useSearchShortcut": "./src/hooks/hooks/useSearchShortcut.jsx",
+        "./ErrorBoundary": "./src/ErrorBoundary.jsx",
+        "./config": "./src/config.js",
+        "./layout": "./src/layout/index.js",
+        "./layout/*": "./src/layout/*",
+        "./routes": "./src/routes/index.jsx",
+        "./routes/*": "./src/routes/*",
+        "./themes": "./src/themes/index.js",
+        "./themes/*": "./src/themes/*",
+        "./menu-items": "./src/menu-items/index.js",
+        "./menu-items/*": "./src/menu-items/*",
+        "./ui-components/*": "./src/ui-components/*",
+        "./utils/*": "./src/utils/*",
+        "./constants": "./src/constants.ts",
+        "./assets/*": "./src/assets/*",
+        "./package.json": "./package.json"
     },
-    "./i18n": {
-      "types": "./src/i18n/index.ts",
-      "default": "./src/i18n/index.ts"
+    "sideEffects": [
+        "**/*.css",
+        "**/*.scss",
+        "**/*.sass",
+        "./src/i18n/index.ts"
+    ],
+    "files": [
+        "src",
+        "!src/**/__tests__",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx",
+        "!src/**/*.spec.ts",
+        "!src/**/*.spec.tsx",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "echo 'No build needed for source-only package'",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint --ext .js,.jsx,.ts,.tsx src/"
     },
-    "./hooks/useApi": "./src/hooks/hooks/useApi.jsx",
-    "./hooks/useConfirm": "./src/hooks/hooks/useConfirm.jsx",
-    "./hooks/useNotifier": "./src/hooks/useNotifier.js",
-    "./hooks/useSearchShortcut": "./src/hooks/hooks/useSearchShortcut.jsx",
-    "./ErrorBoundary": "./src/ErrorBoundary.jsx",
-    "./config": "./src/config.js",
-    "./layout": "./src/layout/index.js",
-    "./layout/*": "./src/layout/*",
-    "./routes": "./src/routes/index.jsx",
-    "./routes/*": "./src/routes/*",
-    "./themes": "./src/themes/index.js",
-    "./themes/*": "./src/themes/*",
-    "./menu-items": "./src/menu-items/index.js",
-    "./menu-items/*": "./src/menu-items/*",
-    "./ui-components/*": "./src/ui-components/*",
-    "./utils/*": "./src/utils/*",
-    "./constants": "./src/constants.ts",
-    "./assets/*": "./src/assets/*",
-    "./package.json": "./package.json"
-  },
-  "sideEffects": [
-    "**/*.css",
-    "**/*.scss",
-    "**/*.sass",
-    "./src/i18n/index.ts"
-  ],
-  "files": [
-    "src",
-    "!src/**/__tests__",
-    "!src/**/*.test.ts",
-    "!src/**/*.test.tsx",
-    "!src/**/*.spec.ts",
-    "!src/**/*.spec.tsx",
-    "README.md"
-  ],
-  "scripts": {
-    "build": "echo 'No build needed for source-only package'",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/"
-  },
-  "dependencies": {
-    "@emotion/react": "^11.11.4",
-    "@emotion/styled": "^11.11.5",
-    "@flowise/store": "workspace:*",
-    "@mui/icons-material": "catalog:",
-    "@mui/material": "catalog:",
-    "@mui/x-data-grid": "catalog:",
-    "@universo/api-client": "workspace:*",
-    "@flowise/credentials-frontend": "workspace:*",
-    "@flowise/tools-frontend": "workspace:*",
-    "@universo/i18n": "workspace:*",
-    "@uiw/codemirror-theme-sublime": "^4.23.0",
-    "@uiw/codemirror-theme-vscode": "^4.23.0",
-    "@uiw/react-codemirror": "^4.23.0",
-    "clsx": "^2.0.0",
-    "dompurify": "^3.2.6",
-    "framer-motion": "^10.16.4",
-    "prop-types": "^15.8.1",
-    "react-perfect-scrollbar": "^1.5.8",
-    "react-syntax-highlighter": "^15.5.0",
-    "react-datepicker": "^4.16.0",
-    "flowise-react-json-view": "^1.21.7",
-    "react-copy-to-clipboard": "^5.1.0"
-  },
-  "peerDependenciesMeta": {
-    "react-redux": {
-      "optional": true
-    }
-  },
-  "optionalDependencies": {
-    "@tabler/icons-react": "^3.30.0"
-  },
-  "bundledDependencies": [],
-  "devDependencies": {
-    "@types/node": "catalog:",
-    "@types/react": "catalog:",
-    "eslint": "catalog:",
-    "rimraf": "^5.0.5",
-    "tsdown": "catalog:",
-    "typescript": "catalog:"
-  },
-  "peerDependencies": {
-    "@flowise/assistants-frontend": "workspace:*",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "catalog:"
-  },
-
-  "keywords": [
-    "universo",
-    "flowise",
-    "mui",
-    "material-ui",
-    "components"
-  ]
+    "dependencies": {
+        "@emotion/react": "^11.11.4",
+        "@emotion/styled": "^11.11.5",
+        "@flowise/store": "workspace:*",
+        "@mui/icons-material": "catalog:",
+        "@mui/material": "catalog:",
+        "@mui/x-data-grid": "catalog:",
+        "@universo/api-client": "workspace:*",
+        "@universo/i18n": "workspace:*",
+        "@uiw/codemirror-theme-sublime": "^4.23.0",
+        "@uiw/codemirror-theme-vscode": "^4.23.0",
+        "@uiw/react-codemirror": "^4.23.0",
+        "clsx": "^2.0.0",
+        "dompurify": "^3.2.6",
+        "framer-motion": "^10.16.4",
+        "prop-types": "^15.8.1",
+        "react-perfect-scrollbar": "^1.5.8",
+        "react-syntax-highlighter": "^15.5.0",
+        "react-datepicker": "^4.16.0",
+        "flowise-react-json-view": "^1.21.7",
+        "react-copy-to-clipboard": "^5.1.0"
+    },
+    "peerDependenciesMeta": {
+        "react-redux": {
+            "optional": true
+        }
+    },
+    "optionalDependencies": {
+        "@tabler/icons-react": "^3.30.0"
+    },
+    "bundledDependencies": [],
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "typescript": "catalog:"
+    },
+    "peerDependencies": {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-router-dom": "catalog:"
+    },
+    "keywords": [
+        "universo",
+        "flowise",
+        "mui",
+        "material-ui",
+        "components"
+    ]
 }

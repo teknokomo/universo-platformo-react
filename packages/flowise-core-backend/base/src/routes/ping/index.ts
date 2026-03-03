@@ -1,8 +1,10 @@
 import express from 'express'
-import pingController from '../../controllers/ping'
+import { Request, Response } from 'express'
 const router = express.Router()
 
-// GET
-router.get('/', pingController.getPing)
+// GET /ping — health check
+router.get('/', (_req: Request, res: Response) => {
+    res.status(200).send('pong')
+})
 
 export default router

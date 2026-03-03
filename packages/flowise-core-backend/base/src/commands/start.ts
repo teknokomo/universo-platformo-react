@@ -2,24 +2,17 @@ import * as Server from '../index'
 import * as DataSource from '../DataSource'
 import logger from '../utils/logger'
 import { BaseCommand } from './base'
-import { getMultiplayerManager } from '@universo/multiplayer-colyseus-backend'
 import { net, rateLimiting } from '@universo/utils'
 
 export default class Start extends BaseCommand {
     async run(): Promise<void> {
-        logger.info('Starting Flowise...')
+        logger.info('Starting Universo Platformo...')
         const host = process.env.HOST
         const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 
         await net.ensurePortAvailable(port, host)
         await DataSource.init()
         await Server.start()
-
-        // Start multiplayer server after main server is running
-        setTimeout(async () => {
-            const multiplayerManager = getMultiplayerManager()
-            await multiplayerManager.start()
-        }, 1000)
     }
 
     async catch(error: Error) {
@@ -36,11 +29,7 @@ export default class Start extends BaseCommand {
 
     async stopProcess() {
         try {
-            logger.info(`Shutting down Flowise...`)
-
-            // Stop multiplayer server first
-            const multiplayerManager = getMultiplayerManager()
-            await multiplayerManager.stop()
+            logger.info('Shutting down Universo Platformo...')
 
             const serverApp = Server.getInstance()
             if (serverApp) await serverApp.stopApp()
@@ -48,7 +37,7 @@ export default class Start extends BaseCommand {
             // Close Redis client used by rate limiters (if any)
             await rateLimiting.RedisClientManager.close()
         } catch (error) {
-            logger.error('There was an error shutting down Flowise...', error)
+            logger.error('There was an error shutting down...', error)
             await this.failExit()
         }
 

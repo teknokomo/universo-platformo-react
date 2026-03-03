@@ -6,38 +6,23 @@ import http from 'http'
 import session from 'express-session'
 import csurf from 'csurf'
 import rateLimit from 'express-rate-limit'
-// Universo Platformo | Removed express-basic-auth import - Basic Auth is no longer used
-// import basicAuth from 'express-basic-auth'
-const cookieParser = require('cookie-parser') // Universo Platformo | Add cookie-parser for refresh tokens
-import jwt from 'jsonwebtoken' // Universo Platformo | New import for JWT verification
+const cookieParser = require('cookie-parser')
+import jwt from 'jsonwebtoken'
 import { DataSource } from 'typeorm'
-import { MODE } from './Interface'
-import { getNodeModulesPackagePath, getEncryptionKey } from './utils'
+import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { getDataSource } from './DataSource'
-import { NodesPool } from './NodesPool'
-import { Canvas } from '@universo/spaces-backend'
-import type { CanvasFlowResult } from '@universo/spaces-backend'
-import { CachePool } from './CachePool'
-import { AbortControllerPool } from './AbortControllerPool'
-import { RateLimiterManager } from './utils/rateLimit'
-import { getAPIKeysFromJson, getDefaultAPIKeyPath } from '@flowise/apikey-backend'
-import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import { Telemetry } from './utils/telemetry'
+import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import flowiseApiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-backend'
-import { initializeRateLimiters } from '@universo/metaverses-backend'
-import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates as seedMetahubTemplates } from '@universo/metahubs-backend'
+import {
+    initializeRateLimiters as initializeMetahubsRateLimiters,
+    seedTemplates as seedMetahubTemplates
+} from '@universo/metahubs-backend'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
-import { SSEStreamer } from './utils/SSEStreamer'
-import { validateAPIKey } from './utils/validateKey'
-import { IMetricsProvider } from './Interface.Metrics'
-import { Prometheus } from './metrics/Prometheus'
-import { OpenTelemetry } from './metrics/OpenTelemetry'
-import { QueueManager } from './queue/QueueManager'
-import { RedisEventSubscriber } from './queue/RedisEventSubscriber'
 import { API_WHITELIST_URLS } from '@universo/utils'
 import 'global-agent/bootstrap'
 
@@ -49,44 +34,16 @@ const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
     return 'lax'
 }
 
-declare global {
-    namespace Express {
-        namespace Multer {
-            interface File {
-                bucket: string
-                key: string
-                acl: string
-                contentType: string
-                contentDisposition: null
-                storageClass: string
-                serverSideEncryption: null
-                metadata: any
-                location: string
-                etag: string
-            }
-        }
-    }
-}
-
 export class App {
     app: express.Application
-    nodesPool: NodesPool
-    abortControllerPool: AbortControllerPool
-    cachePool: CachePool
     telemetry: Telemetry
-    rateLimiterManager: RateLimiterManager
     AppDataSource: DataSource = getDataSource()
-    sseStreamer: SSEStreamer
-    metricsProvider: IMetricsProvider
-    queueManager: QueueManager
-    redisSubscriber: RedisEventSubscriber
 
     constructor() {
         this.app = express()
     }
 
     async initDatabase() {
-        // Initialize database
         try {
             await this.AppDataSource.initialize()
             logger.info('📦 [server]: Data Source is initializing...')
@@ -94,57 +51,14 @@ export class App {
             // Run Migrations Scripts
             await this.AppDataSource.runMigrations({ transaction: 'each' })
 
-            // Initialize nodes pool
-            this.nodesPool = new NodesPool()
-            await this.nodesPool.initialize()
-
-            // Initialize abort controllers pool
-            this.abortControllerPool = new AbortControllerPool()
-
-            // Initialize API keys (JSON file mode only)
-            await getAPIKeysFromJson(getDefaultAPIKeyPath())
-
-            // Initialize encryption key
-            await getEncryptionKey()
-
-            // Initialize Rate Limit
-            this.rateLimiterManager = RateLimiterManager.getInstance()
-            // Load only required fields to avoid unnecessary column dependencies
-            const rlItems = (await getDataSource()
-                .getRepository(Canvas)
-                .createQueryBuilder('canvas')
-                .select(['canvas.id', 'canvas.apiConfig'])
-                .getMany()) as CanvasFlowResult[]
-            await this.rateLimiterManager.initializeRateLimiters(rlItems)
-
-            // Initialize cache pool
-            this.cachePool = new CachePool()
-
             // Initialize telemetry
             this.telemetry = new Telemetry()
 
-            // Initialize SSE Streamer
-            this.sseStreamer = new SSEStreamer()
-
-            // Init Queues
-            if (process.env.MODE === MODE.QUEUE) {
-                this.queueManager = QueueManager.getInstance()
-                this.queueManager.setupAllQueues({
-                    componentNodes: this.nodesPool.componentNodes,
-                    telemetry: this.telemetry,
-                    cachePool: this.cachePool,
-                    appDataSource: this.AppDataSource,
-                    abortControllerPool: this.abortControllerPool
-                })
-                this.redisSubscriber = new RedisEventSubscriber(this.sseStreamer)
-                await this.redisSubscriber.connect()
-            }
-
-            // Diagnostics: ensure Spaces entities are registered
+            // Diagnostics: list registered entities
             const entityNames = getDataSource()
                 .entityMetadatas.map((m) => m.name)
                 .sort()
-            logger.info(`📦 [server]: Data Source has been initialized!`)
+            logger.info('📦 [server]: Data Source has been initialized!')
             logger.info(`[diag] Entities loaded: ${entityNames.join(', ')}`)
         } catch (error) {
             logger.error('❌ [server]: Error during Data Source initialization:', error)
@@ -160,13 +74,13 @@ export class App {
         }
 
         // Limit is needed to allow sending/receiving base64 encoded string
-        const flowise_file_size_limit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
-        this.app.use(express.json({ limit: flowise_file_size_limit }))
-        this.app.use(express.urlencoded({ limit: flowise_file_size_limit, extended: true }))
+        const fileSizeLimit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
+        this.app.use(express.json({ limit: fileSizeLimit }))
+        this.app.use(express.urlencoded({ limit: fileSizeLimit, extended: true }))
         if (process.env.NUMBER_OF_PROXIES && parseInt(process.env.NUMBER_OF_PROXIES) > 0)
             this.app.set('trust proxy', parseInt(process.env.NUMBER_OF_PROXIES))
 
-        // Universo Platformo | Add cookie-parser middleware
+        // Cookie-parser middleware (needed for refresh tokens)
         this.app.use(cookieParser() as any)
 
         const sessionSecret = process.env.SESSION_SECRET
@@ -209,10 +123,10 @@ export class App {
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))
 
-        // Allow embedding from specified domains.
+        // Allow embedding from specified domains
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             const allowedOrigins = getAllowedIframeOrigins()
-            if (allowedOrigins == '*') {
+            if (allowedOrigins === '*') {
                 next()
             } else {
                 const csp = `frame-ancestors ${allowedOrigins}`
@@ -230,35 +144,32 @@ export class App {
         // Add the sanitizeMiddleware to guard against XSS
         this.app.use(sanitizeMiddleware)
 
+        // Auth routes (login, logout, CSRF, refresh, etc.)
         this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter, getDataSource))
 
         const whitelistURLs = API_WHITELIST_URLS
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
         const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
 
-        // ======= NEW AUTHENTICATION MIDDLEWARE (Supabase JWT) =======
-        // Universo Platformo | This middleware replaces the old Basic Auth logic and checks all requests to the API.
+        // ═══════════════════════════════════════════════════════════════
+        // JWT Authentication Middleware (Supabase)
+        // ═══════════════════════════════════════════════════════════════
         this.app.use('/api/v1', async (req: Request, res: Response, next: NextFunction) => {
-            // console.log(`[AUTH DEBUG] Request path: ${req.path}`)
-            // console.log(`[AUTH DEBUG] Whitelist URLs:`, whitelistURLs)
-
-            // Universo Platformo | If the path does not contain /api/v1, skip
+            // If the path does not contain /api/v1, skip
             if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
-                // console.log(`[AUTH DEBUG] Path doesn't contain /api/v1, skipping`)
                 return next()
             }
-            // Universo Platformo | If the path case doesn't match, reject
+            // If the path case doesn't match, reject
             if (!URL_CASE_SENSITIVE_REGEX.test(req.path)) {
-                // console.log(`[AUTH DEBUG] Path case doesn't match, rejecting`)
                 return res.status(401).json({ error: 'Unauthorized Access' })
             }
-            // Universo Platformo | If URL in whitelist, skip
+            // If URL in whitelist, skip
             const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-            // console.log(`[AUTH DEBUG] Is whitelisted: ${isWhitelisted}`)
             if (isWhitelisted) {
-                // console.log(`[AUTH DEBUG] URL is whitelisted, allowing`)
                 return next()
             }
+
+            // Try session-based auth first
             const sessionTokens = (req.session as any)?.tokens
             const hasSession = Boolean(req.isAuthenticated?.() && sessionTokens?.access)
             if (hasSession) {
@@ -266,20 +177,15 @@ export class App {
             }
 
             const headerValue = req.headers['authorization'] || req.headers['Authorization']
-            const bearerToken = typeof headerValue === 'string' && headerValue.startsWith('Bearer ') ? headerValue.substring(7) : null
-
+            const bearerToken =
+                typeof headerValue === 'string' && headerValue.startsWith('Bearer ') ? headerValue.substring(7) : null
             const tokenToVerify = bearerToken ?? (hasSession ? sessionTokens?.access : null)
 
             if (!tokenToVerify) {
-                const apiKeyValid = await validateAPIKey(req)
-                if (!apiKeyValid) {
-                    return res.status(401).json({ error: 'Unauthorized Access: Missing token' })
-                }
-                return next()
+                return res.status(401).json({ error: 'Unauthorized Access: Missing token' })
             }
 
             try {
-                // JWT secret was already validated at startup
                 const decoded: any = jwt.verify(tokenToVerify, jwtSecret)
                 const supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
                 if (supabaseUserId) {
@@ -290,50 +196,13 @@ export class App {
                 return next()
             } catch (error) {
                 logger.warn('[auth] JWT verification error', error as Error)
-                const apiKeyValid = await validateAPIKey(req)
-                if (!apiKeyValid) {
-                    return res.status(401).json({ error: 'Unauthorized Access: Invalid or expired token' })
-                }
-                return next()
+                return res.status(401).json({ error: 'Unauthorized Access: Invalid or expired token' })
             }
         })
-        // ======= END NEW AUTHENTICATION MIDDLEWARE =======
 
-        // --- Old Basic Auth blocks are removed ---
-        // Universo Platformo | (Branch based on FLOWISE_USERNAME / FLOWISE_PASSWORD completely removed)
-
-        if (process.env.ENABLE_METRICS === 'true') {
-            switch (process.env.METRICS_PROVIDER) {
-                // default to prometheus
-                case 'prometheus':
-                case undefined:
-                    this.metricsProvider = new Prometheus(this.app)
-                    break
-                case 'open_telemetry':
-                    this.metricsProvider = new OpenTelemetry(this.app)
-                    break
-                // add more cases for other metrics providers here
-            }
-            if (this.metricsProvider) {
-                await this.metricsProvider.initializeCounters()
-                logger.info(`📊 [server]: Metrics Provider [${this.metricsProvider.getName()}] has been initialized!`)
-            } else {
-                logger.error(
-                    "❌ [server]: Metrics collection is enabled, but failed to initialize provider (valid values are 'prometheus' or 'open_telemetry'."
-                )
-            }
-        }
-
-        // Initialize rate limiters for metaverses service
-        await initializeRateLimiters()
-
-        // Initialize rate limiters for metahubs service
+        // Initialize rate limiters for services
         await initializeMetahubsRateLimiters()
-
-        // Initialize rate limiters for applications service
         await initializeApplicationsRateLimiters()
-
-        // Initialize rate limiters for start (onboarding) service
         await initializeStartRateLimiters()
 
         // Seed metahub templates into DB (idempotent, non-fatal)
@@ -343,37 +212,19 @@ export class App {
             logger.error('[server]: Failed to seed metahub templates:', error)
         }
 
+        // Mount API v1 routes
         this.app.use('/api/v1', flowiseApiV1Router)
 
-        // ----------------------------------------
-        // Configure number of proxies in Host Environment
-        // ----------------------------------------
-        this.app.get('/api/v1/ip', (request, response) => {
-            response.send({
-                ip: request.ip,
-                msg: 'Check returned IP address in the response. If it matches your current IP address ( which you can get by going to http://ip.nfriedly.com/ or https://api.ipify.org/ ), then the number of proxies is correct and the rate limiter should now work correctly. If not, increase the number of proxies by 1 and restart Cloud-Hosted Flowise until the IP address matches your own. Visit https://docs.flowiseai.com/configuration/rate-limit#cloud-hosted-rate-limit-setup-guide for more information.'
-            })
-        })
-
-        if (process.env.MODE === MODE.QUEUE) {
-            this.app.use('/admin/queues', this.queueManager.getBullBoardRouter())
-        }
-
-        // ----------------------------------------
-        // Serve UI static
-        // ----------------------------------------
-
+        // ═══════════════════════════════════════════════════════════════
+        // Serve UI static files
+        // ═══════════════════════════════════════════════════════════════
         const packagePath = getNodeModulesPackagePath('@flowise/core-frontend')
         const uiBuildPath = path.join(packagePath, 'build')
         const uiHtmlPath = path.join(packagePath, 'build', 'index.html')
 
-        // Universo Platformo | Serve static assets from publish-frontend for AR.js libraries
-        const publishFrtAssetsPath = path.join(__dirname, '../../../packages/publish-frontend/base/dist/assets')
-        this.app.use('/assets', express.static(publishFrtAssetsPath))
-
         this.app.use('/', express.static(uiBuildPath))
 
-        // All other requests not handled will return React app
+        // All other requests not handled will return React app (SPA fallback)
         this.app.use((req: Request, res: Response) => {
             res.sendFile(uiHtmlPath)
         })
@@ -384,14 +235,9 @@ export class App {
 
     async stopApp() {
         try {
-            const removePromises: any[] = []
-            removePromises.push(this.telemetry.flush())
-            if (this.queueManager) {
-                removePromises.push(this.redisSubscriber.disconnect())
-            }
-            await Promise.all(removePromises)
+            await this.telemetry.flush()
         } catch (e) {
-            logger.error(`❌[server]: Flowise Server shut down error: ${e}`)
+            logger.error(`❌[server]: Server shut down error: ${e}`)
         }
     }
 }
@@ -409,7 +255,7 @@ export async function start(): Promise<void> {
     await serverApp.config()
 
     server.listen(port, host, () => {
-        logger.info(`⚡️ [server]: Flowise Server is listening at ${host ? 'http://' + host : ''}:${port}`)
+        logger.info(`⚡️ [server]: Universo Platformo is listening at ${host ? 'http://' + host : ''}:${port}`)
     })
 }
 

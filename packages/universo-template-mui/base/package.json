@@ -43,14 +43,6 @@
         "@dnd-kit/utilities": "^3.2.2",
         "@flowise/store": "workspace:*",
         "@flowise/template-mui": "workspace:*",
-        "@flowise/apikey-frontend": "workspace:*",
-        "@flowise/assistants-frontend": "workspace:*",
-        "@flowise/credentials-frontend": "workspace:*",
-        "@flowise/customtemplates-frontend": "workspace:*",
-        "@flowise/docstore-frontend": "workspace:*",
-        "@flowise/executions-frontend": "workspace:*",
-        "@flowise/tools-frontend": "workspace:*",
-        "@flowise/variables-frontend": "workspace:*",
         "@tanstack/react-query": "^5.62.13",
         "@mui/material": "catalog:",
         "@mui/icons-material": "catalog:",
@@ -108,7 +100,7 @@
     "peerDependencies": {
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
-            "react-router-dom": "catalog:"
+        "react-router-dom": "catalog:"
     },
     "keywords": [
         "universo",
