@@ -7,7 +7,8 @@ import {
     IconApps,
     IconGitBranch,
     IconLayoutDashboard,
-    IconHistory
+    IconHistory,
+    IconSettings
 } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
@@ -30,7 +31,8 @@ const icons = {
     IconGitBranch,
     IconLayoutDashboard,
     IconFiles,
-    IconHistory
+    IconHistory,
+    IconSettings
 }
 
 // ==============================|| METAHUB DASHBOARD MENU ITEMS ||============================== //
@@ -120,6 +122,19 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/access',
             icon: icons.IconUsersGroup,
+            breadcrumbs: true
+        },
+        {
+            id: 'divider-footer',
+            title: '',
+            type: 'divider'
+        },
+        {
+            id: 'settings',
+            title: 'menu:settings',
+            type: 'item',
+            url: '/settings',
+            icon: icons.IconSettings,
             breadcrumbs: true
         }
     ]

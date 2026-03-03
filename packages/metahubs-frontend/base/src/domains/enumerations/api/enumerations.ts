@@ -260,6 +260,13 @@ export const copyEnumerationValue = (metahubId: string, enumerationId: string, v
 export type EnumerationValueCopyInput = Partial<
     Pick<
         EnumerationValueLocalizedPayload,
-        'codename' | 'name' | 'description' | 'namePrimaryLocale' | 'descriptionPrimaryLocale' | 'isDefault'
+        | 'codename'
+        | 'codenameInput'
+        | 'codenamePrimaryLocale'
+        | 'name'
+        | 'description'
+        | 'namePrimaryLocale'
+        | 'descriptionPrimaryLocale'
+        | 'isDefault'
     >
 >

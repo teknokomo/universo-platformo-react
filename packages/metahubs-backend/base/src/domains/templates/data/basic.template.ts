@@ -91,8 +91,18 @@ export const basicTemplate: MetahubTemplateManifest = {
             dashboard: buildSeedZoneWidgets()
         },
         settings: [
-            { key: 'general.language', value: { _value: 'en' } },
-            { key: 'general.timezone', value: { _value: 'UTC' } }
+            { key: 'general.language', value: { _value: 'system' } },
+            { key: 'general.timezone', value: { _value: 'UTC' } },
+            { key: 'general.codenameStyle', value: { _value: 'pascal-case' } },
+            { key: 'general.codenameAlphabet', value: { _value: 'en-ru' } },
+            { key: 'general.codenameAllowMixedAlphabets', value: { _value: false } },
+            { key: 'general.codenameAutoConvertMixedAlphabets', value: { _value: true } },
+            { key: 'general.codenameAutoReformat', value: { _value: true } },
+            { key: 'general.codenameRequireReformat', value: { _value: true } },
+            { key: 'general.codenameLocalizedEnabled', value: { _value: false } },
+            { key: 'catalogs.allowAttributeCopy', value: { _value: true } },
+            { key: 'catalogs.allowAttributeDelete', value: { _value: true } },
+            { key: 'catalogs.allowDeleteLastDisplayAttribute', value: { _value: true } }
         ]
     }
 }

@@ -1,13 +1,39 @@
+import { useEffect } from 'react'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { Stack, Divider, Box, RadioGroup, FormControlLabel, Radio, Typography, Checkbox } from '@mui/material'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, notifyError } from '@universo/template-mui'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { Metahub, MetahubDisplay, MetahubLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig, getCodenameHelperKey } from '../../settings/hooks/useCodenameConfig'
+import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
+
+const DEFAULT_CC: CodenameConfig = {
+    style: 'pascal-case',
+    alphabet: 'en-ru',
+    allowMixed: false,
+    autoConvertMixedAlphabets: true,
+    autoReformat: true,
+    requireReformat: true,
+    localizedEnabled: false
+}
+const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+
+type GenericFormValues = Record<string, unknown>
+
+type EditTabArgs = {
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    errors?: Record<string, string>
+}
+
+const ignoreTemplateChange = (_id: string | null) => undefined
+
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
@@ -22,6 +48,7 @@ const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedP
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
+        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
         storageMode: 'main_db',
@@ -90,39 +117,51 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocali
     }
 }
 
-const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>, values: Record<string, any>) => {
+const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>, values: GenericFormValues) => {
+    const cc = _cc(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     if (!hasPrimaryContent(nameVlc)) {
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('validation.codenameRequired', 'Codename is required')
-    } else if (!isValidCodename(normalizedCodename)) {
+    } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
         errors.codename = ctx.t('validation.codenameInvalid', 'Codename contains invalid characters')
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveMetahubForm = (values: Record<string, any>) => {
+const canSaveMetahubForm = (values: GenericFormValues) => {
+    const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
-    return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+    return (
+        !values._hasCodenameDuplicate &&
+        hasPrimaryContent(nameVlc) &&
+        Boolean(normalizedCodename) &&
+        isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)
+    )
 }
 
-const toPayload = (values: Record<string, any>): MetahubLocalizedPayload => {
+const toPayload = (values: GenericFormValues): MetahubLocalizedPayload => {
+    const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = sanitizeCodename(String(values.codename || ''))
+    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
 
+    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
 
     return {
         codename,
+        codenameInput,
+        codenamePrimaryLocale,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
@@ -136,23 +175,36 @@ const MetahubEditFields = ({
     isLoading,
     errors,
     t,
-    uiLocale
+    uiLocale,
+    editingEntityId
 }: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors?: Record<string, string>
     t: ActionContext<MetahubDisplay, MetahubLocalizedPayload>['t']
     uiLocale?: string
+    editingEntityId?: string | null
 }) => {
     const fieldErrors = errors ?? {}
+    const codenameConfig = useCodenameConfig()
+    useEffect(() => {
+        setValue('_codenameConfig', codenameConfig)
+    }, [codenameConfig, setValue])
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -160,6 +212,23 @@ const MetahubEditFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -187,7 +256,7 @@ const MetahubEditFields = ({
             />
             <TemplateSelector
                 value={values.templateId}
-                onChange={() => {}} // Read-only in edit mode
+                onChange={ignoreTemplateChange} // Read-only in edit mode
                 disabled
             />
             <Divider />
@@ -196,11 +265,17 @@ const MetahubEditFields = ({
                 onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc ?? null}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale as string}
                 label={t('codename', 'Codename')}
-                helperText={t('codenameHelper', 'Unique identifier')}
+                helperText={t(getCodenameHelperKey(codenameConfig), 'Unique identifier')}
                 error={fieldErrors.codename}
                 disabled={isLoading}
                 required
+                editingEntityId={editingEntityId}
             />
         </Stack>
     )
@@ -208,18 +283,8 @@ const MetahubEditFields = ({
 
 const buildEditTabs = (
     ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>,
-    {
-        values,
-        setValue,
-        isLoading,
-        errors
-    }: {
-        values: Record<string, any>
-        setValue: (name: string, value: any) => void
-        isLoading: boolean
-        errors?: Record<string, string>
-    },
-    options?: { includeCopyOptions?: boolean }
+    { values, setValue, isLoading, errors }: EditTabArgs,
+    options?: { includeCopyOptions?: boolean; editingEntityId?: string | null }
 ) => {
     const storageMode = values.storageMode ?? 'main_db'
 
@@ -235,6 +300,7 @@ const buildEditTabs = (
                     errors={errors}
                     t={ctx.t}
                     uiLocale={ctx.uiLocale as string}
+                    editingEntityId={options?.editingEntityId}
                 />
             )
         },
@@ -322,13 +388,8 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: (args: {
-                        values: Record<string, any>
-                        setValue: (name: string, value: any) => void
-                        isLoading: boolean
-                        errors?: Record<string, string>
-                    }) => buildEditTabs(ctx, args),
-                    validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),
+                    tabs: (args: EditTabArgs) => buildEditTabs(ctx, args, { editingEntityId: ctx.entity.id }),
+                    validate: (values: GenericFormValues) => validateMetahubForm(ctx, values),
                     canSave: canSaveMetahubForm,
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
@@ -346,7 +407,7 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                             console.error('Failed to refresh metahubs list after edit', e)
                         }
                     },
-                    onSave: async (data: Record<string, any>) => {
+                    onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.updateEntity?.(ctx.entity.id, payload)
@@ -383,13 +444,8 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: (args: {
-                        values: Record<string, any>
-                        setValue: (name: string, value: any) => void
-                        isLoading: boolean
-                        errors?: Record<string, string>
-                    }) => buildEditTabs(ctx, args, { includeCopyOptions: true }),
-                    validate: (values: Record<string, any>) => validateMetahubForm(ctx, values),
+                    tabs: (args: EditTabArgs) => buildEditTabs(ctx, args, { includeCopyOptions: true, editingEntityId: null }),
+                    validate: (values: GenericFormValues) => validateMetahubForm(ctx, values),
                     canSave: canSaveMetahubForm,
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
@@ -402,7 +458,7 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
                             console.error('Failed to refresh metahubs list after copy', e)
                         }
                     },
-                    onSave: async (data: Record<string, any>) => {
+                    onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
                             await ctx.api?.copyEntity?.(ctx.entity.id, {

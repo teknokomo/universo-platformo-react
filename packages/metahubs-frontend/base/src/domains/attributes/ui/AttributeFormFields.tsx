@@ -15,17 +15,20 @@ import {
     FormHelperText
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { LocalizedInlineField, useCodenameAutoFill, CollapsibleSection } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, CollapsibleSection } from '@universo/template-mui'
 import type { VersionedLocalizedContent, AttributeDataType, MetaEntityKind, EnumPresentationMode } from '@universo/types'
 import type { AttributeValidationRules } from '../../../types'
 import { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType, getVLCString } from '../../../types'
-import { sanitizeCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, TargetEntitySelector } from '../../../components'
 import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys } from '../../shared'
 
 const STRING_DEFAULT_MAX_LENGTH = 10
+
+type GenericFormValues = Record<string, unknown>
 
 const getCatalogAttributeDefaultValidationRules = (dataType: AttributeDataType): Partial<AttributeValidationRules> => {
     const defaults = getDefaultValidationRules(dataType)
@@ -40,8 +43,8 @@ const getCatalogAttributeDefaultValidationRules = (dataType: AttributeDataType):
 }
 
 export type AttributeFormFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors?: Record<string, string>
     uiLocale: string
@@ -78,6 +81,8 @@ export type AttributeFormFieldsProps = {
     disableVlcToggles?: boolean
     /** When true, hides the display attribute switch (moved to Presentation tab) */
     hideDisplayAttribute?: boolean
+    /** ID of entity being edited, for codename duplicate checking */
+    editingEntityId?: string | null
 }
 
 const AttributeFormFields = ({
@@ -113,10 +118,16 @@ const AttributeFormFields = ({
     dataTypeDisabled = false,
     dataTypeHelperText,
     disableVlcToggles = false,
-    hideDisplayAttribute = false
+    hideDisplayAttribute = false,
+    editingEntityId
 }: AttributeFormFieldsProps) => {
     const { t } = useTranslation('metahubs')
+    const codenameConfig = useCodenameConfig()
+    useEffect(() => {
+        setValue('_codenameConfig', codenameConfig)
+    }, [codenameConfig, setValue])
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const dataType = (values.dataType as AttributeDataType | undefined) ?? 'STRING'
@@ -124,10 +135,15 @@ const AttributeFormFields = ({
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
     const validationRules =
         (values.validationRules as AttributeValidationRules | undefined) ?? getCatalogAttributeDefaultValidationRules(dataType)
-    const uiConfig = (values.uiConfig ?? {}) as Record<string, unknown>
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
     const fieldErrors = errors ?? {}
 
     // Compute physical PostgreSQL type info
@@ -145,9 +161,26 @@ const AttributeFormFields = ({
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
     })
 
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
+    })
+
     // Helper to update nested validationRules
     const updateValidationRule = useCallback(
-        (key: string, value: any) => {
+        (key: string, value: unknown) => {
             setValue('validationRules', { ...validationRules, [key]: value })
         },
         [setValue, validationRules]
@@ -427,11 +460,17 @@ const AttributeFormFields = ({
                 onChange={(value) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={fieldErrors.codename}
                 disabled={isLoading}
                 required
+                editingEntityId={editingEntityId}
             />
         </Stack>
     )
@@ -442,8 +481,8 @@ export default AttributeFormFields
 // ============ PRESENTATION TAB FIELDS ============
 
 export type PresentationTabFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     metahubId?: string
     displayAttributeLabel: string

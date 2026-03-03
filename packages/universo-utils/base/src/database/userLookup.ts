@@ -16,17 +16,11 @@ import type { DataSource } from 'typeorm'
  * })
  * ```
  */
-export async function lookupUserEmail(
-    ds: DataSource,
-    userId: string | null | undefined
-): Promise<string | null> {
+export async function lookupUserEmail(ds: DataSource, userId: string | null | undefined): Promise<string | null> {
     if (!userId) return null
 
     try {
-        const result = await ds.query(
-            'SELECT email FROM auth.users WHERE id = $1',
-            [userId]
-        )
+        const result = await ds.query('SELECT email FROM auth.users WHERE id = $1', [userId])
         return result?.[0]?.email ?? null
     } catch (error) {
         // Log error for debugging but don't block main functionality

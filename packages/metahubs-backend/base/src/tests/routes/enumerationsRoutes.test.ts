@@ -123,6 +123,25 @@ jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
     MetahubHubsService: jest.fn().mockImplementation(() => mockHubsService)
 }))
 
+const mockSettingsService = {
+    findByKey: jest.fn(async (_metahubId: string, key: string) => {
+        const values: Record<string, unknown> = {
+            'general.codenameStyle': 'pascal-case',
+            'general.codenameAlphabet': 'en-ru',
+            'general.codenameAllowMixedAlphabets': false,
+            'enumerations.allowCopy': true,
+            'enumerations.allowDelete': true
+        }
+        return key in values ? { key, value: { _value: values[key] } } : null
+    }),
+    findAll: jest.fn(async () => [])
+}
+
+jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
+    __esModule: true,
+    MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
+}))
+
 describe('Enumerations Routes', () => {
     const createEnumerationCopyTransactionStub = (params?: {
         copiedEnumeration?: Record<string, unknown>
@@ -132,7 +151,7 @@ describe('Enumerations Routes', () => {
             params?.copiedEnumeration ??
             ({
                 id: 'enum-copy-id',
-                codename: 'status-copy',
+                codename: 'StatusCopy',
                 presentation: { name: baseNameVlc, description: baseDescriptionVlc },
                 config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
                 _upl_version: 1,
@@ -400,7 +419,7 @@ describe('Enumerations Routes', () => {
 
             expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
             expect(response.body.id).toBe('enum-copy-id')
-            expect(response.body.codename).toBe('status-copy')
+            expect(response.body.codename).toBe('StatusCopy')
             expect(response.body.valuesCount).toBe(1)
             expect(tx.valuesInsert).toHaveBeenCalledTimes(1)
         })
@@ -440,7 +459,7 @@ describe('Enumerations Routes', () => {
             const tx = createEnumerationCopyTransactionStub({
                 copiedEnumeration: {
                     id: 'enum-copy-id-2',
-                    codename: 'status-copy-2',
+                    codename: 'StatusCopy_2',
                     presentation: { name: baseNameVlc, description: baseDescriptionVlc },
                     config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
                     _upl_version: 1,
@@ -460,7 +479,7 @@ describe('Enumerations Routes', () => {
                 .expect(201)
 
             expect(response.body.id).toBe('enum-copy-id-2')
-            expect(response.body.codename).toBe('status-copy-2')
+            expect(response.body.codename).toBe('StatusCopy_2')
             expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
         })
     })

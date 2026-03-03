@@ -87,6 +87,25 @@ jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
     MetahubHubsService: jest.fn().mockImplementation(() => mockHubsService)
 }))
 
+const mockSettingsService = {
+    findByKey: jest.fn(async (_metahubId: string, key: string) => {
+        const values: Record<string, unknown> = {
+            'general.codenameStyle': 'pascal-case',
+            'general.codenameAlphabet': 'en-ru',
+            'general.codenameAllowMixedAlphabets': false,
+            'hubs.allowCopy': true,
+            'hubs.allowDelete': true
+        }
+        return key in values ? { key, value: { _value: values[key] } } : null
+    }),
+    findAll: jest.fn(async () => [])
+}
+
+jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
+    __esModule: true,
+    MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
+}))
+
 const createTransactionStub = (params?: {
     copiedHub?: Record<string, unknown>
     relationRows?: Array<Record<string, unknown>>
@@ -96,7 +115,7 @@ const createTransactionStub = (params?: {
         params?.copiedHub ??
         ({
             id: 'hub-copy-id',
-            codename: 'main-hub-copy',
+            codename: 'MainHubCopy',
             presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub (copy)' } } }, description: null },
             config: { sortOrder: 3 },
             _upl_version: 1,
@@ -251,7 +270,7 @@ describe('Hubs Routes', () => {
             expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
             expect(mockGenerateTableName).toHaveBeenCalledWith('hub-copy-id', 'hub')
             expect(response.body.id).toBe('hub-copy-id')
-            expect(response.body.codename).toBe('main-hub-copy')
+            expect(response.body.codename).toBe('MainHubCopy')
             expect(response.body.sortOrder).toBe(3)
         })
 

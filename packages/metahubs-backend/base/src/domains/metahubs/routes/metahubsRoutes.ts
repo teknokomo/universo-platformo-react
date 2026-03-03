@@ -15,7 +15,9 @@ import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
-import { normalizeCodename, isValidCodename } from '@universo/utils/validation/codename'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
+import { codenameErrorMessage } from '../../shared/codenameStyleHelper'
+import type { CodenameStyle, CodenameAlphabet } from '@universo/types'
 import { OptimisticLockError } from '@universo/utils'
 import { isValidSchemaName } from '@universo/schema-ddl'
 import { escapeLikeWildcards, getRequestManager } from '../../../utils'
@@ -25,6 +27,83 @@ import { MetahubHubsService } from '../services/MetahubHubsService'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 import { getDDLServices, KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
+
+// Default codename settings for metahub-level operations (CREATE, COPY, UPDATE).
+// These match the seeded defaults in admin.settings and act as a safe fallback.
+const DEFAULT_CODENAME_STYLE: CodenameStyle = 'pascal-case'
+const DEFAULT_CODENAME_ALPHABET: CodenameAlphabet = 'en-ru'
+const DEFAULT_CODENAME_ALLOW_MIXED = false
+const DEFAULT_CODENAME_AUTO_CONVERT_MIXED = true
+
+type GlobalMetahubCodenameConfig = {
+    style: CodenameStyle
+    alphabet: CodenameAlphabet
+    allowMixed: boolean
+    autoConvertMixedAlphabets: boolean
+    localizedEnabled: boolean
+}
+
+type AdminSettingsRow = {
+    key?: unknown
+    value?: {
+        _value?: unknown
+    }
+}
+
+const isCodenameStyle = (value: unknown): value is CodenameStyle => value === 'pascal-case' || value === 'kebab-case'
+
+const isCodenameAlphabet = (value: unknown): value is CodenameAlphabet => value === 'en' || value === 'ru' || value === 'en-ru'
+
+const getGlobalMetahubCodenameConfig = async (req: Request, getDataSource: () => DataSource): Promise<GlobalMetahubCodenameConfig> => {
+    const fallback: GlobalMetahubCodenameConfig = {
+        style: DEFAULT_CODENAME_STYLE,
+        alphabet: DEFAULT_CODENAME_ALPHABET,
+        allowMixed: DEFAULT_CODENAME_ALLOW_MIXED,
+        autoConvertMixedAlphabets: DEFAULT_CODENAME_AUTO_CONVERT_MIXED,
+        localizedEnabled: false
+    }
+
+    try {
+        const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
+        const rows = (await manager.query(
+            `
+                SELECT key, value
+                FROM admin.settings
+                WHERE category = $1
+                                    AND key IN ('codenameStyle', 'codenameAlphabet', 'codenameAllowMixedAlphabets', 'codenameAutoConvertMixedAlphabets', 'codenameLocalizedEnabled')
+            `,
+            ['metahubs']
+        )) as AdminSettingsRow[]
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return fallback
+        }
+
+        const byKey = new Map<string, unknown>()
+        for (const row of rows) {
+            if (typeof row.key === 'string') {
+                byKey.set(row.key, row.value?._value)
+            }
+        }
+
+        const rawStyle = byKey.get('codenameStyle')
+        const rawAlphabet = byKey.get('codenameAlphabet')
+        const rawAllowMixed = byKey.get('codenameAllowMixedAlphabets')
+        const rawAutoConvertMixed = byKey.get('codenameAutoConvertMixedAlphabets')
+        const rawLocalizedEnabled = byKey.get('codenameLocalizedEnabled')
+
+        return {
+            style: isCodenameStyle(rawStyle) ? rawStyle : fallback.style,
+            alphabet: isCodenameAlphabet(rawAlphabet) ? rawAlphabet : fallback.alphabet,
+            allowMixed: rawAllowMixed === true,
+            autoConvertMixedAlphabets: rawAutoConvertMixed !== false,
+            localizedEnabled: rawLocalizedEnabled === true
+        }
+    } catch {
+        return fallback
+    }
+}
 
 const getRequestQueryRunner = (req: Request) => {
     return (req as RequestWithDbContext).dbContext?.queryRunner
@@ -187,6 +266,21 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     return result
 }
 
+const localizedCodenameInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+const buildCodenameLocalizedVlc = (
+    input: Record<string, string> | undefined,
+    primaryLocale?: string,
+    fallbackPrimaryLocale?: string
+): VersionedLocalizedContent<string> | null => {
+    if (!input) return null
+    const sanitized = sanitizeLocalizedInput(input)
+    if (Object.keys(sanitized).length === 0) return null
+    return buildLocalizedContent(sanitized, primaryLocale, fallbackPrimaryLocale ?? 'en') ?? null
+}
+
 export function createMetahubsRoutes(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -294,6 +388,27 @@ export function createMetahubsRoutes(
         }
     }
 
+    // ============ CODENAME DEFAULTS ============
+    // Returns global (admin-level) codename configuration for use during new metahub creation.
+    // Any authenticated user can call this — no admin or metahub-membership check required.
+    router.get(
+        '/metahubs/codename-defaults',
+        readLimiter,
+        asyncHandler(async (req, res) => {
+            const config = await getGlobalMetahubCodenameConfig(req, getDataSource)
+            return res.json({
+                success: true,
+                data: {
+                    style: config.style,
+                    alphabet: config.alphabet,
+                    allowMixed: config.allowMixed,
+                    autoConvertMixedAlphabets: config.autoConvertMixedAlphabets,
+                    localizedEnabled: config.localizedEnabled
+                }
+            })
+        })
+    )
+
     // ============ LIST METAHUBS ============
     router.get(
         '/metahubs',
@@ -398,6 +513,7 @@ export function createMetahubsRoutes(
                     name: m.name,
                     description: m.description,
                     codename: m.codename,
+                    codenameLocalized: m.codenameLocalized ?? null,
                     slug: m.slug,
                     isPublic: m.isPublic,
                     templateId: m.templateId ?? null,
@@ -464,6 +580,7 @@ export function createMetahubsRoutes(
                 name: metahub.name,
                 description: metahub.description,
                 codename: metahub.codename,
+                codenameLocalized: metahub.codenameLocalized ?? null,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 templateId: metahub.templateId ?? null,
@@ -593,6 +710,8 @@ export function createMetahubsRoutes(
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
                 codename: z.string().min(1).max(100),
+                codenameInput: localizedCodenameInputSchema.optional(),
+                codenamePrimaryLocale: z.string().optional(),
                 slug: z
                     .string()
                     .min(1)
@@ -609,12 +728,18 @@ export function createMetahubsRoutes(
             }
 
             const { metahubRepo, metahubUserRepo, branchesService } = repos(req)
+            const codenameConfig = await getGlobalMetahubCodenameConfig(req, getDataSource)
 
-            const normalizedCodename = normalizeCodename(result.data.codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const normalizedCodename = normalizeCodenameForStyle(result.data.codename, codenameConfig.style, codenameConfig.alphabet)
+            if (
+                !normalizedCodename ||
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 return res.status(400).json({
                     error: 'Invalid input',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: {
+                        codename: [codenameErrorMessage(codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)]
+                    }
                 })
             }
 
@@ -656,6 +781,12 @@ export function createMetahubsRoutes(
                     )
                 }
             }
+
+            const codenameLocalizedVlc = buildCodenameLocalizedVlc(
+                result.data.codenameInput,
+                result.data.codenamePrimaryLocale,
+                result.data.namePrimaryLocale ?? 'en'
+            )
 
             // Resolve template (optional — falls back to default)
             let templateId: string | undefined
@@ -708,6 +839,7 @@ export function createMetahubsRoutes(
                         name: nameVlc,
                         description: descriptionVlc,
                         codename: normalizedCodename,
+                        codenameLocalized: codenameLocalizedVlc,
                         slug: result.data.slug,
                         isPublic: result.data.isPublic ?? false,
                         templateId: templateId ?? null,
@@ -760,6 +892,7 @@ export function createMetahubsRoutes(
                 name: metahub.name,
                 description: metahub.description,
                 codename: metahub.codename,
+                codenameLocalized: metahub.codenameLocalized ?? null,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 templateId: metahub.templateId ?? null,
@@ -803,6 +936,8 @@ export function createMetahubsRoutes(
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
                 codename: z.string().min(1).max(100).optional(),
+                codenameInput: localizedCodenameInputSchema.optional(),
+                codenamePrimaryLocale: z.string().optional(),
                 slug: z
                     .string()
                     .min(1)
@@ -866,11 +1001,31 @@ export function createMetahubsRoutes(
                 }
             }
 
-            const normalizedCodename = normalizeCodename(parsed.data.codename ?? `${sourceMetahub.codename}-copy`)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            let codenameLocalizedVlc: VersionedLocalizedContent<string> | null | undefined = sourceMetahub.codenameLocalized ?? null
+            if (parsed.data.codenameInput !== undefined) {
+                codenameLocalizedVlc = buildCodenameLocalizedVlc(
+                    parsed.data.codenameInput,
+                    parsed.data.codenamePrimaryLocale,
+                    parsed.data.namePrimaryLocale ?? sourceMetahub.name?._primary ?? 'en'
+                )
+            }
+
+            const codenameConfig = await getGlobalMetahubCodenameConfig(req, getDataSource)
+            const copySuffix = codenameConfig.style === 'pascal-case' ? 'Copy' : '-copy'
+            const normalizedCodename = normalizeCodenameForStyle(
+                parsed.data.codename ?? `${sourceMetahub.codename}${copySuffix}`,
+                codenameConfig.style,
+                codenameConfig.alphabet
+            )
+            if (
+                !normalizedCodename ||
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 return res.status(400).json({
                     error: 'Invalid input',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: {
+                        codename: [codenameErrorMessage(codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)]
+                    }
                 })
             }
 
@@ -942,6 +1097,7 @@ export function createMetahubsRoutes(
                         name: nameVlc,
                         description: descriptionVlc,
                         codename: normalizedCodename,
+                        codenameLocalized: codenameLocalizedVlc ?? null,
                         slug: slugCandidate,
                         isPublic: parsed.data.isPublic ?? sourceMetahub.isPublic,
                         defaultBranchId: null,
@@ -962,6 +1118,7 @@ export function createMetahubsRoutes(
                                 name: planItem.sourceBranch.name,
                                 description: planItem.sourceBranch.description ?? null,
                                 codename: planItem.sourceBranch.codename,
+                                codenameLocalized: planItem.sourceBranch.codenameLocalized ?? null,
                                 branchNumber: planItem.branchNumber,
                                 schemaName: planItem.schemaName,
                                 structureVersion: planItem.sourceBranch.structureVersion ?? 1,
@@ -1034,6 +1191,7 @@ export function createMetahubsRoutes(
                     name: copied.name,
                     description: copied.description,
                     codename: copied.codename,
+                    codenameLocalized: copied.codenameLocalized ?? null,
                     slug: copied.slug,
                     isPublic: copied.isPublic,
                     version: copied._uplVersion || 1,
@@ -1091,6 +1249,8 @@ export function createMetahubsRoutes(
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
                 codename: z.string().min(1).max(100).optional(),
+                codenameInput: localizedCodenameInputSchema.optional(),
+                codenamePrimaryLocale: z.string().optional(),
                 slug: z
                     .string()
                     .min(1)
@@ -1110,12 +1270,19 @@ export function createMetahubsRoutes(
             const metahub = await metahubRepo.findOne({ where: { id: metahubId } })
             if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
+            const codenameConfig = await getGlobalMetahubCodenameConfig(req, getDataSource)
+
             if (result.data.codename !== undefined && result.data.codename !== metahub.codename) {
-                const normalizedCodename = normalizeCodename(result.data.codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const normalizedCodename = normalizeCodenameForStyle(result.data.codename, codenameConfig.style, codenameConfig.alphabet)
+                if (
+                    !normalizedCodename ||
+                    !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+                ) {
                     return res.status(400).json({
                         error: 'Invalid input',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: {
+                            codename: [codenameErrorMessage(codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)]
+                        }
                     })
                 }
                 const existingCodename = await metahubRepo.findOne({
@@ -1164,6 +1331,14 @@ export function createMetahubsRoutes(
                     metahub.description = undefined
                 }
             }
+
+            if (result.data.codenameInput !== undefined) {
+                metahub.codenameLocalized = buildCodenameLocalizedVlc(
+                    result.data.codenameInput,
+                    result.data.codenamePrimaryLocale,
+                    result.data.namePrimaryLocale ?? metahub.name?._primary ?? 'en'
+                )
+            }
             if (result.data.isPublic !== undefined) {
                 metahub.isPublic = result.data.isPublic
             }
@@ -1203,6 +1378,7 @@ export function createMetahubsRoutes(
                 name: metahub.name,
                 description: metahub.description,
                 codename: metahub.codename,
+                codenameLocalized: metahub.codenameLocalized ?? null,
                 slug: metahub.slug,
                 isPublic: metahub.isPublic,
                 version: metahub._uplVersion || 1,

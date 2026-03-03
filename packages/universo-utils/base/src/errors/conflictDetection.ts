@@ -26,10 +26,7 @@ export function isOptimisticLockConflict(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false
 
     const axiosError = error as { response?: { status?: number; data?: { code?: string } } }
-    return (
-        axiosError.response?.status === 409 &&
-        axiosError.response?.data?.code === 'OPTIMISTIC_LOCK_CONFLICT'
-    )
+    return axiosError.response?.status === 409 && axiosError.response?.data?.code === 'OPTIMISTIC_LOCK_CONFLICT'
 }
 
 /**

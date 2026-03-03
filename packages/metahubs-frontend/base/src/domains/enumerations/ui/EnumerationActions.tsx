@@ -1,16 +1,31 @@
+import { useEffect } from 'react'
 import { Checkbox, Divider, FormControlLabel, Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFill, notifyError } from '@universo/template-mui'
+import { LocalizedInlineField, useCodenameAutoFill, useCodenameVlcSync, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeEnumerationCopyOptions } from '@universo/utils'
 import type { Enumeration, EnumerationDisplay, EnumerationLocalizedPayload, Hub } from '../../../types'
 import { getVLCString } from '../../../types'
 import { EnumerationWithHubs } from '../api'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
+
+const DEFAULT_CC: CodenameConfig = {
+    style: 'pascal-case',
+    alphabet: 'en-ru',
+    allowMixed: false,
+    autoConvertMixedAlphabets: true,
+    autoReformat: true,
+    requireReformat: true,
+    localizedEnabled: false
+}
+const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField, HubSelectionPanel } from '../../../components'
 
@@ -55,6 +70,7 @@ const buildInitialValues = (ctx: ActionContext<EnumerationDisplayWithHub, Enumer
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
+        codenameVlc: ensureLocalizedContent(raw?.codenameLocalized, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codename: raw?.codename ?? ctx.entity?.codename ?? '',
         codenameTouched: true,
         hubIds,
@@ -129,7 +145,11 @@ const getEnumerationCopyOptions = (values: Record<string, unknown>) => {
     })
 }
 
-const validateCatalogForm = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>, values: EnumerationFormValues) => {
+const validateEnumerationForm = (
+    ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>,
+    values: EnumerationFormValues
+) => {
+    const cc = _cc(values)
     const errors: Record<string, string> = {}
 
     // Hub validation based on isRequiredHub flag
@@ -146,20 +166,25 @@ const validateCatalogForm = (ctx: ActionContext<EnumerationDisplayWithHub, Enume
         errors.nameVlc = ctx.t('common:crud.nameRequired', 'Name is required')
     }
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
         errors.codename = ctx.t('enumerations.validation.codenameRequired', 'Codename is required')
-    } else if (!isValidCodename(normalizedCodename)) {
+    } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
         errors.codename = ctx.t('enumerations.validation.codenameInvalid', 'Codename contains invalid characters')
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveCatalogForm = (values: EnumerationFormValues) => {
+const canSaveEnumerationForm = (values: EnumerationFormValues) => {
+    const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-    const normalizedCodename = sanitizeCodename(rawCodename)
-    const baseValid = hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
+    const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
+    const baseValid =
+        !values._hasCodenameDuplicate &&
+        hasPrimaryContent(nameVlc) &&
+        Boolean(normalizedCodename) &&
+        isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)
     // Hub requirement based on isRequiredHub flag in values
     const isRequiredHub = Boolean(values.isRequiredHub)
     if (isRequiredHub) {
@@ -172,17 +197,22 @@ const canSaveCatalogForm = (values: EnumerationFormValues) => {
 const toPayload = (
     values: EnumerationFormValues
 ): EnumerationLocalizedPayload & { hubIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
+    const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
+    const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
     const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
-    const codename = sanitizeCodename(String(values.codename || ''))
+    const codename = normalizeCodenameForStyle(String(values.codename || ''), cc.style, cc.alphabet)
     const hubIds = Array.isArray(values.hubIds) ? values.hubIds : undefined
     const isSingleHub = Boolean(values.isSingleHub)
     const isRequiredHub = Boolean(values.isRequiredHub)
 
     return {
         codename,
+        codenameInput,
+        codenamePrimaryLocale,
         name: nameInput ?? {},
         description: descriptionInput,
         namePrimaryLocale,
@@ -202,7 +232,8 @@ const GeneralTabFields = ({
     isLoading,
     errors,
     t,
-    uiLocale
+    uiLocale,
+    editingEntityId
 }: {
     values: EnumerationFormValues
     setValue: EnumerationFormSetValue
@@ -210,15 +241,27 @@ const GeneralTabFields = ({
     errors?: Record<string, string>
     t: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>['t']
     uiLocale?: string
+    editingEntityId?: string | null
 }) => {
     const fieldErrors = errors ?? {}
+    const codenameConfig = useCodenameConfig()
+    useEffect(() => {
+        setValue('_codenameConfig', codenameConfig)
+    }, [codenameConfig, setValue])
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+    const codenameVlc = values.codenameVlc as VersionedLocalizedContent<string> | null | undefined
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -226,6 +269,23 @@ const GeneralTabFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -257,11 +317,17 @@ const GeneralTabFields = ({
                 onChange={(value: string) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc ?? null}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale as string}
                 label={t('enumerations.codename', 'Codename')}
                 helperText={t('enumerations.codenameHelper', 'Unique identifier')}
                 error={fieldErrors.codename}
                 disabled={isLoading}
                 required
+                editingEntityId={editingEntityId}
             />
         </Stack>
     )
@@ -301,7 +367,11 @@ const EnumerationCopyOptionsTab = ({
  * Tab 1: General (name, description, codename)
  * Tab 2: Hubs (hub selection panel with isSingleHub toggle)
  */
-const buildFormTabs = (ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>, hubs: Hub[]) => {
+const buildFormTabs = (
+    ctx: ActionContext<EnumerationDisplayWithHub, EnumerationLocalizedPayload>,
+    hubs: Hub[],
+    editingEntityId?: string | null
+) => {
     return ({
         values,
         setValue,
@@ -325,6 +395,7 @@ const buildFormTabs = (ctx: ActionContext<EnumerationDisplayWithHub, Enumeration
                         errors={errors}
                         t={ctx.t}
                         uiLocale={ctx.uiLocale as string}
+                        editingEntityId={editingEntityId}
                     />
                 )
             }
@@ -386,9 +457,9 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
-                    tabs: buildFormTabs(ctx, hubs),
-                    validate: (values: EnumerationFormValues) => validateCatalogForm(ctx, values),
-                    canSave: (values: EnumerationFormValues) => canSaveCatalogForm(values),
+                    tabs: buildFormTabs(ctx, hubs, ctx.entity.id),
+                    validate: (values: EnumerationFormValues) => validateEnumerationForm(ctx, values),
+                    canSave: (values: EnumerationFormValues) => canSaveEnumerationForm(values),
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
                     onDelete: () => {
@@ -447,7 +518,8 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                     tabs: (args: EnumerationDialogTabArgs) => [
                         ...buildFormTabs(
                             ctx,
-                            hubs
+                            hubs,
+                            null
                         )({
                             values: args.values,
                             setValue: args.setValue,
@@ -467,8 +539,8 @@ const enumerationActions: readonly ActionDescriptor<EnumerationDisplayWithHub, E
                             )
                         }
                     ],
-                    validate: (values: EnumerationFormValues) => validateCatalogForm(ctx, values),
-                    canSave: (values: EnumerationFormValues) => canSaveCatalogForm(values),
+                    validate: (values: EnumerationFormValues) => validateEnumerationForm(ctx, values),
+                    canSave: (values: EnumerationFormValues) => canSaveEnumerationForm(values),
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },

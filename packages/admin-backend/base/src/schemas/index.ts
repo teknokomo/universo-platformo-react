@@ -76,6 +76,7 @@ const PermissionSubjects = [
     'roles',
     'instances',
     'users',
+    'settings',
     'admin',
     '*'
 ] as const

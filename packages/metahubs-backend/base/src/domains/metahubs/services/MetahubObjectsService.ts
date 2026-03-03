@@ -101,6 +101,7 @@ export class MetahubObjectsService {
         kind: MetahubObjectKind,
         input: {
             codename: string
+            codenameLocalized?: any
             name: any // VLC
             description?: any // VLC
             config?: any
@@ -129,6 +130,7 @@ export class MetahubObjectsService {
                     codename: input.codename,
                     table_name: null,
                     presentation: {
+                        codename: input.codenameLocalized ?? null,
                         name: input.name,
                         description: input.description
                     },
@@ -164,6 +166,7 @@ export class MetahubObjectsService {
         metahubId: string,
         input: {
             codename: string
+            codenameLocalized?: any
             name: any // VLC
             description?: any // VLC
             config?: any
@@ -178,6 +181,7 @@ export class MetahubObjectsService {
         metahubId: string,
         input: {
             codename: string
+            codenameLocalized?: any
             name: any // VLC
             description?: any // VLC
             config?: any
@@ -194,6 +198,7 @@ export class MetahubObjectsService {
         kind: MetahubObjectKind,
         input: {
             codename?: string
+            codenameLocalized?: any
             name?: any
             description?: any
             config?: any
@@ -214,9 +219,10 @@ export class MetahubObjectsService {
         }
 
         if (input.codename !== undefined) updateData.codename = input.codename
-        if (input.name !== undefined || input.description !== undefined) {
+        if (input.name !== undefined || input.description !== undefined || input.codenameLocalized !== undefined) {
             updateData.presentation = {
                 ...existing.presentation,
+                ...(input.codenameLocalized !== undefined ? { codename: input.codenameLocalized } : {}),
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined ? { description: input.description } : {})
             }
@@ -248,6 +254,7 @@ export class MetahubObjectsService {
         id: string,
         input: {
             codename?: string
+            codenameLocalized?: any
             name?: any
             description?: any
             config?: any
@@ -264,6 +271,7 @@ export class MetahubObjectsService {
         id: string,
         input: {
             codename?: string
+            codenameLocalized?: any
             name?: any
             description?: any
             config?: any

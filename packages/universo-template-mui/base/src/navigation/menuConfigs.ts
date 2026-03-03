@@ -24,7 +24,8 @@ import {
     IconLanguage,
     IconApps,
     IconHistory,
-    IconGitBranch
+    IconGitBranch,
+    IconSettings
 } from '@tabler/icons-react'
 
 export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
@@ -195,6 +196,17 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
         url: `/metahub/${metahubId}/access`,
         icon: IconUsers,
         type: 'item'
+    },
+    {
+        id: 'metahub-divider-footer',
+        type: 'divider'
+    },
+    {
+        id: 'metahub-settings',
+        titleKey: 'settings',
+        url: `/metahub/${metahubId}/settings`,
+        icon: IconSettings,
+        type: 'item'
     }
 ]
 
@@ -354,6 +366,12 @@ export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => 
         titleKey: 'locales',
         url: `/admin/instance/${instanceId}/locales`,
         icon: IconLanguage
+    },
+    {
+        id: 'instance-settings',
+        titleKey: 'settings',
+        url: `/admin/instance/${instanceId}/settings`,
+        icon: IconSettings
     }
 ]
 

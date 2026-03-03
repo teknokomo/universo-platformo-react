@@ -190,6 +190,8 @@
     "confirm": {
       "title": "Подтверждение действия",
       "cancel": "Отмена",
+      "cancelButtonText": "Отмена",
+      "confirmButtonText": "Подтвердить",
       "delete": {
         "title": "Удалить {{entity}}",
         "description": "Это действие нельзя отменить. {{entity}} \"{{name}}\" и все его данные будут безвозвратно удалены.",

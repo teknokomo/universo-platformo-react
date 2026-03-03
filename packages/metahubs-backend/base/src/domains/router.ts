@@ -16,6 +16,7 @@ import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigratio
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 import { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
+import { createSettingsRoutes } from './settings/routes/settingsRoutes'
 import { isMetahubDomainError } from './shared/domainErrors'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
@@ -84,6 +85,9 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDataS
     router.use('/', createElementsRoutes(ensureAuth, getDataSource, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDataSource, read, write))
 
+    // Settings (metahub-level configuration)
+    router.use('/', createSettingsRoutes(ensureAuth, getDataSource, read, write))
+
     // Templates catalog (read-only)
     router.use('/', createTemplatesRoutes(ensureAuth, getDataSource, read))
 
@@ -132,4 +136,5 @@ export { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigratio
 export { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 export { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 export { createApplicationSyncRoutes } from './applications/routes/applicationSyncRoutes'
+export { createSettingsRoutes } from './settings/routes/settingsRoutes'
 export * from './shared/guards'

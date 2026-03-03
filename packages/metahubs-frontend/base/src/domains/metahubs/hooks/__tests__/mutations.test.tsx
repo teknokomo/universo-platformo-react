@@ -103,21 +103,21 @@ describe('metahubs mutation hooks', () => {
             await deleteMetahub!.mutateAsync('m1')
             await copyMetahub!.mutateAsync({ id: 'm1', data: { codename: 'name-copy', copyDefaultBranchOnly: true, copyAccess: true } })
 
-            await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as any })
-            await memberMutations!.updateMemberRole('u1', { role: 'admin' as any })
+            await memberMutations!.inviteMember({ email: 'a@b.c', role: 'viewer' as const })
+            await memberMutations!.updateMemberRole('u1', { role: 'admin' as const })
             await memberMutations!.removeMember('u1')
         })
 
         expect(mocks.metahubsApi.createMetahub).toHaveBeenCalledTimes(1)
         expect(mocks.metahubsApi.createMetahub).toHaveBeenCalledWith({
-            codename: 'name',
+            codename: 'Name',
             name: { en: 'Name' },
             description: { en: 'Desc' },
             namePrimaryLocale: 'en',
             descriptionPrimaryLocale: 'en'
         })
         expect(mocks.metahubsApi.updateMetahub).toHaveBeenCalledWith('m1', {
-            codename: 'name2',
+            codename: 'Name2',
             name: { en: 'Name2' },
             description: undefined,
             namePrimaryLocale: 'en',

@@ -28,7 +28,8 @@ import {
     RoleChip,
     useUserSettings,
     LocalizedInlineField,
-    useCodenameAutoFill
+    useCodenameAutoFill,
+    useCodenameVlcSync
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -41,22 +42,79 @@ import { metahubsQueryKeys } from '../../shared'
 import { Metahub, MetahubDisplay, MetahubLocalizedPayload, toMetahubDisplay, getVLCString } from '../../../types'
 import metahubActions from './MetahubActions'
 import { extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
-import { CodenameField } from '../../../components'
+import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig, getCodenameHelperKey } from '../../settings/hooks/useCodenameConfig'
+import { CodenameField, ExistingCodenamesProvider } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 
 // Type for metahub update/create data
 type MetahubFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
+    codenameVlc?: VersionedLocalizedContent<string> | null
     codename?: string
     codenameTouched?: boolean
     storageMode?: 'main_db' | 'external_db'
 }
 
+type GenericFormValues = Record<string, unknown>
+type ListMetahubsParams = Parameters<typeof metahubsApi.listMetahubs>[0]
+
+type TranslationFn = (key: string, options?: unknown) => string
+
+type BaseMenuContext = {
+    t: TranslationFn
+} & Record<string, unknown>
+
+type ConfirmSpec = {
+    titleKey?: string
+    descriptionKey?: string
+    confirmKey?: string
+    cancelKey?: string
+    interpolate?: Record<string, unknown>
+    title?: string
+    description?: string
+    confirmButtonName?: string
+    cancelButtonName?: string
+}
+
+type ConflictState = {
+    open: boolean
+    conflict: ConflictInfo | null
+    pendingUpdate: { id: string; patch: MetahubLocalizedPayload } | null
+}
+
+const extractResponseStatus = (error: unknown): number | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const status = (response as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+}
+
+const extractResponseMessage = (error: unknown): string | undefined => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return undefined
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object') return undefined
+    const message = (data as { message?: unknown }).message
+    return typeof message === 'string' ? message : undefined
+}
+
+const extractConflict = (error: unknown): ConflictInfo | null => {
+    if (!error || typeof error !== 'object' || !('response' in error)) return null
+    const response = (error as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return null
+    const data = (response as { data?: unknown }).data
+    if (!data || typeof data !== 'object' || !('conflict' in data)) return null
+    const conflict = (data as { conflict?: unknown }).conflict
+    return conflict && typeof conflict === 'object' ? (conflict as ConflictInfo) : null
+}
+
 type GeneralTabFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: GenericFormValues
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors?: Record<string, string>
     uiLocale: string
@@ -80,14 +138,22 @@ const GeneralTabFields = ({
     codenameHelper,
     showTemplateSelector
 }: GeneralTabFieldsProps) => {
+    const codenameConfig = useCodenameConfig()
     const fieldErrors = errors ?? {}
     const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameVlc = (values.codenameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = typeof values.codename === 'string' ? values.codename : ''
     const codenameTouched = Boolean(values.codenameTouched)
     const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const nameValue = getVLCString(nameVlc || undefined, primaryLocale)
-    const nextCodename = sanitizeCodename(nameValue)
+    const nextCodename = sanitizeCodenameForStyle(
+        nameValue,
+        codenameConfig.style,
+        codenameConfig.alphabet,
+        codenameConfig.allowMixed,
+        codenameConfig.autoConvertMixedAlphabets
+    )
 
     useCodenameAutoFill({
         codename,
@@ -95,6 +161,23 @@ const GeneralTabFields = ({
         nextCodename,
         nameValue,
         setValue: setValue as (field: 'codename' | 'codenameTouched', value: string | boolean) => void
+    })
+
+    useCodenameVlcSync({
+        localizedEnabled: codenameConfig.localizedEnabled,
+        codename,
+        codenameTouched,
+        codenameVlc,
+        nameVlc,
+        deriveCodename: (nameContent) =>
+            sanitizeCodenameForStyle(
+                nameContent,
+                codenameConfig.style,
+                codenameConfig.alphabet,
+                codenameConfig.allowMixed,
+                codenameConfig.autoConvertMixedAlphabets
+            ),
+        setValue
     })
 
     return (
@@ -134,6 +217,11 @@ const GeneralTabFields = ({
                 onChange={(value: string) => setValue('codename', value)}
                 touched={codenameTouched}
                 onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
+                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
+                localizedEnabled={codenameConfig.localizedEnabled}
+                localizedValue={codenameVlc}
+                onLocalizedChange={(next) => setValue('codenameVlc', next)}
+                uiLocale={uiLocale}
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={fieldErrors.codename}
@@ -145,6 +233,7 @@ const GeneralTabFields = ({
 }
 
 const MetahubList = () => {
+    const codenameConfig = useCodenameConfig()
     // Use metahubs namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['metahubs', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
@@ -164,7 +253,7 @@ const MetahubList = () => {
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     // Create query function that includes showAll parameter
-    const queryFnWithShowAll = useCallback((params: any) => metahubsApi.listMetahubs({ ...params, showAll }), [showAll])
+    const queryFnWithShowAll = useCallback((params: ListMetahubsParams) => metahubsApi.listMetahubs({ ...params, showAll }), [showAll])
 
     // Use paginated hook for metahubs list
     const paginationResult = usePaginated<Metahub, 'name' | 'codename' | 'created' | 'updated'>({
@@ -178,7 +267,7 @@ const MetahubList = () => {
     const { data: metahubs, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
@@ -190,11 +279,7 @@ const MetahubList = () => {
     }>({ open: false, metahub: null })
 
     // State for conflict resolution dialog
-    const [conflictState, setConflictState] = useState<{
-        open: boolean
-        conflict: ConflictInfo | null
-        pendingUpdate: { id: string; patch: MetahubLocalizedPayload } | null
-    }>({ open: false, conflict: null, pendingUpdate: null })
+    const [conflictState, setConflictState] = useState<ConflictState>({ open: false, conflict: null, pendingUpdate: null })
 
     const { confirm } = useConfirm()
 
@@ -216,7 +301,7 @@ const MetahubList = () => {
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(metahubsDisplay)) {
             metahubsDisplay.forEach((metahub) => {
                 if (metahub?.id) {
@@ -228,7 +313,7 @@ const MetahubList = () => {
     }, [metahubsDisplay])
 
     const localizedFormDefaults = useMemo<MetahubFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, codename: '', codenameTouched: false, storageMode: 'main_db' }),
+        () => ({ nameVlc: null, descriptionVlc: null, codenameVlc: null, codename: '', codenameTouched: false, storageMode: 'main_db' }),
         []
     )
 
@@ -239,8 +324,8 @@ const MetahubList = () => {
             isLoading,
             errors
         }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
+            values: GenericFormValues
+            setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors?: Record<string, string>
         }) => {
@@ -261,7 +346,7 @@ const MetahubList = () => {
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             codenameLabel={t('codename', 'Codename')}
-                            codenameHelper={t('codenameHelper', 'Unique identifier')}
+                            codenameHelper={t(getCodenameHelperKey(codenameConfig), 'Unique identifier')}
                             showTemplateSelector
                         />
                     )
@@ -292,35 +377,44 @@ const MetahubList = () => {
                 }
             ]
         },
-        [i18n.language, tc, t]
+        [codenameConfig, i18n.language, tc, t]
     )
 
     const validateMetahubForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: GenericFormValues) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
             const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-            const normalizedCodename = sanitizeCodename(rawCodename)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 errors.codename = t('validation.codenameRequired', 'Codename is required')
-            } else if (!isValidCodename(normalizedCodename)) {
+            } else if (
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
                 errors.codename = t('validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t, tc]
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, t, tc]
     )
 
-    const canSaveMetahubForm = useCallback((values: Record<string, any>) => {
-        const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-        const rawCodename = typeof values.codename === 'string' ? values.codename : ''
-        const normalizedCodename = sanitizeCodename(rawCodename)
-        // Storage mode is always valid as it defaults to main_db and external is disabled
-        return hasPrimaryContent(nameVlc) && Boolean(normalizedCodename) && isValidCodename(normalizedCodename)
-    }, [])
+    const canSaveMetahubForm = useCallback(
+        (values: GenericFormValues) => {
+            const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
+            const rawCodename = typeof values.codename === 'string' ? values.codename : ''
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            return (
+                !values._hasCodenameDuplicate &&
+                hasPrimaryContent(nameVlc) &&
+                Boolean(normalizedCodename) &&
+                isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            )
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style]
+    )
 
     const handleAddNew = () => {
         setDialogError(null)
@@ -335,30 +429,34 @@ const MetahubList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateMetahub = async (data: Record<string, any>) => {
+    const handleCreateMetahub = async (data: GenericFormValues) => {
         setDialogError(null)
         setCreating(true)
         try {
             const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
             const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+            const codenameVlc = data.codenameVlc as VersionedLocalizedContent<string> | null | undefined
             const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
             if (!nameInput || !namePrimaryLocale) {
                 setDialogError(tc('crud.nameRequired', 'Name is required'))
                 return
             }
-            const normalizedCodename = sanitizeCodename(String(data.codename || ''))
+            const normalizedCodename = normalizeCodenameForStyle(String(data.codename || ''), codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
                 setDialogError(t('validation.codenameRequired', 'Codename is required'))
                 return
             }
-            if (!isValidCodename(normalizedCodename)) {
+            if (!isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)) {
                 setDialogError(t('validation.codenameInvalid', 'Codename contains invalid characters'))
                 return
             }
             const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+            const { input: codenameInput, primaryLocale: codenamePrimaryLocale } = extractLocalizedInput(codenameVlc)
 
             await metahubsApi.createMetahub({
                 codename: normalizedCodename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name: nameInput,
                 description: descriptionInput,
                 namePrimaryLocale,
@@ -373,7 +471,7 @@ const MetahubList = () => {
 
             handleDialogSave()
         } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -390,7 +488,7 @@ const MetahubList = () => {
         }
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: unknown, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -483,7 +581,7 @@ const MetahubList = () => {
     // Removed N+1 counts loading; counts are provided by backend list response
 
     const createMetahubContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: BaseMenuContext) => ({
             ...baseContext,
             metahubMap,
             uiLocale: i18n.language,
@@ -493,10 +591,13 @@ const MetahubList = () => {
                     const expectedVersion = metahub?.version
                     try {
                         await updateMetahubMutation.mutateAsync({ id, data: patch, expectedVersion })
-                    } catch (error: any) {
+                    } catch (error: unknown) {
                         // Check for 409 Conflict (optimistic lock)
-                        if (error?.response?.status === 409 && error?.response?.data?.code === 'OPTIMISTIC_LOCK_CONFLICT') {
-                            const conflict = error.response.data.conflict as ConflictInfo
+                        if (extractResponseStatus(error) === 409) {
+                            const conflict = extractConflict(error)
+                            if (!conflict) {
+                                throw error
+                            }
                             setConflictState({
                                 open: true,
                                 conflict,
@@ -532,7 +633,7 @@ const MetahubList = () => {
                         queryKey: metahubsQueryKeys.lists()
                     })
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     // Support both direct strings and translation keys
                     const confirmed = await confirm({
                         title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
@@ -581,230 +682,237 @@ const MetahubList = () => {
             border={false}
             shadow={false}
         >
-            {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                    action={{
-                        label: t('actions.retry'),
-                        onClick: () => paginationResult.actions.goToPage(1)
-                    }}
-                />
-            ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search={true}
-                        searchPlaceholder={t('searchPlaceholder')}
-                        onSearchChange={handleSearchChange}
-                        title={t('title')}
-                    >
-                        <ToolbarControls
-                            viewToggleEnabled
-                            settingsEnabled
-                            viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => handleChange(null, mode)}
-                            cardViewTitle={tc('cardView')}
-                            listViewTitle={tc('listView')}
-                            primaryAction={{
-                                label: tc('create'),
-                                onClick: handleAddNew,
-                                startIcon: <AddRoundedIcon />
-                            }}
-                        />
-                    </ViewHeader>
+            <ExistingCodenamesProvider entities={metahubs ?? []}>
+                {error ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt='Connection error'
+                        title={t('errors.connectionFailed')}
+                        description={!extractResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                        action={{
+                            label: t('actions.retry'),
+                            onClick: () => paginationResult.actions.goToPage(1)
+                        }}
+                    />
+                ) : (
+                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                        <ViewHeader
+                            search={true}
+                            searchPlaceholder={t('searchPlaceholder')}
+                            onSearchChange={handleSearchChange}
+                            title={t('title')}
+                        >
+                            <ToolbarControls
+                                viewToggleEnabled
+                                settingsEnabled
+                                viewMode={view as 'card' | 'list'}
+                                onViewModeChange={(mode: string) => handleChange(null, mode)}
+                                cardViewTitle={tc('cardView')}
+                                listViewTitle={tc('listView')}
+                                primaryAction={{
+                                    label: tc('create'),
+                                    onClick: handleAddNew,
+                                    startIcon: <AddRoundedIcon />
+                                }}
+                            />
+                        </ViewHeader>
 
-                    {isLoading && metahubsDisplay.length === 0 ? (
-                        view === 'card' ? (
-                            <SkeletonGrid />
-                        ) : (
-                            <Skeleton variant='rectangular' height={120} />
-                        )
-                    ) : !isLoading && metahubsDisplay.length === 0 ? (
-                        <EmptyListState image={APIEmptySVG} imageAlt='No metahubs' title={t('noMetahubsFound')} />
-                    ) : (
-                        <>
-                            {view === 'card' ? (
-                                <Box
-                                    sx={{
-                                        display: 'grid',
-                                        gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
-                                        gridTemplateColumns: {
-                                            xs: '1fr',
-                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
-                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
-                                        },
-                                        justifyContent: 'start',
-                                        alignContent: 'start'
-                                    }}
-                                >
-                                    {metahubsDisplay.map((metahub: MetahubDisplay) => {
-                                        // Filter actions based on permissions (same logic as table view)
-                                        const descriptors = metahubActions.filter((descriptor) => {
-                                            if (descriptor.id === 'edit' || descriptor.id === 'delete' || descriptor.id === 'copy') {
-                                                return metahub.permissions?.manageMetahub
-                                            }
-                                            return true
-                                        })
-
-                                        return (
-                                            <ItemCard
-                                                key={metahub.id}
-                                                data={metahub}
-                                                images={images[metahub.id] || []}
-                                                href={`/metahub/${metahub.id}`}
-                                                footerEndContent={
-                                                    metahub.role ? <RoleChip role={metahub.role} accessType={metahub.accessType} /> : null
-                                                }
-                                                headerAction={
-                                                    descriptors.length > 0 ? (
-                                                        <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<MetahubDisplay, MetahubLocalizedPayload>
-                                                                entity={metahub}
-                                                                entityKind='metahub'
-                                                                descriptors={descriptors}
-                                                                namespace='metahubs'
-                                                                i18nInstance={i18n}
-                                                                createContext={createMetahubContext}
-                                                            />
-                                                        </Box>
-                                                    ) : null
-                                                }
-                                            />
-                                        )
-                                    })}
-                                </Box>
+                        {isLoading && metahubsDisplay.length === 0 ? (
+                            view === 'card' ? (
+                                <SkeletonGrid />
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    <FlowListTable
-                                        data={metahubsDisplay}
-                                        images={images}
-                                        isLoading={isLoading}
-                                        getRowLink={(row: MetahubDisplay) => (row?.id ? `/metahub/${row.id}` : undefined)}
-                                        customColumns={metahubColumns}
-                                        i18nNamespace='flowList'
-                                        renderActions={(row: MetahubDisplay) => {
+                                <Skeleton variant='rectangular' height={120} />
+                            )
+                        ) : !isLoading && metahubsDisplay.length === 0 ? (
+                            <EmptyListState image={APIEmptySVG} imageAlt='No metahubs' title={t('noMetahubsFound')} />
+                        ) : (
+                            <>
+                                {view === 'card' ? (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gap: gridSpacing,
+                                            mx: { xs: -1.5, md: -2 },
+                                            gridTemplateColumns: {
+                                                xs: '1fr',
+                                                sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                                lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                            },
+                                            justifyContent: 'start',
+                                            alignContent: 'start'
+                                        }}
+                                    >
+                                        {metahubsDisplay.map((metahub: MetahubDisplay) => {
+                                            // Filter actions based on permissions (same logic as table view)
                                             const descriptors = metahubActions.filter((descriptor) => {
                                                 if (descriptor.id === 'edit' || descriptor.id === 'delete' || descriptor.id === 'copy') {
-                                                    return row.permissions?.manageMetahub
+                                                    return metahub.permissions?.manageMetahub
                                                 }
                                                 return true
                                             })
 
-                                            if (!descriptors.length) return null
-
                                             return (
-                                                <BaseEntityMenu<MetahubDisplay, MetahubLocalizedPayload>
-                                                    entity={row}
-                                                    entityKind='metahub'
-                                                    descriptors={descriptors}
-                                                    // Use metahubs namespace for action item labels (edit/delete)
-                                                    // but keep the button label from flowList via explicit namespaced key
-                                                    namespace='metahubs'
-                                                    menuButtonLabelKey='flowList:menu.button'
-                                                    i18nInstance={i18n}
-                                                    createContext={createMetahubContext}
+                                                <ItemCard
+                                                    key={metahub.id}
+                                                    data={metahub}
+                                                    images={images[metahub.id] || []}
+                                                    href={`/metahub/${metahub.id}`}
+                                                    footerEndContent={
+                                                        metahub.role ? (
+                                                            <RoleChip role={metahub.role} accessType={metahub.accessType} />
+                                                        ) : null
+                                                    }
+                                                    headerAction={
+                                                        descriptors.length > 0 ? (
+                                                            <Box onClick={(e) => e.stopPropagation()}>
+                                                                <BaseEntityMenu<MetahubDisplay, MetahubLocalizedPayload>
+                                                                    entity={metahub}
+                                                                    entityKind='metahub'
+                                                                    descriptors={descriptors}
+                                                                    namespace='metahubs'
+                                                                    i18nInstance={i18n}
+                                                                    createContext={createMetahubContext}
+                                                                />
+                                                            </Box>
+                                                        ) : null
+                                                    }
                                                 />
                                             )
-                                        }}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
+                                        })}
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                        <FlowListTable
+                                            data={metahubsDisplay}
+                                            images={images}
+                                            isLoading={isLoading}
+                                            getRowLink={(row: MetahubDisplay) => (row?.id ? `/metahub/${row.id}` : undefined)}
+                                            customColumns={metahubColumns}
+                                            i18nNamespace='flowList'
+                                            renderActions={(row: MetahubDisplay) => {
+                                                const descriptors = metahubActions.filter((descriptor) => {
+                                                    if (
+                                                        descriptor.id === 'edit' ||
+                                                        descriptor.id === 'delete' ||
+                                                        descriptor.id === 'copy'
+                                                    ) {
+                                                        return row.permissions?.manageMetahub
+                                                    }
+                                                    return true
+                                                })
 
-                    {/* Table Pagination at bottom - only show when there's data */}
-                    {!isLoading && metahubsDisplay.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                namespace='common'
-                            />
-                        </Box>
-                    )}
-                </Stack>
-            )}
+                                                if (!descriptors.length) return null
 
-            <EntityFormDialog
-                open={isDialogOpen}
-                title={t('createMetahub', 'Create Metahub')}
-                nameLabel={tc('fields.name', 'Name')}
-                descriptionLabel={tc('fields.description', 'Description')}
-                saveButtonText={tc('actions.create', 'Create')}
-                savingButtonText={tc('actions.creating', 'Creating...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isCreating}
-                error={dialogError || undefined}
-                onClose={handleDialogClose}
-                onSave={handleCreateMetahub}
-                hideDefaultFields
-                initialExtraValues={localizedFormDefaults}
-                tabs={buildFormTabs}
-                canSave={canSaveMetahubForm}
-                validate={validateMetahubForm}
-            />
+                                                return (
+                                                    <BaseEntityMenu<MetahubDisplay, MetahubLocalizedPayload>
+                                                        entity={row}
+                                                        entityKind='metahub'
+                                                        descriptors={descriptors}
+                                                        // Use metahubs namespace for action item labels (edit/delete)
+                                                        // but keep the button label from flowList via explicit namespaced key
+                                                        namespace='metahubs'
+                                                        menuButtonLabelKey='flowList:menu.button'
+                                                        i18nInstance={i18n}
+                                                        createContext={createMetahubContext}
+                                                    />
+                                                )
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+                            </>
+                        )}
 
-            {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}
-            <ConfirmDeleteDialog
-                open={deleteDialogState.open}
-                title={t('confirmDelete')}
-                description={t('confirmDeleteDescription', { name: deleteDialogState.metahub?.name || '' })}
-                confirmButtonText={tc('actions.delete', 'Delete')}
-                deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, metahub: null })}
-                onConfirm={async () => {
-                    if (deleteDialogState.metahub) {
-                        try {
-                            await deleteMetahubMutation.mutateAsync(deleteDialogState.metahub.id)
-                            setDeleteDialogState({ open: false, metahub: null })
-                        } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, metahub: null })
+                        {/* Table Pagination at bottom - only show when there's data */}
+                        {!isLoading && metahubsDisplay.length > 0 && (
+                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <PaginationControls
+                                    pagination={paginationResult.pagination}
+                                    actions={paginationResult.actions}
+                                    isLoading={paginationResult.isLoading}
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    namespace='common'
+                                />
+                            </Box>
+                        )}
+                    </Stack>
+                )}
+
+                <EntityFormDialog
+                    open={isDialogOpen}
+                    title={t('createMetahub', 'Create Metahub')}
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.create', 'Create')}
+                    savingButtonText={tc('actions.creating', 'Creating...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    loading={isCreating}
+                    error={dialogError || undefined}
+                    onClose={handleDialogClose}
+                    onSave={handleCreateMetahub}
+                    hideDefaultFields
+                    initialExtraValues={localizedFormDefaults}
+                    tabs={buildFormTabs}
+                    canSave={canSaveMetahubForm}
+                    validate={validateMetahubForm}
+                />
+
+                {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}
+                <ConfirmDeleteDialog
+                    open={deleteDialogState.open}
+                    title={t('confirmDelete')}
+                    description={t('confirmDeleteDescription', { name: deleteDialogState.metahub?.name || '' })}
+                    confirmButtonText={tc('actions.delete', 'Delete')}
+                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => setDeleteDialogState({ open: false, metahub: null })}
+                    onConfirm={async () => {
+                        if (deleteDialogState.metahub) {
+                            try {
+                                await deleteMetahubMutation.mutateAsync(deleteDialogState.metahub.id)
+                                setDeleteDialogState({ open: false, metahub: null })
+                            } catch (err: unknown) {
+                                const responseMessage = extractResponseMessage(err)
+                                const message =
+                                    typeof responseMessage === 'string'
+                                        ? responseMessage
+                                        : err instanceof Error
+                                        ? err.message
+                                        : typeof err === 'string'
+                                        ? err
+                                        : t('deleteError')
+                                enqueueSnackbar(message, { variant: 'error' })
+                                setDeleteDialogState({ open: false, metahub: null })
+                            }
                         }
-                    }
-                }}
-            />
+                    }}
+                />
 
-            {/* Conflict Resolution Dialog for optimistic locking */}
-            <ConflictResolutionDialog
-                open={conflictState.open}
-                conflict={conflictState.conflict}
-                onCancel={() => {
-                    setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                    // Refresh list to get latest data
-                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.lists() })
-                }}
-                onOverwrite={async () => {
-                    // Force update without version check
-                    if (conflictState.pendingUpdate) {
-                        const { id, patch } = conflictState.pendingUpdate
-                        try {
-                            await updateMetahubMutation.mutateAsync({ id, data: patch })
-                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                        } catch (err) {
-                            enqueueSnackbar(t('updateError', 'Failed to update'), { variant: 'error' })
+                {/* Conflict Resolution Dialog for optimistic locking */}
+                <ConflictResolutionDialog
+                    open={conflictState.open}
+                    conflict={conflictState.conflict}
+                    onCancel={() => {
+                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                        // Refresh list to get latest data
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.lists() })
+                    }}
+                    onOverwrite={async () => {
+                        // Force update without version check
+                        if (conflictState.pendingUpdate) {
+                            const { id, patch } = conflictState.pendingUpdate
+                            try {
+                                await updateMetahubMutation.mutateAsync({ id, data: patch })
+                                setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                            } catch {
+                                enqueueSnackbar(t('updateError', 'Failed to update'), { variant: 'error' })
+                            }
                         }
-                    }
-                }}
-            />
+                    }}
+                />
 
-            <ConfirmDialog />
+                <ConfirmDialog />
+            </ExistingCodenamesProvider>
         </MainCard>
     )
 }

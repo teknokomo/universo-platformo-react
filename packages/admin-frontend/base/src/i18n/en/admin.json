@@ -323,6 +323,62 @@
         "no": "No"
     },
     "menu": {
-        "administration": "Administration"
+        "administration": "Administration",
+        "settings": "Settings"
+    },
+    "settings": {
+        "title": "Settings",
+        "description": "Platform-wide configuration defaults",
+        "loading": "Loading settings...",
+        "error": "Failed to load settings",
+        "saved": "Settings saved successfully",
+        "saveError": "Failed to save settings",
+        "resetSuccess": "Setting reset to default",
+        "resetError": "Failed to reset setting",
+        "resetToDefault": "Reset to default",
+        "resetConfirm": "Are you sure you want to reset this setting to its default value?",
+        "save": "Save Changes",
+        "noChanges": "No changes to save",
+        "tabs": {
+            "metahubs": "Metahubs",
+            "applications": "Applications"
+        },
+        "metahubs": {
+            "codenameStyle": "Codename Style",
+            "codenameStyleDescription": "Default naming convention for codenames when creating new metahubs",
+            "codenameAlphabet": "Codename Alphabet",
+            "codenameAlphabetDescription": "Default set of allowed characters for codenames",
+            "codenameAllowMixedAlphabets": "Allow Mixed Alphabets",
+            "codenameAllowMixedAlphabetsDescription": "Allow mixing Latin and Cyrillic characters in codenames",
+            "codenameAutoConvertMixedAlphabets": "Auto-convert Mixed Alphabet",
+            "codenameAutoConvertMixedAlphabetsDescription": "When mixed alphabets are disallowed, auto-convert mixed values to one alphabet by the first letter during auto-generation from name and during manual codename input on field blur",
+            "codenameLocalizedEnabled": "Enable Localized Codename (VLC)",
+            "codenameLocalizedEnabledDescription": "Allow codename alternatives per language and choose a primary codename locale",
+            "styleOptions": {
+                "pascal-case": "PascalCase (MyCodename)",
+                "kebab-case": "kebab-case (my-codename)"
+            },
+            "alphabetOptions": {
+                "en": "English only (a-z)",
+                "ru": "Russian only (а-я)",
+                "en-ru": "English + Russian (a-z, а-я)"
+            },
+            "codenamePreview": {
+                "title": "Preview",
+                "kebab-case": {
+                    "en": "my-catalog-name",
+                    "ru": "мой-каталог-имя",
+                    "mixed": "мой-catalog-имя"
+                },
+                "pascal-case": {
+                    "en": "MyCatalogName",
+                    "ru": "МойКаталогИмя",
+                    "mixed": "МойCatalogИмя"
+                }
+            }
+        },
+        "applications": {
+            "placeholder": "Application settings will be available in future versions."
+        }
     }
 }

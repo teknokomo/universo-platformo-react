@@ -83,12 +83,7 @@ export function getUplDeleteConditions(options: UplSoftDeleteOptions = {}): Reco
  * Use with dynamic metahub tables (_mhb_objects, _mhb_attributes, _mhb_elements)
  */
 export function getMhbDeleteConditions(options: MhbSoftDeleteOptions = {}): Record<string, boolean> {
-    const {
-        includeUplDeleted = false,
-        includeMhbDeleted = false,
-        onlyMhbDeleted = false,
-        onlyUplDeleted = false
-    } = options
+    const { includeUplDeleted = false, includeMhbDeleted = false, onlyMhbDeleted = false, onlyUplDeleted = false } = options
 
     const conditions: Record<string, boolean> = {}
 

@@ -54,15 +54,11 @@ export function buildTableConstraintText(params: TableConstraintParams): TableCo
     const parts: string[] = []
 
     if (typeof minRequired === 'number' && minRequired > 0) {
-        parts.push(
-            t('validation.tableMinRows', { defaultValue: 'min. rows: {{count}}', count: minRequired })
-        )
+        parts.push(t('validation.tableMinRows', { defaultValue: 'min. rows: {{count}}', count: minRequired }))
     }
 
     if (typeof maxRows === 'number' && maxRows > 0) {
-        parts.push(
-            t('validation.tableMaxRows', { defaultValue: 'max. rows: {{count}}', count: maxRows })
-        )
+        parts.push(t('validation.tableMaxRows', { defaultValue: 'max. rows: {{count}}', count: maxRows }))
     }
 
     let helperText: string | null = null

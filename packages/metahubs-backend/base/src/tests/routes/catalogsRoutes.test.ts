@@ -115,6 +115,25 @@ jest.mock('../../domains/metahubs/services/MetahubElementsService', () => ({
     MetahubElementsService: jest.fn().mockImplementation(() => mockElementsService)
 }))
 
+const mockSettingsService = {
+    findByKey: jest.fn(async (_metahubId: string, key: string) => {
+        const values: Record<string, unknown> = {
+            'general.codenameStyle': 'pascal-case',
+            'general.codenameAlphabet': 'en-ru',
+            'general.codenameAllowMixedAlphabets': false,
+            'catalogs.allowCopy': true,
+            'catalogs.allowDelete': true
+        }
+        return key in values ? { key, value: { _value: values[key] } } : null
+    }),
+    findAll: jest.fn(async () => [])
+}
+
+jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
+    __esModule: true,
+    MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
+}))
+
 describe('Catalogs Routes', () => {
     const createCatalogCopyTransactionStub = (params?: {
         copiedCatalog?: Record<string, unknown>
@@ -125,7 +144,7 @@ describe('Catalogs Routes', () => {
             params?.copiedCatalog ??
             ({
                 id: 'catalog-copy-id',
-                codename: 'products-copy',
+                codename: 'ProductsCopy',
                 presentation: {
                     name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
                     description: null
@@ -344,7 +363,7 @@ describe('Catalogs Routes', () => {
         it('creates catalog without hub associations', async () => {
             mockObjectsService.createCatalog.mockResolvedValue({
                 id: 'catalog-new',
-                codename: 'new-catalog',
+                codename: 'NewCatalog',
                 presentation: { name: { en: 'New Catalog' }, description: undefined },
                 config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 0 },
                 _upl_version: 1,
@@ -358,11 +377,11 @@ describe('Catalogs Routes', () => {
                 .send({ codename: 'new-catalog', name: 'New Catalog' })
                 .expect(201)
 
-            expect(response.body).toMatchObject({ id: 'catalog-new', codename: 'new-catalog' })
+            expect(response.body).toMatchObject({ id: 'catalog-new', codename: 'NewCatalog' })
             expect(mockObjectsService.createCatalog).toHaveBeenCalledWith(
                 'test-metahub-id',
                 expect.objectContaining({
-                    codename: 'new-catalog',
+                    codename: 'NewCatalog',
                     config: expect.objectContaining({ hubs: [] })
                 }),
                 'test-user-id'
@@ -396,6 +415,43 @@ describe('Catalogs Routes', () => {
 
             expect(response.body.error).toContain('hub IDs are invalid')
         })
+
+        it('rejects single-hub catalog when multiple hub IDs are provided', async () => {
+            const app = buildApp()
+
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalogs')
+                .send({
+                    codename: 'Products',
+                    name: { en: 'Products' },
+                    isSingleHub: true,
+                    hubIds: ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
+                })
+                .expect(400)
+
+            expect(response.body.error).toContain('single hub')
+            expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('POST /metahub/:metahubId/hub/:hubId/catalogs', () => {
+        it('rejects single-hub catalog when merged hub list contains multiple hubs', async () => {
+            mockHubsService.findById.mockResolvedValue({ id: 'hub-1' })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/hub/hub-1/catalogs')
+                .send({
+                    codename: 'Products',
+                    name: { en: 'Products' },
+                    isSingleHub: true,
+                    hubIds: ['00000000-0000-0000-0000-000000000002']
+                })
+                .expect(400)
+
+            expect(response.body.error).toContain('single hub')
+            expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
+        })
     })
 
     describe('DELETE /metahub/:metahubId/catalog/:catalogId', () => {
@@ -419,6 +475,15 @@ describe('Catalogs Routes', () => {
                 'test-user-id'
             )
             expect(mockObjectsService.delete).toHaveBeenCalledWith('test-metahub-id', 'catalog-to-delete', 'test-user-id')
+        })
+
+        it('returns 404 when object kind is not catalog', async () => {
+            mockObjectsService.findById.mockResolvedValue({ id: 'catalog-to-delete', kind: 'enumeration' })
+
+            const app = buildApp()
+            await request(app).delete('/metahub/test-metahub-id/catalog/catalog-to-delete').expect(404)
+
+            expect(mockObjectsService.delete).not.toHaveBeenCalled()
         })
     })
 
@@ -489,6 +554,38 @@ describe('Catalogs Routes', () => {
             expect(response.body.error).toContain('Cannot delete catalog')
             expect(response.body.blockingReferences).toHaveLength(1)
             expect(mockObjectsService.delete).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('Catalog restore/permanent safety', () => {
+        it('returns 409 on restore when codename conflict exists', async () => {
+            mockObjectsService.findById.mockResolvedValue({ id: 'catalog-1', kind: 'catalog' })
+            mockObjectsService.restore.mockRejectedValue({ code: '23505' })
+
+            const app = buildApp()
+            const response = await request(app).post('/metahub/test-metahub-id/catalog/catalog-1/restore').expect(409)
+
+            expect(response.body.error).toContain('codename already exists')
+        })
+
+        it('returns 409 on permanent delete when blocking references exist', async () => {
+            mockObjectsService.findById.mockResolvedValue({ id: 'catalog-1', kind: 'catalog' })
+            mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([
+                {
+                    catalogId: 'other-catalog',
+                    attributeId: 'attr-ref',
+                    attributeCodename: 'owner',
+                    attributeName: { en: 'Owner' },
+                    catalogCodename: 'products',
+                    catalogName: { en: 'Products' }
+                }
+            ])
+
+            const app = buildApp()
+            const response = await request(app).delete('/metahub/test-metahub-id/catalog/catalog-1/permanent').expect(409)
+
+            expect(response.body.error).toContain('Cannot delete catalog')
+            expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()
         })
     })
 
@@ -577,7 +674,7 @@ describe('Catalogs Routes', () => {
             expect(mockEnsureSchema).toHaveBeenCalledWith('test-metahub-id', 'test-user-id')
             expect(mockGenerateTableName).toHaveBeenCalledWith('catalog-copy-id', 'catalog')
             expect(response.body.id).toBe('catalog-copy-id')
-            expect(response.body.codename).toBe('products-copy')
+            expect(response.body.codename).toBe('ProductsCopy')
             expect(response.body.attributesCount).toBe(0)
             expect(response.body.elementsCount).toBe(0)
         })
@@ -648,7 +745,7 @@ describe('Catalogs Routes', () => {
             const tx = createCatalogCopyTransactionStub({
                 copiedCatalog: {
                     id: 'catalog-copy-id-2',
-                    codename: 'products-copy-2',
+                    codename: 'ProductsCopy_2',
                     presentation: {
                         name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
                         description: null
@@ -675,7 +772,7 @@ describe('Catalogs Routes', () => {
                 .expect(201)
 
             expect(response.body.id).toBe('catalog-copy-id-2')
-            expect(response.body.codename).toBe('products-copy-2')
+            expect(response.body.codename).toBe('ProductsCopy_2')
             expect(mockKnex.transaction).toHaveBeenCalledTimes(2)
         })
     })

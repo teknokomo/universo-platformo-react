@@ -520,6 +520,13 @@ export const isAdminPanelEnabled = () => process.env.ADMIN_PANEL_ENABLED !== 'fa
 - Normalize codename in backend only.
 - Keep frontend slugify for user-facing input.
 
+### Codename Validation
+- Two styles: `kebab-case` (English-only lowercase) and `pascal-case` (PascalCase).
+- `pascal-case` supports two alphabets: `en` (English-only) and `en-ru` (English + Russian).
+- Style + alphabet configured per metahub via `general.codenameStyle` and `general.codenameAlphabet` settings.
+- Use `isValidCodenameForStyle(value, style, alphabet)` and `normalizeCodenameForStyle(value, style, alphabet)`.
+- Backend reads both settings via `getCodenameStyle()`/`getCodenameAlphabet()` or batch `extractCodenameStyle()`/`extractCodenameAlphabet()`.
+
 ### RBAC + CASL
 - Map module='*' + action='*' to manage/all.
 - Use ensureGlobalAccess for checks.

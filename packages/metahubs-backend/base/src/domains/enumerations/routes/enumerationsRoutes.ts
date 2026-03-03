@@ -7,16 +7,19 @@ import { validateListQuery } from '../../shared/queryParams'
 import { getRequestManager } from '../../../utils'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { localizedContent, validation } from '@universo/utils'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { getCodenameSettings, codenameErrorMessage, buildCodenameAttempt } from '../../shared/codenameStyleHelper'
 import { type EnumerationCopyOptions, MetaEntityKind } from '@universo/types'
 import { KnexClient } from '../../ddl'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeCodename, isValidCodename, normalizeEnumerationCopyOptions } = validation
+const { normalizeEnumerationCopyOptions } = validation
 
 type RequestUser = {
     id?: string
@@ -38,6 +41,7 @@ type EnumerationObjectRow = {
     id: string
     codename: string
     presentation?: {
+        codename?: unknown
         name?: unknown
         description?: unknown
     }
@@ -60,6 +64,7 @@ type EnumerationListItemRow = {
     id: string
     metahubId: string
     codename: string
+    codenameLocalized: unknown
     name: unknown
     description: unknown
     isSingleHub: boolean
@@ -87,6 +92,7 @@ type CopiedEnumerationRow = {
     id: string
     codename: string
     presentation?: {
+        codename?: unknown
         name?: unknown
         description?: unknown
     }
@@ -131,16 +137,6 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
         result[locale] = `${content}${suffix}`
     }
     return result
-}
-
-const buildCodenameAttempt = (baseCodename: string, attempt: number): string => {
-    if (attempt <= 1) {
-        return baseCodename
-    }
-
-    const attemptSuffix = `-${attempt}`
-    const maxLength = Math.max(1, 100 - attemptSuffix.length)
-    return `${baseCodename.slice(0, maxLength)}${attemptSuffix}`
 }
 
 interface UniqueViolationErrorLike {
@@ -204,9 +200,23 @@ const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transfo
 const optionalLocalizedInputSchema = z
     .union([z.string(), z.record(z.string())])
     .transform((val) => (typeof val === 'string' ? { en: val } : val))
+const localizedCodenameInputSchema = z
+    .union([z.string(), z.record(z.string())])
+    .transform((val) => (typeof val === 'string' ? { en: val } : val))
+
+const buildCodenameLocalizedVlc = (codenameInput: unknown, primaryLocale?: string, fallbackPrimary = 'en'): unknown => {
+    if (codenameInput === undefined) return undefined
+    const codenameRecord: Record<string, string | undefined> =
+        typeof codenameInput === 'string' ? { en: codenameInput } : (codenameInput as Record<string, string | undefined>)
+    const sanitizedCodename = sanitizeLocalizedInput(codenameRecord)
+    if (Object.keys(sanitizedCodename).length === 0) return null
+    return buildLocalizedContent(sanitizedCodename, primaryLocale, fallbackPrimary)
+}
 
 const createEnumerationSchema = z.object({
     codename: z.string().min(1).max(100),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -219,6 +229,8 @@ const createEnumerationSchema = z.object({
 
 const updateEnumerationSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -232,6 +244,8 @@ const updateEnumerationSchema = z.object({
 
 const copyEnumerationSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -241,6 +255,8 @@ const copyEnumerationSchema = z.object({
 
 const createEnumerationValueSchema = z.object({
     codename: z.string().min(1).max(100),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -251,6 +267,8 @@ const createEnumerationValueSchema = z.object({
 
 const updateEnumerationValueSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -266,6 +284,8 @@ const moveEnumerationValueSchema = z.object({
 
 const copyEnumerationValueSchema = z.object({
     codename: z.string().min(1).max(100).optional(),
+    codenameInput: localizedCodenameInputSchema.optional(),
+    codenamePrimaryLocale: z.string().optional(),
     name: localizedInputSchema.optional(),
     description: optionalLocalizedInputSchema.optional(),
     namePrimaryLocale: z.string().optional(),
@@ -358,6 +378,7 @@ const mapEnumerationSummary = (row: EnumerationObjectRow, metahubId: string, val
     id: row.id,
     metahubId,
     codename: row.codename,
+    codenameLocalized: row.presentation?.codename ?? null,
     name: row.presentation?.name || {},
     description: row.presentation?.description || {},
     isSingleHub: row.config?.isSingleHub || false,
@@ -398,7 +419,8 @@ export function createEnumerationsRoutes(
             objectsService,
             hubsService: new MetahubHubsService(schemaService),
             attributesService: new MetahubAttributesService(schemaService),
-            valuesService: new MetahubEnumerationValuesService(schemaService)
+            valuesService: new MetahubEnumerationValuesService(schemaService),
+            settingsService: new MetahubSettingsService(schemaService)
         }
     }
 
@@ -500,7 +522,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const parsed = createEnumerationSchema.safeParse(req.body)
@@ -510,6 +532,8 @@ export function createEnumerationsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -520,11 +544,16 @@ export function createEnumerationsRoutes(
                 hubIds
             } = parsed.data
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -551,6 +580,8 @@ export function createEnumerationsRoutes(
                 }
             }
 
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
             const effectiveIsRequired = isRequiredHub ?? false
             const targetHubIds: string[] = hubIds ?? []
 
@@ -574,6 +605,7 @@ export function createEnumerationsRoutes(
                     metahubId,
                     {
                         codename: normalizedCodename,
+                        codenameLocalized,
                         name: nameVlc,
                         description: descriptionVlc,
                         config: {
@@ -599,6 +631,7 @@ export function createEnumerationsRoutes(
                 id: created.id,
                 metahubId,
                 codename: created.codename,
+                codenameLocalized: created.presentation?.codename ?? null,
                 name: created.presentation.name,
                 description: created.presentation.description,
                 isSingleHub: created.config.isSingleHub,
@@ -622,7 +655,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId } = req.params
-            const { ds, metahubRepo, objectsService, hubsService, schemaService } = services(req)
+            const { ds, metahubRepo, objectsService, hubsService, schemaService, settingsService } = services(req)
             const userId = resolveUserId(req)
             const rlsRunner = getRequestQueryRunner(req)
 
@@ -634,6 +667,13 @@ export function createEnumerationsRoutes(
                 return res.status(404).json({ error: 'Metahub not found' })
             }
             await ensureMetahubAccess(ds, userId, metahubId, 'editContent', rlsRunner)
+
+            // Check allowCopy setting
+            const allowCopyRow = await settingsService.findByKey(metahubId, 'enumerations.allowCopy', userId)
+            const allowCopy = allowCopyRow ? (allowCopyRow.value as { _value: boolean })._value !== false : true
+            if (!allowCopy) {
+                return res.status(403).json({ error: 'Copying enumerations is disabled by metahub settings' })
+            }
 
             const sourceEnumeration = await objectsService.findById(metahubId, enumerationId, userId)
             if (!sourceEnumeration || sourceEnumeration.kind !== MetaEntityKind.ENUMERATION) {
@@ -675,11 +715,30 @@ export function createEnumerationsRoutes(
                 }
             }
 
-            const normalizedBaseCodename = normalizeCodename(parsed.data.codename ?? `${sourceEnumeration.codename}-copy`)
-            if (!normalizedBaseCodename || !isValidCodename(normalizedBaseCodename)) {
+            let codenameLocalizedVlc: unknown = sourcePresentation.codename ?? null
+            if (parsed.data.codenameInput !== undefined) {
+                codenameLocalizedVlc = buildCodenameLocalizedVlc(
+                    parsed.data.codenameInput,
+                    parsed.data.codenamePrimaryLocale,
+                    parsed.data.namePrimaryLocale ?? sourceNamePrimary
+                )
+            }
+
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
+            const normalizedBaseCodename = normalizeCodenameForStyle(
+                parsed.data.codename ?? `${sourceEnumeration.codename}${copySuffix}`,
+                codenameStyle,
+                codenameAlphabet
+            )
+            if (!normalizedBaseCodename || !isValidCodenameForStyle(normalizedBaseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -705,6 +764,7 @@ export function createEnumerationsRoutes(
                             codename,
                             table_name: null,
                             presentation: {
+                                codename: codenameLocalizedVlc,
                                 name: nameVlc,
                                 description: descriptionVlc ?? null
                             },
@@ -762,7 +822,7 @@ export function createEnumerationsRoutes(
             let copiedResult: { enumeration: CopiedEnumerationRow; copiedValuesCount: number } | null = null
 
             for (let attempt = 1; attempt <= 1000; attempt += 1) {
-                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt)
+                const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
                 try {
                     copiedResult = await createEnumerationCopy(codenameCandidate)
                     break
@@ -790,6 +850,7 @@ export function createEnumerationsRoutes(
                 id: copiedEnumeration.id,
                 metahubId,
                 codename: copiedEnumeration.codename,
+                codenameLocalized: copiedEnumeration.presentation?.codename ?? null,
                 name: copiedEnumeration.presentation?.name ?? {},
                 description: copiedEnumeration.presentation?.description ?? null,
                 isSingleHub: copiedConfig.isSingleHub ?? false,
@@ -809,7 +870,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
@@ -824,6 +885,8 @@ export function createEnumerationsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -840,6 +903,7 @@ export function createEnumerationsRoutes(
 
             let finalName = currentPresentation.name
             let finalDescription = currentPresentation.description
+            let finalCodenameLocalized = currentPresentation.codename
             let finalCodename = enumeration.codename
 
             let targetHubIds: string[] = currentConfig.hubs || []
@@ -861,11 +925,16 @@ export function createEnumerationsRoutes(
             }
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
                 if (normalizedCodename !== enumeration.codename) {
@@ -912,6 +981,14 @@ export function createEnumerationsRoutes(
                 }
             }
 
+            if (codenameInput !== undefined) {
+                finalCodenameLocalized = buildCodenameLocalizedVlc(
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    currentPresentation.codename?._primary ?? namePrimaryLocale ?? 'en'
+                )
+            }
+
             if (isSingleHub !== undefined && isSingleHub && targetHubIds.length > 1) {
                 return res.status(400).json({ error: 'Cannot set single hub mode when enumeration is associated with multiple hubs' })
             }
@@ -927,6 +1004,7 @@ export function createEnumerationsRoutes(
                     enumerationId,
                     {
                         codename: finalCodename !== enumeration.codename ? finalCodename : undefined,
+                        codenameLocalized: finalCodenameLocalized,
                         name: finalName,
                         description: finalDescription,
                         config: {
@@ -953,6 +1031,7 @@ export function createEnumerationsRoutes(
                 id: updated.id,
                 metahubId,
                 codename: updated.codename,
+                codenameLocalized: updated.presentation?.codename ?? null,
                 name: updated.presentation?.name ?? {},
                 description: updated.presentation?.description,
                 isSingleHub: updated.config?.isSingleHub ?? false,
@@ -1091,6 +1170,7 @@ export function createEnumerationsRoutes(
                 id: enumeration.id,
                 metahubId,
                 codename: enumeration.codename,
+                codenameLocalized: enumeration.presentation?.codename ?? null,
                 name: enumeration.presentation.name,
                 description: enumeration.presentation.description,
                 isSingleHub: currentConfig.isSingleHub,
@@ -1110,7 +1190,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, hubId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -1125,6 +1205,8 @@ export function createEnumerationsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -1135,11 +1217,16 @@ export function createEnumerationsRoutes(
                 hubIds
             } = parsed.data
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -1166,6 +1253,8 @@ export function createEnumerationsRoutes(
                 }
             }
 
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
             const effectiveIsRequired = isRequiredHub ?? false
             let targetHubIds = [hubId]
             if (hubIds && Array.isArray(hubIds)) {
@@ -1186,6 +1275,7 @@ export function createEnumerationsRoutes(
                     metahubId,
                     {
                         codename: normalizedCodename,
+                        codenameLocalized,
                         name: nameVlc,
                         description: descriptionVlc,
                         config: {
@@ -1211,6 +1301,7 @@ export function createEnumerationsRoutes(
                 id: created.id,
                 metahubId,
                 codename: created.codename,
+                codenameLocalized: created.presentation?.codename ?? null,
                 name: created.presentation.name,
                 description: created.presentation.description,
                 isSingleHub: created.config.isSingleHub,
@@ -1230,7 +1321,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, hubId, enumerationId } = req.params
-            const { objectsService, hubsService } = services(req)
+            const { objectsService, hubsService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
@@ -1250,6 +1341,8 @@ export function createEnumerationsRoutes(
 
             const {
                 codename,
+                codenameInput,
+                codenamePrimaryLocale,
                 name,
                 description,
                 sortOrder,
@@ -1266,6 +1359,7 @@ export function createEnumerationsRoutes(
 
             let finalName = currentPresentation.name
             let finalDescription = currentPresentation.description
+            let finalCodenameLocalized = currentPresentation.codename
             let finalCodename = enumeration.codename
             let targetHubIds = currentConfig.hubs || []
 
@@ -1289,9 +1383,17 @@ export function createEnumerationsRoutes(
             }
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
-                    return res.status(400).json({ error: 'Validation failed', details: { codename: ['Invalid format'] } })
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
+                    return res.status(400).json({
+                        error: 'Validation failed',
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
+                    })
                 }
                 if (normalizedCodename !== enumeration.codename) {
                     const existing = await objectsService.findByCodenameAndKind(
@@ -1334,6 +1436,14 @@ export function createEnumerationsRoutes(
                 }
             }
 
+            if (codenameInput !== undefined) {
+                finalCodenameLocalized = buildCodenameLocalizedVlc(
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    currentPresentation.codename?._primary ?? namePrimaryLocale ?? 'en'
+                )
+            }
+
             let updated: EnumerationObjectRow
             try {
                 updated = (await objectsService.updateEnumeration(
@@ -1341,6 +1451,7 @@ export function createEnumerationsRoutes(
                     enumerationId,
                     {
                         codename: finalCodename !== enumeration.codename ? finalCodename : undefined,
+                        codenameLocalized: finalCodenameLocalized,
                         name: finalName,
                         description: finalDescription,
                         config: {
@@ -1367,6 +1478,7 @@ export function createEnumerationsRoutes(
                 id: updated.id,
                 metahubId,
                 codename: updated.codename,
+                codenameLocalized: updated.presentation?.codename ?? null,
                 name: updated.presentation?.name ?? {},
                 description: updated.presentation?.description,
                 isSingleHub: updated.config?.isSingleHub ?? false,
@@ -1410,7 +1522,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, hubId, enumerationId } = req.params
-            const { objectsService, attributesService } = services(req)
+            const { objectsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
@@ -1426,6 +1538,15 @@ export function createEnumerationsRoutes(
             }
 
             const forceDelete = req.query.force === 'true'
+            const willDeleteEntireEnumeration = !(currentHubIds.length > 1 && !forceDelete)
+
+            if (willDeleteEntireEnumeration) {
+                const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
+                const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+                if (!allowDelete) {
+                    return res.status(403).json({ error: 'Deleting enumerations is disabled by metahub settings' })
+                }
+            }
 
             if (currentConfig.isRequiredHub && currentHubIds.length === 1 && !forceDelete) {
                 return res.status(409).json({
@@ -1439,8 +1560,9 @@ export function createEnumerationsRoutes(
                     metahubId,
                     enumerationId,
                     {
-                        config: { ...currentConfig, hubs: newHubIds },
-                        updatedBy: userId
+                        config: { hubs: newHubIds },
+                        updatedBy: userId,
+                        expectedVersion: enumeration._upl_version
                     },
                     userId
                 )
@@ -1465,12 +1587,19 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId } = req.params
-            const { objectsService, attributesService } = services(req)
+            const { objectsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
             if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
                 return res.status(404).json({ error: 'Enumeration not found' })
+            }
+
+            // Check allowDelete setting
+            const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
+            const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+            if (!allowDelete) {
+                return res.status(403).json({ error: 'Deleting enumerations is disabled by metahub settings' })
             }
 
             const blockingReferences = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
@@ -1499,6 +1628,7 @@ export function createEnumerationsRoutes(
                 id: row.id,
                 metahubId,
                 codename: row.codename,
+                codenameLocalized: row.presentation?.codename ?? null,
                 name: row.presentation?.name || {},
                 description: row.presentation?.description || {},
                 deletedAt: row._mhb_deleted_at,
@@ -1541,12 +1671,19 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId } = req.params
-            const { objectsService, attributesService } = services(req)
+            const { objectsService, attributesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId, { includeDeleted: true })
             if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
                 return res.status(404).json({ error: 'Enumeration not found' })
+            }
+
+            // Check allowDelete setting
+            const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
+            const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+            if (!allowDelete) {
+                return res.status(403).json({ error: 'Deleting enumerations is disabled by metahub settings' })
             }
 
             const blockingReferences = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
@@ -1641,7 +1778,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId } = req.params
-            const { objectsService, valuesService } = services(req)
+            const { objectsService, valuesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
@@ -1654,13 +1791,28 @@ export function createEnumerationsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isDefault } = parsed.data
+            const {
+                codename,
+                codenameInput,
+                codenamePrimaryLocale,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                isDefault
+            } = parsed.data
 
-            const normalizedCodename = normalizeCodename(codename)
-            if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
+            const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+            if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({
                     error: 'Validation failed',
-                    details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                    details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                 })
             }
 
@@ -1687,6 +1839,8 @@ export function createEnumerationsRoutes(
                 }
             }
 
+            const codenameLocalized = buildCodenameLocalizedVlc(codenameInput, codenamePrimaryLocale, namePrimaryLocale ?? 'en')
+
             let created
             try {
                 created = await valuesService.create(
@@ -1694,6 +1848,7 @@ export function createEnumerationsRoutes(
                     {
                         enumerationId,
                         codename: normalizedCodename,
+                        codenameLocalized,
                         name: nameVlc,
                         description: descriptionVlc,
                         sortOrder,
@@ -1718,7 +1873,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId, valueId } = req.params
-            const { objectsService, valuesService } = services(req)
+            const { objectsService, valuesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
@@ -1736,8 +1891,18 @@ export function createEnumerationsRoutes(
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isDefault, expectedVersion } =
-                parsed.data
+            const {
+                codename,
+                codenameInput,
+                codenamePrimaryLocale,
+                name,
+                description,
+                sortOrder,
+                namePrimaryLocale,
+                descriptionPrimaryLocale,
+                isDefault,
+                expectedVersion
+            } = parsed.data
 
             const patch: Record<string, unknown> = {
                 updatedBy: userId,
@@ -1745,11 +1910,16 @@ export function createEnumerationsRoutes(
             }
 
             if (codename !== undefined) {
-                const normalizedCodename = normalizeCodename(codename)
-                if (!normalizedCodename || !isValidCodename(normalizedCodename)) {
+                const {
+                    style: codenameStyle,
+                    alphabet: codenameAlphabet,
+                    allowMixed
+                } = await getCodenameSettings(settingsService, metahubId, userId)
+                const normalizedCodename = normalizeCodenameForStyle(codename, codenameStyle, codenameAlphabet)
+                if (!normalizedCodename || !isValidCodenameForStyle(normalizedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
                 if (normalizedCodename !== currentValue.codename) {
@@ -1778,6 +1948,14 @@ export function createEnumerationsRoutes(
                 } else {
                     patch.description = null
                 }
+            }
+
+            if (codenameInput !== undefined) {
+                patch.codenameLocalized = buildCodenameLocalizedVlc(
+                    codenameInput,
+                    codenamePrimaryLocale,
+                    resolvePrimaryLocale((currentValue as { codenameLocalized?: unknown }).codenameLocalized) ?? namePrimaryLocale ?? 'en'
+                )
             }
 
             if (sortOrder !== undefined) patch.sortOrder = sortOrder
@@ -1831,7 +2009,7 @@ export function createEnumerationsRoutes(
         writeLimiter,
         asyncHandler(async (req, res) => {
             const { metahubId, enumerationId, valueId } = req.params
-            const { objectsService, valuesService } = services(req)
+            const { objectsService, valuesService, settingsService } = services(req)
             const userId = resolveUserId(req)
 
             const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
@@ -1877,13 +2055,20 @@ export function createEnumerationsRoutes(
                 }
             }
 
+            const {
+                style: codenameStyle,
+                alphabet: codenameAlphabet,
+                allowMixed
+            } = await getCodenameSettings(settingsService, metahubId, userId)
             const requestedCodename =
-                parsed.data.codename !== undefined && parsed.data.codename !== null ? normalizeCodename(parsed.data.codename) : null
+                parsed.data.codename !== undefined && parsed.data.codename !== null
+                    ? normalizeCodenameForStyle(parsed.data.codename, codenameStyle, codenameAlphabet)
+                    : null
             if (requestedCodename !== null) {
-                if (!requestedCodename || !isValidCodename(requestedCodename)) {
+                if (!requestedCodename || !isValidCodenameForStyle(requestedCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                     return res.status(400).json({
                         error: 'Validation failed',
-                        details: { codename: ['Codename must contain only lowercase letters, numbers, and hyphens'] }
+                        details: { codename: [codenameErrorMessage(codenameStyle, codenameAlphabet, allowMixed)] }
                     })
                 }
                 const existingRequested = await valuesService.findByCodename(metahubId, enumerationId, requestedCodename, userId)
@@ -1892,15 +2077,25 @@ export function createEnumerationsRoutes(
                 }
             }
 
-            const baseCodename = requestedCodename ?? normalizeCodename(`${sourceValue.codename}-copy`)
-            if (!baseCodename || !isValidCodename(baseCodename)) {
+            const copySuffix = codenameStyle === 'pascal-case' ? 'Copy' : '-copy'
+            const baseCodename =
+                requestedCodename ?? normalizeCodenameForStyle(`${sourceValue.codename}${copySuffix}`, codenameStyle, codenameAlphabet)
+            if (!baseCodename || !isValidCodenameForStyle(baseCodename, codenameStyle, codenameAlphabet, allowMixed)) {
                 return res.status(400).json({ error: 'Failed to generate codename for enumeration value copy' })
             }
 
             let copiedValue: Awaited<ReturnType<typeof valuesService.create>> | null = null
             const maxAttempts = requestedCodename ? 1 : 20
+            let copyCodenameLocalized: unknown = (sourceValue as { codenameLocalized?: unknown }).codenameLocalized ?? null
+            if (parsed.data.codenameInput !== undefined) {
+                copyCodenameLocalized = buildCodenameLocalizedVlc(
+                    parsed.data.codenameInput,
+                    parsed.data.codenamePrimaryLocale,
+                    parsed.data.namePrimaryLocale ?? resolvePrimaryLocale(sourceValue.name) ?? 'en'
+                )
+            }
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                const codenameAttempt = requestedCodename ? baseCodename : buildCodenameAttempt(baseCodename, attempt)
+                const codenameAttempt = requestedCodename ? baseCodename : buildCodenameAttempt(baseCodename, attempt, codenameStyle)
                 const existing = await valuesService.findByCodename(metahubId, enumerationId, codenameAttempt, userId)
                 if (existing) continue
 
@@ -1910,6 +2105,7 @@ export function createEnumerationsRoutes(
                         {
                             enumerationId,
                             codename: codenameAttempt,
+                            codenameLocalized: copyCodenameLocalized,
                             name: copyName,
                             description: copyDescription,
                             sortOrder: (sourceValue.sortOrder ?? 0) + 1,

@@ -5,7 +5,8 @@ import { useCommonTranslations } from '@universo/i18n'
 import type { AssignableRole } from '@universo/template-mui'
 import type { MetahubLocalizedPayload, SimpleLocalizedInput } from '../../../types'
 import { normalizeLocale } from '../../../utils/localizedInput'
-import { sanitizeCodename, isValidCodename } from '../../../utils/codename'
+import { sanitizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { metahubsQueryKeys } from '../../shared'
 import * as metahubsApi from '../api'
 
@@ -47,6 +48,7 @@ export function useCreateMetahub() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
     const { t, i18n } = useTranslation('metahubs')
+    const codenameConfig = useCodenameConfig()
 
     return useMutation({
         mutationFn: async (data: LegacyMetahubInput | MetahubLocalizedPayload) => {
@@ -55,8 +57,16 @@ export function useCreateMetahub() {
                 typeof data.name === 'string'
                     ? {
                           codename: (() => {
-                              const normalized = sanitizeCodename(data.name)
-                              if (!normalized || !isValidCodename(normalized)) {
+                              const normalized = sanitizeCodenameForStyle(data.name, codenameConfig.style, codenameConfig.alphabet)
+                              if (
+                                  !normalized ||
+                                  !isValidCodenameForStyle(
+                                      normalized,
+                                      codenameConfig.style,
+                                      codenameConfig.alphabet,
+                                      codenameConfig.allowMixed
+                                  )
+                              ) {
                                   throw new Error(t('validation.codenameInvalid', 'Codename contains invalid characters'))
                               }
                               return normalized
@@ -84,6 +94,7 @@ export function useUpdateMetahub() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
     const { t, i18n } = useTranslation('metahubs')
+    const codenameConfig = useCodenameConfig()
 
     return useMutation({
         mutationFn: async ({ id, data, expectedVersion }: UpdateMetahubParams) => {
@@ -92,8 +103,16 @@ export function useUpdateMetahub() {
                 typeof data.name === 'string'
                     ? {
                           codename: (() => {
-                              const normalized = sanitizeCodename(data.name)
-                              if (!normalized || !isValidCodename(normalized)) {
+                              const normalized = sanitizeCodenameForStyle(data.name, codenameConfig.style, codenameConfig.alphabet)
+                              if (
+                                  !normalized ||
+                                  !isValidCodenameForStyle(
+                                      normalized,
+                                      codenameConfig.style,
+                                      codenameConfig.alphabet,
+                                      codenameConfig.allowMixed
+                                  )
+                              ) {
                                   throw new Error(t('validation.codenameInvalid', 'Codename contains invalid characters'))
                               }
                               return normalized

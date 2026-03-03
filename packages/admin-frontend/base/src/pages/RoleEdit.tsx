@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Stack, Typography, TextField, Button, CircularProgress, Alert, FormControlLabel, Switch, Grid, Divider } from '@mui/material'
+import { Box, Stack, Typography, TextField, Button, CircularProgress, Alert, FormControlLabel, Switch, Divider } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import { useTranslation } from 'react-i18next'
@@ -361,8 +361,8 @@ const RoleEdit = () => {
                     {/* Basic Info */}
                     <Typography variant='h6'>{t('roles.section.basicInfo', 'Basic Information')}</Typography>
 
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                        <Box sx={{ flex: 1 }}>
                             <TextField
                                 fullWidth
                                 label={t('roles.field.codename', 'Unique Identifier') + ' *'}
@@ -377,8 +377,8 @@ const RoleEdit = () => {
                                 required
                                 placeholder='new_role'
                             />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
                             <ColorPicker
                                 label={t('roles.field.color', 'Color')}
                                 value={formState.color}
@@ -387,34 +387,32 @@ const RoleEdit = () => {
                                 error={!!validationErrors.color}
                                 helperText={validationErrors.color}
                             />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <LocalizedInlineField
-                                mode='localized'
-                                value={formState.name}
-                                onChange={(value) => handleNameChange(value)}
-                                label={t('roles.field.name', 'Name')}
-                                disabled={isSaving}
-                                error={validationErrors.name || null}
-                                helperText={validationErrors.name}
-                                uiLocale={i18n.language}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <LocalizedInlineField
-                                mode='localized'
-                                value={formState.description}
-                                onChange={(value) => {
-                                    setFormState((prev) => ({ ...prev, description: value }))
-                                    setIsDirty(true)
-                                }}
-                                label={t('roles.field.description', 'Description')}
-                                disabled={isSaving}
-                                multiline
-                                rows={2}
-                            />
-                        </Grid>
-                    </Grid>
+                        </Box>
+                    </Stack>
+
+                    <LocalizedInlineField
+                        mode='localized'
+                        value={formState.name}
+                        onChange={(value) => handleNameChange(value)}
+                        label={t('roles.field.name', 'Name')}
+                        disabled={isSaving}
+                        error={validationErrors.name || null}
+                        helperText={validationErrors.name}
+                        uiLocale={i18n.language}
+                    />
+
+                    <LocalizedInlineField
+                        mode='localized'
+                        value={formState.description}
+                        onChange={(value) => {
+                            setFormState((prev) => ({ ...prev, description: value }))
+                            setIsDirty(true)
+                        }}
+                        label={t('roles.field.description', 'Description')}
+                        disabled={isSaving}
+                        multiline
+                        rows={2}
+                    />
 
                     <Divider />
 

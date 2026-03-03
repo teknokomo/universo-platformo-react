@@ -320,6 +320,62 @@
         "no": "Нет"
     },
     "menu": {
-        "administration": "Администрирование"
+        "administration": "Администрирование",
+        "settings": "Настройки"
+    },
+    "settings": {
+        "title": "Настройки",
+        "description": "Глобальные настройки платформы",
+        "loading": "Загрузка настроек...",
+        "error": "Не удалось загрузить настройки",
+        "saved": "Настройки сохранены",
+        "saveError": "Не удалось сохранить настройки",
+        "resetSuccess": "Настройка сброшена",
+        "resetError": "Не удалось сбросить настройку",
+        "resetToDefault": "Сбросить к значению по умолчанию",
+        "resetConfirm": "Вы уверены, что хотите сбросить эту настройку к значению по умолчанию?",
+        "save": "Сохранить изменения",
+        "noChanges": "Нет изменений для сохранения",
+        "tabs": {
+            "metahubs": "Метахабы",
+            "applications": "Приложения"
+        },
+        "metahubs": {
+            "codenameStyle": "Стиль кодового имени",
+            "codenameStyleDescription": "Стиль именования по умолчанию для новых метахабов",
+            "codenameAlphabet": "Алфавит кодового имени",
+            "codenameAlphabetDescription": "Набор допустимых символов для кодовых имён по умолчанию",
+            "codenameAllowMixedAlphabets": "Разрешить смешивание алфавитов",
+            "codenameAllowMixedAlphabetsDescription": "Разрешить смешивание латинских и кириллических символов в кодовых именах",
+            "codenameAutoConvertMixedAlphabets": "Автоконвертация смешанного алфавита",
+            "codenameAutoConvertMixedAlphabetsDescription": "Когда смешивание алфавитов запрещено, автоматически приводить смешанные значения к одному алфавиту по первой букве при автоматическом формировании из названия и при ручном вводе при потере фокуса",
+            "codenameLocalizedEnabled": "Включить локализованные кодовые имена (VLC)",
+            "codenameLocalizedEnabledDescription": "Разрешить альтернативы кодового имени по языкам и выбор основной локали кодового имени",
+            "styleOptions": {
+                "pascal-case": "PascalCase (МоёКодовоеИмя)",
+                "kebab-case": "kebab-case (моё-кодовое-имя)"
+            },
+            "alphabetOptions": {
+                "en": "Только английский (a-z)",
+                "ru": "Только русский (а-я)",
+                "en-ru": "Английский + Русский (a-z, а-я)"
+            },
+            "codenamePreview": {
+                "title": "Предпросмотр",
+                "kebab-case": {
+                    "en": "my-catalog-name",
+                    "ru": "мой-каталог-имя",
+                    "mixed": "мой-catalog-имя"
+                },
+                "pascal-case": {
+                    "en": "MyCatalogName",
+                    "ru": "МойКаталогИмя",
+                    "mixed": "МойCatalogИмя"
+                }
+            }
+        },
+        "applications": {
+            "placeholder": "Настройки приложений будут доступны в будущих версиях."
+        }
     }
 }

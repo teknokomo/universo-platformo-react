@@ -1,13 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
 import { notifyError } from '../createEntityActions'
 
 describe('createEntityActions', () => {
     describe('notifyError', () => {
-        const mockEnqueueSnackbar = vi.fn()
-        const mockT = vi.fn((key: string, defaultValue?: string) => defaultValue || key)
+        const mockEnqueueSnackbar = jest.fn()
+        const mockT = jest.fn((key: string, defaultValue?: string) => defaultValue || key)
+        const expectErrorNotification = (message: string) => {
+            expect(mockEnqueueSnackbar).toHaveBeenCalledWith({
+                message,
+                options: { variant: 'error' }
+            })
+        }
 
         beforeEach(() => {
-            vi.clearAllMocks()
+            jest.clearAllMocks()
         })
 
         it('should extract message from Axios error response', () => {
@@ -21,7 +26,7 @@ describe('createEntityActions', () => {
 
             notifyError(mockT, mockEnqueueSnackbar, axiosError)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Invalid request data', { variant: 'error' })
+            expectErrorNotification('Invalid request data')
         })
 
         it('should extract message from Error instance', () => {
@@ -29,7 +34,7 @@ describe('createEntityActions', () => {
 
             notifyError(mockT, mockEnqueueSnackbar, error)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Network timeout', { variant: 'error' })
+            expectErrorNotification('Network timeout')
         })
 
         it('should use string error directly', () => {
@@ -37,7 +42,7 @@ describe('createEntityActions', () => {
 
             notifyError(mockT, mockEnqueueSnackbar, error)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Something went wrong', { variant: 'error' })
+            expectErrorNotification('Something went wrong')
         })
 
         it('should use fallback message for unknown error types', () => {
@@ -45,19 +50,19 @@ describe('createEntityActions', () => {
 
             notifyError(mockT, mockEnqueueSnackbar, error)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+            expectErrorNotification('Operation failed')
         })
 
         it('should use fallback message for null error', () => {
             notifyError(mockT, mockEnqueueSnackbar, null)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+            expectErrorNotification('Operation failed')
         })
 
         it('should use fallback message for undefined error', () => {
             notifyError(mockT, mockEnqueueSnackbar, undefined)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+            expectErrorNotification('Operation failed')
         })
 
         it('should use fallback when Axios error message is empty', () => {
@@ -71,7 +76,7 @@ describe('createEntityActions', () => {
 
             notifyError(mockT, mockEnqueueSnackbar, axiosError)
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+            expectErrorNotification('Operation failed')
         })
 
         it('should handle missing enqueueSnackbar gracefully', () => {
@@ -87,10 +92,7 @@ describe('createEntityActions', () => {
         })
 
         it('should support notistack v3 API (object parameter)', () => {
-            const mockEnqueueV3 = vi.fn()
-
-            // Simulate v3 API with single parameter
-            mockEnqueueV3.length = 1
+            const mockEnqueueV3 = jest.fn((payload: unknown) => payload)
 
             const error = new Error('V3 test error')
             notifyError(mockT, mockEnqueueV3, error)
@@ -103,14 +105,14 @@ describe('createEntityActions', () => {
         })
 
         it('should use custom translation fallback from t function', () => {
-            const customT = vi.fn((key: string, defaultValue?: string) => {
-                if (key === 'common.error') return 'Custom Error Message'
+            const customT = jest.fn((key: string, defaultValue?: string) => {
+                if (key === 'common:error') return 'Custom Error Message'
                 return defaultValue || key
             })
 
             notifyError(customT, mockEnqueueSnackbar, {})
 
-            expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Custom Error Message', { variant: 'error' })
+            expectErrorNotification('Custom Error Message')
         })
 
         describe('Edge Cases', () => {
@@ -122,7 +124,7 @@ describe('createEntityActions', () => {
                 notifyError(mockT, mockEnqueueSnackbar, axiosError)
 
                 // Should fall back to common.error since no response.data.message
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
 
             it('should handle Axios error with null data', () => {
@@ -134,7 +136,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, axiosError)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
 
             it('should handle Axios error with non-string message', () => {
@@ -148,7 +150,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, axiosError)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
 
             it('should handle Error with empty message', () => {
@@ -156,25 +158,25 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
 
             it('should handle numeric error value', () => {
                 notifyError(mockT, mockEnqueueSnackbar, 404)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
 
             it('should handle boolean error value', () => {
                 notifyError(mockT, mockEnqueueSnackbar, false)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
 
             it('should handle array error value', () => {
                 notifyError(mockT, mockEnqueueSnackbar, ['error1', 'error2'])
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Operation failed', { variant: 'error' })
+                expectErrorNotification('Operation failed')
             })
         })
 
@@ -191,7 +193,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Invalid metaverse name: must be unique', { variant: 'error' })
+                expectErrorNotification('Invalid metaverse name: must be unique')
             })
 
             it('should handle 401 Unauthorized error', () => {
@@ -206,7 +208,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Authentication required', { variant: 'error' })
+                expectErrorNotification('Authentication required')
             })
 
             it('should handle 403 Forbidden error', () => {
@@ -221,9 +223,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Insufficient permissions to delete this metaverse', {
-                    variant: 'error'
-                })
+                expectErrorNotification('Insufficient permissions to delete this metaverse')
             })
 
             it('should handle 404 Not Found error', () => {
@@ -238,7 +238,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Metaverse not found', { variant: 'error' })
+                expectErrorNotification('Metaverse not found')
             })
 
             it('should handle 500 Internal Server Error', () => {
@@ -253,7 +253,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Internal server error', { variant: 'error' })
+                expectErrorNotification('Internal server error')
             })
 
             it('should handle network timeout', () => {
@@ -261,7 +261,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('timeout of 5000ms exceeded', { variant: 'error' })
+                expectErrorNotification('timeout of 5000ms exceeded')
             })
 
             it('should handle connection refused', () => {
@@ -269,7 +269,7 @@ describe('createEntityActions', () => {
 
                 notifyError(mockT, mockEnqueueSnackbar, error)
 
-                expect(mockEnqueueSnackbar).toHaveBeenCalledWith('connect ECONNREFUSED 127.0.0.1:3000', { variant: 'error' })
+                expectErrorNotification('connect ECONNREFUSED 127.0.0.1:3000')
             })
         })
     })

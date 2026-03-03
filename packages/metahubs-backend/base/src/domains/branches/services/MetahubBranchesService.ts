@@ -409,12 +409,13 @@ export class MetahubBranchesService {
         metahubId: string
         sourceBranchId?: string | null
         codename: string
+        codenameLocalized?: VersionedLocalizedContent<string> | null
         name: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
         copyOptions?: Partial<BranchCopyOptions>
         createdBy?: string | null
     }): Promise<MetahubBranch> {
-        const { metahubId, sourceBranchId, codename, name, description, createdBy, copyOptions } = params
+        const { metahubId, sourceBranchId, codename, codenameLocalized, name, description, createdBy, copyOptions } = params
         const normalizedCopyOptions = normalizeBranchCopyOptions(copyOptions)
         const schemaService = new MetahubSchemaService(this.dataSource, undefined, this.repoManager)
 
@@ -498,6 +499,7 @@ export class MetahubBranchesService {
                     name,
                     description: description ?? null,
                     codename,
+                    codenameLocalized: codenameLocalized ?? null,
                     branchNumber: nextNumber,
                     schemaName,
                     structureVersion: branchStructureVersion,
@@ -538,6 +540,7 @@ export class MetahubBranchesService {
         branchId: string,
         data: {
             codename?: string
+            codenameLocalized?: VersionedLocalizedContent<string> | null
             name?: VersionedLocalizedContent<string>
             description?: VersionedLocalizedContent<string> | null
             expectedVersion?: number
@@ -567,6 +570,9 @@ export class MetahubBranchesService {
 
         if (data.codename !== undefined) {
             branch.codename = data.codename
+        }
+        if (data.codenameLocalized !== undefined) {
+            branch.codenameLocalized = data.codenameLocalized
         }
         if (data.name !== undefined) {
             branch.name = data.name

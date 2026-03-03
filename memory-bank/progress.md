@@ -44,6 +44,666 @@
 
 ---
 
+## Codename Auto-Convert UX Hardening (2026-03-03)
+
+Completed a focused UX/logic hardening pass to make mixed-alphabet codename conversion consistent between manual codename editing and codename auto-generation from Name.
+
+### What was fixed
+
+- `@universo/utils` codename sanitizer was extended so generation flows can opt into mixed-alphabet auto-conversion when mixed alphabet input is disallowed by settings.
+- All metahubs codename generation call sites in forms (create/edit/copy and VLC-derived sync paths) now pass settings-aware controls for `allowMixed` and `autoConvertMixedAlphabets`.
+- Admin and metahubs settings copy (EN/RU) was updated: setting label simplified to “Auto-convert Mixed Alphabet” and descriptions now explicitly cover both Name-based generation and manual Codename blur normalization.
+- Existing manual blur conversion behavior in the Codename field was preserved.
+
+### Verification
+
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (`0` errors, `149` warnings)
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests)
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m23.968s`)
+
+### Outcome
+
+- Codename mixed-alphabet conversion is now settings-consistent across both input paths (manual blur and Name-driven auto-generation) in metahubs forms.
+
+## QA Debt Eradication Closure (2026-03-03)
+
+Completed closure for the latest QA remediation pass focused on final lint blocker elimination and test stability hardening in `metahubs-frontend`.
+
+### What was fixed
+
+- `EnumerationValueList.tsx`: added missing `editingEntityId?: string | null` prop typing in `ValueFormFields` props to remove the remaining `react/prop-types` error-level lint blocker.
+- `src/__mocks__/handlers.ts`: added missing MSW route for `GET /api/v1/metahubs/codename-defaults` and returned stable codename-default config payload used by frontend tests.
+- Preserved functional behavior while keeping changes minimal and isolated to QA-reported gaps.
+
+### Verification
+
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (`0` errors, `149` warnings)
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests)
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `123` passed, `3` skipped)
+- `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `169/169` tests)
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m20.626s`)
+
+### Outcome
+
+- QA-reported blocker-level issues in this pass are resolved and integration baseline remains green.
+- Legacy warning-only lint debt remains outside this narrow remediation scope and is unchanged.
+
+## QA Remediation — Root Attribute Codename Flow Hardening (2026-03-03)
+
+Completed final remediation for the remaining root attribute QA gaps in codename handling and duplicate safety.
+
+### What was fixed
+
+- `AttributeList.tsx` moved to settings-aware codename normalization/validation (`normalizeCodenameForStyle` + `isValidCodenameForStyle`) for create/edit save paths; legacy `sanitizeCodename` root path removed from this flow.
+- Root attribute screen now uses `catalogs.attributeCodenameScope` to select codename source:
+  - `global` -> fetches `allAttributeCodenames`
+  - `per-level` -> uses current root attribute list
+- Added `ExistingCodenamesProvider` around root attribute UI/dialog tree so duplicate detection works consistently for root create/edit/copy dialogs.
+- Root create dialog `canSave` now enforces `!values._hasCodenameDuplicate`, matching child/action duplicate blocking behavior.
+- Cleaned warning hotspots in touched file (`any` casts, unstable dependency expression) and left file lint-clean.
+
+### Verification
+
+- `pnpm --filter @universo/metahubs-frontend exec eslint --ext .ts,.tsx src/domains/attributes/ui/AttributeList.tsx` -> pass (0 errors, 0 warnings)
+- `pnpm --filter metahubs-backend test -- src/tests/routes/attributesRoutes.test.ts` -> pass (`6/6` tests)
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `123` passed, `3` skipped)
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests)
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m46.265s`)
+
+### Outcome
+
+- The previously reported root-level codename/duplicate QA debt is closed without broad refactors outside the target scope.
+
+## Codename Bug Fixes + Global Scope + Button Disable (2026-03-03)
+
+Fixed 4 QA issues found during testing of the codename duplicate checking feature.
+
+### What was fixed
+
+**Issue 1 — i18n + original case**:
+- `CodenameField.tsx` i18n keys fixed from `metahubs.validation.*` to `validation.*` (correct after `consolidateMetahubsNamespace()` flattening)
+- `useCodenameDuplicateCheck.ts` `collectAllCodenameValues()` returns `{original, lower}[]` pairs — error messages display original-case codename instead of lowercase
+
+**Issue 2 — Auto-convert mixed alphabets restored**:
+- Removed explicit `normalizeOnBlur={(value) => normalizeCodenameForStyle(...)}` from all 12 form builders (MetahubList/Actions, HubList/Actions, CatalogList/Actions, EnumerationList/Actions, EnumerationValueList, BranchList/Actions, AttributeFormFields)
+- This restores CodenameField's built-in `settingsBasedNormalize` which calls `autoConvertMixedAlphabetsByFirstSymbol()` before normalization
+
+**Issue 3 — Disable save button on duplicate**:
+- Added `onDuplicateStatusChange` callback prop to `CodenameField` (useEffect + useRef pattern)
+- Wired in all 12 form builders: `onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}`
+- Added `!values._hasCodenameDuplicate` to all 15 `canSave` functions across 14 files (MetahubActions/List, HubActions/List, CatalogActions/List, EnumerationActions/List, EnumerationValueList, BranchActions/List, AttributeActions (×2), AttributeList, ChildAttributeList)
+
+**Issue 4 — attributeCodenameScope global mode**:
+- Backend: new `GET /metahub/:id/catalog/:catalogId/attribute-codenames` endpoint using `findAllFlat()` (returns all root + child codenames)
+- Frontend API: `listAllAttributeCodenames()` + query key `allAttributeCodenames` + invalidation integration
+- Frontend: `AttributeList` and `ChildAttributeList` read `catalogs.attributeCodenameScope` setting; when 'global', query all codenames and pass to `ExistingCodenamesProvider` for cross-level duplicate checking
+- Invalidation: all mutation paths (hub-based + hub-less) now invalidate global codenames cache
+
+### Verification
+- `pnpm build` (root) → pass (`56 successful, 56 total`)
+
+### QA Fix (post-QA pass)
+**Bug found**: `AttributeList.tsx` was missing `invalidateAttributesQueries.allCodenames()` calls — hub-based catalog mutations left stale codenames in React Query cache.
+**Fix**: Added `allCodenames` invalidation to 4 mutation points: `refreshList`, `handleCreateAttribute`, `ChildAttributeList onRefresh`, `ConflictResolutionDialog onCancel`.
+**Also fixed**: 3 prettier formatting errors in `CodenameField.tsx` (2) and `attributes.ts` (1).
+**Verified**: 0 TS errors, 0 lint errors in all modified files.
+
+## Admin i18n + Codename Duplicate Check + Element Settings (2026-03-03)
+
+Implemented 4 tasks: admin i18n fix, reactive codename duplicate checking with VLC cross-locale uniqueness, and element copy/delete settings.
+
+### What was built
+
+**Infrastructure (new files)**:
+- `ExistingCodenamesContext.tsx` — React Context providing existing entity codenames to descendant form components
+- `useCodenameDuplicateCheck.ts` — Hook with `collectAllCodenameValues()` for flat set extraction from plain codenames + all VLC locale values; case-insensitive comparison via `toLowerCase()`
+
+**Modified components**:
+- `CodenameField.tsx` — consumes context, accepts `editingEntityId` prop, merges duplicate error with form validation (form error takes precedence)
+- 9 entity list/action components integrated with `ExistingCodenamesProvider` wrapping and `editingEntityId` passing: MetahubList, MetahubActions, HubList, HubActions, CatalogList, CatalogActions, EnumerationList, EnumerationActions, EnumerationValueList, BranchList, BranchActions, ChildAttributeList, AttributeList, AttributeActions
+
+**Settings additions**:
+- `catalogs.allowElementCopy` + `catalogs.allowElementDelete` in `METAHUB_SETTINGS_REGISTRY`
+- `ElementList.tsx` filters actions via `useSettingValue`
+
+**i18n**:
+- Admin blur fix: EN + RU corrected labels
+- Codename duplicate messages: `metahubs.validation.codenameDuplicate` + `metahubs.validation.codenameDuplicateVlc` (EN + RU)
+- Element settings: `metahubs.settings.catalogs.allowElementCopy` + `allowElementDelete` (EN + RU)
+
+### QA findings and fixes
+- **Critical**: AttributeList.tsx and AttributeActions.tsx were initially missed — not integrated with ExistingCodenamesProvider / editingEntityId. Fixed in same session.
+- **Non-critical (deferred)**: `attributeCodenameScope: 'global'` mode not dynamically handled (correct for default 'per-level').
+
+### Verification
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `6m31s`).
+
+## Catalog Actions Policy Parity Remediation (2026-03-02)
+
+Completed the remaining QA follow-up in metahubs frontend by aligning catalog action visibility with existing settings-based policy logic.
+
+### What was fixed
+- `CatalogList` action menus now apply settings-based filtering (`catalogs.allowCopy`, `catalogs.allowDelete`) before rendering descriptors.
+- Filtering is applied consistently in both card and table render paths, matching existing hubs/enumerations behavior.
+- Backend policy and data-operation behavior remained unchanged to avoid introducing regressions in security-critical logic.
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend exec eslint --max-warnings=0 --ext .ts,.tsx src/domains/catalogs/ui/CatalogList.tsx` -> pass.
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `6m44.189s`).
+
+### Outcome
+- The previously identified frontend policy-parity debt for catalogs is closed.
+- No additional QA issues were introduced by this remediation.
+
+## Comprehensive QA Finalization (2026-03-02)
+
+Completed an evidence-based QA closure pass for the latest metahub settings/codename/policy work, with explicit clean-database resilience checks and final build verification.
+
+### What was validated
+- Fresh-DB safety chain: admin bootstrap migration seeds both `admin.locales` and `admin.settings`, and follow-up migration adds `metahubs.codenameAutoConvertMixedAlphabets` with idempotent upsert behavior.
+- Backend enforcement parity: route-level policy guards remain active for hubs/catalogs/enumerations copy/delete actions and catalog attribute policy keys.
+- Delete semantics integrity: hub-scoped unlink for N:M entities remains allowed when associations remain; full entity deletion is still gated by policy and blocker-reference checks.
+- Frontend policy parity review: `HubList` and `EnumerationList` filter action menus by settings; `CatalogList` currently renders raw `catalogActions` and was classified as non-blocking UX parity debt (backend still enforces settings).
+
+### Verification
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m29.979s`).
+
+### Outcome
+- Production-readiness remains **green for backend safety/data integrity** under fresh DB recreation.
+- One non-blocking follow-up remains: align catalog action visibility in frontend with existing settings behavior for full UX parity.
+
+## Metahub Language/Codename/Attribute Policy Fixes Closure (2026-03-02)
+
+Closed the requested metahub fixes for language defaults, codename behavior, attribute policies, and settings UX, then finalized with an additional blur-normalization hardening pass.
+
+### What was fixed
+- Ensured `general.language` is functional with `system` mode and dynamic locale options sourced from Admin content locales.
+- Applied metahub primary-locale setting into VLC-first create flows (catalogs, hubs, branches, enumerations, attributes).
+- Confirmed catalog create/edit codename behavior is style-aware and VLC-aware (including localized codename payload fields).
+- Localized codename rendering in root and child attribute tables now follows current UI language fallback chain.
+- Completed catalog attribute policy path (`allowAttributeCopy`, `allowAttributeDelete`, `allowDeleteLastDisplayAttribute`) in backend/frontend flows.
+- Completed compact horizontal/wrapped rendering for `catalogs.allowedAttributeTypes` in settings UI.
+- Replaced ambiguous blur wording in settings/helper copy.
+- Added final source-level hardening: style-aware `normalizeOnBlur` for all primary metahub `CodenameField` form usages to avoid unintended legacy kebab normalization in Pascal/VLC mode.
+- Added conditional settings dependency UX: `catalogs.allowDeleteLastDisplayAttribute` is hidden when `catalogs.allowAttributeDelete` is disabled.
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (`0` errors, warnings only).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m0.269s`).
+
+### Outcome
+- The 6-point requested behavior scope is fully implemented and verified with green workspace build.
+
+## Post-QA Debt Cleanup & Safety Hardening Closure (2026-03-02)
+
+Completed the final warning-level cleanup for changed `@universo/metahubs-frontend` files and closed the implementation validation cycle.
+
+### What was fixed
+- Removed remaining strict-lint findings in changed metahubs frontend files (`no-explicit-any`, hook dependency warnings, unsafe error typing) with behavior-preserving refactors.
+- Repaired and revalidated affected list/action screens after iterative lint passes.
+- Closed the pass with strict changed-files lint and full workspace build.
+
+### Verification
+- Strict lint across changed `@universo/metahubs-frontend` source files -> pass (`--max-warnings=0`, no warnings).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m28.522s`).
+
+### Outcome
+- QA-driven warning debt in the changed metahubs frontend scope is fully remediated and build baseline remains green.
+
+## Codename UX/Settings Refinement Completion (2026-03-02)
+
+Completed the requested codename UX/settings refinement pass across metahubs and admin surfaces, including preview logic parity, new mixed-alphabet auto-convert setting, and normalization consistency.
+
+### What was fixed
+- Added and wired `general.codenameAutoConvertMixedAlphabets` (default `true`) through shared settings registry, metahub template defaults, admin settings validation/migration, and metahub codename defaults API output.
+- Updated metahubs and admin settings preview behavior so style/alphabet rows show non-mixed examples, while mixed example appears only in the mixed-alphabet setting context.
+- Enabled blur-time mixed-alphabet auto-conversion by first symbol when `alphabet=en-ru`, `allowMixed=false`, and auto-convert is enabled.
+- Applied dynamic codename helper messaging by effective codename settings and propagated config shape updates to all entity action defaults.
+- Fixed PascalCase copy normalization case (`Покупки (копия)` -> `ПокупкиКопия`) in shared codename normalization pipeline.
+- Resolved verification-time Prettier regressions in new settings UI wrappers and reran affected checks.
+
+### Verification
+- `pnpm --filter @universo/utils lint` -> pass (0 errors, warnings only).
+- `pnpm --filter @universo/template-mui lint` -> pass (0 errors, warnings only).
+- `pnpm --filter @universo/types lint` -> pass (0 errors, warnings only).
+- `pnpm --filter @universo/metahubs-backend lint` -> pass (0 errors, warnings only).
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (error-level clean, warnings only).
+- `pnpm --filter @universo/admin-backend lint` -> pass (0 errors, warnings only).
+- `pnpm --filter @universo/admin-frontend lint` -> pass (0 errors, warnings only).
+- `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `169/169` tests).
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `123` passed, `3` skipped).
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests).
+- `pnpm --filter @universo/utils test` -> pass (`10/10` files, `154/154` tests).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m25.055s`).
+
+### Outcome
+- Requested codename behavior refinements are implemented end-to-end and validated by package checks plus full workspace build.
+
+## QA Safety Remediation Hardening (2026-03-02)
+
+Completed the QA hardening pass for metahubs backend route safety and closed the remaining build blocker introduced during the implementation iteration.
+
+### What was fixed
+- Added strict catalog-kind guards in route paths previously relying only on object existence checks.
+- Aligned permanent catalog delete behavior with blocker-reference safety checks used in soft-delete flows.
+- Added conflict-safe catalog restore behavior (`409` for codename uniqueness conflicts).
+- Enforced `isSingleHub` consistency in hub-scoped catalog mutation paths.
+- Serialized global attribute codename mutation paths via advisory lock and added lock-failure regression coverage.
+- Fixed TypeScript strictness regressions in `catalogsRoutes.ts` by narrowing hub arrays and localized `_primary` reads.
+
+### Verification
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/catalogsRoutes.test.ts src/tests/routes/attributesRoutes.test.ts` -> pass (`2/2` suites, `30/30` tests).
+- `pnpm --filter @universo/metahubs-backend lint` -> pass (`0` errors, warnings only).
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `123` passed, `3` skipped).
+- `pnpm --filter @universo/metahubs-backend build` -> pass.
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m41.147s`).
+
+### Outcome
+- The current QA remediation scope is fully closed with green route tests, green package lint/test/build, and green full workspace build.
+
+## VLC UX & Settings Consistency Fixes (2026-03-02)
+
+Implemented and finalized all newly reported VLC/codename UX and settings consistency defects for metahubs frontend/template integration.
+
+### What was fixed
+- Localized codename sync behavior corrected for language switch vs locale addition to avoid duplicate/empty codename locale artifacts.
+- Localized connector geometry fixed in `LocalizedInlineField` and localized codename blur normalization restored in shared `CodenameField` flow.
+- `useCodenameVlcSync` integration expanded across entity forms (attributes, branches, hubs, catalogs, enumerations, enumeration values), not only metahub forms.
+- Duplicate settings surface removed by deleting `common.defaultLocale` from metahub registry; `Common` tab now shows an informational placeholder when empty.
+- `catalogs.allowedAttributeTypes` options localized in settings UI and enforced in attribute create dialogs (including child attribute restrictions).
+- Follow-up lint/build regressions introduced during this pass fixed (`AttributeList`, `ChildAttributeList`, `useCodenameVlcSync` typed locale entries).
+
+### Verification
+- `pnpm --filter @universo/template-mui lint` -> pass (`0` errors, warnings only).
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (`0` errors, warnings only).
+- `pnpm --filter @universo/types lint` -> pass (`0` errors, warnings only).
+- `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `169/169` tests).
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m54.002s`).
+
+### Outcome
+- The reported 7-point defect scope is closed in this implementation pass with green targeted checks and green full workspace build.
+
+---
+
+## QA Findings Fix (2026-03-02)
+
+Fixed all issues discovered during comprehensive QA analysis of VLC codename implementation.
+
+### What was fixed
+- **Admin auth for regular users**: Replaced `useAdminMetahubDefaults` (calling admin-only `/admin/settings/metahubs`) with `usePlatformCodenameDefaults` using new public `GET /metahubs/codename-defaults` endpoint. Regular users can now access platform-level codename defaults when creating new metahubs.
+- **DEFAULT_CC type contract**: Added missing `localizedEnabled: false` to all 6 `DEFAULT_CC` objects across MetahubActions, AttributeActions, BranchActions, HubActions, CatalogActions, EnumerationActions.
+- **Prettier compliance**: Fixed formatting in `useCodenameVlcSync.ts` (`.some()` callback) and all `DEFAULT_CC` declarations (multiline format).
+- **useCodenameVlcSync performance**: Replaced `codenameVlc` in first `useEffect` deps with `codenameVlcRef` to avoid unnecessary re-render cycle during auto-fill.
+
+### Files changed
+- `packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts` (new endpoint)
+- `packages/metahubs-frontend/base/src/domains/settings/hooks/useCodenameConfig.ts` (rewritten)
+- `packages/universo-template-mui/base/src/hooks/useCodenameVlcSync.ts` (optimized)
+- `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubActions.tsx`
+- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeActions.tsx`
+- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
+- `packages/metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx`
+- `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx`
+- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationActions.tsx`
+
+### Verification
+- `pnpm --filter @universo/template-mui lint` -> pass (0 errors).
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (0 errors).
+- `pnpm --filter @universo/metahubs-backend lint` -> pass (0 errors).
+- `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `169/169` tests).
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `117` passed, `3` skipped).
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests).
+- `pnpm build` (root) -> pass (`56/56` tasks).
+
+---
+
+## Settings UX & VLC Fixes (2026-03-02)
+
+Fixed 5 issues found during user testing of the codename VLC feature.
+
+### What was fixed
+- **Toggle flickering**: Both `useUpdateSettings`/`useResetSetting` (metahub) and `AdminSettings.tsx` (admin) now use `queryClient.setQueryData()` with mutation response before `invalidateQueries()`, preventing stale-data flash.
+- **VLC codename auto-generation**: New `useCodenameVlcSync` hook in `@universo/template-mui` syncs auto-filled plain codename into `codenameVlc` when localized codenames are enabled. Integrated into `GeneralTabFields` (MetahubList) and `MetahubEditFields` (MetahubActions).
+- **VLC language sync**: Same hook syncs name field's `_primary` locale switch to codename field when codename is empty/untouched.
+- **Admin VLC for new metahub**: `useCodenameConfig` now fetches admin-level defaults from `/admin/settings/metahubs` as fallback when no `metahubId` is available (metahub creation flow).
+- **Migration merge**: `codename_localized JSONB` column merged into main `CreateMetahubsSchema` migration for both `metahubs.metahubs` and `metahubs.metahubs_branches` tables. Legacy `AddCodenameLocalizedColumns1767600000000` migration deleted.
+
+### Files changed
+- `packages/universo-template-mui/base/src/hooks/useCodenameVlcSync.ts` (NEW)
+- `packages/universo-template-mui/base/src/hooks/index.ts`
+- `packages/universo-template-mui/base/src/index.ts`
+- `packages/metahubs-frontend/base/src/domains/settings/hooks/useSettings.ts`
+- `packages/metahubs-frontend/base/src/domains/settings/hooks/useCodenameConfig.ts`
+- `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
+- `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubActions.tsx`
+- `packages/admin-frontend/base/src/pages/AdminSettings.tsx`
+- `packages/metahubs-backend/base/src/database/migrations/postgres/1766351182000-CreateMetahubsSchema.ts`
+- `packages/metahubs-backend/base/src/database/migrations/postgres/1767600000000-AddCodenameLocalizedColumns.ts` (DELETED)
+- `packages/metahubs-backend/base/src/database/migrations/postgres/index.ts`
+
+---
+
+## Post-QA Full Remediation Completion (2026-03-02)
+
+Completed an additional QA-driven hardening pass to remove remaining correctness and technical-debt findings discovered after the previous closure.
+
+### What was fixed
+- Codename blur normalization alignment: shared `template-mui` `CodenameField` now supports an optional `normalizeOnBlur` override, while `metahubs-frontend` wrapper injects settings-aware normalization (`style` + `alphabet`) without changing global default behavior.
+- Admin settings key policy tightened: `adminSettingsRoutes` now rejects unknown keys for category `metahubs` (strict registry-aligned validation).
+- Catalog details debt removed: both single-catalog GET endpoints now return real `attributesCount` and `elementsCount` via `MetahubAttributesService`/`MetahubElementsService`.
+- Service-level validation hardened: `MetahubSettingsService.bulkUpsert` now validates setting values before transaction, preventing invalid payloads outside route-level validation paths.
+- Added test coverage for new codename blur extension point in `template-mui` (`CodenameField.test.tsx`).
+
+### Verification
+- `pnpm --filter @universo/template-mui lint` -> pass (warnings only).
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass (warnings only).
+- `pnpm --filter @universo/admin-backend lint` -> pass (warnings only).
+- `pnpm --filter @universo/metahubs-backend lint` -> pass (warnings only).
+- `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `169/169` tests).
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `120` total with `3` skipped).
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m33.455s`).
+
+### Outcome
+- All issues identified in the latest QA pass are remediated in this scope with no remaining blocking findings.
+
+---
+
+## QA Risk Closure Completion (2026-03-02)
+
+Completed a focused remediation pass for the latest QA findings with concurrency-safe backend updates and frontend codename-settings reactivity fixes.
+
+### What was fixed
+- Backend routes hardened for race paths: deterministic duplicate-key conflict handling (`409`) on create flows and safer hub-association updates in hub-scoped unlink/delete operations.
+- Frontend hook dependency gaps closed in metahubs entity list flows to prevent stale codename validation/normalization behavior after settings changes.
+- Formatting/hook dependency lint blockers in touched files resolved without broad refactors.
+
+### Verification
+- `pnpm --filter @universo/metahubs-backend lint && pnpm --filter @universo/metahubs-frontend lint` -> no error-level diagnostics.
+- `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `120` tests with `3` skipped).
+- `pnpm --filter @universo/metahubs-frontend test` -> pass (`22/22` files, `97/97` tests).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m35.871s`).
+
+### Outcome
+- QA remediation scope for this pass is fully closed and synchronized in Memory Bank.
+
+---
+
+## Session Finalization Handoff (2026-03-02)
+
+Final closure synchronization pass completed after comprehensive QA remediation.
+
+### What was done
+- Re-checked `memory-bank` closure consistency (`tasks.md`, `activeContext.md`, `progress.md`) against implemented remediation scope.
+- Added explicit handoff-completion section to `tasks.md` for this finalization pass.
+- No new runtime code changes were required in this pass.
+
+### Verification
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m34.494s`).
+
+### Outcome
+- Session state is fully synchronized and ready for independent QA validation mode.
+
+---
+
+## Comprehensive QA Remediation — Final Closure (2026-03-02)
+
+Final implementation pass completed for the latest QA findings with zero remaining blocking issues in the touched scope.
+
+### What was finalized
+- Backend hardening completed for metahub settings/branches/attributes paths:
+  - soft-deleted settings rows are revived in upsert/bulk-upsert flows,
+  - branch codename validation now uses settings-aware style/alphabet/mixed-alphabet policy,
+  - TABLE child attribute copy handles global codename uniqueness safely.
+- `@universo/template-mui` test regressions removed by aligning `RoleChip` and `createEntityActions` suites to current behavior.
+- `@universo/utils` active-scope lint/prettier errors auto-fixed (format-only changes).
+
+### Verification
+- `pnpm --filter @universo/template-mui test -- src/components/chips/__tests__/RoleChip.test.tsx src/factories/__tests__/createEntityActions.test.ts` -> pass (`35/35`).
+- `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `168/168` tests).
+- `pnpm --filter @universo/utils lint` -> `0 errors` (warnings only) after autofix.
+- `pnpm --filter @universo/metahubs-backend lint` -> `0 errors` (warnings only).
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/branchesOptions.test.ts` -> pass (`10/10`).
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m35.893s`).
+
+### Outcome
+- Comprehensive QA remediation is closed with green package-level checks and green full-workspace build.
+
+## Codename VLC End-to-End Closure — Implementation Complete (2026-03-02)
+
+Final closure pass completed for codename VLC parity rollout. This session focused on regression cleanup, lint/build stabilization, and Memory Bank synchronization.
+
+### What was fixed
+- Frontend lint blocker removed in branches UI by deleting an accidental `codenameVlc: null` artifact in `BranchList.tsx` column configuration.
+- Backend TypeScript compile blockers fixed in localized codename helpers for attributes/catalogs/enumerations routes.
+- `buildCodenameLocalizedVlc` now defensively normalizes unknown `codenameInput` values into `Record<string, string | undefined>` before `sanitizeLocalizedInput(...)`.
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend lint` -> pass with warnings only (0 errors).
+- `pnpm --filter @universo/metahubs-backend lint` -> pass with warnings only (0 errors) after direct eslint autofix.
+- `pnpm --filter @universo/metahubs-backend build` -> pass.
+- `pnpm build` (root) -> pass (`56 successful, 56 total`, `4m56.836s`).
+
+### Outcome
+- Codename VLC rollout is closed with a green workspace build baseline and no new blocking diagnostics.
+
+## QA Hardening Fixes — Implementation Complete (2026-03-02)
+
+Closed all high-priority defects identified in the latest QA hardening pass for metahubs/admin settings integration, with focused low-risk patches and full re-validation.
+
+### What was fixed
+- Enforced `allowDelete` policy in destructive catalog/enumeration paths that could escalate from hub-scoped removal to full entity deletion.
+- Removed unsupported `enumerations.allowedValueTypes` setting from the shared settings registry, backend helper surface, and EN/RU settings locale exposure.
+- Resolved TypeScript diagnostics in settings-related frontend/admin code by replacing fragile imported type references with local unions and setting `admin-frontend` TypeScript config to `noEmit`.
+
+### Verification
+- Quiet ESLint clean: `@universo/metahubs-backend`, `@universo/metahubs-frontend`, `@universo/admin-frontend`.
+- Targeted backend route tests: `catalogsRoutes` + `enumerationsRoutes` pass (`29/29`).
+- IDE diagnostics after changes: no active errors in touched packages.
+- Full workspace build: `pnpm build` pass (`56/56` tasks).
+
+### Follow-up (tracked)
+- Add dedicated route tests for admin settings CRUD/permission/error paths after introducing/aligning test harness in `@universo/admin-backend`.
+
+## QA Defects Remediation Completion (2026-03-01)
+
+Final remediation pass completed for the latest QA findings. All blocking test and lint failures identified in the QA cycle were resolved and re-verified without introducing additional technical debt.
+
+### What was fixed
+- Frontend settings hook hardened to tolerate incomplete payloads (`data.settings` absent/non-array) and avoid runtime crashes in affected test paths.
+- Frontend enumeration value codename normalization fixed to pass style/alphabet arguments correctly.
+- Backend enumeration value copy validation updated to enforce `allowMixed` consistently in style-aware codename checks.
+- Frontend mutation test expectation aligned with style-aware codename defaults (`pascal-case`), removing stale lowercase expectation drift.
+- Blocking ESLint/Prettier issues auto-fixed and confirmed clean (`--quiet`) in `@universo/metahubs-frontend`, `@universo/metahubs-backend`, `@universo/admin-frontend`, and `@universo/admin-backend`.
+
+### Verification
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/branches/ui/__tests__/BranchList.createOptions.test.tsx src/domains/metahubs/hooks/__tests__/mutations.test.tsx` → pass (`22/22` files, `97/97` tests).
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/enumerationsRoutes.test.ts` → pass (`10/10` tests).
+- `pnpm build` (root) → pass (`56/56` tasks successful).
+
+---
+
+## QA Remediation Closure Sync (2026-03-01)
+
+Final closure pass completed for the QA remediation stream: Memory Bank state synchronized with actual implementation, remediation checklist reconciled, and deferred scope captured explicitly.
+
+### Closure outcomes
+- `tasks.md`: `QA Remediation — 2026-03-02` marked completed with implemented items reconciled to verified outcomes.
+- `activeContext.md`: updated to reflect closed remediation state and current architecture snapshot.
+- Deferred follow-up isolated: admin settings route tests are tracked as planned work due missing `test` script/harness in `@universo/admin-backend`.
+
+### Verification baseline retained
+- Metahubs backend route and package test suites were previously re-stabilized and passed.
+- Workspace build baseline remains successful: `pnpm build` → 56/56 tasks.
+
+---
+
+## Admin Global Settings & Metahub Codename Fixes (2026-03-02)
+
+Fixed 4 issues: metahub 400 error, wrong helper text, admin global settings system, RoleEdit layout.
+
+**Changes:**
+- **Issue #1 — Metahub 400 error**: `metahubsRoutes.ts` CREATE/COPY/UPDATE handlers replaced `normalizeCodename`/`isValidCodename` (kebab-only) with `normalizeCodenameForStyle`/`isValidCodenameForStyle` (style-aware). PascalCase Russian codenames like "СписокПокупок" now accepted. COPY suffix changed from `-copy` to `Copy`.
+- **Issue #2 — Codename helper text**: Added `codenameHelperPascal`/`codenameHelperPascalEn` i18n keys to root metahubs namespace (EN+RU). Created `getCodenameHelperKey()` utility. Updated MetahubList + MetahubActions to use dynamic key selection.
+- **Issue #3 — Admin global settings**: Full-stack implementation:
+  - Migration: Consolidated locales into main admin schema, added `admin.settings` table with `(category, key)` unique constraint, JSONB value, RLS policies, seeded 3 metahub defaults
+  - Entity: `AdminSetting` TypeORM entity
+  - Backend: `adminSettingsRoutes.ts` with GET/PUT/DELETE, `'settings'` added to PermissionSubjects
+  - Frontend: `settingsApi.ts`, `settingsQueryKeys`, `AdminSettings.tsx` page with Metahubs tab (style, alphabet, allowMixed) + Applications tab (placeholder)
+  - Navigation: Settings menu item in `menuConfigs.ts`, route in `MainRoutesMUI.tsx`
+- **Issue #4 — RoleEdit layout**: Replaced MUI Grid (spacing=-16px offset) with Stack + flex-row for codename/color pair. Name and description fields now full-width without indent.
+- **Build**: 56/56 packages, 0 errors
+- **Files**: ~19 files modified/created across admin-backend, admin-frontend, metahubs-backend, metahubs-frontend, universo-template-mui, flowise-core-backend
+
+---
+
+## Codename Settings & Validation Overhaul (2026-03-01)
+
+Major overhaul making codename generation/validation fully settings-aware across all entity forms. 8 phases, ~30 files modified.
+
+**Changes:**
+- **Types**: `CodenameAlphabet` expanded to `'en' | 'ru' | 'en-ru'`; defaults changed to `pascal-case` + `en-ru`; 3 new settings added to `METAHUB_SETTINGS_REGISTRY` (total 20): `codenameAllowMixedAlphabets` (bool, default false), `codenameAutoReformat` (bool, default true), `codenameRequireReformat` (bool, default true)
+- **Validation**: Full rewrite of `codename.ts` — 6 style×alphabet combo patterns, validators, normalizers, sanitizers; `hasMixedAlphabets()` helper; `sanitizeCodenameForStyle()`, `normalizeCodenameForStyle()`, `isValidCodenameForStyle()` with `allowMixed` param
+- **Backend**: `codenameStyleHelper.ts` updated with `extractAllowMixedAlphabets()`; all 4 route files (catalogs, hubs, enumerations, attributes) pass `allowMixed` to validation
+- **Frontend hook**: New `useCodenameConfig()` hook — reads 5 settings via `useSettingValue`, returns typed `CodenameConfig` with `useMemo`
+- **i18n**: 3 new setting keys (EN+RU), `'ru'` alphabet option labels, restructured `codenamePreview` to `{style}.{alphabet}` composite keys (6 entries)
+- **Settings UI**: `SettingsPage.tsx` — conditional visibility for `allowMixed` (only when `en-ru`), `requireReformat` (only when autoReformat off); `CodenameStylePreview.tsx` simplified to single i18n lookup
+- **Form components**: All 8 List files + `AttributeFormFields` + `mutations.ts` + 6 Actions files fully transformed; module-level functions use `_cc(values)` pattern; React EditFields inject config via `useEffect`
+- **Template seed**: `basic.template.ts` — default `pascal-case` + 3 new settings seeded
+
+Build verified: **56/56 packages pass, 0 TS errors**.
+
+### QA Fixes (2026-03-01)
+
+Post-implementation QA analysis uncovered 3 issues (2 critical, 1 medium):
+
+1. **BUG-1 (Critical)**: `CatalogActions.toPayload` used `cc.style`/`cc.alphabet` without defining `const cc = _cc(values)` — would crash at runtime when saving catalogs. Fixed by adding the definition line.
+2. **BUG-2 (Critical)**: `EnumerationActions.toPayload` — identical issue. Fixed same way.
+3. **ISSUE-3 (Medium)**: `EnumerationActions.tsx` had validation functions named `validateCatalogForm`/`canSaveCatalogForm` (copy-paste artifact from CatalogActions). Renamed to `validateEnumerationForm`/`canSaveEnumerationForm` (6 references updated).
+
+**Root cause**: `tsdown` (esbuild-based bundler) does not perform full TypeScript type checking. The `pnpm build` passed despite `tsc --noEmit` finding `TS2304: Cannot find name 'cc'`. Recommendation: add `tsc --noEmit` to CI for metahubs-frontend.
+
+Build re-verified: **56/56 packages pass**.
+
+---
+
+## Settings Page UI/UX Fixes (2026-03-03)
+
+Five UI/UX issues found during manual testing of the Settings page, all resolved:
+
+1. **Breadcrumbs** — Added `settings` case to `NavbarBreadcrumbs.tsx` metahub handler
+2. **Padding** — Added `mx: { xs: -1.5, md: -2 }` negative margins matching CatalogList pattern
+3. **"Изменено" label** — Removed `isCustom` label for saved non-default settings; only blue dot `•` for unsaved changes
+4. **Confirm dialog buttons** — Added missing `confirm.cancelButtonText`/`confirm.confirmButtonText` i18n keys (EN+RU); removed duplicate `<ConfirmDialog />` from SettingsPage
+5. **Codename improvements** — Renamed `'1c-pascal-case'` → `'pascal-case'` across entire codebase; added `CodenameAlphabet` type (`'en' | 'en-ru'`); new `general.codenameAlphabet` setting with English-only PascalCase validation; updated all 4 backend route files + frontend components
+
+Build verified: **56/56 packages pass**.
+
+---
+
+## Metahub Settings — Phase 8: QA Fixes (2026-03-02)
+
+After comprehensive QA review (10 findings: 3 critical, 3 serious, 4 moderate), all issues resolved:
+
+- **Fix #1 (Critical)**: Created `useEntityPermissions` hook — reads `allowCopy`/`allowDelete` from settings, exported from `metahubs-frontend`
+- **Fix #2 (Critical)**: Added `getAllowedEnumValueTypes` helper to `codenameStyleHelper.ts` (future enforcement — enum values lack `valueType` field)
+- **Fix #3 (Critical)**: Added missing `enumerations.allowedValueTypes` i18n keys in EN and RU `metahubs.json`
+- **Fix #4 (Serious)**: PUT handler now re-loads all settings after upsert, returns merged `{ settings, registry }` matching GET format
+- **Fix #5 (Serious)**: DELETE handler returns `{ key, value, isDefault }` shape; frontend `ResetSettingResponse` type added
+- **Fix #6 (Serious)**: Added `validateSettingValue()` — type-safe validation against registry (boolean/number/string/select/multiselect + options check)
+- **Fix #7 (Moderate)**: Extracted `codenameErrorMessage` to shared `codenameStyleHelper.ts`, removed from 4 route files
+- **Fix #8 (Moderate)**: Batch N+1 fix — attribute create handlers use `findAll()` + extract helpers instead of 3 separate `findByKey()` calls
+- **Fix #9 (Moderate)**: DELETE validates key against registry, returns 404 for unknown keys
+- **Fix #10 (Moderate)**: `resetToDefault` filters by `_mhb_deleted: false`, uses single `new Date()` for consistency
+
+Build verified: **56/56 packages pass**.
+
+---
+
+## Metahub Settings — Phases 4–7 Implementation (2026-03-02)
+
+### Phase 4: Frontend Domain ✅
+- Created `settingsApi.ts` — API client with `getAll`, `getByKey`, `update`, `resetToDefault`
+- Created `useSettings.ts` — `useSettings`, `useUpdateSettings`, `useResetSetting`, `useSettingValue` hooks (TanStack Query v5)
+- Created `SettingsPage.tsx` — 5-tab UI (General, Common, Hubs, Catalogs, Enumerations) with client-side search, save/reset, CodenameStylePreview
+- Created `SettingControl.tsx` — renders Switch/Select/Multiselect/TextField based on `valueType`; i18n-aware option labels
+- Created `CodenameStylePreview.tsx` — Chip with monospace example codename from i18n
+- Created domain barrel exports (`settings/api/index.ts`, `settings/hooks/index.ts`, `settings/index.ts`)
+
+### Phase 5: Frontend Integration ✅
+- Updated `queryKeys.ts` — added `settings`, `settingsList`, `settingDetail` keys + `invalidateSettingsQueries` helper
+- Added full `settings` section to EN/RU `metahubs.json` — keys, descriptions, codenameStyles, codenamePreview, attributeCodenameScopes
+- Updated `i18n/index.ts` — `MetahubsBundle`, consolidation function, `MetahubsTranslation` all extended with `settings`
+- Added `"settings"` key to EN/RU `menu.json` in `universo-i18n`
+
+### Phase 6: Route & Menu Registration ✅
+- Added `export { default as MetahubSettings }` to `metahubs-frontend/index.ts`
+- Added lazy `MetahubSettings` import + `{ path: 'settings' }` route in `MainRoutesMUI.tsx` (used `(m: any)` pattern for type compatibility)
+- Added `IconSettings` + divider-footer + settings item in `menuConfigs.ts` (universo-template-mui)
+- Added `IconSettings` + divider-footer + settings item in `metahubDashboard.ts` (metahubs-frontend)
+
+### Phase 7: Build Verification ✅
+- Full `pnpm build` — 56/56 packages pass
+- Manual UI/API testing pending
+
+---
+
+## QA Fixes — Post-Settings Implementation (2026-03-03)
+
+Comprehensive QA analysis found 1 critical bug + 6 code quality/UX issues. All fixed. Build: 56/56.
+
+### Fixes Applied
+- **CRITICAL**: `<ConfirmDialog />` was incorrectly removed from SettingsPage.tsx — confirm() Promise never resolved (reset button hung). Re-added `ConfirmDialog` import and render.
+- **Prettier**: Fixed formatting in 3 files (SettingsPage.tsx, validation/index.ts, enumerationsRoutes.ts) — 6 errors total.
+- **Code duplication**: Extracted `validateSettingValue` from `settingsRoutes.ts` + `MetahubSettingsService.ts` into `shared/validateSettingValue.ts`. Both consumers now import from shared module.
+- **Template seed**: Added `general.codenameAlphabet` (default: `en-ru`) to `basic.template.ts`.
+- **UI logic**: `general.codenameAlphabet` setting now hidden when codenameStyle is `kebab-case` (irrelevant).
+- **N+1 optimization**: Added `getCodenameSettings()` batch helper (parallel `Promise.all` for style+alphabet queries).
+- **Frontend prep**: Exported style-aware codename functions from `utils/codename.ts`; added pascal-case i18n variants (`codenameHelperPascal`, `codenameHelperPascalEn`, `codenameInvalidPascal`, `codenameInvalidPascalEn`) to all entity sections in EN + RU files.
+- **Memory-bank**: Updated stale function name refs (`CODENAME_1C_PATTERN` → `CODENAME_PASCAL_PATTERN`, etc.) in progress.md.
+
+---
+
+## Metahub Settings Plan — QA Review & Update (2026-03-02)
+
+Comprehensive QA analysis of the metahub-settings-plan found **16 findings** (3 critical, 6 serious, 3 component reuse, 4 architectural). All findings have been resolved in the plan document.
+
+### Key Corrections Applied
+- **Critical**: `codenameUniquenessScope` → `attributeCodenameScope` (per-level/global, not metahub/hub); added missing `catalogs.allowedAttributeTypes` + `enumerations.allowedValueTypes` (multiselect type); added `asyncHandler` wrapper to all route handlers
+- **Serious**: URL convention `/metahub/:metahubId/settings` (collection) + `/metahub/:metahubId/setting/:key` (singular); `bulkUpsert` wrapped in `knex.transaction()`; 1C regex fixed from broken `А-ДЖ-Я` to correct `А-Я` + first char uppercase only; `router.use(ensureAuth)` + `Router({ mergeParams: true })`
+- **Component reuse**: Explicit table of reused components (TemplateMainCard, ViewHeaderMUI, useDebouncedSearch, ConfirmDialog/useConfirm, EmptyListState)
+- **Architectural**: Clarified `general.language` vs `common.defaultLocale` purpose; expanded caching strategy with concrete code pattern; documented service location rationale (`domains/settings/` not `domains/metahubs/`)
+
+### Plan File
+[memory-bank/plan/metahub-settings-plan-2026-03-02.md](plan/metahub-settings-plan-2026-03-02.md) — ~1490 lines, 16 sections, 7 implementation phases, ~35 tasks
+
+---
+
+## Metahub Settings — Phases 1–3 Implementation (2026-03-02)
+
+### Phase 1: Types & Shared Code ✅
+- Added `CodenameStyle`, `SettingDefinition`, `SettingValueType` (incl. `multiselect`), `MetahubSettingRow`, `METAHUB_SETTINGS_REGISTRY` (14→17 settings, 5 tabs) to `universo-types`
+- Added `CODENAME_PASCAL_PATTERN`, `CODENAME_PASCAL_EN_PATTERN`, `isValidPascalCodename`, `isValidPascalEnCodename`, `isValidCodenameForStyle`, `normalizePascalCodename`, `normalizePascalEnCodename`, `normalizeCodenameForStyle` to `universo-utils`
+- QA verified: 0 issues
+
+### Phase 2: Backend Service & Routes ✅
+- Created `MetahubSettingsService` with `findAll`, `findByKey`, `upsert`, `bulkUpsert` (transactional), `resetToDefault`
+- Created `settingsRoutes.ts` — 4 endpoints (GET/PUT collection, GET/DELETE single)
+- Created `codenameStyleHelper.ts` — `getCodenameStyle()`, `getCodenameAlphabet()`, `getCodenameSettings()`, `getAttributeCodenameScope()`, `getAllowedAttributeTypes()`
+- Registered in `router.ts`, added `general.codenameStyle` + `general.codenameAlphabet` seed to `basic.template.ts`
+- Build: 9/9
+
+### Phase 3: Backend Integration ✅
+- **catalogsRoutes.ts**: style-aware codename validation (4 points), allowCopy/allowDelete permission checks
+- **hubsRoutes.ts**: style-aware codename (create/copy/update), style-aware copy suffix (`-copy`/`Copy`), allowCopy/allowDelete checks
+- **enumerationsRoutes.ts**: style-aware codename (10 validation points across 8 handlers), allowCopy/allowDelete checks (soft-delete + permanent-delete)
+- **attributesRoutes.ts**: style-aware codename (4 handlers: create, copy, update, table-child create), `allowedAttributeTypes` enforcement, `attributeCodenameScope` (per-level/global) via `findByCodename` ignoreParentScope option
+- **MetahubAttributesService.ts**: added `options?: { ignoreParentScope?: boolean }` to `findByCodename` — skips parent_attribute_id filter for global scope
+- Build: 9/9
+
+---
+
 ## PostgreSQL NUMERIC → JS Number Coercion Fix (2026-03-02)
 
 Fixed "Invalid value for kolichestvo: Expected number value" error when saving application runtime rows with NUMBER fields. Root cause: PostgreSQL `NUMERIC(10,0)` columns return string values via `node-postgres`, but `coerceRuntimeValue` required strict `typeof value === 'number'`. Metahubs was unaffected because it stores data in JSONB (preserves JS number types). Fix: added `pgNumericToNumber` helper, updated `resolveRuntimeValue`, `coerceRuntimeValue`, GET single row, and GET tabular rows endpoints in `applicationsRoutes.ts`. Build: 56/56.
