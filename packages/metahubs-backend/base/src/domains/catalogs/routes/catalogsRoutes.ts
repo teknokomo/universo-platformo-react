@@ -1715,7 +1715,7 @@ export function createCatalogsRoutes(
                     metahubId,
                     catalogId,
                     {
-                        config: { hubs: newHubIds },
+                        config: { ...currentConfig, hubs: newHubIds },
                         updatedBy: userId,
                         expectedVersion: catalog._upl_version
                     },
