@@ -218,7 +218,7 @@ export class App {
         // ═══════════════════════════════════════════════════════════════
         // Serve UI static files
         // ═══════════════════════════════════════════════════════════════
-        const packagePath = getNodeModulesPackagePath('@flowise/core-frontend')
+        const packagePath = getNodeModulesPackagePath('@universo/core-frontend')
         const uiBuildPath = path.join(packagePath, 'build')
         const uiHtmlPath = path.join(packagePath, 'build', 'index.html')
 

@@ -53,7 +53,7 @@
         "@universo/profile-backend": "workspace:*",
         "@universo/start-backend": "workspace:*",
         "@universo/utils": "workspace:*",
-        "@flowise/core-frontend": "workspace:^",
+        "@universo/core-frontend": "workspace:^",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.5",
         "csurf": "^1.11.0",

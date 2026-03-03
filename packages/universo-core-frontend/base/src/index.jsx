@@ -1,9 +1,7 @@
 import '@/diagnostics/bootstrapDiagnostics'
 import React from 'react'
-import * as ReactJsxRuntime from 'react/jsx-runtime'
-import * as ReactJsxDevRuntime from 'react/jsx-dev-runtime'
 import App from '@/App'
-import { store, ConfirmContextProvider, ReactFlowContext } from '@flowise/store'
+import { store, ConfirmContextProvider } from '@flowise/store'
 import { createRoot } from 'react-dom/client'
 import { AuthProvider } from '@universo/auth-frontend'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -15,18 +13,11 @@ import BootstrapErrorBoundary from '@/components/BootstrapErrorBoundary'
 // i18n initialization - global singleton
 import '@universo/i18n'
 
-// FRT package i18n registration
-import '@universo/spaces-frontend/i18n'
-import '@universo/publish-frontend/i18n'
-import '@flowise/template-mui/i18n'
-import '@universo/analytics-frontend/i18n'
+// Package i18n registration (kept packages only)
 import '@universo/profile-frontend/i18n'
-import '@universo/uniks-frontend/i18n'
-import '@universo/metaverses-frontend/i18n'
 import '@universo/applications-frontend/i18n'
 import '@universo/metahubs-frontend/i18n'
-import '@universo/template-mmoomm/i18n'
-import '@universo/template-quiz/i18n'
+import '@flowise/template-mui/i18n'
 
 // style + assets
 import '@flowise/template-mui/assets/scss/style.scss'
@@ -35,24 +26,6 @@ import '@flowise/template-mui/assets/scss/style.scss'
 import { BrowserRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { SnackbarProvider } from 'notistack'
-import { setupBuilders } from '@universo/publish-frontend/builders'
-
-const browserModuleMap = {
-    react: React,
-    'react/jsx-runtime': ReactJsxRuntime,
-    'react/jsx-dev-runtime': ReactJsxDevRuntime
-}
-
-if (typeof window !== 'undefined' && typeof window.require === 'undefined') {
-    window.require = (moduleId) => {
-        if (moduleId in browserModuleMap) {
-            return browserModuleMap[moduleId]
-        }
-
-        const error = new Error(`Unsupported browser require invoked for "${moduleId}"`)
-        throw error
-    }
-}
 
 const container = document.getElementById('root')
 
@@ -62,11 +35,7 @@ if (!container) {
 
 const root = createRoot(container)
 
-// Universo Platformo | initialize UPDL builders
-setupBuilders()
-
 // Create global QueryClient instance (following TanStack Query v5 best practices)
-// This single instance is shared across the entire application for optimal caching
 const queryClient = createGlobalQueryClient()
 
 const routerConfig = {
@@ -111,11 +80,9 @@ root.render(
                     <RouterWrapper basename={routerConfig.basename}>
                         <SnackbarProvider>
                             <ConfirmContextProvider>
-                                <ReactFlowContext>
-                                    <AuthProvider client={client}>
-                                        <App />
-                                    </AuthProvider>
-                                </ReactFlowContext>
+                                <AuthProvider client={client}>
+                                    <App />
+                                </AuthProvider>
                             </ConfirmContextProvider>
                         </SnackbarProvider>
                     </RouterWrapper>
