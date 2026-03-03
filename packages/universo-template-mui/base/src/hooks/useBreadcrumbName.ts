@@ -184,27 +184,11 @@ export function createTruncateFunction(defaultMaxLength = 30) {
 // ============================================================
 
 /**
- * Hook to fetch and cache metaverse name by ID for breadcrumb display.
- */
-export const useMetaverseName = createEntityNameHook({
-    entityType: 'metaverse',
-    apiPath: 'metaverses'
-})
-
-/**
  * Hook to fetch and cache metahub name by ID for breadcrumb display.
  */
 export const useMetahubName = createEntityNameHook({
     entityType: 'metahub',
     apiPath: 'metahub'
-})
-
-/**
- * Hook to fetch and cache unik name by ID for breadcrumb display.
- */
-export const useUnikName = createEntityNameHook({
-    entityType: 'unik',
-    apiPath: 'uniks'
 })
 
 /**
@@ -460,14 +444,8 @@ export function useConnectorName(applicationId: string | null, connectorId: stri
 // Pre-configured truncate functions
 // ============================================================
 
-/** Truncate metaverse name with ellipsis (default: 30 chars) */
-export const truncateMetaverseName = createTruncateFunction(30)
-
 /** Truncate metahub name with ellipsis (default: 30 chars) */
 export const truncateMetahubName = createTruncateFunction(30)
-
-/** Truncate unik name with ellipsis (default: 30 chars) */
-export const truncateUnikName = createTruncateFunction(30)
 
 /** Truncate application name with ellipsis (default: 30 chars) */
 export const truncateApplicationName = createTruncateFunction(30)

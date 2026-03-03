@@ -17,9 +17,7 @@ export {
     createEntityNameHook,
     createTruncateFunction,
     // Pre-configured hooks
-    useMetaverseName,
     useMetahubName,
-    useUnikName,
     useApplicationName,
     useMetahubApplicationName,
     useMetahubPublicationName,
@@ -31,9 +29,7 @@ export {
     useAttributeName,
     useConnectorName,
     // Pre-configured truncate functions
-    truncateMetaverseName,
     truncateMetahubName,
-    truncateUnikName,
     truncateApplicationName,
     truncatePublicationName,
     truncateHubName,

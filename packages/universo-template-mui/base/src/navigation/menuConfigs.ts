@@ -5,27 +5,18 @@ import {
     IconUser,
     IconFileText,
     IconUsers,
-    IconBoxMultiple,
     IconHierarchy3,
     IconBuildingStore,
-    IconMap,
-    IconTool,
-    IconKey,
-    IconVariable,
-    IconApi,
-    IconDatabase,
-    IconRobot,
-    IconChartBar,
-    IconFlag,
+    IconHistory,
+    IconGitBranch,
+    IconSettings,
     IconLayoutDashboard,
     IconShield,
     IconUsersGroup,
     IconUserShield,
     IconLanguage,
     IconApps,
-    IconHistory,
-    IconGitBranch,
-    IconSettings
+    IconDatabase
 } from '@tabler/icons-react'
 
 export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
@@ -48,78 +39,30 @@ export interface TemplateMenuDivider {
     type: 'divider'
 }
 
-// Function to generate unik menu items for a specific unik
-export const getUnikMenuItems = (unikId: string): TemplateMenuItem[] => [
+// Function to generate application menu items for a specific application
+export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem[] => [
     {
-        id: 'unik-board',
-        titleKey: 'unikboard',
-        url: `/unik/${unikId}`,
+        id: 'application-board',
+        titleKey: 'applicationboard',
+        url: `/a/${applicationId}/admin`,
         icon: IconBuildingStore
     },
     {
-        id: 'unik-spaces',
-        titleKey: 'spaces',
-        url: `/unik/${unikId}/spaces`,
-        icon: IconMap
+        id: 'application-connectors',
+        titleKey: 'connectors',
+        url: `/a/${applicationId}/admin/connectors`,
+        icon: IconHierarchy3
     },
     {
-        id: 'unik-tools',
-        titleKey: 'tools',
-        url: `/unik/${unikId}/tools`,
-        icon: IconTool
+        id: 'application-migrations',
+        titleKey: 'migrations',
+        url: `/a/${applicationId}/admin/migrations`,
+        icon: IconHistory
     },
     {
-        id: 'unik-credentials',
-        titleKey: 'credentials',
-        url: `/unik/${unikId}/credentials`,
-        icon: IconKey
-    },
-    {
-        id: 'unik-variables',
-        titleKey: 'variables',
-        url: `/unik/${unikId}/variables`,
-        icon: IconVariable
-    },
-    {
-        id: 'unik-apikey',
-        titleKey: 'apiKeys',
-        url: `/unik/${unikId}/apikey`,
-        icon: IconApi
-    },
-    {
-        id: 'unik-document-stores',
-        titleKey: 'documentStores',
-        url: `/unik/${unikId}/document-stores`,
-        icon: IconDatabase
-    },
-    {
-        id: 'unik-assistants',
-        titleKey: 'assistants',
-        url: `/unik/${unikId}/assistants`,
-        icon: IconRobot
-    },
-    {
-        id: 'unik-executions',
-        titleKey: 'executions',
-        url: `/unik/${unikId}/executions`,
-        icon: IconFlag
-    },
-    {
-        id: 'unik-analytics',
-        titleKey: 'analytics',
-        url: `/unik/${unikId}/analytics`,
-        icon: IconChartBar
-    },
-    {
-        id: 'unik-templates',
-        titleKey: 'templates',
-        url: `/unik/${unikId}/templates`,
-        icon: IconLayoutDashboard
-    },
-    {
-        id: 'unik-access',
+        id: 'application-access',
         titleKey: 'access',
-        url: `/unik/${unikId}/access`,
+        url: `/a/${applicationId}/admin/access`,
         icon: IconUsers
     }
 ]
@@ -210,76 +153,7 @@ export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
     }
 ]
 
-// Function to generate application menu items for a specific application
-export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem[] => [
-    {
-        id: 'application-board',
-        titleKey: 'applicationboard',
-        url: `/a/${applicationId}/admin`,
-        icon: IconBuildingStore
-    },
-    {
-        id: 'application-connectors',
-        titleKey: 'connectors',
-        url: `/a/${applicationId}/admin/connectors`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'application-migrations',
-        titleKey: 'migrations',
-        url: `/a/${applicationId}/admin/migrations`,
-        icon: IconHistory
-    },
-    {
-        id: 'application-access',
-        titleKey: 'access',
-        url: `/a/${applicationId}/admin/access`,
-        icon: IconUsers
-    }
-]
-
-// Function to generate metaverse menu items for a specific metaverse
-export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] => [
-    {
-        id: 'metaverse-board',
-        // Keys are used within the 'menu' namespace context
-        titleKey: 'metaverseboard',
-        url: `/metaverse/${metaverseId}`,
-        icon: IconWorld
-    },
-    {
-        id: 'metaverse-entities',
-        titleKey: 'entities',
-        url: `/metaverses/${metaverseId}/entities`,
-        icon: IconBoxMultiple
-    },
-    {
-        id: 'metaverse-sections',
-        titleKey: 'sections',
-        url: `/metaverses/${metaverseId}/sections`,
-        icon: IconHierarchy3
-    },
-    {
-        id: 'metaverse-access',
-        titleKey: 'access',
-        url: `/metaverse/${metaverseId}/access`,
-        icon: IconUsers
-    }
-]
-
 export const rootMenuItems: TemplateMenuItem[] = [
-    {
-        id: 'uniks',
-        titleKey: 'uniks',
-        url: '/uniks',
-        icon: IconFiles
-    },
-    {
-        id: 'metaverses',
-        titleKey: 'metaverses',
-        url: '/metaverses',
-        icon: IconWorld
-    },
     {
         id: 'profile',
         titleKey: 'profile',
@@ -374,14 +248,3 @@ export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => 
         icon: IconSettings
     }
 ]
-
-/**
- * @deprecated Use getAdminMenuItems() instead
- * Legacy admin menu item - kept for backward compatibility
- */
-export const adminMenuItem: TemplateMenuItem = {
-    id: 'admin',
-    titleKey: 'administration',
-    url: '/admin',
-    icon: IconShield
-}

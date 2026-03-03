@@ -20,7 +20,6 @@ import {
     useTheme
 } from '@mui/material'
 import { tableCellClasses } from '@mui/material/TableCell'
-import { FlowListMenu } from '@flowise/template-mui'
 import i18n from '@universo/i18n'
 import { Link } from 'react-router-dom'
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
@@ -505,16 +504,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                             justifyContent='center'
                                             alignItems='center'
                                         >
-                                            {renderActions ? (
-                                                renderActions(row)
-                                            ) : (
-                                                <FlowListMenu
-                                                    isAgentCanvas={isAgentCanvas}
-                                                    canvas={row as any}
-                                                    setError={setError}
-                                                    updateFlowsApi={updateFlowsApi}
-                                                />
-                                            )}
+                                            {renderActions ? renderActions(row) : null}
                                         </Stack>
                                     </StyledTableCell>
                                 </>

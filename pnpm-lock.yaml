@@ -1975,9 +1975,6 @@ importers:
       '@flowise/store':
         specifier: workspace:*
         version: link:../../flowise-store/base
-      '@flowise/template-mui':
-        specifier: workspace:*
-        version: link:../../flowise-template-mui/base
       '@hookform/resolvers':
         specifier: 'catalog:'
         version: 3.10.0(react-hook-form@7.67.0(react@18.3.1))
