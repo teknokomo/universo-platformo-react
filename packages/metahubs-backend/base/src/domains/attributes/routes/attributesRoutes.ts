@@ -25,7 +25,9 @@ import {
     extractAllowedAttributeTypes,
     getAllowAttributeCopy,
     getAllowAttributeDelete,
-    getAllowDeleteLastDisplayAttribute
+    getAllowDeleteLastDisplayAttribute,
+    getAllowAttributeMoveBetweenRootAndChildren,
+    getAllowAttributeMoveBetweenChildLists
 } from '../../shared/codenameStyleHelper'
 import { syncMetahubSchema } from '../../metahubs/services/schemaSync'
 import { KnexClient, uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from '../../ddl'
@@ -1277,6 +1279,79 @@ export function createAttributesRoutes(
                 const updated = await attributesService.moveAttribute(metahubId, catalogId, attributeId, direction, userId)
                 res.json(updated)
             } catch (error: any) {
+                if (error.message === 'Attribute not found') {
+                    return res.status(404).json({ error: 'Attribute not found' })
+                }
+                throw error
+            }
+        })
+    )
+
+    /**
+     * PATCH /metahub/:metahubId/hub/:hubId/catalog/:catalogId/attributes/reorder
+     * PATCH /metahub/:metahubId/catalog/:catalogId/attributes/reorder
+     * Reorder an attribute within its list, or transfer to a different parent list (cross-list DnD)
+     */
+    const reorderAttributeSchema = z.object({
+        attributeId: z.string().uuid(),
+        newSortOrder: z.number().int().min(1),
+        newParentAttributeId: z.string().uuid().nullable().optional(),
+        autoRenameCodename: z.boolean().optional()
+    })
+
+    router.patch(
+        [
+            '/metahub/:metahubId/hub/:hubId/catalog/:catalogId/attributes/reorder',
+            '/metahub/:metahubId/catalog/:catalogId/attributes/reorder'
+        ],
+        writeLimiter,
+        asyncHandler(async (req: Request, res: Response) => {
+            const { metahubId, catalogId } = req.params
+            const { attributesService, settingsService } = services(req)
+            const userId = resolveUserId(req)
+
+            const parsed = reorderAttributeSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const { attributeId, newSortOrder, newParentAttributeId, autoRenameCodename } = parsed.data
+
+            // Load codename settings from the route layer (service doesn't own settingsService)
+            const codenameScope = await getAttributeCodenameScope(settingsService, metahubId, userId)
+            const { style: codenameStyle } = await getCodenameSettings(settingsService, metahubId, userId)
+            const allowCrossListRootChildren = await getAllowAttributeMoveBetweenRootAndChildren(settingsService, metahubId, userId)
+            const allowCrossListBetweenChildren = await getAllowAttributeMoveBetweenChildLists(settingsService, metahubId, userId)
+
+            try {
+                const updated = await attributesService.reorderAttribute(
+                    metahubId,
+                    catalogId,
+                    attributeId,
+                    newSortOrder,
+                    newParentAttributeId,
+                    codenameScope as 'per-level' | 'global',
+                    codenameStyle as 'kebab-case' | 'pascal-case',
+                    allowCrossListRootChildren,
+                    allowCrossListBetweenChildren,
+                    autoRenameCodename,
+                    userId
+                )
+                res.json(updated)
+            } catch (error: any) {
+                if (error.message?.startsWith('CODENAME_CONFLICT')) {
+                    return res.status(409).json({
+                        message: error.message,
+                        code: 'CODENAME_CONFLICT',
+                        codename: error.codename
+                    })
+                }
+                if (error.message?.startsWith('DISPLAY_ATTRIBUTE_TRANSFER_BLOCKED')) {
+                    return res.status(422).json({ message: error.message, code: 'DISPLAY_ATTRIBUTE_TRANSFER_BLOCKED' })
+                }
+                if (error.message?.startsWith('TRANSFER_NOT_ALLOWED')) {
+                    return res.status(403).json({ message: error.message, code: 'TRANSFER_NOT_ALLOWED' })
+                }
                 if (error.message === 'Attribute not found') {
                     return res.status(404).json({ error: 'Attribute not found' })
                 }

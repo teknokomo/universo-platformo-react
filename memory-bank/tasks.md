@@ -4,6 +4,223 @@
 
 ---
 
+## Completed: QA Tech Debt Cleanup — 2026-03-04 ✅
+
+> **Goal**: Fix all issues found in the comprehensive QA analysis: stale JSDoc, fragile closure capture, over-broad cache invalidation, `as any` cleanup.
+
+### Implementation
+- [x] Fixed stale JSDoc comment on `useReorderAttribute` — "cross-list skipped" → "both same-list and cross-list"
+- [x] Replaced fragile `movedItem` closure capture with pre-extraction from cache via `getQueriesData` before applying updaters
+- [x] Optimized `onSuccess` — child attribute caches invalidated only for cross-list transfers (`newParentAttributeId !== undefined`), not for same-list reorder
+- [x] Cleaned up `as any` casts in same-list `reorderUpdater` to use typed `Record<string, unknown>` casts matching cross-list code
+
+### Verification
+- [x] Lint: metahubs-frontend 0 errors/153 warnings (13 fewer than before — `as any` removals)
+- [x] Tests: metahubs-frontend 97/97
+- [x] Build: metahubs-frontend ✔ success
+
+---
+
+## Completed: Cross-List DnD Optimistic Update — 2026-03-03 ✅
+
+> **Goal**: Add optimistic cache updates for cross-list attribute DnD transfers so items instantly appear in the target list instead of snapping back and re-appearing after 2-3s server response.
+
+### Implementation
+- [x] Added `currentParentAttributeId` parameter to `onReorder` callback chain (`useAttributeDnd` → `AttributeDndProvider` → `AttributeList` → `mutations.ts`)
+- [x] In `handleDragEnd`: pass `activeContainer.parentAttributeId` as 4th argument to `onReorder` for cross-list transfers
+- [x] In `onMutate`: implemented cross-list optimistic update — removes item from source cache, inserts into target cache at correct position, re-indexes sort orders in both
+- [x] Unified rollback: snapshots both root and child caches before modification, restores all on error
+- [x] Same-list reorder optimistic update preserved (refactored to use extracted `reorderUpdater`)
+
+### Verification
+- [x] Lint: metahubs-frontend 0 errors/166 warnings
+- [x] Tests: metahubs-frontend 97/97, metahubs-backend 128/128
+- [x] Build: 56/56 successful
+- [x] Memory Bank updated
+
+---
+
+## Completed: DnD QA Pass 5 — Post-Analysis Fixes — 2026-03-03 ✅
+
+> **Goal**: Fix 4 issues from comprehensive QA analysis: backend auto-set display attr, ghost row collision cycle, source list display protection, eslint-disable cleanup.
+
+### Fix 1: Backend auto-set display attribute for first child (MEDIUM)
+- [x] In `reorderAttribute()`: after cross-list move to child list, count siblings; if count === 1, auto-set `is_display_attribute: true` + `is_required: true`
+
+### Fix 2: Ghost row collision guard (MEDIUM)
+- [x] In `handleDragOver`: early return when `over.id === active.id && pendingTransfer` exists — prevents render cycle where ghost unmounts/remounts
+- [x] In `handleDragEnd`: save `pendingTransferRef.current` before clearing state; when `over.id === active.id`, resolve target container from saved pending transfer instead of re-resolving via findContainer
+- [x] Sort order calculation: use `savedPendingTransfer.insertIndex + 1` when dropped on ghost row (overIndex not found in target items)
+
+### Fix 3: Source list display attribute protection (LOW)
+- [x] In `_validateCrossListTransfer()`: changed condition from `attribute.is_display_attribute && targetParentId !== null` to `attribute.is_display_attribute` — blocks ALL display attribute cross-list transfers, aligned with frontend behavior
+
+### Fix 4: eslint-disable cleanup (LOW)
+- [x] Extracted inline type annotation to named `EmptyDroppableChildAreaProps` interface
+- [x] Reduced from 2 eslint-disable comments (one inside type annotation) to 1 standard eslint-disable-next-line before component declaration
+
+### Verification
+- [x] Lint: metahubs-backend 0 errors/216 warnings, metahubs-frontend 0 errors/163 warnings
+- [x] Tests: metahubs-backend 128/128, metahubs-frontend 97/97, template-mui 169/169
+- [x] Build: 56/56 successful (5m29s)
+- [x] Memory Bank updated
+
+---
+
+## Completed: DnD QA Pass 4 — 4 Issues Fix — 2026-03-03 ✅
+
+> **Goal**: Fix 4 new QA issues: jitter on cross-list drag, empty child table drop target, first-attr confirmation dialog, lock display attribute toggle.
+
+### Issue 1: Jitter on cross-list drag (width mismatch)
+- [x] Add `overflowX: 'hidden'` to FlowListTable `TableContainer` when `isDropTarget` is active, prevent horizontal scrollbar jitter
+
+### Issue 2: Empty child table needs droppable area
+- [x] In ChildAttributeList: render `EmptyDroppableChildArea` component with `useDroppable` when no children + no ghost row
+- [x] Container detected as drop target via @dnd-kit useDroppable — registered with containerId
+- [x] Show drop target visual feedback (dashed border highlight) on empty placeholder
+- [x] Restructured rendering: always compute effectiveData, show EmptyDroppableChildArea or FlowListTable
+
+### Issue 3: First attribute in empty table → confirmation dialog
+- [x] Extended `onValidateTransfer` signature with `targetContainerItemCount` parameter
+- [x] Show confirmation dialog when dropping to empty child container (targetContainerItemCount === 0)
+- [x] Added i18n keys for EN (firstChildAttributeTitle/firstChildAttributeDescription) and RU translations
+
+### Issue 4: Lock display attribute toggle when editing display attribute
+- [x] In `AttributeActions.tsx`: added `|| isDisplayAttributeEntity(ctx)` to `displayAttributeLocked` computation
+- [x] In `ChildAttributeList.tsx`: pass `displayAttributeLockedOverride: editState.attribute?.isDisplayAttribute ? true : undefined` in edit dialog tabs
+- [x] Verified childActionDescriptors context menu actions are correctly gated (clear-display-attribute requires displayAttributesCount > 1)
+
+### Verification
+- [x] Lint: 0 errors, 163 warnings (metahubs-frontend)
+- [x] Build: 56/56 successful (5m36s)
+- [x] Memory Bank updated
+
+---
+
+## Completed: DnD Table Design Restoration & Tech Debt Elimination — 2026-03-03 ✅
+
+> **Goal**: Restore standard table design (FlowListTable) wherever DnD was introduced, extend FlowListTable with built-in DnD support, fix all pre-existing TS errors in EnumerationValueList, clean up redundant DnD components.
+
+### Phase 1: Extend FlowListTable with DnD support
+- [x] Add `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` to `universo-template-mui` deps
+- [x] Create `FlowListTableDnd.tsx` with internal DnD building blocks (SortableTableRow, SortableTableBody, InternalDndWrapper)
+- [x] Add DnD props to `FlowListTableProps` (sortableRows, sortableItemIds, droppableContainerId, externalDndContext, onSortableDragEnd, renderDragOverlay, etc.)
+- [x] Integrate DnD rendering path in FlowListTable (drag handle column, sortable rows, disabled internal sort)
+- [x] Export new types from template-mui index
+
+### Phase 2: Fix dialog component types
+- [x] Add `'copy'` to `EntityFormDialogProps.mode` union
+- [x] Add `deleteButtonDisabledReason?: string` to `EntityFormDialogProps` with Tooltip support
+
+### Phase 3: Fix pre-existing TS errors in EnumerationValueList (9 errors)
+- [x] Fix `appendCopySuffix` locales type mismatch (line 104)
+- [x] Fix `onSearchChange={setSearch}` type mismatch (line 723)
+- [x] Fix `t()` overload issues (lines 827, 929)
+- [x] Fix `deleting` → `loading` prop on ConfirmDeleteDialog (line 970)
+- [x] Type all implicit `any` params (11 `ctx: ValueActionCtx`, `deriveCodename`, `onChange`, `onTouchedChange`, `onLocalizedChange`, `onSearchChange`, `extraFields` destructured params)
+  - Note: readonly `descriptors` and `createValueActionContext` errors were cascading from VS Code TS server module resolution cache, not real code bugs
+
+### Phase 4: Migrate consumers to FlowListTable DnD
+- [x] Migrate AttributeList to use FlowListTable with `sortableRows` + `externalDndContext`
+- [x] Migrate ChildAttributeList to use FlowListTable with `sortableRows` + `externalDndContext`
+- [x] Migrate EnumerationValueList to use FlowListTable with `sortableRows` (internal DndContext)
+
+### Phase 5: Clean up & verify
+- [x] Remove redundant DnD components (SortableAttributeRow, SortableAttributeTableBody, SortableValueRow, SortableEnumerationValueTable)
+- [x] Update dnd/index.ts barrel exports
+- [x] Lint verification (`metahubs-frontend`: 0 errors/149 warnings, `metahubs-backend`: 0 errors/216 warnings)
+- [x] Build verification (`pnpm build` — 56 successful, 56 total, 5m32s)
+- [x] Backend tests (21/21 passed)
+
+---
+
+## Completed: DnD QA Critical Debt Closure — 2026-03-03 ✅
+
+> **Goal**: Eliminate all remaining QA blockers for DnD attributes/enumeration values with safe backend enforcement, clean lint status in touched areas, and verified builds/tests.
+
+### Final implementation plan (execution pass)
+
+- [x] Enforce cross-list move settings on backend reorder endpoint/service (not frontend-only)
+- [x] Add strict ownership checks in reorder services (`attribute.object_id === catalogId`, `value.object_id === enumerationId`)
+- [x] Add/adjust backend tests for settings enforcement and ownership guardrails in reorder APIs
+- [x] Fix all new lint/prettier errors introduced by DnD files and route/service edits
+- [x] Re-run targeted verification (`metahubs-frontend lint/test`, `metahubs-backend lint/test`, touched builds)
+- [x] Update Memory Bank closure (`activeContext.md`, `progress.md`, `tasks.md`) with outcomes
+
+### Verification evidence (this completion)
+
+- [x] `pnpm --filter @universo/metahubs-backend test -- src/tests/routes/attributesRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts` -> pass (`2/2` suites, `21/21` tests)
+- [x] `pnpm --filter @universo/metahubs-backend build` -> pass
+- [x] `pnpm --filter @universo/metahubs-frontend build` -> pass (`Build complete in 6597ms`)
+- [x] `pnpm --filter @universo/template-mui build` -> pass (`Build complete in 1461ms`)
+- [x] `pnpm build` (root) -> pass (`56 successful, 56 total`, `6m33.197s`)
+
+---
+
+## Completed: Drag-and-Drop for Attributes & Enumeration Values — 2026-03-03 ✅
+
+> **Goal**: Implement drag-and-drop reordering for root/child attributes and enumeration values. Add cross-list attribute transfer (root ↔ child, child ↔ child) with codename uniqueness and display-attribute validation. New metahub settings control permissions.
+
+> **Plan**: See [memory-bank/plan/dnd-attributes-enum-values-plan-2026-03-03.md](plan/dnd-attributes-enum-values-plan-2026-03-03.md) for detailed implementation plan with code examples.
+
+> **Complexity**: Level 4 (Major/Complex)
+
+### Phase 1: FlowListTable Key Fix
+- [x] Fix `key={index}` → `key={row.id}` in `FlowListTable.tsx`
+
+### Phase 2: New Metahub Settings
+- [x] Add 2 new settings to `METAHUB_SETTINGS_REGISTRY` in `universo-types`
+- [x] Add i18n keys for new settings (EN + RU) — added in QA fix pass
+
+### Phase 3: Backend — Attribute Reorder Endpoint
+- [x] Add Zod schema and PATCH `/attributes/reorder` route (hub-scoped + direct)
+- [x] Implement `reorderAttribute()` in `MetahubAttributesService` (same-list + cross-list)
+- [x] Implement `_validateCrossListTransfer()` (display attr, TABLE nesting, codename uniqueness)
+
+### Phase 4: Backend — Enum Value Reorder Endpoint
+- [x] Add PATCH `/values/reorder` route for enumeration values
+- [x] Implement `reorderValue()` in `MetahubEnumerationValuesService`
+
+### Phase 5: Frontend — DnD Dependencies & API
+- [x] Add `@dnd-kit` deps to `metahubs-frontend` (catalog versions)
+- [x] Add `reorderAttribute` and `reorderEnumerationValue` API functions
+- [x] Add `useReorderAttribute` and `useReorderEnumerationValue` mutation hooks
+
+### Phase 6: Frontend — DnD Components for Attributes
+- [x] Create `SortableAttributeRow` (useSortable + drag handle)
+- [x] Create `DragOverlayRow` (floating drag preview)
+- [x] Create `useAttributeDnd` hook (DnD event handlers)
+- [x] Create `AttributeDndProvider` (DndContext + sensors + overlay)
+- [x] Create `SortableAttributeTableBody` (SortableContext + droppable body)
+
+### Phase 7: Frontend — Integrate DnD in AttributeList
+- [x] Wrap AttributeList with AttributeDndProvider
+- [x] Replace FlowListTable with SortableAttributeTableBody when DnD enabled
+- [x] Implement optimistic reorder handler
+- [x] Implement cross-list transfer validation (display attr, TABLE nesting, codename, confirm dialog)
+
+### Phase 8: Frontend — Integrate DnD in ChildAttributeList
+- [x] Register child lists as DnD containers via context
+- [x] Render SortableAttributeTableBody per child list
+- [x] Create `AttributeDndContainerRegistry` for cross-container awareness
+
+### Phase 9: Frontend — DnD for Enumeration Values
+- [x] Create DnD components for enumeration values
+- [x] Integrate in EnumerationValueList with setting toggle
+
+### Phase 10: i18n
+- [x] Add all DnD-related i18n keys (EN + RU)
+
+### Phase 11: QA Fixes & Verification
+- [x] QA analysis (comprehensive review of all phases)
+- [x] Fix Phase 2.2: add missing settings i18n keys (EN + RU)
+- [x] Fix unused `dragHandle` keys: add `aria-label` to drag handles via prop chain
+- [x] Fix unused `reorderSuccess` keys: add success snackbars after reorder
+- [x] Remove unused `transferBlocked` key (redundant with specific messages)
+- [x] `pnpm --filter metahubs-frontend build` -> pass
+
+---
+
 ## Completed: Codename Auto-Convert UX Hardening — 2026-03-03 ✅
 
 > **Goal**: Ensure mixed-alphabet auto-conversion works both for manual codename blur and for codename auto-generation from name across all codename-enabled forms; align settings wording in admin + metahub UI.
@@ -23,7 +240,7 @@
 - [x] `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m23.968s`)
 - [x] Memory Bank closure synchronized in `activeContext.md` and `progress.md`
 
-## Active: QA Debt Eradication — 2026-03-03
+## Completed: QA Debt Eradication — 2026-03-03 ✅
 
 > **Goal**: Resolve all issues found in the latest QA pass with safe, minimal, lint-clean changes and no regressions.
 
@@ -42,6 +259,67 @@
 - [x] `pnpm --filter @universo/metahubs-backend test` -> pass (`17/17` suites, `123` passed, `3` skipped)
 - [x] `pnpm --filter @universo/template-mui test` -> pass (`10/10` suites, `169/169` tests)
 - [x] `pnpm build` (root) -> pass (`56 successful, 56 total`, `5m20.626s`)
+
+---
+
+## Completed: DnD QA Pass 3 — 4 Issues Fix — 2026-03-03 ✅
+
+> **Goal**: Fix 4 new QA issues found during testing of DnD attributes/enum values feature.
+
+### Issue 1: Enum value row height too short
+- [x] Remove `compact` from `FlowListTable` in `EnumerationValueList.tsx`
+
+### Issue 2: Drag handle not vertically centered
+- [x] Add `verticalAlign: 'middle'` to drag handle StyledTableCell in `SortableTableRow` (FlowListTableDnd.tsx)
+
+### Issue 3: Cross-list DnD ghost placeholder missing
+- [x] Add `pendingTransfer` state to `useAttributeDnd` (itemId, from/to container, insertIndex)
+- [x] Expose `pendingTransfer` + `activeAttribute` through `AttributeDndStateContext`
+- [x] In `AttributeList.tsx`: modify `data` and `sortableItemIds` based on pendingTransfer (remove from source, inject ghost in target)
+- [x] In `ChildAttributeList.tsx`: same ghost injection logic
+- [x] Result: cross-list drag shows semi-transparent row at insertion point (using @dnd-kit isDragging opacity)
+
+### Issue 4: Verify codename_localized auto-rename logic
+- [x] Trace flow for VLC on + VLC off scenarios — both correct
+- [x] Confirm `codename_localized: null` is correct for both cases — fallback to plain codename works
+
+### Verification
+- [x] Build: 56/56, lint: 0 errors/164 warnings, tests: 128+97+169 passed
+- [x] Memory Bank updated
+
+## Completed: DnD QA Pass 2 — 6 Issues Fix — 2026-03-04 ✅
+
+> **Goal**: Fix 6 issues found during QA testing of DnD attributes/enum values feature.
+
+### Issue 1: Root attribute row height too short
+- [x] Remove `compact` from root `FlowListTable` in `AttributeList.tsx` (keep compact in `ChildAttributeList.tsx`)
+
+### Issue 2: Cross-list DnD has no visual feedback
+- [x] Add visual drop indicator when dragging between root ↔ child containers
+  - Created `AttributeDndStateContext` in `AttributeDndProvider.tsx` exposing `activeId`, `activeContainerId`, `overContainerId`
+  - Added `useAttributeDndState()` hook
+  - Created `DndDropTarget` render-prop component in `AttributeList.tsx`
+  - Added `isDropTarget` prop to `FlowListTable` with dashed primary border + 4% alpha background
+
+### Issue 3: Display attribute cross-list validation order
+- [x] Block display attribute from ANY cross-list transfer (not just root → child)
+  - Removed `&& targetParentId !== null` condition in `handleValidateTransfer`
+
+### Issue 4: Codename conflict dialog too narrow
+- [x] Widen `ConfirmDialog` from `maxWidth='xs'` to `'sm'` and add padding to `DialogActions`
+
+### Issue 5: Codename rename bug + suffix format
+- [x] Fix `buildCodenameAttempt` to not use separator before number (e.g., `Name2` not `Name_2`)
+- [x] Fix auto-rename to also set `codename_localized: null` so display shows new codename
+
+### Issue 6: No optimistic updates for DnD reorder
+- [x] Add optimistic updates to `useReorderAttribute` (same-list only) and `useReorderEnumerationValue`
+  - `onMutate`: cancel queries, snapshot cache, reorder items optimistically
+  - `onError`: rollback from snapshot
+
+### Verification
+- [x] Build verification — 56/56 packages, 0 lint errors, all tests pass
+- [x] Memory Bank updated
 
 ## Completed: QA Remediation — Root Attribute Codename Flow Hardening — 2026-03-03 ✅
 

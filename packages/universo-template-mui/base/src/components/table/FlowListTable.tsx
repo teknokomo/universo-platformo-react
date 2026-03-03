@@ -23,8 +23,10 @@ import { tableCellClasses } from '@mui/material/TableCell'
 import { FlowListMenu } from '@flowise/template-mui'
 import i18n from '@universo/i18n'
 import { Link } from 'react-router-dom'
+import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
+import { SortableTableRow, SortableTableBody, InternalDndWrapper } from './FlowListTableDnd'
 
-const StyledTableCell = styled(TableCell)(({ theme }) => ({
+export const StyledTableCell = styled(TableCell)(({ theme }) => ({
     borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
 
     [`&.${tableCellClasses.head}`]: {
@@ -48,7 +50,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
     }
 }))
 
-const StyledTableRow = styled(TableRow)(() => ({
+export const StyledTableRow = styled(TableRow)(() => ({
     // hide last border
     '&:last-child td, &:last-child th': {
         border: 0
@@ -95,6 +97,35 @@ export interface FlowListTableProps<T extends FlowListTableData = FlowListTableD
     renderRowExpansion?: (row: T, index: number) => React.ReactNode | null
     /** Compact mode: reduced row heights and font sizes */
     compact?: boolean
+
+    // ── DnD support ──────────────────────────────────────────────────────
+    /** Enable drag-and-drop row reordering. Adds a drag handle column and makes rows sortable. */
+    sortableRows?: boolean
+    /** Item IDs for SortableContext. Defaults to data.map(d => d.id) when sortableRows=true. */
+    sortableItemIds?: string[]
+    /** Container ID for useDroppable (for multi-container DnD with external DndContext). */
+    droppableContainerId?: string
+    /**
+     * When true, FlowListTable does NOT create its own DndContext.
+     * Use this when an external DndContext (e.g. a cross-list DnD provider) wraps the table.
+     */
+    externalDndContext?: boolean
+    /** Called on drag end. Only used when externalDndContext is falsy. */
+    onSortableDragEnd?: (event: DragEndEvent) => void
+    /** Called on drag start. Only used when externalDndContext is falsy. */
+    onSortableDragStart?: (event: DragStartEvent) => void
+    /** Called on drag over. Only used when externalDndContext is falsy. */
+    onSortableDragOver?: (event: DragOverEvent) => void
+    /** Called on drag cancel. Only used when externalDndContext is falsy. */
+    onSortableDragCancel?: () => void
+    /** Render drag overlay content. Only used when externalDndContext is falsy. */
+    renderDragOverlay?: (activeId: string | null) => React.ReactNode
+    /** Accessible label for drag handle cells. */
+    dragHandleAriaLabel?: string
+    /** Disable all drag handles (e.g. during loading). */
+    dragDisabled?: boolean
+    /** Visual indicator that this table is a DnD drop target (e.g. during cross-list drag). */
+    isDropTarget?: boolean
 }
 
 const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean): string => {
@@ -118,7 +149,20 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     customColumns,
     i18nNamespace = 'flowList',
     renderRowExpansion,
-    compact = false
+    compact = false,
+    // DnD props
+    sortableRows = false,
+    sortableItemIds,
+    droppableContainerId,
+    externalDndContext = false,
+    onSortableDragEnd,
+    onSortableDragStart,
+    onSortableDragOver,
+    onSortableDragCancel,
+    renderDragOverlay,
+    dragHandleAriaLabel,
+    dragDisabled = false,
+    isDropTarget = false
 }: FlowListTableProps<T>): React.ReactElement => {
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
@@ -143,7 +187,11 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
 
     const columnsToRender = !isUnikTable && Array.isArray(customColumns) && customColumns.length > 0 ? customColumns : null
 
-    const sortedData = data
+    // When sortableRows is enabled, data order is controlled externally (by sortOrder),
+    // so we skip internal sorting and filtering.
+    const sortedData = sortableRows
+        ? data ?? []
+        : data
         ? [...data].sort((a, b) => {
               if (columnsToRender) {
                   const sortableColumn = columnsToRender.find((column) => column.sortable && column.id === orderBy)
@@ -175,6 +223,11 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
           })
         : []
 
+    // Effective item IDs for DnD SortableContext
+    const effectiveSortableIds = sortableRows
+        ? sortableItemIds ?? sortedData.map((d) => d.id)
+        : []
+
     const buildEntityLink = (row: T): string | undefined => {
         if (typeof getRowLink === 'function') {
             return getRowLink(row)
@@ -191,15 +244,30 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
 
     const activeFilter = typeof filterFunction === 'function' ? filterFunction : () => true
 
-    return (
-        <>
-            <TableContainer sx={{ border: 1, borderColor, borderRadius: 1 }} component={Paper}>
-                <Table
-                    sx={{ minWidth: compact ? 400 : 900 }}
-                    size='small'
-                    aria-label='a dense table'
-                    className={compact ? 'FlowListTable-compact' : undefined}
-                >
+    const tableElement = (
+        <TableContainer
+            sx={{
+                border: 1,
+                borderColor: isDropTarget ? 'primary.main' : borderColor,
+                borderRadius: 1,
+                ...(isDropTarget && {
+                    borderWidth: 2,
+                    borderStyle: 'dashed',
+                    backgroundColor: (th: any) => alpha(th.palette.primary.main, 0.04),
+                    transition: 'border-color 0.2s, background-color 0.2s',
+                    // Prevent horizontal scrollbar jitter when a wider ghost row
+                    // is injected during cross-list DnD (e.g. root → child table).
+                    overflowX: 'hidden'
+                })
+            }}
+            component={Paper}
+        >
+            <Table
+                sx={{ minWidth: compact ? 400 : 900 }}
+                size='small'
+                aria-label='a dense table'
+                className={compact ? 'FlowListTable-compact' : undefined}
+            >
                     <TableHead
                         sx={{
                             backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
@@ -207,6 +275,8 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         }}
                     >
                         <TableRow>
+                            {/* Drag handle column header (when DnD enabled) */}
+                            {sortableRows && <StyledTableCell align='center' sx={{ width: 40 }} />}
                             {columnsToRender ? (
                                 <>
                                     {columnsToRender.map((column) => (
@@ -289,233 +359,267 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                             )}
                         </TableRow>
                     </TableHead>
-                    <TableBody>
-                        {isLoading ? (
-                            <>
-                                <StyledTableRow>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                </StyledTableRow>
-                                <StyledTableRow>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                    <StyledTableCell>
-                                        <Skeleton variant='text' />
-                                    </StyledTableCell>
-                                </StyledTableRow>
-                            </>
-                        ) : (
-                            <>
-                                {(sortedData || []).filter(activeFilter).map((row, index) => {
-                                    const linkTarget = buildEntityLink(row)
-                                    const displayName = row.templateName || row.name
-                                    const normalizedUpdatedDate = resolveUpdatedDate(row)
-                                    const expansionContent = renderRowExpansion ? renderRowExpansion(row, index) : null
+                    {/* ── Table Body ─────────────────────────────────────── */}
+                    {(() => {
+                        // Shared rendering logic for row cells (used by both normal and sortable paths)
+                        const displayData = sortableRows ? sortedData : (sortedData || []).filter(activeFilter)
 
-                                    return (
-                                        <React.Fragment key={index}>
-                                            <StyledTableRow sx={expansionContent ? { '& td, & th': { borderBottom: 0 } } : undefined}>
-                                                {columnsToRender ? (
-                                                    <>
-                                                        {columnsToRender.map((column) => (
-                                                            <StyledTableCell key={column.id} align={column.align || 'left'}>
-                                                                {column.render ? column.render(row, index) : null}
-                                                            </StyledTableCell>
-                                                        ))}
-                                                        {renderActions && (
-                                                            <StyledTableCell key='actions' align='center'>
-                                                                <Stack
-                                                                    direction={{ xs: 'column', sm: 'row' }}
-                                                                    spacing={1}
-                                                                    justifyContent='center'
-                                                                    alignItems='center'
+                        const renderRowCells = (row: T, index: number) => {
+                            const linkTarget = buildEntityLink(row)
+                            const displayName = row.templateName || row.name
+                            const normalizedUpdatedDate = resolveUpdatedDate(row)
+
+                            if (columnsToRender) {
+                                return (
+                                    <>
+                                        {columnsToRender.map((column) => (
+                                            <StyledTableCell key={column.id} align={column.align || 'left'}>
+                                                {column.render ? column.render(row, index) : null}
+                                            </StyledTableCell>
+                                        ))}
+                                        {renderActions && (
+                                            <StyledTableCell key='actions' align='center'>
+                                                <Stack
+                                                    direction={{ xs: 'column', sm: 'row' }}
+                                                    spacing={1}
+                                                    justifyContent='center'
+                                                    alignItems='center'
+                                                >
+                                                    {renderActions(row)}
+                                                </Stack>
+                                            </StyledTableCell>
+                                        )}
+                                    </>
+                                )
+                            }
+
+                            // Default columns (name, category/spaces, nodes, date, actions)
+                            return (
+                                <>
+                                    <StyledTableCell key='0'>
+                                        <Typography
+                                            sx={{
+                                                fontSize: 14,
+                                                fontWeight: 500,
+                                                wordBreak: 'break-word',
+                                                overflowWrap: 'break-word'
+                                            }}
+                                        >
+                                            {linkTarget ? (
+                                                <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
+                                                    {displayName}
+                                                </Link>
+                                            ) : (
+                                                displayName
+                                            )}
+                                        </Typography>
+                                    </StyledTableCell>
+                                    {isUnikTable ? (
+                                        <StyledTableCell key='1'>
+                                            <Typography sx={{ fontSize: 14 }}>
+                                                {(row as any).spacesCount != null ? (row as any).spacesCount : 0}
+                                            </Typography>
+                                        </StyledTableCell>
+                                    ) : (
+                                        <>
+                                            <StyledTableCell key='1'>
+                                                <div
+                                                    style={{
+                                                        display: 'flex',
+                                                        flexDirection: 'row',
+                                                        flexWrap: 'wrap',
+                                                        marginTop: 5
+                                                    }}
+                                                >
+                                                    &nbsp;
+                                                    {(row as any).category &&
+                                                        (row as any).category
+                                                            .split(';')
+                                                            .map((tag: string, tagIndex: number) => (
+                                                                <Chip
+                                                                    key={tagIndex}
+                                                                    label={tag}
+                                                                    style={{ marginRight: 5, marginBottom: 5 }}
+                                                                />
+                                                            ))}
+                                                </div>
+                                            </StyledTableCell>
+                                            <StyledTableCell key='2'>
+                                                {images && images[row.id] && (
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'start',
+                                                            gap: 1
+                                                        }}
+                                                    >
+                                                        {images[row.id]
+                                                            .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
+                                                            .map((img: any) => (
+                                                                <Box
+                                                                    key={img}
+                                                                    sx={{
+                                                                        width: 30,
+                                                                        height: 30,
+                                                                        borderRadius: '50%',
+                                                                        backgroundColor: customization.isDarkMode
+                                                                            ? theme.palette.common.white
+                                                                            : theme.palette.grey[300] + 75
+                                                                    }}
                                                                 >
-                                                                    {renderActions(row)}
-                                                                </Stack>
-                                                            </StyledTableCell>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <StyledTableCell key='0'>
+                                                                    <img
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            height: '100%',
+                                                                            padding: 5,
+                                                                            objectFit: 'contain'
+                                                                        }}
+                                                                        alt=''
+                                                                        src={img}
+                                                                    />
+                                                                </Box>
+                                                            ))}
+                                                        {images[row.id].length > 5 && (
                                                             <Typography
                                                                 sx={{
-                                                                    fontSize: 14,
-                                                                    fontWeight: 500,
-                                                                    wordBreak: 'break-word',
-                                                                    overflowWrap: 'break-word'
+                                                                    alignItems: 'center',
+                                                                    display: 'flex',
+                                                                    fontSize: '.9rem',
+                                                                    fontWeight: 200
                                                                 }}
                                                             >
-                                                                {linkTarget ? (
-                                                                    <Link
-                                                                        to={linkTarget}
-                                                                        style={{ color: '#2196f3', textDecoration: 'none' }}
-                                                                    >
-                                                                        {displayName}
-                                                                    </Link>
-                                                                ) : (
-                                                                    displayName
-                                                                )}
+                                                                {t('common:more', { count: images[row.id].length - 5 })}
                                                             </Typography>
-                                                        </StyledTableCell>
-                                                        {isUnikTable ? (
-                                                            <StyledTableCell key='1'>
-                                                                <Typography sx={{ fontSize: 14 }}>
-                                                                    {(row as any).spacesCount != null ? (row as any).spacesCount : 0}
-                                                                </Typography>
-                                                            </StyledTableCell>
-                                                        ) : (
-                                                            <>
-                                                                <StyledTableCell key='1'>
-                                                                    <div
-                                                                        style={{
-                                                                            display: 'flex',
-                                                                            flexDirection: 'row',
-                                                                            flexWrap: 'wrap',
-                                                                            marginTop: 5
-                                                                        }}
-                                                                    >
-                                                                        &nbsp;
-                                                                        {(row as any).category &&
-                                                                            (row as any).category
-                                                                                .split(';')
-                                                                                .map((tag: string, tagIndex: number) => (
-                                                                                    <Chip
-                                                                                        key={tagIndex}
-                                                                                        label={tag}
-                                                                                        style={{ marginRight: 5, marginBottom: 5 }}
-                                                                                    />
-                                                                                ))}
-                                                                    </div>
-                                                                </StyledTableCell>
-                                                                <StyledTableCell key='2'>
-                                                                    {images && images[row.id] && (
-                                                                        <Box
-                                                                            sx={{
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                justifyContent: 'start',
-                                                                                gap: 1
-                                                                            }}
-                                                                        >
-                                                                            {images[row.id]
-                                                                                .slice(
-                                                                                    0,
-                                                                                    images[row.id].length > 5 ? 5 : images[row.id].length
-                                                                                )
-                                                                                .map((img: any) => (
-                                                                                    <Box
-                                                                                        key={img}
-                                                                                        sx={{
-                                                                                            width: 30,
-                                                                                            height: 30,
-                                                                                            borderRadius: '50%',
-                                                                                            backgroundColor: customization.isDarkMode
-                                                                                                ? theme.palette.common.white
-                                                                                                : theme.palette.grey[300] + 75
-                                                                                        }}
-                                                                                    >
-                                                                                        <img
-                                                                                            style={{
-                                                                                                width: '100%',
-                                                                                                height: '100%',
-                                                                                                padding: 5,
-                                                                                                objectFit: 'contain'
-                                                                                            }}
-                                                                                            alt=''
-                                                                                            src={img}
-                                                                                        />
-                                                                                    </Box>
-                                                                                ))}
-                                                                            {images[row.id].length > 5 && (
-                                                                                <Typography
-                                                                                    sx={{
-                                                                                        alignItems: 'center',
-                                                                                        display: 'flex',
-                                                                                        fontSize: '.9rem',
-                                                                                        fontWeight: 200
-                                                                                    }}
-                                                                                >
-                                                                                    {t('common:more', { count: images[row.id].length - 5 })}
-                                                                                </Typography>
-                                                                            )}
-                                                                        </Box>
-                                                                    )}
-                                                                </StyledTableCell>
-                                                            </>
                                                         )}
-                                                        <StyledTableCell key='3'>
-                                                            {formatDate(normalizedUpdatedDate, 'full')}
-                                                        </StyledTableCell>
-                                                        <StyledTableCell key='4'>
-                                                            <Stack
-                                                                direction={{ xs: 'column', sm: 'row' }}
-                                                                spacing={1}
-                                                                justifyContent='center'
-                                                                alignItems='center'
-                                                            >
-                                                                {renderActions ? (
-                                                                    renderActions(row)
-                                                                ) : (
-                                                                    <FlowListMenu
-                                                                        isAgentCanvas={isAgentCanvas}
-                                                                        canvas={row as any}
-                                                                        setError={setError}
-                                                                        updateFlowsApi={updateFlowsApi}
-                                                                    />
-                                                                )}
-                                                            </Stack>
-                                                        </StyledTableCell>
-                                                    </>
+                                                    </Box>
                                                 )}
-                                            </StyledTableRow>
-                                            {expansionContent &&
-                                                (() => {
-                                                    const totalCols = (columnsToRender?.length ?? 5) + (renderActions ? 1 : 0)
-                                                    return (
-                                                        <TableRow>
-                                                            <TableCell
-                                                                colSpan={totalCols}
-                                                                sx={{ py: 0, px: 0, borderBottom: '1px solid', borderColor: 'divider' }}
-                                                            >
-                                                                {expansionContent}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )
-                                                })()}
-                                        </React.Fragment>
-                                    )
-                                })}
+                                            </StyledTableCell>
+                                        </>
+                                    )}
+                                    <StyledTableCell key='3'>{formatDate(normalizedUpdatedDate, 'full')}</StyledTableCell>
+                                    <StyledTableCell key='4'>
+                                        <Stack
+                                            direction={{ xs: 'column', sm: 'row' }}
+                                            spacing={1}
+                                            justifyContent='center'
+                                            alignItems='center'
+                                        >
+                                            {renderActions ? (
+                                                renderActions(row)
+                                            ) : (
+                                                <FlowListMenu
+                                                    isAgentCanvas={isAgentCanvas}
+                                                    canvas={row as any}
+                                                    setError={setError}
+                                                    updateFlowsApi={updateFlowsApi}
+                                                />
+                                            )}
+                                        </Stack>
+                                    </StyledTableCell>
+                                </>
+                            )
+                        }
+
+                        // Total column count (for expansion row colSpan)
+                        const totalCols =
+                            (columnsToRender?.length ?? 5) + (renderActions ? 1 : 0) + (sortableRows ? 1 : 0)
+
+                        // Loading skeleton
+                        const skeletonContent = (
+                            <>
+                                <StyledTableRow>
+                                    {sortableRows && <StyledTableCell><Skeleton variant='text' /></StyledTableCell>}
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                </StyledTableRow>
+                                <StyledTableRow>
+                                    {sortableRows && <StyledTableCell><Skeleton variant='text' /></StyledTableCell>}
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                    <StyledTableCell><Skeleton variant='text' /></StyledTableCell>
+                                </StyledTableRow>
                             </>
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-        </>
+                        )
+
+                        // Data rows
+                        const dataRows = displayData.map((row, index) => {
+                            const expansionContent = renderRowExpansion ? renderRowExpansion(row, index) : null
+                            const hasExpansion = Boolean(expansionContent)
+
+                            const rowContent = (
+                                <React.Fragment key={row.id}>
+                                    {sortableRows ? (
+                                        <SortableTableRow
+                                            id={row.id}
+                                            disabled={dragDisabled}
+                                            hasExpansion={hasExpansion}
+                                            dragHandleAriaLabel={dragHandleAriaLabel}
+                                        >
+                                            {renderRowCells(row, index)}
+                                        </SortableTableRow>
+                                    ) : (
+                                        <StyledTableRow
+                                            sx={hasExpansion ? { '& td, & th': { borderBottom: 0 } } : undefined}
+                                        >
+                                            {renderRowCells(row, index)}
+                                        </StyledTableRow>
+                                    )}
+                                    {expansionContent && (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={totalCols}
+                                                sx={{ py: 0, px: 0, borderBottom: '1px solid', borderColor: 'divider' }}
+                                            >
+                                                {expansionContent}
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </React.Fragment>
+                            )
+                            return rowContent
+                        })
+
+                        const bodyContent = isLoading ? skeletonContent : dataRows
+
+                        // Wrap in SortableTableBody or plain TableBody
+                        if (sortableRows) {
+                            return (
+                                <SortableTableBody
+                                    itemIds={effectiveSortableIds}
+                                    droppableContainerId={droppableContainerId}
+                                >
+                                    {bodyContent}
+                                </SortableTableBody>
+                            )
+                        }
+                        return <TableBody>{bodyContent}</TableBody>
+                    })()}
+            </Table>
+        </TableContainer>
     )
+
+    // When DnD is enabled and no external DndContext, wrap with InternalDndWrapper
+    if (sortableRows && !externalDndContext) {
+        return (
+            <InternalDndWrapper
+                onDragStart={onSortableDragStart}
+                onDragEnd={onSortableDragEnd}
+                onDragOver={onSortableDragOver}
+                onDragCancel={onSortableDragCancel}
+                renderDragOverlay={renderDragOverlay}
+            >
+                {tableElement}
+            </InternalDndWrapper>
+        )
+    }
+
+    return tableElement
 }
 
 export default FlowListTable

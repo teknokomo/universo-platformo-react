@@ -12,6 +12,8 @@ export interface ConfirmPayload {
     confirmButtonName?: string
     cancelButtonName?: string
     customBtnId?: string
+    /** When true, hides the Cancel button — useful for info-only dialogs */
+    hideCancelButton?: boolean
 }
 
 export type ConfirmAction = { type: typeof SHOW_CONFIRM; payload: ConfirmPayload } | { type: typeof HIDE_CONFIRM }

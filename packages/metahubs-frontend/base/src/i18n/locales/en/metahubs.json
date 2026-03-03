@@ -671,6 +671,11 @@
             "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
             "codenameInvalidPascal": "Start with uppercase letter; use letters, digits, and underscores only",
             "codenameInvalidPascalEn": "Start with uppercase letter; use English letters, digits, and underscores only"
+        },
+        "reorderSuccess": "Value order updated",
+        "reorderError": "Failed to reorder value",
+        "dnd": {
+            "dragHandle": "Drag to reorder"
         }
     },
     "attributes": {
@@ -849,6 +854,20 @@
             "maxChildAttributes": "Maximum {{max}} child attributes per TABLE",
             "nestedTableNotAllowed": "Nested TABLE attributes are not allowed",
             "tableCannotBeDisplay": "TABLE attributes cannot be set as the display attribute"
+        },
+        "reorderSuccess": "Attribute order updated",
+        "reorderError": "Failed to reorder attribute",
+        "dnd": {
+            "dragHandle": "Drag to reorder",
+            "codenameConflictTitle": "Codename conflict",
+            "codenameConflictDescription": "An attribute with codename \"{{codename}}\" already exists in the target list. Move with automatic codename rename?",
+            "confirmMove": "Move",
+            "displayAttributeBlockedTitle": "Cannot move display attribute",
+            "displayAttributeBlockedDescription": "This attribute is the display attribute for its list. Assign another attribute as the display attribute first, then try again.",
+            "tableCannotMoveTitle": "Cannot move TABLE attribute",
+            "tableCannotMoveDescription": "TABLE attributes can only exist at the root level.",
+            "firstChildAttributeTitle": "First child attribute",
+            "firstChildAttributeDescription": "This will be the first attribute in the table. It will automatically become the display attribute and required. After that, it cannot be moved out until another attribute is set as the display attribute."
         }
     },
     "ref": {
@@ -1258,6 +1277,10 @@
             "catalogs.allowAttributeDelete.description": "Allow deleting attributes in catalogs",
             "catalogs.allowDeleteLastDisplayAttribute": "Allow Delete Last Display Attribute",
             "catalogs.allowDeleteLastDisplayAttribute.description": "Allow deleting the last display attribute in a scope (root attributes or table children)",
+            "catalogs.allowAttributeMoveBetweenRootAndChildren": "Allow Attribute Move Between Root and Children",
+            "catalogs.allowAttributeMoveBetweenRootAndChildren.description": "Allow moving attributes between root list and child lists of TABLE attributes",
+            "catalogs.allowAttributeMoveBetweenChildLists": "Allow Attribute Move Between Child Lists",
+            "catalogs.allowAttributeMoveBetweenChildLists.description": "Allow moving attributes between child lists of different TABLE attributes",
             "catalogs.allowElementCopy": "Allow Element Copy",
             "catalogs.allowElementCopy.description": "Allow copying predefined elements in catalogs",
             "catalogs.allowElementDelete": "Allow Element Delete",

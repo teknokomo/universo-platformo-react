@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -34,6 +34,7 @@ import {
     useUpdateAttribute,
     useDeleteAttribute,
     useMoveAttribute,
+    useReorderAttribute,
     useToggleAttributeRequired,
     useSetDisplayAttribute,
     useClearDisplayAttribute
@@ -59,6 +60,7 @@ import { extractLocalizedInput, hasPrimaryContent } from '../../../utils/localiz
 import attributeActions from './AttributeActions'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
 import ChildAttributeList from './ChildAttributeList'
+import { AttributeDndProvider, AttributeDndContainerRegistryProvider, useAttributeDndState } from './dnd'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import { ExistingCodenamesProvider } from '../../../components'
@@ -178,6 +180,23 @@ const getDataTypeColor = (dataType: AttributeDataType): 'default' | 'primary' | 
         default:
             return 'default'
     }
+}
+
+/**
+ * Render-prop component that reads DnD state and provides `isDropTarget` + ghost row data for a container.
+ * Must be used inside <AttributeDndProvider>.
+ */
+const DndDropTarget: React.FC<{
+    containerId: string
+    children: (props: {
+        isDropTarget: boolean
+        pendingTransfer: import('./dnd').PendingTransfer | null
+        activeAttribute: Attribute | undefined
+    }) => React.ReactNode
+}> = ({ containerId, children }) => {
+    const { activeContainerId, overContainerId, pendingTransfer, activeAttribute } = useAttributeDndState()
+    const isDropTarget = overContainerId === containerId && activeContainerId !== null && activeContainerId !== containerId
+    return <>{children({ isDropTarget, pendingTransfer, activeAttribute })}</>
 }
 
 const AttributeList = () => {
@@ -322,27 +341,139 @@ const AttributeList = () => {
     const updateAttributeMutation = useUpdateAttribute()
     const deleteAttributeMutation = useDeleteAttribute()
     const moveAttributeMutation = useMoveAttribute()
+    const reorderMutation = useReorderAttribute()
     const toggleRequiredMutation = useToggleAttributeRequired()
     const setDisplayAttributeMutation = useSetDisplayAttribute()
     const clearDisplayAttributeMutation = useClearDisplayAttribute()
 
-    // Memoize images object
-    const images = useMemo(() => {
-        const imagesMap: Record<string, unknown[]> = {}
-        if (Array.isArray(attributes)) {
-            attributes.forEach((attr) => {
-                if (attr?.id) {
-                    imagesMap[attr.id] = []
-                }
-            })
-        }
-        return imagesMap
-    }, [attributes])
+    // DnD cross-list permission settings
+    const allowCrossListRootChildren = useSettingValue<boolean>('catalogs.allowAttributeMoveBetweenRootAndChildren') ?? true
+    const allowCrossListBetweenChildren = useSettingValue<boolean>('catalogs.allowAttributeMoveBetweenChildLists') ?? true
 
     const attributeMap = useMemo(() => {
         if (!Array.isArray(attributes)) return new Map<string, Attribute>()
         return new Map(attributes.map((attr) => [attr.id, attr]))
     }, [attributes])
+
+    // DnD: Handle reorder (same-list + cross-list transfer)
+    const handleReorder = useCallback(
+        async (
+            attributeId: string,
+            newSortOrder: number,
+            newParentAttributeId?: string | null,
+            currentParentAttributeId?: string | null
+        ) => {
+            if (!metahubId || !catalogId) return
+
+            try {
+                await reorderMutation.mutateAsync({
+                    metahubId,
+                    hubId: effectiveHubId,
+                    catalogId,
+                    attributeId,
+                    newSortOrder,
+                    newParentAttributeId,
+                    currentParentAttributeId
+                })
+                enqueueSnackbar(t('attributes.reorderSuccess', 'Attribute order updated'), { variant: 'success' })
+            } catch (error: unknown) {
+                // Handle CODENAME_CONFLICT (409) — offer auto-rename
+                const responseData = extractResponseData(error)
+                const responseStatus =
+                    error && typeof error === 'object' && 'response' in error
+                        ? (error as { response?: { status?: number } }).response?.status ?? 0
+                        : 0
+
+                if (responseStatus === 409 && responseData?.code === 'CODENAME_CONFLICT') {
+                    const conflictCodename = typeof responseData?.codename === 'string' ? responseData.codename : ''
+                    const shouldAutoRename = await confirm({
+                        title: t('attributes.dnd.codenameConflictTitle', 'Codename conflict'),
+                        description: t(
+                            'attributes.dnd.codenameConflictDescription',
+                            'An attribute with codename "{{codename}}" already exists in the target list. Move with automatic codename rename?',
+                            { codename: conflictCodename }
+                        ),
+                        confirmButtonName: t('attributes.dnd.confirmMove', 'Move'),
+                        cancelButtonName: tc('actions.cancel', 'Cancel')
+                    })
+                    if (shouldAutoRename) {
+                        try {
+                            await reorderMutation.mutateAsync({
+                                metahubId,
+                                hubId: effectiveHubId,
+                                catalogId,
+                                attributeId,
+                                newSortOrder,
+                                newParentAttributeId,
+                                autoRenameCodename: true,
+                                currentParentAttributeId
+                            })
+                            enqueueSnackbar(t('attributes.reorderSuccess', 'Attribute order updated'), { variant: 'success' })
+                        } catch (retryError: unknown) {
+                            const msg =
+                                retryError instanceof Error
+                                    ? retryError.message
+                                    : t('attributes.reorderError', 'Failed to reorder attribute')
+                            enqueueSnackbar(msg, { variant: 'error' })
+                        }
+                    }
+                    return
+                }
+
+                // Other errors — show generic snackbar
+                const message = error instanceof Error ? error.message : t('attributes.reorderError', 'Failed to reorder attribute')
+                enqueueSnackbar(message, { variant: 'error' })
+            }
+        },
+        [metahubId, catalogId, effectiveHubId, reorderMutation, confirm, enqueueSnackbar, t, tc]
+    )
+
+    // DnD: Validate cross-list transfer before applying
+    const handleValidateTransfer = useCallback(
+        async (attribute: Attribute, targetParentId: string | null, targetContainerItemCount: number): Promise<boolean> => {
+            // Display attribute cannot be moved between lists (root ↔ child)
+            if (attribute.isDisplayAttribute) {
+                await confirm({
+                    title: t('attributes.dnd.displayAttributeBlockedTitle', 'Cannot move display attribute'),
+                    description: t(
+                        'attributes.dnd.displayAttributeBlockedDescription',
+                        'This attribute is the display attribute for its list. Assign another attribute as the display attribute first, then try again.'
+                    ),
+                    confirmButtonName: tc('ok', 'OK'),
+                    hideCancelButton: true
+                })
+                return false
+            }
+
+            // TABLE attributes can only exist at root level
+            if (attribute.dataType === 'TABLE' && targetParentId !== null) {
+                await confirm({
+                    title: t('attributes.dnd.tableCannotMoveTitle', 'Cannot move TABLE attribute'),
+                    description: t('attributes.dnd.tableCannotMoveDescription', 'TABLE attributes can only exist at the root level.'),
+                    confirmButtonName: tc('ok', 'OK'),
+                    hideCancelButton: true
+                })
+                return false
+            }
+
+            // Moving to an empty child table — attribute will become display + required
+            if (targetParentId !== null && targetContainerItemCount === 0) {
+                const shouldMove = await confirm({
+                    title: t('attributes.dnd.firstChildAttributeTitle', 'First child attribute'),
+                    description: t(
+                        'attributes.dnd.firstChildAttributeDescription',
+                        'This will be the first attribute in the table. It will automatically become the display attribute and required. After that, it cannot be moved out until another attribute is set as the display attribute.'
+                    ),
+                    confirmButtonName: t('attributes.dnd.confirmMove', 'Move'),
+                    cancelButtonName: tc('actions.cancel', 'Cancel')
+                })
+                if (!shouldMove) return false
+            }
+
+            return true
+        },
+        [confirm, t, tc]
+    )
 
     const localizedFormDefaults = useMemo<AttributeFormValues>(() => {
         const hasNoAttributes = (attributes?.length ?? 0) === 0
@@ -961,301 +1092,363 @@ const AttributeList = () => {
         }
     }
 
-    // Transform Attribute data for FlowListTable (which expects string name)
+    // Transform Attribute data for table display
     const getAttributeTableData = (attr: Attribute): AttributeDisplay => toAttributeDisplay(attr, i18n.language)
 
     return (
-        <ExistingCodenamesProvider entities={codenameEntities}>
-            <MainCard
-                sx={{ maxWidth: '100%', width: '100%' }}
-                contentSX={{ px: 0, py: 0 }}
-                disableContentPadding
-                disableHeader
-                border={false}
-                shadow={false}
-            >
-                {error ? (
-                    <EmptyListState
-                        image={APIEmptySVG}
-                        imageAlt='Connection error'
-                        title={t('errors.connectionFailed')}
-                        description={!hasResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                        action={{
-                            label: t('actions.retry'),
-                            onClick: () => paginationResult.actions.goToPage(1)
+        <AttributeDndContainerRegistryProvider>
+            <ExistingCodenamesProvider entities={codenameEntities}>
+                <MainCard
+                    sx={{ maxWidth: '100%', width: '100%' }}
+                    contentSX={{ px: 0, py: 0 }}
+                    disableContentPadding
+                    disableHeader
+                    border={false}
+                    shadow={false}
+                >
+                    {error ? (
+                        <EmptyListState
+                            image={APIEmptySVG}
+                            imageAlt='Connection error'
+                            title={t('errors.connectionFailed')}
+                            description={!hasResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                            action={{
+                                label: t('actions.retry'),
+                                onClick: () => paginationResult.actions.goToPage(1)
+                            }}
+                        />
+                    ) : (
+                        <Stack flexDirection='column' sx={{ gap: 1 }}>
+                            <ViewHeader
+                                search={true}
+                                searchPlaceholder={t('attributes.searchPlaceholder')}
+                                onSearchChange={handleSearchChange}
+                                title={t('attributes.title')}
+                            >
+                                <ToolbarControls
+                                    primaryAction={{
+                                        label: tc('create'),
+                                        onClick: handleAddNew,
+                                        startIcon: <AddRoundedIcon />,
+                                        disabled: limitReached
+                                    }}
+                                />
+                            </ViewHeader>
+
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+                                <Tabs
+                                    value='attributes'
+                                    onChange={handleCatalogTabChange}
+                                    aria-label={t('catalogs.title', 'Catalogs')}
+                                    textColor='primary'
+                                    indicatorColor='primary'
+                                    sx={{
+                                        minHeight: 40,
+                                        '& .MuiTab-root': {
+                                            minHeight: 40,
+                                            textTransform: 'none'
+                                        }
+                                    }}
+                                >
+                                    <Tab value='attributes' label={t('attributes.title')} />
+                                    <Tab value='elements' label={t('elements.title')} />
+                                </Tabs>
+                            </Box>
+
+                            {limitReached && (
+                                <Alert
+                                    severity='info'
+                                    icon={<InfoIcon />}
+                                    sx={{
+                                        mx: { xs: -1.5, md: -2 },
+                                        mt: 0,
+                                        mb: 2
+                                    }}
+                                >
+                                    {t('attributes.limitReached', { limit: limitValue })}
+                                </Alert>
+                            )}
+
+                            {isLoading && attributes.length === 0 ? (
+                                <Skeleton variant='rectangular' height={120} />
+                            ) : !isLoading && attributes.length === 0 ? (
+                                <EmptyListState
+                                    image={APIEmptySVG}
+                                    imageAlt='No attributes'
+                                    title={t('attributes.empty')}
+                                    description={t('attributes.emptyDescription')}
+                                />
+                            ) : (
+                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                    <AttributeDndProvider
+                                        rootItems={attributes}
+                                        allowCrossListRootChildren={allowCrossListRootChildren}
+                                        allowCrossListBetweenChildren={allowCrossListBetweenChildren}
+                                        onReorder={handleReorder}
+                                        onValidateTransfer={handleValidateTransfer}
+                                        uiLocale={i18n.language}
+                                    >
+                                        <DndDropTarget containerId='root'>
+                                            {({ isDropTarget, pendingTransfer: pt, activeAttribute: activeAttr }) => {
+                                                // Compute effective data/IDs for ghost row rendering
+                                                const baseData = attributes.map(getAttributeTableData)
+                                                const baseIds = attributes.map((a) => a.id)
+                                                let effectiveData = baseData
+                                                let effectiveIds = baseIds
+
+                                                if (pt) {
+                                                    if (pt.fromContainerId === 'root') {
+                                                        // Source container: hide the dragged item
+                                                        effectiveData = baseData.filter((d) => d.id !== pt.itemId)
+                                                        effectiveIds = baseIds.filter((id) => id !== pt.itemId)
+                                                    } else if (pt.toContainerId === 'root' && activeAttr) {
+                                                        // Target container: inject ghost at insertion point
+                                                        const ghost = toAttributeDisplay(activeAttr, i18n.language)
+                                                        const insertAt = Math.min(pt.insertIndex, baseData.length)
+                                                        effectiveData = [...baseData.slice(0, insertAt), ghost, ...baseData.slice(insertAt)]
+                                                        effectiveIds = [
+                                                            ...baseIds.slice(0, insertAt),
+                                                            pt.itemId,
+                                                            ...baseIds.slice(insertAt)
+                                                        ]
+                                                    }
+                                                }
+
+                                                return (
+                                                    <FlowListTable<AttributeDisplay>
+                                                        data={effectiveData}
+                                                        customColumns={attributeColumns}
+                                                        sortableRows
+                                                        externalDndContext
+                                                        droppableContainerId='root'
+                                                        sortableItemIds={effectiveIds}
+                                                        dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
+                                                        isDropTarget={isDropTarget}
+                                                        renderActions={(row: AttributeDisplay) => {
+                                                            const originalAttribute = attributes.find((a) => a.id === row.id)
+                                                            if (!originalAttribute) return null
+
+                                                            const descriptors: ActionDescriptor<
+                                                                AttributeDisplay,
+                                                                AttributeLocalizedPayload
+                                                            >[] = [...attributeActions]
+
+                                                            return (
+                                                                <Stack direction='row' spacing={0} alignItems='center'>
+                                                                    {row.dataType === 'TABLE' && (
+                                                                        <IconButton
+                                                                            size='small'
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                setExpandedTableIds((prev) => {
+                                                                                    const next = new Set(prev)
+                                                                                    if (next.has(row.id)) {
+                                                                                        next.delete(row.id)
+                                                                                    } else {
+                                                                                        next.add(row.id)
+                                                                                    }
+                                                                                    return next
+                                                                                })
+                                                                            }}
+                                                                            sx={{ width: 28, height: 28, p: 0.5 }}
+                                                                        >
+                                                                            {expandedTableIds.has(row.id) ? (
+                                                                                <KeyboardArrowUpIcon fontSize='small' />
+                                                                            ) : (
+                                                                                <KeyboardArrowDownIcon fontSize='small' />
+                                                                            )}
+                                                                        </IconButton>
+                                                                    )}
+                                                                    {descriptors.length > 0 && (
+                                                                        <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
+                                                                            entity={toAttributeDisplay(originalAttribute, i18n.language)}
+                                                                            entityKind='attribute'
+                                                                            descriptors={descriptors}
+                                                                            namespace='metahubs'
+                                                                            menuButtonLabelKey='flowList:menu.button'
+                                                                            i18nInstance={i18n}
+                                                                            createContext={createAttributeContext}
+                                                                        />
+                                                                    )}
+                                                                </Stack>
+                                                            )
+                                                        }}
+                                                        renderRowExpansion={(row: AttributeDisplay) => {
+                                                            if (row.dataType !== 'TABLE') return null
+                                                            if (!expandedTableIds.has(row.id)) return null
+                                                            return (
+                                                                <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
+                                                                    <Box
+                                                                        sx={{
+                                                                            borderTop: '1px dashed',
+                                                                            borderColor: 'divider',
+                                                                            mx: 2,
+                                                                            mb: 1
+                                                                        }}
+                                                                    />
+                                                                    <ChildAttributeList
+                                                                        metahubId={metahubId!}
+                                                                        hubId={effectiveHubId}
+                                                                        catalogId={catalogId!}
+                                                                        parentAttributeId={row.id}
+                                                                        searchFilter={
+                                                                            childSearchMatchParentIds.includes(row.id)
+                                                                                ? searchValue
+                                                                                : undefined
+                                                                        }
+                                                                        onRefresh={async () => {
+                                                                            if (metahubId && catalogId) {
+                                                                                invalidateAttributesQueries.allCodenames(
+                                                                                    queryClient,
+                                                                                    metahubId!,
+                                                                                    catalogId!
+                                                                                )
+                                                                            }
+                                                                            if (effectiveHubId) {
+                                                                                await invalidateAttributesQueries.all(
+                                                                                    queryClient,
+                                                                                    metahubId!,
+                                                                                    effectiveHubId,
+                                                                                    catalogId!
+                                                                                )
+                                                                            } else {
+                                                                                queryClient.invalidateQueries({
+                                                                                    queryKey: metahubsQueryKeys.attributesDirect(
+                                                                                        metahubId!,
+                                                                                        catalogId!
+                                                                                    )
+                                                                                })
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Box>
+                                                            )
+                                                        }}
+                                                    />
+                                                )
+                                            }}
+                                        </DndDropTarget>
+                                    </AttributeDndProvider>
+                                </Box>
+                            )}
+
+                            {/* Table Pagination at bottom */}
+                            {!isLoading && attributes.length > 0 && (
+                                <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                    <PaginationControls
+                                        pagination={paginationResult.pagination}
+                                        actions={paginationResult.actions}
+                                        isLoading={paginationResult.isLoading}
+                                        rowsPerPageOptions={[10, 20, 50, 100]}
+                                        namespace='common'
+                                    />
+                                </Box>
+                            )}
+                        </Stack>
+                    )}
+
+                    <EntityFormDialog
+                        open={isDialogOpen}
+                        title={t('attributes.createDialog.title', 'Add Attribute')}
+                        nameLabel={tc('fields.name', 'Name')}
+                        descriptionLabel={tc('fields.description', 'Description')}
+                        saveButtonText={tc('actions.create', 'Create')}
+                        savingButtonText={tc('actions.creating', 'Creating...')}
+                        cancelButtonText={tc('actions.cancel', 'Cancel')}
+                        loading={isCreating}
+                        error={dialogError || undefined}
+                        onClose={handleDialogClose}
+                        onSave={handleCreateAttribute}
+                        hideDefaultFields
+                        initialExtraValues={localizedFormDefaults}
+                        tabs={renderTabs}
+                        validate={validateAttributeForm}
+                        canSave={canSaveAttributeForm}
+                    />
+
+                    {/* Independent ConfirmDeleteDialog */}
+                    <ConfirmDeleteDialog
+                        open={deleteDialogState.open}
+                        title={t('attributes.deleteDialog.title')}
+                        description={t('attributes.deleteDialog.message')}
+                        confirmButtonText={tc('actions.delete', 'Delete')}
+                        deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                        cancelButtonText={tc('actions.cancel', 'Cancel')}
+                        onCancel={() => setDeleteDialogState({ open: false, attribute: null })}
+                        onConfirm={async () => {
+                            if (deleteDialogState.attribute) {
+                                const actualAttribute = attributeMap.get(deleteDialogState.attribute.id) ?? deleteDialogState.attribute
+                                if (actualAttribute?.isDisplayAttribute) {
+                                    enqueueSnackbar(
+                                        t(
+                                            'attributes.deleteDisplayAttributeBlocked',
+                                            'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
+                                        ),
+                                        { variant: 'warning' }
+                                    )
+                                    setDeleteDialogState({ open: false, attribute: null })
+                                    return
+                                }
+                                try {
+                                    await deleteAttributeMutation.mutateAsync({
+                                        metahubId,
+                                        hubId: effectiveHubId,
+                                        catalogId,
+                                        attributeId: deleteDialogState.attribute.id
+                                    })
+                                    setDeleteDialogState({ open: false, attribute: null })
+                                } catch (err: unknown) {
+                                    const responseMessage = extractResponseMessage(err)
+                                    const message =
+                                        typeof responseMessage === 'string'
+                                            ? responseMessage
+                                            : err instanceof Error
+                                            ? err.message
+                                            : typeof err === 'string'
+                                            ? err
+                                            : t('attributes.deleteError')
+                                    enqueueSnackbar(message, { variant: 'error' })
+                                    setDeleteDialogState({ open: false, attribute: null })
+                                }
+                            }
                         }}
                     />
-                ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
-                        <ViewHeader
-                            search={true}
-                            searchPlaceholder={t('attributes.searchPlaceholder')}
-                            onSearchChange={handleSearchChange}
-                            title={t('attributes.title')}
-                        >
-                            <ToolbarControls
-                                primaryAction={{
-                                    label: tc('create'),
-                                    onClick: handleAddNew,
-                                    startIcon: <AddRoundedIcon />,
-                                    disabled: limitReached
-                                }}
-                            />
-                        </ViewHeader>
 
-                        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
-                            <Tabs
-                                value='attributes'
-                                onChange={handleCatalogTabChange}
-                                aria-label={t('catalogs.title', 'Catalogs')}
-                                textColor='primary'
-                                indicatorColor='primary'
-                                sx={{
-                                    minHeight: 40,
-                                    '& .MuiTab-root': {
-                                        minHeight: 40,
-                                        textTransform: 'none'
-                                    }
-                                }}
-                            >
-                                <Tab value='attributes' label={t('attributes.title')} />
-                                <Tab value='elements' label={t('elements.title')} />
-                            </Tabs>
-                        </Box>
+                    <ConfirmDialog />
 
-                        {limitReached && (
-                            <Alert
-                                severity='info'
-                                icon={<InfoIcon />}
-                                sx={{
-                                    mx: { xs: -1.5, md: -2 },
-                                    mt: 0,
-                                    mb: 2
-                                }}
-                            >
-                                {t('attributes.limitReached', { limit: limitValue })}
-                            </Alert>
-                        )}
-
-                        {isLoading && attributes.length === 0 ? (
-                            <Skeleton variant='rectangular' height={120} />
-                        ) : !isLoading && attributes.length === 0 ? (
-                            <EmptyListState
-                                image={APIEmptySVG}
-                                imageAlt='No attributes'
-                                title={t('attributes.empty')}
-                                description={t('attributes.emptyDescription')}
-                            />
-                        ) : (
-                            <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                <FlowListTable
-                                    data={attributes.map(getAttributeTableData)}
-                                    images={images}
-                                    isLoading={isLoading}
-                                    customColumns={attributeColumns}
-                                    i18nNamespace='flowList'
-                                    renderActions={(row: AttributeDisplay) => {
-                                        const originalAttribute = attributes.find((a) => a.id === row.id)
-                                        if (!originalAttribute) return null
-
-                                        const descriptors: ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = [
-                                            ...attributeActions
-                                        ]
-
-                                        return (
-                                            <Stack direction='row' spacing={0} alignItems='center'>
-                                                {row.dataType === 'TABLE' && (
-                                                    <IconButton
-                                                        size='small'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setExpandedTableIds((prev) => {
-                                                                const next = new Set(prev)
-                                                                if (next.has(row.id)) {
-                                                                    next.delete(row.id)
-                                                                } else {
-                                                                    next.add(row.id)
-                                                                }
-                                                                return next
-                                                            })
-                                                        }}
-                                                        sx={{ width: 28, height: 28, p: 0.5 }}
-                                                    >
-                                                        {expandedTableIds.has(row.id) ? (
-                                                            <KeyboardArrowUpIcon fontSize='small' />
-                                                        ) : (
-                                                            <KeyboardArrowDownIcon fontSize='small' />
-                                                        )}
-                                                    </IconButton>
-                                                )}
-                                                {descriptors.length > 0 && (
-                                                    <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
-                                                        entity={toAttributeDisplay(originalAttribute, i18n.language)}
-                                                        entityKind='attribute'
-                                                        descriptors={descriptors}
-                                                        namespace='metahubs'
-                                                        menuButtonLabelKey='flowList:menu.button'
-                                                        i18nInstance={i18n}
-                                                        createContext={createAttributeContext}
-                                                    />
-                                                )}
-                                            </Stack>
-                                        )
-                                    }}
-                                    renderRowExpansion={(row: AttributeDisplay) => {
-                                        if (row.dataType !== 'TABLE') return null
-                                        if (!expandedTableIds.has(row.id)) return null
-                                        return (
-                                            <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
-                                                <Box sx={{ borderTop: '1px dashed', borderColor: 'divider', mx: 2, mb: 1 }} />
-                                                <ChildAttributeList
-                                                    metahubId={metahubId!}
-                                                    hubId={effectiveHubId}
-                                                    catalogId={catalogId!}
-                                                    parentAttributeId={row.id}
-                                                    searchFilter={childSearchMatchParentIds.includes(row.id) ? searchValue : undefined}
-                                                    onRefresh={async () => {
-                                                        // Invalidate global codenames cache (for global scope duplicate checking)
-                                                        if (metahubId && catalogId) {
-                                                            invalidateAttributesQueries.allCodenames(queryClient, metahubId!, catalogId!)
-                                                        }
-                                                        if (effectiveHubId) {
-                                                            await invalidateAttributesQueries.all(
-                                                                queryClient,
-                                                                metahubId!,
-                                                                effectiveHubId,
-                                                                catalogId!
-                                                            )
-                                                        } else {
-                                                            queryClient.invalidateQueries({
-                                                                queryKey: metahubsQueryKeys.attributesDirect(metahubId!, catalogId!)
-                                                            })
-                                                        }
-                                                    }}
-                                                />
-                                            </Box>
-                                        )
-                                    }}
-                                />
-                            </Box>
-                        )}
-
-                        {/* Table Pagination at bottom */}
-                        {!isLoading && attributes.length > 0 && (
-                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                                <PaginationControls
-                                    pagination={paginationResult.pagination}
-                                    actions={paginationResult.actions}
-                                    isLoading={paginationResult.isLoading}
-                                    rowsPerPageOptions={[10, 20, 50, 100]}
-                                    namespace='common'
-                                />
-                            </Box>
-                        )}
-                    </Stack>
-                )}
-
-                <EntityFormDialog
-                    open={isDialogOpen}
-                    title={t('attributes.createDialog.title', 'Add Attribute')}
-                    nameLabel={tc('fields.name', 'Name')}
-                    descriptionLabel={tc('fields.description', 'Description')}
-                    saveButtonText={tc('actions.create', 'Create')}
-                    savingButtonText={tc('actions.creating', 'Creating...')}
-                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={isCreating}
-                    error={dialogError || undefined}
-                    onClose={handleDialogClose}
-                    onSave={handleCreateAttribute}
-                    hideDefaultFields
-                    initialExtraValues={localizedFormDefaults}
-                    tabs={renderTabs}
-                    validate={validateAttributeForm}
-                    canSave={canSaveAttributeForm}
-                />
-
-                {/* Independent ConfirmDeleteDialog */}
-                <ConfirmDeleteDialog
-                    open={deleteDialogState.open}
-                    title={t('attributes.deleteDialog.title')}
-                    description={t('attributes.deleteDialog.message')}
-                    confirmButtonText={tc('actions.delete', 'Delete')}
-                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => setDeleteDialogState({ open: false, attribute: null })}
-                    onConfirm={async () => {
-                        if (deleteDialogState.attribute) {
-                            const actualAttribute = attributeMap.get(deleteDialogState.attribute.id) ?? deleteDialogState.attribute
-                            if (actualAttribute?.isDisplayAttribute) {
-                                enqueueSnackbar(
-                                    t(
-                                        'attributes.deleteDisplayAttributeBlocked',
-                                        'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
-                                    ),
-                                    { variant: 'warning' }
-                                )
-                                setDeleteDialogState({ open: false, attribute: null })
-                                return
+                    <ConflictResolutionDialog
+                        open={conflictState.open}
+                        conflict={conflictState.conflict}
+                        onCancel={() => {
+                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
+                            if (metahubId && catalogId) {
+                                // Invalidate global codenames cache (for global scope duplicate checking)
+                                invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
+                                if (effectiveHubId) {
+                                    invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                                } else {
+                                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                                }
                             }
-                            try {
-                                await deleteAttributeMutation.mutateAsync({
+                        }}
+                        onOverwrite={async () => {
+                            if (conflictState.pendingUpdate && metahubId && catalogId) {
+                                const { id, patch } = conflictState.pendingUpdate
+                                await updateAttributeMutation.mutateAsync({
                                     metahubId,
                                     hubId: effectiveHubId,
                                     catalogId,
-                                    attributeId: deleteDialogState.attribute.id
+                                    attributeId: id,
+                                    data: patch
                                 })
-                                setDeleteDialogState({ open: false, attribute: null })
-                            } catch (err: unknown) {
-                                const responseMessage = extractResponseMessage(err)
-                                const message =
-                                    typeof responseMessage === 'string'
-                                        ? responseMessage
-                                        : err instanceof Error
-                                        ? err.message
-                                        : typeof err === 'string'
-                                        ? err
-                                        : t('attributes.deleteError')
-                                enqueueSnackbar(message, { variant: 'error' })
-                                setDeleteDialogState({ open: false, attribute: null })
+                                setConflictState({ open: false, conflict: null, pendingUpdate: null })
                             }
-                        }
-                    }}
-                />
-
-                <ConfirmDialog />
-
-                <ConflictResolutionDialog
-                    open={conflictState.open}
-                    conflict={conflictState.conflict}
-                    onCancel={() => {
-                        setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                        if (metahubId && catalogId) {
-                            // Invalidate global codenames cache (for global scope duplicate checking)
-                            invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
-                            if (effectiveHubId) {
-                                invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
-                            } else {
-                                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
-                            }
-                        }
-                    }}
-                    onOverwrite={async () => {
-                        if (conflictState.pendingUpdate && metahubId && catalogId) {
-                            const { id, patch } = conflictState.pendingUpdate
-                            await updateAttributeMutation.mutateAsync({
-                                metahubId,
-                                hubId: effectiveHubId,
-                                catalogId,
-                                attributeId: id,
-                                data: patch
-                            })
-                            setConflictState({ open: false, conflict: null, pendingUpdate: null })
-                        }
-                    }}
-                    isLoading={updateAttributeMutation.isPending}
-                />
-            </MainCard>
-        </ExistingCodenamesProvider>
+                        }}
+                        isLoading={updateAttributeMutation.isPending}
+                    />
+                </MainCard>
+            </ExistingCodenamesProvider>
+        </AttributeDndContainerRegistryProvider>
     )
 }
 

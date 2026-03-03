@@ -29,6 +29,7 @@ export default defineConfig({
     /^use-sync-external-store(\/.*)?$/,
     'canvas',  // Native module from transitive dependency
     /^@flowise\/executions-frontend(\/.*)?$/,
+    /^@dnd-kit\//,
     /^@ui\//,  // Imports from flowise-ui via @ui alias
     /^@mui\//,
     /^@emotion\//,

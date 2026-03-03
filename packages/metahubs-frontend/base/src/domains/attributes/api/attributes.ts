@@ -198,6 +198,45 @@ export const deleteAttributeDirect = (metahubId: string, catalogId: string, attr
 export const moveAttributeDirect = (metahubId: string, catalogId: string, attributeId: string, direction: 'up' | 'down') =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/move`, { direction })
 
+/**
+ * Reorder an attribute via DnD (with hubId).
+ * Supports same-list reorder and cross-list transfer.
+ */
+export const reorderAttribute = (
+    metahubId: string,
+    hubId: string,
+    catalogId: string,
+    attributeId: string,
+    newSortOrder: number,
+    newParentAttributeId?: string | null,
+    autoRenameCodename?: boolean
+) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attributes/reorder`, {
+        attributeId,
+        newSortOrder,
+        ...(newParentAttributeId !== undefined && { newParentAttributeId }),
+        ...(autoRenameCodename && { autoRenameCodename })
+    })
+
+/**
+ * Reorder an attribute via DnD (without hubId).
+ * Supports same-list reorder and cross-list transfer.
+ */
+export const reorderAttributeDirect = (
+    metahubId: string,
+    catalogId: string,
+    attributeId: string,
+    newSortOrder: number,
+    newParentAttributeId?: string | null,
+    autoRenameCodename?: boolean
+) =>
+    apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attributes/reorder`, {
+        attributeId,
+        newSortOrder,
+        ...(newParentAttributeId !== undefined && { newParentAttributeId }),
+        ...(autoRenameCodename && { autoRenameCodename })
+    })
+
 export const copyAttributeDirect = (metahubId: string, catalogId: string, attributeId: string, data: AttributeCopyInput) =>
     apiClient.post<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}/copy`, data)
 

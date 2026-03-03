@@ -199,6 +199,42 @@ export async function getAllowDeleteLastDisplayAttribute(
     }
 }
 
+/**
+ * Read allow-move-between-root-and-children setting.
+ * Returns true if not set.
+ */
+export async function getAllowAttributeMoveBetweenRootAndChildren(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<boolean> {
+    try {
+        const row = await settingsService.findByKey(metahubId, 'catalogs.allowAttributeMoveBetweenRootAndChildren', userId)
+        const value = row?.value?._value
+        return value !== false
+    } catch {
+        return true
+    }
+}
+
+/**
+ * Read allow-move-between-child-lists setting.
+ * Returns true if not set.
+ */
+export async function getAllowAttributeMoveBetweenChildLists(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<boolean> {
+    try {
+        const row = await settingsService.findByKey(metahubId, 'catalogs.allowAttributeMoveBetweenChildLists', userId)
+        const value = row?.value?._value
+        return value !== false
+    } catch {
+        return true
+    }
+}
+
 // ─── Codename attempt builder ────────────────────────────────────────────────
 
 /**
@@ -209,8 +245,7 @@ export async function getAllowDeleteLastDisplayAttribute(
 export function buildCodenameAttempt(baseCodename: string, attempt: number, style: CodenameStyle = 'kebab-case'): string {
     if (attempt <= 1) return baseCodename
 
-    const sep = style === 'pascal-case' ? '_' : '-'
-    const attemptSuffix = `${sep}${attempt}`
+    const attemptSuffix = `${attempt}`
     const limit = style === 'pascal-case' ? 80 : 100
     const maxLength = Math.max(1, limit - attemptSuffix.length)
     return `${baseCodename.slice(0, maxLength)}${attemptSuffix}`

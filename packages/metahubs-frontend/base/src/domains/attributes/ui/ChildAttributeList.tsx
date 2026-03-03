@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useDroppable } from '@dnd-kit/core'
 import { Box, Stack, Typography, Chip, Skeleton, Alert, Tooltip, Button } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -15,7 +16,7 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { EntityFormDialog, ConfirmDeleteDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
-import { FlowListTable, BaseEntityMenu, notifyError } from '@universo/template-mui'
+import { BaseEntityMenu, notifyError, FlowListTable } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
 import { TABLE_CHILD_DATA_TYPES } from '@universo/types'
@@ -45,6 +46,7 @@ import {
     useClearDisplayAttribute
 } from '../hooks/mutations'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+import { useContainerRegistry, useAttributeDndState } from './dnd'
 import { ExistingCodenamesProvider } from '../../../components'
 
 type GenericFormValues = Record<string, unknown>
@@ -53,6 +55,43 @@ type ChildAttributeContextExtras = {
     moveAttribute?: (id: string, direction: 'up' | 'down') => Promise<void>
     toggleRequired?: (id: string, value: boolean) => Promise<void>
     toggleDisplayAttribute?: (id: string, value: boolean) => Promise<void>
+}
+
+interface EmptyDroppableChildAreaProps {
+    containerId: string
+    isDropTarget: boolean
+    message: string
+}
+
+/**
+ * Droppable placeholder shown when a child attribute list has no items.
+ * Uses @dnd-kit useDroppable so the area can receive cross-list transfers.
+ */
+// eslint-disable-next-line react/prop-types
+const EmptyDroppableChildArea: React.FC<EmptyDroppableChildAreaProps> = ({ containerId, isDropTarget, message }) => {
+    const { setNodeRef } = useDroppable({ id: containerId })
+    return (
+        <Box
+            ref={setNodeRef}
+            sx={{
+                py: 2,
+                textAlign: 'center',
+                border: 1,
+                borderRadius: 1,
+                borderColor: isDropTarget ? 'primary.main' : 'divider',
+                borderStyle: 'dashed',
+                ...(isDropTarget && {
+                    borderWidth: 2,
+                    backgroundColor: 'action.hover',
+                    transition: 'border-color 0.2s, background-color 0.2s'
+                })
+            }}
+        >
+            <Typography variant='body2' color='text.secondary'>
+                {message}
+            </Typography>
+        </Box>
+    )
 }
 
 const extractResponseMessage = (error: unknown): string | undefined => {
@@ -273,6 +312,20 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         return map
     }, [childAttributes])
 
+    // DnD: Register this child list as a droppable container
+    const containerId = `child-${parentAttributeId}`
+    const { register, unregister } = useContainerRegistry()
+    const { activeContainerId, overContainerId, pendingTransfer, activeAttribute: dndActiveAttr } = useAttributeDndState()
+    const isDropTarget = overContainerId === containerId && activeContainerId !== null && activeContainerId !== containerId
+    useEffect(() => {
+        register({
+            id: containerId,
+            parentAttributeId,
+            items: childAttributes
+        })
+        return () => unregister(containerId)
+    }, [containerId, parentAttributeId, childAttributes, register, unregister])
+
     /** Invalidate both child-specific and parent-level queries */
     const invalidateChildQueries = useCallback(async () => {
         queryClient.invalidateQueries({ queryKey })
@@ -433,14 +486,6 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         ],
         [t, tc, childAttributeMap]
     )
-
-    const images = useMemo(() => {
-        const map: Record<string, unknown[]> = {}
-        childAttributes.forEach((attr) => {
-            if (attr?.id) map[attr.id] = []
-        })
-        return map
-    }, [childAttributes])
 
     /** Action descriptors for child attribute context menu */
     const childActionDescriptors: ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = useMemo(
@@ -1103,28 +1148,31 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
         }
     }, [codenameConfig.alphabet, codenameConfig.style, copyState.attribute, i18n.language])
 
-    const tableData = useMemo(() => {
-        let filtered = childAttributes
-        if (searchFilter) {
-            const lowerSearch = searchFilter.toLowerCase()
-            filtered = childAttributes.filter((attr) => {
-                if (attr.codename.toLowerCase().includes(lowerSearch)) return true
-                const name = attr.name
-                if (!name) return false
-                if (typeof name === 'string') return name.toLowerCase().includes(lowerSearch)
-                if (typeof name === 'object' && 'locales' in name) {
-                    const locales = (name as { locales?: Record<string, { content?: string }> }).locales ?? {}
-                    return Object.values(locales).some((entry) =>
-                        String(entry?.content ?? '')
-                            .toLowerCase()
-                            .includes(lowerSearch)
-                    )
-                }
-                return false
-            })
-        }
-        return filtered.map((attr) => toAttributeDisplay(attr, i18n.language))
-    }, [childAttributes, i18n.language, searchFilter])
+    // Filtered child attributes (for search) and their display representations
+    const filteredChildAttributes = useMemo(() => {
+        if (!searchFilter) return childAttributes
+        const lowerSearch = searchFilter.toLowerCase()
+        return childAttributes.filter((attr) => {
+            if (attr.codename.toLowerCase().includes(lowerSearch)) return true
+            const name = attr.name
+            if (!name) return false
+            if (typeof name === 'string') return name.toLowerCase().includes(lowerSearch)
+            if (typeof name === 'object' && 'locales' in name) {
+                const locales = (name as { locales?: Record<string, { content?: string }> }).locales ?? {}
+                return Object.values(locales).some((entry) =>
+                    String(entry?.content ?? '')
+                        .toLowerCase()
+                        .includes(lowerSearch)
+                )
+            }
+            return false
+        })
+    }, [childAttributes, searchFilter])
+
+    const tableData = useMemo(
+        () => filteredChildAttributes.map((attr) => toAttributeDisplay(attr, i18n.language)),
+        [filteredChildAttributes, i18n.language]
+    )
 
     if (error) {
         return (
@@ -1154,34 +1202,69 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
 
                 {isLoading ? (
                     <Skeleton variant='rectangular' height={60} />
-                ) : childAttributes.length === 0 ? (
-                    <Typography variant='body2' color='text.secondary' sx={{ py: 1, textAlign: 'center' }}>
-                        {t('attributes.noChildAttributes', 'No child attributes yet')}
-                    </Typography>
                 ) : (
-                    <FlowListTable
-                        data={tableData}
-                        images={images}
-                        isLoading={isLoading}
-                        customColumns={childColumns}
-                        i18nNamespace='flowList'
-                        compact
-                        renderActions={(row: AttributeDisplay) => {
-                            const originalAttribute = childAttributes.find((a) => a.id === row.id)
-                            if (!originalAttribute) return null
+                    (() => {
+                        // Compute effective data/IDs for ghost row rendering during cross-list drag
+                        const baseData = tableData
+                        const baseIds = filteredChildAttributes.map((a) => a.id)
+                        let effectiveData = baseData
+                        let effectiveIds = baseIds
+
+                        if (pendingTransfer) {
+                            if (pendingTransfer.fromContainerId === containerId) {
+                                // Source container: hide the dragged item
+                                effectiveData = baseData.filter((d) => d.id !== pendingTransfer.itemId)
+                                effectiveIds = baseIds.filter((id) => id !== pendingTransfer.itemId)
+                            } else if (pendingTransfer.toContainerId === containerId && dndActiveAttr) {
+                                // Target container: inject ghost at insertion point
+                                const ghost = toAttributeDisplay(dndActiveAttr, i18n.language)
+                                const insertAt = Math.min(pendingTransfer.insertIndex, baseData.length)
+                                effectiveData = [...baseData.slice(0, insertAt), ghost, ...baseData.slice(insertAt)]
+                                effectiveIds = [...baseIds.slice(0, insertAt), pendingTransfer.itemId, ...baseIds.slice(insertAt)]
+                            }
+                        }
+
+                        // When there are no child attributes and no ghost row to show,
+                        // render a droppable empty placeholder
+                        if (effectiveData.length === 0) {
                             return (
-                                <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
-                                    entity={toAttributeDisplay(originalAttribute, i18n.language)}
-                                    entityKind='child-attribute'
-                                    descriptors={childActionDescriptors}
-                                    namespace='metahubs'
-                                    menuButtonLabelKey='flowList:menu.button'
-                                    i18nInstance={i18n}
-                                    createContext={createChildAttributeContext}
+                                <EmptyDroppableChildArea
+                                    containerId={containerId}
+                                    isDropTarget={isDropTarget}
+                                    message={t('attributes.noChildAttributes', 'No child attributes yet')}
                                 />
                             )
-                        }}
-                    />
+                        }
+
+                        return (
+                            <FlowListTable<AttributeDisplay>
+                                data={effectiveData}
+                                customColumns={childColumns}
+                                compact
+                                sortableRows
+                                externalDndContext
+                                droppableContainerId={containerId}
+                                sortableItemIds={effectiveIds}
+                                dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
+                                isDropTarget={isDropTarget}
+                                renderActions={(row: AttributeDisplay) => {
+                                    const originalAttribute = childAttributes.find((a) => a.id === row.id)
+                                    if (!originalAttribute) return null
+                                    return (
+                                        <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
+                                            entity={toAttributeDisplay(originalAttribute, i18n.language)}
+                                            entityKind='child-attribute'
+                                            descriptors={childActionDescriptors}
+                                            namespace='metahubs'
+                                            menuButtonLabelKey='flowList:menu.button'
+                                            i18nInstance={i18n}
+                                            createContext={createChildAttributeContext}
+                                        />
+                                    )
+                                }}
+                            />
+                        )
+                    })()
                 )}
 
                 <EntityFormDialog
@@ -1219,7 +1302,16 @@ const ChildAttributeList = ({ metahubId, hubId, catalogId, parentAttributeId, se
                     onSave={handleUpdate}
                     hideDefaultFields
                     initialExtraValues={editInitialValues}
-                    tabs={(args) => buildTabs(args, true, true, true, undefined, editState.attribute?.id ?? null)}
+                    tabs={(args) =>
+                        buildTabs(
+                            args,
+                            true,
+                            true,
+                            true,
+                            editState.attribute?.isDisplayAttribute ? true : undefined,
+                            editState.attribute?.id ?? null
+                        )
+                    }
                     validate={validate}
                     canSave={canSave}
                     showDeleteButton

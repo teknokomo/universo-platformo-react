@@ -285,6 +285,84 @@ export class MetahubEnumerationValuesService {
         })
     }
 
+    /**
+     * Reorder a single enumeration value to a new sort_order position.
+     * Uses gap-shift approach: shift neighbouring values up/down, then place the moved value.
+     */
+    async reorderValue(metahubId: string, enumerationId: string, valueId: string, newSortOrder: number, userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
+        return this.knex.transaction(async (trx) => {
+            // 1. Normalize sort_order first
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, trx)
+
+            // 2. Fetch the current value
+            const current = await trx
+                .withSchema(schemaName)
+                .from('_mhb_values')
+                .where({ id: valueId, object_id: enumerationId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!current) throw new Error('Enumeration value not found')
+
+            const oldOrder = current.sort_order
+            const clampedNew = Math.max(1, newSortOrder)
+
+            if (oldOrder !== clampedNew) {
+                const now = new Date()
+
+                if (clampedNew < oldOrder) {
+                    // Moving up: shift items [clampedNew, oldOrder) down by 1
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_values')
+                        .where({ object_id: enumerationId })
+                        .andWhere('_upl_deleted', false)
+                        .andWhere('_mhb_deleted', false)
+                        .where('sort_order', '>=', clampedNew)
+                        .where('sort_order', '<', oldOrder)
+                        .whereNot({ id: valueId })
+                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                        .increment('sort_order', 1)
+                } else {
+                    // Moving down: shift items (oldOrder, clampedNew] up by 1
+                    await trx
+                        .withSchema(schemaName)
+                        .from('_mhb_values')
+                        .where({ object_id: enumerationId })
+                        .andWhere('_upl_deleted', false)
+                        .andWhere('_mhb_deleted', false)
+                        .where('sort_order', '>', oldOrder)
+                        .where('sort_order', '<=', clampedNew)
+                        .whereNot({ id: valueId })
+                        .update({ _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                        .decrement('sort_order', 1)
+                }
+
+                // Place the value at its new position
+                await trx
+                    .withSchema(schemaName)
+                    .from('_mhb_values')
+                    .where({ id: valueId })
+                    .update({ sort_order: clampedNew, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+            }
+
+            // 3. Final normalization
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, trx)
+
+            const updated = await trx
+                .withSchema(schemaName)
+                .from('_mhb_values')
+                .where({ id: valueId, object_id: enumerationId })
+                .andWhere('_upl_deleted', false)
+                .andWhere('_mhb_deleted', false)
+                .first()
+            if (!updated) throw new Error('Enumeration value not found')
+            return this.mapRow(updated)
+        })
+    }
+
     async getDefaultValue(metahubId: string, enumerationId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const row = await this.knex

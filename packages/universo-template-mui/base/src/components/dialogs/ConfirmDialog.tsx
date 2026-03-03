@@ -44,7 +44,7 @@ export const ConfirmDialog = () => {
     return createPortal(
         <Dialog
             fullWidth
-            maxWidth='xs'
+            maxWidth='sm'
             open={confirmState.show}
             onClose={onCancel}
             aria-labelledby='confirm-dialog-title'
@@ -56,8 +56,10 @@ export const ConfirmDialog = () => {
             <DialogContent id='confirm-dialog-description'>
                 <span>{confirmState.description}</span>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={onCancel}>{confirmState.cancelButtonName || t('common:confirm.cancelButtonText')}</Button>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+                {!confirmState.hideCancelButton && (
+                    <Button onClick={onCancel}>{confirmState.cancelButtonName || t('common:confirm.cancelButtonText')}</Button>
+                )}
                 <Button variant='contained' color='primary' onClick={onConfirm}>
                     {confirmState.confirmButtonName || t('common:confirm.confirmButtonText')}
                 </Button>
